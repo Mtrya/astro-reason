@@ -1,0 +1,34 @@
+meta:
+  case_id: case_0003
+  benchmark_type: revisit-optimization
+  seed: 44
+  horizon_start: '2025-07-17T12:00:00Z'
+  horizon_end: '2025-07-21T12:00:00Z'
+revisit_optimization:
+  monitoring_targets:
+  - city_sakarya_tr
+  - city_comodoro_rivadavia_ar
+  - city_gloria_ph
+  - city_nuku_alofa_to
+  - city_invercargill_nz
+  - city_arraijan_pa
+  - city_kettering_us
+  - city_xai_xai_mz
+  - city_sunrise_manor_us
+  - city_czechowice_dziedzice_pl
+  - city_jobabo_cu
+  - city_yotsukaido_jp
+  mapping_targets:
+    city_san_andres_tuxtla_mx: 3
+    city_moncton_ca: 3
+    city_saparua_id: 4
+    city_redmond_us: 3
+    city_southall_gb: 4
+    city_hanyu_jp: 4
+    city_san_pascual_ph_1: 2
+    city_shiyali_in: 2
+    city_norwood_us: 3
+    city_catende_br: 3
+    city_ejido_ve: 4
+    city_san_felipe_gt: 4
+    city_daqing_cn: 3

@@ -1,0 +1,126 @@
+- id: facility_terss
+  name: TERSS
+  network_name: SPOT Image
+  latitude_deg: -42.92417
+  longitude_deg: 147.42215
+  altitude_m: 145
+- id: facility_gatineau_xx2
+  name: Gatineau xx2
+  network_name: SPOT Image
+  latitude_deg: 45.58435
+  longitude_deg: -75.80811
+  altitude_m: 244
+- id: facility_lethbridge_station
+  name: Lethbridge Station
+  network_name: SPOT Image
+  latitude_deg: 49.681208
+  longitude_deg: -112.873188
+  altitude_m: 897
+- id: facility_cayenne_station
+  name: Cayenne Station
+  network_name: SPOT Image
+  latitude_deg: 4.947770000000001
+  longitude_deg: -52.30968000000001
+  altitude_m: 18
+- id: facility_taejon
+  name: Taejon
+  network_name: SPOT Image
+  latitude_deg: 36.32690000000001
+  longitude_deg: 127.4333
+  altitude_m: 81
+- id: facility_scanex_magadan_station
+  name: ScanEx Magadan Station
+  network_name: SPOT Image
+  latitude_deg: 59.55632
+  longitude_deg: 150.81308000000004
+  altitude_m: 89
+- id: facility_kacst_station
+  name: KACST Station
+  network_name: SPOT Image
+  latitude_deg: 24.710000000000004
+  longitude_deg: 46.642
+  altitude_m: 634
+- id: facility_cuiaba_station
+  name: Cuiaba Station
+  network_name: SPOT Image
+  latitude_deg: -15.552499999999998
+  longitude_deg: -56.07340000000001
+  altitude_m: 253
+- id: facility_toulouse_multimission_station
+  name: Toulouse MultiMission Station
+  network_name: SPOT Image
+  latitude_deg: 43.554441999999995
+  longitude_deg: 1.487456
+  altitude_m: 194
+- id: facility_macres_ground_receiving_station
+  name: MACRES Ground Receiving Station
+  network_name: SPOT Image
+  latitude_deg: 3.463
+  longitude_deg: 102.339
+  altitude_m: 65
+- id: facility_miyun_ground_station
+  name: Miyun Ground Station
+  network_name: SPOT Image
+  latitude_deg: 40.4514
+  longitude_deg: 116.8589
+  altitude_m: 99
+- id: facility_scanex_irkutsk_station
+  name: ScanEx Irkutsk Station
+  network_name: SPOT Image
+  latitude_deg: 52.275261
+  longitude_deg: 104.30864
+  altitude_m: 425
+- id: facility_eagle_vision_4
+  name: Eagle Vision 4
+  network_name: SPOT Image
+  latitude_deg: 33.92
+  longitude_deg: -80.8
+  altitude_m: 97
+- id: facility_eagle_vision_6
+  name: Eagle Vision 6
+  network_name: SPOT Image
+  latitude_deg: 34.64
+  longitude_deg: -86.66000000000001
+  altitude_m: 151
+- id: facility_narss_aswan_station
+  name: NARSS Aswan Station
+  network_name: SPOT Image
+  latitude_deg: 24.07
+  longitude_deg: 32.91
+  altitude_m: 146
+- id: facility_cotopaxi_station
+  name: Cotopaxi Station
+  network_name: SPOT Image
+  latitude_deg: -0.623
+  longitude_deg: -78.578
+  altitude_m: 3587
+- id: facility_obninsk
+  name: Obninsk
+  network_name: SPOT Image
+  latitude_deg: 55.08
+  longitude_deg: 36.62
+  altitude_m: 184
+- id: facility_ermexs
+  name: ERMEXS
+  network_name: SPOT Image
+  latitude_deg: 19.32263
+  longitude_deg: -99.12878999999998
+  altitude_m: 2238
+- id: facility_adelaide_satellite_facility
+  name: Adelaide Satellite Facility
+  network_name: SPOT Image
+  latitude_deg: -34.8627
+  longitude_deg: 138.572
+  altitude_m: 41
+- id: facility_lapan_station
+  name: LAPAN Station
+  network_name: SPOT Image
+  latitude_deg: -3.978
+  longitude_deg: 119.65
+  altitude_m: 127
+- id: facility_eagle_vision_1
+  name: Eagle Vision 1
+  network_name: SPOT Image
+  latitude_deg: 49.44
+  longitude_deg: 7.6
+  altitude_m: 288

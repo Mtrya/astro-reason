@@ -1,0 +1,36 @@
+- id: facility_greenbelt_test_brt_stdn_bltj
+  name: Greenbelt Test BRT STDN BLTJ
+  network_name: NASA SN
+  latitude_deg: 39.002704
+  longitude_deg: -76.837928
+  altitude_m: 60.06
+- id: facility_weilheim
+  name: Weilheim
+  network_name: DLR
+  latitude_deg: 47.881242
+  longitude_deg: 11.078325
+  altitude_m: 649
+- id: facility_ios_stdn_seys
+  name: IOS STDN SEYS
+  network_name: AFSCN
+  latitude_deg: -4.671748
+  longitude_deg: 55.477821
+  altitude_m: 560.495
+- id: facility_vlba_fort_davis
+  name: VLBA Fort Davis
+  network_name: NRAO
+  latitude_deg: 30.635031000000005
+  longitude_deg: -103.944817
+  altitude_m: 1593
+- id: facility_punta_arenas_station
+  name: Punta Arenas Station
+  network_name: PrioraNet
+  latitude_deg: -52.937999999999995
+  longitude_deg: -70.857
+  altitude_m: 25
+- id: facility_ras_al_khaimah_spaceport
+  name: Ras Al Khaimah Spaceport
+  network_name: Space Adv.
+  latitude_deg: 25.617
+  longitude_deg: 55.941
+  altitude_m: -16

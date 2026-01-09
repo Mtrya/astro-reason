@@ -1,0 +1,82 @@
+meta:
+  case_id: case_0003
+  benchmark_type: latency-optimization
+  seed: 44
+  horizon_start: '2025-07-17T12:00:00Z'
+  horizon_end: '2025-07-21T12:00:00Z'
+latency_optimization:
+  target_ids:
+  - city_yotsukaido_jp
+  - city_la_carlota_ph
+  - city_lewoleba_id
+  - city_pasarkemis_id
+  - city_bat_yam_il
+  - city_tokmok_kg
+  - city_talara_pe
+  - city_ceara_mirim_br
+  - city_chimalhuacan_mx
+  - city_san_francisco_mx
+  - city_ramapo_us
+  - city_bethel_park_us
+  - city_stockholm_se
+  - city_targu_mures_ro
+  - city_kismaayo_so
+  - city_siyabuswa_za
+  - city_borehamwood_gb
+  - city_south_shields_gb
+  - city_choybalsan_mn
+  - city_krasnokamensk_ru
+  - city_mission_ca
+  - city_forest_grove_us
+  - city_rio_gallegos_ar
+  - city_coyhaique_cl
+  - city_nuku_alofa_to
+  - city_apia_ws
+  - city_dunedin_nz
+  - city_invercargill_nz
+  - city_babila_sy
+  - city_koro_ml
+  station_pairs:
+  - station_a: facility_greenbelt_test_brt_stdn_bltj
+    station_b: facility_weilheim
+    time_window_start: '2025-07-18T12:18:00.500659Z'
+    time_window_end: '2025-07-18T18:18:00.500659Z'
+  - station_a: facility_ios_stdn_seys
+    station_b: facility_vlba_fort_davis
+    time_window_start: '2025-07-18T16:23:18.823116Z'
+    time_window_end: '2025-07-18T22:23:18.823116Z'
+  - station_a: facility_punta_arenas_station
+    station_b: facility_ras_al_khaimah_spaceport
+    time_window_start: '2025-07-21T00:52:50.201655Z'
+    time_window_end: '2025-07-21T06:52:50.201655Z'
+  required_observations:
+    city_yotsukaido_jp: 4
+    city_la_carlota_ph: 2
+    city_lewoleba_id: 4
+    city_pasarkemis_id: 5
+    city_bat_yam_il: 2
+    city_tokmok_kg: 5
+    city_talara_pe: 5
+    city_ceara_mirim_br: 3
+    city_chimalhuacan_mx: 3
+    city_san_francisco_mx: 3
+    city_ramapo_us: 4
+    city_bethel_park_us: 3
+    city_stockholm_se: 2
+    city_targu_mures_ro: 2
+    city_kismaayo_so: 5
+    city_siyabuswa_za: 2
+    city_borehamwood_gb: 4
+    city_south_shields_gb: 4
+    city_choybalsan_mn: 5
+    city_krasnokamensk_ru: 5
+    city_mission_ca: 3
+    city_forest_grove_us: 3
+    city_rio_gallegos_ar: 5
+    city_coyhaique_cl: 5
+    city_nuku_alofa_to: 4
+    city_apia_ws: 2
+    city_dunedin_nz: 4
+    city_invercargill_nz: 3
+    city_babila_sy: 2
+    city_koro_ml: 3

@@ -1,0 +1,30 @@
+- id: facility_beale_afb_pave_paws
+  name: Beale AFB PAVE PAWS
+  network_name: 21st Space
+  latitude_deg: 39.1361
+  longitude_deg: -121.35060000000001
+  altitude_m: 84
+- id: facility_dubai
+  name: Dubai
+  network_name: GeoEye
+  latitude_deg: 25.267
+  longitude_deg: 55.26700000000001
+  altitude_m: -34
+- id: facility_kens
+  name: KENS
+  network_name: ASI
+  latitude_deg: -2.995558
+  longitude_deg: 40.194505
+  altitude_m: 12.314
+- id: facility_roaring_creek_station
+  name: Roaring Creek Station
+  network_name: ATT
+  latitude_deg: 40.8935
+  longitude_deg: -76.4393
+  altitude_m: 260
+- id: facility_xiamen_station
+  name: Xiamen Station
+  network_name: CLTC
+  latitude_deg: 24.48
+  longitude_deg: 118.09000000000002
+  altitude_m: 15

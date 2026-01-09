@@ -1,0 +1,30 @@
+- id: facility_usuda
+  name: Usuda
+  network_name: JAXA
+  latitude_deg: 36.13249999999999
+  longitude_deg: 138.3627
+  altitude_m: 1510
+- id: facility_plesetsk_cosmodrome_lc_133-3
+  name: Plesetsk Cosmodrome LC 133-3
+  network_name: RFSA
+  latitude_deg: 62.88700000000001
+  longitude_deg: 40.8504
+  altitude_m: 107
+- id: facility_cts_stdn_ctss
+  name: CTS STDN CTSS
+  network_name: AFSCN
+  latitude_deg: 38.805988
+  longitude_deg: -104.528469
+  altitude_m: 1907.519
+- id: facility_laurentides_station
+  name: Laurentides Station
+  network_name: Inmarsat
+  latitude_deg: 45.9444
+  longitude_deg: -74.53330000000001
+  altitude_m: 182
+- id: facility_sugar_grove_station
+  name: Sugar Grove Station
+  network_name: ECHELON
+  latitude_deg: 38.516
+  longitude_deg: -79.28000000000002
+  altitude_m: 631

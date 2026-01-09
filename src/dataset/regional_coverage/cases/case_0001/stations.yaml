@@ -1,0 +1,30 @@
+- id: facility_madley_communications_centre
+  name: Madley Communications Centre
+  network_name: British Tel.
+  latitude_deg: 52.03198
+  longitude_deg: -2.84049
+  altitude_m: 129
+- id: facility_netaji_station
+  name: Netaji Station
+  network_name: Tata Comm.
+  latitude_deg: 22.946000000000005
+  longitude_deg: 88.42759999999998
+  altitude_m: -40
+- id: facility_arabsat_amman_station
+  name: Arabsat Amman Station
+  network_name: Arabsat
+  latitude_deg: 31.905300000000004
+  longitude_deg: 35.9315
+  altitude_m: 961
+- id: facility_kashima_space_research_center_34m
+  name: Kashima Space Research Center 34m
+  network_name: NICT
+  latitude_deg: 35.95589
+  longitude_deg: 140.66006
+  altitude_m: 59
+- id: facility_concepcion
+  name: Concepcion
+  network_name: IVS
+  latitude_deg: -36.842772
+  longitude_deg: -73.025036
+  altitude_m: 182

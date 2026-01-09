@@ -1,0 +1,20 @@
+meta:
+  case_id: case_0001
+  benchmark_type: revisit-optimization
+  seed: 42
+  horizon_start: '2025-07-17T12:00:00Z'
+  horizon_end: '2025-07-21T12:00:00Z'
+revisit_optimization:
+  monitoring_targets:
+  - city_villejuif_fr
+  - city_klerksdorp_za
+  - city_narela_in
+  - city_zhaodong_cn
+  - city_aguilares_sv
+  mapping_targets:
+    city_alexandria_us_1: 3
+    city_nelson_gb: 2
+    city_guaranda_ec: 2
+    city_majene_id: 4
+    city_ramsey_us: 3
+    city_pontevedra_ph_1: 3

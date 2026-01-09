@@ -1,0 +1,1960 @@
+- id: sat_meteor_1-5
+  name: METEOR 1-5
+  norad_id: 04419
+  constellation: METEOR
+  owner: CIS
+  tle_epoch: '2025-07-16T23:04:14.274Z'
+  tle_line1: 1 04419U 70047A   25197.96127633  .00000065  00000-0  26520-4 0  9997
+  tle_line2: 2 04419  81.2148 206.3614 0038328 292.5571  67.1549 14.16083491841294
+  apogee_km: 866.0
+  perigee_km: 811.0
+  period_min: 101.7
+  inclination_deg: 81.2
+  swath_width_km: 3000.0
+  num_terminal: 1
+  battery_capacity_wh: 3500.0
+  storage_capacity_mb: 32000.0
+  obs_store_rate_mb_per_min: 3960.0
+  downlink_release_rate_mb_per_min: 7368.0
+  charge_rate_w: 1350.0
+  idle_discharge_rate_w: 1000.0
+  obs_discharge_rate_w: 1800.0
+  downlink_discharge_rate_w: 150.0
+  max_slew_velocity_deg_per_sec: 0.5
+  max_slew_acceleration_deg_per_sec2: 0.05
+  max_slew_jerk_deg_per_sec3: null
+  settling_time_sec: 2.0
+  initial_storage_mb: 16000.0
+  initial_battery_wh: 1750.0
+- id: sat_meteor_1-10
+  name: METEOR 1-10
+  norad_id: '05731'
+  constellation: METEOR
+  owner: CIS
+  tle_epoch: '2025-07-16T22:11:12.098Z'
+  tle_line1: 1 05731U 71120A   25197.92444559  .00000019  00000-0  36492-5 0  9992
+  tle_line2: 2 05731  81.2605 347.1425 0022483 290.2687  69.6068 14.11829725748801
+  apogee_km: 869.0
+  perigee_km: 837.0
+  period_min: 102.0
+  inclination_deg: 81.3
+  swath_width_km: 3000.0
+  num_terminal: 1
+  battery_capacity_wh: 3500.0
+  storage_capacity_mb: 32000.0
+  obs_store_rate_mb_per_min: 3960.0
+  downlink_release_rate_mb_per_min: 7368.0
+  charge_rate_w: 1350.0
+  idle_discharge_rate_w: 1000.0
+  obs_discharge_rate_w: 1800.0
+  downlink_discharge_rate_w: 150.0
+  max_slew_velocity_deg_per_sec: 0.5
+  max_slew_acceleration_deg_per_sec2: 0.05
+  max_slew_jerk_deg_per_sec3: null
+  settling_time_sec: 2.0
+  initial_storage_mb: 16000.0
+  initial_battery_wh: 1750.0
+- id: sat_meteor_1-11
+  name: METEOR 1-11
+  norad_id: 05917
+  constellation: METEOR
+  owner: CIS
+  tle_epoch: '2025-07-16T15:40:42.890Z'
+  tle_line1: 1 05917U 72022A   25197.65327419  .00000042  00000-0  16774-4 0  9991
+  tle_line2: 2 05917  81.2242 251.9827 0040015 192.3870 167.6320 14.09173715737186
+  apogee_km: 891.0
+  perigee_km: 833.0
+  period_min: 102.2
+  inclination_deg: 81.2
+  swath_width_km: 3000.0
+  num_terminal: 1
+  battery_capacity_wh: 3500.0
+  storage_capacity_mb: 32000.0
+  obs_store_rate_mb_per_min: 3960.0
+  downlink_release_rate_mb_per_min: 7368.0
+  charge_rate_w: 1350.0
+  idle_discharge_rate_w: 1000.0
+  obs_discharge_rate_w: 1800.0
+  downlink_discharge_rate_w: 150.0
+  max_slew_velocity_deg_per_sec: 0.5
+  max_slew_acceleration_deg_per_sec2: 0.05
+  max_slew_jerk_deg_per_sec3: null
+  settling_time_sec: 2.0
+  initial_storage_mb: 16000.0
+  initial_battery_wh: 1750.0
+- id: sat_meteor_1-12
+  name: METEOR 1-12
+  norad_id: 06079
+  constellation: METEOR
+  owner: CIS
+  tle_epoch: '2025-07-16T20:01:11.862Z'
+  tle_line1: 1 06079U 72049A   25197.83416508  .00000103  00000-0  57918-4 0  9991
+  tle_line2: 2 06079  81.2292 310.8643 0010183 336.8762  23.1945 14.03509980714062
+  apogee_km: 889.0
+  perigee_km: 874.0
+  period_min: 102.6
+  inclination_deg: 81.2
+  swath_width_km: 3000.0
+  num_terminal: 1
+  battery_capacity_wh: 3500.0
+  storage_capacity_mb: 32000.0
+  obs_store_rate_mb_per_min: 3960.0
+  downlink_release_rate_mb_per_min: 7368.0
+  charge_rate_w: 1350.0
+  idle_discharge_rate_w: 1000.0
+  obs_discharge_rate_w: 1800.0
+  downlink_discharge_rate_w: 150.0
+  max_slew_velocity_deg_per_sec: 0.5
+  max_slew_acceleration_deg_per_sec2: 0.05
+  max_slew_jerk_deg_per_sec3: null
+  settling_time_sec: 2.0
+  initial_storage_mb: 16000.0
+  initial_battery_wh: 1750.0
+- id: sat_meteor_1-13
+  name: METEOR 1-13
+  norad_id: '06256'
+  constellation: METEOR
+  owner: CIS
+  tle_epoch: '2025-07-17T04:30:49.118Z'
+  tle_line1: 1 06256U 72085A   25198.18806850  .00000015  00000-0  14735-5 0  9993
+  tle_line2: 2 06256  81.2711 117.5963 0025850   3.3249 356.8088 14.09387733708327
+  apogee_km: 880.0
+  perigee_km: 843.0
+  period_min: 102.2
+  inclination_deg: 81.3
+  swath_width_km: 3000.0
+  num_terminal: 1
+  battery_capacity_wh: 3500.0
+  storage_capacity_mb: 32000.0
+  obs_store_rate_mb_per_min: 3960.0
+  downlink_release_rate_mb_per_min: 7368.0
+  charge_rate_w: 1350.0
+  idle_discharge_rate_w: 1000.0
+  obs_discharge_rate_w: 1800.0
+  downlink_discharge_rate_w: 150.0
+  max_slew_velocity_deg_per_sec: 0.5
+  max_slew_acceleration_deg_per_sec2: 0.05
+  max_slew_jerk_deg_per_sec3: null
+  settling_time_sec: 2.0
+  initial_storage_mb: 16000.0
+  initial_battery_wh: 1750.0
+- id: sat_meteor_1-14
+  name: METEOR 1-14
+  norad_id: 06392
+  constellation: METEOR
+  owner: CIS
+  tle_epoch: '2025-07-16T20:26:13.310Z'
+  tle_line1: 1 06392U 73015A   25197.85154294  .00000011  00000-0 -92781-6 0  9994
+  tle_line2: 2 06392  81.2358 253.7569 0055640  64.8488 295.8438 14.08033268685502
+  apogee_km: 906.0
+  perigee_km: 826.0
+  period_min: 102.3
+  inclination_deg: 81.2
+  swath_width_km: 3000.0
+  num_terminal: 1
+  battery_capacity_wh: 3500.0
+  storage_capacity_mb: 32000.0
+  obs_store_rate_mb_per_min: 3960.0
+  downlink_release_rate_mb_per_min: 7368.0
+  charge_rate_w: 1350.0
+  idle_discharge_rate_w: 1000.0
+  obs_discharge_rate_w: 1800.0
+  downlink_discharge_rate_w: 150.0
+  max_slew_velocity_deg_per_sec: 0.5
+  max_slew_acceleration_deg_per_sec2: 0.05
+  max_slew_jerk_deg_per_sec3: null
+  settling_time_sec: 2.0
+  initial_storage_mb: 16000.0
+  initial_battery_wh: 1750.0
+- id: sat_meteor_1-15
+  name: METEOR 1-15
+  norad_id: 06659
+  constellation: METEOR
+  owner: CIS
+  tle_epoch: '2025-07-17T03:30:36.330Z'
+  tle_line1: 1 06659U 73034A   25198.14625383  .00000184  00000-0  96583-4 0  9998
+  tle_line2: 2 06659  81.1867 214.4871 0025465 272.8103  87.0154 14.10465899680445
+  apogee_km: 876.0
+  perigee_km: 839.0
+  period_min: 102.1
+  inclination_deg: 81.2
+  swath_width_km: 3000.0
+  num_terminal: 1
+  battery_capacity_wh: 3500.0
+  storage_capacity_mb: 32000.0
+  obs_store_rate_mb_per_min: 3960.0
+  downlink_release_rate_mb_per_min: 7368.0
+  charge_rate_w: 1350.0
+  idle_discharge_rate_w: 1000.0
+  obs_discharge_rate_w: 1800.0
+  downlink_discharge_rate_w: 150.0
+  max_slew_velocity_deg_per_sec: 0.5
+  max_slew_acceleration_deg_per_sec2: 0.05
+  max_slew_jerk_deg_per_sec3: null
+  settling_time_sec: 2.0
+  initial_storage_mb: 16000.0
+  initial_battery_wh: 1750.0
+- id: sat_meteor_1-16
+  name: METEOR 1-16
+  norad_id: 07209
+  constellation: METEOR
+  owner: CIS
+  tle_epoch: '2025-07-16T20:37:23.990Z'
+  tle_line1: 1 07209U 74011A   25197.85930544  .00000070  00000-0  30213-4 0  9993
+  tle_line2: 2 07209  81.2277 359.1173 0037750 277.7746  81.9142 14.14453499647835
+  apogee_km: 871.0
+  perigee_km: 817.0
+  period_min: 101.8
+  inclination_deg: 81.2
+  swath_width_km: 3000.0
+  num_terminal: 1
+  battery_capacity_wh: 3500.0
+  storage_capacity_mb: 32000.0
+  obs_store_rate_mb_per_min: 3960.0
+  downlink_release_rate_mb_per_min: 7368.0
+  charge_rate_w: 1350.0
+  idle_discharge_rate_w: 1000.0
+  obs_discharge_rate_w: 1800.0
+  downlink_discharge_rate_w: 150.0
+  max_slew_velocity_deg_per_sec: 0.5
+  max_slew_acceleration_deg_per_sec2: 0.05
+  max_slew_jerk_deg_per_sec3: null
+  settling_time_sec: 2.0
+  initial_storage_mb: 16000.0
+  initial_battery_wh: 1750.0
+- id: sat_meteor_1-17
+  name: METEOR 1-17
+  norad_id: '07274'
+  constellation: METEOR
+  owner: CIS
+  tle_epoch: '2025-07-17T04:25:11.392Z'
+  tle_line1: 1 07274U 74025A   25198.18415963  .00000012  00000-0 -32625-6 0  9998
+  tle_line2: 2 07274  81.2116 263.8742 0018678 194.2044 165.8603 14.08835207631341
+  apogee_km: 877.0
+  perigee_km: 850.0
+  period_min: 102.2
+  inclination_deg: 81.2
+  swath_width_km: 3000.0
+  num_terminal: 1
+  battery_capacity_wh: 3500.0
+  storage_capacity_mb: 32000.0
+  obs_store_rate_mb_per_min: 3960.0
+  downlink_release_rate_mb_per_min: 7368.0
+  charge_rate_w: 1350.0
+  idle_discharge_rate_w: 1000.0
+  obs_discharge_rate_w: 1800.0
+  downlink_discharge_rate_w: 150.0
+  max_slew_velocity_deg_per_sec: 0.5
+  max_slew_acceleration_deg_per_sec2: 0.05
+  max_slew_jerk_deg_per_sec3: null
+  settling_time_sec: 2.0
+  initial_storage_mb: 16000.0
+  initial_battery_wh: 1750.0
+- id: sat_meteor_1-18
+  name: METEOR 1-18
+  norad_id: '07363'
+  constellation: METEOR
+  owner: CIS
+  tle_epoch: '2025-07-16T19:56:16.457Z'
+  tle_line1: 1 07363U 74052A   25197.83074604  .00000120  00000-0  72992-4 0  9999
+  tle_line2: 2 07363  81.2294 331.4365 0017167 355.0053   5.0938 14.00212258605163
+  apogee_km: 906.0
+  perigee_km: 881.0
+  period_min: 102.8
+  inclination_deg: 81.2
+  swath_width_km: 3000.0
+  num_terminal: 1
+  battery_capacity_wh: 3500.0
+  storage_capacity_mb: 32000.0
+  obs_store_rate_mb_per_min: 3960.0
+  downlink_release_rate_mb_per_min: 7368.0
+  charge_rate_w: 1350.0
+  idle_discharge_rate_w: 1000.0
+  obs_discharge_rate_w: 1800.0
+  downlink_discharge_rate_w: 150.0
+  max_slew_velocity_deg_per_sec: 0.5
+  max_slew_acceleration_deg_per_sec2: 0.05
+  max_slew_jerk_deg_per_sec3: null
+  settling_time_sec: 2.0
+  initial_storage_mb: 16000.0
+  initial_battery_wh: 1750.0
+- id: sat_meteor_1-19
+  name: METEOR 1-19
+  norad_id: 07490
+  constellation: METEOR
+  owner: CIS
+  tle_epoch: '2025-07-16T21:20:09.644Z'
+  tle_line1: 1 07490U 74083A   25197.88900052 -.00000045  00000-0 -31705-4 0  9999
+  tle_line2: 2 07490  81.1889 106.5618 0030112 311.6413  48.2179 14.10492071607610
+  apogee_km: 879.0
+  perigee_km: 836.0
+  period_min: 102.1
+  inclination_deg: 81.2
+  swath_width_km: 3000.0
+  num_terminal: 1
+  battery_capacity_wh: 3500.0
+  storage_capacity_mb: 32000.0
+  obs_store_rate_mb_per_min: 3960.0
+  downlink_release_rate_mb_per_min: 7368.0
+  charge_rate_w: 1350.0
+  idle_discharge_rate_w: 1000.0
+  obs_discharge_rate_w: 1800.0
+  downlink_discharge_rate_w: 150.0
+  max_slew_velocity_deg_per_sec: 0.5
+  max_slew_acceleration_deg_per_sec2: 0.05
+  max_slew_jerk_deg_per_sec3: null
+  settling_time_sec: 2.0
+  initial_storage_mb: 16000.0
+  initial_battery_wh: 1750.0
+- id: sat_meteor_1-20
+  name: METEOR 1-20
+  norad_id: '07574'
+  constellation: METEOR
+  owner: CIS
+  tle_epoch: '2025-07-16T18:16:06.674Z'
+  tle_line1: 1 07574U 74099A   25197.76118836  .00000039  00000-0  14310-4 0  9991
+  tle_line2: 2 07574  81.2347 287.3321 0016642 174.0528 186.0844 14.11977747603123
+  apogee_km: 865.0
+  perigee_km: 841.0
+  period_min: 102.0
+  inclination_deg: 81.2
+  swath_width_km: 3000.0
+  num_terminal: 1
+  battery_capacity_wh: 3500.0
+  storage_capacity_mb: 32000.0
+  obs_store_rate_mb_per_min: 3960.0
+  downlink_release_rate_mb_per_min: 7368.0
+  charge_rate_w: 1350.0
+  idle_discharge_rate_w: 1000.0
+  obs_discharge_rate_w: 1800.0
+  downlink_discharge_rate_w: 150.0
+  max_slew_velocity_deg_per_sec: 0.5
+  max_slew_acceleration_deg_per_sec2: 0.05
+  max_slew_jerk_deg_per_sec3: null
+  settling_time_sec: 2.0
+  initial_storage_mb: 16000.0
+  initial_battery_wh: 1750.0
+- id: sat_meteor_1-21
+  name: METEOR 1-21
+  norad_id: '07714'
+  constellation: METEOR
+  owner: CIS
+  tle_epoch: '2025-07-16T12:16:13.488Z'
+  tle_line1: 1 07714U 75023A   25197.51126723  .00000010  00000-0 -10276-5 0  9990
+  tle_line2: 2 07714  81.1971 197.1911 0029467 216.2991 143.6180 14.08420819900284
+  apogee_km: 886.0
+  perigee_km: 843.0
+  period_min: 102.2
+  inclination_deg: 81.2
+  swath_width_km: 3000.0
+  num_terminal: 1
+  battery_capacity_wh: 3500.0
+  storage_capacity_mb: 32000.0
+  obs_store_rate_mb_per_min: 3960.0
+  downlink_release_rate_mb_per_min: 7368.0
+  charge_rate_w: 1350.0
+  idle_discharge_rate_w: 1000.0
+  obs_discharge_rate_w: 1800.0
+  downlink_discharge_rate_w: 150.0
+  max_slew_velocity_deg_per_sec: 0.5
+  max_slew_acceleration_deg_per_sec2: 0.05
+  max_slew_jerk_deg_per_sec3: null
+  settling_time_sec: 2.0
+  initial_storage_mb: 16000.0
+  initial_battery_wh: 1750.0
+- id: sat_meteor_2-1
+  name: METEOR 2-1
+  norad_id: 08026
+  constellation: METEOR
+  owner: CIS
+  tle_epoch: '2025-07-16T22:42:58.387Z'
+  tle_line1: 1 08026U 75064A   25197.94650912  .00000201  00000-0  10498-3 0  9996
+  tle_line2: 2 08026  81.2806 348.6632 0023535  90.9712 269.4156 14.10740340572079
+  apogee_km: 874.0
+  perigee_km: 840.0
+  period_min: 102.1
+  inclination_deg: 81.3
+  swath_width_km: 3000.0
+  num_terminal: 1
+  battery_capacity_wh: 3500.0
+  storage_capacity_mb: 32000.0
+  obs_store_rate_mb_per_min: 3960.0
+  downlink_release_rate_mb_per_min: 7368.0
+  charge_rate_w: 1350.0
+  idle_discharge_rate_w: 1000.0
+  obs_discharge_rate_w: 1800.0
+  downlink_discharge_rate_w: 150.0
+  max_slew_velocity_deg_per_sec: 0.5
+  max_slew_acceleration_deg_per_sec2: 0.05
+  max_slew_jerk_deg_per_sec3: null
+  settling_time_sec: 2.0
+  initial_storage_mb: 16000.0
+  initial_battery_wh: 1750.0
+- id: sat_meteor_1-22
+  name: METEOR 1-22
+  norad_id: 08293
+  constellation: METEOR
+  owner: CIS
+  tle_epoch: '2025-07-16T19:52:32.455Z'
+  tle_line1: 1 08293U 75087A   25197.82815342  .00000095  00000-0  43369-4 0  9999
+  tle_line2: 2 08293  81.2580 312.8779 0074530 200.7070 159.1079 14.12831137565717
+  apogee_km: 904.0
+  perigee_km: 796.0
+  period_min: 101.9
+  inclination_deg: 81.3
+  swath_width_km: 3000.0
+  num_terminal: 1
+  battery_capacity_wh: 3500.0
+  storage_capacity_mb: 32000.0
+  obs_store_rate_mb_per_min: 3960.0
+  downlink_release_rate_mb_per_min: 7368.0
+  charge_rate_w: 1350.0
+  idle_discharge_rate_w: 1000.0
+  obs_discharge_rate_w: 1800.0
+  downlink_discharge_rate_w: 150.0
+  max_slew_velocity_deg_per_sec: 0.5
+  max_slew_acceleration_deg_per_sec2: 0.05
+  max_slew_jerk_deg_per_sec3: null
+  settling_time_sec: 2.0
+  initial_storage_mb: 16000.0
+  initial_battery_wh: 1750.0
+- id: sat_meteor_1-23
+  name: METEOR 1-23
+  norad_id: 08519
+  constellation: METEOR
+  owner: CIS
+  tle_epoch: '2025-07-16T20:01:06.563Z'
+  tle_line1: 1 08519U 75124A   25197.83410374 -.00000022  00000-0 -18949-4 0  9997
+  tle_line2: 2 08519  81.2433  91.5931 0013042 191.0717 169.0169 14.11303041549851
+  apogee_km: 864.0
+  perigee_km: 846.0
+  period_min: 102.0
+  inclination_deg: 81.2
+  swath_width_km: 3000.0
+  num_terminal: 1
+  battery_capacity_wh: 3500.0
+  storage_capacity_mb: 32000.0
+  obs_store_rate_mb_per_min: 3960.0
+  downlink_release_rate_mb_per_min: 7368.0
+  charge_rate_w: 1350.0
+  idle_discharge_rate_w: 1000.0
+  obs_discharge_rate_w: 1800.0
+  downlink_discharge_rate_w: 150.0
+  max_slew_velocity_deg_per_sec: 0.5
+  max_slew_acceleration_deg_per_sec2: 0.05
+  max_slew_jerk_deg_per_sec3: null
+  settling_time_sec: 2.0
+  initial_storage_mb: 16000.0
+  initial_battery_wh: 1750.0
+- id: sat_meteor_1-24
+  name: METEOR 1-24
+  norad_id: 08799
+  constellation: METEOR
+  owner: CIS
+  tle_epoch: '2025-07-16T22:59:59.800Z'
+  tle_line1: 1 08799U 76032A   25197.95833103  .00000203  00000-0  10355-3 0  9999
+  tle_line2: 2 08799  81.2543 195.1281 0035708  86.6236 273.9019 14.11841659536677
+  apogee_km: 879.0
+  perigee_km: 827.0
+  period_min: 102.0
+  inclination_deg: 81.3
+  swath_width_km: 3000.0
+  num_terminal: 1
+  battery_capacity_wh: 3500.0
+  storage_capacity_mb: 32000.0
+  obs_store_rate_mb_per_min: 3960.0
+  downlink_release_rate_mb_per_min: 7368.0
+  charge_rate_w: 1350.0
+  idle_discharge_rate_w: 1000.0
+  obs_discharge_rate_w: 1800.0
+  downlink_discharge_rate_w: 150.0
+  max_slew_velocity_deg_per_sec: 0.5
+  max_slew_acceleration_deg_per_sec2: 0.05
+  max_slew_jerk_deg_per_sec3: null
+  settling_time_sec: 2.0
+  initial_storage_mb: 16000.0
+  initial_battery_wh: 1750.0
+- id: sat_meteor_1-10_deb
+  name: METEOR 1-10 DEB
+  norad_id: 08826
+  constellation: METEOR
+  owner: CIS
+  tle_epoch: '2025-07-16T18:32:35.679Z'
+  tle_line1: 1 08826U 71120C   25197.77263518  .00006183  00000-0  82804-3 0  9991
+  tle_line2: 2 08826  81.2311 307.6803 0012662  90.0504 270.2156 14.79279860800637
+  apogee_km: 640.0
+  perigee_km: 623.0
+  period_min: 97.3
+  inclination_deg: 81.2
+  swath_width_km: 3000.0
+  num_terminal: 1
+  battery_capacity_wh: 3500.0
+  storage_capacity_mb: 32000.0
+  obs_store_rate_mb_per_min: 3960.0
+  downlink_release_rate_mb_per_min: 7368.0
+  charge_rate_w: 1350.0
+  idle_discharge_rate_w: 1000.0
+  obs_discharge_rate_w: 1800.0
+  downlink_discharge_rate_w: 150.0
+  max_slew_velocity_deg_per_sec: 0.5
+  max_slew_acceleration_deg_per_sec2: 0.05
+  max_slew_jerk_deg_per_sec3: null
+  settling_time_sec: 2.0
+  initial_storage_mb: 16000.0
+  initial_battery_wh: 1750.0
+- id: sat_meteor_1-25
+  name: METEOR 1-25
+  norad_id: 08845
+  constellation: METEOR
+  owner: CIS
+  tle_epoch: '2025-07-16T18:31:08.146Z'
+  tle_line1: 1 08845U 76043A   25197.77162207  .00000182  00000-0  92286-4 0  9993
+  tle_line2: 2 08845  81.2631 282.5200 0040309 162.7621 197.4930 14.11783468677598
+  apogee_km: 882.0
+  perigee_km: 824.0
+  period_min: 102.0
+  inclination_deg: 81.3
+  swath_width_km: 3000.0
+  num_terminal: 1
+  battery_capacity_wh: 3500.0
+  storage_capacity_mb: 32000.0
+  obs_store_rate_mb_per_min: 3960.0
+  downlink_release_rate_mb_per_min: 7368.0
+  charge_rate_w: 1350.0
+  idle_discharge_rate_w: 1000.0
+  obs_discharge_rate_w: 1800.0
+  downlink_discharge_rate_w: 150.0
+  max_slew_velocity_deg_per_sec: 0.5
+  max_slew_acceleration_deg_per_sec2: 0.05
+  max_slew_jerk_deg_per_sec3: null
+  settling_time_sec: 2.0
+  initial_storage_mb: 16000.0
+  initial_battery_wh: 1750.0
+- id: sat_meteor_1-26
+  name: METEOR 1-26
+  norad_id: 09481
+  constellation: METEOR
+  owner: CIS
+  tle_epoch: '2025-07-16T21:29:49.653Z'
+  tle_line1: 1 09481U 76102A   25197.89571358  .00000028  00000-0  86764-5 0  9994
+  tle_line2: 2 09481  81.2173  11.9030 0023860 136.0525 224.2549 14.10275530506648
+  apogee_km: 876.0
+  perigee_km: 841.0
+  period_min: 102.1
+  inclination_deg: 81.2
+  swath_width_km: 3000.0
+  num_terminal: 1
+  battery_capacity_wh: 3500.0
+  storage_capacity_mb: 32000.0
+  obs_store_rate_mb_per_min: 3960.0
+  downlink_release_rate_mb_per_min: 7368.0
+  charge_rate_w: 1350.0
+  idle_discharge_rate_w: 1000.0
+  obs_discharge_rate_w: 1800.0
+  downlink_discharge_rate_w: 150.0
+  max_slew_velocity_deg_per_sec: 0.5
+  max_slew_acceleration_deg_per_sec2: 0.05
+  max_slew_jerk_deg_per_sec3: null
+  settling_time_sec: 2.0
+  initial_storage_mb: 16000.0
+  initial_battery_wh: 1750.0
+- id: sat_meteor_2-2
+  name: METEOR 2-2
+  norad_id: 09661
+  constellation: METEOR
+  owner: CIS
+  tle_epoch: '2025-07-17T01:22:25.014Z'
+  tle_line1: 1 09661U 77002A   25198.05723396  .00000121  00000-0  68421-4 0  9997
+  tle_line2: 2 09661  81.2636  56.2869 0009747 207.6997 152.3653 14.04137020483588
+  apogee_km: 887.0
+  perigee_km: 872.0
+  period_min: 102.6
+  inclination_deg: 81.3
+  swath_width_km: 3000.0
+  num_terminal: 1
+  battery_capacity_wh: 3500.0
+  storage_capacity_mb: 32000.0
+  obs_store_rate_mb_per_min: 3960.0
+  downlink_release_rate_mb_per_min: 7368.0
+  charge_rate_w: 1350.0
+  idle_discharge_rate_w: 1000.0
+  obs_discharge_rate_w: 1800.0
+  downlink_discharge_rate_w: 150.0
+  max_slew_velocity_deg_per_sec: 0.5
+  max_slew_acceleration_deg_per_sec2: 0.05
+  max_slew_jerk_deg_per_sec3: null
+  settling_time_sec: 2.0
+  initial_storage_mb: 16000.0
+  initial_battery_wh: 1750.0
+- id: sat_meteor_1-27
+  name: METEOR 1-27
+  norad_id: 09903
+  constellation: METEOR
+  owner: CIS
+  tle_epoch: '2025-07-16T19:18:52.458Z'
+  tle_line1: 1 09903U 77024A   25197.80477383  .00000018  00000-0  32217-5 0  9994
+  tle_line2: 2 09903  81.2737 102.2989 0036191 230.4388 129.3584 14.08677415480333
+  apogee_km: 890.0
+  perigee_km: 838.0
+  period_min: 102.2
+  inclination_deg: 81.3
+  swath_width_km: 3000.0
+  num_terminal: 1
+  battery_capacity_wh: 3500.0
+  storage_capacity_mb: 32000.0
+  obs_store_rate_mb_per_min: 3960.0
+  downlink_release_rate_mb_per_min: 7368.0
+  charge_rate_w: 1350.0
+  idle_discharge_rate_w: 1000.0
+  obs_discharge_rate_w: 1800.0
+  downlink_discharge_rate_w: 150.0
+  max_slew_velocity_deg_per_sec: 0.5
+  max_slew_acceleration_deg_per_sec2: 0.05
+  max_slew_jerk_deg_per_sec3: null
+  settling_time_sec: 2.0
+  initial_storage_mb: 16000.0
+  initial_battery_wh: 1750.0
+- id: sat_meteor_2-3
+  name: METEOR 2-3
+  norad_id: '10514'
+  constellation: METEOR
+  owner: CIS
+  tle_epoch: '2025-07-16T18:21:48.837Z'
+  tle_line1: 1 10514U 77117A   25197.76514858  .00000050  00000-0  20668-4 0  9993
+  tle_line2: 2 10514  81.2039 214.7198 0023045 201.9155 158.1033 14.11117514447513
+  apogee_km: 872.0
+  perigee_km: 839.0
+  period_min: 102.1
+  inclination_deg: 81.2
+  swath_width_km: 3000.0
+  num_terminal: 1
+  battery_capacity_wh: 3500.0
+  storage_capacity_mb: 32000.0
+  obs_store_rate_mb_per_min: 3960.0
+  downlink_release_rate_mb_per_min: 7368.0
+  charge_rate_w: 1350.0
+  idle_discharge_rate_w: 1000.0
+  obs_discharge_rate_w: 1800.0
+  downlink_discharge_rate_w: 150.0
+  max_slew_velocity_deg_per_sec: 0.5
+  max_slew_acceleration_deg_per_sec2: 0.05
+  max_slew_jerk_deg_per_sec3: null
+  settling_time_sec: 2.0
+  initial_storage_mb: 16000.0
+  initial_battery_wh: 1750.0
+- id: sat_meteor_2-4
+  name: METEOR 2-4
+  norad_id: '11288'
+  constellation: METEOR
+  owner: CIS
+  tle_epoch: '2025-07-17T04:37:46.543Z'
+  tle_line1: 1 11288U 79021A   25198.19289981  .00000062  00000-0  27021-4 0  9995
+  tle_line2: 2 11288  81.2175 106.3714 0024024 163.8585 196.3358 14.12261078388013
+  apogee_km: 869.0
+  perigee_km: 834.0
+  period_min: 102.0
+  inclination_deg: 81.2
+  swath_width_km: 3000.0
+  num_terminal: 1
+  battery_capacity_wh: 3500.0
+  storage_capacity_mb: 32000.0
+  obs_store_rate_mb_per_min: 3960.0
+  downlink_release_rate_mb_per_min: 7368.0
+  charge_rate_w: 1350.0
+  idle_discharge_rate_w: 1000.0
+  obs_discharge_rate_w: 1800.0
+  downlink_discharge_rate_w: 150.0
+  max_slew_velocity_deg_per_sec: 0.5
+  max_slew_acceleration_deg_per_sec2: 0.05
+  max_slew_jerk_deg_per_sec3: null
+  settling_time_sec: 2.0
+  initial_storage_mb: 16000.0
+  initial_battery_wh: 1750.0
+- id: sat_meteor_2-5
+  name: METEOR 2-5
+  norad_id: '11605'
+  constellation: METEOR
+  owner: CIS
+  tle_epoch: '2025-07-16T22:26:45.228Z'
+  tle_line1: 1 11605U 79095A   25197.93524570 -.00000001  00000-0 -80068-5 0  9992
+  tle_line2: 2 11605  81.2079 197.5426 0012621 108.9819 251.2719 14.07412460346148
+  apogee_km: 877.0
+  perigee_km: 859.0
+  period_min: 102.3
+  inclination_deg: 81.2
+  swath_width_km: 3000.0
+  num_terminal: 1
+  battery_capacity_wh: 3500.0
+  storage_capacity_mb: 32000.0
+  obs_store_rate_mb_per_min: 3960.0
+  downlink_release_rate_mb_per_min: 7368.0
+  charge_rate_w: 1350.0
+  idle_discharge_rate_w: 1000.0
+  obs_discharge_rate_w: 1800.0
+  downlink_discharge_rate_w: 150.0
+  max_slew_velocity_deg_per_sec: 0.5
+  max_slew_acceleration_deg_per_sec2: 0.05
+  max_slew_jerk_deg_per_sec3: null
+  settling_time_sec: 2.0
+  initial_storage_mb: 16000.0
+  initial_battery_wh: 1750.0
+- id: sat_meteor_2-6
+  name: METEOR 2-6
+  norad_id: '11962'
+  constellation: METEOR
+  owner: CIS
+  tle_epoch: '2025-07-16T18:05:14.052Z'
+  tle_line1: 1 11962U 80073A   25197.75363487 -.00000100  00000-0 -62044-4 0  9997
+  tle_line2: 2 11962  81.2211  57.7362 0036365  10.7840 349.4102 14.11071182307424
+  apogee_km: 882.0
+  perigee_km: 829.0
+  period_min: 102.1
+  inclination_deg: 81.2
+  swath_width_km: 3000.0
+  num_terminal: 1
+  battery_capacity_wh: 3500.0
+  storage_capacity_mb: 32000.0
+  obs_store_rate_mb_per_min: 3960.0
+  downlink_release_rate_mb_per_min: 7368.0
+  charge_rate_w: 1350.0
+  idle_discharge_rate_w: 1000.0
+  obs_discharge_rate_w: 1800.0
+  downlink_discharge_rate_w: 150.0
+  max_slew_velocity_deg_per_sec: 0.5
+  max_slew_acceleration_deg_per_sec2: 0.05
+  max_slew_jerk_deg_per_sec3: null
+  settling_time_sec: 2.0
+  initial_storage_mb: 16000.0
+  initial_battery_wh: 1750.0
+- id: sat_meteor_2-7
+  name: METEOR 2-7
+  norad_id: '12456'
+  constellation: METEOR
+  owner: CIS
+  tle_epoch: '2025-07-16T17:11:42.924Z'
+  tle_line1: 1 12456U 81043A   25197.71646903  .00000047  00000-0  18852-4 0  9993
+  tle_line2: 2 12456  81.2648  65.3481 0047710   3.4767 356.6726 14.10952089271747
+  apogee_km: 891.0
+  perigee_km: 822.0
+  period_min: 102.1
+  inclination_deg: 81.3
+  swath_width_km: 3000.0
+  num_terminal: 1
+  battery_capacity_wh: 3500.0
+  storage_capacity_mb: 32000.0
+  obs_store_rate_mb_per_min: 3960.0
+  downlink_release_rate_mb_per_min: 7368.0
+  charge_rate_w: 1350.0
+  idle_discharge_rate_w: 1000.0
+  obs_discharge_rate_w: 1800.0
+  downlink_discharge_rate_w: 150.0
+  max_slew_velocity_deg_per_sec: 0.5
+  max_slew_acceleration_deg_per_sec2: 0.05
+  max_slew_jerk_deg_per_sec3: null
+  settling_time_sec: 2.0
+  initial_storage_mb: 16000.0
+  initial_battery_wh: 1750.0
+- id: sat_meteor_priroda
+  name: METEOR PRIRODA
+  norad_id: '12585'
+  constellation: METEOR
+  owner: CIS
+  tle_epoch: '2025-07-16T16:35:25.968Z'
+  tle_line1: 1 12585U 81065A   25197.69127278  .00049689  00000-0  39349-3 0  9994
+  tle_line2: 2 12585  97.4835 251.7528 0005915  78.4418 281.7508 15.71170099407159
+  apogee_km: 360.0
+  perigee_km: 352.0
+  period_min: 91.7
+  inclination_deg: 97.50000000000001
+  swath_width_km: 3000.0
+  num_terminal: 1
+  battery_capacity_wh: 3500.0
+  storage_capacity_mb: 32000.0
+  obs_store_rate_mb_per_min: 3960.0
+  downlink_release_rate_mb_per_min: 7368.0
+  charge_rate_w: 1350.0
+  idle_discharge_rate_w: 1000.0
+  obs_discharge_rate_w: 1800.0
+  downlink_discharge_rate_w: 150.0
+  max_slew_velocity_deg_per_sec: 0.5
+  max_slew_acceleration_deg_per_sec2: 0.05
+  max_slew_jerk_deg_per_sec3: null
+  settling_time_sec: 2.0
+  initial_storage_mb: 16000.0
+  initial_battery_wh: 1750.0
+- id: sat_meteor_2-8
+  name: METEOR 2-8
+  norad_id: '13113'
+  constellation: METEOR
+  owner: CIS
+  tle_epoch: '2025-07-17T04:49:00.252Z'
+  tle_line1: 1 13113U 82025A   25198.20069737  .00000031  00000-0  14247-4 0  9991
+  tle_line2: 2 13113  82.5397   5.1492 0019299  98.9765  73.8690 13.85567328189537
+  apogee_km: 958.0
+  perigee_km: 930.0
+  period_min: 103.9
+  inclination_deg: 82.49999999999999
+  swath_width_km: 3000.0
+  num_terminal: 1
+  battery_capacity_wh: 3500.0
+  storage_capacity_mb: 32000.0
+  obs_store_rate_mb_per_min: 3960.0
+  downlink_release_rate_mb_per_min: 7368.0
+  charge_rate_w: 1350.0
+  idle_discharge_rate_w: 1000.0
+  obs_discharge_rate_w: 1800.0
+  downlink_discharge_rate_w: 150.0
+  max_slew_velocity_deg_per_sec: 0.5
+  max_slew_acceleration_deg_per_sec2: 0.05
+  max_slew_jerk_deg_per_sec3: null
+  settling_time_sec: 2.0
+  initial_storage_mb: 16000.0
+  initial_battery_wh: 1750.0
+- id: sat_meteor_2-9
+  name: METEOR 2-9
+  norad_id: '13718'
+  constellation: METEOR
+  owner: CIS
+  tle_epoch: '2025-07-16T19:29:18.673Z'
+  tle_line1: 1 13718U 82116A   25197.81202168  .00000046  00000-0  16626-4 0  9995
+  tle_line2: 2 13718  81.2520 316.6652 0053150 198.1845 161.7431 14.15872373198911
+  apogee_km: 878.0
+  perigee_km: 801.0
+  period_min: 101.7
+  inclination_deg: 81.3
+  swath_width_km: 3000.0
+  num_terminal: 1
+  battery_capacity_wh: 3500.0
+  storage_capacity_mb: 32000.0
+  obs_store_rate_mb_per_min: 3960.0
+  downlink_release_rate_mb_per_min: 7368.0
+  charge_rate_w: 1350.0
+  idle_discharge_rate_w: 1000.0
+  obs_discharge_rate_w: 1800.0
+  downlink_discharge_rate_w: 150.0
+  max_slew_velocity_deg_per_sec: 0.5
+  max_slew_acceleration_deg_per_sec2: 0.05
+  max_slew_jerk_deg_per_sec3: null
+  settling_time_sec: 2.0
+  initial_storage_mb: 16000.0
+  initial_battery_wh: 1750.0
+- id: sat_meteor_2-10
+  name: METEOR 2-10
+  norad_id: '14452'
+  constellation: METEOR
+  owner: CIS
+  tle_epoch: '2025-07-16T21:46:13.551Z'
+  tle_line1: 1 14452U 83109A   25197.90710129  .00000148  00000-0  52585-4 0  9992
+  tle_line2: 2 14452  81.1631 335.8992 0090998  96.4487 264.7064 14.27164684169592
+  apogee_km: 867.0
+  perigee_km: 736.0
+  period_min: 100.9
+  inclination_deg: 81.2
+  swath_width_km: 3000.0
+  num_terminal: 1
+  battery_capacity_wh: 3500.0
+  storage_capacity_mb: 32000.0
+  obs_store_rate_mb_per_min: 3960.0
+  downlink_release_rate_mb_per_min: 7368.0
+  charge_rate_w: 1350.0
+  idle_discharge_rate_w: 1000.0
+  obs_discharge_rate_w: 1800.0
+  downlink_discharge_rate_w: 150.0
+  max_slew_velocity_deg_per_sec: 0.5
+  max_slew_acceleration_deg_per_sec2: 0.05
+  max_slew_jerk_deg_per_sec3: null
+  settling_time_sec: 2.0
+  initial_storage_mb: 16000.0
+  initial_battery_wh: 1750.0
+- id: sat_meteor_2-11
+  name: METEOR 2-11
+  norad_id: '15099'
+  constellation: METEOR
+  owner: CIS
+  tle_epoch: '2025-07-16T20:05:41.535Z'
+  tle_line1: 1 15099U 84072A   25197.83728629  .00000053  00000-0  33620-4 0  9990
+  tle_line2: 2 15099  82.5324 306.6171 0012179 316.7666  43.2537 13.85267006 73900
+  apogee_km: 954.0
+  perigee_km: 936.0
+  period_min: 104.0
+  inclination_deg: 82.49999999999999
+  swath_width_km: 3000.0
+  num_terminal: 1
+  battery_capacity_wh: 3500.0
+  storage_capacity_mb: 32000.0
+  obs_store_rate_mb_per_min: 3960.0
+  downlink_release_rate_mb_per_min: 7368.0
+  charge_rate_w: 1350.0
+  idle_discharge_rate_w: 1000.0
+  obs_discharge_rate_w: 1800.0
+  downlink_discharge_rate_w: 150.0
+  max_slew_velocity_deg_per_sec: 0.5
+  max_slew_acceleration_deg_per_sec2: 0.05
+  max_slew_jerk_deg_per_sec3: null
+  settling_time_sec: 2.0
+  initial_storage_mb: 16000.0
+  initial_battery_wh: 1750.0
+- id: sat_meteor_2-12
+  name: METEOR 2-12
+  norad_id: '15516'
+  constellation: METEOR
+  owner: CIS
+  tle_epoch: '2025-07-17T05:19:48.436Z'
+  tle_line1: 1 15516U 85013A   25198.22208839  .00000022  00000-0  60443-5 0  9990
+  tle_line2: 2 15516  82.5294 239.1450 0016658 138.2479 221.9957 13.85830704 45669
+  apogee_km: 955.0
+  perigee_km: 931.0
+  period_min: 103.9
+  inclination_deg: 82.49999999999999
+  swath_width_km: 3000.0
+  num_terminal: 1
+  battery_capacity_wh: 3500.0
+  storage_capacity_mb: 32000.0
+  obs_store_rate_mb_per_min: 3960.0
+  downlink_release_rate_mb_per_min: 7368.0
+  charge_rate_w: 1350.0
+  idle_discharge_rate_w: 1000.0
+  obs_discharge_rate_w: 1800.0
+  downlink_discharge_rate_w: 150.0
+  max_slew_velocity_deg_per_sec: 0.5
+  max_slew_acceleration_deg_per_sec2: 0.05
+  max_slew_jerk_deg_per_sec3: null
+  settling_time_sec: 2.0
+  initial_storage_mb: 16000.0
+  initial_battery_wh: 1750.0
+- id: sat_meteor_3-1
+  name: METEOR 3-1
+  norad_id: '16191'
+  constellation: METEOR
+  owner: CIS
+  tle_epoch: '2025-07-16T18:04:06.939Z'
+  tle_line1: 1 16191U 85100A   25197.75285810  .00000107  00000-0  24338-3 0  9993
+  tle_line2: 2 16191  82.5475 273.3119 0021065 115.4295   2.7885 13.17304630910174
+  apogee_km: 1211.0
+  perigee_km: 1179.0
+  period_min: 109.3
+  inclination_deg: 82.60000000000001
+  swath_width_km: 3000.0
+  num_terminal: 1
+  battery_capacity_wh: 3500.0
+  storage_capacity_mb: 32000.0
+  obs_store_rate_mb_per_min: 3960.0
+  downlink_release_rate_mb_per_min: 7368.0
+  charge_rate_w: 1350.0
+  idle_discharge_rate_w: 1000.0
+  obs_discharge_rate_w: 1800.0
+  downlink_discharge_rate_w: 150.0
+  max_slew_velocity_deg_per_sec: 0.5
+  max_slew_acceleration_deg_per_sec2: 0.05
+  max_slew_jerk_deg_per_sec3: null
+  settling_time_sec: 2.0
+  initial_storage_mb: 16000.0
+  initial_battery_wh: 1750.0
+- id: sat_meteor_2-13
+  name: METEOR 2-13
+  norad_id: '16408'
+  constellation: METEOR
+  owner: CIS
+  tle_epoch: '2025-07-16T23:03:02.091Z'
+  tle_line1: 1 16408U 85119A   25197.96044087  .00000026  00000-0  93945-5 0  9998
+  tle_line2: 2 16408  82.5377 161.3819 0015743 348.6572  11.4232 13.85557122999589
+  apogee_km: 956.0
+  perigee_km: 933.0
+  period_min: 103.9
+  inclination_deg: 82.49999999999999
+  swath_width_km: 3000.0
+  num_terminal: 1
+  battery_capacity_wh: 3500.0
+  storage_capacity_mb: 32000.0
+  obs_store_rate_mb_per_min: 3960.0
+  downlink_release_rate_mb_per_min: 7368.0
+  charge_rate_w: 1350.0
+  idle_discharge_rate_w: 1000.0
+  obs_discharge_rate_w: 1800.0
+  downlink_discharge_rate_w: 150.0
+  max_slew_velocity_deg_per_sec: 0.5
+  max_slew_acceleration_deg_per_sec2: 0.05
+  max_slew_jerk_deg_per_sec3: null
+  settling_time_sec: 2.0
+  initial_storage_mb: 16000.0
+  initial_battery_wh: 1750.0
+- id: sat_meteor_2-14
+  name: METEOR 2-14
+  norad_id: '16735'
+  constellation: METEOR
+  owner: CIS
+  tle_epoch: '2025-07-16T22:21:45.861Z'
+  tle_line1: 1 16735U 86039A   25197.93178081  .00000041  00000-0  22400-4 0  9996
+  tle_line2: 2 16735  82.5350 191.1443 0016092  68.8456 352.7287 13.85513114978285
+  apogee_km: 956.0
+  perigee_km: 933.0
+  period_min: 103.9
+  inclination_deg: 82.49999999999999
+  swath_width_km: 3000.0
+  num_terminal: 1
+  battery_capacity_wh: 3500.0
+  storage_capacity_mb: 32000.0
+  obs_store_rate_mb_per_min: 3960.0
+  downlink_release_rate_mb_per_min: 7368.0
+  charge_rate_w: 1350.0
+  idle_discharge_rate_w: 1000.0
+  obs_discharge_rate_w: 1800.0
+  downlink_discharge_rate_w: 150.0
+  max_slew_velocity_deg_per_sec: 0.5
+  max_slew_acceleration_deg_per_sec2: 0.05
+  max_slew_jerk_deg_per_sec3: null
+  settling_time_sec: 2.0
+  initial_storage_mb: 16000.0
+  initial_battery_wh: 1750.0
+- id: sat_meteor_2-15
+  name: METEOR 2-15
+  norad_id: '17290'
+  constellation: METEOR
+  owner: CIS
+  tle_epoch: '2025-07-16T22:08:35.793Z'
+  tle_line1: 1 17290U 87001A   25197.92263650  .00000037  00000-0  19609-4 0  9991
+  tle_line2: 2 17290  82.4676   5.5183 0013918  38.7959 321.4198 13.85235491947413
+  apogee_km: 956.0
+  perigee_km: 935.0
+  period_min: 104.0
+  inclination_deg: 82.49999999999999
+  swath_width_km: 3000.0
+  num_terminal: 1
+  battery_capacity_wh: 3500.0
+  storage_capacity_mb: 32000.0
+  obs_store_rate_mb_per_min: 3960.0
+  downlink_release_rate_mb_per_min: 7368.0
+  charge_rate_w: 1350.0
+  idle_discharge_rate_w: 1000.0
+  obs_discharge_rate_w: 1800.0
+  downlink_discharge_rate_w: 150.0
+  max_slew_velocity_deg_per_sec: 0.5
+  max_slew_acceleration_deg_per_sec2: 0.05
+  max_slew_jerk_deg_per_sec3: null
+  settling_time_sec: 2.0
+  initial_storage_mb: 16000.0
+  initial_battery_wh: 1750.0
+- id: sat_meteor_2-16
+  name: METEOR 2-16
+  norad_id: '18312'
+  constellation: METEOR
+  owner: CIS
+  tle_epoch: '2025-07-16T18:27:14.818Z'
+  tle_line1: 1 18312U 87068A   25197.76892151  .00000041  00000-0  22951-4 0  9995
+  tle_line2: 2 18312  82.5549 200.7961 0010991 262.7561  97.2351 13.84917348915880
+  apogee_km: 955.0
+  perigee_km: 938.0
+  period_min: 104.0
+  inclination_deg: 82.60000000000001
+  swath_width_km: 3000.0
+  num_terminal: 1
+  battery_capacity_wh: 3500.0
+  storage_capacity_mb: 32000.0
+  obs_store_rate_mb_per_min: 3960.0
+  downlink_release_rate_mb_per_min: 7368.0
+  charge_rate_w: 1350.0
+  idle_discharge_rate_w: 1000.0
+  obs_discharge_rate_w: 1800.0
+  downlink_discharge_rate_w: 150.0
+  max_slew_velocity_deg_per_sec: 0.5
+  max_slew_acceleration_deg_per_sec2: 0.05
+  max_slew_jerk_deg_per_sec3: null
+  settling_time_sec: 2.0
+  initial_storage_mb: 16000.0
+  initial_battery_wh: 1750.0
+- id: sat_meteor_2-17
+  name: METEOR 2-17
+  norad_id: '18820'
+  constellation: METEOR
+  owner: CIS
+  tle_epoch: '2025-07-16T20:42:54.624Z'
+  tle_line1: 1 18820U 88005A   25197.86313223  .00000024  00000-0  78979-5 0  9993
+  tle_line2: 2 18820  82.5400 230.8292 0015190 306.2124 227.2264 13.85622854893740
+  apogee_km: 955.0
+  perigee_km: 933.0
+  period_min: 103.9
+  inclination_deg: 82.49999999999999
+  swath_width_km: 3000.0
+  num_terminal: 1
+  battery_capacity_wh: 3500.0
+  storage_capacity_mb: 32000.0
+  obs_store_rate_mb_per_min: 3960.0
+  downlink_release_rate_mb_per_min: 7368.0
+  charge_rate_w: 1350.0
+  idle_discharge_rate_w: 1000.0
+  obs_discharge_rate_w: 1800.0
+  downlink_discharge_rate_w: 150.0
+  max_slew_velocity_deg_per_sec: 0.5
+  max_slew_acceleration_deg_per_sec2: 0.05
+  max_slew_jerk_deg_per_sec3: null
+  settling_time_sec: 2.0
+  initial_storage_mb: 16000.0
+  initial_battery_wh: 1750.0
+- id: sat_meteor_3-2
+  name: METEOR 3-2
+  norad_id: '19336'
+  constellation: METEOR
+  owner: CIS
+  tle_epoch: '2025-07-16T23:21:49.581Z'
+  tle_line1: 1 19336U 88064A   25197.97349053  .00000030  00000-0  45831-4 0  9990
+  tle_line2: 2 19336  82.5414 208.1232 0016313 329.7417  92.2213 13.17268325777528
+  apogee_km: 1208.0
+  perigee_km: 1183.0
+  period_min: 109.3
+  inclination_deg: 82.49999999999999
+  swath_width_km: 3000.0
+  num_terminal: 1
+  battery_capacity_wh: 3500.0
+  storage_capacity_mb: 32000.0
+  obs_store_rate_mb_per_min: 3960.0
+  downlink_release_rate_mb_per_min: 7368.0
+  charge_rate_w: 1350.0
+  idle_discharge_rate_w: 1000.0
+  obs_discharge_rate_w: 1800.0
+  downlink_discharge_rate_w: 150.0
+  max_slew_velocity_deg_per_sec: 0.5
+  max_slew_acceleration_deg_per_sec2: 0.05
+  max_slew_jerk_deg_per_sec3: null
+  settling_time_sec: 2.0
+  initial_storage_mb: 16000.0
+  initial_battery_wh: 1750.0
+- id: sat_meteor_2-18
+  name: METEOR 2-18
+  norad_id: '19851'
+  constellation: METEOR
+  owner: CIS
+  tle_epoch: '2025-07-16T19:32:11.145Z'
+  tle_line1: 1 19851U 89018A   25197.81401789  .00000039  00000-0  20812-4 0  9991
+  tle_line2: 2 19851  82.5197  77.0454 0012400   0.8509  69.5868 13.85982224839369
+  apogee_km: 952.0
+  perigee_km: 934.0
+  period_min: 103.9
+  inclination_deg: 82.49999999999999
+  swath_width_km: 3000.0
+  num_terminal: 1
+  battery_capacity_wh: 3500.0
+  storage_capacity_mb: 32000.0
+  obs_store_rate_mb_per_min: 3960.0
+  downlink_release_rate_mb_per_min: 7368.0
+  charge_rate_w: 1350.0
+  idle_discharge_rate_w: 1000.0
+  obs_discharge_rate_w: 1800.0
+  downlink_discharge_rate_w: 150.0
+  max_slew_velocity_deg_per_sec: 0.5
+  max_slew_acceleration_deg_per_sec2: 0.05
+  max_slew_jerk_deg_per_sec3: null
+  settling_time_sec: 2.0
+  initial_storage_mb: 16000.0
+  initial_battery_wh: 1750.0
+- id: sat_meteor_3-3
+  name: METEOR 3-3
+  norad_id: '20305'
+  constellation: METEOR
+  owner: CIS
+  tle_epoch: '2025-07-16T22:09:51.397Z'
+  tle_line1: 1 20305U 89086A   25197.92351155 -.00000126  00000-0 -43002-3 0  9999
+  tle_line2: 2 20305  82.5500 338.8973 0005908 262.1495 214.6394 13.04671586703149
+  apogee_km: 1248.0
+  perigee_km: 1239.0
+  period_min: 110.4
+  inclination_deg: 82.60000000000001
+  swath_width_km: 3000.0
+  num_terminal: 1
+  battery_capacity_wh: 3500.0
+  storage_capacity_mb: 32000.0
+  obs_store_rate_mb_per_min: 3960.0
+  downlink_release_rate_mb_per_min: 7368.0
+  charge_rate_w: 1350.0
+  idle_discharge_rate_w: 1000.0
+  obs_discharge_rate_w: 1800.0
+  downlink_discharge_rate_w: 150.0
+  max_slew_velocity_deg_per_sec: 0.5
+  max_slew_acceleration_deg_per_sec2: 0.05
+  max_slew_jerk_deg_per_sec3: null
+  settling_time_sec: 2.0
+  initial_storage_mb: 16000.0
+  initial_battery_wh: 1750.0
+- id: sat_meteor_2-19
+  name: METEOR 2-19
+  norad_id: '20670'
+  constellation: METEOR
+  owner: CIS
+  tle_epoch: '2025-07-16T22:41:35.159Z'
+  tle_line1: 1 20670U 90057A   25197.94554583  .00000043  00000-0  25500-4 0  9996
+  tle_line2: 2 20670  82.5455 185.4681 0014806 307.5425  52.4389 13.84865373771233
+  apogee_km: 958.0
+  perigee_km: 936.0
+  period_min: 104.0
+  inclination_deg: 82.60000000000001
+  swath_width_km: 3000.0
+  num_terminal: 1
+  battery_capacity_wh: 3500.0
+  storage_capacity_mb: 32000.0
+  obs_store_rate_mb_per_min: 3960.0
+  downlink_release_rate_mb_per_min: 7368.0
+  charge_rate_w: 1350.0
+  idle_discharge_rate_w: 1000.0
+  obs_discharge_rate_w: 1800.0
+  downlink_discharge_rate_w: 150.0
+  max_slew_velocity_deg_per_sec: 0.5
+  max_slew_acceleration_deg_per_sec2: 0.05
+  max_slew_jerk_deg_per_sec3: null
+  settling_time_sec: 2.0
+  initial_storage_mb: 16000.0
+  initial_battery_wh: 1750.0
+- id: sat_meteor_2-20
+  name: METEOR 2-20
+  norad_id: '20826'
+  constellation: METEOR
+  owner: CIS
+  tle_epoch: '2025-07-16T19:31:30.649Z'
+  tle_line1: 1 20826U 90086A   25197.81354918  .00000054  00000-0  35502-4 0  9992
+  tle_line2: 2 20826  82.5249 104.9270 0012128 244.9390 115.0512 13.84430755757912
+  apogee_km: 957.0
+  perigee_km: 939.0
+  period_min: 104.0
+  inclination_deg: 82.49999999999999
+  swath_width_km: 3000.0
+  num_terminal: 1
+  battery_capacity_wh: 3500.0
+  storage_capacity_mb: 32000.0
+  obs_store_rate_mb_per_min: 3960.0
+  downlink_release_rate_mb_per_min: 7368.0
+  charge_rate_w: 1350.0
+  idle_discharge_rate_w: 1000.0
+  obs_discharge_rate_w: 1800.0
+  downlink_discharge_rate_w: 150.0
+  max_slew_velocity_deg_per_sec: 0.5
+  max_slew_acceleration_deg_per_sec2: 0.05
+  max_slew_jerk_deg_per_sec3: null
+  settling_time_sec: 2.0
+  initial_storage_mb: 16000.0
+  initial_battery_wh: 1750.0
+- id: sat_meteor_3-4
+  name: METEOR 3-4
+  norad_id: '21232'
+  constellation: METEOR
+  owner: CIS
+  tle_epoch: '2025-07-16T20:28:20.813Z'
+  tle_line1: 1 21232U 91030A   25197.85301867  .00000051  00000-0  10106-3 0  9992
+  tle_line2: 2 21232  82.5409  61.5361 0011699 277.6835 212.0859 13.16691181644970
+  apogee_km: 1206.0
+  perigee_km: 1189.0
+  period_min: 109.4
+  inclination_deg: 82.49999999999999
+  swath_width_km: 3000.0
+  num_terminal: 1
+  battery_capacity_wh: 3500.0
+  storage_capacity_mb: 32000.0
+  obs_store_rate_mb_per_min: 3960.0
+  downlink_release_rate_mb_per_min: 7368.0
+  charge_rate_w: 1350.0
+  idle_discharge_rate_w: 1000.0
+  obs_discharge_rate_w: 1800.0
+  downlink_discharge_rate_w: 150.0
+  max_slew_velocity_deg_per_sec: 0.5
+  max_slew_acceleration_deg_per_sec2: 0.05
+  max_slew_jerk_deg_per_sec3: null
+  settling_time_sec: 2.0
+  initial_storage_mb: 16000.0
+  initial_battery_wh: 1750.0
+- id: sat_meteor_3-5
+  name: METEOR 3-5
+  norad_id: '21655'
+  constellation: METEOR
+  owner: CIS
+  tle_epoch: '2025-07-16T21:38:59.979Z'
+  tle_line1: 1 21655U 91056A   25197.90208310 -.00000107  00000-0 -30990-3 0  9991
+  tle_line2: 2 21655  82.5562  16.2964 0012152 254.8754 105.1025 13.17148650630439
+  apogee_km: 1205.0
+  perigee_km: 1186.0
+  period_min: 109.3
+  inclination_deg: 82.60000000000001
+  swath_width_km: 3000.0
+  num_terminal: 1
+  battery_capacity_wh: 3500.0
+  storage_capacity_mb: 32000.0
+  obs_store_rate_mb_per_min: 3960.0
+  downlink_release_rate_mb_per_min: 7368.0
+  charge_rate_w: 1350.0
+  idle_discharge_rate_w: 1000.0
+  obs_discharge_rate_w: 1800.0
+  downlink_discharge_rate_w: 150.0
+  max_slew_velocity_deg_per_sec: 0.5
+  max_slew_acceleration_deg_per_sec2: 0.05
+  max_slew_jerk_deg_per_sec3: null
+  settling_time_sec: 2.0
+  initial_storage_mb: 16000.0
+  initial_battery_wh: 1750.0
+- id: sat_meteor_2-21
+  name: METEOR 2-21
+  norad_id: '22782'
+  constellation: METEOR
+  owner: CIS
+  tle_epoch: '2025-07-16T18:57:02.901Z'
+  tle_line1: 1 22782U 93055A   25197.78961691  .00000038  00000-0  20411-4 0  9997
+  tle_line2: 2 22782  82.5477 201.0097 0023743  71.1499 101.5918 13.83998316609657
+  apogee_km: 967.0
+  perigee_km: 932.0
+  period_min: 104.1
+  inclination_deg: 82.60000000000001
+  swath_width_km: 3000.0
+  num_terminal: 1
+  battery_capacity_wh: 3500.0
+  storage_capacity_mb: 32000.0
+  obs_store_rate_mb_per_min: 3960.0
+  downlink_release_rate_mb_per_min: 7368.0
+  charge_rate_w: 1350.0
+  idle_discharge_rate_w: 1000.0
+  obs_discharge_rate_w: 1800.0
+  downlink_discharge_rate_w: 150.0
+  max_slew_velocity_deg_per_sec: 0.5
+  max_slew_acceleration_deg_per_sec2: 0.05
+  max_slew_jerk_deg_per_sec3: null
+  settling_time_sec: 2.0
+  initial_storage_mb: 16000.0
+  initial_battery_wh: 1750.0
+- id: sat_meteor_3-6
+  name: METEOR 3-6
+  norad_id: '22969'
+  constellation: METEOR
+  owner: CIS
+  tle_epoch: '2025-07-16T20:23:32.594Z'
+  tle_line1: 1 22969U 94003A   25197.84968281 -.00000083  00000-0 -24685-3 0  9995
+  tle_line2: 2 22969  82.5650 324.0086 0014384 329.8976  30.1319 13.17051634513099
+  apogee_km: 1207.0
+  perigee_km: 1185.0
+  period_min: 109.3
+  inclination_deg: 82.60000000000001
+  swath_width_km: 3000.0
+  num_terminal: 1
+  battery_capacity_wh: 3500.0
+  storage_capacity_mb: 32000.0
+  obs_store_rate_mb_per_min: 3960.0
+  downlink_release_rate_mb_per_min: 7368.0
+  charge_rate_w: 1350.0
+  idle_discharge_rate_w: 1000.0
+  obs_discharge_rate_w: 1800.0
+  downlink_discharge_rate_w: 150.0
+  max_slew_velocity_deg_per_sec: 0.5
+  max_slew_acceleration_deg_per_sec2: 0.05
+  max_slew_jerk_deg_per_sec3: null
+  settling_time_sec: 2.0
+  initial_storage_mb: 16000.0
+  initial_battery_wh: 1750.0
+- id: sat_meteor-3m
+  name: METEOR-3M
+  norad_id: '27001'
+  constellation: METEOR
+  owner: CIS
+  tle_epoch: '2025-07-16T17:44:27.733Z'
+  tle_line1: 1 27001U 01056A   25197.73920988 -.00000015  00000-0  36523-4 0  9992
+  tle_line2: 2 27001  99.8125  13.1382 0013289 338.0473  32.5335 13.69015820178984
+  apogee_km: 1013.0
+  perigee_km: 993.0
+  period_min: 105.2
+  inclination_deg: 99.8
+  swath_width_km: 3000.0
+  num_terminal: 1
+  battery_capacity_wh: 3500.0
+  storage_capacity_mb: 32000.0
+  obs_store_rate_mb_per_min: 3960.0
+  downlink_release_rate_mb_per_min: 7368.0
+  charge_rate_w: 1350.0
+  idle_discharge_rate_w: 1000.0
+  obs_discharge_rate_w: 1800.0
+  downlink_discharge_rate_w: 150.0
+  max_slew_velocity_deg_per_sec: 0.5
+  max_slew_acceleration_deg_per_sec2: 0.05
+  max_slew_jerk_deg_per_sec3: null
+  settling_time_sec: 2.0
+  initial_storage_mb: 16000.0
+  initial_battery_wh: 1750.0
+- id: sat_meteor_2-7_deb
+  name: METEOR 2-7 DEB
+  norad_id: '28388'
+  constellation: METEOR
+  owner: CIS
+  tle_epoch: '2025-07-15T13:30:03.859Z'
+  tle_line1: 1 28388U 81043E   25196.56254467  .00007337  00000-0  18816-2 0  9993
+  tle_line2: 2 28388  81.2640 281.5082 0016935 327.3075  32.7068 14.50148680599184
+  apogee_km: 737.0
+  perigee_km: 713.0
+  period_min: 99.3
+  inclination_deg: 81.3
+  swath_width_km: 3000.0
+  num_terminal: 1
+  battery_capacity_wh: 3500.0
+  storage_capacity_mb: 32000.0
+  obs_store_rate_mb_per_min: 3960.0
+  downlink_release_rate_mb_per_min: 7368.0
+  charge_rate_w: 1350.0
+  idle_discharge_rate_w: 1000.0
+  obs_discharge_rate_w: 1800.0
+  downlink_discharge_rate_w: 150.0
+  max_slew_velocity_deg_per_sec: 0.5
+  max_slew_acceleration_deg_per_sec2: 0.05
+  max_slew_jerk_deg_per_sec3: null
+  settling_time_sec: 2.0
+  initial_storage_mb: 16000.0
+  initial_battery_wh: 1750.0
+- id: sat_meteor_2-5_deb
+  name: METEOR 2-5 DEB
+  norad_id: '28594'
+  constellation: METEOR
+  owner: CIS
+  tle_epoch: '2025-07-12T20:49:32.929Z'
+  tle_line1: 1 28594U 79095E   25193.86774224  .00008459  00000-0  18447-2 0  9990
+  tle_line2: 2 28594  81.1644  22.4517 0012528 145.2680 214.9337 14.57773572 83951
+  apogee_km: 709.0
+  perigee_km: 692.0
+  period_min: 98.8
+  inclination_deg: 81.2
+  swath_width_km: 3000.0
+  num_terminal: 1
+  battery_capacity_wh: 3500.0
+  storage_capacity_mb: 32000.0
+  obs_store_rate_mb_per_min: 3960.0
+  downlink_release_rate_mb_per_min: 7368.0
+  charge_rate_w: 1350.0
+  idle_discharge_rate_w: 1000.0
+  obs_discharge_rate_w: 1800.0
+  downlink_discharge_rate_w: 150.0
+  max_slew_velocity_deg_per_sec: 0.5
+  max_slew_acceleration_deg_per_sec2: 0.05
+  max_slew_jerk_deg_per_sec3: null
+  settling_time_sec: 2.0
+  initial_storage_mb: 16000.0
+  initial_battery_wh: 1750.0
+- id: sat_meteor_2-6_deb
+  name: METEOR 2-6 DEB
+  norad_id: '28986'
+  constellation: METEOR
+  owner: CIS
+  tle_epoch: '2025-07-15T10:37:21.305Z'
+  tle_line1: 1 28986U 80073C   25196.44260770  .00008493  00000-0  19204-2 0  9996
+  tle_line2: 2 28986  81.2032 260.4372 0018102 317.9673  42.0133 14.56047860 64524
+  apogee_km: 719.0
+  perigee_km: 693.0
+  period_min: 98.9
+  inclination_deg: 81.2
+  swath_width_km: 3000.0
+  num_terminal: 1
+  battery_capacity_wh: 3500.0
+  storage_capacity_mb: 32000.0
+  obs_store_rate_mb_per_min: 3960.0
+  downlink_release_rate_mb_per_min: 7368.0
+  charge_rate_w: 1350.0
+  idle_discharge_rate_w: 1000.0
+  obs_discharge_rate_w: 1800.0
+  downlink_discharge_rate_w: 150.0
+  max_slew_velocity_deg_per_sec: 0.5
+  max_slew_acceleration_deg_per_sec2: 0.05
+  max_slew_jerk_deg_per_sec3: null
+  settling_time_sec: 2.0
+  initial_storage_mb: 16000.0
+  initial_battery_wh: 1750.0
+- id: sat_meteor_2-17_deb
+  name: METEOR 2-17 DEB
+  norad_id: '28988'
+  constellation: METEOR
+  owner: CIS
+  tle_epoch: '2025-07-15T05:37:31.683Z'
+  tle_line1: 1 28988U 88005C   25196.23439448  .00001630  00000-0  10877-2 0  9991
+  tle_line2: 2 28988  82.5339 181.8827 0011999 106.6181 253.6307 14.00517780985690
+  apogee_km: 901.0
+  perigee_km: 883.0
+  period_min: 102.8
+  inclination_deg: 82.49999999999999
+  swath_width_km: 3000.0
+  num_terminal: 1
+  battery_capacity_wh: 3500.0
+  storage_capacity_mb: 32000.0
+  obs_store_rate_mb_per_min: 3960.0
+  downlink_release_rate_mb_per_min: 7368.0
+  charge_rate_w: 1350.0
+  idle_discharge_rate_w: 1000.0
+  obs_discharge_rate_w: 1800.0
+  downlink_discharge_rate_w: 150.0
+  max_slew_velocity_deg_per_sec: 0.5
+  max_slew_acceleration_deg_per_sec2: 0.05
+  max_slew_jerk_deg_per_sec3: null
+  settling_time_sec: 2.0
+  initial_storage_mb: 16000.0
+  initial_battery_wh: 1750.0
+- id: sat_meteor_1-23_deb
+  name: METEOR 1-23 DEB
+  norad_id: '35422'
+  constellation: METEOR
+  owner: CIS
+  tle_epoch: '2025-07-03T02:20:08.255Z'
+  tle_line1: 1 35422U 75124D   25184.09731777  .00000017  00000-0  00000-0 0  9994
+  tle_line2: 2 35422  81.2859 308.9619 0027312 196.5850 283.5818 14.70913509986069
+  apogee_km: 677.0
+  perigee_km: 639.0
+  period_min: 97.9
+  inclination_deg: 81.3
+  swath_width_km: 3000.0
+  num_terminal: 1
+  battery_capacity_wh: 3500.0
+  storage_capacity_mb: 32000.0
+  obs_store_rate_mb_per_min: 3960.0
+  downlink_release_rate_mb_per_min: 7368.0
+  charge_rate_w: 1350.0
+  idle_discharge_rate_w: 1000.0
+  obs_discharge_rate_w: 1800.0
+  downlink_discharge_rate_w: 150.0
+  max_slew_velocity_deg_per_sec: 0.5
+  max_slew_acceleration_deg_per_sec2: 0.05
+  max_slew_jerk_deg_per_sec3: null
+  settling_time_sec: 2.0
+  initial_storage_mb: 16000.0
+  initial_battery_wh: 1750.0
+- id: sat_meteor_2-2_deb
+  name: METEOR 2-2 DEB
+  norad_id: '35423'
+  constellation: METEOR
+  owner: CIS
+  tle_epoch: '2025-07-16T13:13:18.899Z'
+  tle_line1: 1 35423U 77002F   25197.55091319  .00004781  00000-0  15563-2 0  9992
+  tle_line2: 2 35423  81.2436 306.2545 0012490 224.0553 135.9639 14.38606313946937
+  apogee_km: 772.0
+  perigee_km: 754.0
+  period_min: 100.1
+  inclination_deg: 81.2
+  swath_width_km: 3000.0
+  num_terminal: 1
+  battery_capacity_wh: 3500.0
+  storage_capacity_mb: 32000.0
+  obs_store_rate_mb_per_min: 3960.0
+  downlink_release_rate_mb_per_min: 7368.0
+  charge_rate_w: 1350.0
+  idle_discharge_rate_w: 1000.0
+  obs_discharge_rate_w: 1800.0
+  downlink_discharge_rate_w: 150.0
+  max_slew_velocity_deg_per_sec: 0.5
+  max_slew_acceleration_deg_per_sec2: 0.05
+  max_slew_jerk_deg_per_sec3: null
+  settling_time_sec: 2.0
+  initial_storage_mb: 16000.0
+  initial_battery_wh: 1750.0
+- id: sat_meteor-m_1
+  name: METEOR-M 1
+  norad_id: '35865'
+  constellation: METEOR
+  owner: CIS
+  tle_epoch: '2025-07-16T21:54:35.111Z'
+  tle_line1: 1 35865U 09049A   25197.91290638  .00000061  00000-0  46508-4 0  9995
+  tle_line2: 2 35865  98.6875 158.7671 0002075 169.4451 190.6771 14.23031250821701
+  apogee_km: 817.0
+  perigee_km: 814.0
+  period_min: 101.2
+  inclination_deg: 98.7
+  swath_width_km: 3000.0
+  num_terminal: 1
+  battery_capacity_wh: 3500.0
+  storage_capacity_mb: 32000.0
+  obs_store_rate_mb_per_min: 3960.0
+  downlink_release_rate_mb_per_min: 7368.0
+  charge_rate_w: 1350.0
+  idle_discharge_rate_w: 1000.0
+  obs_discharge_rate_w: 1800.0
+  downlink_discharge_rate_w: 150.0
+  max_slew_velocity_deg_per_sec: 0.5
+  max_slew_acceleration_deg_per_sec2: 0.05
+  max_slew_jerk_deg_per_sec3: null
+  settling_time_sec: 2.0
+  initial_storage_mb: 16000.0
+  initial_battery_wh: 1750.0
+- id: sat_meteor_1-22_deb
+  name: METEOR 1-22 DEB
+  norad_id: '36302'
+  constellation: METEOR
+  owner: CIS
+  tle_epoch: '2025-07-16T19:54:46.130Z'
+  tle_line1: 1 36302U 75087C   25197.82970058  .00000109  00000-0  52331-4 0  9992
+  tle_line2: 2 36302  81.2465  40.3631 0110486 343.2437  35.1728 14.09664246843660
+  apogee_km: 941.0
+  perigee_km: 781.0
+  period_min: 102.2
+  inclination_deg: 81.3
+  swath_width_km: 3000.0
+  num_terminal: 1
+  battery_capacity_wh: 3500.0
+  storage_capacity_mb: 32000.0
+  obs_store_rate_mb_per_min: 3960.0
+  downlink_release_rate_mb_per_min: 7368.0
+  charge_rate_w: 1350.0
+  idle_discharge_rate_w: 1000.0
+  obs_discharge_rate_w: 1800.0
+  downlink_discharge_rate_w: 150.0
+  max_slew_velocity_deg_per_sec: 0.5
+  max_slew_acceleration_deg_per_sec2: 0.05
+  max_slew_jerk_deg_per_sec3: null
+  settling_time_sec: 2.0
+  initial_storage_mb: 16000.0
+  initial_battery_wh: 1750.0
+- id: sat_meteor_2-8_deb
+  name: METEOR 2-8 DEB
+  norad_id: '36319'
+  constellation: METEOR
+  owner: CIS
+  tle_epoch: '2025-07-15T23:43:04.301Z'
+  tle_line1: 1 36319U 82025D   25196.98824423  .00004021  00000-0  15256-2 0  9990
+  tle_line2: 2 36319  82.5180  95.9592 0021057 303.6309  56.2867 14.30785715145922
+  apogee_km: 804.0
+  perigee_km: 774.0
+  period_min: 100.6
+  inclination_deg: 82.49999999999999
+  swath_width_km: 3000.0
+  num_terminal: 1
+  battery_capacity_wh: 3500.0
+  storage_capacity_mb: 32000.0
+  obs_store_rate_mb_per_min: 3960.0
+  downlink_release_rate_mb_per_min: 7368.0
+  charge_rate_w: 1350.0
+  idle_discharge_rate_w: 1000.0
+  obs_discharge_rate_w: 1800.0
+  downlink_discharge_rate_w: 150.0
+  max_slew_velocity_deg_per_sec: 0.5
+  max_slew_acceleration_deg_per_sec2: 0.05
+  max_slew_jerk_deg_per_sec3: null
+  settling_time_sec: 2.0
+  initial_storage_mb: 16000.0
+  initial_battery_wh: 1750.0
+- id: sat_meteor-m_2
+  name: METEOR-M 2
+  norad_id: '40069'
+  constellation: METEOR
+  owner: CIS
+  tle_epoch: '2025-07-17T05:06:32.226Z'
+  tle_line1: 1 40069U 14037A   25198.21287299  .00000085  00000-0  58348-4 0  9994
+  tle_line2: 2 40069  98.4698 181.6333 0004628 296.5020  63.5683 14.21309090571737
+  apogee_km: 824.0
+  perigee_km: 818.0
+  period_min: 101.3
+  inclination_deg: 98.50000000000001
+  swath_width_km: 3000.0
+  num_terminal: 1
+  battery_capacity_wh: 3500.0
+  storage_capacity_mb: 32000.0
+  obs_store_rate_mb_per_min: 3960.0
+  downlink_release_rate_mb_per_min: 7368.0
+  charge_rate_w: 1350.0
+  idle_discharge_rate_w: 1000.0
+  obs_discharge_rate_w: 1800.0
+  downlink_discharge_rate_w: 150.0
+  max_slew_velocity_deg_per_sec: 0.5
+  max_slew_acceleration_deg_per_sec2: 0.05
+  max_slew_jerk_deg_per_sec3: null
+  settling_time_sec: 2.0
+  initial_storage_mb: 16000.0
+  initial_battery_wh: 1750.0
+- id: sat_meteor_2-11_deb
+  name: METEOR 2-11 DEB
+  norad_id: '40317'
+  constellation: METEOR
+  owner: CIS
+  tle_epoch: '2025-07-12T13:35:29.454Z'
+  tle_line1: 1 40317U 84072C   25193.56631313  .00002072  00000-0  14522-2 0  9991
+  tle_line2: 2 40317  82.5194 283.3309 0008886 294.3737  65.6503 13.97912523538530
+  apogee_km: 908.0
+  perigee_km: 895.0
+  period_min: 103.0
+  inclination_deg: 82.49999999999999
+  swath_width_km: 3000.0
+  num_terminal: 1
+  battery_capacity_wh: 3500.0
+  storage_capacity_mb: 32000.0
+  obs_store_rate_mb_per_min: 3960.0
+  downlink_release_rate_mb_per_min: 7368.0
+  charge_rate_w: 1350.0
+  idle_discharge_rate_w: 1000.0
+  obs_discharge_rate_w: 1800.0
+  downlink_discharge_rate_w: 150.0
+  max_slew_velocity_deg_per_sec: 0.5
+  max_slew_acceleration_deg_per_sec2: 0.05
+  max_slew_jerk_deg_per_sec3: null
+  settling_time_sec: 2.0
+  initial_storage_mb: 16000.0
+  initial_battery_wh: 1750.0
+- id: sat_meteor_1-16_deb
+  name: METEOR 1-16 DEB
+  norad_id: '42999'
+  constellation: METEOR
+  owner: CIS
+  tle_epoch: '2025-07-16T16:18:19.219Z'
+  tle_line1: 1 42999U 74011C   25197.67938912  .00006605  00000-0  21454-2 0  9990
+  tle_line2: 2 42999  81.2337 330.1877 0033706 201.8563 158.1188 14.38452190466445
+  apogee_km: 788.0
+  perigee_km: 740.0
+  period_min: 100.1
+  inclination_deg: 81.2
+  swath_width_km: 3000.0
+  num_terminal: 1
+  battery_capacity_wh: 3500.0
+  storage_capacity_mb: 32000.0
+  obs_store_rate_mb_per_min: 3960.0
+  downlink_release_rate_mb_per_min: 7368.0
+  charge_rate_w: 1350.0
+  idle_discharge_rate_w: 1000.0
+  obs_discharge_rate_w: 1800.0
+  downlink_discharge_rate_w: 150.0
+  max_slew_velocity_deg_per_sec: 0.5
+  max_slew_acceleration_deg_per_sec2: 0.05
+  max_slew_jerk_deg_per_sec3: null
+  settling_time_sec: 2.0
+  initial_storage_mb: 16000.0
+  initial_battery_wh: 1750.0
+- id: sat_meteor_2-13_deb
+  name: METEOR 2-13 DEB
+  norad_id: '43151'
+  constellation: METEOR
+  owner: CIS
+  tle_epoch: '2025-07-12T03:17:36.638Z'
+  tle_line1: 1 43151U 85119C   25193.13722961  .00000622  00000-0  46076-3 0  9995
+  tle_line2: 2 43151  82.5418 156.1066 0022795 303.8741  56.0255 13.93757836379767
+  apogee_km: 932.0
+  perigee_km: 899.0
+  period_min: 103.3
+  inclination_deg: 82.49999999999999
+  swath_width_km: 3000.0
+  num_terminal: 1
+  battery_capacity_wh: 3500.0
+  storage_capacity_mb: 32000.0
+  obs_store_rate_mb_per_min: 3960.0
+  downlink_release_rate_mb_per_min: 7368.0
+  charge_rate_w: 1350.0
+  idle_discharge_rate_w: 1000.0
+  obs_discharge_rate_w: 1800.0
+  downlink_discharge_rate_w: 150.0
+  max_slew_velocity_deg_per_sec: 0.5
+  max_slew_acceleration_deg_per_sec2: 0.05
+  max_slew_jerk_deg_per_sec3: null
+  settling_time_sec: 2.0
+  initial_storage_mb: 16000.0
+  initial_battery_wh: 1750.0
+- id: sat_meteor-m2_2
+  name: METEOR-M2 2
+  norad_id: '44387'
+  constellation: METEOR
+  owner: CIS
+  tle_epoch: '2025-07-17T05:22:36.141Z'
+  tle_line1: 1 44387U 19038A   25198.22402941  .00000061  00000-0  46278-4 0  9994
+  tle_line2: 2 44387  98.8765 176.2796 0000112 229.4371 130.6798 14.24216549313617
+  apogee_km: 811.0
+  perigee_km: 811.0
+  period_min: 101.1
+  inclination_deg: 98.9
+  swath_width_km: 3000.0
+  num_terminal: 1
+  battery_capacity_wh: 3500.0
+  storage_capacity_mb: 32000.0
+  obs_store_rate_mb_per_min: 3960.0
+  downlink_release_rate_mb_per_min: 7368.0
+  charge_rate_w: 1350.0
+  idle_discharge_rate_w: 1000.0
+  obs_discharge_rate_w: 1800.0
+  downlink_discharge_rate_w: 150.0
+  max_slew_velocity_deg_per_sec: 0.5
+  max_slew_acceleration_deg_per_sec2: 0.05
+  max_slew_jerk_deg_per_sec3: null
+  settling_time_sec: 2.0
+  initial_storage_mb: 16000.0
+  initial_battery_wh: 1750.0
+- id: sat_meteor_2-20_deb
+  name: METEOR 2-20 DEB
+  norad_id: '44698'
+  constellation: METEOR
+  owner: CIS
+  tle_epoch: '2025-07-16T08:19:08.770Z'
+  tle_line1: 1 44698U 90086C   25197.34662929  .00000550  00000-0  36226-3 0  9991
+  tle_line2: 2 44698  82.5114  69.0940 0024213  48.1641 312.1590 14.00092018571197
+  apogee_km: 911.0
+  perigee_km: 876.0
+  period_min: 102.9
+  inclination_deg: 82.49999999999999
+  swath_width_km: 3000.0
+  num_terminal: 1
+  battery_capacity_wh: 3500.0
+  storage_capacity_mb: 32000.0
+  obs_store_rate_mb_per_min: 3960.0
+  downlink_release_rate_mb_per_min: 7368.0
+  charge_rate_w: 1350.0
+  idle_discharge_rate_w: 1000.0
+  obs_discharge_rate_w: 1800.0
+  downlink_discharge_rate_w: 150.0
+  max_slew_velocity_deg_per_sec: 0.5
+  max_slew_acceleration_deg_per_sec2: 0.05
+  max_slew_jerk_deg_per_sec3: null
+  settling_time_sec: 2.0
+  initial_storage_mb: 16000.0
+  initial_battery_wh: 1750.0
+- id: sat_meteor_2-12_deb
+  name: METEOR 2-12 DEB
+  norad_id: '45518'
+  constellation: METEOR
+  owner: CIS
+  tle_epoch: '2025-07-14T06:33:41.077Z'
+  tle_line1: 1 45518U 85013D   25195.27339210  .00001269  00000-0  80468-3 0  9996
+  tle_line2: 2 45518  82.5361 187.3898 0023172 340.8218  19.2078 14.03121348532481
+  apogee_km: 900.0
+  perigee_km: 866.0
+  period_min: 102.6
+  inclination_deg: 82.49999999999999
+  swath_width_km: 3000.0
+  num_terminal: 1
+  battery_capacity_wh: 3500.0
+  storage_capacity_mb: 32000.0
+  obs_store_rate_mb_per_min: 3960.0
+  downlink_release_rate_mb_per_min: 7368.0
+  charge_rate_w: 1350.0
+  idle_discharge_rate_w: 1000.0
+  obs_discharge_rate_w: 1800.0
+  downlink_discharge_rate_w: 150.0
+  max_slew_velocity_deg_per_sec: 0.5
+  max_slew_acceleration_deg_per_sec2: 0.05
+  max_slew_jerk_deg_per_sec3: null
+  settling_time_sec: 2.0
+  initial_storage_mb: 16000.0
+  initial_battery_wh: 1750.0
+- id: sat_meteor-m2_3
+  name: METEOR-M2 3
+  norad_id: '57166'
+  constellation: METEOR
+  owner: CIS
+  tle_epoch: '2025-07-17T03:41:20.210Z'
+  tle_line1: 1 57166U 23091A   25198.15370614 -.00000018  00000-0  11026-4 0  9996
+  tle_line2: 2 57166  98.6592 254.0904 0005040  70.9578 289.2146 14.24003872106836
+  apogee_km: 815.0
+  perigee_km: 808.0
+  period_min: 101.1
+  inclination_deg: 98.7
+  swath_width_km: 3000.0
+  num_terminal: 1
+  battery_capacity_wh: 3500.0
+  storage_capacity_mb: 32000.0
+  obs_store_rate_mb_per_min: 3960.0
+  downlink_release_rate_mb_per_min: 7368.0
+  charge_rate_w: 1350.0
+  idle_discharge_rate_w: 1000.0
+  obs_discharge_rate_w: 1800.0
+  downlink_discharge_rate_w: 150.0
+  max_slew_velocity_deg_per_sec: 0.5
+  max_slew_acceleration_deg_per_sec2: 0.05
+  max_slew_jerk_deg_per_sec3: null
+  settling_time_sec: 2.0
+  initial_storage_mb: 16000.0
+  initial_battery_wh: 1750.0
+- id: sat_meteor_1-17_deb
+  name: METEOR 1-17 DEB
+  norad_id: '57537'
+  constellation: METEOR
+  owner: CIS
+  tle_epoch: '2025-07-09T21:58:14.041Z'
+  tle_line1: 1 57537U 74025C   25190.91544029  .00002517  00000-0  11678-2 0  9996
+  tle_line2: 2 57537  81.2051 264.6127 0003393 221.3373 138.7547 14.20472135102055
+  apogee_km: 826.0
+  perigee_km: 821.0
+  period_min: 101.4
+  inclination_deg: 81.2
+  swath_width_km: 3000.0
+  num_terminal: 1
+  battery_capacity_wh: 3500.0
+  storage_capacity_mb: 32000.0
+  obs_store_rate_mb_per_min: 3960.0
+  downlink_release_rate_mb_per_min: 7368.0
+  charge_rate_w: 1350.0
+  idle_discharge_rate_w: 1000.0
+  obs_discharge_rate_w: 1800.0
+  downlink_discharge_rate_w: 150.0
+  max_slew_velocity_deg_per_sec: 0.5
+  max_slew_acceleration_deg_per_sec2: 0.05
+  max_slew_jerk_deg_per_sec3: null
+  settling_time_sec: 2.0
+  initial_storage_mb: 16000.0
+  initial_battery_wh: 1750.0
+- id: sat_meteor_1-5_deb
+  name: METEOR 1-5 DEB
+  norad_id: '58396'
+  constellation: METEOR
+  owner: CIS
+  tle_epoch: '2025-07-16T10:38:22.412Z'
+  tle_line1: 1 58396U 70047C   25197.44331496  .00001472  00000-0  65194-3 0  9999
+  tle_line2: 2 58396  81.2125 203.0919 0029701 270.4388  89.3386 14.22488622 89189
+  apogee_km: 838.0
+  perigee_km: 796.0
+  period_min: 101.2
+  inclination_deg: 81.2
+  swath_width_km: 3000.0
+  num_terminal: 1
+  battery_capacity_wh: 3500.0
+  storage_capacity_mb: 32000.0
+  obs_store_rate_mb_per_min: 3960.0
+  downlink_release_rate_mb_per_min: 7368.0
+  charge_rate_w: 1350.0
+  idle_discharge_rate_w: 1000.0
+  obs_discharge_rate_w: 1800.0
+  downlink_discharge_rate_w: 150.0
+  max_slew_velocity_deg_per_sec: 0.5
+  max_slew_acceleration_deg_per_sec2: 0.05
+  max_slew_jerk_deg_per_sec3: null
+  settling_time_sec: 2.0
+  initial_storage_mb: 16000.0
+  initial_battery_wh: 1750.0
+- id: sat_meteor-m2_4
+  name: METEOR-M2 4
+  norad_id: '59051'
+  constellation: METEOR
+  owner: CIS
+  tle_epoch: '2025-07-17T03:18:53.092Z'
+  tle_line1: 1 59051U 24039A   25198.13811450  .00000005  00000-0  21678-4 0  9999
+  tle_line2: 2 59051  98.6513 157.5820 0008159  63.8064 296.3952 14.22371465 71630
+  apogee_km: 823.0
+  perigee_km: 811.0
+  period_min: 101.2
+  inclination_deg: 98.7
+  swath_width_km: 3000.0
+  num_terminal: 1
+  battery_capacity_wh: 3500.0
+  storage_capacity_mb: 32000.0
+  obs_store_rate_mb_per_min: 3960.0
+  downlink_release_rate_mb_per_min: 7368.0
+  charge_rate_w: 1350.0
+  idle_discharge_rate_w: 1000.0
+  obs_discharge_rate_w: 1800.0
+  downlink_discharge_rate_w: 150.0
+  max_slew_velocity_deg_per_sec: 0.5
+  max_slew_acceleration_deg_per_sec2: 0.05
+  max_slew_jerk_deg_per_sec3: null
+  settling_time_sec: 2.0
+  initial_storage_mb: 16000.0
+  initial_battery_wh: 1750.0
+- id: sat_meteor-m2_3_deb
+  name: METEOR-M2 3 DEB
+  norad_id: '60448'
+  constellation: METEOR
+  owner: CIS
+  tle_epoch: '2025-07-17T02:03:37.338Z'
+  tle_line1: 1 60448U 23091BC  25198.08584883  .00000201  00000-0  10517-3 0  9996
+  tle_line2: 2 60448  98.6605 254.3809 0005088  70.1172 290.0555 14.24737290 71102
+  apogee_km: 813.0
+  perigee_km: 806.0
+  period_min: 101.1
+  inclination_deg: 98.7
+  swath_width_km: 3000.0
+  num_terminal: 1
+  battery_capacity_wh: 3500.0
+  storage_capacity_mb: 32000.0
+  obs_store_rate_mb_per_min: 3960.0
+  downlink_release_rate_mb_per_min: 7368.0
+  charge_rate_w: 1350.0
+  idle_discharge_rate_w: 1000.0
+  obs_discharge_rate_w: 1800.0
+  downlink_discharge_rate_w: 150.0
+  max_slew_velocity_deg_per_sec: 0.5
+  max_slew_acceleration_deg_per_sec2: 0.05
+  max_slew_jerk_deg_per_sec3: null
+  settling_time_sec: 2.0
+  initial_storage_mb: 16000.0
+  initial_battery_wh: 1750.0

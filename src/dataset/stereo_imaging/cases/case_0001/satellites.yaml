@@ -1,0 +1,1260 @@
+- id: sat_spot_1
+  name: SPOT 1
+  norad_id: '16613'
+  constellation: SPOT
+  owner: FR
+  tle_epoch: '2025-07-16T17:40:22.939Z'
+  tle_line1: 1 16613U 86019A   25197.73637661  .00000631  00000-0  10166-3 0  9991
+  tle_line2: 2 16613  98.6580 104.9995 0130407 236.0365 122.8390 14.70159755761689
+  apogee_km: 752.0
+  perigee_km: 569.0
+  period_min: 98.0
+  inclination_deg: 98.7
+  swath_width_km: 60.0
+  num_terminal: 1
+  battery_capacity_wh: 1680.0
+  storage_capacity_mb: 128000.0
+  obs_store_rate_mb_per_min: 18000.0
+  downlink_release_rate_mb_per_min: 15000.0
+  charge_rate_w: 900.0
+  idle_discharge_rate_w: 400.0
+  obs_discharge_rate_w: 850.0
+  downlink_discharge_rate_w: 100.0
+  max_slew_velocity_deg_per_sec: 3.0
+  max_slew_acceleration_deg_per_sec2: 1.5
+  max_slew_jerk_deg_per_sec3: null
+  settling_time_sec: 1.0
+  initial_storage_mb: 64000.0
+  initial_battery_wh: 840.0
+- id: sat_spot_2
+  name: SPOT 2
+  norad_id: '20436'
+  constellation: SPOT
+  owner: FR
+  tle_epoch: '2025-07-16T21:53:10.308Z'
+  tle_line1: 1 20436U 90005A   25197.91192487  .00000885  00000-0  12929-3 0  9991
+  tle_line2: 2 20436  98.6691 326.2712 0132003  62.1538 299.2970 14.72893072865957
+  apogee_km: 745.0
+  perigee_km: 559.0
+  period_min: 97.8
+  inclination_deg: 98.7
+  swath_width_km: 60.0
+  num_terminal: 1
+  battery_capacity_wh: 1680.0
+  storage_capacity_mb: 128000.0
+  obs_store_rate_mb_per_min: 18000.0
+  downlink_release_rate_mb_per_min: 15000.0
+  charge_rate_w: 900.0
+  idle_discharge_rate_w: 400.0
+  obs_discharge_rate_w: 850.0
+  downlink_discharge_rate_w: 100.0
+  max_slew_velocity_deg_per_sec: 3.0
+  max_slew_acceleration_deg_per_sec2: 1.5
+  max_slew_jerk_deg_per_sec3: null
+  settling_time_sec: 1.0
+  initial_storage_mb: 64000.0
+  initial_battery_wh: 840.0
+- id: sat_spot_3
+  name: SPOT 3
+  norad_id: '22823'
+  constellation: SPOT
+  owner: FR
+  tle_epoch: '2025-07-17T03:07:52.483Z'
+  tle_line1: 1 22823U 93061A   25198.13046856  .00000087  00000-0  62039-4 0  9993
+  tle_line2: 2 22823  98.9058 255.9738 0017725 121.3774 238.9139 14.19958370647283
+  apogee_km: 838.0
+  perigee_km: 813.0
+  period_min: 101.4
+  inclination_deg: 98.9
+  swath_width_km: 60.0
+  num_terminal: 1
+  battery_capacity_wh: 1680.0
+  storage_capacity_mb: 128000.0
+  obs_store_rate_mb_per_min: 18000.0
+  downlink_release_rate_mb_per_min: 15000.0
+  charge_rate_w: 900.0
+  idle_discharge_rate_w: 400.0
+  obs_discharge_rate_w: 850.0
+  downlink_discharge_rate_w: 100.0
+  max_slew_velocity_deg_per_sec: 3.0
+  max_slew_acceleration_deg_per_sec2: 1.5
+  max_slew_jerk_deg_per_sec3: null
+  settling_time_sec: 1.0
+  initial_storage_mb: 64000.0
+  initial_battery_wh: 840.0
+- id: sat_spot_4
+  name: SPOT 4
+  norad_id: '25260'
+  constellation: SPOT
+  owner: FR
+  tle_epoch: '2025-07-17T05:39:46.780Z'
+  tle_line1: 1 25260U 98017A   25198.23595811  .00000284  00000-0  75420-4 0  9995
+  tle_line2: 2 25260  98.2516 292.8640 0012757 173.0123 187.1255 14.55715924430816
+  apogee_km: 716.0
+  perigee_km: 698.0
+  period_min: 98.9
+  inclination_deg: 98.3
+  swath_width_km: 60.0
+  num_terminal: 1
+  battery_capacity_wh: 1680.0
+  storage_capacity_mb: 128000.0
+  obs_store_rate_mb_per_min: 18000.0
+  downlink_release_rate_mb_per_min: 15000.0
+  charge_rate_w: 900.0
+  idle_discharge_rate_w: 400.0
+  obs_discharge_rate_w: 850.0
+  downlink_discharge_rate_w: 100.0
+  max_slew_velocity_deg_per_sec: 3.0
+  max_slew_acceleration_deg_per_sec2: 1.5
+  max_slew_jerk_deg_per_sec3: null
+  settling_time_sec: 1.0
+  initial_storage_mb: 64000.0
+  initial_battery_wh: 840.0
+- id: sat_spot_5
+  name: SPOT 5
+  norad_id: '27421'
+  constellation: SPOT
+  owner: FR
+  tle_epoch: '2025-07-17T03:53:51.792Z'
+  tle_line1: 1 27421U 02021A   25198.16240501  .00000240  00000-0  61233-4 0  9990
+  tle_line2: 2 27421  98.0335 246.0547 0129284 237.4593 121.4062 14.54324628214173
+  apogee_km: 803.0
+  perigee_km: 620.0
+  period_min: 99.0
+  inclination_deg: 98.0
+  swath_width_km: 60.0
+  num_terminal: 1
+  battery_capacity_wh: 1680.0
+  storage_capacity_mb: 128000.0
+  obs_store_rate_mb_per_min: 18000.0
+  downlink_release_rate_mb_per_min: 15000.0
+  charge_rate_w: 900.0
+  idle_discharge_rate_w: 400.0
+  obs_discharge_rate_w: 850.0
+  downlink_discharge_rate_w: 100.0
+  max_slew_velocity_deg_per_sec: 3.0
+  max_slew_acceleration_deg_per_sec2: 1.5
+  max_slew_jerk_deg_per_sec3: null
+  settling_time_sec: 1.0
+  initial_storage_mb: 64000.0
+  initial_battery_wh: 840.0
+- id: sat_ziyuan_1-02c
+  name: ZIYUAN 1-02C
+  norad_id: '38038'
+  constellation: ZIYUAN
+  owner: PRC
+  tle_epoch: '2025-07-17T04:32:24.739Z'
+  tle_line1: 1 38038U 11079A   25198.18917523  .00000327  00000-0  12300-3 0  9992
+  tle_line2: 2 38038  98.4518 266.8017 0005644 220.8392 216.1068 14.37800439711118
+  apogee_km: 770.0
+  perigee_km: 762.0
+  period_min: 100.2
+  inclination_deg: 98.50000000000001
+  swath_width_km: 51.0
+  num_terminal: 1
+  battery_capacity_wh: 3500.0
+  storage_capacity_mb: 1000000.0
+  obs_store_rate_mb_per_min: 36000.0
+  downlink_release_rate_mb_per_min: 36000.0
+  charge_rate_w: 1500.0
+  idle_discharge_rate_w: 600.0
+  obs_discharge_rate_w: 1100.0
+  downlink_discharge_rate_w: 150.0
+  max_slew_velocity_deg_per_sec: 1.0
+  max_slew_acceleration_deg_per_sec2: 0.1
+  max_slew_jerk_deg_per_sec3: null
+  settling_time_sec: 2.0
+  initial_storage_mb: 500000.0
+  initial_battery_wh: 1750.0
+- id: sat_ziyuan_3-1
+  name: ZIYUAN 3-1
+  norad_id: '38046'
+  constellation: ZIYUAN
+  owner: PRC
+  tle_epoch: '2025-07-17T03:41:04.763Z'
+  tle_line1: 1 38046U 12001A   25198.15352736  .00016818  00000-0  26053-3 0  9995
+  tle_line2: 2 38046  97.1962 262.9102 0004759 135.3357 224.8281 15.54089261751866
+  apogee_km: 408.0
+  perigee_km: 402.0
+  period_min: 92.7
+  inclination_deg: 97.2
+  swath_width_km: 51.0
+  num_terminal: 1
+  battery_capacity_wh: 3500.0
+  storage_capacity_mb: 1000000.0
+  obs_store_rate_mb_per_min: 36000.0
+  downlink_release_rate_mb_per_min: 36000.0
+  charge_rate_w: 1500.0
+  idle_discharge_rate_w: 600.0
+  obs_discharge_rate_w: 1100.0
+  downlink_discharge_rate_w: 150.0
+  max_slew_velocity_deg_per_sec: 1.0
+  max_slew_acceleration_deg_per_sec2: 0.1
+  max_slew_jerk_deg_per_sec3: null
+  settling_time_sec: 2.0
+  initial_storage_mb: 500000.0
+  initial_battery_wh: 1750.0
+- id: sat_spot_6
+  name: SPOT 6
+  norad_id: '38755'
+  constellation: SPOT
+  owner: FR
+  tle_epoch: '2025-07-17T03:33:53.055Z'
+  tle_line1: 1 38755U 12047A   25198.14853074  .00000199  00000-0  52635-4 0  9993
+  tle_line2: 2 38755  98.1758 265.4974 0001685  96.9036 263.2355 14.58582394684247
+  apogee_km: 699.0
+  perigee_km: 697.0
+  period_min: 98.7
+  inclination_deg: 98.2
+  swath_width_km: 60.0
+  num_terminal: 1
+  battery_capacity_wh: 1680.0
+  storage_capacity_mb: 128000.0
+  obs_store_rate_mb_per_min: 18000.0
+  downlink_release_rate_mb_per_min: 15000.0
+  charge_rate_w: 900.0
+  idle_discharge_rate_w: 400.0
+  obs_discharge_rate_w: 850.0
+  downlink_discharge_rate_w: 100.0
+  max_slew_velocity_deg_per_sec: 3.0
+  max_slew_acceleration_deg_per_sec2: 1.5
+  max_slew_jerk_deg_per_sec3: null
+  settling_time_sec: 1.0
+  initial_storage_mb: 64000.0
+  initial_battery_wh: 840.0
+- id: sat_gaofen-1
+  name: GAOFEN-1
+  norad_id: '39150'
+  constellation: GAOFEN
+  owner: PRC
+  tle_epoch: '2025-07-17T05:19:55.616Z'
+  tle_line1: 1 39150U 13018A   25198.22217149  .00000465  00000-0  73984-4 0  9994
+  tle_line2: 2 39150  97.9487 271.3577 0016039 264.4087  95.5294 14.76505025658857
+  apogee_km: 652.0
+  perigee_km: 629.0
+  period_min: 97.5
+  inclination_deg: 98.0
+  swath_width_km: 45.0
+  num_terminal: 1
+  battery_capacity_wh: 3920.0
+  storage_capacity_mb: 480000.0
+  obs_store_rate_mb_per_min: 36000.0
+  downlink_release_rate_mb_per_min: 36000.0
+  charge_rate_w: 2500.0
+  idle_discharge_rate_w: 800.0
+  obs_discharge_rate_w: 1500.0
+  downlink_discharge_rate_w: 150.0
+  max_slew_velocity_deg_per_sec: 0.7
+  max_slew_acceleration_deg_per_sec2: 0.08
+  max_slew_jerk_deg_per_sec3: null
+  settling_time_sec: 2.5
+  initial_storage_mb: 240000.0
+  initial_battery_wh: 1960.0
+- id: sat_spot_7
+  name: SPOT 7
+  norad_id: '40053'
+  constellation: SPOT
+  owner: AZER
+  tle_epoch: '2025-07-17T03:39:48.116Z'
+  tle_line1: 1 40053U 14034A   25198.15264024  .00000312  00000-0  73726-4 0  9998
+  tle_line2: 2 40053  98.1102 263.4969 0001337 104.3405 255.7944 14.60491328588246
+  apogee_km: 693.0
+  perigee_km: 691.0
+  period_min: 98.6
+  inclination_deg: 98.1
+  swath_width_km: 60.0
+  num_terminal: 1
+  battery_capacity_wh: 1680.0
+  storage_capacity_mb: 128000.0
+  obs_store_rate_mb_per_min: 18000.0
+  downlink_release_rate_mb_per_min: 15000.0
+  charge_rate_w: 900.0
+  idle_discharge_rate_w: 400.0
+  obs_discharge_rate_w: 850.0
+  downlink_discharge_rate_w: 100.0
+  max_slew_velocity_deg_per_sec: 3.0
+  max_slew_acceleration_deg_per_sec2: 1.5
+  max_slew_jerk_deg_per_sec3: null
+  settling_time_sec: 1.0
+  initial_storage_mb: 64000.0
+  initial_battery_wh: 840.0
+- id: sat_gaofen-2
+  name: GAOFEN-2
+  norad_id: '40118'
+  constellation: GAOFEN
+  owner: PRC
+  tle_epoch: '2025-07-17T04:11:57.255Z'
+  tle_line1: 1 40118U 14049A   25198.17496823  .00000694  00000-0  97558-4 0  9994
+  tle_line2: 2 40118  98.0577 256.9369 0003743 213.1987 146.8991 14.80575215589671
+  apogee_km: 630.0
+  perigee_km: 625.0
+  period_min: 97.3
+  inclination_deg: 98.1
+  swath_width_km: 45.0
+  num_terminal: 1
+  battery_capacity_wh: 3920.0
+  storage_capacity_mb: 480000.0
+  obs_store_rate_mb_per_min: 36000.0
+  downlink_release_rate_mb_per_min: 36000.0
+  charge_rate_w: 2500.0
+  idle_discharge_rate_w: 800.0
+  obs_discharge_rate_w: 1500.0
+  downlink_discharge_rate_w: 150.0
+  max_slew_velocity_deg_per_sec: 0.7
+  max_slew_acceleration_deg_per_sec2: 0.08
+  max_slew_jerk_deg_per_sec3: null
+  settling_time_sec: 2.5
+  initial_storage_mb: 240000.0
+  initial_battery_wh: 1960.0
+- id: sat_gaofen-8
+  name: GAOFEN-8
+  norad_id: '40701'
+  constellation: GAOFEN
+  owner: PRC
+  tle_epoch: '2025-07-17T04:20:09.818Z'
+  tle_line1: 1 40701U 15030A   25198.18066920  .00012996  00000-0  40885-3 0  9993
+  tle_line2: 2 40701  97.6919   9.8084 0010929 313.0630  46.9696 15.33038326559914
+  apogee_km: 474.0
+  perigee_km: 459.0
+  period_min: 93.9
+  inclination_deg: 97.7
+  swath_width_km: 45.0
+  num_terminal: 1
+  battery_capacity_wh: 3920.0
+  storage_capacity_mb: 480000.0
+  obs_store_rate_mb_per_min: 36000.0
+  downlink_release_rate_mb_per_min: 36000.0
+  charge_rate_w: 2500.0
+  idle_discharge_rate_w: 800.0
+  obs_discharge_rate_w: 1500.0
+  downlink_discharge_rate_w: 150.0
+  max_slew_velocity_deg_per_sec: 0.7
+  max_slew_acceleration_deg_per_sec2: 0.08
+  max_slew_jerk_deg_per_sec3: null
+  settling_time_sec: 2.5
+  initial_storage_mb: 240000.0
+  initial_battery_wh: 1960.0
+- id: sat_gaofen-9_01
+  name: GAOFEN-9 01
+  norad_id: '40894'
+  constellation: GAOFEN
+  owner: PRC
+  tle_epoch: '2025-07-17T04:58:08.973Z'
+  tle_line1: 1 40894U 15047A   25198.20704830  .00000793  00000-0  10588-3 0  9995
+  tle_line2: 2 40894  97.6751 243.4116 0028524 155.4296 204.8284 14.81930262530569
+  apogee_km: 643.0
+  perigee_km: 603.0
+  period_min: 97.2
+  inclination_deg: 97.7
+  swath_width_km: 45.0
+  num_terminal: 1
+  battery_capacity_wh: 3920.0
+  storage_capacity_mb: 480000.0
+  obs_store_rate_mb_per_min: 36000.0
+  downlink_release_rate_mb_per_min: 36000.0
+  charge_rate_w: 2500.0
+  idle_discharge_rate_w: 800.0
+  obs_discharge_rate_w: 1500.0
+  downlink_discharge_rate_w: 150.0
+  max_slew_velocity_deg_per_sec: 0.7
+  max_slew_acceleration_deg_per_sec2: 0.08
+  max_slew_jerk_deg_per_sec3: null
+  settling_time_sec: 2.5
+  initial_storage_mb: 240000.0
+  initial_battery_wh: 1960.0
+- id: sat_ziyuan_3-2
+  name: ZIYUAN 3-2
+  norad_id: '41556'
+  constellation: ZIYUAN
+  owner: PRC
+  tle_epoch: '2025-07-17T04:50:59.390Z'
+  tle_line1: 1 41556U 16033A   25198.20207628  .00005164  00000-0  23303-3 0  9996
+  tle_line2: 2 41556  97.4179 274.6984 0011211  48.0502 312.1687 15.21380256507053
+  apogee_km: 509.0
+  perigee_km: 494.0
+  period_min: 94.7
+  inclination_deg: 97.40000000000002
+  swath_width_km: 51.0
+  num_terminal: 1
+  battery_capacity_wh: 3500.0
+  storage_capacity_mb: 1000000.0
+  obs_store_rate_mb_per_min: 36000.0
+  downlink_release_rate_mb_per_min: 36000.0
+  charge_rate_w: 1500.0
+  idle_discharge_rate_w: 600.0
+  obs_discharge_rate_w: 1100.0
+  downlink_discharge_rate_w: 150.0
+  max_slew_velocity_deg_per_sec: 1.0
+  max_slew_acceleration_deg_per_sec2: 0.1
+  max_slew_jerk_deg_per_sec3: null
+  settling_time_sec: 2.0
+  initial_storage_mb: 500000.0
+  initial_battery_wh: 1750.0
+- id: sat_gaofen-3
+  name: GAOFEN-3
+  norad_id: '41727'
+  constellation: GAOFEN
+  owner: PRC
+  tle_epoch: '2025-07-17T04:44:22.265Z'
+  tle_line1: 1 41727U 16049A   25198.19747992  .00000012  00000-0  16852-4 0  9993
+  tle_line2: 2 41727  98.4033 205.9943 0001995  90.4748 269.6670 14.42218897470359
+  apogee_km: 753.0
+  perigee_km: 750.0
+  period_min: 99.9
+  inclination_deg: 98.40000000000002
+  swath_width_km: 45.0
+  num_terminal: 1
+  battery_capacity_wh: 3920.0
+  storage_capacity_mb: 480000.0
+  obs_store_rate_mb_per_min: 36000.0
+  downlink_release_rate_mb_per_min: 36000.0
+  charge_rate_w: 2500.0
+  idle_discharge_rate_w: 800.0
+  obs_discharge_rate_w: 1500.0
+  downlink_discharge_rate_w: 150.0
+  max_slew_velocity_deg_per_sec: 0.7
+  max_slew_acceleration_deg_per_sec2: 0.08
+  max_slew_jerk_deg_per_sec3: null
+  settling_time_sec: 2.5
+  initial_storage_mb: 240000.0
+  initial_battery_wh: 1960.0
+- id: sat_gaofen-3_deb
+  name: GAOFEN-3 DEB
+  norad_id: '42678'
+  constellation: GAOFEN
+  owner: PRC
+  tle_epoch: '2025-07-16T06:52:15.897Z'
+  tle_line1: 1 42678U 16049C   25197.28629511  .00000123  00000-0  46189-4 0  9993
+  tle_line2: 2 42678  98.3237 209.7158 0007414 298.4851  61.5594 14.46549825465357
+  apogee_km: 742.0
+  perigee_km: 732.0
+  period_min: 99.6
+  inclination_deg: 98.3
+  swath_width_km: 45.0
+  num_terminal: 1
+  battery_capacity_wh: 3920.0
+  storage_capacity_mb: 480000.0
+  obs_store_rate_mb_per_min: 36000.0
+  downlink_release_rate_mb_per_min: 36000.0
+  charge_rate_w: 2500.0
+  idle_discharge_rate_w: 800.0
+  obs_discharge_rate_w: 1500.0
+  downlink_discharge_rate_w: 150.0
+  max_slew_velocity_deg_per_sec: 0.7
+  max_slew_acceleration_deg_per_sec2: 0.08
+  max_slew_jerk_deg_per_sec3: null
+  settling_time_sec: 2.5
+  initial_storage_mb: 240000.0
+  initial_battery_wh: 1960.0
+- id: sat_gaofen-1_02
+  name: GAOFEN-1 02
+  norad_id: '43259'
+  constellation: GAOFEN
+  owner: PRC
+  tle_epoch: '2025-07-17T04:13:38.346Z'
+  tle_line1: 1 43259U 18031A   25198.17613827  .00000610  00000-0  94318-4 0  9992
+  tle_line2: 2 43259  97.7706 258.0861 0005470  13.0285 347.1066 14.76603027393262
+  apogee_km: 644.0
+  perigee_km: 636.0
+  period_min: 97.5
+  inclination_deg: 97.8
+  swath_width_km: 45.0
+  num_terminal: 1
+  battery_capacity_wh: 3920.0
+  storage_capacity_mb: 480000.0
+  obs_store_rate_mb_per_min: 36000.0
+  downlink_release_rate_mb_per_min: 36000.0
+  charge_rate_w: 2500.0
+  idle_discharge_rate_w: 800.0
+  obs_discharge_rate_w: 1500.0
+  downlink_discharge_rate_w: 150.0
+  max_slew_velocity_deg_per_sec: 0.7
+  max_slew_acceleration_deg_per_sec2: 0.08
+  max_slew_jerk_deg_per_sec3: null
+  settling_time_sec: 2.5
+  initial_storage_mb: 240000.0
+  initial_battery_wh: 1960.0
+- id: sat_gaofen-1_03
+  name: GAOFEN-1 03
+  norad_id: '43260'
+  constellation: GAOFEN
+  owner: PRC
+  tle_epoch: '2025-07-17T03:42:11.187Z'
+  tle_line1: 1 43260U 18031B   25198.15429615  .00000529  00000-0  82804-4 0  9998
+  tle_line2: 2 43260  97.7700 257.9565 0006621  44.6225 315.5518 14.76589752393258
+  apogee_km: 645.0
+  perigee_km: 635.0
+  period_min: 97.5
+  inclination_deg: 97.8
+  swath_width_km: 45.0
+  num_terminal: 1
+  battery_capacity_wh: 3920.0
+  storage_capacity_mb: 480000.0
+  obs_store_rate_mb_per_min: 36000.0
+  downlink_release_rate_mb_per_min: 36000.0
+  charge_rate_w: 2500.0
+  idle_discharge_rate_w: 800.0
+  obs_discharge_rate_w: 1500.0
+  downlink_discharge_rate_w: 150.0
+  max_slew_velocity_deg_per_sec: 0.7
+  max_slew_acceleration_deg_per_sec2: 0.08
+  max_slew_jerk_deg_per_sec3: null
+  settling_time_sec: 2.5
+  initial_storage_mb: 240000.0
+  initial_battery_wh: 1960.0
+- id: sat_gaofen-1_04
+  name: GAOFEN-1 04
+  norad_id: '43262'
+  constellation: GAOFEN
+  owner: PRC
+  tle_epoch: '2025-07-17T04:44:42.838Z'
+  tle_line1: 1 43262U 18031D   25198.19771804  .00000609  00000-0  94145-4 0  9994
+  tle_line2: 2 43262  97.7709 258.1492 0003241  54.9977 305.1537 14.76597159393250
+  apogee_km: 642.0
+  perigee_km: 638.0
+  period_min: 97.5
+  inclination_deg: 97.8
+  swath_width_km: 45.0
+  num_terminal: 1
+  battery_capacity_wh: 3920.0
+  storage_capacity_mb: 480000.0
+  obs_store_rate_mb_per_min: 36000.0
+  downlink_release_rate_mb_per_min: 36000.0
+  charge_rate_w: 2500.0
+  idle_discharge_rate_w: 800.0
+  obs_discharge_rate_w: 1500.0
+  downlink_discharge_rate_w: 150.0
+  max_slew_velocity_deg_per_sec: 0.7
+  max_slew_acceleration_deg_per_sec2: 0.08
+  max_slew_jerk_deg_per_sec3: null
+  settling_time_sec: 2.5
+  initial_storage_mb: 240000.0
+  initial_battery_wh: 1960.0
+- id: sat_gaofen-5_01
+  name: GAOFEN-5 01
+  norad_id: '43461'
+  constellation: GAOFEN
+  owner: PRC
+  tle_epoch: '2025-07-16T21:23:23.610Z'
+  tle_line1: 1 43461U 18043A   25197.89124549  .00000262  00000-0  64346-4 0  9997
+  tle_line2: 2 43461  98.4076 158.4968 0002787  59.7770 300.3706 14.60188310382750
+  apogee_km: 695.0
+  perigee_km: 691.0
+  period_min: 98.6
+  inclination_deg: 98.40000000000002
+  swath_width_km: 45.0
+  num_terminal: 1
+  battery_capacity_wh: 3920.0
+  storage_capacity_mb: 480000.0
+  obs_store_rate_mb_per_min: 36000.0
+  downlink_release_rate_mb_per_min: 36000.0
+  charge_rate_w: 2500.0
+  idle_discharge_rate_w: 800.0
+  obs_discharge_rate_w: 1500.0
+  downlink_discharge_rate_w: 150.0
+  max_slew_velocity_deg_per_sec: 0.7
+  max_slew_acceleration_deg_per_sec2: 0.08
+  max_slew_jerk_deg_per_sec3: null
+  settling_time_sec: 2.5
+  initial_storage_mb: 240000.0
+  initial_battery_wh: 1960.0
+- id: sat_gaofen-6
+  name: GAOFEN-6
+  norad_id: '43484'
+  constellation: GAOFEN
+  owner: PRC
+  tle_epoch: '2025-07-17T04:14:30.029Z'
+  tle_line1: 1 43484U 18048A   25198.17673645  .00000525  00000-0  82226-4 0  9994
+  tle_line2: 2 43484  97.8217 267.2502 0012961 170.9440 189.2006 14.76601476383953
+  apogee_km: 649.0
+  perigee_km: 631.0
+  period_min: 97.5
+  inclination_deg: 97.8
+  swath_width_km: 45.0
+  num_terminal: 1
+  battery_capacity_wh: 3920.0
+  storage_capacity_mb: 480000.0
+  obs_store_rate_mb_per_min: 36000.0
+  downlink_release_rate_mb_per_min: 36000.0
+  charge_rate_w: 2500.0
+  idle_discharge_rate_w: 800.0
+  obs_discharge_rate_w: 1500.0
+  downlink_discharge_rate_w: 150.0
+  max_slew_velocity_deg_per_sec: 0.7
+  max_slew_acceleration_deg_per_sec2: 0.08
+  max_slew_jerk_deg_per_sec3: null
+  settling_time_sec: 2.5
+  initial_storage_mb: 240000.0
+  initial_battery_wh: 1960.0
+- id: sat_gaofen-11_01
+  name: GAOFEN-11 01
+  norad_id: '43585'
+  constellation: GAOFEN
+  owner: PRC
+  tle_epoch: '2025-07-17T04:38:53.176Z'
+  tle_line1: 1 43585U 18063A   25198.19367102  .00010051  00000-0  21933-3 0  9995
+  tle_line2: 2 43585  97.1771 262.7390 0007814 119.5586 240.6443 15.44378304388464
+  apogee_km: 439.0
+  perigee_km: 428.0
+  period_min: 93.2
+  inclination_deg: 97.2
+  swath_width_km: 45.0
+  num_terminal: 1
+  battery_capacity_wh: 3920.0
+  storage_capacity_mb: 480000.0
+  obs_store_rate_mb_per_min: 36000.0
+  downlink_release_rate_mb_per_min: 36000.0
+  charge_rate_w: 2500.0
+  idle_discharge_rate_w: 800.0
+  obs_discharge_rate_w: 1500.0
+  downlink_discharge_rate_w: 150.0
+  max_slew_velocity_deg_per_sec: 0.7
+  max_slew_acceleration_deg_per_sec2: 0.08
+  max_slew_jerk_deg_per_sec3: null
+  settling_time_sec: 2.5
+  initial_storage_mb: 240000.0
+  initial_battery_wh: 1960.0
+- id: sat_jilin-1_gaofen
+  name: JILIN-1 GAOFEN
+  norad_id: '44312'
+  constellation: GAOFEN
+  owner: PRC
+  tle_epoch: '2025-07-16T21:50:58.292Z'
+  tle_line1: 1 44312U 19032C   25197.91039690  .00006233  00000-0  26873-3 0  9993
+  tle_line2: 2 44312  44.9803  29.2359 0011809 192.0192 168.0409 15.23360196336632
+  apogee_km: 504.0
+  perigee_km: 488.0
+  period_min: 94.5
+  inclination_deg: 45.0
+  swath_width_km: 45.0
+  num_terminal: 1
+  battery_capacity_wh: 3920.0
+  storage_capacity_mb: 480000.0
+  obs_store_rate_mb_per_min: 36000.0
+  downlink_release_rate_mb_per_min: 36000.0
+  charge_rate_w: 2500.0
+  idle_discharge_rate_w: 800.0
+  obs_discharge_rate_w: 1500.0
+  downlink_discharge_rate_w: 150.0
+  max_slew_velocity_deg_per_sec: 0.7
+  max_slew_acceleration_deg_per_sec2: 0.08
+  max_slew_jerk_deg_per_sec3: null
+  settling_time_sec: 2.5
+  initial_storage_mb: 240000.0
+  initial_battery_wh: 1960.0
+- id: sat_gaofen-9_deb
+  name: GAOFEN-9 DEB
+  norad_id: '44600'
+  constellation: GAOFEN
+  owner: PRC
+  tle_epoch: '2025-07-16T17:59:41.620Z'
+  tle_line1: 1 44600U 15047B   25197.74978727  .00003907  00000-0  73716-3 0  9992
+  tle_line2: 2 44600  98.1227 127.4285 0161659  36.8624 324.3559 14.56947066516934
+  apogee_km: 818.0
+  perigee_km: 589.0
+  period_min: 98.8
+  inclination_deg: 98.1
+  swath_width_km: 45.0
+  num_terminal: 1
+  battery_capacity_wh: 3920.0
+  storage_capacity_mb: 480000.0
+  obs_store_rate_mb_per_min: 36000.0
+  downlink_release_rate_mb_per_min: 36000.0
+  charge_rate_w: 2500.0
+  idle_discharge_rate_w: 800.0
+  obs_discharge_rate_w: 1500.0
+  downlink_discharge_rate_w: 150.0
+  max_slew_velocity_deg_per_sec: 0.7
+  max_slew_acceleration_deg_per_sec2: 0.08
+  max_slew_jerk_deg_per_sec3: null
+  settling_time_sec: 2.5
+  initial_storage_mb: 240000.0
+  initial_battery_wh: 1960.0
+- id: sat_gaofen-10r
+  name: GAOFEN-10R
+  norad_id: '44622'
+  constellation: GAOFEN
+  owner: PRC
+  tle_epoch: '2025-07-17T04:45:12.464Z'
+  tle_line1: 1 44622U 19066A   25198.19806093  .00001006  00000-0  13129-3 0  9997
+  tle_line2: 2 44622  98.0057 145.3415 0006458 138.6126 221.5577 14.82749094312735
+  apogee_km: 625.0
+  perigee_km: 616.0
+  period_min: 97.1
+  inclination_deg: 98.0
+  swath_width_km: 45.0
+  num_terminal: 1
+  battery_capacity_wh: 3920.0
+  storage_capacity_mb: 480000.0
+  obs_store_rate_mb_per_min: 36000.0
+  downlink_release_rate_mb_per_min: 36000.0
+  charge_rate_w: 2500.0
+  idle_discharge_rate_w: 800.0
+  obs_discharge_rate_w: 1500.0
+  downlink_discharge_rate_w: 150.0
+  max_slew_velocity_deg_per_sec: 0.7
+  max_slew_acceleration_deg_per_sec2: 0.08
+  max_slew_jerk_deg_per_sec3: null
+  settling_time_sec: 2.5
+  initial_storage_mb: 240000.0
+  initial_battery_wh: 1960.0
+- id: sat_gaofen-7
+  name: GAOFEN-7
+  norad_id: '44703'
+  constellation: GAOFEN
+  owner: PRC
+  tle_epoch: '2025-07-17T03:52:20.844Z'
+  tle_line1: 1 44703U 19072A   25198.16135237  .00003423  00000-0  15485-3 0  9998
+  tle_line2: 2 44703  97.2891 266.2534 0012238 104.7446 255.5147 15.21501412316704
+  apogee_km: 510.0
+  perigee_km: 493.0
+  period_min: 94.6
+  inclination_deg: 97.3
+  swath_width_km: 45.0
+  num_terminal: 1
+  battery_capacity_wh: 3920.0
+  storage_capacity_mb: 480000.0
+  obs_store_rate_mb_per_min: 36000.0
+  downlink_release_rate_mb_per_min: 36000.0
+  charge_rate_w: 2500.0
+  idle_discharge_rate_w: 800.0
+  obs_discharge_rate_w: 1500.0
+  downlink_discharge_rate_w: 150.0
+  max_slew_velocity_deg_per_sec: 0.7
+  max_slew_acceleration_deg_per_sec2: 0.08
+  max_slew_jerk_deg_per_sec3: null
+  settling_time_sec: 2.5
+  initial_storage_mb: 240000.0
+  initial_battery_wh: 1960.0
+- id: sat_gaofen-12_01
+  name: GAOFEN-12 01
+  norad_id: '44819'
+  constellation: GAOFEN
+  owner: PRC
+  tle_epoch: '2025-07-17T04:36:50.161Z'
+  tle_line1: 1 44819U 19082A   25198.19224724  .00000335  00000-0  50457-4 0  9998
+  tle_line2: 2 44819  97.8134 208.3377 0003394  41.9102 318.2370 14.80429782304529
+  apogee_km: 630.0
+  perigee_km: 626.0
+  period_min: 97.3
+  inclination_deg: 97.8
+  swath_width_km: 45.0
+  num_terminal: 1
+  battery_capacity_wh: 3920.0
+  storage_capacity_mb: 480000.0
+  obs_store_rate_mb_per_min: 36000.0
+  downlink_release_rate_mb_per_min: 36000.0
+  charge_rate_w: 2500.0
+  idle_discharge_rate_w: 800.0
+  obs_discharge_rate_w: 1500.0
+  downlink_discharge_rate_w: 150.0
+  max_slew_velocity_deg_per_sec: 0.7
+  max_slew_acceleration_deg_per_sec2: 0.08
+  max_slew_jerk_deg_per_sec3: null
+  settling_time_sec: 2.5
+  initial_storage_mb: 240000.0
+  initial_battery_wh: 1960.0
+- id: sat_gaofen-9_02
+  name: GAOFEN-9 02
+  norad_id: '45625'
+  constellation: GAOFEN
+  owner: PRC
+  tle_epoch: '2025-07-17T04:00:11.548Z'
+  tle_line1: 1 45625U 20034B   25198.16680033  .00005567  00000-0  23482-3 0  9998
+  tle_line2: 2 45625  97.5350 347.9189 0014205 130.8063 229.4408 15.23627495285139
+  apogee_km: 505.0
+  perigee_km: 485.0
+  period_min: 94.5
+  inclination_deg: 97.50000000000001
+  swath_width_km: 45.0
+  num_terminal: 1
+  battery_capacity_wh: 3920.0
+  storage_capacity_mb: 480000.0
+  obs_store_rate_mb_per_min: 36000.0
+  downlink_release_rate_mb_per_min: 36000.0
+  charge_rate_w: 2500.0
+  idle_discharge_rate_w: 800.0
+  obs_discharge_rate_w: 1500.0
+  downlink_discharge_rate_w: 150.0
+  max_slew_velocity_deg_per_sec: 0.7
+  max_slew_acceleration_deg_per_sec2: 0.08
+  max_slew_jerk_deg_per_sec3: null
+  settling_time_sec: 2.5
+  initial_storage_mb: 240000.0
+  initial_battery_wh: 1960.0
+- id: sat_gaofen-9_03
+  name: GAOFEN-9 03
+  norad_id: '45794'
+  constellation: GAOFEN
+  owner: PRC
+  tle_epoch: '2025-07-17T03:33:26.564Z'
+  tle_line1: 1 45794U 20039A   25198.14822413  .00006781  00000-0  27447-3 0  9992
+  tle_line2: 2 45794  97.4994 323.7630 0014206 178.3198 181.8089 15.24931461282572
+  apogee_km: 501.0
+  perigee_km: 481.0
+  period_min: 94.4
+  inclination_deg: 97.50000000000001
+  swath_width_km: 45.0
+  num_terminal: 1
+  battery_capacity_wh: 3920.0
+  storage_capacity_mb: 480000.0
+  obs_store_rate_mb_per_min: 36000.0
+  downlink_release_rate_mb_per_min: 36000.0
+  charge_rate_w: 2500.0
+  idle_discharge_rate_w: 800.0
+  obs_discharge_rate_w: 1500.0
+  downlink_discharge_rate_w: 150.0
+  max_slew_velocity_deg_per_sec: 0.7
+  max_slew_acceleration_deg_per_sec2: 0.08
+  max_slew_jerk_deg_per_sec3: null
+  settling_time_sec: 2.5
+  initial_storage_mb: 240000.0
+  initial_battery_wh: 1960.0
+- id: sat_gaofen_duomo
+  name: GAOFEN DUOMO
+  norad_id: '45856'
+  constellation: GAOFEN
+  owner: PRC
+  tle_epoch: '2025-07-17T04:00:33.616Z'
+  tle_line1: 1 45856U 20042A   25198.16705575  .00000606  00000-0  93408-4 0  9997
+  tle_line2: 2 45856  97.8227 264.3159 0013694  80.1215 280.1541 14.76797009271567
+  apogee_km: 649.0
+  perigee_km: 630.0
+  period_min: 97.5
+  inclination_deg: 97.8
+  swath_width_km: 45.0
+  num_terminal: 1
+  battery_capacity_wh: 3920.0
+  storage_capacity_mb: 480000.0
+  obs_store_rate_mb_per_min: 36000.0
+  downlink_release_rate_mb_per_min: 36000.0
+  charge_rate_w: 2500.0
+  idle_discharge_rate_w: 800.0
+  obs_discharge_rate_w: 1500.0
+  downlink_discharge_rate_w: 150.0
+  max_slew_velocity_deg_per_sec: 0.7
+  max_slew_acceleration_deg_per_sec2: 0.08
+  max_slew_jerk_deg_per_sec3: null
+  settling_time_sec: 2.5
+  initial_storage_mb: 240000.0
+  initial_battery_wh: 1960.0
+- id: sat_gaofen-9_04
+  name: GAOFEN-9 04
+  norad_id: '46025'
+  constellation: GAOFEN
+  owner: PRC
+  tle_epoch: '2025-07-17T03:56:30.724Z'
+  tle_line1: 1 46025U 20054A   25198.16424450  .00007130  00000-0  25741-3 0  9992
+  tle_line2: 2 46025  97.2865 268.0627 0012127 202.7271 157.3434 15.28727838275036
+  apogee_km: 488.0
+  perigee_km: 471.0
+  period_min: 94.2
+  inclination_deg: 97.3
+  swath_width_km: 45.0
+  num_terminal: 1
+  battery_capacity_wh: 3920.0
+  storage_capacity_mb: 480000.0
+  obs_store_rate_mb_per_min: 36000.0
+  downlink_release_rate_mb_per_min: 36000.0
+  charge_rate_w: 2500.0
+  idle_discharge_rate_w: 800.0
+  obs_discharge_rate_w: 1500.0
+  downlink_discharge_rate_w: 150.0
+  max_slew_velocity_deg_per_sec: 0.7
+  max_slew_acceleration_deg_per_sec2: 0.08
+  max_slew_jerk_deg_per_sec3: null
+  settling_time_sec: 2.5
+  initial_storage_mb: 240000.0
+  initial_battery_wh: 1960.0
+- id: sat_gaofen-9_05
+  name: GAOFEN-9 05
+  norad_id: '46232'
+  constellation: GAOFEN
+  owner: PRC
+  tle_epoch: '2025-07-17T04:36:57.847Z'
+  tle_line1: 1 46232U 20058A   25198.19233620  .00006714  00000-0  26384-3 0  9997
+  tle_line2: 2 46232  97.2569 242.8058 0008920 196.5806 163.5143 15.25968216272425
+  apogee_km: 494.0
+  perigee_km: 482.0
+  period_min: 94.4
+  inclination_deg: 97.3
+  swath_width_km: 45.0
+  num_terminal: 1
+  battery_capacity_wh: 3920.0
+  storage_capacity_mb: 480000.0
+  obs_store_rate_mb_per_min: 36000.0
+  downlink_release_rate_mb_per_min: 36000.0
+  charge_rate_w: 2500.0
+  idle_discharge_rate_w: 800.0
+  obs_discharge_rate_w: 1500.0
+  downlink_discharge_rate_w: 150.0
+  max_slew_velocity_deg_per_sec: 0.7
+  max_slew_acceleration_deg_per_sec2: 0.08
+  max_slew_jerk_deg_per_sec3: null
+  settling_time_sec: 2.5
+  initial_storage_mb: 240000.0
+  initial_battery_wh: 1960.0
+- id: sat_gaofen-11_02
+  name: GAOFEN-11 02
+  norad_id: '46396'
+  constellation: GAOFEN
+  owner: PRC
+  tle_epoch: '2025-07-17T03:51:44.193Z'
+  tle_line1: 1 46396U 20064A   25198.16092816  .00006136  00000-0  25803-3 0  9995
+  tle_line2: 2 46396  97.4784 319.6060 0018847  78.5619 281.7733 15.23612298270524
+  apogee_km: 508.0
+  perigee_km: 482.0
+  period_min: 94.5
+  inclination_deg: 97.50000000000001
+  swath_width_km: 45.0
+  num_terminal: 1
+  battery_capacity_wh: 3920.0
+  storage_capacity_mb: 480000.0
+  obs_store_rate_mb_per_min: 36000.0
+  downlink_release_rate_mb_per_min: 36000.0
+  charge_rate_w: 2500.0
+  idle_discharge_rate_w: 800.0
+  obs_discharge_rate_w: 1500.0
+  downlink_discharge_rate_w: 150.0
+  max_slew_velocity_deg_per_sec: 0.7
+  max_slew_acceleration_deg_per_sec2: 0.08
+  max_slew_jerk_deg_per_sec3: null
+  settling_time_sec: 2.5
+  initial_storage_mb: 240000.0
+  initial_battery_wh: 1960.0
+- id: sat_gaofen-14
+  name: GAOFEN-14
+  norad_id: '47231'
+  constellation: GAOFEN
+  owner: PRC
+  tle_epoch: '2025-07-17T04:27:43.279Z'
+  tle_line1: 1 47231U 20092A   25198.18591759  .00005539  00000-0  22092-3 0  9990
+  tle_line2: 2 47231  97.2660 269.2918 0005341 311.9058  48.1724 15.25572650256755
+  apogee_km: 493.0
+  perigee_km: 485.0
+  period_min: 94.4
+  inclination_deg: 97.3
+  swath_width_km: 45.0
+  num_terminal: 1
+  battery_capacity_wh: 3920.0
+  storage_capacity_mb: 480000.0
+  obs_store_rate_mb_per_min: 36000.0
+  downlink_release_rate_mb_per_min: 36000.0
+  charge_rate_w: 2500.0
+  idle_discharge_rate_w: 800.0
+  obs_discharge_rate_w: 1500.0
+  downlink_discharge_rate_w: 150.0
+  max_slew_velocity_deg_per_sec: 0.7
+  max_slew_acceleration_deg_per_sec2: 0.08
+  max_slew_jerk_deg_per_sec3: null
+  settling_time_sec: 2.5
+  initial_storage_mb: 240000.0
+  initial_battery_wh: 1960.0
+- id: sat_gaofen-12_02
+  name: GAOFEN-12 02
+  norad_id: '48079'
+  constellation: GAOFEN
+  owner: PRC
+  tle_epoch: '2025-07-17T04:36:08.033Z'
+  tle_line1: 1 48079U 21026A   25198.19175965  .00000335  00000-0  50706-4 0  9990
+  tle_line2: 2 48079  97.9749 192.9853 0001404 188.7310 171.3878 14.80437846232196
+  apogee_km: 629.0
+  perigee_km: 627.0
+  period_min: 97.3
+  inclination_deg: 98.0
+  swath_width_km: 45.0
+  num_terminal: 1
+  battery_capacity_wh: 3920.0
+  storage_capacity_mb: 480000.0
+  obs_store_rate_mb_per_min: 36000.0
+  downlink_release_rate_mb_per_min: 36000.0
+  charge_rate_w: 2500.0
+  idle_discharge_rate_w: 800.0
+  obs_discharge_rate_w: 1500.0
+  downlink_discharge_rate_w: 150.0
+  max_slew_velocity_deg_per_sec: 0.7
+  max_slew_acceleration_deg_per_sec2: 0.08
+  max_slew_jerk_deg_per_sec3: null
+  settling_time_sec: 2.5
+  initial_storage_mb: 240000.0
+  initial_battery_wh: 1960.0
+- id: sat_gaofen-5_02
+  name: GAOFEN-5 02
+  norad_id: '49122'
+  constellation: GAOFEN
+  owner: PRC
+  tle_epoch: '2025-07-17T05:22:43.626Z'
+  tle_line1: 1 49122U 21079A   25198.22411605  .00000183  00000-0  49934-4 0  9998
+  tle_line2: 2 49122  98.1406 271.7441 0000568 196.9642 163.1538 14.57765961205285
+  apogee_km: 701.0
+  perigee_km: 700.0
+  period_min: 98.8
+  inclination_deg: 98.1
+  swath_width_km: 45.0
+  num_terminal: 1
+  battery_capacity_wh: 3920.0
+  storage_capacity_mb: 480000.0
+  obs_store_rate_mb_per_min: 36000.0
+  downlink_release_rate_mb_per_min: 36000.0
+  charge_rate_w: 2500.0
+  idle_discharge_rate_w: 800.0
+  obs_discharge_rate_w: 1500.0
+  downlink_discharge_rate_w: 150.0
+  max_slew_velocity_deg_per_sec: 0.7
+  max_slew_acceleration_deg_per_sec2: 0.08
+  max_slew_jerk_deg_per_sec3: null
+  settling_time_sec: 2.5
+  initial_storage_mb: 240000.0
+  initial_battery_wh: 1960.0
+- id: sat_gaofen-11_03
+  name: GAOFEN-11 03
+  norad_id: '49492'
+  constellation: GAOFEN
+  owner: PRC
+  tle_epoch: '2025-07-17T04:18:52.719Z'
+  tle_line1: 1 49492U 21107A   25198.17977685  .00004978  00000-0  21077-3 0  9992
+  tle_line2: 2 49492  97.2598 249.2418 0011489 153.9566 206.2252 15.23557570203620
+  apogee_km: 503.0
+  perigee_km: 487.0
+  period_min: 94.5
+  inclination_deg: 97.3
+  swath_width_km: 45.0
+  num_terminal: 1
+  battery_capacity_wh: 3920.0
+  storage_capacity_mb: 480000.0
+  obs_store_rate_mb_per_min: 36000.0
+  downlink_release_rate_mb_per_min: 36000.0
+  charge_rate_w: 2500.0
+  idle_discharge_rate_w: 800.0
+  obs_discharge_rate_w: 1500.0
+  downlink_discharge_rate_w: 150.0
+  max_slew_velocity_deg_per_sec: 0.7
+  max_slew_acceleration_deg_per_sec2: 0.08
+  max_slew_jerk_deg_per_sec3: null
+  settling_time_sec: 2.5
+  initial_storage_mb: 240000.0
+  initial_battery_wh: 1960.0
+- id: sat_gaofen-3_02
+  name: GAOFEN-3 02
+  norad_id: '49495'
+  constellation: GAOFEN
+  owner: PRC
+  tle_epoch: '2025-07-17T03:51:54.681Z'
+  tle_line1: 1 49495U 21109A   25198.16104955  .00000004  00000-0  14538-4 0  9999
+  tle_line2: 2 49495  98.4112 205.9668 0001151 284.6071  75.4991 14.42212699192029
+  apogee_km: 752.0
+  perigee_km: 750.0
+  period_min: 99.9
+  inclination_deg: 98.40000000000002
+  swath_width_km: 45.0
+  num_terminal: 1
+  battery_capacity_wh: 3920.0
+  storage_capacity_mb: 480000.0
+  obs_store_rate_mb_per_min: 36000.0
+  downlink_release_rate_mb_per_min: 36000.0
+  charge_rate_w: 2500.0
+  idle_discharge_rate_w: 800.0
+  obs_discharge_rate_w: 1500.0
+  downlink_discharge_rate_w: 150.0
+  max_slew_velocity_deg_per_sec: 0.7
+  max_slew_acceleration_deg_per_sec2: 0.08
+  max_slew_jerk_deg_per_sec3: null
+  settling_time_sec: 2.5
+  initial_storage_mb: 240000.0
+  initial_battery_wh: 1960.0
+- id: sat_gaofen-3_03
+  name: GAOFEN-3 03
+  norad_id: '52200'
+  constellation: GAOFEN
+  owner: PRC
+  tle_epoch: '2025-07-17T03:12:49.150Z'
+  tle_line1: 1 52200U 22035A   25198.13390220  .00000007  00000-0  15332-4 0  9991
+  tle_line2: 2 52200  98.4096 206.5081 0001674  98.2525 261.8854 14.42211405172567
+  apogee_km: 752.0
+  perigee_km: 750.0
+  period_min: 99.9
+  inclination_deg: 98.40000000000002
+  swath_width_km: 45.0
+  num_terminal: 1
+  battery_capacity_wh: 3920.0
+  storage_capacity_mb: 480000.0
+  obs_store_rate_mb_per_min: 36000.0
+  downlink_release_rate_mb_per_min: 36000.0
+  charge_rate_w: 2500.0
+  idle_discharge_rate_w: 800.0
+  obs_discharge_rate_w: 1500.0
+  downlink_discharge_rate_w: 150.0
+  max_slew_velocity_deg_per_sec: 0.7
+  max_slew_acceleration_deg_per_sec2: 0.08
+  max_slew_jerk_deg_per_sec3: null
+  settling_time_sec: 2.5
+  initial_storage_mb: 240000.0
+  initial_battery_wh: 1960.0
+- id: sat_gaofen-12_03
+  name: GAOFEN-12 03
+  norad_id: '52912'
+  constellation: GAOFEN
+  owner: PRC
+  tle_epoch: '2025-07-17T04:16:10.055Z'
+  tle_line1: 1 52912U 22069A   25198.17789416  .00000977  00000-0  13357-3 0  9991
+  tle_line2: 2 52912  97.8669  88.7250 0001807  93.7608 266.3811 14.80737546165065
+  apogee_km: 628.0
+  perigee_km: 626.0
+  period_min: 97.3
+  inclination_deg: 97.89999999999999
+  swath_width_km: 45.0
+  num_terminal: 1
+  battery_capacity_wh: 3920.0
+  storage_capacity_mb: 480000.0
+  obs_store_rate_mb_per_min: 36000.0
+  downlink_release_rate_mb_per_min: 36000.0
+  charge_rate_w: 2500.0
+  idle_discharge_rate_w: 800.0
+  obs_discharge_rate_w: 1500.0
+  downlink_discharge_rate_w: 150.0
+  max_slew_velocity_deg_per_sec: 0.7
+  max_slew_acceleration_deg_per_sec2: 0.08
+  max_slew_jerk_deg_per_sec3: null
+  settling_time_sec: 2.5
+  initial_storage_mb: 240000.0
+  initial_battery_wh: 1960.0
+- id: sat_gaofen-5_01a
+  name: GAOFEN-5 01A
+  norad_id: '54640'
+  constellation: GAOFEN
+  owner: PRC
+  tle_epoch: '2025-07-17T03:27:05.093Z'
+  tle_line1: 1 54640U 22165A   25198.14380895  .00000379  00000-0  93053-4 0  9991
+  tle_line2: 2 54640  98.2029 134.5513 0001143  99.9372 260.1956 14.57642091138618
+  apogee_km: 702.0
+  perigee_km: 700.0
+  period_min: 98.8
+  inclination_deg: 98.2
+  swath_width_km: 45.0
+  num_terminal: 1
+  battery_capacity_wh: 3920.0
+  storage_capacity_mb: 480000.0
+  obs_store_rate_mb_per_min: 36000.0
+  downlink_release_rate_mb_per_min: 36000.0
+  charge_rate_w: 2500.0
+  idle_discharge_rate_w: 800.0
+  obs_discharge_rate_w: 1500.0
+  downlink_discharge_rate_w: 150.0
+  max_slew_velocity_deg_per_sec: 0.7
+  max_slew_acceleration_deg_per_sec2: 0.08
+  max_slew_jerk_deg_per_sec3: null
+  settling_time_sec: 2.5
+  initial_storage_mb: 240000.0
+  initial_battery_wh: 1960.0
+- id: sat_gaofen-11_04
+  name: GAOFEN-11 04
+  norad_id: '54818'
+  constellation: GAOFEN
+  owner: PRC
+  tle_epoch: '2025-07-17T03:51:07.168Z'
+  tle_line1: 1 54818U 22176A   25198.16049964  .00005384  00000-0  22832-3 0  9998
+  tle_line2: 2 54818  97.3805 330.9435 0007236  24.0693 336.0881 15.23511152142247
+  apogee_km: 500.0
+  perigee_km: 490.0
+  period_min: 94.5
+  inclination_deg: 97.40000000000002
+  swath_width_km: 45.0
+  num_terminal: 1
+  battery_capacity_wh: 3920.0
+  storage_capacity_mb: 480000.0
+  obs_store_rate_mb_per_min: 36000.0
+  downlink_release_rate_mb_per_min: 36000.0
+  charge_rate_w: 2500.0
+  idle_discharge_rate_w: 800.0
+  obs_discharge_rate_w: 1500.0
+  downlink_discharge_rate_w: 150.0
+  max_slew_velocity_deg_per_sec: 0.7
+  max_slew_acceleration_deg_per_sec2: 0.08
+  max_slew_jerk_deg_per_sec3: null
+  settling_time_sec: 2.5
+  initial_storage_mb: 240000.0
+  initial_battery_wh: 1960.0
+- id: sat_gaofen-12_04
+  name: GAOFEN-12 04
+  norad_id: '57654'
+  constellation: GAOFEN
+  owner: PRC
+  tle_epoch: '2025-07-17T05:02:25.232Z'
+  tle_line1: 1 57654U 23123A   25198.21001426  .00000915  00000-0  12567-3 0  9998
+  tle_line2: 2 57654  97.9090 116.2125 0002080  52.6824 307.4577 14.80718531103081
+  apogee_km: 629.0
+  perigee_km: 626.0
+  period_min: 97.3
+  inclination_deg: 97.89999999999999
+  swath_width_km: 45.0
+  num_terminal: 1
+  battery_capacity_wh: 3920.0
+  storage_capacity_mb: 480000.0
+  obs_store_rate_mb_per_min: 36000.0
+  downlink_release_rate_mb_per_min: 36000.0
+  charge_rate_w: 2500.0
+  idle_discharge_rate_w: 800.0
+  obs_discharge_rate_w: 1500.0
+  downlink_discharge_rate_w: 150.0
+  max_slew_velocity_deg_per_sec: 0.7
+  max_slew_acceleration_deg_per_sec2: 0.08
+  max_slew_jerk_deg_per_sec3: null
+  settling_time_sec: 2.5
+  initial_storage_mb: 240000.0
+  initial_battery_wh: 1960.0
+- id: sat_gaofen-11_05
+  name: GAOFEN-11 05
+  norad_id: '60249'
+  constellation: GAOFEN
+  owner: PRC
+  tle_epoch: '2025-07-17T05:20:49.430Z'
+  tle_line1: 1 60249U 24130A   25198.22279434  .00005341  00000-0  22712-3 0  9999
+  tle_line2: 2 60249  97.4331 275.4459 0002418 286.3660  73.7311 15.23449534 55598
+  apogee_km: 497.0
+  perigee_km: 494.0
+  period_min: 94.5
+  inclination_deg: 97.40000000000002
+  swath_width_km: 45.0
+  num_terminal: 1
+  battery_capacity_wh: 3920.0
+  storage_capacity_mb: 480000.0
+  obs_store_rate_mb_per_min: 36000.0
+  downlink_release_rate_mb_per_min: 36000.0
+  charge_rate_w: 2500.0
+  idle_discharge_rate_w: 800.0
+  obs_discharge_rate_w: 1500.0
+  downlink_discharge_rate_w: 150.0
+  max_slew_velocity_deg_per_sec: 0.7
+  max_slew_acceleration_deg_per_sec2: 0.08
+  max_slew_jerk_deg_per_sec3: null
+  settling_time_sec: 2.5
+  initial_storage_mb: 240000.0
+  initial_battery_wh: 1960.0
+- id: sat_gaofen-12_05
+  name: GAOFEN-12 05
+  norad_id: '61571'
+  constellation: GAOFEN
+  owner: PRC
+  tle_epoch: '2025-07-17T04:46:35.885Z'
+  tle_line1: 1 61571U 24186A   25198.19902645  .00000333  00000-0  49877-4 0  9990
+  tle_line2: 2 61571  97.9117 205.7901 0002107  93.2924 266.8529 14.80841362 40581
+  apogee_km: 628.0
+  perigee_km: 625.0
+  period_min: 97.2
+  inclination_deg: 97.89999999999999
+  swath_width_km: 45.0
+  num_terminal: 1
+  battery_capacity_wh: 3920.0
+  storage_capacity_mb: 480000.0
+  obs_store_rate_mb_per_min: 36000.0
+  downlink_release_rate_mb_per_min: 36000.0
+  charge_rate_w: 2500.0
+  idle_discharge_rate_w: 800.0
+  obs_discharge_rate_w: 1500.0
+  downlink_discharge_rate_w: 150.0
+  max_slew_velocity_deg_per_sec: 0.7
+  max_slew_acceleration_deg_per_sec2: 0.08
+  max_slew_jerk_deg_per_sec3: null
+  settling_time_sec: 2.5
+  initial_storage_mb: 240000.0
+  initial_battery_wh: 1960.0

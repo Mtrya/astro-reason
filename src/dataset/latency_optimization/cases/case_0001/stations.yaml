@@ -1,0 +1,36 @@
+- id: facility_queensland_transmitter
+  name: Queensland Transmitter
+  network_name: JORN
+  latitude_deg: -23.658000000000005
+  longitude_deg: 144.1454
+  altitude_m: 237
+- id: facility_greenbelt_test_brt_stdn_bltj
+  name: Greenbelt Test BRT STDN BLTJ
+  network_name: NASA SN
+  latitude_deg: 39.002704
+  longitude_deg: -76.837928
+  altitude_m: 60.06
+- id: facility_tangua_station
+  name: Tangua Station
+  network_name: Inmarsat
+  latitude_deg: -22.7468
+  longitude_deg: -42.7837
+  altitude_m: 27
+- id: facility_globus_ii
+  name: Globus II
+  network_name: SSN
+  latitude_deg: 70.3671
+  longitude_deg: 31.1271
+  altitude_m: 76
+- id: facility_tilla
+  name: Tilla
+  network_name: SUPARCO
+  latitude_deg: 33.3961
+  longitude_deg: 73.29608
+  altitude_m: 485
+- id: facility_ral_station_12m
+  name: RAL Station 12m
+  network_name: STFC
+  latitude_deg: 51.57215
+  longitude_deg: -1.3126800000000003
+  altitude_m: 174

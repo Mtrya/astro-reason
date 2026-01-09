@@ -1,0 +1,2800 @@
+- id: sat_cosmos_2451
+  name: COSMOS 2451
+  norad_id: '35498'
+  constellation: COSMOS
+  owner: CIS
+  tle_epoch: '2025-07-17T05:51:16.341Z'
+  tle_line1: 1 35498U 09036A   25198.24393914  .00000019  00000-0  66361-4 0  9993
+  tle_line2: 2 35498  82.4900 300.1754 0006614 208.7014 151.3701 12.40862301726159
+  apogee_km: 1508.0
+  perigee_km: 1498.0
+  period_min: 116.1
+  inclination_deg: 82.49999999999999
+  swath_width_km: 20.0
+  num_terminal: 1
+  battery_capacity_wh: 8000.0
+  storage_capacity_mb: 2000000.0
+  obs_store_rate_mb_per_min: 72000.0
+  downlink_release_rate_mb_per_min: 54000.0
+  charge_rate_w: 2500.0
+  idle_discharge_rate_w: 1200.0
+  obs_discharge_rate_w: 2000.0
+  downlink_discharge_rate_w: 200.0
+  max_slew_velocity_deg_per_sec: 1.5
+  max_slew_acceleration_deg_per_sec2: 0.5
+  max_slew_jerk_deg_per_sec3: null
+  settling_time_sec: 1.5
+  initial_storage_mb: 1000000.0
+  initial_battery_wh: 4000.0
+- id: sat_cosmos_921_deb
+  name: COSMOS 921 DEB
+  norad_id: '39690'
+  constellation: COSMOS
+  owner: CIS
+  tle_epoch: '2025-07-16T04:41:17.123Z'
+  tle_line1: 1 39690U 77055C   25197.19533708  .00017383  00000-0  41471-3 0  9993
+  tle_line2: 2 39690  75.8182 266.2972 0016924 302.3049  57.6530 15.41333381640263
+  apogee_km: 454.0
+  perigee_km: 431.0
+  period_min: 93.4
+  inclination_deg: 75.8
+  swath_width_km: 20.0
+  num_terminal: 1
+  battery_capacity_wh: 8000.0
+  storage_capacity_mb: 2000000.0
+  obs_store_rate_mb_per_min: 72000.0
+  downlink_release_rate_mb_per_min: 54000.0
+  charge_rate_w: 2500.0
+  idle_discharge_rate_w: 1200.0
+  obs_discharge_rate_w: 2000.0
+  downlink_discharge_rate_w: 200.0
+  max_slew_velocity_deg_per_sec: 1.5
+  max_slew_acceleration_deg_per_sec2: 0.5
+  max_slew_jerk_deg_per_sec3: null
+  settling_time_sec: 1.5
+  initial_storage_mb: 1000000.0
+  initial_battery_wh: 4000.0
+- id: sat_cosmos_894
+  name: COSMOS 894
+  norad_id: 09846
+  constellation: COSMOS
+  owner: CIS
+  tle_epoch: '2025-07-17T04:57:12.965Z'
+  tle_line1: 1 09846U 77013A   25198.20640006  .00000061  00000-0  48118-4 0  9991
+  tle_line2: 2 09846  82.9453 344.9437 0031082  63.4946 109.9509 13.74169663426427
+  apogee_km: 1008.0
+  perigee_km: 962.0
+  period_min: 104.8
+  inclination_deg: 83.00000000000001
+  swath_width_km: 20.0
+  num_terminal: 1
+  battery_capacity_wh: 8000.0
+  storage_capacity_mb: 2000000.0
+  obs_store_rate_mb_per_min: 72000.0
+  downlink_release_rate_mb_per_min: 54000.0
+  charge_rate_w: 2500.0
+  idle_discharge_rate_w: 1200.0
+  obs_discharge_rate_w: 2000.0
+  downlink_discharge_rate_w: 200.0
+  max_slew_velocity_deg_per_sec: 1.5
+  max_slew_acceleration_deg_per_sec2: 0.5
+  max_slew_jerk_deg_per_sec3: null
+  settling_time_sec: 1.5
+  initial_storage_mb: 1000000.0
+  initial_battery_wh: 4000.0
+- id: sat_cosmos_1198
+  name: COSMOS 1198
+  norad_id: '11881'
+  constellation: COSMOS
+  owner: CIS
+  tle_epoch: '2025-07-16T17:14:36.235Z'
+  tle_line1: 1 11881U 80058G   25197.71847495 -.00000006  00000-0  69771-4 0  9990
+  tle_line2: 2 11881  74.0196 295.5615 0022433 335.8643 135.0502 12.43787546 44121
+  apogee_km: 1508.0
+  perigee_km: 1473.0
+  period_min: 115.8
+  inclination_deg: 74.0
+  swath_width_km: 20.0
+  num_terminal: 1
+  battery_capacity_wh: 8000.0
+  storage_capacity_mb: 2000000.0
+  obs_store_rate_mb_per_min: 72000.0
+  downlink_release_rate_mb_per_min: 54000.0
+  charge_rate_w: 2500.0
+  idle_discharge_rate_w: 1200.0
+  obs_discharge_rate_w: 2000.0
+  downlink_discharge_rate_w: 200.0
+  max_slew_velocity_deg_per_sec: 1.5
+  max_slew_acceleration_deg_per_sec2: 0.5
+  max_slew_jerk_deg_per_sec3: null
+  settling_time_sec: 1.5
+  initial_storage_mb: 1000000.0
+  initial_battery_wh: 4000.0
+- id: sat_cosmos_2042
+  name: COSMOS 2042
+  norad_id: '20236'
+  constellation: COSMOS
+  owner: CIS
+  tle_epoch: '2025-07-17T03:17:15.133Z'
+  tle_line1: 1 20236U 89074E   25198.13698071  .00000015  00000-0  23979-4 0  9991
+  tle_line2: 2 20236  82.5808  72.7998 0004975 162.5290 314.9768 12.64219983769586
+  apogee_km: 1409.0
+  perigee_km: 1402.0
+  period_min: 113.9
+  inclination_deg: 82.60000000000001
+  swath_width_km: 20.0
+  num_terminal: 1
+  battery_capacity_wh: 8000.0
+  storage_capacity_mb: 2000000.0
+  obs_store_rate_mb_per_min: 72000.0
+  downlink_release_rate_mb_per_min: 54000.0
+  charge_rate_w: 2500.0
+  idle_discharge_rate_w: 1200.0
+  obs_discharge_rate_w: 2000.0
+  downlink_discharge_rate_w: 200.0
+  max_slew_velocity_deg_per_sec: 1.5
+  max_slew_acceleration_deg_per_sec2: 0.5
+  max_slew_jerk_deg_per_sec3: null
+  settling_time_sec: 1.5
+  initial_storage_mb: 1000000.0
+  initial_battery_wh: 4000.0
+- id: sat_cosmos_1393
+  name: COSMOS 1393
+  norad_id: '13380'
+  constellation: COSMOS
+  owner: CIS
+  tle_epoch: '2025-07-16T21:32:32.327Z'
+  tle_line1: 1 13380U 82073F   25197.89759638  .00000004  00000-0  13452-3 0  9996
+  tle_line2: 2 13380  74.0141 151.1145 0008058 150.9124 264.0562 12.47259198957335
+  apogee_km: 1482.0
+  perigee_km: 1470.0
+  period_min: 115.5
+  inclination_deg: 74.0
+  swath_width_km: 20.0
+  num_terminal: 1
+  battery_capacity_wh: 8000.0
+  storage_capacity_mb: 2000000.0
+  obs_store_rate_mb_per_min: 72000.0
+  downlink_release_rate_mb_per_min: 54000.0
+  charge_rate_w: 2500.0
+  idle_discharge_rate_w: 1200.0
+  obs_discharge_rate_w: 2000.0
+  downlink_discharge_rate_w: 200.0
+  max_slew_velocity_deg_per_sec: 1.5
+  max_slew_acceleration_deg_per_sec2: 0.5
+  max_slew_jerk_deg_per_sec3: null
+  settling_time_sec: 1.5
+  initial_storage_mb: 1000000.0
+  initial_battery_wh: 4000.0
+- id: sat_cosmos_1690
+  name: COSMOS 1690
+  norad_id: '16138'
+  constellation: COSMOS
+  owner: CIS
+  tle_epoch: '2025-07-17T04:20:20.997Z'
+  tle_line1: 1 16138U 85094A   25198.18079858  .00000009  00000-0 -11245-4 0  9993
+  tle_line2: 2 16138  82.6059  75.5067 0021721 342.2300 181.0543 12.66093673837977
+  apogee_km: 1415.0
+  perigee_km: 1381.0
+  period_min: 113.7
+  inclination_deg: 82.60000000000001
+  swath_width_km: 20.0
+  num_terminal: 1
+  battery_capacity_wh: 8000.0
+  storage_capacity_mb: 2000000.0
+  obs_store_rate_mb_per_min: 72000.0
+  downlink_release_rate_mb_per_min: 54000.0
+  charge_rate_w: 2500.0
+  idle_discharge_rate_w: 1200.0
+  obs_discharge_rate_w: 2000.0
+  downlink_discharge_rate_w: 200.0
+  max_slew_velocity_deg_per_sec: 1.5
+  max_slew_acceleration_deg_per_sec2: 0.5
+  max_slew_jerk_deg_per_sec3: null
+  settling_time_sec: 1.5
+  initial_storage_mb: 1000000.0
+  initial_battery_wh: 4000.0
+- id: sat_cosmos_418
+  name: COSMOS 418
+  norad_id: '05217'
+  constellation: COSMOS
+  owner: CIS
+  tle_epoch: '2025-07-17T04:54:57.025Z'
+  tle_line1: 1 05217U 71041H   25198.20482668  .00000002  00000-0  11024-3 0  9992
+  tle_line2: 2 05217  74.0129 181.1595 0059740  25.1771 346.1528 12.54575141482163
+  apogee_km: 1492.0
+  perigee_km: 1399.0
+  period_min: 114.8
+  inclination_deg: 74.0
+  swath_width_km: 20.0
+  num_terminal: 1
+  battery_capacity_wh: 8000.0
+  storage_capacity_mb: 2000000.0
+  obs_store_rate_mb_per_min: 72000.0
+  downlink_release_rate_mb_per_min: 54000.0
+  charge_rate_w: 2500.0
+  idle_discharge_rate_w: 1200.0
+  obs_discharge_rate_w: 2000.0
+  downlink_discharge_rate_w: 200.0
+  max_slew_velocity_deg_per_sec: 1.5
+  max_slew_acceleration_deg_per_sec2: 0.5
+  max_slew_jerk_deg_per_sec3: null
+  settling_time_sec: 1.5
+  initial_storage_mb: 1000000.0
+  initial_battery_wh: 4000.0
+- id: sat_cosmos_1392
+  name: COSMOS 1392
+  norad_id: '13379'
+  constellation: COSMOS
+  owner: CIS
+  tle_epoch: '2025-07-16T23:28:41.638Z'
+  tle_line1: 1 13379U 82073E   25197.97825970 -.00000024  00000-0 -50153-4 0  9990
+  tle_line2: 2 13379  74.0146  68.6739 0009649 324.6947 140.1861 12.49382998646753
+  apogee_km: 1475.0
+  perigee_km: 1460.0
+  period_min: 115.3
+  inclination_deg: 74.0
+  swath_width_km: 20.0
+  num_terminal: 1
+  battery_capacity_wh: 8000.0
+  storage_capacity_mb: 2000000.0
+  obs_store_rate_mb_per_min: 72000.0
+  downlink_release_rate_mb_per_min: 54000.0
+  charge_rate_w: 2500.0
+  idle_discharge_rate_w: 1200.0
+  obs_discharge_rate_w: 2000.0
+  downlink_discharge_rate_w: 200.0
+  max_slew_velocity_deg_per_sec: 1.5
+  max_slew_acceleration_deg_per_sec2: 0.5
+  max_slew_jerk_deg_per_sec3: null
+  settling_time_sec: 1.5
+  initial_storage_mb: 1000000.0
+  initial_battery_wh: 4000.0
+- id: sat_cosmos_2549
+  name: COSMOS 2549
+  norad_id: '47546'
+  constellation: COSMOS
+  owner: CIS
+  tle_epoch: '2025-07-17T04:29:27.415Z'
+  tle_line1: 1 47546U 21008A   25198.18712287 -.00000045  00000-0  21799-4 0  9990
+  tle_line2: 2 47546  67.1485  79.6665 0006272 280.5759  79.4619 13.96936783227025
+  apogee_km: 909.0
+  perigee_km: 900.0
+  period_min: 103.1
+  inclination_deg: 67.2
+  swath_width_km: 20.0
+  num_terminal: 1
+  battery_capacity_wh: 8000.0
+  storage_capacity_mb: 2000000.0
+  obs_store_rate_mb_per_min: 72000.0
+  downlink_release_rate_mb_per_min: 54000.0
+  charge_rate_w: 2500.0
+  idle_discharge_rate_w: 1200.0
+  obs_discharge_rate_w: 2000.0
+  downlink_discharge_rate_w: 200.0
+  max_slew_velocity_deg_per_sec: 1.5
+  max_slew_acceleration_deg_per_sec2: 0.5
+  max_slew_jerk_deg_per_sec3: null
+  settling_time_sec: 1.5
+  initial_storage_mb: 1000000.0
+  initial_battery_wh: 4000.0
+- id: sat_cosmos_249_deb
+  name: COSMOS 249 DEB
+  norad_id: '03506'
+  constellation: COSMOS
+  owner: CIS
+  tle_epoch: '2025-07-16T19:30:07.877Z'
+  tle_line1: 1 03506U 68091C   25197.81259118  .00000177  00000-0  12341-3 0  9996
+  tle_line2: 2 03506  62.3653   4.7653 0956541 196.3583 160.4438 12.90912108662712
+  apogee_km: 2032.0
+  perigee_km: 564.0
+  period_min: 111.6
+  inclination_deg: 62.4
+  swath_width_km: 20.0
+  num_terminal: 1
+  battery_capacity_wh: 8000.0
+  storage_capacity_mb: 2000000.0
+  obs_store_rate_mb_per_min: 72000.0
+  downlink_release_rate_mb_per_min: 54000.0
+  charge_rate_w: 2500.0
+  idle_discharge_rate_w: 1200.0
+  obs_discharge_rate_w: 2000.0
+  downlink_discharge_rate_w: 200.0
+  max_slew_velocity_deg_per_sec: 1.5
+  max_slew_acceleration_deg_per_sec2: 0.5
+  max_slew_jerk_deg_per_sec3: null
+  settling_time_sec: 1.5
+  initial_storage_mb: 1000000.0
+  initial_battery_wh: 4000.0
+- id: sat_cosmos_807
+  name: COSMOS 807
+  norad_id: 08744
+  constellation: COSMOS
+  owner: CIS
+  tle_epoch: '2025-07-16T22:15:50.755Z'
+  tle_line1: 1 08744U 76022A   25197.92767078  .00003267  00000-0  13976-3 0  9997
+  tle_line2: 2 08744  82.9183 247.4410 0476449 252.4441 214.9724 14.57095943500702
+  apogee_km: 1040.0
+  perigee_km: 365.0
+  period_min: 98.8
+  inclination_deg: 82.9
+  swath_width_km: 20.0
+  num_terminal: 1
+  battery_capacity_wh: 8000.0
+  storage_capacity_mb: 2000000.0
+  obs_store_rate_mb_per_min: 72000.0
+  downlink_release_rate_mb_per_min: 54000.0
+  charge_rate_w: 2500.0
+  idle_discharge_rate_w: 1200.0
+  obs_discharge_rate_w: 2000.0
+  downlink_discharge_rate_w: 200.0
+  max_slew_velocity_deg_per_sec: 1.5
+  max_slew_acceleration_deg_per_sec2: 0.5
+  max_slew_jerk_deg_per_sec3: null
+  settling_time_sec: 1.5
+  initial_storage_mb: 1000000.0
+  initial_battery_wh: 4000.0
+- id: sat_cosmos_1089
+  name: COSMOS 1089
+  norad_id: '11308'
+  constellation: COSMOS
+  owner: CIS
+  tle_epoch: '2025-07-16T23:07:30.021Z'
+  tle_line1: 1 11308U 79026A   25197.96354191  .00000038  00000-0  23402-4 0  9995
+  tle_line2: 2 11308  82.9736  42.4551 0021323 231.3017 243.2784 13.75382902323300
+  apogee_km: 996.0
+  perigee_km: 965.0
+  period_min: 104.7
+  inclination_deg: 83.00000000000001
+  swath_width_km: 20.0
+  num_terminal: 1
+  battery_capacity_wh: 8000.0
+  storage_capacity_mb: 2000000.0
+  obs_store_rate_mb_per_min: 72000.0
+  downlink_release_rate_mb_per_min: 54000.0
+  charge_rate_w: 2500.0
+  idle_discharge_rate_w: 1200.0
+  obs_discharge_rate_w: 2000.0
+  downlink_discharge_rate_w: 200.0
+  max_slew_velocity_deg_per_sec: 1.5
+  max_slew_acceleration_deg_per_sec2: 0.5
+  max_slew_jerk_deg_per_sec3: null
+  settling_time_sec: 1.5
+  initial_storage_mb: 1000000.0
+  initial_battery_wh: 4000.0
+- id: sat_cosmos_2436
+  name: COSMOS 2436
+  norad_id: '32395'
+  constellation: COSMOS
+  owner: CIS
+  tle_epoch: '2025-07-17T01:42:58.583Z'
+  tle_line1: 1 32395U 07065C   25198.07151138  .00000112  00000-0  00000-0 0  9995
+  tle_line2: 2 32395  64.3264 203.2879 0016729 352.6666 190.4774  2.13100099136578
+  apogee_km: 19173.0
+  perigee_km: 19087.0
+  period_min: 675.7
+  inclination_deg: 64.3
+  swath_width_km: 20.0
+  num_terminal: 1
+  battery_capacity_wh: 8000.0
+  storage_capacity_mb: 2000000.0
+  obs_store_rate_mb_per_min: 72000.0
+  downlink_release_rate_mb_per_min: 54000.0
+  charge_rate_w: 2500.0
+  idle_discharge_rate_w: 1200.0
+  obs_discharge_rate_w: 2000.0
+  downlink_discharge_rate_w: 200.0
+  max_slew_velocity_deg_per_sec: 1.5
+  max_slew_acceleration_deg_per_sec2: 0.5
+  max_slew_jerk_deg_per_sec3: null
+  settling_time_sec: 1.5
+  initial_storage_mb: 1000000.0
+  initial_battery_wh: 4000.0
+- id: sat_cosmos_1732
+  name: COSMOS 1732
+  norad_id: '16593'
+  constellation: COSMOS
+  owner: CIS
+  tle_epoch: '2025-07-16T21:33:16.505Z'
+  tle_line1: 1 16593U 86015A   25197.89810770 -.00000019  00000-0 -11240-4 0  9992
+  tle_line2: 2 16593  73.6108  34.6975 0026578 186.6650 173.4044 12.41019632786222
+  apogee_km: 1523.0
+  perigee_km: 1481.0
+  period_min: 116.0
+  inclination_deg: 73.6
+  swath_width_km: 20.0
+  num_terminal: 1
+  battery_capacity_wh: 8000.0
+  storage_capacity_mb: 2000000.0
+  obs_store_rate_mb_per_min: 72000.0
+  downlink_release_rate_mb_per_min: 54000.0
+  charge_rate_w: 2500.0
+  idle_discharge_rate_w: 1200.0
+  obs_discharge_rate_w: 2000.0
+  downlink_discharge_rate_w: 200.0
+  max_slew_velocity_deg_per_sec: 1.5
+  max_slew_acceleration_deg_per_sec2: 0.5
+  max_slew_jerk_deg_per_sec3: null
+  settling_time_sec: 1.5
+  initial_storage_mb: 1000000.0
+  initial_battery_wh: 4000.0
+- id: sat_cosmos_2040
+  name: COSMOS 2040
+  norad_id: '20234'
+  constellation: COSMOS
+  owner: CIS
+  tle_epoch: '2025-07-16T20:30:39.163Z'
+  tle_line1: 1 20234U 89074C   25197.85461995  .00000017  00000-0  36743-4 0  9995
+  tle_line2: 2 20234  82.5856 101.2932 0005586  14.9802  55.4453 12.62616317651310
+  apogee_km: 1417.0
+  perigee_km: 1408.0
+  period_min: 114.1
+  inclination_deg: 82.60000000000001
+  swath_width_km: 20.0
+  num_terminal: 1
+  battery_capacity_wh: 8000.0
+  storage_capacity_mb: 2000000.0
+  obs_store_rate_mb_per_min: 72000.0
+  downlink_release_rate_mb_per_min: 54000.0
+  charge_rate_w: 2500.0
+  idle_discharge_rate_w: 1200.0
+  obs_discharge_rate_w: 2000.0
+  downlink_discharge_rate_w: 200.0
+  max_slew_velocity_deg_per_sec: 1.5
+  max_slew_acceleration_deg_per_sec2: 0.5
+  max_slew_jerk_deg_per_sec3: null
+  settling_time_sec: 1.5
+  initial_storage_mb: 1000000.0
+  initial_battery_wh: 4000.0
+- id: sat_cosmos_2132
+  name: COSMOS 2132
+  norad_id: '21107'
+  constellation: COSMOS
+  owner: CIS
+  tle_epoch: '2025-07-16T19:48:36.755Z'
+  tle_line1: 1 21107U 91009H   25197.82542541 -.00000018  00000-0 -11633-4 0  9994
+  tle_line2: 2 21107  74.0273 233.1065 0033362  90.8004  82.5089 12.55495438577708
+  apogee_km: 1468.0
+  perigee_km: 1416.0
+  period_min: 114.7
+  inclination_deg: 74.0
+  swath_width_km: 20.0
+  num_terminal: 1
+  battery_capacity_wh: 8000.0
+  storage_capacity_mb: 2000000.0
+  obs_store_rate_mb_per_min: 72000.0
+  downlink_release_rate_mb_per_min: 54000.0
+  charge_rate_w: 2500.0
+  idle_discharge_rate_w: 1200.0
+  obs_discharge_rate_w: 2000.0
+  downlink_discharge_rate_w: 200.0
+  max_slew_velocity_deg_per_sec: 1.5
+  max_slew_acceleration_deg_per_sec2: 0.5
+  max_slew_jerk_deg_per_sec3: null
+  settling_time_sec: 1.5
+  initial_storage_mb: 1000000.0
+  initial_battery_wh: 4000.0
+- id: sat_cosmos_1823
+  name: COSMOS 1823
+  norad_id: '17535'
+  constellation: COSMOS
+  owner: CIS
+  tle_epoch: '2025-07-16T23:04:28.580Z'
+  tle_line1: 1 17535U 87020A   25197.96144190  .00000008  00000-0  18440-3 0  9994
+  tle_line2: 2 17535  73.6019 132.7033 0028280   5.5954  60.5324 12.41370310740267
+  apogee_km: 1523.0
+  perigee_km: 1479.0
+  period_min: 116.0
+  inclination_deg: 73.6
+  swath_width_km: 20.0
+  num_terminal: 1
+  battery_capacity_wh: 8000.0
+  storage_capacity_mb: 2000000.0
+  obs_store_rate_mb_per_min: 72000.0
+  downlink_release_rate_mb_per_min: 54000.0
+  charge_rate_w: 2500.0
+  idle_discharge_rate_w: 1200.0
+  obs_discharge_rate_w: 2000.0
+  downlink_discharge_rate_w: 200.0
+  max_slew_velocity_deg_per_sec: 1.5
+  max_slew_acceleration_deg_per_sec2: 0.5
+  max_slew_jerk_deg_per_sec3: null
+  settling_time_sec: 1.5
+  initial_storage_mb: 1000000.0
+  initial_battery_wh: 4000.0
+- id: sat_cosmos_1946
+  name: COSMOS 1946
+  norad_id: '19163'
+  constellation: COSMOS
+  owner: CIS
+  tle_epoch: '2025-07-16T12:23:43.965Z'
+  tle_line1: 1 19163U 88043A   25197.51648108 -.00000012  00000-0  00000-0 0  9994
+  tle_line2: 2 19163  64.7751  85.0847 0004341  93.9014  86.0555  2.13103150288443
+  apogee_km: 19141.0
+  perigee_km: 19119.0
+  period_min: 675.7
+  inclination_deg: 64.80000000000001
+  swath_width_km: 20.0
+  num_terminal: 1
+  battery_capacity_wh: 8000.0
+  storage_capacity_mb: 2000000.0
+  obs_store_rate_mb_per_min: 72000.0
+  downlink_release_rate_mb_per_min: 54000.0
+  charge_rate_w: 2500.0
+  idle_discharge_rate_w: 1200.0
+  obs_discharge_rate_w: 2000.0
+  downlink_discharge_rate_w: 200.0
+  max_slew_velocity_deg_per_sec: 1.5
+  max_slew_acceleration_deg_per_sec2: 0.5
+  max_slew_jerk_deg_per_sec3: null
+  settling_time_sec: 1.5
+  initial_storage_mb: 1000000.0
+  initial_battery_wh: 4000.0
+- id: sat_cosmos_679
+  name: COSMOS 679
+  norad_id: '07437'
+  constellation: COSMOS
+  owner: CIS
+  tle_epoch: '2025-07-16T18:24:42.000Z'
+  tle_line1: 1 07437U 74072C   25197.76715278 -.00000002  00000-0  96636-4 0  9995
+  tle_line2: 2 07437  74.0375 312.3542 0027969  19.8435 340.3694 12.44417337308794
+  apogee_km: 1510.0
+  perigee_km: 1466.0
+  period_min: 115.7
+  inclination_deg: 74.0
+  swath_width_km: 20.0
+  num_terminal: 1
+  battery_capacity_wh: 8000.0
+  storage_capacity_mb: 2000000.0
+  obs_store_rate_mb_per_min: 72000.0
+  downlink_release_rate_mb_per_min: 54000.0
+  charge_rate_w: 2500.0
+  idle_discharge_rate_w: 1200.0
+  obs_discharge_rate_w: 2000.0
+  downlink_discharge_rate_w: 200.0
+  max_slew_velocity_deg_per_sec: 1.5
+  max_slew_acceleration_deg_per_sec2: 0.5
+  max_slew_jerk_deg_per_sec3: null
+  settling_time_sec: 1.5
+  initial_storage_mb: 1000000.0
+  initial_battery_wh: 4000.0
+- id: sat_cosmos_1814_deb
+  name: COSMOS 1814 DEB
+  norad_id: '18257'
+  constellation: COSMOS
+  owner: CIS
+  tle_epoch: '2025-07-16T19:57:48.770Z'
+  tle_line1: 1 18257U 87006C   25197.83181447  .00001503  00000-0  26106-3 0  9991
+  tle_line2: 2 18257  74.0329 256.1662 0003746  82.0924 278.0672 14.69115730105839
+  apogee_km: 667.0
+  perigee_km: 661.0
+  period_min: 98.0
+  inclination_deg: 74.0
+  swath_width_km: 20.0
+  num_terminal: 1
+  battery_capacity_wh: 8000.0
+  storage_capacity_mb: 2000000.0
+  obs_store_rate_mb_per_min: 72000.0
+  downlink_release_rate_mb_per_min: 54000.0
+  charge_rate_w: 2500.0
+  idle_discharge_rate_w: 1200.0
+  obs_discharge_rate_w: 2000.0
+  downlink_discharge_rate_w: 200.0
+  max_slew_velocity_deg_per_sec: 1.5
+  max_slew_acceleration_deg_per_sec2: 0.5
+  max_slew_jerk_deg_per_sec3: null
+  settling_time_sec: 1.5
+  initial_storage_mb: 1000000.0
+  initial_battery_wh: 4000.0
+- id: sat_cosmos_1642
+  name: COSMOS 1642
+  norad_id: '15624'
+  constellation: COSMOS
+  owner: CIS
+  tle_epoch: '2025-07-16T19:31:18.980Z'
+  tle_line1: 1 15624U 85023H   25197.81341413 -.00000017  00000-0 -49296-5 0  9990
+  tle_line2: 2 15624  74.0523 217.7558 0051368 339.5541 193.8959 12.56386364849345
+  apogee_km: 1478.0
+  perigee_km: 1398.0
+  period_min: 114.6
+  inclination_deg: 74.1
+  swath_width_km: 20.0
+  num_terminal: 1
+  battery_capacity_wh: 8000.0
+  storage_capacity_mb: 2000000.0
+  obs_store_rate_mb_per_min: 72000.0
+  downlink_release_rate_mb_per_min: 54000.0
+  charge_rate_w: 2500.0
+  idle_discharge_rate_w: 1200.0
+  obs_discharge_rate_w: 2000.0
+  downlink_discharge_rate_w: 200.0
+  max_slew_velocity_deg_per_sec: 1.5
+  max_slew_acceleration_deg_per_sec2: 0.5
+  max_slew_jerk_deg_per_sec3: null
+  settling_time_sec: 1.5
+  initial_storage_mb: 1000000.0
+  initial_battery_wh: 4000.0
+- id: sat_cosmos_1110
+  name: COSMOS 1110
+  norad_id: '11425'
+  constellation: COSMOS
+  owner: CIS
+  tle_epoch: '2025-07-16T22:50:57.168Z'
+  tle_line1: 1 11425U 79060A   25197.95205056  .00000115  00000-0  50664-4 0  9993
+  tle_line2: 2 11425  74.0141 142.8232 0015110 285.1745  74.7736 14.34096958406322
+  apogee_km: 789.0
+  perigee_km: 767.0
+  period_min: 100.4
+  inclination_deg: 74.0
+  swath_width_km: 20.0
+  num_terminal: 1
+  battery_capacity_wh: 8000.0
+  storage_capacity_mb: 2000000.0
+  obs_store_rate_mb_per_min: 72000.0
+  downlink_release_rate_mb_per_min: 54000.0
+  charge_rate_w: 2500.0
+  idle_discharge_rate_w: 1200.0
+  obs_discharge_rate_w: 2000.0
+  downlink_discharge_rate_w: 200.0
+  max_slew_velocity_deg_per_sec: 1.5
+  max_slew_acceleration_deg_per_sec2: 0.5
+  max_slew_jerk_deg_per_sec3: null
+  settling_time_sec: 1.5
+  initial_storage_mb: 1000000.0
+  initial_battery_wh: 4000.0
+- id: sat_cosmos_875
+  name: COSMOS 875
+  norad_id: 09592
+  constellation: COSMOS
+  owner: CIS
+  tle_epoch: '2025-07-16T15:21:21.958Z'
+  tle_line1: 1 09592U 76118E   25197.63983748 -.00000012  00000-0  23625-4 0  9996
+  tle_line2: 2 09592  74.0298 261.0904 0018104 242.2662 230.0166 12.53512570224374
+  apogee_km: 1464.0
+  perigee_km: 1436.0
+  period_min: 114.9
+  inclination_deg: 74.0
+  swath_width_km: 20.0
+  num_terminal: 1
+  battery_capacity_wh: 8000.0
+  storage_capacity_mb: 2000000.0
+  obs_store_rate_mb_per_min: 72000.0
+  downlink_release_rate_mb_per_min: 54000.0
+  charge_rate_w: 2500.0
+  idle_discharge_rate_w: 1200.0
+  obs_discharge_rate_w: 2000.0
+  downlink_discharge_rate_w: 200.0
+  max_slew_velocity_deg_per_sec: 1.5
+  max_slew_acceleration_deg_per_sec2: 0.5
+  max_slew_jerk_deg_per_sec3: null
+  settling_time_sec: 1.5
+  initial_storage_mb: 1000000.0
+  initial_battery_wh: 4000.0
+- id: sat_cosmos_2429
+  name: COSMOS 2429
+  norad_id: '32052'
+  constellation: COSMOS
+  owner: CIS
+  tle_epoch: '2025-07-17T03:25:18.849Z'
+  tle_line1: 1 32052U 07038A   25198.14257928  .00000049  00000-0  35090-4 0  9997
+  tle_line2: 2 32052  82.9801  92.8406 0039793  90.9683 269.6033 13.75131129895696
+  apogee_km: 1010.0
+  perigee_km: 952.0
+  period_min: 104.7
+  inclination_deg: 83.00000000000001
+  swath_width_km: 20.0
+  num_terminal: 1
+  battery_capacity_wh: 8000.0
+  storage_capacity_mb: 2000000.0
+  obs_store_rate_mb_per_min: 72000.0
+  downlink_release_rate_mb_per_min: 54000.0
+  charge_rate_w: 2500.0
+  idle_discharge_rate_w: 1200.0
+  obs_discharge_rate_w: 2000.0
+  downlink_discharge_rate_w: 200.0
+  max_slew_velocity_deg_per_sec: 1.5
+  max_slew_acceleration_deg_per_sec2: 0.5
+  max_slew_jerk_deg_per_sec3: null
+  settling_time_sec: 1.5
+  initial_storage_mb: 1000000.0
+  initial_battery_wh: 4000.0
+- id: sat_cosmos_654
+  name: COSMOS 654
+  norad_id: 07297
+  constellation: COSMOS
+  owner: CIS
+  tle_epoch: '2025-07-16T23:03:30.769Z'
+  tle_line1: 1 07297U 74032A   25197.96077280 -.00000074  00000-0  13098-4 0  9991
+  tle_line2: 2 07297  64.9492  76.7314 0045060  84.5952   4.5899 13.79593463578732
+  apogee_km: 998.0
+  perigee_km: 932.0
+  period_min: 104.4
+  inclination_deg: 65.0
+  swath_width_km: 20.0
+  num_terminal: 1
+  battery_capacity_wh: 8000.0
+  storage_capacity_mb: 2000000.0
+  obs_store_rate_mb_per_min: 72000.0
+  downlink_release_rate_mb_per_min: 54000.0
+  charge_rate_w: 2500.0
+  idle_discharge_rate_w: 1200.0
+  obs_discharge_rate_w: 2000.0
+  downlink_discharge_rate_w: 200.0
+  max_slew_velocity_deg_per_sec: 1.5
+  max_slew_acceleration_deg_per_sec2: 0.5
+  max_slew_jerk_deg_per_sec3: null
+  settling_time_sec: 1.5
+  initial_storage_mb: 1000000.0
+  initial_battery_wh: 4000.0
+- id: sat_cosmos_785
+  name: COSMOS 785
+  norad_id: 08473
+  constellation: COSMOS
+  owner: CIS
+  tle_epoch: '2025-07-16T22:22:34.103Z'
+  tle_line1: 1 08473U 75116A   25197.93233916 -.00000060  00000-0  24955-4 0  9998
+  tle_line2: 2 08473  65.0772 138.7343 0067811  46.2256 314.4387 13.82306291502707
+  apogee_km: 1005.0
+  perigee_km: 906.0
+  period_min: 104.2
+  inclination_deg: 65.1
+  swath_width_km: 20.0
+  num_terminal: 1
+  battery_capacity_wh: 8000.0
+  storage_capacity_mb: 2000000.0
+  obs_store_rate_mb_per_min: 72000.0
+  downlink_release_rate_mb_per_min: 54000.0
+  charge_rate_w: 2500.0
+  idle_discharge_rate_w: 1200.0
+  obs_discharge_rate_w: 2000.0
+  downlink_discharge_rate_w: 200.0
+  max_slew_velocity_deg_per_sec: 1.5
+  max_slew_acceleration_deg_per_sec2: 0.5
+  max_slew_jerk_deg_per_sec3: null
+  settling_time_sec: 1.5
+  initial_storage_mb: 1000000.0
+  initial_battery_wh: 4000.0
+- id: sat_cosmos_1596
+  name: COSMOS 1596
+  norad_id: '15267'
+  constellation: COSMOS
+  owner: CIS
+  tle_epoch: '2025-07-16T11:39:41.617Z'
+  tle_line1: 1 15267U 84096A   25197.48589835  .00000899  00000-0  00000-0 0  9998
+  tle_line2: 2 15267  65.7968 161.2369 6611310  29.1443 355.2263  2.00331652299270
+  apogee_km: 37771.0
+  perigee_km: 2635.0
+  period_min: 718.8
+  inclination_deg: 65.8
+  swath_width_km: 20.0
+  num_terminal: 1
+  battery_capacity_wh: 8000.0
+  storage_capacity_mb: 2000000.0
+  obs_store_rate_mb_per_min: 72000.0
+  downlink_release_rate_mb_per_min: 54000.0
+  charge_rate_w: 2500.0
+  idle_discharge_rate_w: 1200.0
+  obs_discharge_rate_w: 2000.0
+  downlink_discharge_rate_w: 200.0
+  max_slew_velocity_deg_per_sec: 1.5
+  max_slew_acceleration_deg_per_sec2: 0.5
+  max_slew_jerk_deg_per_sec3: null
+  settling_time_sec: 1.5
+  initial_storage_mb: 1000000.0
+  initial_battery_wh: 4000.0
+- id: sat_cosmos_1782
+  name: COSMOS 1782
+  norad_id: '16986'
+  constellation: COSMOS
+  owner: CIS
+  tle_epoch: '2025-07-16T19:51:10.270Z'
+  tle_line1: 1 16986U 86074A   25197.82720220  .00005930  00000-0  21848-3 0  9995
+  tle_line2: 2 16986  82.5290 115.7455 0005723 344.3455  15.7606 15.27610472 95230
+  apogee_km: 487.0
+  perigee_km: 479.0
+  period_min: 94.3
+  inclination_deg: 82.49999999999999
+  swath_width_km: 20.0
+  num_terminal: 1
+  battery_capacity_wh: 8000.0
+  storage_capacity_mb: 2000000.0
+  obs_store_rate_mb_per_min: 72000.0
+  downlink_release_rate_mb_per_min: 54000.0
+  charge_rate_w: 2500.0
+  idle_discharge_rate_w: 1200.0
+  obs_discharge_rate_w: 2000.0
+  downlink_discharge_rate_w: 200.0
+  max_slew_velocity_deg_per_sec: 1.5
+  max_slew_acceleration_deg_per_sec2: 0.5
+  max_slew_jerk_deg_per_sec3: null
+  settling_time_sec: 1.5
+  initial_storage_mb: 1000000.0
+  initial_battery_wh: 4000.0
+- id: sat_cosmos_858
+  name: COSMOS 858
+  norad_id: 09443
+  constellation: COSMOS
+  owner: CIS
+  tle_epoch: '2025-07-16T22:37:56.851Z'
+  tle_line1: 1 09443U 76098A   25197.94301912  .00000054  00000-0  28218-4 0  9997
+  tle_line2: 2 09443  74.0489  52.1746 0014793 254.7526 105.1991 14.34985124550663
+  apogee_km: 786.0
+  perigee_km: 765.0
+  period_min: 100.4
+  inclination_deg: 74.1
+  swath_width_km: 20.0
+  num_terminal: 1
+  battery_capacity_wh: 8000.0
+  storage_capacity_mb: 2000000.0
+  obs_store_rate_mb_per_min: 72000.0
+  downlink_release_rate_mb_per_min: 54000.0
+  charge_rate_w: 2500.0
+  idle_discharge_rate_w: 1200.0
+  obs_discharge_rate_w: 2000.0
+  downlink_discharge_rate_w: 200.0
+  max_slew_velocity_deg_per_sec: 1.5
+  max_slew_acceleration_deg_per_sec2: 0.5
+  max_slew_jerk_deg_per_sec3: null
+  settling_time_sec: 1.5
+  initial_storage_mb: 1000000.0
+  initial_battery_wh: 4000.0
+- id: sat_cosmos_465
+  name: COSMOS 465
+  norad_id: 05683
+  constellation: COSMOS
+  owner: CIS
+  tle_epoch: '2025-07-16T21:51:06.331Z'
+  tle_line1: 1 05683U 71111A   25197.91048995  .00000017  00000-0  42322-4 0  9997
+  tle_line2: 2 05683  74.0274 147.1365 0027753 334.7701  81.0782 13.74338776687280
+  apogee_km: 1004.0
+  perigee_km: 964.0
+  period_min: 104.8
+  inclination_deg: 74.0
+  swath_width_km: 20.0
+  num_terminal: 1
+  battery_capacity_wh: 8000.0
+  storage_capacity_mb: 2000000.0
+  obs_store_rate_mb_per_min: 72000.0
+  downlink_release_rate_mb_per_min: 54000.0
+  charge_rate_w: 2500.0
+  idle_discharge_rate_w: 1200.0
+  obs_discharge_rate_w: 2000.0
+  downlink_discharge_rate_w: 200.0
+  max_slew_velocity_deg_per_sec: 1.5
+  max_slew_acceleration_deg_per_sec2: 0.5
+  max_slew_jerk_deg_per_sec3: null
+  settling_time_sec: 1.5
+  initial_storage_mb: 1000000.0
+  initial_battery_wh: 4000.0
+- id: sat_cosmos_1898
+  name: COSMOS 1898
+  norad_id: '18585'
+  constellation: COSMOS
+  owner: CIS
+  tle_epoch: '2025-07-16T22:06:36.640Z'
+  tle_line1: 1 18585U 87098A   25197.92125741  .00000098  00000-0  44194-4 0  9997
+  tle_line2: 2 18585  74.0059   6.4958 0019842  80.8656 279.4740 14.34429111967345
+  apogee_km: 791.0
+  perigee_km: 763.0
+  period_min: 100.4
+  inclination_deg: 74.0
+  swath_width_km: 20.0
+  num_terminal: 1
+  battery_capacity_wh: 8000.0
+  storage_capacity_mb: 2000000.0
+  obs_store_rate_mb_per_min: 72000.0
+  downlink_release_rate_mb_per_min: 54000.0
+  charge_rate_w: 2500.0
+  idle_discharge_rate_w: 1200.0
+  obs_discharge_rate_w: 2000.0
+  downlink_discharge_rate_w: 200.0
+  max_slew_velocity_deg_per_sec: 1.5
+  max_slew_acceleration_deg_per_sec2: 0.5
+  max_slew_jerk_deg_per_sec3: null
+  settling_time_sec: 1.5
+  initial_storage_mb: 1000000.0
+  initial_battery_wh: 4000.0
+- id: sat_cosmos_2068
+  name: COSMOS 2068
+  norad_id: '20553'
+  constellation: COSMOS
+  owner: CIS
+  tle_epoch: '2025-07-16T22:25:05.899Z'
+  tle_line1: 1 20553U 90029E   25197.93409606 -.00000004  00000-0  76031-4 0  9992
+  tle_line2: 2 20553  73.9809 158.1310 0031064   2.7013  53.7204 12.56267184617871
+  apogee_km: 1463.0
+  perigee_km: 1414.0
+  period_min: 114.6
+  inclination_deg: 74.0
+  swath_width_km: 20.0
+  num_terminal: 1
+  battery_capacity_wh: 8000.0
+  storage_capacity_mb: 2000000.0
+  obs_store_rate_mb_per_min: 72000.0
+  downlink_release_rate_mb_per_min: 54000.0
+  charge_rate_w: 2500.0
+  idle_discharge_rate_w: 1200.0
+  obs_discharge_rate_w: 2000.0
+  downlink_discharge_rate_w: 200.0
+  max_slew_velocity_deg_per_sec: 1.5
+  max_slew_acceleration_deg_per_sec2: 0.5
+  max_slew_jerk_deg_per_sec3: null
+  settling_time_sec: 1.5
+  initial_storage_mb: 1000000.0
+  initial_battery_wh: 4000.0
+- id: sat_cosmos_792
+  name: COSMOS 792
+  norad_id: 08608
+  constellation: COSMOS
+  owner: CIS
+  tle_epoch: '2025-07-16T18:51:04.622Z'
+  tle_line1: 1 08608U 76008B   25197.78547017 -.00000023  00000-0 -45614-4 0  9997
+  tle_line2: 2 08608  74.0548  70.0322 0035235 268.4685 158.6148 12.50414770257977
+  apogee_km: 1490.0
+  perigee_km: 1435.0
+  period_min: 115.2
+  inclination_deg: 74.1
+  swath_width_km: 20.0
+  num_terminal: 1
+  battery_capacity_wh: 8000.0
+  storage_capacity_mb: 2000000.0
+  obs_store_rate_mb_per_min: 72000.0
+  downlink_release_rate_mb_per_min: 54000.0
+  charge_rate_w: 2500.0
+  idle_discharge_rate_w: 1200.0
+  obs_discharge_rate_w: 2000.0
+  downlink_discharge_rate_w: 200.0
+  max_slew_velocity_deg_per_sec: 1.5
+  max_slew_acceleration_deg_per_sec2: 0.5
+  max_slew_jerk_deg_per_sec3: null
+  settling_time_sec: 1.5
+  initial_storage_mb: 1000000.0
+  initial_battery_wh: 4000.0
+- id: sat_cosmos_2344_deb
+  name: COSMOS 2344 DEB
+  norad_id: '24843'
+  constellation: COSMOS
+  owner: CIS
+  tle_epoch: '2025-07-16T20:39:40.942Z'
+  tle_line1: 1 24843U 97028G   25197.86089054 -.00000006  00000-0  45527-3 0  9994
+  tle_line2: 2 24843  63.3253  15.6000 1062342  41.9435  50.1402 11.10028978137236
+  apogee_km: 3012.0
+  perigee_km: 1209.0
+  period_min: 129.7
+  inclination_deg: 63.29999999999999
+  swath_width_km: 20.0
+  num_terminal: 1
+  battery_capacity_wh: 8000.0
+  storage_capacity_mb: 2000000.0
+  obs_store_rate_mb_per_min: 72000.0
+  downlink_release_rate_mb_per_min: 54000.0
+  charge_rate_w: 2500.0
+  idle_discharge_rate_w: 1200.0
+  obs_discharge_rate_w: 2000.0
+  downlink_discharge_rate_w: 200.0
+  max_slew_velocity_deg_per_sec: 1.5
+  max_slew_acceleration_deg_per_sec2: 0.5
+  max_slew_jerk_deg_per_sec3: null
+  settling_time_sec: 1.5
+  initial_storage_mb: 1000000.0
+  initial_battery_wh: 4000.0
+- id: sat_cosmos_2342
+  name: COSMOS 2342
+  norad_id: '24800'
+  constellation: COSMOS
+  owner: CIS
+  tle_epoch: '2025-07-16T15:34:33.728Z'
+  tle_line1: 1 24800U 97022A   25197.64900149 -.00000007  00000-0  00000-0 0  9999
+  tle_line2: 2 24800  67.4778 275.7548 6653967 135.6073 302.7014  1.99533729205710
+  apogee_km: 38008.0
+  perigee_km: 2539.0
+  period_min: 721.7
+  inclination_deg: 67.5
+  swath_width_km: 20.0
+  num_terminal: 1
+  battery_capacity_wh: 8000.0
+  storage_capacity_mb: 2000000.0
+  obs_store_rate_mb_per_min: 72000.0
+  downlink_release_rate_mb_per_min: 54000.0
+  charge_rate_w: 2500.0
+  idle_discharge_rate_w: 1200.0
+  obs_discharge_rate_w: 2000.0
+  downlink_discharge_rate_w: 200.0
+  max_slew_velocity_deg_per_sec: 1.5
+  max_slew_acceleration_deg_per_sec2: 0.5
+  max_slew_jerk_deg_per_sec3: null
+  settling_time_sec: 1.5
+  initial_storage_mb: 1000000.0
+  initial_battery_wh: 4000.0
+- id: sat_cosmos_1263
+  name: COSMOS 1263
+  norad_id: '12388'
+  constellation: COSMOS
+  owner: CIS
+  tle_epoch: '2025-07-16T21:27:14.282Z'
+  tle_line1: 1 12388U 81033A   25197.89391531  .00006393  00000-0  36671-3 0  9997
+  tle_line2: 2 12388  82.8600 130.9243 0592937  37.7815 326.3486 14.26197040223560
+  apogee_km: 1230.0
+  perigee_km: 379.0
+  period_min: 101.0
+  inclination_deg: 82.9
+  swath_width_km: 20.0
+  num_terminal: 1
+  battery_capacity_wh: 8000.0
+  storage_capacity_mb: 2000000.0
+  obs_store_rate_mb_per_min: 72000.0
+  downlink_release_rate_mb_per_min: 54000.0
+  charge_rate_w: 2500.0
+  idle_discharge_rate_w: 1200.0
+  obs_discharge_rate_w: 2000.0
+  downlink_discharge_rate_w: 200.0
+  max_slew_velocity_deg_per_sec: 1.5
+  max_slew_acceleration_deg_per_sec2: 0.5
+  max_slew_jerk_deg_per_sec3: null
+  settling_time_sec: 1.5
+  initial_storage_mb: 1000000.0
+  initial_battery_wh: 4000.0
+- id: sat_cosmos_1255
+  name: COSMOS 1255
+  norad_id: '12325'
+  constellation: COSMOS
+  owner: CIS
+  tle_epoch: '2025-07-16T22:38:06.636Z'
+  tle_line1: 1 12325U 81022F   25197.94313237 -.00000010  00000-0  39859-4 0  9992
+  tle_line2: 2 12325  74.0315 357.8759 0017075 176.4766 305.6298 12.51484910 26642
+  apogee_km: 1472.0
+  perigee_km: 1445.0
+  period_min: 115.1
+  inclination_deg: 74.0
+  swath_width_km: 20.0
+  num_terminal: 1
+  battery_capacity_wh: 8000.0
+  storage_capacity_mb: 2000000.0
+  obs_store_rate_mb_per_min: 72000.0
+  downlink_release_rate_mb_per_min: 54000.0
+  charge_rate_w: 2500.0
+  idle_discharge_rate_w: 1200.0
+  obs_discharge_rate_w: 2000.0
+  downlink_discharge_rate_w: 200.0
+  max_slew_velocity_deg_per_sec: 1.5
+  max_slew_acceleration_deg_per_sec2: 0.5
+  max_slew_jerk_deg_per_sec3: null
+  settling_time_sec: 1.5
+  initial_storage_mb: 1000000.0
+  initial_battery_wh: 4000.0
+- id: sat_cosmos_976
+  name: COSMOS 976
+  norad_id: '10581'
+  constellation: COSMOS
+  owner: CIS
+  tle_epoch: '2025-07-16T20:58:38.829Z'
+  tle_line1: 1 10581U 78005A   25197.87406053 -.00000009  00000-0  45730-4 0  9995
+  tle_line2: 2 10581  74.0324   1.5265 0005466 221.5179 255.3928 12.51290528163081
+  apogee_km: 1463.0
+  perigee_km: 1455.0
+  period_min: 115.1
+  inclination_deg: 74.0
+  swath_width_km: 20.0
+  num_terminal: 1
+  battery_capacity_wh: 8000.0
+  storage_capacity_mb: 2000000.0
+  obs_store_rate_mb_per_min: 72000.0
+  downlink_release_rate_mb_per_min: 54000.0
+  charge_rate_w: 2500.0
+  idle_discharge_rate_w: 1200.0
+  obs_discharge_rate_w: 2000.0
+  downlink_discharge_rate_w: 200.0
+  max_slew_velocity_deg_per_sec: 1.5
+  max_slew_acceleration_deg_per_sec2: 0.5
+  max_slew_jerk_deg_per_sec3: null
+  settling_time_sec: 1.5
+  initial_storage_mb: 1000000.0
+  initial_battery_wh: 4000.0
+- id: sat_cosmos_1547
+  name: COSMOS 1547
+  norad_id: '14884'
+  constellation: COSMOS
+  owner: CIS
+  tle_epoch: '2025-07-16T06:45:18.752Z'
+  tle_line1: 1 14884U 84033A   25197.28146704 -.00000548  00000-0  00000-0 0  9997
+  tle_line2: 2 14884  73.1774 346.6704 5677855 263.5150  32.5471  2.00604975242598
+  apogee_km: 35256.0
+  perigee_km: 5100.0
+  period_min: 717.8
+  inclination_deg: 73.2
+  swath_width_km: 20.0
+  num_terminal: 1
+  battery_capacity_wh: 8000.0
+  storage_capacity_mb: 2000000.0
+  obs_store_rate_mb_per_min: 72000.0
+  downlink_release_rate_mb_per_min: 54000.0
+  charge_rate_w: 2500.0
+  idle_discharge_rate_w: 1200.0
+  obs_discharge_rate_w: 2000.0
+  downlink_discharge_rate_w: 200.0
+  max_slew_velocity_deg_per_sec: 1.5
+  max_slew_acceleration_deg_per_sec2: 0.5
+  max_slew_jerk_deg_per_sec3: null
+  settling_time_sec: 1.5
+  initial_storage_mb: 1000000.0
+  initial_battery_wh: 4000.0
+- id: sat_cosmos_1506
+  name: COSMOS 1506
+  norad_id: '14450'
+  constellation: COSMOS
+  owner: CIS
+  tle_epoch: '2025-07-16T21:54:12.312Z'
+  tle_line1: 1 14450U 83108A   25197.91264251  .00000079  00000-0  65338-4 0  9993
+  tle_line2: 2 14450  82.9315 161.0255 0041819 217.2478 196.2056 13.76499689911538
+  apogee_km: 1007.0
+  perigee_km: 946.0
+  period_min: 104.6
+  inclination_deg: 82.9
+  swath_width_km: 20.0
+  num_terminal: 1
+  battery_capacity_wh: 8000.0
+  storage_capacity_mb: 2000000.0
+  obs_store_rate_mb_per_min: 72000.0
+  downlink_release_rate_mb_per_min: 54000.0
+  charge_rate_w: 2500.0
+  idle_discharge_rate_w: 1200.0
+  obs_discharge_rate_w: 2000.0
+  downlink_discharge_rate_w: 200.0
+  max_slew_velocity_deg_per_sec: 1.5
+  max_slew_acceleration_deg_per_sec2: 0.5
+  max_slew_jerk_deg_per_sec3: null
+  settling_time_sec: 1.5
+  initial_storage_mb: 1000000.0
+  initial_battery_wh: 4000.0
+- id: sat_cosmos_546
+  name: COSMOS 546
+  norad_id: '06350'
+  constellation: COSMOS
+  owner: CIS
+  tle_epoch: '2025-07-16T18:20:23.153Z'
+  tle_line1: 1 06350U 73005A   25197.76415687  .00001234  00000-0  56905-4 0  9996
+  tle_line2: 2 06350  50.6359   8.0849 0015286  59.1586 301.0882 15.28222640891898
+  apogee_km: 492.0
+  perigee_km: 471.0
+  period_min: 94.2
+  inclination_deg: 50.60000000000001
+  swath_width_km: 20.0
+  num_terminal: 1
+  battery_capacity_wh: 8000.0
+  storage_capacity_mb: 2000000.0
+  obs_store_rate_mb_per_min: 72000.0
+  downlink_release_rate_mb_per_min: 54000.0
+  charge_rate_w: 2500.0
+  idle_discharge_rate_w: 1200.0
+  obs_discharge_rate_w: 2000.0
+  downlink_discharge_rate_w: 200.0
+  max_slew_velocity_deg_per_sec: 1.5
+  max_slew_acceleration_deg_per_sec2: 0.5
+  max_slew_jerk_deg_per_sec3: null
+  settling_time_sec: 1.5
+  initial_storage_mb: 1000000.0
+  initial_battery_wh: 4000.0
+- id: sat_cosmos_520
+  name: COSMOS 520
+  norad_id: 06192
+  constellation: COSMOS
+  owner: CIS
+  tle_epoch: '2025-07-16T15:26:52.408Z'
+  tle_line1: 1 06192U 72072A   25197.64366213  .00000076  00000-0  00000-0 0  9994
+  tle_line2: 2 06192  71.7597 237.9187 4836172 195.1325 139.5209  2.01332913388428
+  apogee_km: 32927.0
+  perigee_km: 7302.0
+  period_min: 715.2
+  inclination_deg: 71.8
+  swath_width_km: 20.0
+  num_terminal: 1
+  battery_capacity_wh: 8000.0
+  storage_capacity_mb: 2000000.0
+  obs_store_rate_mb_per_min: 72000.0
+  downlink_release_rate_mb_per_min: 54000.0
+  charge_rate_w: 2500.0
+  idle_discharge_rate_w: 1200.0
+  obs_discharge_rate_w: 2000.0
+  downlink_discharge_rate_w: 200.0
+  max_slew_velocity_deg_per_sec: 1.5
+  max_slew_acceleration_deg_per_sec2: 0.5
+  max_slew_jerk_deg_per_sec3: null
+  settling_time_sec: 1.5
+  initial_storage_mb: 1000000.0
+  initial_battery_wh: 4000.0
+- id: sat_cosmos_2226
+  name: COSMOS 2226
+  norad_id: '22282'
+  constellation: COSMOS
+  owner: CIS
+  tle_epoch: '2025-07-16T22:14:38.580Z'
+  tle_line1: 1 22282U 92092A   25197.92683542 -.00000010  00000-0  52901-4 0  9994
+  tle_line2: 2 22282  73.6212 194.8669 0028917 148.3234 222.8442 12.41297706475609
+  apogee_km: 1524.0
+  perigee_km: 1478.0
+  period_min: 116.0
+  inclination_deg: 73.6
+  swath_width_km: 20.0
+  num_terminal: 1
+  battery_capacity_wh: 8000.0
+  storage_capacity_mb: 2000000.0
+  obs_store_rate_mb_per_min: 72000.0
+  downlink_release_rate_mb_per_min: 54000.0
+  charge_rate_w: 2500.0
+  idle_discharge_rate_w: 1200.0
+  obs_discharge_rate_w: 2000.0
+  downlink_discharge_rate_w: 200.0
+  max_slew_velocity_deg_per_sec: 1.5
+  max_slew_acceleration_deg_per_sec2: 0.5
+  max_slew_jerk_deg_per_sec3: null
+  settling_time_sec: 1.5
+  initial_storage_mb: 1000000.0
+  initial_battery_wh: 4000.0
+- id: sat_cosmos_494
+  name: COSMOS 494
+  norad_id: 06059
+  constellation: COSMOS
+  owner: CIS
+  tle_epoch: '2025-07-16T19:21:28.441Z'
+  tle_line1: 1 06059U 72043A   25197.80657918  .00000092  00000-0  40175-4 0  9996
+  tle_line2: 2 06059  74.0568 337.2840 0010620 203.1819 156.8857 14.36393323776289
+  apogee_km: 778.0
+  perigee_km: 763.0
+  period_min: 100.3
+  inclination_deg: 74.1
+  swath_width_km: 20.0
+  num_terminal: 1
+  battery_capacity_wh: 8000.0
+  storage_capacity_mb: 2000000.0
+  obs_store_rate_mb_per_min: 72000.0
+  downlink_release_rate_mb_per_min: 54000.0
+  charge_rate_w: 2500.0
+  idle_discharge_rate_w: 1200.0
+  obs_discharge_rate_w: 2000.0
+  downlink_discharge_rate_w: 200.0
+  max_slew_velocity_deg_per_sec: 1.5
+  max_slew_acceleration_deg_per_sec2: 0.5
+  max_slew_jerk_deg_per_sec3: null
+  settling_time_sec: 1.5
+  initial_storage_mb: 1000000.0
+  initial_battery_wh: 4000.0
+- id: sat_cosmos_1832
+  name: COSMOS 1832
+  norad_id: '17587'
+  constellation: COSMOS
+  owner: CIS
+  tle_epoch: '2025-07-16T16:15:31.902Z'
+  tle_line1: 1 17587U 87026F   25197.67745257  .00000011  00000-0  25479-5 0  9992
+  tle_line2: 2 17587  82.5663  56.8559 0008099 223.6074 202.2650 12.64333020769304
+  apogee_km: 1411.0
+  perigee_km: 1399.0
+  period_min: 113.9
+  inclination_deg: 82.60000000000001
+  swath_width_km: 20.0
+  num_terminal: 1
+  battery_capacity_wh: 8000.0
+  storage_capacity_mb: 2000000.0
+  obs_store_rate_mb_per_min: 72000.0
+  downlink_release_rate_mb_per_min: 54000.0
+  charge_rate_w: 2500.0
+  idle_discharge_rate_w: 1200.0
+  obs_discharge_rate_w: 2000.0
+  downlink_discharge_rate_w: 200.0
+  max_slew_velocity_deg_per_sec: 1.5
+  max_slew_acceleration_deg_per_sec2: 0.5
+  max_slew_jerk_deg_per_sec3: null
+  settling_time_sec: 1.5
+  initial_storage_mb: 1000000.0
+  initial_battery_wh: 4000.0
+- id: sat_cosmos_1999
+  name: COSMOS 1999
+  norad_id: '19790'
+  constellation: COSMOS
+  owner: CIS
+  tle_epoch: '2025-07-16T23:12:53.964Z'
+  tle_line1: 1 19790U 89009F   25197.96729126  .00000030  00000-0  10360-3 0  9994
+  tle_line2: 2 19790  82.6180 180.8367 0018119 268.2911 145.5784 12.65738613682849
+  apogee_km: 1413.0
+  perigee_km: 1385.0
+  period_min: 113.8
+  inclination_deg: 82.60000000000001
+  swath_width_km: 20.0
+  num_terminal: 1
+  battery_capacity_wh: 8000.0
+  storage_capacity_mb: 2000000.0
+  obs_store_rate_mb_per_min: 72000.0
+  downlink_release_rate_mb_per_min: 54000.0
+  charge_rate_w: 2500.0
+  idle_discharge_rate_w: 1200.0
+  obs_discharge_rate_w: 2000.0
+  downlink_discharge_rate_w: 200.0
+  max_slew_velocity_deg_per_sec: 1.5
+  max_slew_acceleration_deg_per_sec2: 0.5
+  max_slew_jerk_deg_per_sec3: null
+  settling_time_sec: 1.5
+  initial_storage_mb: 1000000.0
+  initial_battery_wh: 4000.0
+- id: sat_cosmos_2329
+  name: COSMOS 2329
+  norad_id: '23791'
+  constellation: COSMOS
+  owner: CIS
+  tle_epoch: '2025-07-16T21:53:15.128Z'
+  tle_line1: 1 23791U 96009E   25197.91198065  .00000022  00000-0  66482-4 0  9993
+  tle_line2: 2 23791  82.5718 179.7145 0010175 101.5862 319.7059 12.61694659354360
+  apogee_km: 1424.0
+  perigee_km: 1408.0
+  period_min: 114.1
+  inclination_deg: 82.60000000000001
+  swath_width_km: 20.0
+  num_terminal: 1
+  battery_capacity_wh: 8000.0
+  storage_capacity_mb: 2000000.0
+  obs_store_rate_mb_per_min: 72000.0
+  downlink_release_rate_mb_per_min: 54000.0
+  charge_rate_w: 2500.0
+  idle_discharge_rate_w: 1200.0
+  obs_discharge_rate_w: 2000.0
+  downlink_discharge_rate_w: 200.0
+  max_slew_velocity_deg_per_sec: 1.5
+  max_slew_acceleration_deg_per_sec2: 0.5
+  max_slew_jerk_deg_per_sec3: null
+  settling_time_sec: 1.5
+  initial_storage_mb: 1000000.0
+  initial_battery_wh: 4000.0
+- id: sat_cosmos_2278
+  name: COSMOS 2278
+  norad_id: '23087'
+  constellation: COSMOS
+  owner: CIS
+  tle_epoch: '2025-07-16T17:28:01.893Z'
+  tle_line1: 1 23087U 94023A   25197.72779969 -.00000205  00000-0 -82584-4 0  9998
+  tle_line2: 2 23087  71.0542 308.7478 0008017  14.9305 345.2053 14.14303353611441
+  apogee_km: 850.0
+  perigee_km: 839.0
+  period_min: 101.8
+  inclination_deg: 71.1
+  swath_width_km: 20.0
+  num_terminal: 1
+  battery_capacity_wh: 8000.0
+  storage_capacity_mb: 2000000.0
+  obs_store_rate_mb_per_min: 72000.0
+  downlink_release_rate_mb_per_min: 54000.0
+  charge_rate_w: 2500.0
+  idle_discharge_rate_w: 1200.0
+  obs_discharge_rate_w: 2000.0
+  downlink_discharge_rate_w: 200.0
+  max_slew_velocity_deg_per_sec: 1.5
+  max_slew_acceleration_deg_per_sec2: 0.5
+  max_slew_jerk_deg_per_sec3: null
+  settling_time_sec: 1.5
+  initial_storage_mb: 1000000.0
+  initial_battery_wh: 4000.0
+- id: sat_cosmos_2492
+  name: COSMOS 2492
+  norad_id: '39620'
+  constellation: COSMOS
+  owner: CIS
+  tle_epoch: '2025-07-16T08:21:38.019Z'
+  tle_line1: 1 39620U 14012A   25197.34835671 -.00000052  00000-0  00000-0 0  9997
+  tle_line2: 2 39620  65.4894 325.3334 0010613 319.2546  40.6776  2.13103129 88088
+  apogee_km: 19157.0
+  perigee_km: 19103.0
+  period_min: 675.7
+  inclination_deg: 65.5
+  swath_width_km: 20.0
+  num_terminal: 1
+  battery_capacity_wh: 8000.0
+  storage_capacity_mb: 2000000.0
+  obs_store_rate_mb_per_min: 72000.0
+  downlink_release_rate_mb_per_min: 54000.0
+  charge_rate_w: 2500.0
+  idle_discharge_rate_w: 1200.0
+  obs_discharge_rate_w: 2000.0
+  downlink_discharge_rate_w: 200.0
+  max_slew_velocity_deg_per_sec: 1.5
+  max_slew_acceleration_deg_per_sec2: 0.5
+  max_slew_jerk_deg_per_sec3: null
+  settling_time_sec: 1.5
+  initial_storage_mb: 1000000.0
+  initial_battery_wh: 4000.0
+- id: sat_cosmos_1058
+  name: COSMOS 1058
+  norad_id: '11135'
+  constellation: COSMOS
+  owner: CIS
+  tle_epoch: '2025-07-16T22:25:49.600Z'
+  tle_line1: 1 11135U 78109H   25197.93460186 -.00000005  00000-0  74976-4 0  9990
+  tle_line2: 2 11135  74.0169 118.3836 0036367  15.6575  54.5518 12.39497678109121
+  apogee_km: 1537.0
+  perigee_km: 1480.0
+  period_min: 116.2
+  inclination_deg: 74.0
+  swath_width_km: 20.0
+  num_terminal: 1
+  battery_capacity_wh: 8000.0
+  storage_capacity_mb: 2000000.0
+  obs_store_rate_mb_per_min: 72000.0
+  downlink_release_rate_mb_per_min: 54000.0
+  charge_rate_w: 2500.0
+  idle_discharge_rate_w: 1200.0
+  obs_discharge_rate_w: 2000.0
+  downlink_discharge_rate_w: 200.0
+  max_slew_velocity_deg_per_sec: 1.5
+  max_slew_acceleration_deg_per_sec2: 0.5
+  max_slew_jerk_deg_per_sec3: null
+  settling_time_sec: 1.5
+  initial_storage_mb: 1000000.0
+  initial_battery_wh: 4000.0
+- id: sat_cosmos_1430
+  name: COSMOS 1430
+  norad_id: '13762'
+  constellation: COSMOS
+  owner: CIS
+  tle_epoch: '2025-07-17T05:46:36.215Z'
+  tle_line1: 1 13762U 83002B   25198.24069694 -.00000021  00000-0 -37351-4 0  9995
+  tle_line2: 2 13762  74.0207 219.1816 0020138 181.2224 253.3323 12.45719694932534
+  apogee_km: 1498.0
+  perigee_km: 1467.0
+  period_min: 115.6
+  inclination_deg: 74.0
+  swath_width_km: 20.0
+  num_terminal: 1
+  battery_capacity_wh: 8000.0
+  storage_capacity_mb: 2000000.0
+  obs_store_rate_mb_per_min: 72000.0
+  downlink_release_rate_mb_per_min: 54000.0
+  charge_rate_w: 2500.0
+  idle_discharge_rate_w: 1200.0
+  obs_discharge_rate_w: 2000.0
+  downlink_discharge_rate_w: 200.0
+  max_slew_velocity_deg_per_sec: 1.5
+  max_slew_acceleration_deg_per_sec2: 0.5
+  max_slew_jerk_deg_per_sec3: null
+  settling_time_sec: 1.5
+  initial_storage_mb: 1000000.0
+  initial_battery_wh: 4000.0
+- id: sat_cosmos_2362
+  name: COSMOS 2362
+  norad_id: '25595'
+  constellation: COSMOS
+  owner: CIS
+  tle_epoch: '2025-07-16T20:19:44.849Z'
+  tle_line1: 1 25595U 98077C   25197.84704687 -.00000022  00000-0  00000-0 0  9990
+  tle_line2: 2 25595  64.1136  71.9984 0007033  66.3109 112.4936  2.13103604206537
+  apogee_km: 19148.0
+  perigee_km: 19112.0
+  period_min: 675.7
+  inclination_deg: 64.1
+  swath_width_km: 20.0
+  num_terminal: 1
+  battery_capacity_wh: 8000.0
+  storage_capacity_mb: 2000000.0
+  obs_store_rate_mb_per_min: 72000.0
+  downlink_release_rate_mb_per_min: 54000.0
+  charge_rate_w: 2500.0
+  idle_discharge_rate_w: 1200.0
+  obs_discharge_rate_w: 2000.0
+  downlink_discharge_rate_w: 200.0
+  max_slew_velocity_deg_per_sec: 1.5
+  max_slew_acceleration_deg_per_sec2: 0.5
+  max_slew_jerk_deg_per_sec3: null
+  settling_time_sec: 1.5
+  initial_storage_mb: 1000000.0
+  initial_battery_wh: 4000.0
+- id: sat_cosmos_2287
+  name: COSMOS 2287
+  norad_id: '23203'
+  constellation: COSMOS
+  owner: CIS
+  tle_epoch: '2025-07-16T06:50:17.191Z'
+  tle_line1: 1 23203U 94050A   25197.28492120  .00000101  00000-0  00000-0 0  9992
+  tle_line2: 2 23203  65.4188 213.1069 0011317  17.9228 102.3889  2.13101296240695
+  apogee_km: 19159.0
+  perigee_km: 19101.0
+  period_min: 675.7
+  inclination_deg: 65.4
+  swath_width_km: 20.0
+  num_terminal: 1
+  battery_capacity_wh: 8000.0
+  storage_capacity_mb: 2000000.0
+  obs_store_rate_mb_per_min: 72000.0
+  downlink_release_rate_mb_per_min: 54000.0
+  charge_rate_w: 2500.0
+  idle_discharge_rate_w: 1200.0
+  obs_discharge_rate_w: 2000.0
+  downlink_discharge_rate_w: 200.0
+  max_slew_velocity_deg_per_sec: 1.5
+  max_slew_acceleration_deg_per_sec2: 0.5
+  max_slew_jerk_deg_per_sec3: null
+  settling_time_sec: 1.5
+  initial_storage_mb: 1000000.0
+  initial_battery_wh: 4000.0
+- id: sat_cosmos_1903
+  name: COSMOS 1903
+  norad_id: '18701'
+  constellation: COSMOS
+  owner: CIS
+  tle_epoch: '2025-07-15T00:34:08.893Z'
+  tle_line1: 1 18701U 87105A   25196.02371404  .00000165  00000-0  00000-0 0  9994
+  tle_line2: 2 18701  68.9374 206.9010 4550279 104.0307 309.1938  2.00346153275901
+  apogee_km: 32296.0
+  perigee_km: 8107.0
+  period_min: 718.8
+  inclination_deg: 68.9
+  swath_width_km: 20.0
+  num_terminal: 1
+  battery_capacity_wh: 8000.0
+  storage_capacity_mb: 2000000.0
+  obs_store_rate_mb_per_min: 72000.0
+  downlink_release_rate_mb_per_min: 54000.0
+  charge_rate_w: 2500.0
+  idle_discharge_rate_w: 1200.0
+  obs_discharge_rate_w: 2000.0
+  downlink_discharge_rate_w: 200.0
+  max_slew_velocity_deg_per_sec: 1.5
+  max_slew_acceleration_deg_per_sec2: 0.5
+  max_slew_jerk_deg_per_sec3: null
+  settling_time_sec: 1.5
+  initial_storage_mb: 1000000.0
+  initial_battery_wh: 4000.0
+- id: sat_cosmos_521
+  name: COSMOS 521
+  norad_id: '06206'
+  constellation: COSMOS
+  owner: CIS
+  tle_epoch: '2025-07-16T22:12:51.306Z'
+  tle_line1: 1 06206U 72074A   25197.92559383 -.00000079  00000-0  12655-5 0  9993
+  tle_line2: 2 06206  65.8284  27.9252 0020373 249.0828 216.4628 13.72500400645606
+  apogee_km: 1006.0
+  perigee_km: 976.0
+  period_min: 104.9
+  inclination_deg: 65.8
+  swath_width_km: 20.0
+  num_terminal: 1
+  battery_capacity_wh: 8000.0
+  storage_capacity_mb: 2000000.0
+  obs_store_rate_mb_per_min: 72000.0
+  downlink_release_rate_mb_per_min: 54000.0
+  charge_rate_w: 2500.0
+  idle_discharge_rate_w: 1200.0
+  obs_discharge_rate_w: 2000.0
+  downlink_discharge_rate_w: 200.0
+  max_slew_velocity_deg_per_sec: 1.5
+  max_slew_acceleration_deg_per_sec2: 0.5
+  max_slew_jerk_deg_per_sec3: null
+  settling_time_sec: 1.5
+  initial_storage_mb: 1000000.0
+  initial_battery_wh: 4000.0
+- id: sat_cosmos_1607_fue
+  name: COSMOS 1607 FUE
+  norad_id: '15503'
+  constellation: COSMOS
+  owner: CIS
+  tle_epoch: '2025-07-16T16:06:57.773Z'
+  tle_line1: 1 15503U 84112C   25197.67150201 -.00000076  00000-0  11048-4 0  9998
+  tle_line2: 2 15503  64.9961 313.2742 0011542  76.0555 284.1790 13.87540443 49502
+  apogee_km: 946.0
+  perigee_km: 929.0
+  period_min: 103.8
+  inclination_deg: 65.0
+  swath_width_km: 20.0
+  num_terminal: 1
+  battery_capacity_wh: 8000.0
+  storage_capacity_mb: 2000000.0
+  obs_store_rate_mb_per_min: 72000.0
+  downlink_release_rate_mb_per_min: 54000.0
+  charge_rate_w: 2500.0
+  idle_discharge_rate_w: 1200.0
+  obs_discharge_rate_w: 2000.0
+  downlink_discharge_rate_w: 200.0
+  max_slew_velocity_deg_per_sec: 1.5
+  max_slew_acceleration_deg_per_sec2: 0.5
+  max_slew_jerk_deg_per_sec3: null
+  settling_time_sec: 1.5
+  initial_storage_mb: 1000000.0
+  initial_battery_wh: 4000.0
+- id: sat_cosmos_1092
+  name: COSMOS 1092
+  norad_id: '11326'
+  constellation: COSMOS
+  owner: CIS
+  tle_epoch: '2025-07-16T20:03:36.978Z'
+  tle_line1: 1 11326U 79030A   25197.83584466  .00000053  00000-0  39070-4 0  9991
+  tle_line2: 2 11326  82.9497 294.2211 0028166 319.0457 163.4210 13.75616271556515
+  apogee_km: 1000.0
+  perigee_km: 959.0
+  period_min: 104.7
+  inclination_deg: 83.00000000000001
+  swath_width_km: 20.0
+  num_terminal: 1
+  battery_capacity_wh: 8000.0
+  storage_capacity_mb: 2000000.0
+  obs_store_rate_mb_per_min: 72000.0
+  downlink_release_rate_mb_per_min: 54000.0
+  charge_rate_w: 2500.0
+  idle_discharge_rate_w: 1200.0
+  obs_discharge_rate_w: 2000.0
+  downlink_discharge_rate_w: 200.0
+  max_slew_velocity_deg_per_sec: 1.5
+  max_slew_acceleration_deg_per_sec2: 0.5
+  max_slew_jerk_deg_per_sec3: null
+  settling_time_sec: 1.5
+  initial_storage_mb: 1000000.0
+  initial_battery_wh: 4000.0
+- id: sat_cosmos_252
+  name: COSMOS 252
+  norad_id: '03530'
+  constellation: COSMOS
+  owner: CIS
+  tle_epoch: '2025-07-16T13:29:37.714Z'
+  tle_line1: 1 03530U 68097A   25197.56224207 -.00000039  00000-0  27868-4 0  9991
+  tle_line2: 2 03530  62.3250 256.8846 0987495 346.6021  11.0380 12.88145152662312
+  apogee_km: 2068.0
+  perigee_km: 550.0
+  period_min: 111.8
+  inclination_deg: 62.3
+  swath_width_km: 20.0
+  num_terminal: 1
+  battery_capacity_wh: 8000.0
+  storage_capacity_mb: 2000000.0
+  obs_store_rate_mb_per_min: 72000.0
+  downlink_release_rate_mb_per_min: 54000.0
+  charge_rate_w: 2500.0
+  idle_discharge_rate_w: 1200.0
+  obs_discharge_rate_w: 2000.0
+  downlink_discharge_rate_w: 200.0
+  max_slew_velocity_deg_per_sec: 1.5
+  max_slew_acceleration_deg_per_sec2: 0.5
+  max_slew_jerk_deg_per_sec3: null
+  settling_time_sec: 1.5
+  initial_storage_mb: 1000000.0
+  initial_battery_wh: 4000.0
+- id: sat_cosmos_1389
+  name: COSMOS 1389
+  norad_id: '13376'
+  constellation: COSMOS
+  owner: CIS
+  tle_epoch: '2025-07-16T17:53:31.771Z'
+  tle_line1: 1 13376U 82073B   25197.74550662 -.00000014  00000-0  11901-4 0  9991
+  tle_line2: 2 13376  74.0120 193.5733 0041425  54.3671 118.6947 12.55397775970079
+  apogee_km: 1474.0
+  perigee_km: 1410.0
+  period_min: 114.7
+  inclination_deg: 74.0
+  swath_width_km: 20.0
+  num_terminal: 1
+  battery_capacity_wh: 8000.0
+  storage_capacity_mb: 2000000.0
+  obs_store_rate_mb_per_min: 72000.0
+  downlink_release_rate_mb_per_min: 54000.0
+  charge_rate_w: 2500.0
+  idle_discharge_rate_w: 1200.0
+  obs_discharge_rate_w: 2000.0
+  downlink_discharge_rate_w: 200.0
+  max_slew_velocity_deg_per_sec: 1.5
+  max_slew_acceleration_deg_per_sec2: 0.5
+  max_slew_jerk_deg_per_sec3: null
+  settling_time_sec: 1.5
+  initial_storage_mb: 1000000.0
+  initial_battery_wh: 4000.0
+- id: sat_cosmos_338
+  name: COSMOS 338
+  norad_id: 04385
+  constellation: COSMOS
+  owner: CIS
+  tle_epoch: '2025-07-16T17:48:32.546Z'
+  tle_line1: 1 04385U 70036C   25197.74204336 -.00000006  00000-0  68304-4 0  9991
+  tle_line2: 2 04385  74.0304 290.7269 0032000 201.5240 282.6799 12.43366946506293
+  apogee_km: 1518.0
+  perigee_km: 1467.0
+  period_min: 115.8
+  inclination_deg: 74.0
+  swath_width_km: 20.0
+  num_terminal: 1
+  battery_capacity_wh: 8000.0
+  storage_capacity_mb: 2000000.0
+  obs_store_rate_mb_per_min: 72000.0
+  downlink_release_rate_mb_per_min: 54000.0
+  charge_rate_w: 2500.0
+  idle_discharge_rate_w: 1200.0
+  obs_discharge_rate_w: 2000.0
+  downlink_discharge_rate_w: 200.0
+  max_slew_velocity_deg_per_sec: 1.5
+  max_slew_acceleration_deg_per_sec2: 0.5
+  max_slew_jerk_deg_per_sec3: null
+  settling_time_sec: 1.5
+  initial_storage_mb: 1000000.0
+  initial_battery_wh: 4000.0
+- id: sat_cosmos_2573
+  name: COSMOS 2573
+  norad_id: '58614'
+  constellation: COSMOS
+  owner: CIS
+  tle_epoch: '2025-07-17T03:51:03.274Z'
+  tle_line1: 1 58614U 23201A   25198.16045457  .00003317  00000-0  14182-3 0  9992
+  tle_line2: 2 58614  97.5883 137.3327 0004959 334.0848  26.0140 15.23556631 87431
+  apogee_km: 499.0
+  perigee_km: 492.0
+  period_min: 94.5
+  inclination_deg: 97.6
+  swath_width_km: 20.0
+  num_terminal: 1
+  battery_capacity_wh: 8000.0
+  storage_capacity_mb: 2000000.0
+  obs_store_rate_mb_per_min: 72000.0
+  downlink_release_rate_mb_per_min: 54000.0
+  charge_rate_w: 2500.0
+  idle_discharge_rate_w: 1200.0
+  obs_discharge_rate_w: 2000.0
+  downlink_discharge_rate_w: 200.0
+  max_slew_velocity_deg_per_sec: 1.5
+  max_slew_acceleration_deg_per_sec2: 0.5
+  max_slew_jerk_deg_per_sec3: null
+  settling_time_sec: 1.5
+  initial_storage_mb: 1000000.0
+  initial_battery_wh: 4000.0
+- id: sat_cosmos_2528
+  name: COSMOS 2528
+  norad_id: '43657'
+  constellation: COSMOS
+  owner: CIS
+  tle_epoch: '2025-07-16T22:52:04.994Z'
+  tle_line1: 1 43657U 18082A   25197.95283559 -.00000048  00000-0  19490-4 0  9994
+  tle_line2: 2 43657  67.1473 172.5258 0007261 255.1013 104.9268 13.96678365343136
+  apogee_km: 911.0
+  perigee_km: 900.0
+  period_min: 103.1
+  inclination_deg: 67.2
+  swath_width_km: 20.0
+  num_terminal: 1
+  battery_capacity_wh: 8000.0
+  storage_capacity_mb: 2000000.0
+  obs_store_rate_mb_per_min: 72000.0
+  downlink_release_rate_mb_per_min: 54000.0
+  charge_rate_w: 2500.0
+  idle_discharge_rate_w: 1200.0
+  obs_discharge_rate_w: 2000.0
+  downlink_discharge_rate_w: 200.0
+  max_slew_velocity_deg_per_sec: 1.5
+  max_slew_acceleration_deg_per_sec2: 0.5
+  max_slew_jerk_deg_per_sec3: null
+  settling_time_sec: 1.5
+  initial_storage_mb: 1000000.0
+  initial_battery_wh: 4000.0
+- id: sat_cosmos_2498
+  name: COSMOS 2498
+  norad_id: '39763'
+  constellation: COSMOS
+  owner: CIS
+  tle_epoch: '2025-07-17T03:09:18.061Z'
+  tle_line1: 1 39763U 14028C   25198.13145905  .00000033  00000-0  16278-3 0  9999
+  tle_line2: 2 39763  82.4492 318.7731 0021951  86.0866 274.2723 12.42966117505973
+  apogee_km: 1511.0
+  perigee_km: 1477.0
+  period_min: 115.9
+  inclination_deg: 82.49999999999999
+  swath_width_km: 20.0
+  num_terminal: 1
+  battery_capacity_wh: 8000.0
+  storage_capacity_mb: 2000000.0
+  obs_store_rate_mb_per_min: 72000.0
+  downlink_release_rate_mb_per_min: 54000.0
+  charge_rate_w: 2500.0
+  idle_discharge_rate_w: 1200.0
+  obs_discharge_rate_w: 2000.0
+  downlink_discharge_rate_w: 200.0
+  max_slew_velocity_deg_per_sec: 1.5
+  max_slew_acceleration_deg_per_sec2: 0.5
+  max_slew_jerk_deg_per_sec3: null
+  settling_time_sec: 1.5
+  initial_storage_mb: 1000000.0
+  initial_battery_wh: 4000.0
+- id: sat_cosmos_1639
+  name: COSMOS 1639
+  norad_id: '15621'
+  constellation: COSMOS
+  owner: CIS
+  tle_epoch: '2025-07-16T18:54:04.510Z'
+  tle_line1: 1 15621U 85023E   25197.78755220 -.00000024  00000-0 -49441-4 0  9997
+  tle_line2: 2 15621  74.0550  53.3945 0025355 222.4648 212.9706 12.51051671841565
+  apogee_km: 1480.0
+  perigee_km: 1440.0
+  period_min: 115.1
+  inclination_deg: 74.1
+  swath_width_km: 20.0
+  num_terminal: 1
+  battery_capacity_wh: 8000.0
+  storage_capacity_mb: 2000000.0
+  obs_store_rate_mb_per_min: 72000.0
+  downlink_release_rate_mb_per_min: 54000.0
+  charge_rate_w: 2500.0
+  idle_discharge_rate_w: 1200.0
+  obs_discharge_rate_w: 2000.0
+  downlink_discharge_rate_w: 200.0
+  max_slew_velocity_deg_per_sec: 1.5
+  max_slew_acceleration_deg_per_sec2: 0.5
+  max_slew_jerk_deg_per_sec3: null
+  settling_time_sec: 1.5
+  initial_storage_mb: 1000000.0
+  initial_battery_wh: 4000.0
+- id: sat_cosmos_1937
+  name: COSMOS 1937
+  norad_id: '19038'
+  constellation: COSMOS
+  owner: CIS
+  tle_epoch: '2025-07-16T21:24:36.448Z'
+  tle_line1: 1 19038U 88029A   25197.89208852  .00000084  00000-0  37692-4 0  9997
+  tle_line2: 2 19038  74.0466 359.8755 0023778 170.5440 298.4896 14.36008963951618
+  apogee_km: 789.0
+  perigee_km: 755.0
+  period_min: 100.3
+  inclination_deg: 74.1
+  swath_width_km: 20.0
+  num_terminal: 1
+  battery_capacity_wh: 8000.0
+  storage_capacity_mb: 2000000.0
+  obs_store_rate_mb_per_min: 72000.0
+  downlink_release_rate_mb_per_min: 54000.0
+  charge_rate_w: 2500.0
+  idle_discharge_rate_w: 1200.0
+  obs_discharge_rate_w: 2000.0
+  downlink_discharge_rate_w: 200.0
+  max_slew_velocity_deg_per_sec: 1.5
+  max_slew_acceleration_deg_per_sec2: 0.5
+  max_slew_jerk_deg_per_sec3: null
+  settling_time_sec: 1.5
+  initial_storage_mb: 1000000.0
+  initial_battery_wh: 4000.0
+- id: sat_cosmos_2528_deb
+  name: COSMOS 2528 DEB
+  norad_id: '45037'
+  constellation: COSMOS
+  owner: CIS
+  tle_epoch: '2025-07-16T18:03:11.921Z'
+  tle_line1: 1 45037U 18082C   25197.75222131  .00000600  00000-0  46853-3 0  9990
+  tle_line2: 2 45037  67.2265 196.6567 0018451 265.9266  93.9711 13.98688042279810
+  apogee_km: 912.0
+  perigee_km: 885.0
+  period_min: 103.0
+  inclination_deg: 67.2
+  swath_width_km: 20.0
+  num_terminal: 1
+  battery_capacity_wh: 8000.0
+  storage_capacity_mb: 2000000.0
+  obs_store_rate_mb_per_min: 72000.0
+  downlink_release_rate_mb_per_min: 54000.0
+  charge_rate_w: 2500.0
+  idle_discharge_rate_w: 1200.0
+  obs_discharge_rate_w: 2000.0
+  downlink_discharge_rate_w: 200.0
+  max_slew_velocity_deg_per_sec: 1.5
+  max_slew_acceleration_deg_per_sec2: 0.5
+  max_slew_jerk_deg_per_sec3: null
+  settling_time_sec: 1.5
+  initial_storage_mb: 1000000.0
+  initial_battery_wh: 4000.0
+- id: sat_cosmos_1295
+  name: COSMOS 1295
+  norad_id: '12681'
+  constellation: COSMOS
+  owner: CIS
+  tle_epoch: '2025-07-16T23:05:52.713Z'
+  tle_line1: 1 12681U 81077A   25197.96241566  .00000047  00000-0  31660-4 0  9995
+  tle_line2: 2 12681  82.9183  10.5455 0045036 130.1644 342.3797 13.76608369206123
+  apogee_km: 1009.0
+  perigee_km: 943.0
+  period_min: 104.6
+  inclination_deg: 82.9
+  swath_width_km: 20.0
+  num_terminal: 1
+  battery_capacity_wh: 8000.0
+  storage_capacity_mb: 2000000.0
+  obs_store_rate_mb_per_min: 72000.0
+  downlink_release_rate_mb_per_min: 54000.0
+  charge_rate_w: 2500.0
+  idle_discharge_rate_w: 1200.0
+  obs_discharge_rate_w: 2000.0
+  downlink_discharge_rate_w: 200.0
+  max_slew_velocity_deg_per_sec: 1.5
+  max_slew_acceleration_deg_per_sec2: 0.5
+  max_slew_jerk_deg_per_sec3: null
+  settling_time_sec: 1.5
+  initial_storage_mb: 1000000.0
+  initial_battery_wh: 4000.0
+- id: sat_cosmos_2131
+  name: COSMOS 2131
+  norad_id: '21106'
+  constellation: COSMOS
+  owner: CIS
+  tle_epoch: '2025-07-16T22:33:46.640Z'
+  tle_line1: 1 21106U 91009G   25197.94012315  .00000003  00000-0  11630-3 0  9995
+  tle_line2: 2 21106  74.0302 123.7774 0052215 319.2747 111.8515 12.58956732582079
+  apogee_km: 1468.0
+  perigee_km: 1386.0
+  period_min: 114.4
+  inclination_deg: 74.0
+  swath_width_km: 20.0
+  num_terminal: 1
+  battery_capacity_wh: 8000.0
+  storage_capacity_mb: 2000000.0
+  obs_store_rate_mb_per_min: 72000.0
+  downlink_release_rate_mb_per_min: 54000.0
+  charge_rate_w: 2500.0
+  idle_discharge_rate_w: 1200.0
+  obs_discharge_rate_w: 2000.0
+  downlink_discharge_rate_w: 200.0
+  max_slew_velocity_deg_per_sec: 1.5
+  max_slew_acceleration_deg_per_sec2: 0.5
+  max_slew_jerk_deg_per_sec3: null
+  settling_time_sec: 1.5
+  initial_storage_mb: 1000000.0
+  initial_battery_wh: 4000.0
+- id: sat_cosmos_874
+  name: COSMOS 874
+  norad_id: 09591
+  constellation: COSMOS
+  owner: CIS
+  tle_epoch: '2025-07-16T19:46:30.607Z'
+  tle_line1: 1 09591U 76118D   25197.82396536 -.00000017  00000-0 -10113-4 0  9993
+  tle_line2: 2 09591  74.0319 317.6900 0032846 171.4628 309.6558 12.43997148207292
+  apogee_km: 1516.0
+  perigee_km: 1464.0
+  period_min: 115.8
+  inclination_deg: 74.0
+  swath_width_km: 20.0
+  num_terminal: 1
+  battery_capacity_wh: 8000.0
+  storage_capacity_mb: 2000000.0
+  obs_store_rate_mb_per_min: 72000.0
+  downlink_release_rate_mb_per_min: 54000.0
+  charge_rate_w: 2500.0
+  idle_discharge_rate_w: 1200.0
+  obs_discharge_rate_w: 2000.0
+  downlink_discharge_rate_w: 200.0
+  max_slew_velocity_deg_per_sec: 1.5
+  max_slew_acceleration_deg_per_sec2: 0.5
+  max_slew_jerk_deg_per_sec3: null
+  settling_time_sec: 1.5
+  initial_storage_mb: 1000000.0
+  initial_battery_wh: 4000.0
+- id: sat_cosmos_1959
+  name: COSMOS 1959
+  norad_id: '19324'
+  constellation: COSMOS
+  owner: CIS
+  tle_epoch: '2025-07-17T05:05:17.474Z'
+  tle_line1: 1 19324U 88062A   25198.21200781  .00000046  00000-0  31552-4 0  9999
+  tle_line2: 2 19324  82.9507  11.3767 0033474 339.1084 194.6085 13.76316797857896
+  apogee_km: 1002.0
+  perigee_km: 952.0
+  period_min: 104.6
+  inclination_deg: 83.00000000000001
+  swath_width_km: 20.0
+  num_terminal: 1
+  battery_capacity_wh: 8000.0
+  storage_capacity_mb: 2000000.0
+  obs_store_rate_mb_per_min: 72000.0
+  downlink_release_rate_mb_per_min: 54000.0
+  charge_rate_w: 2500.0
+  idle_discharge_rate_w: 1200.0
+  obs_discharge_rate_w: 2000.0
+  downlink_discharge_rate_w: 200.0
+  max_slew_velocity_deg_per_sec: 1.5
+  max_slew_acceleration_deg_per_sec2: 0.5
+  max_slew_jerk_deg_per_sec3: null
+  settling_time_sec: 1.5
+  initial_storage_mb: 1000000.0
+  initial_battery_wh: 4000.0
+- id: sat_cosmos_1877
+  name: COSMOS 1877
+  norad_id: '18336'
+  constellation: COSMOS
+  owner: CIS
+  tle_epoch: '2025-07-16T21:58:38.727Z'
+  tle_line1: 1 18336U 87074C   25197.91572601  .00000033  00000-0  12249-3 0  9999
+  tle_line2: 2 18336  82.5651 152.5861 0003058  71.2262 343.5091 12.63651645745891
+  apogee_km: 1410.0
+  perigee_km: 1406.0
+  period_min: 114.0
+  inclination_deg: 82.60000000000001
+  swath_width_km: 20.0
+  num_terminal: 1
+  battery_capacity_wh: 8000.0
+  storage_capacity_mb: 2000000.0
+  obs_store_rate_mb_per_min: 72000.0
+  downlink_release_rate_mb_per_min: 54000.0
+  charge_rate_w: 2500.0
+  idle_discharge_rate_w: 1200.0
+  obs_discharge_rate_w: 2000.0
+  downlink_discharge_rate_w: 200.0
+  max_slew_velocity_deg_per_sec: 1.5
+  max_slew_acceleration_deg_per_sec2: 0.5
+  max_slew_jerk_deg_per_sec3: null
+  settling_time_sec: 1.5
+  initial_storage_mb: 1000000.0
+  initial_battery_wh: 4000.0
+- id: sat_cosmos_876
+  name: COSMOS 876
+  norad_id: 09593
+  constellation: COSMOS
+  owner: CIS
+  tle_epoch: '2025-07-16T19:09:38.679Z'
+  tle_line1: 1 09593U 76118F   25197.79836435 -.00000023  00000-0 -54537-4 0  9993
+  tle_line2: 2 09593  74.0304  74.1644 0047608 294.4290 134.0539 12.41321986202586
+  apogee_km: 1539.0
+  perigee_km: 1463.0
+  period_min: 116.0
+  inclination_deg: 74.0
+  swath_width_km: 20.0
+  num_terminal: 1
+  battery_capacity_wh: 8000.0
+  storage_capacity_mb: 2000000.0
+  obs_store_rate_mb_per_min: 72000.0
+  downlink_release_rate_mb_per_min: 54000.0
+  charge_rate_w: 2500.0
+  idle_discharge_rate_w: 1200.0
+  obs_discharge_rate_w: 2000.0
+  downlink_discharge_rate_w: 200.0
+  max_slew_velocity_deg_per_sec: 1.5
+  max_slew_acceleration_deg_per_sec2: 0.5
+  max_slew_jerk_deg_per_sec3: null
+  settling_time_sec: 1.5
+  initial_storage_mb: 1000000.0
+  initial_battery_wh: 4000.0
+- id: sat_cosmos_1390
+  name: COSMOS 1390
+  norad_id: '13377'
+  constellation: COSMOS
+  owner: CIS
+  tle_epoch: '2025-07-16T16:58:44.969Z'
+  tle_line1: 1 13377U 82073C   25197.70746492 -.00000014  00000-0  10434-4 0  9996
+  tle_line2: 2 13377  74.0150 273.3849 0030259 143.7063 335.3503 12.53371584966887
+  apogee_km: 1474.0
+  perigee_km: 1427.0
+  period_min: 114.9
+  inclination_deg: 74.0
+  swath_width_km: 20.0
+  num_terminal: 1
+  battery_capacity_wh: 8000.0
+  storage_capacity_mb: 2000000.0
+  obs_store_rate_mb_per_min: 72000.0
+  downlink_release_rate_mb_per_min: 54000.0
+  charge_rate_w: 2500.0
+  idle_discharge_rate_w: 1200.0
+  obs_discharge_rate_w: 2000.0
+  downlink_discharge_rate_w: 200.0
+  max_slew_velocity_deg_per_sec: 1.5
+  max_slew_acceleration_deg_per_sec2: 0.5
+  max_slew_jerk_deg_per_sec3: null
+  settling_time_sec: 1.5
+  initial_storage_mb: 1000000.0
+  initial_battery_wh: 4000.0
+- id: sat_cosmos_614
+  name: COSMOS 614
+  norad_id: 06965
+  constellation: COSMOS
+  owner: CIS
+  tle_epoch: '2025-07-16T17:54:58.978Z'
+  tle_line1: 1 06965U 73098A   25197.74651596  .00000104  00000-0  41470-4 0  9995
+  tle_line2: 2 06965  74.0575 294.4068 0023699 305.6484  54.2464 14.39984400706019
+  apogee_km: 775.0
+  perigee_km: 742.0
+  period_min: 100.0
+  inclination_deg: 74.1
+  swath_width_km: 20.0
+  num_terminal: 1
+  battery_capacity_wh: 8000.0
+  storage_capacity_mb: 2000000.0
+  obs_store_rate_mb_per_min: 72000.0
+  downlink_release_rate_mb_per_min: 54000.0
+  charge_rate_w: 2500.0
+  idle_discharge_rate_w: 1200.0
+  obs_discharge_rate_w: 2000.0
+  downlink_discharge_rate_w: 200.0
+  max_slew_velocity_deg_per_sec: 1.5
+  max_slew_acceleration_deg_per_sec2: 0.5
+  max_slew_jerk_deg_per_sec3: null
+  settling_time_sec: 1.5
+  initial_storage_mb: 1000000.0
+  initial_battery_wh: 4000.0
+- id: sat_cosmos_2214
+  name: COSMOS 2214
+  norad_id: '22185'
+  constellation: COSMOS
+  owner: CIS
+  tle_epoch: '2025-07-17T02:06:50.311Z'
+  tle_line1: 1 22185U 92068D   25198.08808231  .00000015  00000-0  24204-4 0  9990
+  tle_line2: 2 22185  82.5896 206.9195 0008530 181.2647 247.0541 12.61591717507628
+  apogee_km: 1423.0
+  perigee_km: 1410.0
+  period_min: 114.1
+  inclination_deg: 82.60000000000001
+  swath_width_km: 20.0
+  num_terminal: 1
+  battery_capacity_wh: 8000.0
+  storage_capacity_mb: 2000000.0
+  obs_store_rate_mb_per_min: 72000.0
+  downlink_release_rate_mb_per_min: 54000.0
+  charge_rate_w: 2500.0
+  idle_discharge_rate_w: 1200.0
+  obs_discharge_rate_w: 2000.0
+  downlink_discharge_rate_w: 200.0
+  max_slew_velocity_deg_per_sec: 1.5
+  max_slew_acceleration_deg_per_sec2: 0.5
+  max_slew_jerk_deg_per_sec3: null
+  settling_time_sec: 1.5
+  initial_storage_mb: 1000000.0
+  initial_battery_wh: 4000.0
+- id: sat_cosmos_539
+  name: COSMOS 539
+  norad_id: 06319
+  constellation: COSMOS
+  owner: CIS
+  tle_epoch: '2025-07-16T23:25:53.024Z'
+  tle_line1: 1 06319U 72102A   25197.97630815 -.00000018  00000-0 -48669-5 0  9993
+  tle_line2: 2 06319  74.0177  16.2837 0024376 266.5487 208.1326 12.75422396447439
+  apogee_km: 1379.0
+  perigee_km: 1341.0
+  period_min: 112.9
+  inclination_deg: 74.0
+  swath_width_km: 20.0
+  num_terminal: 1
+  battery_capacity_wh: 8000.0
+  storage_capacity_mb: 2000000.0
+  obs_store_rate_mb_per_min: 72000.0
+  downlink_release_rate_mb_per_min: 54000.0
+  charge_rate_w: 2500.0
+  idle_discharge_rate_w: 1200.0
+  obs_discharge_rate_w: 2000.0
+  downlink_discharge_rate_w: 200.0
+  max_slew_velocity_deg_per_sec: 1.5
+  max_slew_acceleration_deg_per_sec2: 0.5
+  max_slew_jerk_deg_per_sec3: null
+  settling_time_sec: 1.5
+  initial_storage_mb: 1000000.0
+  initial_battery_wh: 4000.0
+- id: sat_cosmos_2337
+  name: COSMOS 2337
+  norad_id: '24725'
+  constellation: COSMOS
+  owner: CIS
+  tle_epoch: '2025-07-16T21:45:18.077Z'
+  tle_line1: 1 24725U 97006A   25197.90645923  .00000031  00000-0  11907-3 0  9999
+  tle_line2: 2 24725  82.6103 132.6271 0009232 153.4260 206.7306 12.60715267307608
+  apogee_km: 1427.0
+  perigee_km: 1413.0
+  period_min: 114.2
+  inclination_deg: 82.60000000000001
+  swath_width_km: 20.0
+  num_terminal: 1
+  battery_capacity_wh: 8000.0
+  storage_capacity_mb: 2000000.0
+  obs_store_rate_mb_per_min: 72000.0
+  downlink_release_rate_mb_per_min: 54000.0
+  charge_rate_w: 2500.0
+  idle_discharge_rate_w: 1200.0
+  obs_discharge_rate_w: 2000.0
+  downlink_discharge_rate_w: 200.0
+  max_slew_velocity_deg_per_sec: 1.5
+  max_slew_acceleration_deg_per_sec2: 0.5
+  max_slew_jerk_deg_per_sec3: null
+  settling_time_sec: 1.5
+  initial_storage_mb: 1000000.0
+  initial_battery_wh: 4000.0
+- id: sat_cosmos_942
+  name: COSMOS 942
+  norad_id: '10288'
+  constellation: COSMOS
+  owner: CIS
+  tle_epoch: '2025-07-16T23:03:56.950Z'
+  tle_line1: 1 10288U 77079D   25197.96107582 -.00000016  00000-0  23875-6 0  9990
+  tle_line2: 2 10288  74.0255  22.1268 0044950 286.9398 186.4308 12.42252518154712
+  apogee_km: 1532.0
+  perigee_km: 1462.0
+  period_min: 115.9
+  inclination_deg: 74.0
+  swath_width_km: 20.0
+  num_terminal: 1
+  battery_capacity_wh: 8000.0
+  storage_capacity_mb: 2000000.0
+  obs_store_rate_mb_per_min: 72000.0
+  downlink_release_rate_mb_per_min: 54000.0
+  charge_rate_w: 2500.0
+  idle_discharge_rate_w: 1200.0
+  obs_discharge_rate_w: 2000.0
+  downlink_discharge_rate_w: 200.0
+  max_slew_velocity_deg_per_sec: 1.5
+  max_slew_acceleration_deg_per_sec2: 0.5
+  max_slew_jerk_deg_per_sec3: null
+  settling_time_sec: 1.5
+  initial_storage_mb: 1000000.0
+  initial_battery_wh: 4000.0
+- id: sat_cosmos_1035
+  name: COSMOS 1035
+  norad_id: '11044'
+  constellation: COSMOS
+  owner: CIS
+  tle_epoch: '2025-07-16T23:04:53.105Z'
+  tle_line1: 1 11044U 78091B   25197.96172576 -.00000010  00000-0  37223-4 0  9995
+  tle_line2: 2 11044  74.0332 180.9239 0048515  51.1434   9.5361 12.55699652144546
+  apogee_km: 1479.0
+  perigee_km: 1403.0
+  period_min: 114.7
+  inclination_deg: 74.0
+  swath_width_km: 20.0
+  num_terminal: 1
+  battery_capacity_wh: 8000.0
+  storage_capacity_mb: 2000000.0
+  obs_store_rate_mb_per_min: 72000.0
+  downlink_release_rate_mb_per_min: 54000.0
+  charge_rate_w: 2500.0
+  idle_discharge_rate_w: 1200.0
+  obs_discharge_rate_w: 2000.0
+  downlink_discharge_rate_w: 200.0
+  max_slew_velocity_deg_per_sec: 1.5
+  max_slew_acceleration_deg_per_sec2: 0.5
+  max_slew_jerk_deg_per_sec3: null
+  settling_time_sec: 1.5
+  initial_storage_mb: 1000000.0
+  initial_battery_wh: 4000.0
+- id: sat_cosmos_1226
+  name: COSMOS 1226
+  norad_id: '12091'
+  constellation: COSMOS
+  owner: CIS
+  tle_epoch: '2025-07-16T21:12:43.805Z'
+  tle_line1: 1 12091U 80099A   25197.88384034  .00000037  00000-0  23203-4 0  9995
+  tle_line2: 2 12091  82.9391 252.2250 0032083 277.6357 254.9628 13.74687581236948
+  apogee_km: 1006.0
+  perigee_km: 959.0
+  period_min: 104.8
+  inclination_deg: 82.9
+  swath_width_km: 20.0
+  num_terminal: 1
+  battery_capacity_wh: 8000.0
+  storage_capacity_mb: 2000000.0
+  obs_store_rate_mb_per_min: 72000.0
+  downlink_release_rate_mb_per_min: 54000.0
+  charge_rate_w: 2500.0
+  idle_discharge_rate_w: 1200.0
+  obs_discharge_rate_w: 2000.0
+  downlink_discharge_rate_w: 200.0
+  max_slew_velocity_deg_per_sec: 1.5
+  max_slew_acceleration_deg_per_sec2: 0.5
+  max_slew_jerk_deg_per_sec3: null
+  settling_time_sec: 1.5
+  initial_storage_mb: 1000000.0
+  initial_battery_wh: 4000.0
+- id: sat_cosmos_158
+  name: COSMOS 158
+  norad_id: 02801
+  constellation: COSMOS
+  owner: CIS
+  tle_epoch: '2025-07-16T19:38:17.587Z'
+  tle_line1: 1 02801U 67045A   25197.81825911  .00000020  00000-0  15364-4 0  9997
+  tle_line2: 2 02801  74.0420 321.5276 0058060 251.9559 107.5263 14.36891578 48256
+  apogee_km: 810.0
+  perigee_km: 727.0
+  period_min: 100.2
+  inclination_deg: 74.0
+  swath_width_km: 20.0
+  num_terminal: 1
+  battery_capacity_wh: 8000.0
+  storage_capacity_mb: 2000000.0
+  obs_store_rate_mb_per_min: 72000.0
+  downlink_release_rate_mb_per_min: 54000.0
+  charge_rate_w: 2500.0
+  idle_discharge_rate_w: 1200.0
+  obs_discharge_rate_w: 2000.0
+  downlink_discharge_rate_w: 200.0
+  max_slew_velocity_deg_per_sec: 1.5
+  max_slew_acceleration_deg_per_sec2: 0.5
+  max_slew_jerk_deg_per_sec3: null
+  settling_time_sec: 1.5
+  initial_storage_mb: 1000000.0
+  initial_battery_wh: 4000.0
+- id: sat_cosmos_1375_deb
+  name: COSMOS 1375 DEB
+  norad_id: '16202'
+  constellation: COSMOS
+  owner: CIS
+  tle_epoch: '2025-07-16T21:00:50.335Z'
+  tle_line1: 1 16202U 82055D   25197.87558259  .00000182  00000-0  18179-3 0  9994
+  tle_line2: 2 16202  65.8285  85.5662 0079800 168.7487 275.4017 13.98523950190948
+  apogee_km: 957.0
+  perigee_km: 841.0
+  period_min: 103.0
+  inclination_deg: 65.8
+  swath_width_km: 20.0
+  num_terminal: 1
+  battery_capacity_wh: 8000.0
+  storage_capacity_mb: 2000000.0
+  obs_store_rate_mb_per_min: 72000.0
+  downlink_release_rate_mb_per_min: 54000.0
+  charge_rate_w: 2500.0
+  idle_discharge_rate_w: 1200.0
+  obs_discharge_rate_w: 2000.0
+  downlink_discharge_rate_w: 200.0
+  max_slew_velocity_deg_per_sec: 1.5
+  max_slew_acceleration_deg_per_sec2: 0.5
+  max_slew_jerk_deg_per_sec3: null
+  settling_time_sec: 1.5
+  initial_storage_mb: 1000000.0
+  initial_battery_wh: 4000.0
+- id: sat_cosmos_624
+  name: COSMOS 624
+  norad_id: 06992
+  constellation: COSMOS
+  owner: CIS
+  tle_epoch: '2025-07-17T04:49:05.460Z'
+  tle_line1: 1 06992U 73104H   25198.20075764 -.00000029  00000-0 -68453-4 0  9990
+  tle_line2: 2 06992  74.0270 242.1483 0086297 354.3072  62.7051 12.61283272374894
+  apogee_km: 1485.0
+  perigee_km: 1350.0
+  period_min: 114.2
+  inclination_deg: 74.0
+  swath_width_km: 20.0
+  num_terminal: 1
+  battery_capacity_wh: 8000.0
+  storage_capacity_mb: 2000000.0
+  obs_store_rate_mb_per_min: 72000.0
+  downlink_release_rate_mb_per_min: 54000.0
+  charge_rate_w: 2500.0
+  idle_discharge_rate_w: 1200.0
+  obs_discharge_rate_w: 2000.0
+  downlink_discharge_rate_w: 200.0
+  max_slew_velocity_deg_per_sec: 1.5
+  max_slew_acceleration_deg_per_sec2: 0.5
+  max_slew_jerk_deg_per_sec3: null
+  settling_time_sec: 1.5
+  initial_storage_mb: 1000000.0
+  initial_battery_wh: 4000.0
+- id: sat_cosmos_1604
+  name: COSMOS 1604
+  norad_id: '15350'
+  constellation: COSMOS
+  owner: CIS
+  tle_epoch: '2025-07-15T20:19:42.250Z'
+  tle_line1: 1 15350U 84107A   25196.84701679 -.00000389  00000-0  00000-0 0  9990
+  tle_line2: 2 15350  71.9367  11.4707 5521192 336.7524   5.6105  2.00693543298787
+  apogee_km: 34829.0
+  perigee_km: 5513.0
+  period_min: 717.5
+  inclination_deg: 71.9
+  swath_width_km: 20.0
+  num_terminal: 1
+  battery_capacity_wh: 8000.0
+  storage_capacity_mb: 2000000.0
+  obs_store_rate_mb_per_min: 72000.0
+  downlink_release_rate_mb_per_min: 54000.0
+  charge_rate_w: 2500.0
+  idle_discharge_rate_w: 1200.0
+  obs_discharge_rate_w: 2000.0
+  downlink_discharge_rate_w: 200.0
+  max_slew_velocity_deg_per_sec: 1.5
+  max_slew_acceleration_deg_per_sec2: 0.5
+  max_slew_jerk_deg_per_sec3: null
+  settling_time_sec: 1.5
+  initial_storage_mb: 1000000.0
+  initial_battery_wh: 4000.0
+- id: sat_cosmos_681
+  name: COSMOS 681
+  norad_id: 07439
+  constellation: COSMOS
+  owner: CIS
+  tle_epoch: '2025-07-16T20:45:51.126Z'
+  tle_line1: 1 07439U 74072E   25197.86517507 -.00000008  00000-0  54368-4 0  9995
+  tle_line2: 2 07439  74.0353 100.1041 0004283 183.4802 242.1578 12.49066631317454
+  apogee_km: 1472.0
+  perigee_km: 1465.0
+  period_min: 115.3
+  inclination_deg: 74.0
+  swath_width_km: 20.0
+  num_terminal: 1
+  battery_capacity_wh: 8000.0
+  storage_capacity_mb: 2000000.0
+  obs_store_rate_mb_per_min: 72000.0
+  downlink_release_rate_mb_per_min: 54000.0
+  charge_rate_w: 2500.0
+  idle_discharge_rate_w: 1200.0
+  obs_discharge_rate_w: 2000.0
+  downlink_discharge_rate_w: 200.0
+  max_slew_velocity_deg_per_sec: 1.5
+  max_slew_acceleration_deg_per_sec2: 0.5
+  max_slew_jerk_deg_per_sec3: null
+  settling_time_sec: 1.5
+  initial_storage_mb: 1000000.0
+  initial_battery_wh: 4000.0
+- id: sat_cosmos_198
+  name: COSMOS 198
+  norad_id: 03081
+  constellation: COSMOS
+  owner: CIS
+  tle_epoch: '2025-07-16T21:44:14.006Z'
+  tle_line1: 1 03081U 67127A   25197.90571767 -.00000072  00000-0  13869-4 0  9992
+  tle_line2: 2 03081  65.1430  78.9829 0035718 223.6337 136.1904 13.93366608926866
+  apogee_km: 943.0
+  perigee_km: 891.0
+  period_min: 103.4
+  inclination_deg: 65.1
+  swath_width_km: 20.0
+  num_terminal: 1
+  battery_capacity_wh: 8000.0
+  storage_capacity_mb: 2000000.0
+  obs_store_rate_mb_per_min: 72000.0
+  downlink_release_rate_mb_per_min: 54000.0
+  charge_rate_w: 2500.0
+  idle_discharge_rate_w: 1200.0
+  obs_discharge_rate_w: 2000.0
+  downlink_discharge_rate_w: 200.0
+  max_slew_velocity_deg_per_sec: 1.5
+  max_slew_acceleration_deg_per_sec2: 0.5
+  max_slew_jerk_deg_per_sec3: null
+  settling_time_sec: 1.5
+  initial_storage_mb: 1000000.0
+  initial_battery_wh: 4000.0
+- id: sat_cosmos_2219
+  name: COSMOS 2219
+  norad_id: '22219'
+  constellation: COSMOS
+  owner: CIS
+  tle_epoch: '2025-07-17T04:05:14.714Z'
+  tle_line1: 1 22219U 92076A   25198.17030919  .00000008  00000-0  29131-4 0  9993
+  tle_line2: 2 22219  71.0610 150.3906 0018884 207.0881 152.9258 14.14038225685418
+  apogee_km: 859.0
+  perigee_km: 832.0
+  period_min: 101.8
+  inclination_deg: 71.1
+  swath_width_km: 20.0
+  num_terminal: 1
+  battery_capacity_wh: 8000.0
+  storage_capacity_mb: 2000000.0
+  obs_store_rate_mb_per_min: 72000.0
+  downlink_release_rate_mb_per_min: 54000.0
+  charge_rate_w: 2500.0
+  idle_discharge_rate_w: 1200.0
+  obs_discharge_rate_w: 2000.0
+  downlink_discharge_rate_w: 200.0
+  max_slew_velocity_deg_per_sec: 1.5
+  max_slew_acceleration_deg_per_sec2: 0.5
+  max_slew_jerk_deg_per_sec3: null
+  settling_time_sec: 1.5
+  initial_storage_mb: 1000000.0
+  initial_battery_wh: 4000.0
+- id: sat_cosmos_1607
+  name: COSMOS 1607
+  norad_id: '15378'
+  constellation: COSMOS
+  owner: CIS
+  tle_epoch: '2025-07-17T04:28:40.856Z'
+  tle_line1: 1 15378U 84112A   25198.18658399 -.00000076  00000-0  11834-4 0  9999
+  tle_line2: 2 15378  64.9898 208.5948 0027266 108.8070 251.5951 13.83689580 58870
+  apogee_km: 971.0
+  perigee_km: 931.0
+  period_min: 104.1
+  inclination_deg: 65.0
+  swath_width_km: 20.0
+  num_terminal: 1
+  battery_capacity_wh: 8000.0
+  storage_capacity_mb: 2000000.0
+  obs_store_rate_mb_per_min: 72000.0
+  downlink_release_rate_mb_per_min: 54000.0
+  charge_rate_w: 2500.0
+  idle_discharge_rate_w: 1200.0
+  obs_discharge_rate_w: 2000.0
+  downlink_discharge_rate_w: 200.0
+  max_slew_velocity_deg_per_sec: 1.5
+  max_slew_acceleration_deg_per_sec2: 0.5
+  max_slew_jerk_deg_per_sec3: null
+  settling_time_sec: 1.5
+  initial_storage_mb: 1000000.0
+  initial_battery_wh: 4000.0
+- id: sat_cosmos_1223
+  name: COSMOS 1223
+  norad_id: '12078'
+  constellation: COSMOS
+  owner: CIS
+  tle_epoch: '2025-07-16T05:00:31.027Z'
+  tle_line1: 1 12078U 80095A   25197.20869245  .00000048  00000-0  00000-0 0  9992
+  tle_line2: 2 12078  72.8171  57.6810 4754794 314.5870 285.2682  2.00742967326888
+  apogee_km: 32788.0
+  perigee_km: 7545.0
+  period_min: 717.3
+  inclination_deg: 72.80000000000001
+  swath_width_km: 20.0
+  num_terminal: 1
+  battery_capacity_wh: 8000.0
+  storage_capacity_mb: 2000000.0
+  obs_store_rate_mb_per_min: 72000.0
+  downlink_release_rate_mb_per_min: 54000.0
+  charge_rate_w: 2500.0
+  idle_discharge_rate_w: 1200.0
+  obs_discharge_rate_w: 2000.0
+  downlink_discharge_rate_w: 200.0
+  max_slew_velocity_deg_per_sec: 1.5
+  max_slew_acceleration_deg_per_sec2: 0.5
+  max_slew_jerk_deg_per_sec3: null
+  settling_time_sec: 1.5
+  initial_storage_mb: 1000000.0
+  initial_battery_wh: 4000.0
+- id: sat_cosmos_2458
+  name: COSMOS 2458
+  norad_id: '36113'
+  constellation: COSMOS
+  owner: CIS
+  tle_epoch: '2025-07-13T06:43:14.655Z'
+  tle_line1: 1 36113U 09070C   25194.28003073  .00000005  00000-0  00000-0 0  9999
+  tle_line2: 2 36113  64.8004  82.4484 0004546 334.1997 227.2051  2.13082673121222
+  apogee_km: 19143.0
+  perigee_km: 19120.0
+  period_min: 675.8
+  inclination_deg: 64.80000000000001
+  swath_width_km: 20.0
+  num_terminal: 1
+  battery_capacity_wh: 8000.0
+  storage_capacity_mb: 2000000.0
+  obs_store_rate_mb_per_min: 72000.0
+  downlink_release_rate_mb_per_min: 54000.0
+  charge_rate_w: 2500.0
+  idle_discharge_rate_w: 1200.0
+  obs_discharge_rate_w: 2000.0
+  downlink_discharge_rate_w: 200.0
+  max_slew_velocity_deg_per_sec: 1.5
+  max_slew_acceleration_deg_per_sec2: 0.5
+  max_slew_jerk_deg_per_sec3: null
+  settling_time_sec: 1.5
+  initial_storage_mb: 1000000.0
+  initial_battery_wh: 4000.0
+- id: sat_cosmos_1275
+  name: COSMOS 1275
+  norad_id: '12504'
+  constellation: COSMOS
+  owner: CIS
+  tle_epoch: '2025-07-16T23:02:26.136Z'
+  tle_line1: 1 12504U 81053A   25197.96002473  .00000066  00000-0  53662-4 0  9992
+  tle_line2: 2 12504  82.9619 152.9853 0040659  35.4410 324.9435 13.74501946213223
+  apogee_km: 1013.0
+  perigee_km: 953.0
+  period_min: 104.8
+  inclination_deg: 83.00000000000001
+  swath_width_km: 20.0
+  num_terminal: 1
+  battery_capacity_wh: 8000.0
+  storage_capacity_mb: 2000000.0
+  obs_store_rate_mb_per_min: 72000.0
+  downlink_release_rate_mb_per_min: 54000.0
+  charge_rate_w: 2500.0
+  idle_discharge_rate_w: 1200.0
+  obs_discharge_rate_w: 2000.0
+  downlink_discharge_rate_w: 200.0
+  max_slew_velocity_deg_per_sec: 1.5
+  max_slew_acceleration_deg_per_sec2: 0.5
+  max_slew_jerk_deg_per_sec3: null
+  settling_time_sec: 1.5
+  initial_storage_mb: 1000000.0
+  initial_battery_wh: 4000.0
+- id: sat_cosmos_619
+  name: COSMOS 619
+  norad_id: 06987
+  constellation: COSMOS
+  owner: CIS
+  tle_epoch: '2025-07-16T18:23:08.002Z'
+  tle_line1: 1 06987U 73104C   25197.76606484 -.00000002  00000-0  86860-4 0  9995
+  tle_line2: 2 06987  74.0316 310.6075 0040288 136.2461 224.1796 12.52226905357606
+  apogee_km: 1487.0
+  perigee_km: 1424.0
+  period_min: 115.0
+  inclination_deg: 74.0
+  swath_width_km: 20.0
+  num_terminal: 1
+  battery_capacity_wh: 8000.0
+  storage_capacity_mb: 2000000.0
+  obs_store_rate_mb_per_min: 72000.0
+  downlink_release_rate_mb_per_min: 54000.0
+  charge_rate_w: 2500.0
+  idle_discharge_rate_w: 1200.0
+  obs_discharge_rate_w: 2000.0
+  downlink_discharge_rate_w: 200.0
+  max_slew_velocity_deg_per_sec: 1.5
+  max_slew_acceleration_deg_per_sec2: 0.5
+  max_slew_jerk_deg_per_sec3: null
+  settling_time_sec: 1.5
+  initial_storage_mb: 1000000.0
+  initial_battery_wh: 4000.0
+- id: sat_cosmos_1635
+  name: COSMOS 1635
+  norad_id: '15617'
+  constellation: COSMOS
+  owner: CIS
+  tle_epoch: '2025-07-16T21:38:59.554Z'
+  tle_line1: 1 15617U 85023A   25197.90207818 -.00000003  00000-0  91114-4 0  9991
+  tle_line2: 2 15617  74.0580 336.4691 0024829 296.9181 230.3819 12.43251677830048
+  apogee_km: 1512.0
+  perigee_km: 1473.0
+  period_min: 115.8
+  inclination_deg: 74.1
+  swath_width_km: 20.0
+  num_terminal: 1
+  battery_capacity_wh: 8000.0
+  storage_capacity_mb: 2000000.0
+  obs_store_rate_mb_per_min: 72000.0
+  downlink_release_rate_mb_per_min: 54000.0
+  charge_rate_w: 2500.0
+  idle_discharge_rate_w: 1200.0
+  obs_discharge_rate_w: 2000.0
+  downlink_discharge_rate_w: 200.0
+  max_slew_velocity_deg_per_sec: 1.5
+  max_slew_acceleration_deg_per_sec2: 0.5
+  max_slew_jerk_deg_per_sec3: null
+  settling_time_sec: 1.5
+  initial_storage_mb: 1000000.0
+  initial_battery_wh: 4000.0
+- id: sat_cosmos_2363
+  name: COSMOS 2363
+  norad_id: '25594'
+  constellation: COSMOS
+  owner: CIS
+  tle_epoch: '2025-07-14T14:14:32.663Z'
+  tle_line1: 1 25594U 98077B   25195.59343360 -.00000007  00000-0  00000-0 0  9999
+  tle_line2: 2 25594  64.1021  71.9478 0027906  44.3640 155.8618  2.13103612206542
+  apogee_km: 19201.0
+  perigee_km: 19059.0
+  period_min: 675.7
+  inclination_deg: 64.1
+  swath_width_km: 20.0
+  num_terminal: 1
+  battery_capacity_wh: 8000.0
+  storage_capacity_mb: 2000000.0
+  obs_store_rate_mb_per_min: 72000.0
+  downlink_release_rate_mb_per_min: 54000.0
+  charge_rate_w: 2500.0
+  idle_discharge_rate_w: 1200.0
+  obs_discharge_rate_w: 2000.0
+  downlink_discharge_rate_w: 200.0
+  max_slew_velocity_deg_per_sec: 1.5
+  max_slew_acceleration_deg_per_sec2: 0.5
+  max_slew_jerk_deg_per_sec3: null
+  settling_time_sec: 1.5
+  initial_storage_mb: 1000000.0
+  initial_battery_wh: 4000.0
+- id: sat_cosmos_1561
+  name: COSMOS 1561
+  norad_id: '15000'
+  constellation: COSMOS
+  owner: CIS
+  tle_epoch: '2025-07-16T22:43:03.853Z'
+  tle_line1: 1 15000U 84052C   25197.94657238 -.00000003  00000-0  83167-4 0  9996
+  tle_line2: 2 15000  74.0124 115.2474 0014818  33.2289  39.5897 12.47984964873912
+  apogee_km: 1485.0
+  perigee_km: 1461.0
+  period_min: 115.4
+  inclination_deg: 74.0
+  swath_width_km: 20.0
+  num_terminal: 1
+  battery_capacity_wh: 8000.0
+  storage_capacity_mb: 2000000.0
+  obs_store_rate_mb_per_min: 72000.0
+  downlink_release_rate_mb_per_min: 54000.0
+  charge_rate_w: 2500.0
+  idle_discharge_rate_w: 1200.0
+  obs_discharge_rate_w: 2000.0
+  downlink_discharge_rate_w: 200.0
+  max_slew_velocity_deg_per_sec: 1.5
+  max_slew_acceleration_deg_per_sec2: 0.5
+  max_slew_jerk_deg_per_sec3: null
+  settling_time_sec: 1.5
+  initial_storage_mb: 1000000.0
+  initial_battery_wh: 4000.0
+- id: sat_cosmos_628
+  name: COSMOS 628
+  norad_id: 07094
+  constellation: COSMOS
+  owner: CIS
+  tle_epoch: '2025-07-16T18:08:45.786Z'
+  tle_line1: 1 07094U 74001A   25197.75608549  .00000029  00000-0  14141-4 0  9996
+  tle_line2: 2 07094  82.9546  70.1060 0036624   1.4218  65.4836 13.75933988584451
+  apogee_km: 1005.0
+  perigee_km: 951.0
+  period_min: 104.7
+  inclination_deg: 83.00000000000001
+  swath_width_km: 20.0
+  num_terminal: 1
+  battery_capacity_wh: 8000.0
+  storage_capacity_mb: 2000000.0
+  obs_store_rate_mb_per_min: 72000.0
+  downlink_release_rate_mb_per_min: 54000.0
+  charge_rate_w: 2500.0
+  idle_discharge_rate_w: 1200.0
+  obs_discharge_rate_w: 2000.0
+  downlink_discharge_rate_w: 200.0
+  max_slew_velocity_deg_per_sec: 1.5
+  max_slew_acceleration_deg_per_sec2: 0.5
+  max_slew_jerk_deg_per_sec3: null
+  settling_time_sec: 1.5
+  initial_storage_mb: 1000000.0
+  initial_battery_wh: 4000.0
+- id: sat_cosmos_2431
+  name: COSMOS 2431
+  norad_id: '32277'
+  constellation: COSMOS
+  owner: CIS
+  tle_epoch: '2025-07-13T04:43:43.569Z'
+  tle_line1: 1 32277U 07052C   25194.19703205 -.00000047  00000-0  00000-0 0  9995
+  tle_line2: 2 32277  65.7764 327.2541 0015814 173.1138 185.8874  2.13208968137983
+  apogee_km: 19162.0
+  perigee_km: 19081.0
+  period_min: 675.4
+  inclination_deg: 65.8
+  swath_width_km: 20.0
+  num_terminal: 1
+  battery_capacity_wh: 8000.0
+  storage_capacity_mb: 2000000.0
+  obs_store_rate_mb_per_min: 72000.0
+  downlink_release_rate_mb_per_min: 54000.0
+  charge_rate_w: 2500.0
+  idle_discharge_rate_w: 1200.0
+  obs_discharge_rate_w: 2000.0
+  downlink_discharge_rate_w: 200.0
+  max_slew_velocity_deg_per_sec: 1.5
+  max_slew_acceleration_deg_per_sec2: 0.5
+  max_slew_jerk_deg_per_sec3: null
+  settling_time_sec: 1.5
+  initial_storage_mb: 1000000.0
+  initial_battery_wh: 4000.0
+- id: sat_cosmos_1842
+  name: COSMOS 1842
+  norad_id: '17911'
+  constellation: COSMOS
+  owner: CIS
+  tle_epoch: '2025-07-16T22:08:10.228Z'
+  tle_line1: 1 17911U 87038A   25197.92234061  .00009310  00000-0  22595-3 0  9995
+  tle_line2: 2 17911  82.5110 162.5378 0008935  77.8443 282.3803 15.40824460 88891
+  apogee_km: 450.0
+  perigee_km: 438.0
+  period_min: 93.5
+  inclination_deg: 82.49999999999999
+  swath_width_km: 20.0
+  num_terminal: 1
+  battery_capacity_wh: 8000.0
+  storage_capacity_mb: 2000000.0
+  obs_store_rate_mb_per_min: 72000.0
+  downlink_release_rate_mb_per_min: 54000.0
+  charge_rate_w: 2500.0
+  idle_discharge_rate_w: 1200.0
+  obs_discharge_rate_w: 2000.0
+  downlink_discharge_rate_w: 200.0
+  max_slew_velocity_deg_per_sec: 1.5
+  max_slew_acceleration_deg_per_sec2: 0.5
+  max_slew_jerk_deg_per_sec3: null
+  settling_time_sec: 1.5
+  initial_storage_mb: 1000000.0
+  initial_battery_wh: 4000.0
+- id: sat_cosmos_2504
+  name: COSMOS 2504
+  norad_id: '40555'
+  constellation: COSMOS
+  owner: CIS
+  tle_epoch: '2025-07-17T03:54:24.001Z'
+  tle_line1: 1 40555U 15020D   25198.16277780  .00000372  00000-0  12810-3 0  9997
+  tle_line2: 2 40555  82.5185 130.1926 0610329 104.7315 262.2258 13.61053576504614
+  apogee_km: 1484.0
+  perigee_km: 580.0
+  period_min: 105.8
+  inclination_deg: 82.49999999999999
+  swath_width_km: 20.0
+  num_terminal: 1
+  battery_capacity_wh: 8000.0
+  storage_capacity_mb: 2000000.0
+  obs_store_rate_mb_per_min: 72000.0
+  downlink_release_rate_mb_per_min: 54000.0
+  charge_rate_w: 2500.0
+  idle_discharge_rate_w: 1200.0
+  obs_discharge_rate_w: 2000.0
+  downlink_discharge_rate_w: 200.0
+  max_slew_velocity_deg_per_sec: 1.5
+  max_slew_acceleration_deg_per_sec2: 0.5
+  max_slew_jerk_deg_per_sec3: null
+  settling_time_sec: 1.5
+  initial_storage_mb: 1000000.0
+  initial_battery_wh: 4000.0

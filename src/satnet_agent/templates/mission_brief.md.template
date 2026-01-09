@@ -1,0 +1,35 @@
+# Mission Brief: DSN Week {week}, {year}
+
+## Objective
+
+Schedule antenna time for Deep Space Network (DSN) communication requests to **minimize unsatisfied ratio** across all missions.
+
+## Problem Statistics
+
+- **Week**: {week} of {year}
+- **Total Requests**: {n_requests}
+- **Missions**: {n_missions}
+
+## Key Metrics
+
+Your schedule will be evaluated on two metrics:
+
+| Metric | Description | Goal |
+|--------|-------------|------|
+| **U_max** | Maximum unsatisfied ratio across all missions | Lower is better |
+| **U_rms** | Root mean square unsatisfied ratio | Lower is better |
+| **U_avg** | Average unsatisfied ratio across all missions | Lower is better |
+
+**Unsatisfied ratio** for a mission = `(requested_hours - allocated_hours) / requested_hours`
+
+A perfect schedule has U_max = 0 (all requests fully satisfied).
+
+## Getting Started
+
+1. Use `list_unsatisfied_requests()` to see what needs scheduling
+2. Use `find_view_periods(request_id)` to find available slots
+3. Use `schedule_track(request_id, antenna, trx_on, trx_off)` to allocate time
+4. Use `get_plan_status()` to check your progress
+5. When done, call `commit_plan()` to save your schedule
+
+Good luck!

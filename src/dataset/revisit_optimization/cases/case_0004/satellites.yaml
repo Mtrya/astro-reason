@@ -1,0 +1,812 @@
+- id: sat_noaa_1
+  name: NOAA 1
+  norad_id: 04793
+  constellation: NOAA
+  owner: US
+  tle_epoch: '2025-07-17T03:18:50.599Z'
+  tle_line1: 1 04793U 70106A   25198.13808564 -.00000046  00000-0 -20751-4 0  9998
+  tle_line2: 2 04793 101.3875 241.7529 0030989 283.8094  93.3947 12.54043939499178
+  apogee_km: 1472.0
+  perigee_km: 1423.0
+  period_min: 114.8
+  inclination_deg: 101.4
+  swath_width_km: 3040.0
+  num_terminal: 1
+  battery_capacity_wh: 3000.0
+  storage_capacity_mb: 96000.0
+  obs_store_rate_mb_per_min: 1500.0
+  downlink_release_rate_mb_per_min: 18000.0
+  charge_rate_w: 1932.0
+  idle_discharge_rate_w: 1000.0
+  obs_discharge_rate_w: 1400.0
+  downlink_discharge_rate_w: 100.0
+  max_slew_velocity_deg_per_sec: 0.5
+  max_slew_acceleration_deg_per_sec2: 0.05
+  max_slew_jerk_deg_per_sec3: null
+  settling_time_sec: 2.0
+  initial_storage_mb: 48000.0
+  initial_battery_wh: 1500.0
+- id: sat_itos-d
+  name: ITOS-D
+  norad_id: '06235'
+  constellation: NOAA
+  owner: US
+  tle_epoch: '2025-07-16T22:06:55.851Z'
+  tle_line1: 1 06235U 72082A   25197.92147976 -.00000042  00000-0  30088-4 0  9994
+  tle_line2: 2 06235 102.0210 207.5987 0004546  89.7999 331.1829 12.53202226412955
+  apogee_km: 1455.0
+  perigee_km: 1448.0
+  period_min: 114.9
+  inclination_deg: 102.0
+  swath_width_km: 3040.0
+  num_terminal: 1
+  battery_capacity_wh: 3000.0
+  storage_capacity_mb: 96000.0
+  obs_store_rate_mb_per_min: 1500.0
+  downlink_release_rate_mb_per_min: 18000.0
+  charge_rate_w: 1932.0
+  idle_discharge_rate_w: 1000.0
+  obs_discharge_rate_w: 1400.0
+  downlink_discharge_rate_w: 100.0
+  max_slew_velocity_deg_per_sec: 0.5
+  max_slew_acceleration_deg_per_sec2: 0.05
+  max_slew_jerk_deg_per_sec3: null
+  settling_time_sec: 2.0
+  initial_storage_mb: 48000.0
+  initial_battery_wh: 1500.0
+- id: sat_noaa_3
+  name: NOAA 3
+  norad_id: 06920
+  constellation: NOAA
+  owner: US
+  tle_epoch: '2025-07-16T22:09:06.887Z'
+  tle_line1: 1 06920U 73086A   25197.92299638 -.00000037  00000-0  70879-4 0  9999
+  tle_line2: 2 06920 102.2889 203.6038 0006670  24.9372  38.6189 12.40383859340338
+  apogee_km: 1510.0
+  perigee_km: 1500.0
+  period_min: 116.1
+  inclination_deg: 102.3
+  swath_width_km: 3040.0
+  num_terminal: 1
+  battery_capacity_wh: 3000.0
+  storage_capacity_mb: 96000.0
+  obs_store_rate_mb_per_min: 1500.0
+  downlink_release_rate_mb_per_min: 18000.0
+  charge_rate_w: 1932.0
+  idle_discharge_rate_w: 1000.0
+  obs_discharge_rate_w: 1400.0
+  downlink_discharge_rate_w: 100.0
+  max_slew_velocity_deg_per_sec: 0.5
+  max_slew_acceleration_deg_per_sec2: 0.05
+  max_slew_jerk_deg_per_sec3: null
+  settling_time_sec: 2.0
+  initial_storage_mb: 48000.0
+  initial_battery_wh: 1500.0
+- id: sat_noaa_4
+  name: NOAA 4
+  norad_id: 07529
+  constellation: NOAA
+  owner: US
+  tle_epoch: '2025-07-16T23:28:30.233Z'
+  tle_line1: 1 07529U 74089A   25197.97812770 -.00000049  00000-0 -14267-4 0  9995
+  tle_line2: 2 07529 102.0037 202.2003 0009426 114.6220 301.3042 12.53195283317535
+  apogee_km: 1459.0
+  perigee_km: 1444.0
+  period_min: 114.9
+  inclination_deg: 102.0
+  swath_width_km: 3040.0
+  num_terminal: 1
+  battery_capacity_wh: 3000.0
+  storage_capacity_mb: 96000.0
+  obs_store_rate_mb_per_min: 1500.0
+  downlink_release_rate_mb_per_min: 18000.0
+  charge_rate_w: 1932.0
+  idle_discharge_rate_w: 1000.0
+  obs_discharge_rate_w: 1400.0
+  downlink_discharge_rate_w: 100.0
+  max_slew_velocity_deg_per_sec: 0.5
+  max_slew_acceleration_deg_per_sec2: 0.05
+  max_slew_jerk_deg_per_sec3: null
+  settling_time_sec: 2.0
+  initial_storage_mb: 48000.0
+  initial_battery_wh: 1500.0
+- id: sat_noaa_1_deb
+  name: NOAA 1 DEB
+  norad_id: 08828
+  constellation: NOAA
+  owner: US
+  tle_epoch: '2025-07-16T09:28:10.078Z'
+  tle_line1: 1 08828U 70106C   25197.39456109  .00000189  00000-0  17656-2 0  9996
+  tle_line2: 2 08828 102.1970 169.8549 0033983  33.0023 121.8346 12.39610947469722
+  apogee_km: 1535.0
+  perigee_km: 1481.0
+  period_min: 116.2
+  inclination_deg: 102.2
+  swath_width_km: 3040.0
+  num_terminal: 1
+  battery_capacity_wh: 3000.0
+  storage_capacity_mb: 96000.0
+  obs_store_rate_mb_per_min: 1500.0
+  downlink_release_rate_mb_per_min: 18000.0
+  charge_rate_w: 1932.0
+  idle_discharge_rate_w: 1000.0
+  obs_discharge_rate_w: 1400.0
+  downlink_discharge_rate_w: 100.0
+  max_slew_velocity_deg_per_sec: 0.5
+  max_slew_acceleration_deg_per_sec2: 0.05
+  max_slew_jerk_deg_per_sec3: null
+  settling_time_sec: 2.0
+  initial_storage_mb: 48000.0
+  initial_battery_wh: 1500.0
+- id: sat_noaa_5
+  name: NOAA 5
+  norad_id: 09057
+  constellation: NOAA
+  owner: US
+  tle_epoch: '2025-07-16T21:58:51.727Z'
+  tle_line1: 1 09057U 76077A   25197.91587647 -.00000028  00000-0  14056-3 0  9999
+  tle_line2: 2 09057 102.2595 177.5255 0009251 232.4709 141.6782 12.37819573212991
+  apogee_km: 1523.0
+  perigee_km: 1509.0
+  period_min: 116.3
+  inclination_deg: 102.3
+  swath_width_km: 3040.0
+  num_terminal: 1
+  battery_capacity_wh: 3000.0
+  storage_capacity_mb: 96000.0
+  obs_store_rate_mb_per_min: 1500.0
+  downlink_release_rate_mb_per_min: 18000.0
+  charge_rate_w: 1932.0
+  idle_discharge_rate_w: 1000.0
+  obs_discharge_rate_w: 1400.0
+  downlink_discharge_rate_w: 100.0
+  max_slew_velocity_deg_per_sec: 0.5
+  max_slew_acceleration_deg_per_sec2: 0.05
+  max_slew_jerk_deg_per_sec3: null
+  settling_time_sec: 2.0
+  initial_storage_mb: 48000.0
+  initial_battery_wh: 1500.0
+- id: sat_noaa_6
+  name: NOAA 6
+  norad_id: '11416'
+  constellation: NOAA
+  owner: US
+  tle_epoch: '2025-07-16T22:16:41.998Z'
+  tle_line1: 1 11416U 79057A   25197.92826387  .00000205  00000-0  87073-4 0  9996
+  tle_line2: 2 11416  98.5977 224.2315 0010157 165.6225 194.5251 14.35202303402860
+  apogee_km: 782.0
+  perigee_km: 767.0
+  period_min: 100.3
+  inclination_deg: 98.60000000000001
+  swath_width_km: 3040.0
+  num_terminal: 1
+  battery_capacity_wh: 3000.0
+  storage_capacity_mb: 96000.0
+  obs_store_rate_mb_per_min: 1500.0
+  downlink_release_rate_mb_per_min: 18000.0
+  charge_rate_w: 1932.0
+  idle_discharge_rate_w: 1000.0
+  obs_discharge_rate_w: 1400.0
+  downlink_discharge_rate_w: 100.0
+  max_slew_velocity_deg_per_sec: 0.5
+  max_slew_acceleration_deg_per_sec2: 0.05
+  max_slew_jerk_deg_per_sec3: null
+  settling_time_sec: 2.0
+  initial_storage_mb: 48000.0
+  initial_battery_wh: 1500.0
+- id: sat_noaa_7
+  name: NOAA 7
+  norad_id: '12553'
+  constellation: NOAA
+  owner: US
+  tle_epoch: '2025-07-17T03:43:14.109Z'
+  tle_line1: 1 12553U 81059A   25198.15502442  .00000023  00000-0  33123-4 0  9998
+  tle_line2: 2 12553  98.8418 262.7181 0012124 142.5083 217.6939 14.17712718277491
+  apogee_km: 842.0
+  perigee_km: 824.0
+  period_min: 101.6
+  inclination_deg: 98.8
+  swath_width_km: 3040.0
+  num_terminal: 1
+  battery_capacity_wh: 3000.0
+  storage_capacity_mb: 96000.0
+  obs_store_rate_mb_per_min: 1500.0
+  downlink_release_rate_mb_per_min: 18000.0
+  charge_rate_w: 1932.0
+  idle_discharge_rate_w: 1000.0
+  obs_discharge_rate_w: 1400.0
+  downlink_discharge_rate_w: 100.0
+  max_slew_velocity_deg_per_sec: 0.5
+  max_slew_acceleration_deg_per_sec2: 0.05
+  max_slew_jerk_deg_per_sec3: null
+  settling_time_sec: 2.0
+  initial_storage_mb: 48000.0
+  initial_battery_wh: 1500.0
+- id: sat_noaa_7_deb
+  name: NOAA 7 DEB
+  norad_id: '12559'
+  constellation: NOAA
+  owner: US
+  tle_epoch: '2025-07-16T22:24:34.657Z'
+  tle_line1: 1 12559U 81059B   25197.93373446  .00002445  00000-0  48480-3 0  9990
+  tle_line2: 2 12559  98.9301 303.2857 0001807 322.0760 131.4099 14.63263315308651
+  apogee_km: 684.0
+  perigee_km: 681.0
+  period_min: 98.4
+  inclination_deg: 98.9
+  swath_width_km: 3040.0
+  num_terminal: 1
+  battery_capacity_wh: 3000.0
+  storage_capacity_mb: 96000.0
+  obs_store_rate_mb_per_min: 1500.0
+  downlink_release_rate_mb_per_min: 18000.0
+  charge_rate_w: 1932.0
+  idle_discharge_rate_w: 1000.0
+  obs_discharge_rate_w: 1400.0
+  downlink_discharge_rate_w: 100.0
+  max_slew_velocity_deg_per_sec: 0.5
+  max_slew_acceleration_deg_per_sec2: 0.05
+  max_slew_jerk_deg_per_sec3: null
+  settling_time_sec: 2.0
+  initial_storage_mb: 48000.0
+  initial_battery_wh: 1500.0
+- id: sat_noaa_8
+  name: NOAA 8
+  norad_id: '13923'
+  constellation: NOAA
+  owner: US
+  tle_epoch: '2025-07-16T22:00:51.523Z'
+  tle_line1: 1 13923U 83022A   25197.91726300  .00000080  00000-0  48531-4 0  9998
+  tle_line2: 2 13923  98.7369 204.9479 0015250 155.1198 205.0722 14.29644132203166
+  apogee_km: 804.0
+  perigee_km: 782.0
+  period_min: 100.7
+  inclination_deg: 98.7
+  swath_width_km: 3040.0
+  num_terminal: 1
+  battery_capacity_wh: 3000.0
+  storage_capacity_mb: 96000.0
+  obs_store_rate_mb_per_min: 1500.0
+  downlink_release_rate_mb_per_min: 18000.0
+  charge_rate_w: 1932.0
+  idle_discharge_rate_w: 1000.0
+  obs_discharge_rate_w: 1400.0
+  downlink_discharge_rate_w: 100.0
+  max_slew_velocity_deg_per_sec: 0.5
+  max_slew_acceleration_deg_per_sec2: 0.05
+  max_slew_jerk_deg_per_sec3: null
+  settling_time_sec: 2.0
+  initial_storage_mb: 48000.0
+  initial_battery_wh: 1500.0
+- id: sat_noaa_9
+  name: NOAA 9
+  norad_id: '15427'
+  constellation: NOAA
+  owner: US
+  tle_epoch: '2025-07-16T22:40:13.254Z'
+  tle_line1: 1 15427U 84123A   25197.94459785  .00000071  00000-0  58856-4 0  9996
+  tle_line2: 2 15427  99.1212 211.3648 0013987 216.0429 204.5643 14.16935452 95943
+  apogee_km: 846.0
+  perigee_km: 826.0
+  period_min: 101.6
+  inclination_deg: 99.09999999999998
+  swath_width_km: 3040.0
+  num_terminal: 1
+  battery_capacity_wh: 3000.0
+  storage_capacity_mb: 96000.0
+  obs_store_rate_mb_per_min: 1500.0
+  downlink_release_rate_mb_per_min: 18000.0
+  charge_rate_w: 1932.0
+  idle_discharge_rate_w: 1000.0
+  obs_discharge_rate_w: 1400.0
+  downlink_discharge_rate_w: 100.0
+  max_slew_velocity_deg_per_sec: 0.5
+  max_slew_acceleration_deg_per_sec2: 0.05
+  max_slew_jerk_deg_per_sec3: null
+  settling_time_sec: 2.0
+  initial_storage_mb: 48000.0
+  initial_battery_wh: 1500.0
+- id: sat_noaa_10
+  name: NOAA 10
+  norad_id: '16969'
+  constellation: NOAA
+  owner: US
+  tle_epoch: '2025-07-16T22:36:37.364Z'
+  tle_line1: 1 16969U 86073A   25197.94209913  .00000085  00000-0  51031-4 0  9993
+  tle_line2: 2 16969  98.6760 187.1447 0010896 255.8706 158.1336 14.29018310 21535
+  apogee_km: 803.0
+  perigee_km: 787.0
+  period_min: 100.8
+  inclination_deg: 98.7
+  swath_width_km: 3040.0
+  num_terminal: 1
+  battery_capacity_wh: 3000.0
+  storage_capacity_mb: 96000.0
+  obs_store_rate_mb_per_min: 1500.0
+  downlink_release_rate_mb_per_min: 18000.0
+  charge_rate_w: 1932.0
+  idle_discharge_rate_w: 1000.0
+  obs_discharge_rate_w: 1400.0
+  downlink_discharge_rate_w: 100.0
+  max_slew_velocity_deg_per_sec: 0.5
+  max_slew_acceleration_deg_per_sec2: 0.05
+  max_slew_jerk_deg_per_sec3: null
+  settling_time_sec: 2.0
+  initial_storage_mb: 48000.0
+  initial_battery_wh: 1500.0
+- id: sat_noaa_11
+  name: NOAA 11
+  norad_id: '19531'
+  constellation: NOAA
+  owner: US
+  tle_epoch: '2025-07-16T21:12:21.388Z'
+  tle_line1: 1 19531U 88089A   25197.88358088  .00000031  00000-0  37404-4 0  9990
+  tle_line2: 2 19531  98.5726 150.3547 0011064 174.6459 185.4836 14.15752809900030
+  apogee_km: 848.0
+  perigee_km: 832.0
+  period_min: 101.7
+  inclination_deg: 98.60000000000001
+  swath_width_km: 3040.0
+  num_terminal: 1
+  battery_capacity_wh: 3000.0
+  storage_capacity_mb: 96000.0
+  obs_store_rate_mb_per_min: 1500.0
+  downlink_release_rate_mb_per_min: 18000.0
+  charge_rate_w: 1932.0
+  idle_discharge_rate_w: 1000.0
+  obs_discharge_rate_w: 1400.0
+  downlink_discharge_rate_w: 100.0
+  max_slew_velocity_deg_per_sec: 0.5
+  max_slew_acceleration_deg_per_sec2: 0.05
+  max_slew_jerk_deg_per_sec3: null
+  settling_time_sec: 2.0
+  initial_storage_mb: 48000.0
+  initial_battery_wh: 1500.0
+- id: sat_noaa_12
+  name: NOAA 12
+  norad_id: '21263'
+  constellation: NOAA
+  owner: US
+  tle_epoch: '2025-07-16T23:09:49.700Z'
+  tle_line1: 1 21263U 91032A   25197.96515857  .00000066  00000-0  45440-4 0  9992
+  tle_line2: 2 21263  98.5890 187.0060 0012524 289.8956  70.0874 14.26618718777166
+  apogee_km: 812.0
+  perigee_km: 794.0
+  period_min: 100.9
+  inclination_deg: 98.60000000000001
+  swath_width_km: 3040.0
+  num_terminal: 1
+  battery_capacity_wh: 3000.0
+  storage_capacity_mb: 96000.0
+  obs_store_rate_mb_per_min: 1500.0
+  downlink_release_rate_mb_per_min: 18000.0
+  charge_rate_w: 1932.0
+  idle_discharge_rate_w: 1000.0
+  obs_discharge_rate_w: 1400.0
+  downlink_discharge_rate_w: 100.0
+  max_slew_velocity_deg_per_sec: 0.5
+  max_slew_acceleration_deg_per_sec2: 0.05
+  max_slew_jerk_deg_per_sec3: null
+  settling_time_sec: 2.0
+  initial_storage_mb: 48000.0
+  initial_battery_wh: 1500.0
+- id: sat_noaa_13
+  name: NOAA 13
+  norad_id: '22739'
+  constellation: NOAA
+  owner: US
+  tle_epoch: '2025-07-16T21:00:48.369Z'
+  tle_line1: 1 22739U 93050A   25197.87555983  .00000069  00000-0  59135-4 0  9996
+  tle_line2: 2 22739  98.6579 147.6676 0009760  13.4062 346.7369 14.13536810646000
+  apogee_km: 854.0
+  perigee_km: 840.0
+  period_min: 101.9
+  inclination_deg: 98.7
+  swath_width_km: 3040.0
+  num_terminal: 1
+  battery_capacity_wh: 3000.0
+  storage_capacity_mb: 96000.0
+  obs_store_rate_mb_per_min: 1500.0
+  downlink_release_rate_mb_per_min: 18000.0
+  charge_rate_w: 1932.0
+  idle_discharge_rate_w: 1000.0
+  obs_discharge_rate_w: 1400.0
+  downlink_discharge_rate_w: 100.0
+  max_slew_velocity_deg_per_sec: 0.5
+  max_slew_acceleration_deg_per_sec2: 0.05
+  max_slew_jerk_deg_per_sec3: null
+  settling_time_sec: 2.0
+  initial_storage_mb: 48000.0
+  initial_battery_wh: 1500.0
+- id: sat_noaa_14
+  name: NOAA 14
+  norad_id: '23455'
+  constellation: NOAA
+  owner: US
+  tle_epoch: '2025-07-16T20:49:24.332Z'
+  tle_line1: 1 23455U 94089A   25197.86764274  .00000028  00000-0  36059-4 0  9994
+  tle_line2: 2 23455  98.4659 178.7660 0008918 334.2839  25.7891 14.14591016575792
+  apogee_km: 850.0
+  perigee_km: 837.0
+  period_min: 101.8
+  inclination_deg: 98.50000000000001
+  swath_width_km: 3040.0
+  num_terminal: 1
+  battery_capacity_wh: 3000.0
+  storage_capacity_mb: 96000.0
+  obs_store_rate_mb_per_min: 1500.0
+  downlink_release_rate_mb_per_min: 18000.0
+  charge_rate_w: 1932.0
+  idle_discharge_rate_w: 1000.0
+  obs_discharge_rate_w: 1400.0
+  downlink_discharge_rate_w: 100.0
+  max_slew_velocity_deg_per_sec: 0.5
+  max_slew_acceleration_deg_per_sec2: 0.05
+  max_slew_jerk_deg_per_sec3: null
+  settling_time_sec: 2.0
+  initial_storage_mb: 48000.0
+  initial_battery_wh: 1500.0
+- id: sat_noaa_15
+  name: NOAA 15
+  norad_id: '25338'
+  constellation: NOAA
+  owner: US
+  tle_epoch: '2025-07-17T04:25:08.704Z'
+  tle_line1: 1 25338U 98030A   25198.18412852  .00000169  00000-0  87132-4 0  9998
+  tle_line2: 2 25338  98.5338 222.4077 0009110 246.3796 113.6429 14.26997510413762
+  apogee_km: 808.0
+  perigee_km: 795.0
+  period_min: 100.9
+  inclination_deg: 98.50000000000001
+  swath_width_km: 3040.0
+  num_terminal: 1
+  battery_capacity_wh: 3000.0
+  storage_capacity_mb: 96000.0
+  obs_store_rate_mb_per_min: 1500.0
+  downlink_release_rate_mb_per_min: 18000.0
+  charge_rate_w: 1932.0
+  idle_discharge_rate_w: 1000.0
+  obs_discharge_rate_w: 1400.0
+  downlink_discharge_rate_w: 100.0
+  max_slew_velocity_deg_per_sec: 0.5
+  max_slew_acceleration_deg_per_sec2: 0.05
+  max_slew_jerk_deg_per_sec3: null
+  settling_time_sec: 2.0
+  initial_storage_mb: 48000.0
+  initial_battery_wh: 1500.0
+- id: sat_noaa_16
+  name: NOAA 16
+  norad_id: '26536'
+  constellation: NOAA
+  owner: US
+  tle_epoch: '2025-07-17T03:37:53.727Z'
+  tle_line1: 1 26536U 00055A   25198.15131629  .00000048  00000-0  47182-4 0  9993
+  tle_line2: 2 26536  98.4868 224.7478 0010447 176.7664 183.3579 14.13815953279884
+  apogee_km: 854.0
+  perigee_km: 839.0
+  period_min: 101.9
+  inclination_deg: 98.50000000000001
+  swath_width_km: 3040.0
+  num_terminal: 1
+  battery_capacity_wh: 3000.0
+  storage_capacity_mb: 96000.0
+  obs_store_rate_mb_per_min: 1500.0
+  downlink_release_rate_mb_per_min: 18000.0
+  charge_rate_w: 1932.0
+  idle_discharge_rate_w: 1000.0
+  obs_discharge_rate_w: 1400.0
+  downlink_discharge_rate_w: 100.0
+  max_slew_velocity_deg_per_sec: 0.5
+  max_slew_acceleration_deg_per_sec2: 0.05
+  max_slew_jerk_deg_per_sec3: null
+  settling_time_sec: 2.0
+  initial_storage_mb: 48000.0
+  initial_battery_wh: 1500.0
+- id: sat_noaa_17
+  name: NOAA 17
+  norad_id: '27453'
+  constellation: NOAA
+  owner: US
+  tle_epoch: '2025-07-17T05:11:48.592Z'
+  tle_line1: 1 27453U 02032A   25198.21653463  .00000128  00000-0  72413-4 0  9995
+  tle_line2: 2 27453  98.8145 155.9167 0010574 240.2833 119.7295 14.26027991199252
+  apogee_km: 813.0
+  perigee_km: 797.0
+  period_min: 101.0
+  inclination_deg: 98.8
+  swath_width_km: 3040.0
+  num_terminal: 1
+  battery_capacity_wh: 3000.0
+  storage_capacity_mb: 96000.0
+  obs_store_rate_mb_per_min: 1500.0
+  downlink_release_rate_mb_per_min: 18000.0
+  charge_rate_w: 1932.0
+  idle_discharge_rate_w: 1000.0
+  obs_discharge_rate_w: 1400.0
+  downlink_discharge_rate_w: 100.0
+  max_slew_velocity_deg_per_sec: 0.5
+  max_slew_acceleration_deg_per_sec2: 0.05
+  max_slew_jerk_deg_per_sec3: null
+  settling_time_sec: 2.0
+  initial_storage_mb: 48000.0
+  initial_battery_wh: 1500.0
+- id: sat_noaa_18
+  name: NOAA 18
+  norad_id: '28654'
+  constellation: NOAA
+  owner: US
+  tle_epoch: '2025-07-17T04:57:05.628Z'
+  tle_line1: 1 28654U 05018A   25198.20631514  .00000056  00000-0  53206-4 0  9997
+  tle_line2: 2 28654  98.8418 277.2590 0014610  27.1415 333.0518 14.13619242 39063
+  apogee_km: 858.0
+  perigee_km: 836.0
+  period_min: 101.9
+  inclination_deg: 98.8
+  swath_width_km: 3040.0
+  num_terminal: 1
+  battery_capacity_wh: 3000.0
+  storage_capacity_mb: 96000.0
+  obs_store_rate_mb_per_min: 1500.0
+  downlink_release_rate_mb_per_min: 18000.0
+  charge_rate_w: 1932.0
+  idle_discharge_rate_w: 1000.0
+  obs_discharge_rate_w: 1400.0
+  downlink_discharge_rate_w: 100.0
+  max_slew_velocity_deg_per_sec: 0.5
+  max_slew_acceleration_deg_per_sec2: 0.05
+  max_slew_jerk_deg_per_sec3: null
+  settling_time_sec: 2.0
+  initial_storage_mb: 48000.0
+  initial_battery_wh: 1500.0
+- id: sat_noaa_19
+  name: NOAA 19
+  norad_id: '33591'
+  constellation: NOAA
+  owner: US
+  tle_epoch: '2025-07-17T03:33:11.940Z'
+  tle_line1: 1 33591U 09005A   25198.14805487  .00000127  00000-0  91894-4 0  9992
+  tle_line2: 2 33591  98.9956 263.0604 0012743 256.3463 103.6290 14.13390008847410
+  apogee_km: 857.0
+  perigee_km: 839.0
+  period_min: 101.9
+  inclination_deg: 99.00000000000001
+  swath_width_km: 3040.0
+  num_terminal: 1
+  battery_capacity_wh: 3000.0
+  storage_capacity_mb: 96000.0
+  obs_store_rate_mb_per_min: 1500.0
+  downlink_release_rate_mb_per_min: 18000.0
+  charge_rate_w: 1932.0
+  idle_discharge_rate_w: 1000.0
+  obs_discharge_rate_w: 1400.0
+  downlink_discharge_rate_w: 100.0
+  max_slew_velocity_deg_per_sec: 0.5
+  max_slew_acceleration_deg_per_sec2: 0.05
+  max_slew_jerk_deg_per_sec3: null
+  settling_time_sec: 2.0
+  initial_storage_mb: 48000.0
+  initial_battery_wh: 1500.0
+- id: sat_noaa_11_deb
+  name: NOAA 11 DEB
+  norad_id: '37241'
+  constellation: NOAA
+  owner: US
+  tle_epoch: '2025-07-16T22:06:17.520Z'
+  tle_line1: 1 37241U 88089D   25197.92103612  .00000460  00000-0  20379-3 0  9992
+  tle_line2: 2 37241  98.9410   1.1138 0023641  98.0549 262.3315 14.27912658904601
+  apogee_km: 816.0
+  perigee_km: 782.0
+  period_min: 100.9
+  inclination_deg: 98.9
+  swath_width_km: 3040.0
+  num_terminal: 1
+  battery_capacity_wh: 3000.0
+  storage_capacity_mb: 96000.0
+  obs_store_rate_mb_per_min: 1500.0
+  downlink_release_rate_mb_per_min: 18000.0
+  charge_rate_w: 1932.0
+  idle_discharge_rate_w: 1000.0
+  obs_discharge_rate_w: 1400.0
+  downlink_discharge_rate_w: 100.0
+  max_slew_velocity_deg_per_sec: 0.5
+  max_slew_acceleration_deg_per_sec2: 0.05
+  max_slew_jerk_deg_per_sec3: null
+  settling_time_sec: 2.0
+  initial_storage_mb: 48000.0
+  initial_battery_wh: 1500.0
+- id: sat_noaa_12_deb
+  name: NOAA 12 DEB
+  norad_id: '37831'
+  constellation: NOAA
+  owner: US
+  tle_epoch: '2025-07-16T17:26:54.432Z'
+  tle_line1: 1 37831U 91032D   25197.72701889  .00009182  00000-0  14072-2 0  9999
+  tle_line2: 2 37831  98.1711 249.0660 0006782 318.4425 154.9531 14.73870360725964
+  apogee_km: 654.0
+  perigee_km: 644.0
+  period_min: 97.7
+  inclination_deg: 98.2
+  swath_width_km: 3040.0
+  num_terminal: 1
+  battery_capacity_wh: 3000.0
+  storage_capacity_mb: 96000.0
+  obs_store_rate_mb_per_min: 1500.0
+  downlink_release_rate_mb_per_min: 18000.0
+  charge_rate_w: 1932.0
+  idle_discharge_rate_w: 1000.0
+  obs_discharge_rate_w: 1400.0
+  downlink_discharge_rate_w: 100.0
+  max_slew_velocity_deg_per_sec: 0.5
+  max_slew_acceleration_deg_per_sec2: 0.05
+  max_slew_jerk_deg_per_sec3: null
+  settling_time_sec: 2.0
+  initial_storage_mb: 48000.0
+  initial_battery_wh: 1500.0
+- id: sat_noaa_14_deb
+  name: NOAA 14 DEB
+  norad_id: '38732'
+  constellation: NOAA
+  owner: US
+  tle_epoch: '2025-07-16T19:34:03.812Z'
+  tle_line1: 1 38732U 94089D   25197.81532190  .00002029  00000-0  76814-3 0  9998
+  tle_line2: 2 38732  98.6424 288.0338 0009773 296.3632  63.6547 14.32266399673122
+  apogee_km: 791.0
+  perigee_km: 777.0
+  period_min: 100.5
+  inclination_deg: 98.60000000000001
+  swath_width_km: 3040.0
+  num_terminal: 1
+  battery_capacity_wh: 3000.0
+  storage_capacity_mb: 96000.0
+  obs_store_rate_mb_per_min: 1500.0
+  downlink_release_rate_mb_per_min: 18000.0
+  charge_rate_w: 1932.0
+  idle_discharge_rate_w: 1000.0
+  obs_discharge_rate_w: 1400.0
+  downlink_discharge_rate_w: 100.0
+  max_slew_velocity_deg_per_sec: 0.5
+  max_slew_acceleration_deg_per_sec2: 0.05
+  max_slew_jerk_deg_per_sec3: null
+  settling_time_sec: 2.0
+  initial_storage_mb: 48000.0
+  initial_battery_wh: 1500.0
+- id: sat_noaa_8_deb
+  name: NOAA 8 DEB
+  norad_id: '38840'
+  constellation: NOAA
+  owner: US
+  tle_epoch: '2025-07-16T22:26:58.154Z'
+  tle_line1: 1 38840U 83022M   25197.93539531  .00011289  00000-0  15538-2 0  9995
+  tle_line2: 2 38840  98.3666 234.8549 0008449 130.8987 349.9377 14.78420634726982
+  apogee_km: 640.0
+  perigee_km: 628.0
+  period_min: 97.4
+  inclination_deg: 98.40000000000002
+  swath_width_km: 3040.0
+  num_terminal: 1
+  battery_capacity_wh: 3000.0
+  storage_capacity_mb: 96000.0
+  obs_store_rate_mb_per_min: 1500.0
+  downlink_release_rate_mb_per_min: 18000.0
+  charge_rate_w: 1932.0
+  idle_discharge_rate_w: 1000.0
+  obs_discharge_rate_w: 1400.0
+  downlink_discharge_rate_w: 100.0
+  max_slew_velocity_deg_per_sec: 0.5
+  max_slew_acceleration_deg_per_sec2: 0.05
+  max_slew_jerk_deg_per_sec3: null
+  settling_time_sec: 2.0
+  initial_storage_mb: 48000.0
+  initial_battery_wh: 1500.0
+- id: sat_noaa_16_deb
+  name: NOAA 16 DEB
+  norad_id: '41045'
+  constellation: NOAA
+  owner: US
+  tle_epoch: '2025-07-16T21:20:16.833Z'
+  tle_line1: 1 41045U 00055C   25197.88908372  .00000044  00000-0  44313-4 0  9990
+  tle_line2: 2 41045  98.4609 216.7565 0013795 160.4043 199.7665 14.14701971497746
+  apogee_km: 853.0
+  perigee_km: 833.0
+  period_min: 101.8
+  inclination_deg: 98.50000000000001
+  swath_width_km: 3040.0
+  num_terminal: 1
+  battery_capacity_wh: 3000.0
+  storage_capacity_mb: 96000.0
+  obs_store_rate_mb_per_min: 1500.0
+  downlink_release_rate_mb_per_min: 18000.0
+  charge_rate_w: 1932.0
+  idle_discharge_rate_w: 1000.0
+  obs_discharge_rate_w: 1400.0
+  downlink_discharge_rate_w: 100.0
+  max_slew_velocity_deg_per_sec: 0.5
+  max_slew_acceleration_deg_per_sec2: 0.05
+  max_slew_jerk_deg_per_sec3: null
+  settling_time_sec: 2.0
+  initial_storage_mb: 48000.0
+  initial_battery_wh: 1500.0
+- id: sat_jpss-1
+  name: JPSS-1
+  norad_id: '43013'
+  constellation: NOAA
+  owner: US
+  tle_epoch: '2025-07-17T03:01:33.935Z'
+  tle_line1: 1 43013U 17073A   25198.12608722  .00000048  00000-0  43360-4 0  9994
+  tle_line2: 2 43013  98.7411 136.2204 0001521 123.5758 236.5563 14.19545844396936
+  apogee_km: 828.0
+  perigee_km: 826.0
+  period_min: 101.4
+  inclination_deg: 98.7
+  swath_width_km: 3040.0
+  num_terminal: 1
+  battery_capacity_wh: 3000.0
+  storage_capacity_mb: 96000.0
+  obs_store_rate_mb_per_min: 1500.0
+  downlink_release_rate_mb_per_min: 18000.0
+  charge_rate_w: 1932.0
+  idle_discharge_rate_w: 1000.0
+  obs_discharge_rate_w: 1400.0
+  downlink_discharge_rate_w: 100.0
+  max_slew_velocity_deg_per_sec: 0.5
+  max_slew_acceleration_deg_per_sec2: 0.05
+  max_slew_jerk_deg_per_sec3: null
+  settling_time_sec: 2.0
+  initial_storage_mb: 48000.0
+  initial_battery_wh: 1500.0
+- id: sat_noaa_17_deb
+  name: NOAA 17 DEB
+  norad_id: '48162'
+  constellation: NOAA
+  owner: US
+  tle_epoch: '2025-07-16T20:35:49.179Z'
+  tle_line1: 1 48162U 02032C   25197.85820810  .00002410  00000-0  80846-3 0  9990
+  tle_line2: 2 48162  98.7642 160.5001 0016766 222.0075 137.9826 14.38133297226643
+  apogee_km: 777.0
+  perigee_km: 753.0
+  period_min: 100.1
+  inclination_deg: 98.8
+  swath_width_km: 3040.0
+  num_terminal: 1
+  battery_capacity_wh: 3000.0
+  storage_capacity_mb: 96000.0
+  obs_store_rate_mb_per_min: 1500.0
+  downlink_release_rate_mb_per_min: 18000.0
+  charge_rate_w: 1932.0
+  idle_discharge_rate_w: 1000.0
+  obs_discharge_rate_w: 1400.0
+  downlink_discharge_rate_w: 100.0
+  max_slew_velocity_deg_per_sec: 0.5
+  max_slew_acceleration_deg_per_sec2: 0.05
+  max_slew_jerk_deg_per_sec3: null
+  settling_time_sec: 2.0
+  initial_storage_mb: 48000.0
+  initial_battery_wh: 1500.0
+- id: sat_jpss-2
+  name: JPSS-2
+  norad_id: '54234'
+  constellation: NOAA
+  owner: US
+  tle_epoch: '2025-07-16T21:07:22.670Z'
+  tle_line1: 1 54234U 22150A   25197.88012350  .00000045  00000-0  42277-4 0  9994
+  tle_line2: 2 54234  98.7273 136.2157 0002730  74.5631 285.5846 14.19544345138975
+  apogee_km: 829.0
+  perigee_km: 825.0
+  period_min: 101.4
+  inclination_deg: 98.7
+  swath_width_km: 3040.0
+  num_terminal: 1
+  battery_capacity_wh: 3000.0
+  storage_capacity_mb: 96000.0
+  obs_store_rate_mb_per_min: 1500.0
+  downlink_release_rate_mb_per_min: 18000.0
+  charge_rate_w: 1932.0
+  idle_discharge_rate_w: 1000.0
+  obs_discharge_rate_w: 1400.0
+  downlink_discharge_rate_w: 100.0
+  max_slew_velocity_deg_per_sec: 0.5
+  max_slew_acceleration_deg_per_sec2: 0.05
+  max_slew_jerk_deg_per_sec3: null
+  settling_time_sec: 2.0
+  initial_storage_mb: 48000.0
+  initial_battery_wh: 1500.0

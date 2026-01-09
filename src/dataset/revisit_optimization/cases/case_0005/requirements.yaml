@@ -1,0 +1,26 @@
+meta:
+  case_id: case_0005
+  benchmark_type: revisit-optimization
+  seed: 46
+  horizon_start: '2025-07-17T12:00:00Z'
+  horizon_end: '2025-07-21T12:00:00Z'
+revisit_optimization:
+  monitoring_targets:
+  - city_metpalli_in
+  - city_invercargill_nz
+  - city_ulan_ude_ru
+  - city_szczecin_pl
+  - city_papeete_pf
+  - city_cuenca_ec
+  - city_superior_us
+  - city_ushuaia_ar
+  mapping_targets:
+    city_antsampandrano_mg: 4
+    city_meaux_fr: 3
+    city_christchurch_nz: 2
+    city_o_fallon_us_1: 2
+    city_san_bernardo_cl: 4
+    city_baramati_in: 3
+    city_rimouski_ca: 2
+    city_cuauhtemoc_mx_1: 4
+    city_ban_sai_ma_tai_th: 3

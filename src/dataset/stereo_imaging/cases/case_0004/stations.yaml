@@ -1,0 +1,30 @@
+- id: facility_raf_fylingdales_bmews
+  name: RAF Fylingdales BMEWS
+  network_name: 21st Space
+  latitude_deg: 54.3618
+  longitude_deg: -0.6701
+  altitude_m: 305
+- id: facility_eutelsat_paris
+  name: Eutelsat Paris
+  network_name: EUTELSAT
+  latitude_deg: 48.840264
+  longitude_deg: 2.277808
+  altitude_m: 77
+- id: facility_nemea_station
+  name: Nemea Station
+  network_name: Inmarsat
+  latitude_deg: 37.8461
+  longitude_deg: 22.6222
+  altitude_m: 313
+- id: facility_orbcomm_ocilla_a
+  name: Orbcomm Ocilla A
+  network_name: Orbcomm
+  latitude_deg: 31.501190000000005
+  longitude_deg: -83.199591
+  altitude_m: 55
+- id: facility_narss_aswan_station
+  name: NARSS Aswan Station
+  network_name: SPOT Image
+  latitude_deg: 24.07
+  longitude_deg: 32.91
+  altitude_m: 146

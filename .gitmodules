@@ -1,0 +1,3 @@
+[submodule "satnet"]
+	path = satnet
+	url = https://github.com/edwinytgoh/satnet.git

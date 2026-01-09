@@ -1,0 +1,13 @@
+{
+    "mcpServers": {
+        "astrox": {
+            "command": "python3",
+            "args": [
+                "planner/mcp_server.py"
+            ],
+            "env": {
+                "PYTHONPATH": "../lib:."
+            }
+        }
+    }
+}

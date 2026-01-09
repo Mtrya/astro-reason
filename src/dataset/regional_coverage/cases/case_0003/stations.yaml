@@ -1,0 +1,30 @@
+- id: facility_alcantara_launch_center_rag_pad
+  name: Alcantara Launch Center RAG Pad
+  network_name: INPE
+  latitude_deg: -2.3148
+  longitude_deg: -44.367
+  altitude_m: 13
+- id: facility_pennant_point_station
+  name: Pennant Point Station
+  network_name: Inmarsat
+  latitude_deg: 44.4648
+  longitude_deg: -63.61330000000001
+  altitude_m: -4
+- id: facility_yamaguchi_station
+  name: Yamaguchi Station
+  network_name: Inmarsat
+  latitude_deg: 34.217
+  longitude_deg: 131.557
+  altitude_m: 145
+- id: facility_chung-li_station
+  name: Chung-Li Station
+  network_name: CSRSR
+  latitude_deg: 24.967830000000003
+  longitude_deg: 121.18705000000001
+  altitude_m: 153
+- id: facility_vandenberg_stdn_caly
+  name: Vandenberg STDN CALY
+  network_name: Vandenberg
+  latitude_deg: 34.565624
+  longitude_deg: -120.501013
+  altitude_m: 623.91

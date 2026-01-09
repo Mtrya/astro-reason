@@ -1,0 +1,82 @@
+meta:
+  case_id: case_0001
+  benchmark_type: latency-optimization
+  seed: 42
+  horizon_start: '2025-07-17T12:00:00Z'
+  horizon_end: '2025-07-21T12:00:00Z'
+latency_optimization:
+  target_ids:
+  - city_pontevedra_ph_1
+  - city_taihe_cn
+  - city_auckland_nz
+  - city_pangkalan_bun_id
+  - city_ain_m_lila_dz
+  - city_debre_zeyit_et
+  - city_alagoinhas_br
+  - city_cicero_dantas_br
+  - city_san_cristobal_mx
+  - city_siquinala_gt
+  - city_toumoukro_ci
+  - city_ocala_us
+  - city_sid_rs
+  - city_nizhniy_tagil_ru
+  - city_pietermaritzburg_za
+  - city_sumbe_ao
+  - city_sutton_coldfield_gb
+  - city_bedford_gb
+  - city_darhan_mn_1
+  - city_zelenogorsk_ru
+  - city_surrey_ca
+  - city_fort_saskatchewan_ca
+  - city_punta_arenas_cl
+  - city_coyhaique_cl
+  - city_nuku_alofa_to
+  - city_apia_ws
+  - city_invercargill_nz
+  - city_dunedin_nz
+  - city_mint_hill_us
+  - city_khagaul_in
+  station_pairs:
+  - station_a: facility_queensland_transmitter
+    station_b: facility_greenbelt_test_brt_stdn_bltj
+    time_window_start: '2025-07-18T07:22:41.658923Z'
+    time_window_end: '2025-07-18T13:22:41.658923Z'
+  - station_a: facility_tangua_station
+    station_b: facility_globus_ii
+    time_window_start: '2025-07-20T08:42:52.097798Z'
+    time_window_end: '2025-07-20T14:42:52.097798Z'
+  - station_a: facility_tilla
+    station_b: facility_ral_station_12m
+    time_window_start: '2025-07-17T21:11:56.129592Z'
+    time_window_end: '2025-07-18T03:11:56.129592Z'
+  required_observations:
+    city_pontevedra_ph_1: 5
+    city_taihe_cn: 2
+    city_auckland_nz: 4
+    city_pangkalan_bun_id: 4
+    city_ain_m_lila_dz: 4
+    city_debre_zeyit_et: 2
+    city_alagoinhas_br: 5
+    city_cicero_dantas_br: 2
+    city_san_cristobal_mx: 5
+    city_siquinala_gt: 2
+    city_toumoukro_ci: 4
+    city_ocala_us: 4
+    city_sid_rs: 3
+    city_nizhniy_tagil_ru: 2
+    city_pietermaritzburg_za: 2
+    city_sumbe_ao: 3
+    city_sutton_coldfield_gb: 4
+    city_bedford_gb: 2
+    city_darhan_mn_1: 3
+    city_zelenogorsk_ru: 2
+    city_surrey_ca: 5
+    city_fort_saskatchewan_ca: 4
+    city_punta_arenas_cl: 5
+    city_coyhaique_cl: 4
+    city_nuku_alofa_to: 3
+    city_apia_ws: 4
+    city_invercargill_nz: 4
+    city_dunedin_nz: 3
+    city_mint_hill_us: 4
+    city_khagaul_in: 2

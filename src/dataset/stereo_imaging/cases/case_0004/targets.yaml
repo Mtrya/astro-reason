@@ -1,0 +1,56 @@
+- id: city_bao_loc_vn
+  name: Bao Loc
+  country: Vietnam
+  latitude_deg: 11.5481
+  longitude_deg: 107.8075
+  altitude_m: 0.0
+  population: 170920.0
+- id: city_rotorua_nz
+  name: Rotorua
+  country: New Zealand
+  latitude_deg: -38.1378
+  longitude_deg: 176.2514
+  altitude_m: 0.0
+  population: 54204.0
+- id: city_khachrod_in
+  name: Khachrod
+  country: India
+  latitude_deg: 23.4232
+  longitude_deg: 75.2819
+  altitude_m: 0.0
+  population: 39382.0
+- id: city_guanambi_br
+  name: Guanambi
+  country: Brazil
+  latitude_deg: -14.2228
+  longitude_deg: -42.7808
+  altitude_m: 0.0
+  population: 87817.0
+- id: city_fremont_us
+  name: Fremont
+  country: United States
+  latitude_deg: 37.5265
+  longitude_deg: -121.9843
+  altitude_m: 0.0
+  population: 228518.0
+- id: city_taunton_us
+  name: Taunton
+  country: United States
+  latitude_deg: 41.9036
+  longitude_deg: -71.0943
+  altitude_m: 0.0
+  population: 59719.0
+- id: city_hoboken_be
+  name: Hoboken
+  country: Belgium
+  latitude_deg: 51.1667
+  longitude_deg: 4.3667
+  altitude_m: 0.0
+  population: 41220.0
+- id: city_mwanza_tz
+  name: Mwanza
+  country: Tanzania
+  latitude_deg: -2.5167
+  longitude_deg: 32.9
+  altitude_m: 0.0
+  population: 1104521.0

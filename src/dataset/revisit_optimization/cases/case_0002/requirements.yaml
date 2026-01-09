@@ -1,0 +1,26 @@
+meta:
+  case_id: case_0002
+  benchmark_type: revisit-optimization
+  seed: 43
+  horizon_start: '2025-07-17T12:00:00Z'
+  horizon_end: '2025-07-21T12:00:00Z'
+revisit_optimization:
+  monitoring_targets:
+  - city_ushuaia_ar
+  - city_qincheng_cn
+  - city_gravina_in_puglia_it
+  - city_salaberry_de_valleyfield_ca
+  - city_manhattan_us_1
+  - city_cerquilho_velho_br
+  - city_darhan_mn
+  - city_kilosa_tz
+  mapping_targets:
+    city_edmonton_ca: 2
+    city_apia_ws: 2
+    city_multai_in: 2
+    city_suceava_ro: 3
+    city_bra_it: 3
+    city_bridgwater_gb: 2
+    city_dunedin_nz: 4
+    city_cinere_id: 4
+    city_grand_lahou_ci: 2

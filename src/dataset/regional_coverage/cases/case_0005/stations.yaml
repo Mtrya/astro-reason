@@ -1,0 +1,30 @@
+- id: facility_sodankyla_eiscat_radar
+  name: Sodankyla EISCAT Radar
+  network_name: EISCAT
+  latitude_deg: 67.36383
+  longitude_deg: 26.630430000000004
+  altitude_m: 193
+- id: facility_queensland_receiver
+  name: Queensland Receiver
+  network_name: JORN
+  latitude_deg: -24.2871
+  longitude_deg: 143.1936
+  altitude_m: 204
+- id: facility_orbcomm_almaty_a
+  name: Orbcomm Almaty A
+  network_name: Orbcomm
+  latitude_deg: 44.49732
+  longitude_deg: 76.78235
+  altitude_m: 484
+- id: facility_leuk
+  name: Leuk
+  network_name: ONYX
+  latitude_deg: 46.31805599999999
+  longitude_deg: 7.645278
+  altitude_m: 973
+- id: facility_orbcomm_st_johns_a
+  name: Orbcomm St Johns A
+  network_name: Orbcomm
+  latitude_deg: 34.456281999999995
+  longitude_deg: -109.554917
+  altitude_m: 1960

@@ -1,0 +1,16 @@
+meta:
+  case_id: case_0004
+  benchmark_type: revisit-optimization
+  seed: 45
+  horizon_start: '2025-07-17T12:00:00Z'
+  horizon_end: '2025-07-21T12:00:00Z'
+revisit_optimization:
+  monitoring_targets:
+  - city_hoboken_be
+  - city_rotorua_nz
+  - city_guanambi_br
+  mapping_targets:
+    city_fremont_us: 2
+    city_bao_loc_vn: 4
+    city_taunton_us: 2
+    city_khachrod_in: 2

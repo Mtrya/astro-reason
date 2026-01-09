@@ -1,0 +1,82 @@
+meta:
+  case_id: case_0004
+  benchmark_type: latency-optimization
+  seed: 45
+  horizon_start: '2025-07-17T12:00:00Z'
+  horizon_end: '2025-07-21T12:00:00Z'
+latency_optimization:
+  target_ids:
+  - city_bao_loc_vn
+  - city_koka_jp
+  - city_cakung_id
+  - city_rawajaya_id
+  - city_satna_in
+  - city_tripunittura_in
+  - city_januaria_br
+  - city_chiclayo_pe
+  - city_santa_clarita_us
+  - city_nueva_santa_rosa_gt
+  - city_santiago_do
+  - city_matanzas_cu
+  - city_herzogenrath_de
+  - city_noyabrsk_ru
+  - city_kabarore_rw
+  - city_mampikony_mg
+  - city_coventry_gb
+  - city_ashford_gb_1
+  - city_neryungri_ru
+  - city_shuangyashan_cn
+  - city_everett_us
+  - city_mount_vernon_us_1
+  - city_caleta_olivia_ar
+  - city_coyhaique_cl
+  - city_papeete_pf
+  - city_nuku_alofa_to
+  - city_dunedin_nz
+  - city_invercargill_nz
+  - city_ciudad_dario_ni
+  - city_bingol_tr
+  station_pairs:
+  - station_a: facility_cstars_20m
+    station_b: facility_baikonur_cosmodrome_lc_165
+    time_window_start: '2025-07-20T09:45:30.130253Z'
+    time_window_end: '2025-07-20T15:45:30.130253Z'
+  - station_a: facility_triunfo_pass_station
+    station_b: facility_st_hubert
+    time_window_start: '2025-07-21T02:38:25.826179Z'
+    time_window_end: '2025-07-21T08:38:25.826179Z'
+  - station_a: facility_mojave_air_and_space_port
+    station_b: facility_lushan_station
+    time_window_start: '2025-07-17T20:26:16.492838Z'
+    time_window_end: '2025-07-18T02:26:16.492838Z'
+  required_observations:
+    city_bao_loc_vn: 2
+    city_koka_jp: 2
+    city_cakung_id: 4
+    city_rawajaya_id: 4
+    city_satna_in: 5
+    city_tripunittura_in: 4
+    city_januaria_br: 2
+    city_chiclayo_pe: 5
+    city_santa_clarita_us: 4
+    city_nueva_santa_rosa_gt: 3
+    city_santiago_do: 4
+    city_matanzas_cu: 3
+    city_herzogenrath_de: 2
+    city_noyabrsk_ru: 3
+    city_kabarore_rw: 5
+    city_mampikony_mg: 5
+    city_coventry_gb: 4
+    city_ashford_gb_1: 3
+    city_neryungri_ru: 5
+    city_shuangyashan_cn: 5
+    city_everett_us: 5
+    city_mount_vernon_us_1: 3
+    city_caleta_olivia_ar: 5
+    city_coyhaique_cl: 2
+    city_papeete_pf: 5
+    city_nuku_alofa_to: 2
+    city_dunedin_nz: 2
+    city_invercargill_nz: 4
+    city_ciudad_dario_ni: 4
+    city_bingol_tr: 4

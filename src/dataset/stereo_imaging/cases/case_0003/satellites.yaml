@@ -1,0 +1,140 @@
+- id: sat_terrasar-x
+  name: TERRASAR-X
+  norad_id: '31698'
+  constellation: TERRASAR
+  owner: GER
+  tle_epoch: '2025-07-16T17:23:27.245Z'
+  tle_line1: 1 31698U 07026A   25197.72462090  .00000185  00000-0  12018-4 0  9996
+  tle_line2: 2 31698  97.4458 205.2330 0001712  82.5943 277.5486 15.19149776  2295
+  apogee_km: 510.0
+  perigee_km: 507.0
+  period_min: 94.8
+  inclination_deg: 97.50000000000001
+  swath_width_km: 30.0
+  num_terminal: 1
+  battery_capacity_wh: 3024.0
+  storage_capacity_mb: 256000.0
+  obs_store_rate_mb_per_min: 24000.0
+  downlink_release_rate_mb_per_min: 18000.0
+  charge_rate_w: 700.0
+  idle_discharge_rate_w: 500.0
+  obs_discharge_rate_w: 2500.0
+  downlink_discharge_rate_w: 100.0
+  max_slew_velocity_deg_per_sec: 1.0
+  max_slew_acceleration_deg_per_sec2: 0.2
+  max_slew_jerk_deg_per_sec3: null
+  settling_time_sec: 2.0
+  initial_storage_mb: 128000.0
+  initial_battery_wh: 1512.0
+- id: sat_tandem-x
+  name: TANDEM-X
+  norad_id: '36605'
+  constellation: TANDEM
+  owner: GER
+  tle_epoch: '2025-07-16T17:23:27.159Z'
+  tle_line1: 1 36605U 10030A   25197.72461990  .00000141  00000-0  99260-5 0  9993
+  tle_line2: 2 36605  97.4467 205.2332 0001771  99.3702 260.7733 15.19149414835713
+  apogee_km: 510.0
+  perigee_km: 507.0
+  period_min: 94.8
+  inclination_deg: 97.50000000000001
+  swath_width_km: 30.0
+  num_terminal: 1
+  battery_capacity_wh: 3024.0
+  storage_capacity_mb: 256000.0
+  obs_store_rate_mb_per_min: 24000.0
+  downlink_release_rate_mb_per_min: 18000.0
+  charge_rate_w: 700.0
+  idle_discharge_rate_w: 500.0
+  obs_discharge_rate_w: 2500.0
+  downlink_discharge_rate_w: 100.0
+  max_slew_velocity_deg_per_sec: 1.0
+  max_slew_acceleration_deg_per_sec2: 0.2
+  max_slew_jerk_deg_per_sec3: null
+  settling_time_sec: 2.0
+  initial_storage_mb: 128000.0
+  initial_battery_wh: 1512.0
+- id: sat_ziyuan_1-02c
+  name: ZIYUAN 1-02C
+  norad_id: '38038'
+  constellation: ZIYUAN
+  owner: PRC
+  tle_epoch: '2025-07-17T04:32:24.739Z'
+  tle_line1: 1 38038U 11079A   25198.18917523  .00000327  00000-0  12300-3 0  9992
+  tle_line2: 2 38038  98.4518 266.8017 0005644 220.8392 216.1068 14.37800439711118
+  apogee_km: 770.0
+  perigee_km: 762.0
+  period_min: 100.2
+  inclination_deg: 98.50000000000001
+  swath_width_km: 51.0
+  num_terminal: 1
+  battery_capacity_wh: 3500.0
+  storage_capacity_mb: 1000000.0
+  obs_store_rate_mb_per_min: 36000.0
+  downlink_release_rate_mb_per_min: 36000.0
+  charge_rate_w: 1500.0
+  idle_discharge_rate_w: 600.0
+  obs_discharge_rate_w: 1100.0
+  downlink_discharge_rate_w: 150.0
+  max_slew_velocity_deg_per_sec: 1.0
+  max_slew_acceleration_deg_per_sec2: 0.1
+  max_slew_jerk_deg_per_sec3: null
+  settling_time_sec: 2.0
+  initial_storage_mb: 500000.0
+  initial_battery_wh: 1750.0
+- id: sat_ziyuan_3-1
+  name: ZIYUAN 3-1
+  norad_id: '38046'
+  constellation: ZIYUAN
+  owner: PRC
+  tle_epoch: '2025-07-17T03:41:04.763Z'
+  tle_line1: 1 38046U 12001A   25198.15352736  .00016818  00000-0  26053-3 0  9995
+  tle_line2: 2 38046  97.1962 262.9102 0004759 135.3357 224.8281 15.54089261751866
+  apogee_km: 408.0
+  perigee_km: 402.0
+  period_min: 92.7
+  inclination_deg: 97.2
+  swath_width_km: 51.0
+  num_terminal: 1
+  battery_capacity_wh: 3500.0
+  storage_capacity_mb: 1000000.0
+  obs_store_rate_mb_per_min: 36000.0
+  downlink_release_rate_mb_per_min: 36000.0
+  charge_rate_w: 1500.0
+  idle_discharge_rate_w: 600.0
+  obs_discharge_rate_w: 1100.0
+  downlink_discharge_rate_w: 150.0
+  max_slew_velocity_deg_per_sec: 1.0
+  max_slew_acceleration_deg_per_sec2: 0.1
+  max_slew_jerk_deg_per_sec3: null
+  settling_time_sec: 2.0
+  initial_storage_mb: 500000.0
+  initial_battery_wh: 1750.0
+- id: sat_ziyuan_3-2
+  name: ZIYUAN 3-2
+  norad_id: '41556'
+  constellation: ZIYUAN
+  owner: PRC
+  tle_epoch: '2025-07-17T04:50:59.390Z'
+  tle_line1: 1 41556U 16033A   25198.20207628  .00005164  00000-0  23303-3 0  9996
+  tle_line2: 2 41556  97.4179 274.6984 0011211  48.0502 312.1687 15.21380256507053
+  apogee_km: 509.0
+  perigee_km: 494.0
+  period_min: 94.7
+  inclination_deg: 97.40000000000002
+  swath_width_km: 51.0
+  num_terminal: 1
+  battery_capacity_wh: 3500.0
+  storage_capacity_mb: 1000000.0
+  obs_store_rate_mb_per_min: 36000.0
+  downlink_release_rate_mb_per_min: 36000.0
+  charge_rate_w: 1500.0
+  idle_discharge_rate_w: 600.0
+  obs_discharge_rate_w: 1100.0
+  downlink_discharge_rate_w: 150.0
+  max_slew_velocity_deg_per_sec: 1.0
+  max_slew_acceleration_deg_per_sec2: 0.1
+  max_slew_jerk_deg_per_sec3: null
+  settling_time_sec: 2.0
+  initial_storage_mb: 500000.0
+  initial_battery_wh: 1750.0

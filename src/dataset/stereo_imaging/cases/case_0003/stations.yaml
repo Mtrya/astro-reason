@@ -1,0 +1,30 @@
+- id: facility_ras_al_khaimah_spaceport
+  name: Ras Al Khaimah Spaceport
+  network_name: Space Adv.
+  latitude_deg: 25.617
+  longitude_deg: 55.941
+  altitude_m: -16
+- id: facility_moron_moss
+  name: Moron MOSS
+  network_name: 21st Space
+  latitude_deg: 37.1516
+  longitude_deg: -5.5884
+  altitude_m: 141
+- id: facility_southbury_station
+  name: Southbury Station
+  network_name: Inmarsat
+  latitude_deg: 41.4514
+  longitude_deg: -73.2889
+  altitude_m: 7
+- id: facility_thermopylae_station
+  name: Thermopylae Station
+  network_name: Inmarsat
+  latitude_deg: 38.8231
+  longitude_deg: 22.686599999999995
+  altitude_m: 50
+- id: facility_vlba_owens_valley
+  name: VLBA Owens Valley
+  network_name: NRAO
+  latitude_deg: 37.231653
+  longitude_deg: -118.27704700000001
+  altitude_m: 1181

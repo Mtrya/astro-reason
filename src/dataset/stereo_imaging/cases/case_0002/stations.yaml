@@ -1,0 +1,30 @@
+- id: facility_yacolt_station
+  name: Yacolt Station
+  network_name: Verizon
+  latitude_deg: 45.86300000000001
+  longitude_deg: -122.396
+  altitude_m: 197
+- id: facility_port_blair
+  name: Port Blair
+  network_name: ISTRAC
+  latitude_deg: 11.63727
+  longitude_deg: 92.71247
+  altitude_m: -31
+- id: facility_alcantara_launch_center_rag_pad
+  name: Alcantara Launch Center RAG Pad
+  network_name: INPE
+  latitude_deg: -2.3148
+  longitude_deg: -44.367
+  altitude_m: 13
+- id: facility_batam_island_station
+  name: Batam Island Station
+  network_name: Inmarsat
+  latitude_deg: 1.1131
+  longitude_deg: 103.9506
+  altitude_m: 28
+- id: facility_kens
+  name: KENS
+  network_name: ASI
+  latitude_deg: -2.995558
+  longitude_deg: 40.194505
+  altitude_m: 12.314

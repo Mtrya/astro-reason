@@ -1,0 +1,30 @@
+- id: facility_dubai
+  name: Dubai
+  network_name: GeoEye
+  latitude_deg: 25.267
+  longitude_deg: 55.26700000000001
+  altitude_m: -34
+- id: facility_naval_satcom_facility_northwest
+  name: Naval SATCOM Facility Northwest
+  network_name: DISA
+  latitude_deg: 36.559444
+  longitude_deg: -76.26722200000002
+  altitude_m: -34
+- id: facility_valcartier
+  name: Valcartier
+  network_name: SSN
+  latitude_deg: 46.87545
+  longitude_deg: -71.47075
+  altitude_m: 141
+- id: facility_obninsk
+  name: Obninsk
+  network_name: SPOT Image
+  latitude_deg: 55.08
+  longitude_deg: 36.62
+  altitude_m: 184
+- id: facility_helsinki_teleport
+  name: Helsinki Teleport
+  network_name: EUTELSAT
+  latitude_deg: 60.206389
+  longitude_deg: 24.921667
+  altitude_m: 55

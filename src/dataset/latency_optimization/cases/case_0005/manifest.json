@@ -1,0 +1,10 @@
+{
+  "case_id": "case_0005",
+  "benchmark_type": "latency-optimization",
+  "seed": 46,
+  "horizon_start": "2025-07-17T12:00:00Z",
+  "horizon_end": "2025-07-21T12:00:00Z",
+  "num_satellites": 90,
+  "num_targets": 30,
+  "num_stations": 6
+}

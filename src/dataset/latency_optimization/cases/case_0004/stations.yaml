@@ -1,0 +1,36 @@
+- id: facility_cstars_20m
+  name: CSTARS_20m
+  network_name: SPOT Image
+  latitude_deg: 25.61375
+  longitude_deg: -80.38477
+  altitude_m: -23
+- id: facility_baikonur_cosmodrome_lc_165
+  name: Baikonur Cosmodrome LC 165
+  network_name: RFSA
+  latitude_deg: 45.991200000000006
+  longitude_deg: 62.9185
+  altitude_m: 74
+- id: facility_triunfo_pass_station
+  name: Triunfo Pass Station
+  network_name: ATT
+  latitude_deg: 34.08080000000001
+  longitude_deg: -118.8964
+  altitude_m: 270
+- id: facility_st_hubert
+  name: St Hubert
+  network_name: CSA
+  latitude_deg: 45.518836
+  longitude_deg: -73.39675
+  altitude_m: -2
+- id: facility_mojave_air_and_space_port
+  name: Mojave Air and Space Port
+  network_name: Virgin Gal.
+  latitude_deg: 35.06
+  longitude_deg: -118.15
+  altitude_m: 819
+- id: facility_lushan_station
+  name: Lushan Station
+  network_name: CLTC
+  latitude_deg: 29.699999999999996
+  longitude_deg: 116.0
+  altitude_m: 43

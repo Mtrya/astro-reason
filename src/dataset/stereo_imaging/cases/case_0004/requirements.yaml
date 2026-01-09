@@ -1,0 +1,29 @@
+meta:
+  case_id: case_0004
+  benchmark_type: stereo-imaging
+  seed: 45
+  horizon_start: '2025-07-17T12:00:00Z'
+  horizon_end: '2025-07-21T12:00:00Z'
+stereo_imaging:
+  target_ids:
+  - city_bao_loc_vn
+  - city_rotorua_nz
+  - city_khachrod_in
+  - city_guanambi_br
+  - city_fremont_us
+  - city_taunton_us
+  - city_hoboken_be
+  - city_mwanza_tz
+  min_azimuth_sep_deg: 15.0
+  max_azimuth_sep_deg: 60.0
+  max_time_between_obs_hours: 2.0
+  min_elevation_deg: 30.0
+  required_observations:
+    city_bao_loc_vn: 2
+    city_rotorua_nz: 2
+    city_khachrod_in: 2
+    city_guanambi_br: 2
+    city_fremont_us: 2
+    city_taunton_us: 2
+    city_hoboken_be: 2
+    city_mwanza_tz: 2

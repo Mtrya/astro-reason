@@ -1,0 +1,30 @@
+- id: facility_cts_stdn_ctss
+  name: CTS STDN CTSS
+  network_name: AFSCN
+  latitude_deg: 38.805988
+  longitude_deg: -104.528469
+  altitude_m: 1907.519
+- id: facility_xichang_la_2
+  name: Xichang LA 2
+  network_name: CNSA
+  latitude_deg: 28.2455
+  longitude_deg: 102.0271
+  altitude_m: 1837
+- id: facility_wenchang
+  name: Wenchang
+  network_name: CNSA
+  latitude_deg: 19.68
+  longitude_deg: 111.01
+  altitude_m: -7
+- id: facility_htsb
+  name: HTSB
+  network_name: AFSCN
+  latitude_deg: 21.568978
+  longitude_deg: -158.262297
+  altitude_m: 317.7
+- id: facility_kalyazin_radio_astronomy_observatory
+  name: Kalyazin Radio Astronomy Observatory
+  network_name: RFSA
+  latitude_deg: 57.22200000000001
+  longitude_deg: 37.9
+  altitude_m: 143

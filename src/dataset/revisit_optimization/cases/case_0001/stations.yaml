@@ -1,0 +1,30 @@
+- id: facility_concepcion
+  name: Concepcion
+  network_name: IVS
+  latitude_deg: -36.842772
+  longitude_deg: -73.025036
+  altitude_m: 182
+- id: facility_london_inmarsat_hq
+  name: London Inmarsat HQ
+  network_name: Inmarsat
+  latitude_deg: 51.5254
+  longitude_deg: -0.0865
+  altitude_m: 69
+- id: facility_ermexs
+  name: ERMEXS
+  network_name: SPOT Image
+  latitude_deg: 19.32263
+  longitude_deg: -99.12878999999998
+  altitude_m: 2238
+- id: facility_theos_control_and_receiving_station
+  name: THEOS Control and Receiving Station
+  network_name: GISTDA
+  latitude_deg: 13.103529
+  longitude_deg: 100.932849
+  altitude_m: 33
+- id: facility_sodankyla_eiscat_radar
+  name: Sodankyla EISCAT Radar
+  network_name: EISCAT
+  latitude_deg: 67.36383
+  longitude_deg: 26.630430000000004
+  altitude_m: 193

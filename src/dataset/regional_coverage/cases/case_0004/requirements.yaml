@@ -1,0 +1,44 @@
+meta:
+  case_id: case_0004
+  benchmark_type: regional-coverage
+  seed: 45
+  horizon_start: '2025-07-17T12:00:00Z'
+  horizon_end: '2025-07-21T12:00:00Z'
+regional_coverage:
+  polygons:
+  - id: sahara_east
+    vertices:
+    - - 20.0
+      - 15.0
+    - - 20.0
+      - 30.0
+    - - 30.0
+      - 30.0
+    - - 30.0
+      - 15.0
+  - id: horn_of_africa
+    vertices:
+    - - 12.0
+      - 43.0
+    - - 10.0
+      - 51.0
+    - - 2.0
+      - 48.0
+    - - 5.0
+      - 42.0
+    - - 10.0
+      - 40.0
+  - id: indonesia_east
+    vertices:
+    - - -2.0
+      - 130.0
+    - - -5.0
+      - 135.0
+    - - -8.0
+      - 140.0
+    - - -10.0
+      - 138.0
+    - - -8.0
+      - 132.0
+    - - -4.0
+      - 128.0

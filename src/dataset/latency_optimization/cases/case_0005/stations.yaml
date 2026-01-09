@@ -1,0 +1,36 @@
+- id: facility_wilkes-barre_station
+  name: Wilkes-Barre Station
+  network_name: DigitalGlobe
+  latitude_deg: 41.24499
+  longitude_deg: -75.88268
+  altitude_m: 134
+- id: facility_vikram_sarabhai
+  name: Vikram Sarabhai
+  network_name: ISRO
+  latitude_deg: 8.530116
+  longitude_deg: 76.869836
+  altitude_m: -89
+- id: facility_orlando_station
+  name: Orlando Station
+  network_name: Sprint
+  latitude_deg: 28.4251
+  longitude_deg: -81.121
+  altitude_m: -11
+- id: facility_kamisaibara_spaceguard_center
+  name: Kamisaibara Spaceguard Center
+  network_name: JAXA
+  latitude_deg: 35.3125
+  longitude_deg: 133.9413
+  altitude_m: 775
+- id: facility_gila_river_space_fence
+  name: Gila River Space Fence
+  network_name: 21st Space
+  latitude_deg: 33.113
+  longitude_deg: -112.031
+  altitude_m: 318
+- id: facility_prts
+  name: PRTS
+  network_name: JAXA
+  latitude_deg: -31.802
+  longitude_deg: 115.88500000000002
+  altitude_m: 22.16

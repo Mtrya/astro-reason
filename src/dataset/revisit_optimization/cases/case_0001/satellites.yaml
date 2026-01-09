@@ -1,0 +1,1316 @@
+- id: sat_dmsp_4a_f1
+  name: DMSP 4A F1
+  norad_id: 02418
+  constellation: DMSP
+  owner: US
+  tle_epoch: '2025-07-16T22:23:44.537Z'
+  tle_line1: 1 02418U 66082A   25197.93315437  .00000135  00000-0  49787-4 0  9994
+  tle_line2: 2 02418  98.2966 353.5748 0115053 320.3384  38.9433 14.43563994 63917
+  apogee_km: 829.0
+  perigee_km: 665.0
+  period_min: 99.8
+  inclination_deg: 98.3
+  swath_width_km: 3000.0
+  num_terminal: 1
+  battery_capacity_wh: 2000.0
+  storage_capacity_mb: 16000.0
+  obs_store_rate_mb_per_min: 600.0
+  downlink_release_rate_mb_per_min: 1200.0
+  charge_rate_w: 1000.0
+  idle_discharge_rate_w: 500.0
+  obs_discharge_rate_w: 900.0
+  downlink_discharge_rate_w: 80.0
+  max_slew_velocity_deg_per_sec: 0.2
+  max_slew_acceleration_deg_per_sec2: 0.01
+  max_slew_jerk_deg_per_sec3: null
+  settling_time_sec: 5.0
+  initial_storage_mb: 8000.0
+  initial_battery_wh: 1000.0
+- id: sat_dmsp_4a_f2
+  name: DMSP 4A F2
+  norad_id: 02669
+  constellation: DMSP
+  owner: US
+  tle_epoch: '2025-07-17T05:03:26.499Z'
+  tle_line1: 1 02669U 67010A   25198.21072337  .00000085  00000-0  53060-4 0  9998
+  tle_line2: 2 02669  99.0817 182.0023 0047842 269.0279  90.5419 14.28053060 36999
+  apogee_km: 833.0
+  perigee_km: 764.0
+  period_min: 100.8
+  inclination_deg: 99.09999999999998
+  swath_width_km: 3000.0
+  num_terminal: 1
+  battery_capacity_wh: 2000.0
+  storage_capacity_mb: 16000.0
+  obs_store_rate_mb_per_min: 600.0
+  downlink_release_rate_mb_per_min: 1200.0
+  charge_rate_w: 1000.0
+  idle_discharge_rate_w: 500.0
+  obs_discharge_rate_w: 900.0
+  downlink_discharge_rate_w: 80.0
+  max_slew_velocity_deg_per_sec: 0.2
+  max_slew_acceleration_deg_per_sec2: 0.01
+  max_slew_jerk_deg_per_sec3: null
+  settling_time_sec: 5.0
+  initial_storage_mb: 8000.0
+  initial_battery_wh: 1000.0
+- id: sat_dmsp_4a_f3
+  name: DMSP 4A F3
+  norad_id: 02920
+  constellation: DMSP
+  owner: US
+  tle_epoch: '2025-07-17T03:57:13.129Z'
+  tle_line1: 1 02920U 67080A   25198.16473529  .00000014  00000-0  28991-4 0  9994
+  tle_line2: 2 02920  98.6266  54.8042 0036981 236.8867 122.8756 14.15222395985740
+  apogee_km: 868.0
+  perigee_km: 815.0
+  period_min: 101.8
+  inclination_deg: 98.60000000000001
+  swath_width_km: 3000.0
+  num_terminal: 1
+  battery_capacity_wh: 2000.0
+  storage_capacity_mb: 16000.0
+  obs_store_rate_mb_per_min: 600.0
+  downlink_release_rate_mb_per_min: 1200.0
+  charge_rate_w: 1000.0
+  idle_discharge_rate_w: 500.0
+  obs_discharge_rate_w: 900.0
+  downlink_discharge_rate_w: 80.0
+  max_slew_velocity_deg_per_sec: 0.2
+  max_slew_acceleration_deg_per_sec2: 0.01
+  max_slew_jerk_deg_per_sec3: null
+  settling_time_sec: 5.0
+  initial_storage_mb: 8000.0
+  initial_battery_wh: 1000.0
+- id: sat_dmsp_4a_f4
+  name: DMSP 4A F4
+  norad_id: 02980
+  constellation: DMSP
+  owner: US
+  tle_epoch: '2025-07-16T19:14:04.723Z'
+  tle_line1: 1 02980U 67096A   25197.80144356  .00000421  00000-0  89657-4 0  9998
+  tle_line2: 2 02980  99.2260 230.3542 0094726  52.3112 308.6629 14.62496269 38093
+  apogee_km: 752.0
+  perigee_km: 618.0
+  period_min: 98.5
+  inclination_deg: 99.2
+  swath_width_km: 3000.0
+  num_terminal: 1
+  battery_capacity_wh: 2000.0
+  storage_capacity_mb: 16000.0
+  obs_store_rate_mb_per_min: 600.0
+  downlink_release_rate_mb_per_min: 1200.0
+  charge_rate_w: 1000.0
+  idle_discharge_rate_w: 500.0
+  obs_discharge_rate_w: 900.0
+  downlink_discharge_rate_w: 80.0
+  max_slew_velocity_deg_per_sec: 0.2
+  max_slew_acceleration_deg_per_sec2: 0.01
+  max_slew_jerk_deg_per_sec3: null
+  settling_time_sec: 5.0
+  initial_storage_mb: 8000.0
+  initial_battery_wh: 1000.0
+- id: sat_dmsp_4b_f1
+  name: DMSP 4B F1
+  norad_id: '03266'
+  constellation: DMSP
+  owner: US
+  tle_epoch: '2025-07-16T18:56:10.898Z'
+  tle_line1: 1 03266U 68042A   25197.78901503  .00000043  00000-0  42853-4 0  9997
+  tle_line2: 2 03266  98.5714  36.6320 0052409 185.1213 174.9432 14.15798772865677
+  apogee_km: 877.0
+  perigee_km: 802.0
+  period_min: 101.7
+  inclination_deg: 98.60000000000001
+  swath_width_km: 3000.0
+  num_terminal: 1
+  battery_capacity_wh: 2000.0
+  storage_capacity_mb: 16000.0
+  obs_store_rate_mb_per_min: 600.0
+  downlink_release_rate_mb_per_min: 1200.0
+  charge_rate_w: 1000.0
+  idle_discharge_rate_w: 500.0
+  obs_discharge_rate_w: 900.0
+  downlink_discharge_rate_w: 80.0
+  max_slew_velocity_deg_per_sec: 0.2
+  max_slew_acceleration_deg_per_sec2: 0.01
+  max_slew_jerk_deg_per_sec3: null
+  settling_time_sec: 5.0
+  initial_storage_mb: 8000.0
+  initial_battery_wh: 1000.0
+- id: sat_dmsp_4b_f2
+  name: DMSP 4B F2
+  norad_id: '03510'
+  constellation: DMSP
+  owner: US
+  tle_epoch: '2025-07-16T22:09:29.168Z'
+  tle_line1: 1 03510U 68092A   25197.92325426  .00000090  00000-0  53426-4 0  9994
+  tle_line2: 2 03510  98.5339 322.3027 0028922 229.4310 130.4354 14.28096290949396
+  apogee_km: 819.0
+  perigee_km: 777.0
+  period_min: 100.8
+  inclination_deg: 98.50000000000001
+  swath_width_km: 3000.0
+  num_terminal: 1
+  battery_capacity_wh: 2000.0
+  storage_capacity_mb: 16000.0
+  obs_store_rate_mb_per_min: 600.0
+  downlink_release_rate_mb_per_min: 1200.0
+  charge_rate_w: 1000.0
+  idle_discharge_rate_w: 500.0
+  obs_discharge_rate_w: 900.0
+  downlink_discharge_rate_w: 80.0
+  max_slew_velocity_deg_per_sec: 0.2
+  max_slew_acceleration_deg_per_sec2: 0.01
+  max_slew_jerk_deg_per_sec3: null
+  settling_time_sec: 5.0
+  initial_storage_mb: 8000.0
+  initial_battery_wh: 1000.0
+- id: sat_dmsp_4b_f3
+  name: DMSP 4B F3
+  norad_id: '04047'
+  constellation: DMSP
+  owner: US
+  tle_epoch: '2025-07-16T20:23:43.824Z'
+  tle_line1: 1 04047U 69062A   25197.84981278  .00000052  00000-0  36746-4 0  9996
+  tle_line2: 2 04047  98.4676  58.4595 0044336 161.7784 198.4999 14.29387156913421
+  apogee_km: 826.0
+  perigee_km: 762.0
+  period_min: 100.7
+  inclination_deg: 98.50000000000001
+  swath_width_km: 3000.0
+  num_terminal: 1
+  battery_capacity_wh: 2000.0
+  storage_capacity_mb: 16000.0
+  obs_store_rate_mb_per_min: 600.0
+  downlink_release_rate_mb_per_min: 1200.0
+  charge_rate_w: 1000.0
+  idle_discharge_rate_w: 500.0
+  obs_discharge_rate_w: 900.0
+  downlink_discharge_rate_w: 80.0
+  max_slew_velocity_deg_per_sec: 0.2
+  max_slew_acceleration_deg_per_sec2: 0.01
+  max_slew_jerk_deg_per_sec3: null
+  settling_time_sec: 5.0
+  initial_storage_mb: 8000.0
+  initial_battery_wh: 1000.0
+- id: sat_dmsp_5a_f1
+  name: DMSP 5A F1
+  norad_id: '04331'
+  constellation: DMSP
+  owner: US
+  tle_epoch: '2025-07-16T22:02:34.361Z'
+  tle_line1: 1 04331U 70012A   25197.91845326  .00000189  00000-0  82638-4 0  9992
+  tle_line2: 2 04331  98.9800 357.8228 0056621 229.4460 130.1786 14.34367635889114
+  apogee_km: 818.0
+  perigee_km: 737.0
+  period_min: 100.4
+  inclination_deg: 99.00000000000001
+  swath_width_km: 3000.0
+  num_terminal: 1
+  battery_capacity_wh: 2000.0
+  storage_capacity_mb: 16000.0
+  obs_store_rate_mb_per_min: 600.0
+  downlink_release_rate_mb_per_min: 1200.0
+  charge_rate_w: 1000.0
+  idle_discharge_rate_w: 500.0
+  obs_discharge_rate_w: 900.0
+  downlink_discharge_rate_w: 80.0
+  max_slew_velocity_deg_per_sec: 0.2
+  max_slew_acceleration_deg_per_sec2: 0.01
+  max_slew_jerk_deg_per_sec3: null
+  settling_time_sec: 5.0
+  initial_storage_mb: 8000.0
+  initial_battery_wh: 1000.0
+- id: sat_dmsp_5a_f2
+  name: DMSP 5A F2
+  norad_id: '04512'
+  constellation: DMSP
+  owner: US
+  tle_epoch: '2025-07-16T18:39:47.225Z'
+  tle_line1: 1 04512U 70070A   25197.77762993  .00000213  00000-0  86977-4 0  9997
+  tle_line2: 2 04512  98.8423 131.7769 0063071 355.2476   4.8102 14.36232113863470
+  apogee_km: 816.0
+  perigee_km: 726.0
+  period_min: 100.3
+  inclination_deg: 98.8
+  swath_width_km: 3000.0
+  num_terminal: 1
+  battery_capacity_wh: 2000.0
+  storage_capacity_mb: 16000.0
+  obs_store_rate_mb_per_min: 600.0
+  downlink_release_rate_mb_per_min: 1200.0
+  charge_rate_w: 1000.0
+  idle_discharge_rate_w: 500.0
+  obs_discharge_rate_w: 900.0
+  downlink_discharge_rate_w: 80.0
+  max_slew_velocity_deg_per_sec: 0.2
+  max_slew_acceleration_deg_per_sec2: 0.01
+  max_slew_jerk_deg_per_sec3: null
+  settling_time_sec: 5.0
+  initial_storage_mb: 8000.0
+  initial_battery_wh: 1000.0
+- id: sat_dmsp_5a_f3
+  name: DMSP 5A F3
+  norad_id: 04953
+  constellation: DMSP
+  owner: US
+  tle_epoch: '2025-07-17T04:56:06.399Z'
+  tle_line1: 1 04953U 71012A   25198.20562962  .00000178  00000-0  67505-4 0  9992
+  tle_line2: 2 04953  98.5302  64.0185 0037371 355.3437   4.7399 14.41902068850937
+  apogee_km: 779.0
+  perigee_km: 726.0
+  period_min: 99.9
+  inclination_deg: 98.50000000000001
+  swath_width_km: 3000.0
+  num_terminal: 1
+  battery_capacity_wh: 2000.0
+  storage_capacity_mb: 16000.0
+  obs_store_rate_mb_per_min: 600.0
+  downlink_release_rate_mb_per_min: 1200.0
+  charge_rate_w: 1000.0
+  idle_discharge_rate_w: 500.0
+  obs_discharge_rate_w: 900.0
+  downlink_discharge_rate_w: 80.0
+  max_slew_velocity_deg_per_sec: 0.2
+  max_slew_acceleration_deg_per_sec2: 0.01
+  max_slew_jerk_deg_per_sec3: null
+  settling_time_sec: 5.0
+  initial_storage_mb: 8000.0
+  initial_battery_wh: 1000.0
+- id: sat_dmsp_5b_f1
+  name: DMSP 5B F1
+  norad_id: '05557'
+  constellation: DMSP
+  owner: US
+  tle_epoch: '2025-07-17T04:08:40.363Z'
+  tle_line1: 1 05557U 71087A   25198.17268939  .00000153  00000-0  79151-4 0  9991
+  tle_line2: 2 05557  99.0262 284.4478 0051046 157.4022 202.9421 14.28299694792884
+  apogee_km: 834.0
+  perigee_km: 761.0
+  period_min: 100.8
+  inclination_deg: 99.00000000000001
+  swath_width_km: 3000.0
+  num_terminal: 1
+  battery_capacity_wh: 2000.0
+  storage_capacity_mb: 16000.0
+  obs_store_rate_mb_per_min: 600.0
+  downlink_release_rate_mb_per_min: 1200.0
+  charge_rate_w: 1000.0
+  idle_discharge_rate_w: 500.0
+  obs_discharge_rate_w: 900.0
+  downlink_discharge_rate_w: 80.0
+  max_slew_velocity_deg_per_sec: 0.2
+  max_slew_acceleration_deg_per_sec2: 0.01
+  max_slew_jerk_deg_per_sec3: null
+  settling_time_sec: 5.0
+  initial_storage_mb: 8000.0
+  initial_battery_wh: 1000.0
+- id: sat_dmsp_5b_f2
+  name: DMSP 5B F2
+  norad_id: 05903
+  constellation: DMSP
+  owner: US
+  tle_epoch: '2025-07-16T22:52:41.684Z'
+  tle_line1: 1 05903U 72018A   25197.95326024  .00000085  00000-0  55663-4 0  9992
+  tle_line2: 2 05903  99.1174  13.4218 0050190 337.7811  22.1192 14.25304292842456
+  apogee_km: 844.0
+  perigee_km: 771.0
+  period_min: 101.0
+  inclination_deg: 99.09999999999998
+  swath_width_km: 3000.0
+  num_terminal: 1
+  battery_capacity_wh: 2000.0
+  storage_capacity_mb: 16000.0
+  obs_store_rate_mb_per_min: 600.0
+  downlink_release_rate_mb_per_min: 1200.0
+  charge_rate_w: 1000.0
+  idle_discharge_rate_w: 500.0
+  obs_discharge_rate_w: 900.0
+  downlink_discharge_rate_w: 80.0
+  max_slew_velocity_deg_per_sec: 0.2
+  max_slew_acceleration_deg_per_sec2: 0.01
+  max_slew_jerk_deg_per_sec3: null
+  settling_time_sec: 5.0
+  initial_storage_mb: 8000.0
+  initial_battery_wh: 1000.0
+- id: sat_dmsp_5b_f3
+  name: DMSP 5B F3
+  norad_id: '06275'
+  constellation: DMSP
+  owner: US
+  tle_epoch: '2025-07-16T21:29:25.460Z'
+  tle_line1: 1 06275U 72089A   25197.89543357  .00000216  00000-0  10041-3 0  9992
+  tle_line2: 2 06275  98.5008   6.9443 0033954 226.5923 133.2431 14.29640486736761
+  apogee_km: 817.0
+  perigee_km: 769.0
+  period_min: 100.7
+  inclination_deg: 98.50000000000001
+  swath_width_km: 3000.0
+  num_terminal: 1
+  battery_capacity_wh: 2000.0
+  storage_capacity_mb: 16000.0
+  obs_store_rate_mb_per_min: 600.0
+  downlink_release_rate_mb_per_min: 1200.0
+  charge_rate_w: 1000.0
+  idle_discharge_rate_w: 500.0
+  obs_discharge_rate_w: 900.0
+  downlink_discharge_rate_w: 80.0
+  max_slew_velocity_deg_per_sec: 0.2
+  max_slew_acceleration_deg_per_sec2: 0.01
+  max_slew_jerk_deg_per_sec3: null
+  settling_time_sec: 5.0
+  initial_storage_mb: 8000.0
+  initial_battery_wh: 1000.0
+- id: sat_dmsp_5b_f4
+  name: DMSP 5B F4
+  norad_id: 06787
+  constellation: DMSP
+  owner: US
+  tle_epoch: '2025-07-17T04:41:31.803Z'
+  tle_line1: 1 06787U 73054A   25198.19550699  .00000181  00000-0  81307-4 0  9999
+  tle_line2: 2 06787  98.6122  63.4495 0024845 307.1092  52.7821 14.33425033704008
+  apogee_km: 798.0
+  perigee_km: 763.0
+  period_min: 100.5
+  inclination_deg: 98.60000000000001
+  swath_width_km: 3000.0
+  num_terminal: 1
+  battery_capacity_wh: 2000.0
+  storage_capacity_mb: 16000.0
+  obs_store_rate_mb_per_min: 600.0
+  downlink_release_rate_mb_per_min: 1200.0
+  charge_rate_w: 1000.0
+  idle_discharge_rate_w: 500.0
+  obs_discharge_rate_w: 900.0
+  downlink_discharge_rate_w: 80.0
+  max_slew_velocity_deg_per_sec: 0.2
+  max_slew_acceleration_deg_per_sec2: 0.01
+  max_slew_jerk_deg_per_sec3: null
+  settling_time_sec: 5.0
+  initial_storage_mb: 8000.0
+  initial_battery_wh: 1000.0
+- id: sat_dmsp_5b_f5
+  name: DMSP 5B F5
+  norad_id: 07218
+  constellation: DMSP
+  owner: US
+  tle_epoch: '2025-07-16T19:53:41.631Z'
+  tle_line1: 1 07218U 74015A   25197.82895407  .00000157  00000-0  75133-4 0  9998
+  tle_line2: 2 07218  98.9949 283.9744 0055711 202.7252 157.1463 14.31937616672951
+  apogee_km: 825.0
+  perigee_km: 745.0
+  period_min: 100.6
+  inclination_deg: 99.00000000000001
+  swath_width_km: 3000.0
+  num_terminal: 1
+  battery_capacity_wh: 2000.0
+  storage_capacity_mb: 16000.0
+  obs_store_rate_mb_per_min: 600.0
+  downlink_release_rate_mb_per_min: 1200.0
+  charge_rate_w: 1000.0
+  idle_discharge_rate_w: 500.0
+  obs_discharge_rate_w: 900.0
+  downlink_discharge_rate_w: 80.0
+  max_slew_velocity_deg_per_sec: 0.2
+  max_slew_acceleration_deg_per_sec2: 0.01
+  max_slew_jerk_deg_per_sec3: null
+  settling_time_sec: 5.0
+  initial_storage_mb: 8000.0
+  initial_battery_wh: 1000.0
+- id: sat_dmsp_5b_f6
+  name: DMSP 5B F6
+  norad_id: '07411'
+  constellation: DMSP
+  owner: US
+  tle_epoch: '2025-07-17T03:58:00.935Z'
+  tle_line1: 1 07411U 74063A   25198.16528861  .00000186  00000-0  89349-4 0  9997
+  tle_line2: 2 07411  98.5427  42.1599 0039789 273.6805  85.9827 14.29417044646761
+  apogee_km: 822.0
+  perigee_km: 765.0
+  period_min: 100.7
+  inclination_deg: 98.50000000000001
+  swath_width_km: 3000.0
+  num_terminal: 1
+  battery_capacity_wh: 2000.0
+  storage_capacity_mb: 16000.0
+  obs_store_rate_mb_per_min: 600.0
+  downlink_release_rate_mb_per_min: 1200.0
+  charge_rate_w: 1000.0
+  idle_discharge_rate_w: 500.0
+  obs_discharge_rate_w: 900.0
+  downlink_discharge_rate_w: 80.0
+  max_slew_velocity_deg_per_sec: 0.2
+  max_slew_acceleration_deg_per_sec2: 0.01
+  max_slew_jerk_deg_per_sec3: null
+  settling_time_sec: 5.0
+  initial_storage_mb: 8000.0
+  initial_battery_wh: 1000.0
+- id: sat_dmsp_5c_f7
+  name: DMSP 5C F7
+  norad_id: 07816
+  constellation: DMSP
+  owner: US
+  tle_epoch: '2025-07-16T19:40:23.047Z'
+  tle_line1: 1 07816U 75043A   25197.81971120  .00000147  00000-0  79908-4 0  9993
+  tle_line2: 2 07816  98.6414  44.5736 0053196  76.1602 284.5488 14.25019021312078
+  apogee_km: 847.0
+  perigee_km: 770.0
+  period_min: 101.1
+  inclination_deg: 98.60000000000001
+  swath_width_km: 3000.0
+  num_terminal: 1
+  battery_capacity_wh: 2000.0
+  storage_capacity_mb: 16000.0
+  obs_store_rate_mb_per_min: 600.0
+  downlink_release_rate_mb_per_min: 1200.0
+  charge_rate_w: 1000.0
+  idle_discharge_rate_w: 500.0
+  obs_discharge_rate_w: 900.0
+  downlink_discharge_rate_w: 80.0
+  max_slew_velocity_deg_per_sec: 0.2
+  max_slew_acceleration_deg_per_sec2: 0.01
+  max_slew_jerk_deg_per_sec3: null
+  settling_time_sec: 5.0
+  initial_storage_mb: 8000.0
+  initial_battery_wh: 1000.0
+- id: sat_dmsp_5d-1_f1
+  name: DMSP 5D-1 F1
+  norad_id: 09415
+  constellation: DMSP
+  owner: US
+  tle_epoch: '2025-07-16T20:48:22.972Z'
+  tle_line1: 1 09415U 76091A   25197.86693255  .00000204  00000-0  99279-4 0  9996
+  tle_line2: 2 09415  98.3145 359.2208 0017734 163.5685 196.6075 14.27551940304667
+  apogee_km: 813.0
+  perigee_km: 787.0
+  period_min: 100.9
+  inclination_deg: 98.3
+  swath_width_km: 3000.0
+  num_terminal: 1
+  battery_capacity_wh: 2000.0
+  storage_capacity_mb: 16000.0
+  obs_store_rate_mb_per_min: 600.0
+  downlink_release_rate_mb_per_min: 1200.0
+  charge_rate_w: 1000.0
+  idle_discharge_rate_w: 500.0
+  obs_discharge_rate_w: 900.0
+  downlink_discharge_rate_w: 80.0
+  max_slew_velocity_deg_per_sec: 0.2
+  max_slew_acceleration_deg_per_sec2: 0.01
+  max_slew_jerk_deg_per_sec3: null
+  settling_time_sec: 5.0
+  initial_storage_mb: 8000.0
+  initial_battery_wh: 1000.0
+- id: sat_dmsp_5d-1_f2
+  name: DMSP 5D-1 F2
+  norad_id: '10033'
+  constellation: DMSP
+  owner: US
+  tle_epoch: '2025-07-16T23:06:06.543Z'
+  tle_line1: 1 10033U 77044A   25197.96257573  .00000186  00000-0  87957-4 0  9992
+  tle_line2: 2 10033  99.1591 223.9599 0038861 118.9135 241.5952 14.31193009320202
+  apogee_km: 816.0
+  perigee_km: 760.0
+  period_min: 100.6
+  inclination_deg: 99.2
+  swath_width_km: 3000.0
+  num_terminal: 1
+  battery_capacity_wh: 2000.0
+  storage_capacity_mb: 16000.0
+  obs_store_rate_mb_per_min: 600.0
+  downlink_release_rate_mb_per_min: 1200.0
+  charge_rate_w: 1000.0
+  idle_discharge_rate_w: 500.0
+  obs_discharge_rate_w: 900.0
+  downlink_discharge_rate_w: 80.0
+  max_slew_velocity_deg_per_sec: 0.2
+  max_slew_acceleration_deg_per_sec2: 0.01
+  max_slew_jerk_deg_per_sec3: null
+  settling_time_sec: 5.0
+  initial_storage_mb: 8000.0
+  initial_battery_wh: 1000.0
+- id: sat_dmsp_5d-1_f3
+  name: DMSP 5D-1 F3
+  norad_id: '10820'
+  constellation: DMSP
+  owner: US
+  tle_epoch: '2025-07-17T03:15:23.143Z'
+  tle_line1: 1 10820U 78042A   25198.13568453  .00000284  00000-0  10896-3 0  9993
+  tle_line2: 2 10820  98.4628  33.3384 0008082 269.2240  90.8021 14.37655277464929
+  apogee_km: 772.0
+  perigee_km: 760.0
+  period_min: 100.2
+  inclination_deg: 98.50000000000001
+  swath_width_km: 3000.0
+  num_terminal: 1
+  battery_capacity_wh: 2000.0
+  storage_capacity_mb: 16000.0
+  obs_store_rate_mb_per_min: 600.0
+  downlink_release_rate_mb_per_min: 1200.0
+  charge_rate_w: 1000.0
+  idle_discharge_rate_w: 500.0
+  obs_discharge_rate_w: 900.0
+  downlink_discharge_rate_w: 80.0
+  max_slew_velocity_deg_per_sec: 0.2
+  max_slew_acceleration_deg_per_sec2: 0.01
+  max_slew_jerk_deg_per_sec3: null
+  settling_time_sec: 5.0
+  initial_storage_mb: 8000.0
+  initial_battery_wh: 1000.0
+- id: sat_dmsp_5d-1_f4
+  name: DMSP 5D-1 F4
+  norad_id: '11389'
+  constellation: DMSP
+  owner: US
+  tle_epoch: '2025-07-17T04:44:22.519Z'
+  tle_line1: 1 11389U 79050A   25198.19748286  .00000117  00000-0  63200-4 0  9997
+  tle_line2: 2 11389  98.5822 151.9766 0012851  48.2159 312.0119 14.29166064327850
+  apogee_km: 804.0
+  perigee_km: 785.0
+  period_min: 100.8
+  inclination_deg: 98.60000000000001
+  swath_width_km: 3000.0
+  num_terminal: 1
+  battery_capacity_wh: 2000.0
+  storage_capacity_mb: 16000.0
+  obs_store_rate_mb_per_min: 600.0
+  downlink_release_rate_mb_per_min: 1200.0
+  charge_rate_w: 1000.0
+  idle_discharge_rate_w: 500.0
+  obs_discharge_rate_w: 900.0
+  downlink_discharge_rate_w: 80.0
+  max_slew_velocity_deg_per_sec: 0.2
+  max_slew_acceleration_deg_per_sec2: 0.01
+  max_slew_jerk_deg_per_sec3: null
+  settling_time_sec: 5.0
+  initial_storage_mb: 8000.0
+  initial_battery_wh: 1000.0
+- id: sat_dmsp_5d-2_f6
+  name: DMSP 5D-2 F6
+  norad_id: '13736'
+  constellation: DMSP
+  owner: US
+  tle_epoch: '2025-07-16T22:52:20.082Z'
+  tle_line1: 1 13736U 82118A   25197.95301021  .00000086  00000-0  49901-4 0  9996
+  tle_line2: 2 13736  98.5931  24.6564 0006615 224.7350 135.3299 14.30330870217084
+  apogee_km: 795.0
+  perigee_km: 786.0
+  period_min: 100.7
+  inclination_deg: 98.60000000000001
+  swath_width_km: 3000.0
+  num_terminal: 1
+  battery_capacity_wh: 2000.0
+  storage_capacity_mb: 16000.0
+  obs_store_rate_mb_per_min: 600.0
+  downlink_release_rate_mb_per_min: 1200.0
+  charge_rate_w: 1000.0
+  idle_discharge_rate_w: 500.0
+  obs_discharge_rate_w: 900.0
+  downlink_discharge_rate_w: 80.0
+  max_slew_velocity_deg_per_sec: 0.2
+  max_slew_acceleration_deg_per_sec2: 0.01
+  max_slew_jerk_deg_per_sec3: null
+  settling_time_sec: 5.0
+  initial_storage_mb: 8000.0
+  initial_battery_wh: 1000.0
+- id: sat_dmsp_5d-2_f7
+  name: DMSP 5D-2 F7
+  norad_id: '14506'
+  constellation: DMSP
+  owner: US
+  tle_epoch: '2025-07-16T21:59:01.525Z'
+  tle_line1: 1 14506U 83113A   25197.91598988  .00000166  00000-0  81279-4 0  9997
+  tle_line2: 2 14506  98.3791 350.0473 0011705 136.7540 338.1563 14.29567321167583
+  apogee_km: 802.0
+  perigee_km: 785.0
+  period_min: 100.7
+  inclination_deg: 98.40000000000002
+  swath_width_km: 3000.0
+  num_terminal: 1
+  battery_capacity_wh: 2000.0
+  storage_capacity_mb: 16000.0
+  obs_store_rate_mb_per_min: 600.0
+  downlink_release_rate_mb_per_min: 1200.0
+  charge_rate_w: 1000.0
+  idle_discharge_rate_w: 500.0
+  obs_discharge_rate_w: 900.0
+  downlink_discharge_rate_w: 80.0
+  max_slew_velocity_deg_per_sec: 0.2
+  max_slew_acceleration_deg_per_sec2: 0.01
+  max_slew_jerk_deg_per_sec3: null
+  settling_time_sec: 5.0
+  initial_storage_mb: 8000.0
+  initial_battery_wh: 1000.0
+- id: sat_dmsp_5d-2_f8
+  name: DMSP 5D-2 F8
+  norad_id: '18123'
+  constellation: DMSP
+  owner: US
+  tle_epoch: '2025-07-16T21:30:07.553Z'
+  tle_line1: 1 18123U 87053A   25197.89592076  .00000035  00000-0  37329-4 0  9994
+  tle_line2: 2 18123  98.7312  23.6637 0013321  49.2484 310.9846 14.19461689969267
+  apogee_km: 837.0
+  perigee_km: 818.0
+  period_min: 101.5
+  inclination_deg: 98.7
+  swath_width_km: 3000.0
+  num_terminal: 1
+  battery_capacity_wh: 2000.0
+  storage_capacity_mb: 16000.0
+  obs_store_rate_mb_per_min: 600.0
+  downlink_release_rate_mb_per_min: 1200.0
+  charge_rate_w: 1000.0
+  idle_discharge_rate_w: 500.0
+  obs_discharge_rate_w: 900.0
+  downlink_discharge_rate_w: 80.0
+  max_slew_velocity_deg_per_sec: 0.2
+  max_slew_acceleration_deg_per_sec2: 0.01
+  max_slew_jerk_deg_per_sec3: null
+  settling_time_sec: 5.0
+  initial_storage_mb: 8000.0
+  initial_battery_wh: 1000.0
+- id: sat_dmsp_5d-2_f9
+  name: DMSP 5D-2 F9
+  norad_id: '18822'
+  constellation: DMSP
+  owner: US
+  tle_epoch: '2025-07-16T22:14:16.905Z'
+  tle_line1: 1 18822U 88006A   25197.92658455  .00000159  00000-0  79814-4 0  9999
+  tle_line2: 2 18822  98.3311  14.0866 0006038 351.5458   8.5622 14.28580420948436
+  apogee_km: 801.0
+  perigee_km: 792.0
+  period_min: 100.8
+  inclination_deg: 98.3
+  swath_width_km: 3000.0
+  num_terminal: 1
+  battery_capacity_wh: 2000.0
+  storage_capacity_mb: 16000.0
+  obs_store_rate_mb_per_min: 600.0
+  downlink_release_rate_mb_per_min: 1200.0
+  charge_rate_w: 1000.0
+  idle_discharge_rate_w: 500.0
+  obs_discharge_rate_w: 900.0
+  downlink_discharge_rate_w: 80.0
+  max_slew_velocity_deg_per_sec: 0.2
+  max_slew_acceleration_deg_per_sec2: 0.01
+  max_slew_jerk_deg_per_sec3: null
+  settling_time_sec: 5.0
+  initial_storage_mb: 8000.0
+  initial_battery_wh: 1000.0
+- id: sat_dmsp_5d-2_f10
+  name: DMSP 5D-2 F10
+  norad_id: '20978'
+  constellation: DMSP
+  owner: US
+  tle_epoch: '2025-07-16T17:37:26.264Z'
+  tle_line1: 1 20978U 90105A   25197.73433177  .00000180  00000-0  70260-4 0  9998
+  tle_line2: 2 20978  98.6588 249.9416 0070920 204.6653 155.1137 14.39848298814238
+  apogee_km: 810.0
+  perigee_km: 708.0
+  period_min: 100.0
+  inclination_deg: 98.7
+  swath_width_km: 3000.0
+  num_terminal: 1
+  battery_capacity_wh: 2000.0
+  storage_capacity_mb: 16000.0
+  obs_store_rate_mb_per_min: 600.0
+  downlink_release_rate_mb_per_min: 1200.0
+  charge_rate_w: 1000.0
+  idle_discharge_rate_w: 500.0
+  obs_discharge_rate_w: 900.0
+  downlink_discharge_rate_w: 80.0
+  max_slew_velocity_deg_per_sec: 0.2
+  max_slew_acceleration_deg_per_sec2: 0.01
+  max_slew_jerk_deg_per_sec3: null
+  settling_time_sec: 5.0
+  initial_storage_mb: 8000.0
+  initial_battery_wh: 1000.0
+- id: sat_dmsp_5d-2_f11
+  name: DMSP 5D-2 F11
+  norad_id: '21798'
+  constellation: DMSP
+  owner: US
+  tle_epoch: '2025-07-16T23:08:58.178Z'
+  tle_line1: 1 21798U 91082A   25197.96456225  .00000052  00000-0  47304-4 0  9999
+  tle_line2: 2 21798  98.7268 227.9028 0013552 149.6761 210.5200 14.17318238737644
+  apogee_km: 844.0
+  perigee_km: 825.0
+  period_min: 101.6
+  inclination_deg: 98.7
+  swath_width_km: 3000.0
+  num_terminal: 1
+  battery_capacity_wh: 2000.0
+  storage_capacity_mb: 16000.0
+  obs_store_rate_mb_per_min: 600.0
+  downlink_release_rate_mb_per_min: 1200.0
+  charge_rate_w: 1000.0
+  idle_discharge_rate_w: 500.0
+  obs_discharge_rate_w: 900.0
+  downlink_discharge_rate_w: 80.0
+  max_slew_velocity_deg_per_sec: 0.2
+  max_slew_acceleration_deg_per_sec2: 0.01
+  max_slew_jerk_deg_per_sec3: null
+  settling_time_sec: 5.0
+  initial_storage_mb: 8000.0
+  initial_battery_wh: 1000.0
+- id: sat_dmsp_5d-2_f12
+  name: DMSP 5D-2 F12
+  norad_id: '23233'
+  constellation: DMSP
+  owner: US
+  tle_epoch: '2025-07-17T03:22:28.665Z'
+  tle_line1: 1 23233U 94057A   25198.14060956 -.00000004  00000-0  20028-4 0  9995
+  tle_line2: 2 23233  98.7209 251.3389 0011583 147.5742 212.6146 14.16009986594799
+  apogee_km: 847.0
+  perigee_km: 831.0
+  period_min: 101.7
+  inclination_deg: 98.7
+  swath_width_km: 3000.0
+  num_terminal: 1
+  battery_capacity_wh: 2000.0
+  storage_capacity_mb: 16000.0
+  obs_store_rate_mb_per_min: 600.0
+  downlink_release_rate_mb_per_min: 1200.0
+  charge_rate_w: 1000.0
+  idle_discharge_rate_w: 500.0
+  obs_discharge_rate_w: 900.0
+  downlink_discharge_rate_w: 80.0
+  max_slew_velocity_deg_per_sec: 0.2
+  max_slew_acceleration_deg_per_sec2: 0.01
+  max_slew_jerk_deg_per_sec3: null
+  settling_time_sec: 5.0
+  initial_storage_mb: 8000.0
+  initial_battery_wh: 1000.0
+- id: sat_dmsp_5d-2_f12_d
+  name: DMSP 5D-2 F12 D
+  norad_id: '23250'
+  constellation: DMSP
+  owner: US
+  tle_epoch: '2025-07-16T20:20:33.103Z'
+  tle_line1: 1 23250U 94057D   25197.84760537  .00010561  00000-0  13056-2 0  9991
+  tle_line2: 2 23250  98.0814 229.8733 0004556 161.6147  17.4227 14.82967913617900
+  apogee_km: 623.0
+  perigee_km: 617.0
+  period_min: 97.1
+  inclination_deg: 98.1
+  swath_width_km: 3000.0
+  num_terminal: 1
+  battery_capacity_wh: 2000.0
+  storage_capacity_mb: 16000.0
+  obs_store_rate_mb_per_min: 600.0
+  downlink_release_rate_mb_per_min: 1200.0
+  charge_rate_w: 1000.0
+  idle_discharge_rate_w: 500.0
+  obs_discharge_rate_w: 900.0
+  downlink_discharge_rate_w: 80.0
+  max_slew_velocity_deg_per_sec: 0.2
+  max_slew_acceleration_deg_per_sec2: 0.01
+  max_slew_jerk_deg_per_sec3: null
+  settling_time_sec: 5.0
+  initial_storage_mb: 8000.0
+  initial_battery_wh: 1000.0
+- id: sat_dmsp_5d-2_f13
+  name: DMSP 5D-2 F13
+  norad_id: '23533'
+  constellation: DMSP
+  owner: US
+  tle_epoch: '2025-07-16T23:19:26.253Z'
+  tle_line1: 1 23533U 95015A   25197.97183164  .00000050  00000-0  46728-4 0  9995
+  tle_line2: 2 23533  98.8134 210.0448 0007525  40.3008  15.8172 14.16909182565724
+  apogee_km: 841.0
+  perigee_km: 830.0
+  period_min: 101.6
+  inclination_deg: 98.8
+  swath_width_km: 3000.0
+  num_terminal: 1
+  battery_capacity_wh: 2000.0
+  storage_capacity_mb: 16000.0
+  obs_store_rate_mb_per_min: 600.0
+  downlink_release_rate_mb_per_min: 1200.0
+  charge_rate_w: 1000.0
+  idle_discharge_rate_w: 500.0
+  obs_discharge_rate_w: 900.0
+  downlink_discharge_rate_w: 80.0
+  max_slew_velocity_deg_per_sec: 0.2
+  max_slew_acceleration_deg_per_sec2: 0.01
+  max_slew_jerk_deg_per_sec3: null
+  settling_time_sec: 5.0
+  initial_storage_mb: 8000.0
+  initial_battery_wh: 1000.0
+- id: sat_dmsp_5d-2_f13_d
+  name: DMSP 5D-2 F13 D
+  norad_id: '23535'
+  constellation: DMSP
+  owner: US
+  tle_epoch: '2025-07-16T20:56:14.201Z'
+  tle_line1: 1 23535U 95015C   25197.87238659  .01723839  00000-0  74106-2 0  9993
+  tle_line2: 2 23535  98.5696 159.7845 0020252 169.7033 190.4650 15.81755039592401
+  apogee_km: 343.0
+  perigee_km: 316.0
+  period_min: 91.1
+  inclination_deg: 98.60000000000001
+  swath_width_km: 3000.0
+  num_terminal: 1
+  battery_capacity_wh: 2000.0
+  storage_capacity_mb: 16000.0
+  obs_store_rate_mb_per_min: 600.0
+  downlink_release_rate_mb_per_min: 1200.0
+  charge_rate_w: 1000.0
+  idle_discharge_rate_w: 500.0
+  obs_discharge_rate_w: 900.0
+  downlink_discharge_rate_w: 80.0
+  max_slew_velocity_deg_per_sec: 0.2
+  max_slew_acceleration_deg_per_sec2: 0.01
+  max_slew_jerk_deg_per_sec3: null
+  settling_time_sec: 5.0
+  initial_storage_mb: 8000.0
+  initial_battery_wh: 1000.0
+- id: sat_dmsp_5d-2_f14
+  name: DMSP 5D-2 F14
+  norad_id: '24753'
+  constellation: DMSP
+  owner: US
+  tle_epoch: '2025-07-17T03:04:39.763Z'
+  tle_line1: 1 24753U 97012A   25198.12823800  .00000113  00000-0  78586-4 0  9992
+  tle_line2: 2 24753  98.8086 245.9940 0008088 335.7233  24.3559 14.16605550461108
+  apogee_km: 843.0
+  perigee_km: 831.0
+  period_min: 101.7
+  inclination_deg: 98.8
+  swath_width_km: 3000.0
+  num_terminal: 1
+  battery_capacity_wh: 2000.0
+  storage_capacity_mb: 16000.0
+  obs_store_rate_mb_per_min: 600.0
+  downlink_release_rate_mb_per_min: 1200.0
+  charge_rate_w: 1000.0
+  idle_discharge_rate_w: 500.0
+  obs_discharge_rate_w: 900.0
+  downlink_discharge_rate_w: 80.0
+  max_slew_velocity_deg_per_sec: 0.2
+  max_slew_acceleration_deg_per_sec2: 0.01
+  max_slew_jerk_deg_per_sec3: null
+  settling_time_sec: 5.0
+  initial_storage_mb: 8000.0
+  initial_battery_wh: 1000.0
+- id: sat_dmsp_5d-2_f14_d
+  name: DMSP 5D-2 F14 D
+  norad_id: '24778'
+  constellation: DMSP
+  owner: US
+  tle_epoch: '2025-07-16T19:33:54.476Z'
+  tle_line1: 1 24778U 97012E   25197.81521385  .00017798  00000-0  17788-2 0  9999
+  tle_line2: 2 24778  98.7927 300.1292 0001417 354.3561   5.7638 14.91542318482381
+  apogee_km: 594.0
+  perigee_km: 592.0
+  period_min: 96.6
+  inclination_deg: 98.8
+  swath_width_km: 3000.0
+  num_terminal: 1
+  battery_capacity_wh: 2000.0
+  storage_capacity_mb: 16000.0
+  obs_store_rate_mb_per_min: 600.0
+  downlink_release_rate_mb_per_min: 1200.0
+  charge_rate_w: 1000.0
+  idle_discharge_rate_w: 500.0
+  obs_discharge_rate_w: 900.0
+  downlink_discharge_rate_w: 80.0
+  max_slew_velocity_deg_per_sec: 0.2
+  max_slew_acceleration_deg_per_sec2: 0.01
+  max_slew_jerk_deg_per_sec3: null
+  settling_time_sec: 5.0
+  initial_storage_mb: 8000.0
+  initial_battery_wh: 1000.0
+- id: sat_dmsp_5d-3_f15
+  name: DMSP 5D-3 F15
+  norad_id: '25991'
+  constellation: DMSP
+  owner: US
+  tle_epoch: '2025-07-16T22:30:06.389Z'
+  tle_line1: 1 25991U 99067A   25197.93757395  .00000052  00000-0  48691-4 0  9998
+  tle_line2: 2 25991  99.0371 226.5694 0008998 232.3876 198.9841 14.17391240323152
+  apogee_km: 841.0
+  perigee_km: 828.0
+  period_min: 101.6
+  inclination_deg: 99.00000000000001
+  swath_width_km: 3000.0
+  num_terminal: 1
+  battery_capacity_wh: 2000.0
+  storage_capacity_mb: 16000.0
+  obs_store_rate_mb_per_min: 600.0
+  downlink_release_rate_mb_per_min: 1200.0
+  charge_rate_w: 1000.0
+  idle_discharge_rate_w: 500.0
+  obs_discharge_rate_w: 900.0
+  downlink_discharge_rate_w: 80.0
+  max_slew_velocity_deg_per_sec: 0.2
+  max_slew_acceleration_deg_per_sec2: 0.01
+  max_slew_jerk_deg_per_sec3: null
+  settling_time_sec: 5.0
+  initial_storage_mb: 8000.0
+  initial_battery_wh: 1000.0
+- id: sat_dmsp_5d-3_f15_d
+  name: DMSP 5D-3 F15 D
+  norad_id: '25992'
+  constellation: DMSP
+  owner: US
+  tle_epoch: '2025-07-16T13:15:51.646Z'
+  tle_line1: 1 25992U 99067B   25197.55268109  .00002324  00000-0  66187-3 0  9990
+  tle_line2: 2 25992  98.1972 215.5858 0003891 259.4413 228.4584 14.46161336335377
+  apogee_km: 741.0
+  perigee_km: 735.0
+  period_min: 99.6
+  inclination_deg: 98.2
+  swath_width_km: 3000.0
+  num_terminal: 1
+  battery_capacity_wh: 2000.0
+  storage_capacity_mb: 16000.0
+  obs_store_rate_mb_per_min: 600.0
+  downlink_release_rate_mb_per_min: 1200.0
+  charge_rate_w: 1000.0
+  idle_discharge_rate_w: 500.0
+  obs_discharge_rate_w: 900.0
+  downlink_discharge_rate_w: 80.0
+  max_slew_velocity_deg_per_sec: 0.2
+  max_slew_acceleration_deg_per_sec2: 0.01
+  max_slew_jerk_deg_per_sec3: null
+  settling_time_sec: 5.0
+  initial_storage_mb: 8000.0
+  initial_battery_wh: 1000.0
+- id: sat_dmsp_5d-3_f16
+  name: DMSP 5D-3 F16
+  norad_id: '28054'
+  constellation: DMSP
+  owner: US
+  tle_epoch: '2025-07-17T05:12:33.259Z'
+  tle_line1: 1 28054U 03048A   25198.21705161 -.00000009  00000-0  19275-4 0  9990
+  tle_line2: 2 28054  99.0123 214.3909 0007637  23.8844  51.8522 14.14360331122111
+  apogee_km: 850.0
+  perigee_km: 839.0
+  period_min: 101.8
+  inclination_deg: 99.00000000000001
+  swath_width_km: 3000.0
+  num_terminal: 1
+  battery_capacity_wh: 2000.0
+  storage_capacity_mb: 16000.0
+  obs_store_rate_mb_per_min: 600.0
+  downlink_release_rate_mb_per_min: 1200.0
+  charge_rate_w: 1000.0
+  idle_discharge_rate_w: 500.0
+  obs_discharge_rate_w: 900.0
+  downlink_discharge_rate_w: 80.0
+  max_slew_velocity_deg_per_sec: 0.2
+  max_slew_acceleration_deg_per_sec2: 0.01
+  max_slew_jerk_deg_per_sec3: null
+  settling_time_sec: 5.0
+  initial_storage_mb: 8000.0
+  initial_battery_wh: 1000.0
+- id: sat_dmsp_5d-3_f16_d
+  name: DMSP 5D-3 F16 D
+  norad_id: '28055'
+  constellation: DMSP
+  owner: US
+  tle_epoch: '2025-07-16T23:09:50.352Z'
+  tle_line1: 1 28055U 03048B   25197.96516612  .00001631  00000-0  61645-3 0  9991
+  tle_line2: 2 28055  98.7834 205.5083 0004095  69.4521 347.6830 14.32673129126580
+  apogee_km: 786.0
+  perigee_km: 780.0
+  period_min: 100.5
+  inclination_deg: 98.8
+  swath_width_km: 3000.0
+  num_terminal: 1
+  battery_capacity_wh: 2000.0
+  storage_capacity_mb: 16000.0
+  obs_store_rate_mb_per_min: 600.0
+  downlink_release_rate_mb_per_min: 1200.0
+  charge_rate_w: 1000.0
+  idle_discharge_rate_w: 500.0
+  obs_discharge_rate_w: 900.0
+  downlink_discharge_rate_w: 80.0
+  max_slew_velocity_deg_per_sec: 0.2
+  max_slew_acceleration_deg_per_sec2: 0.01
+  max_slew_jerk_deg_per_sec3: null
+  settling_time_sec: 5.0
+  initial_storage_mb: 8000.0
+  initial_battery_wh: 1000.0
+- id: sat_dmsp_5d-2_f11_d
+  name: DMSP 5D-2 F11 D
+  norad_id: '28300'
+  constellation: DMSP
+  owner: US
+  tle_epoch: '2025-07-17T03:01:51.989Z'
+  tle_line1: 1 28300U 91082M   25198.12629618  .00002154  00000-0  69981-3 0  9991
+  tle_line2: 2 28300  98.5644 245.4506 0008956 167.5182 253.2453 14.39854403104128
+  apogee_km: 765.0
+  perigee_km: 753.0
+  period_min: 100.0
+  inclination_deg: 98.60000000000001
+  swath_width_km: 3000.0
+  num_terminal: 1
+  battery_capacity_wh: 2000.0
+  storage_capacity_mb: 16000.0
+  obs_store_rate_mb_per_min: 600.0
+  downlink_release_rate_mb_per_min: 1200.0
+  charge_rate_w: 1000.0
+  idle_discharge_rate_w: 500.0
+  obs_discharge_rate_w: 900.0
+  downlink_discharge_rate_w: 80.0
+  max_slew_velocity_deg_per_sec: 0.2
+  max_slew_acceleration_deg_per_sec2: 0.01
+  max_slew_jerk_deg_per_sec3: null
+  settling_time_sec: 5.0
+  initial_storage_mb: 8000.0
+  initial_battery_wh: 1000.0
+- id: sat_dmsp_5d-3_f17
+  name: DMSP 5D-3 F17
+  norad_id: '29522'
+  constellation: DMSP
+  owner: US
+  tle_epoch: '2025-07-17T04:38:44.079Z'
+  tle_line1: 1 29522U 06050A   25198.19356574  .00000021  00000-0  33495-4 0  9997
+  tle_line2: 2 29522  98.7388 206.6327 0009022 295.9407  64.0836 14.14840420965049
+  apogee_km: 849.0
+  perigee_km: 836.0
+  period_min: 101.8
+  inclination_deg: 98.7
+  swath_width_km: 3000.0
+  num_terminal: 1
+  battery_capacity_wh: 2000.0
+  storage_capacity_mb: 16000.0
+  obs_store_rate_mb_per_min: 600.0
+  downlink_release_rate_mb_per_min: 1200.0
+  charge_rate_w: 1000.0
+  idle_discharge_rate_w: 500.0
+  obs_discharge_rate_w: 900.0
+  downlink_discharge_rate_w: 80.0
+  max_slew_velocity_deg_per_sec: 0.2
+  max_slew_acceleration_deg_per_sec2: 0.01
+  max_slew_jerk_deg_per_sec3: null
+  settling_time_sec: 5.0
+  initial_storage_mb: 8000.0
+  initial_battery_wh: 1000.0
+- id: sat_dmsp_5d-3_f17_d
+  name: DMSP 5D-3 F17 D
+  norad_id: '29524'
+  constellation: DMSP
+  owner: US
+  tle_epoch: '2025-07-16T15:47:56.689Z'
+  tle_line1: 1 29524U 06050C   25197.65829502  .00001348  00000-0  55191-3 0  9994
+  tle_line2: 2 29524  98.5732 218.4676 0007526  65.7953  60.7767 14.28818886968041
+  apogee_km: 801.0
+  perigee_km: 790.0
+  period_min: 100.8
+  inclination_deg: 98.60000000000001
+  swath_width_km: 3000.0
+  num_terminal: 1
+  battery_capacity_wh: 2000.0
+  storage_capacity_mb: 16000.0
+  obs_store_rate_mb_per_min: 600.0
+  downlink_release_rate_mb_per_min: 1200.0
+  charge_rate_w: 1000.0
+  idle_discharge_rate_w: 500.0
+  obs_discharge_rate_w: 900.0
+  downlink_discharge_rate_w: 80.0
+  max_slew_velocity_deg_per_sec: 0.2
+  max_slew_acceleration_deg_per_sec2: 0.01
+  max_slew_jerk_deg_per_sec3: null
+  settling_time_sec: 5.0
+  initial_storage_mb: 8000.0
+  initial_battery_wh: 1000.0
+- id: sat_dmsp_5d-3_f18
+  name: DMSP 5D-3 F18
+  norad_id: '35951'
+  constellation: DMSP
+  owner: US
+  tle_epoch: '2025-07-17T04:51:47.741Z'
+  tle_line1: 1 35951U 09057A   25198.20263590  .00000234  00000-0  14452-3 0  9994
+  tle_line2: 2 35951  98.8614 175.5073 0012094 119.8437 240.3939 14.14653276812200
+  apogee_km: 852.0
+  perigee_km: 835.0
+  period_min: 101.8
+  inclination_deg: 98.9
+  swath_width_km: 3000.0
+  num_terminal: 1
+  battery_capacity_wh: 2000.0
+  storage_capacity_mb: 16000.0
+  obs_store_rate_mb_per_min: 600.0
+  downlink_release_rate_mb_per_min: 1200.0
+  charge_rate_w: 1000.0
+  idle_discharge_rate_w: 500.0
+  obs_discharge_rate_w: 900.0
+  downlink_discharge_rate_w: 80.0
+  max_slew_velocity_deg_per_sec: 0.2
+  max_slew_acceleration_deg_per_sec2: 0.01
+  max_slew_jerk_deg_per_sec3: null
+  settling_time_sec: 5.0
+  initial_storage_mb: 8000.0
+  initial_battery_wh: 1000.0
+- id: sat_dmsp_5d-3_f18_d
+  name: DMSP 5D-3 F18 D
+  norad_id: '35953'
+  constellation: DMSP
+  owner: US
+  tle_epoch: '2025-07-16T22:53:01.449Z'
+  tle_line1: 1 35953U 09057C   25197.95348900  .00001469  00000-0  62045-3 0  9998
+  tle_line2: 2 35953  98.6239 186.8612 0005424  34.9880  19.9271 14.27087446814671
+  apogee_km: 805.0
+  perigee_km: 798.0
+  period_min: 100.9
+  inclination_deg: 98.60000000000001
+  swath_width_km: 3000.0
+  num_terminal: 1
+  battery_capacity_wh: 2000.0
+  storage_capacity_mb: 16000.0
+  obs_store_rate_mb_per_min: 600.0
+  downlink_release_rate_mb_per_min: 1200.0
+  charge_rate_w: 1000.0
+  idle_discharge_rate_w: 500.0
+  obs_discharge_rate_w: 900.0
+  downlink_discharge_rate_w: 80.0
+  max_slew_velocity_deg_per_sec: 0.2
+  max_slew_acceleration_deg_per_sec2: 0.01
+  max_slew_jerk_deg_per_sec3: null
+  settling_time_sec: 5.0
+  initial_storage_mb: 8000.0
+  initial_battery_wh: 1000.0
+- id: sat_dmsp_5d-2_f9_de
+  name: DMSP 5D-2 F9 DE
+  norad_id: '39046'
+  constellation: DMSP
+  owner: US
+  tle_epoch: '2025-07-16T10:32:20.446Z'
+  tle_line1: 1 39046U 88006M   25197.43912554  .00001582  00000-0  67334-3 0  9993
+  tle_line2: 2 39046  98.6238  17.9907 0070671 209.6511 183.5323 14.25251958648812
+  apogee_km: 858.0
+  perigee_km: 757.0
+  period_min: 101.0
+  inclination_deg: 98.60000000000001
+  swath_width_km: 3000.0
+  num_terminal: 1
+  battery_capacity_wh: 2000.0
+  storage_capacity_mb: 16000.0
+  obs_store_rate_mb_per_min: 600.0
+  downlink_release_rate_mb_per_min: 1200.0
+  charge_rate_w: 1000.0
+  idle_discharge_rate_w: 500.0
+  obs_discharge_rate_w: 900.0
+  downlink_discharge_rate_w: 80.0
+  max_slew_velocity_deg_per_sec: 0.2
+  max_slew_acceleration_deg_per_sec2: 0.01
+  max_slew_jerk_deg_per_sec3: null
+  settling_time_sec: 5.0
+  initial_storage_mb: 8000.0
+  initial_battery_wh: 1000.0
+- id: sat_dmsp_5d-3_f19
+  name: DMSP 5D-3 F19
+  norad_id: '39630'
+  constellation: DMSP
+  owner: US
+  tle_epoch: '2025-07-16T23:10:25.402Z'
+  tle_line1: 1 39630U 14015A   25197.96557179  .00000108  00000-0  78353-4 0  9994
+  tle_line2: 2 39630  98.7692 198.3560 0011605  85.3801 274.8698 14.14820329582591
+  apogee_km: 851.0
+  perigee_km: 835.0
+  period_min: 101.8
+  inclination_deg: 98.8
+  swath_width_km: 3000.0
+  num_terminal: 1
+  battery_capacity_wh: 2000.0
+  storage_capacity_mb: 16000.0
+  obs_store_rate_mb_per_min: 600.0
+  downlink_release_rate_mb_per_min: 1200.0
+  charge_rate_w: 1000.0
+  idle_discharge_rate_w: 500.0
+  obs_discharge_rate_w: 900.0
+  downlink_discharge_rate_w: 80.0
+  max_slew_velocity_deg_per_sec: 0.2
+  max_slew_acceleration_deg_per_sec2: 0.01
+  max_slew_jerk_deg_per_sec3: null
+  settling_time_sec: 5.0
+  initial_storage_mb: 8000.0
+  initial_battery_wh: 1000.0
+- id: sat_dmsp_5d-3_f19_d
+  name: DMSP 5D-3 F19 D
+  norad_id: '39632'
+  constellation: DMSP
+  owner: US
+  tle_epoch: '2025-07-16T20:23:23.653Z'
+  tle_line1: 1 39632U 14015C   25197.84957932  .00001243  00000-0  55331-3 0  9995
+  tle_line2: 2 39632  98.6712 208.8976 0005820  36.0064 324.1506 14.24665514583984
+  apogee_km: 814.0
+  perigee_km: 805.0
+  period_min: 101.1
+  inclination_deg: 98.7
+  swath_width_km: 3000.0
+  num_terminal: 1
+  battery_capacity_wh: 2000.0
+  storage_capacity_mb: 16000.0
+  obs_store_rate_mb_per_min: 600.0
+  downlink_release_rate_mb_per_min: 1200.0
+  charge_rate_w: 1000.0
+  idle_discharge_rate_w: 500.0
+  obs_discharge_rate_w: 900.0
+  downlink_discharge_rate_w: 80.0
+  max_slew_velocity_deg_per_sec: 0.2
+  max_slew_acceleration_deg_per_sec2: 0.01
+  max_slew_jerk_deg_per_sec3: null
+  settling_time_sec: 5.0
+  initial_storage_mb: 8000.0
+  initial_battery_wh: 1000.0
+- id: sat_dmsp_5d-2_f6_de
+  name: DMSP 5D-2 F6 DE
+  norad_id: '40915'
+  constellation: DMSP
+  owner: US
+  tle_epoch: '2025-07-16T14:57:27.669Z'
+  tle_line1: 1 40915U 82118H   25197.62323691  .00052508  00000-0  35189-2 0  9993
+  tle_line2: 2 40915  98.4045  71.5707 0005574 170.4568 189.6764 15.06658886491569
+  apogee_km: 550.0
+  perigee_km: 543.0
+  period_min: 95.6
+  inclination_deg: 98.40000000000002
+  swath_width_km: 3000.0
+  num_terminal: 1
+  battery_capacity_wh: 2000.0
+  storage_capacity_mb: 16000.0
+  obs_store_rate_mb_per_min: 600.0
+  downlink_release_rate_mb_per_min: 1200.0
+  charge_rate_w: 1000.0
+  idle_discharge_rate_w: 500.0
+  obs_discharge_rate_w: 900.0
+  downlink_discharge_rate_w: 80.0
+  max_slew_velocity_deg_per_sec: 0.2
+  max_slew_acceleration_deg_per_sec2: 0.01
+  max_slew_jerk_deg_per_sec3: null
+  settling_time_sec: 5.0
+  initial_storage_mb: 8000.0
+  initial_battery_wh: 1000.0
+- id: sat_dmsp_5d-2_f8_de
+  name: DMSP 5D-2 F8 DE
+  norad_id: '60251'
+  constellation: DMSP
+  owner: US
+  tle_epoch: '2025-07-16T22:16:39.746Z'
+  tle_line1: 1 60251U 87053J   25197.92823781  .00001170  00000-0  51793-3 0  9998
+  tle_line2: 2 60251  98.7346  26.2235 0016008  14.1439 346.0185 14.25038932 51459
+  apogee_km: 820.0
+  perigee_km: 797.0
+  period_min: 101.1
+  inclination_deg: 98.7
+  swath_width_km: 3000.0
+  num_terminal: 1
+  battery_capacity_wh: 2000.0
+  storage_capacity_mb: 16000.0
+  obs_store_rate_mb_per_min: 600.0
+  downlink_release_rate_mb_per_min: 1200.0
+  charge_rate_w: 1000.0
+  idle_discharge_rate_w: 500.0
+  obs_discharge_rate_w: 900.0
+  downlink_discharge_rate_w: 80.0
+  max_slew_velocity_deg_per_sec: 0.2
+  max_slew_acceleration_deg_per_sec2: 0.01
+  max_slew_jerk_deg_per_sec3: null
+  settling_time_sec: 5.0
+  initial_storage_mb: 8000.0
+  initial_battery_wh: 1000.0

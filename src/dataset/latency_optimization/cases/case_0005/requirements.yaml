@@ -1,0 +1,82 @@
+meta:
+  case_id: case_0005
+  benchmark_type: latency-optimization
+  seed: 46
+  horizon_start: '2025-07-17T12:00:00Z'
+  horizon_end: '2025-07-21T12:00:00Z'
+latency_optimization:
+  target_ids:
+  - city_ban_sai_ma_tai_th
+  - city_laiwu_cn
+  - city_new_plymouth_nz
+  - city_samarinda_id
+  - city_naspur_in
+  - city_point_pedro_lk
+  - city_colonia_del_sacramento_uy
+  - city_abreu_e_lima_br
+  - city_metepec_mx
+  - city_san_miguel_chicaj_gt
+  - city_banfora_bf
+  - city_terga_dz
+  - city_hamminkeln_de
+  - city_belgorod_ru
+  - city_durban_za
+  - city_kisenzi_cd
+  - city_epsom_gb
+  - city_shrewsbury_gb
+  - city_qingan_cn
+  - city_jixi_cn
+  - city_spokane_us
+  - city_everett_us
+  - city_ushuaia_ar
+  - city_rio_grande_ar
+  - city_nuku_alofa_to
+  - city_apia_ws
+  - city_invercargill_nz
+  - city_dunedin_nz
+  - city_garibaldi_br
+  - city_perth_gb
+  station_pairs:
+  - station_a: facility_wilkes-barre_station
+    station_b: facility_vikram_sarabhai
+    time_window_start: '2025-07-19T09:35:29.408954Z'
+    time_window_end: '2025-07-19T15:35:29.408954Z'
+  - station_a: facility_orlando_station
+    station_b: facility_kamisaibara_spaceguard_center
+    time_window_start: '2025-07-20T10:03:52.528598Z'
+    time_window_end: '2025-07-20T16:03:52.528598Z'
+  - station_a: facility_gila_river_space_fence
+    station_b: facility_prts
+    time_window_start: '2025-07-18T12:45:22.575504Z'
+    time_window_end: '2025-07-18T18:45:22.575504Z'
+  required_observations:
+    city_ban_sai_ma_tai_th: 2
+    city_laiwu_cn: 4
+    city_new_plymouth_nz: 2
+    city_samarinda_id: 4
+    city_naspur_in: 5
+    city_point_pedro_lk: 5
+    city_colonia_del_sacramento_uy: 3
+    city_abreu_e_lima_br: 5
+    city_metepec_mx: 4
+    city_san_miguel_chicaj_gt: 4
+    city_banfora_bf: 3
+    city_terga_dz: 2
+    city_hamminkeln_de: 3
+    city_belgorod_ru: 4
+    city_durban_za: 2
+    city_kisenzi_cd: 4
+    city_epsom_gb: 2
+    city_shrewsbury_gb: 4
+    city_qingan_cn: 3
+    city_jixi_cn: 4
+    city_spokane_us: 3
+    city_everett_us: 3
+    city_ushuaia_ar: 2
+    city_rio_grande_ar: 5
+    city_nuku_alofa_to: 2
+    city_apia_ws: 4
+    city_invercargill_nz: 3
+    city_dunedin_nz: 2
+    city_garibaldi_br: 3
+    city_perth_gb: 4

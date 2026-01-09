@@ -1,0 +1,146 @@
+{
+  "metadata": {
+    "generated_at": "2025-12-20T16:11:42.804923+00:00",
+    "status": "COMMITTED",
+    "valid": true,
+    "horizon_start": "2025-07-18T12:00:00Z",
+    "horizon_end": "2025-07-20T12:00:00Z"
+  },
+  "actions": [
+    {
+      "action_id": "action_003",
+      "type": "downlink",
+      "satellite_id": "sat_yaogan-28",
+      "target_id": null,
+      "station_id": "facility_cotopaxi_station",
+      "start_time": "2025-07-18T19:54:35.450000+00:00",
+      "end_time": "2025-07-18T19:59:33.118000+00:00"
+    },
+    {
+      "action_id": "action_006",
+      "type": "observation",
+      "satellite_id": "sat_yaogan-10",
+      "target_id": "city_zhob_pk",
+      "station_id": null,
+      "start_time": "2025-07-19T02:41:24.817000+00:00",
+      "end_time": "2025-07-19T02:44:23.435000+00:00"
+    },
+    {
+      "action_id": "action_009",
+      "type": "observation",
+      "satellite_id": "sat_yaogan-20_01b",
+      "target_id": "city_corumba_br",
+      "station_id": null,
+      "start_time": "2025-07-18T18:39:16.978000+00:00",
+      "end_time": "2025-07-18T18:42:02.216000+00:00"
+    },
+    {
+      "action_id": "action_012",
+      "type": "downlink",
+      "satellite_id": "sat_yaogan-16_01c",
+      "target_id": null,
+      "station_id": "facility_lapan_station",
+      "start_time": "2025-07-18T12:21:51.393000+00:00",
+      "end_time": "2025-07-18T12:26:58.586000+00:00"
+    },
+    {
+      "action_id": "action_015",
+      "type": "observation",
+      "satellite_id": "sat_yaogan-15",
+      "target_id": "city_messamena_cm",
+      "station_id": null,
+      "start_time": "2025-07-19T04:15:23.965000+00:00",
+      "end_time": "2025-07-19T04:15:39.315000+00:00"
+    },
+    {
+      "action_id": "action_018",
+      "type": "downlink",
+      "satellite_id": "sat_yaogan-30_02b",
+      "target_id": null,
+      "station_id": "facility_toulouse_multimission_station",
+      "start_time": "2025-07-19T06:03:09.105000+00:00",
+      "end_time": "2025-07-19T06:05:11.979000+00:00"
+    },
+    {
+      "action_id": "action_021",
+      "type": "observation",
+      "satellite_id": "sat_yaogan-1_deb",
+      "target_id": "city_corumba_br",
+      "station_id": null,
+      "start_time": "2025-07-18T13:11:01.380000+00:00",
+      "end_time": "2025-07-18T13:14:01.380000+00:00"
+    },
+    {
+      "action_id": "action_024",
+      "type": "observation",
+      "satellite_id": "sat_yaogan-29_deb",
+      "target_id": "city_messamena_cm",
+      "station_id": null,
+      "start_time": "2025-07-19T19:14:50.948000+00:00",
+      "end_time": "2025-07-19T19:17:50.948000+00:00"
+    },
+    {
+      "action_id": "action_027",
+      "type": "observation",
+      "satellite_id": "sat_yaogan-19",
+      "target_id": "city_corumba_br",
+      "station_id": null,
+      "start_time": "2025-07-20T09:45:13.304000+00:00",
+      "end_time": "2025-07-20T09:45:51.343000+00:00"
+    },
+    {
+      "action_id": "action_030",
+      "type": "observation",
+      "satellite_id": "sat_yaogan-29_deb",
+      "target_id": "city_zhob_pk",
+      "station_id": null,
+      "start_time": "2025-07-19T14:32:14.473000+00:00",
+      "end_time": "2025-07-19T14:35:14.473000+00:00"
+    },
+    {
+      "action_id": "action_033",
+      "type": "observation",
+      "satellite_id": "sat_yaogan-11",
+      "target_id": "city_tchaourou_bj",
+      "station_id": null,
+      "start_time": "2025-07-20T06:23:25.619000+00:00",
+      "end_time": "2025-07-20T06:26:25.619000+00:00"
+    },
+    {
+      "action_id": "action_036",
+      "type": "downlink",
+      "satellite_id": "sat_yaogan-29_deb",
+      "target_id": null,
+      "station_id": "facility_eagle_vision_1",
+      "start_time": "2025-07-20T07:18:14.724000+00:00",
+      "end_time": "2025-07-20T07:18:35.672000+00:00"
+    },
+    {
+      "action_id": "action_039",
+      "type": "observation",
+      "satellite_id": "sat_yaogan-26",
+      "target_id": "city_elkridge_us",
+      "station_id": null,
+      "start_time": "2025-07-20T11:49:51.603000+00:00",
+      "end_time": "2025-07-20T11:49:58.516000+00:00"
+    },
+    {
+      "action_id": "action_042",
+      "type": "observation",
+      "satellite_id": "sat_yaogan-11_deb",
+      "target_id": "city_elkridge_us",
+      "station_id": null,
+      "start_time": "2025-07-19T22:18:32.311000+00:00",
+      "end_time": "2025-07-19T22:20:59.509000+00:00"
+    },
+    {
+      "action_id": "action_045",
+      "type": "observation",
+      "satellite_id": "sat_yaogan-12",
+      "target_id": "city_zhob_pk",
+      "station_id": null,
+      "start_time": "2025-07-20T03:37:19.054000+00:00",
+      "end_time": "2025-07-20T03:38:23.112000+00:00"
+    }
+  ]
+}

@@ -1,0 +1,30 @@
+- id: facility_mullach_sgr_radar_station
+  name: Mullach Sgr Radar Station
+  network_name: QinetiQ
+  latitude_deg: 57.806607
+  longitude_deg: -8.580436
+  altitude_m: 294
+- id: facility_mopra_observatory
+  name: Mopra Observatory
+  network_name: CSIRO
+  latitude_deg: -31.267800000000005
+  longitude_deg: 149.0996
+  altitude_m: 893
+- id: facility_echostar_new_braunfels_station
+  name: EchoStar New Braunfels Station
+  network_name: EchoStar
+  latitude_deg: 29.7599
+  longitude_deg: -98.0635
+  altitude_m: 192
+- id: facility_eagle_vision_1
+  name: Eagle Vision 1
+  network_name: SPOT Image
+  latitude_deg: 49.44
+  longitude_deg: 7.6
+  altitude_m: 288
+- id: facility_xichang_la_2
+  name: Xichang LA 2
+  network_name: CNSA
+  latitude_deg: 28.2455
+  longitude_deg: 102.0271
+  altitude_m: 1837

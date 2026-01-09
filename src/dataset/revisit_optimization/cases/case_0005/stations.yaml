@@ -1,0 +1,30 @@
+- id: facility_tangua_station
+  name: Tangua Station
+  network_name: Inmarsat
+  latitude_deg: -22.7468
+  longitude_deg: -42.7837
+  altitude_m: 27
+- id: facility_yamaguchi_station
+  name: Yamaguchi Station
+  network_name: Inmarsat
+  latitude_deg: 34.217
+  longitude_deg: 131.557
+  altitude_m: 145
+- id: facility_burum_station
+  name: Burum Station
+  network_name: Inmarsat
+  latitude_deg: 53.2842
+  longitude_deg: 6.214300000000001
+  altitude_m: 44
+- id: facility_vlba_st_croix
+  name: VLBA St Croix
+  network_name: NRAO
+  latitude_deg: 17.756578
+  longitude_deg: -64.583631
+  altitude_m: -31
+- id: facility_corn_ranch
+  name: Corn Ranch
+  network_name: Blue Origin
+  latitude_deg: 31.423299999999998
+  longitude_deg: -104.7589
+  altitude_m: 1106

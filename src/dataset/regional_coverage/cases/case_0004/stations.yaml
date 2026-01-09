@@ -1,0 +1,30 @@
+- id: facility_esrin
+  name: ESRIN
+  network_name: ESRIN
+  latitude_deg: 41.8275
+  longitude_deg: 12.675850000000002
+  altitude_m: 237
+- id: facility_kwajalein_bc-4_cameras
+  name: Kwajalein BC-4 Cameras
+  network_name: Reagan Test
+  latitude_deg: 8.72304
+  longitude_deg: 167.719465
+  altitude_m: 34
+- id: facility_thermopylae_station
+  name: Thermopylae Station
+  network_name: Inmarsat
+  latitude_deg: 38.8231
+  longitude_deg: 22.686599999999995
+  altitude_m: 50
+- id: facility_carpentersville_station
+  name: Carpentersville Station
+  network_name: Lockheed M.
+  latitude_deg: 40.6444
+  longitude_deg: -75.1911
+  altitude_m: 19
+- id: facility_orbcomm_arcade_a
+  name: Orbcomm Arcade A
+  network_name: Orbcomm
+  latitude_deg: 42.524867
+  longitude_deg: -78.382119
+  altitude_m: 541

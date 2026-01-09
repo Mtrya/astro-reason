@@ -1,0 +1,23 @@
+meta:
+  case_id: case_0003
+  benchmark_type: stereo-imaging
+  seed: 44
+  horizon_start: '2025-07-17T12:00:00Z'
+  horizon_end: '2025-07-21T12:00:00Z'
+stereo_imaging:
+  target_ids:
+  - city_yotsukaido_jp
+  - city_saparua_id
+  - city_shiyali_in
+  - city_catende_br
+  - city_san_andres_tuxtla_mx
+  min_azimuth_sep_deg: 15.0
+  max_azimuth_sep_deg: 60.0
+  max_time_between_obs_hours: 2.0
+  min_elevation_deg: 30.0
+  required_observations:
+    city_yotsukaido_jp: 2
+    city_saparua_id: 2
+    city_shiyali_in: 2
+    city_catende_br: 2
+    city_san_andres_tuxtla_mx: 2

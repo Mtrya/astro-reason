@@ -1,0 +1,82 @@
+meta:
+  case_id: case_0002
+  benchmark_type: latency-optimization
+  seed: 43
+  horizon_start: '2025-07-17T12:00:00Z'
+  horizon_end: '2025-07-21T12:00:00Z'
+latency_optimization:
+  target_ids:
+  - city_qincheng_cn
+  - city_danzao_cn
+  - city_northcote_nz
+  - city_rantepao_id
+  - city_tivoli_it
+  - city_agia_varvara_gr
+  - city_lajedo_br
+  - city_baradero_ar
+  - city_santa_barbara_us
+  - city_campbell_us
+  - city_jerez_gt
+  - city_tucker_us
+  - city_orenburg_ru
+  - city_koprivnica_hr
+  - city_manono_cd
+  - city_ceres_za
+  - city_mitcham_gb
+  - city_kopavogur_is
+  - city_e_erguna_cn
+  - city_arvayheer_mn
+  - city_graham_us
+  - city_issaquah_us
+  - city_punta_arenas_cl
+  - city_comodoro_rivadavia_ar
+  - city_papeete_pf
+  - city_nuku_alofa_to
+  - city_dunedin_nz
+  - city_invercargill_nz
+  - city_arroyo_naranjo_cu
+  - city_uruguaiana_br
+  station_pairs:
+  - station_a: facility_cyberjaya_station
+    station_b: facility_goonhilly_satellite_earth_station
+    time_window_start: '2025-07-18T21:55:23.760198Z'
+    time_window_end: '2025-07-19T03:55:23.760198Z'
+  - station_a: facility_leuk
+    station_b: facility_riverside_teleport
+    time_window_start: '2025-07-17T16:24:09.996296Z'
+    time_window_end: '2025-07-17T22:24:09.996296Z'
+  - station_a: facility_echostar_monee_station
+    station_b: facility_stockholm_teleport
+    time_window_start: '2025-07-17T17:30:32.259807Z'
+    time_window_end: '2025-07-17T23:30:32.259807Z'
+  required_observations:
+    city_qincheng_cn: 2
+    city_danzao_cn: 3
+    city_northcote_nz: 4
+    city_rantepao_id: 4
+    city_tivoli_it: 2
+    city_agia_varvara_gr: 2
+    city_lajedo_br: 2
+    city_baradero_ar: 2
+    city_santa_barbara_us: 5
+    city_campbell_us: 4
+    city_jerez_gt: 4
+    city_tucker_us: 5
+    city_orenburg_ru: 3
+    city_koprivnica_hr: 3
+    city_manono_cd: 2
+    city_ceres_za: 4
+    city_mitcham_gb: 2
+    city_kopavogur_is: 4
+    city_e_erguna_cn: 4
+    city_arvayheer_mn: 3
+    city_graham_us: 2
+    city_issaquah_us: 2
+    city_punta_arenas_cl: 4
+    city_comodoro_rivadavia_ar: 5
+    city_papeete_pf: 4
+    city_nuku_alofa_to: 5
+    city_dunedin_nz: 2
+    city_invercargill_nz: 5
+    city_arroyo_naranjo_cu: 5
+    city_uruguaiana_br: 2

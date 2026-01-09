@@ -1,0 +1,30 @@
+- id: facility_kodiak_launch_complex
+  name: Kodiak Launch Complex
+  network_name: AADC
+  latitude_deg: 57.4352
+  longitude_deg: -152.33930000000004
+  altitude_m: 44
+- id: facility_qingdao_station
+  name: Qingdao Station
+  network_name: CLTC
+  latitude_deg: 36.06600000000001
+  longitude_deg: 120.383
+  altitude_m: 12
+- id: facility_cotopaxi_station
+  name: Cotopaxi Station
+  network_name: SPOT Image
+  latitude_deg: -0.623
+  longitude_deg: -78.578
+  altitude_m: 3587
+- id: facility_swakopmund_station
+  name: Swakopmund Station
+  network_name: CLTC
+  latitude_deg: -22.574087
+  longitude_deg: 14.547462000000001
+  altitude_m: 57
+- id: facility_punta_arenas_station
+  name: Punta Arenas Station
+  network_name: PrioraNet
+  latitude_deg: -52.937999999999995
+  longitude_deg: -70.857
+  altitude_m: 25

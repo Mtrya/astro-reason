@@ -1,0 +1,36 @@
+- id: facility_cyberjaya_station
+  name: Cyberjaya Station
+  network_name: Tata Comm.
+  latitude_deg: 2.9348000000000005
+  longitude_deg: 101.6583
+  altitude_m: 30
+- id: facility_goonhilly_satellite_earth_station
+  name: Goonhilly Satellite Earth Station
+  network_name: British Tel.
+  latitude_deg: 50.048056
+  longitude_deg: -5.1819440000000005
+  altitude_m: 160
+- id: facility_leuk
+  name: Leuk
+  network_name: ONYX
+  latitude_deg: 46.31805599999999
+  longitude_deg: 7.645278
+  altitude_m: 973
+- id: facility_riverside_teleport
+  name: Riverside Teleport
+  network_name: INTELSAT
+  latitude_deg: 33.795862
+  longitude_deg: -117.08784300000002
+  altitude_m: 416
+- id: facility_echostar_monee_station
+  name: EchoStar Monee Station
+  network_name: EchoStar
+  latitude_deg: 41.4684
+  longitude_deg: -87.77640000000001
+  altitude_m: 195
+- id: facility_stockholm_teleport
+  name: Stockholm Teleport
+  network_name: SSC
+  latitude_deg: 59.211779
+  longitude_deg: 18.083866
+  altitude_m: 63
