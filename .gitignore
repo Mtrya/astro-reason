@@ -55,3 +55,7 @@ revisit_metrics.txt
 stereo_metrics.txt
 latency_metrics.txt
 regional_metrics.txt
+
+# pixi environments
+.pixi/*
+!.pixi/config.toml
