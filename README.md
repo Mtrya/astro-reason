@@ -19,6 +19,7 @@ Five distinct planning challenges enforcing orbital mechanics, power budgets, da
 ### Prerequisites
 
 - **Python 3.12+**
+- **[Claude Code](https://claude.com/claude-code)** (required - agentic LLM interface)
 - **[uv](https://docs.astral.sh/uv/)** (required - manages environments and builds sandboxes)
 - **bubblewrap** (optional, enables filesystem isolation):
   ```bash
