@@ -36,9 +36,12 @@ Five distinct planning challenges enforcing orbital mechanics, power budgets, da
 ### Setup
 
 ```bash
-# Clone the repository
-git clone https://github.com/your-org/astro-reason.git
+# Clone the repository with submodules
+git clone --recurse-submodules https://github.com/your-org/astro-reason.git
 cd astro-reason
+
+# If you already cloned without submodules, initialize them:
+# git submodule update --init --recursive
 
 # Create virtual environment and install dependencies
 uv sync
