@@ -44,7 +44,7 @@ cd astro-reason
 # git submodule update --init --recursive
 
 # Create virtual environment and install dependencies
-uv sync
+uv sync --all-groups
 
 # Activate the environment (required for all subsequent commands)
 source .venv/bin/activate  # bash/zsh
