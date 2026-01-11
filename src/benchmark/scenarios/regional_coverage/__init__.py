@@ -1,1 +1,0 @@
-"""Regional Coverage Benchmark."""

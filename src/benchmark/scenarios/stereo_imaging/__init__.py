@@ -1,1 +1,0 @@
-"""Stereo Imaging Benchmark."""
