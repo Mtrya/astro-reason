@@ -199,3 +199,38 @@ Four-layer design:
 4. **Cognitive Layer** - LLM agent (ReAct loop via Claude Code)
 
 Agents use MCP tools for exploration and Python scripts for bulk optimization.
+
+## Citation
+
+If you use AstroReason-Bench in your research, please cite:
+
+```bibtex
+
+```
+
+## References
+
+This benchmark integrates the SatNet scheduling problem:
+
+```bibtex
+@inproceedings{goh2021satnet,
+  title={SatNet: A benchmark for satellite scheduling optimization},
+  author={Goh, Edwin and Venkataram, Hamsa Shwetha and Balaji, Bharathan and Wilson, Brian D and Johnston, Mark D},
+  booktitle={AAAI-22 Workshop on Machine Learning for Operations Research (ML4OR)},
+  year={2021}
+}
+```
+
+## Data Sources
+
+Benchmark datasets are derived from the following sources:
+
+- **TLE orbital data**: [CelesTrak](https://celestrak.org/)
+- **City locations**: [World cities database](https://www.kaggle.com/datasets/juanmah/world-cities) (CC BY 4.0)
+- **Ground stations**: [Ground Station Dataset](https://www.kaggle.com/datasets/pratiksharm/ground-station-dataset) (MIT License)
+
+**Note:** Satellite parameters other than orbital elements (e.g., power budgets, data storage, slew rates) are fictional or represent typical values for benchmark purposes.
+
+## License
+
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
