@@ -1,37 +1,46 @@
 # AstroReason-Bench
 
-A dual-purpose project for astronautics mission design:
-
-1. **toolkits/** - Agent-facing libraries that bridge high-level reasoning with low-level physics engines
-2. **engines/** - Swappable physics backends shared by toolkits, baselines, and verifiers
-3. **benchmarks/** - General-purpose astronautics benchmarks for any approach (LLM or traditional)
-
----
+A benchmark suite for evaluating LLM agents on space mission planning problems.
 
 ## Why This Project?
 
-### Problem 1: No Agent-Friendly Mission Planning Tools
+**Aerospace lacks rigorous, standardized, algorithm-agnostic benchmarks.** While AI has ImageNet and GLUE, space mission planning has no standardized evaluation suite. This project fills that gap with:
 
-Traditional aerospace software (STK, GMAT, etc.) is powerful but GUI-driven, making it inaccessible to AI agents. As LLMs become more capable at technical reasoning, they need **native tool interfaces**.
+- **Datasets**: Well-defined problem instances
+- **Verifiers**: Standalone scoring logic, independent of solution method
+- **Baselines**: Reference implementations to establish performance floors
 
-**toolkits/** demonstrates a potential way to design domain-specific tools for LLM interaction:
-- MCP tool calling (mirrors GUI interaction) + Python API (mirrors programmatic automation)
-- Tool-calling APIs for orbital mechanics, resource simulation, and planning
-- Proof that complex aerospace operations can be agent-accessible
+Any approach can be evaluated — LLM agents, metaheuristics, RL, or human experts.
 
-### Problem 2: Aerospace Lacks Rigorous Benchmarks
+## Repository Structure
 
-The AI community has standardized benchmarks (ImageNet, GLUE, etc.). The aerospace community doesn't have equivalent public benchmarks for algorithms.
+```
+astro-reason/
+├── benchmarks/{name}/   # Each benchmark is standalone
+│   ├── dataset/         # Problem instances
+│   ├── verifier.py      # Validation + scoring
+│   ├── baselines/       # Optional reference implementations
+│   └── README.md        # Problem specification
+├── skills/              # Teaching materials for space agents
+│   ├── libraries/       # How to use brahe, tudatpy, basilisk
+│   └── problems/        # Problem-solving patterns
+└── tests/               # Test suites mirroring source structure
+```
 
-**benchmarks/** aims at filling this gap with rigorous problem definitions:
-- Contains **Datasets**(problems) and **Verifiers**(scoring logic), independent of the solution method
-- Includes **Baselines** to establish performance floors.
-- Designed to be solver-agnostic: usable by LLM agents, metaheuristic solvers, reinforcement learning agents, or human experts.
+## Roadmap
 
-### Problem 3: One Physics Engine Doesn't Fit All
+| Phase | Focus | Examples |
+|-------|-------|----------|
+| 1 | Legacy benchmarks | spot5 ✅, satnet, aeosbench |
+| 2 | LEO constellation (6DOF) | revisit gaps, relay networks, imaging & cartography |
+| 3 | Deep space (3DOF) | interplanetary, small body rendezvous |
+| 4 | Rocket trajectories | ascent, descent, reentry *(pending library)* |
 
-Different benchmarks and toolkits may require different physics backends. Some need high-fidelity propagation, while others prioritize speed; Some focus on orbital mechanics, while other lean toward onboard resources.
+## Environment
 
-**engines/** decouples the physics from the problem definition. Pushing physics into this shared layer guarantees:
-- **Consistency**: Single source of truth for both acting and verification (toolkits, baselines, verifiers)
-- **Reuse**: Multiple benchmarks can leverage the same engine (e.g., SPG4 is likely sufficient for all LEO satellites)
+Uses `pixi` for dependency management (supports Python, Rust, C++ verifiers).
+
+```bash
+pixi shell        # Activate environment
+pytest tests/...  # Run tests
+```
