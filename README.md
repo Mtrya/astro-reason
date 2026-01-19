@@ -205,7 +205,15 @@ Agents use MCP tools for exploration and Python scripts for bulk optimization.
 If you use AstroReason-Bench in your research, please cite:
 
 ```bibtex
-
+@article{wang2026astroreason,
+      title={AstroReason-Bench: Evaluating Unified Agentic Planning across Heterogeneous Space Planning Problems}, 
+      author={Weiyi Wang and Xinchi Chen and Jingjing Gong and Xuanjing Huang and Xipeng Qiu},
+      year={2026},
+      eprint={2601.11354},
+      archivePrefix={arXiv},
+      primaryClass={cs.AI},
+      url={https://arxiv.org/abs/2601.11354}, 
+}
 ```
 
 ## References
