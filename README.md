@@ -14,6 +14,14 @@ Five distinct planning challenges enforcing orbital mechanics, power budgets, da
 4. **Stereo Imaging** - Schedule synchronized observation pairs for 3D reconstruction
 5. **Latency Optimization** - Manage LEO constellation for integrated sensing and communications
 
+## Development Status
+
+This benchmark suite is under active development in the `dev` branch. The current implementation in the `main` branch represents a snapshot and a work-in-progress, and we are continously improving:
+- **Backend Transition**: Currently relying on the astrox web API for orbital computations. We plan to migrate to local computation using established libraries for better reliability.
+- **Interface Exploration**: Evaluating whether predefined MCP tools and Python APIs are optimal, or if agents should interact directly with computational libraries with codes.
+- **Benchmark Expansion**: Actively designing better organizational structures for benchmarks and expanding to cover more diverse space missions.
+- **Baseline Performance**: Current baselines are initial implementations for verification purposes. We plan to include more carefully-tuned baseline algorithms for each problem in the future.
+
 ## Installation
 
 ### Prerequisites
