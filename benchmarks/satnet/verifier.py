@@ -34,7 +34,7 @@ from collections import defaultdict
 
 # Antennas used in the SatNet benchmark (from satnet.envs.DSS_RESOURCES)
 ALL_ANTENNAS = {
-    f"DSS-{n}" for n in [14, 24, 25, 26, 34, 35, 36, 43, 54, 55, 63, 65]
+    f"DSS-{n}" for n in [14, 15, 24, 25, 26, 34, 35, 36, 43, 45, 54, 55, 63, 65]
 }
 
 
