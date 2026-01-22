@@ -8,11 +8,12 @@ version = "0.1.0"
 [tasks]
 
 [dependencies]
-python = "3.11.*"
+python = ">=3.12.12,<3.13"
 tudatpy = ">=1.0.0,<2"
 pip = ">=25.3,<26"
 requests = ">=2.32.5,<3"
 bubblewrap = ">=0.11.0,<0.12"
 pytest = ">=9.0.2,<10"
-skyfield = ">=1.53,<2"
+skyfield = ">=1.54,<2"
 mcp = ">=1.25.0,<2"
+numpy = ">=1.26.4,<2"
