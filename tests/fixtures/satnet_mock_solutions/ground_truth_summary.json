@@ -1,0 +1,52 @@
+[
+  {
+    "week": 10,
+    "year": 2018,
+    "solution_file": "W10_2018_solution.json",
+    "metrics_file": "W10_2018_metrics.json",
+    "score": 780.0316666666666,
+    "n_tracks": 207,
+    "u_rms": 0.3147500923574413,
+    "u_max": 0.7335224586288416
+  },
+  {
+    "week": 20,
+    "year": 2018,
+    "solution_file": "W20_2018_solution.json",
+    "metrics_file": "W20_2018_metrics.json",
+    "score": 892.7113888888889,
+    "n_tracks": 223,
+    "u_rms": 0.35252814823750594,
+    "u_max": 0.7933110119047619
+  },
+  {
+    "week": 30,
+    "year": 2018,
+    "solution_file": "W30_2018_solution.json",
+    "metrics_file": "W30_2018_metrics.json",
+    "score": 881.8925,
+    "n_tracks": 220,
+    "u_rms": 0.3766248814877487,
+    "u_max": 0.7975272817460317
+  },
+  {
+    "week": 40,
+    "year": 2018,
+    "solution_file": "W40_2018_solution.json",
+    "metrics_file": "W40_2018_metrics.json",
+    "score": 832.565,
+    "n_tracks": 204,
+    "u_rms": 0.5029549891064765,
+    "u_max": 1.0
+  },
+  {
+    "week": 50,
+    "year": 2018,
+    "solution_file": "W50_2018_solution.json",
+    "metrics_file": "W50_2018_metrics.json",
+    "score": 751.9711111111111,
+    "n_tracks": 203,
+    "u_rms": 0.4236655683040435,
+    "u_max": 0.9622641509433962
+  }
+]
