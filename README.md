@@ -31,7 +31,7 @@ astro-reason/
 
 | Phase | Focus | Examples |
 |-------|-------|----------|
-| 1 | Legacy benchmarks | spot5 ✅, satnet, aeosbench |
+| 1 | Legacy benchmarks | spot5 ✅, satnet ✅, aeosbench |
 | 2 | LEO constellation (6DOF) | revisit gaps, relay networks, imaging & cartography |
 | 3 | Deep space (3DOF) | interplanetary, small body rendezvous |
 | 4 | Rocket trajectories | ascent, descent, reentry *(pending library)* |
