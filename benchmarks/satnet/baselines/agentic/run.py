@@ -35,6 +35,7 @@ PROJECT_ROOT = Path(__file__).parent.parent.parent.parent.parent
 BENCHMARK_DIR = PROJECT_ROOT / "benchmarks" / "satnet"
 DATASET_DIR = BENCHMARK_DIR / "dataset"
 VERIFIER_PATH = BENCHMARK_DIR / "verifier.py"
+AGENTIC_DIR = Path(__file__).parent
 
 DEFAULT_TIMEOUT = 3600
 DEFAULT_MAX_RETRIES = 0
@@ -131,132 +132,16 @@ def get_all_cases() -> list[str]:
 # Prompt generation
 # ---------------------------------------------------------------------------
 
-MISSION_BRIEF_TEMPLATE = """# DSN Scheduling Mission Brief
-
-## Overview
-
-You are a **Mission Planner for NASA's Deep Space Network (DSN)**. Your task is to schedule antenna resources to support communication with spacecraft during **Week {week}, Year {year}**.
-
-The Deep Space Network consists of ground-based antennas located at three facilities around the globe (Goldstone, Canberra, and Madrid). Each antenna can only communicate with one spacecraft at a time, and scheduling must respect visibility windows, setup/teardown times, and maintenance periods.
-
-## Input Data
-
-### 1. `problems.json`
-
-Contains all scheduling requests for the week. The relevant key is `W{week}_{year}`.
-
-Each request has:
-- `track_id`: Unique identifier for this request.
-- `subject`: Spacecraft ID (mission).
-- `user`: User identifier.
-- `duration`: Requested tracking time in **hours**.
-- `duration_min`: Minimum acceptable tracking time in **hours**.
-- `resources`: List of antenna options (e.g., `[["DSS-34"], ["DSS-36"]]` means either DSS-34 OR DSS-36 can be used).
-- `setup_time`: Time in **minutes** required before tracking begins.
-- `teardown_time`: Time in **minutes** required after tracking ends.
-- `time_window_start`, `time_window_end`: UNIX timestamps defining the scheduling window.
-- `resource_vp_dict`: View Period dictionary. For each antenna (or antenna combination), lists visibility windows as `(TRX ON, TRX OFF)` or `(RISE, SET)` times in UNIX seconds.
-
-### 2. `maintenance.csv`
-
-Contains antenna maintenance windows with columns:
-- `week`, `year`: Week and year of maintenance.
-- `starttime`, `endtime`: UNIX timestamps.
-- `antenna`: Affected antenna (e.g., `DSS-14`).
-
-## Constraints
-
-You MUST satisfy ALL of the following constraints:
-
-### 1. View Period Containment
-- **TRACKING_ON** and **TRACKING_OFF** times must fall within a valid View Period for the selected antenna(s).
-- Check `resource_vp_dict` for valid windows.
-
-### 2. Setup and Teardown
-- Each track requires setup time BEFORE tracking and teardown time AFTER.
-- **START_TIME** = TRACKING_ON - (setup_time × 60 seconds)
-- **END_TIME** = TRACKING_OFF + (teardown_time × 60 seconds)
-- The entire [START_TIME, END_TIME] interval occupies the antenna.
-
-### 3. No Overlap
-- No two tracks can use the same antenna at overlapping times.
-- Compare [START_TIME, END_TIME] intervals for each antenna.
-
-### 4. Maintenance Windows
-- Tracks CANNOT overlap with maintenance windows for the affected antenna.
-- Check `maintenance.csv` for the relevant week.
-
-### 5. Minimum Duration
-- Each track's tracking duration (TRACKING_OFF - TRACKING_ON) must be at least `duration_min` hours (converted to seconds).
-
-## Output Format
-
-Produce a file named **`solution.json`** containing a JSON array of track objects:
-
-```json
-[
-  {{
-    "RESOURCE": "DSS-34",
-    "SC": 521,
-    "START_TIME": 1520282407,
-    "TRACKING_ON": 1520286007,
-    "TRACKING_OFF": 1520289607,
-    "END_TIME": 1520290507,
-    "TRACK_ID": "fc9bbb54-3-1"
-  }},
-  ...
-]
-```
-
-Each track object has:
-- `RESOURCE`: The antenna used (e.g., "DSS-34").
-- `SC`: Spacecraft ID (from request's `subject`).
-- `START_TIME`: UNIX seconds when antenna allocation begins (includes setup).
-- `TRACKING_ON`: UNIX seconds when tracking starts.
-- `TRACKING_OFF`: UNIX seconds when tracking ends.
-- `END_TIME`: UNIX seconds when antenna is released (after teardown).
-- `TRACK_ID`: The request's `track_id`.
-
-**For arrayed tracks** (multiple antennas for one request), create separate rows with the same `TRACK_ID` and times but different `RESOURCE` values.
-
-## Verification
-
-Use the verifier to check your solution:
-
-```bash
-python verifier.py data/problems.json data/maintenance.csv solution.json --week {week} --year {year}
-```
-
-The verifier will report:
-- **VALID**: Solution satisfies all constraints.
-- **INVALID**: Lists specific constraint violations.
-
-**Run the verifier frequently** as you build your solution to catch errors early.
-
-## Objective
-
-Maximize total tracking hours while ensuring fairness across missions. A solution that leaves some requests unsatisfied is acceptable if constraints cannot be met.
-
-## Available Antennas
-
-DSS-14, DSS-24, DSS-25, DSS-26, DSS-34, DSS-35, DSS-36, DSS-43, DSS-54, DSS-55, DSS-63, DSS-65
-
-## Getting Started
-
-1. Read `data/problems.json` and filter for week `W{week}_{year}`.
-2. Read `data/maintenance.csv` and filter for week {week}, year {year}.
-3. For each request, identify valid scheduling windows.
-4. Assign antennas and times, avoiding overlaps and maintenance.
-5. Validate with `verifier.py`.
-6. Save final schedule to `solution.json`.
-
-Good luck, Mission Planner!
-"""
+def load_template(filename: str) -> str:
+    """Load a template file from the agentic directory."""
+    template_path = AGENTIC_DIR / filename
+    return template_path.read_text()
 
 
 def generate_mission_brief(week: int, year: int) -> str:
     """Generate the mission brief for the agent."""
-    return MISSION_BRIEF_TEMPLATE.format(week=week, year=year)
+    template = load_template("mission_brief_template.txt")
+    return template.format(week=week, year=year)
 
 
 # ---------------------------------------------------------------------------
@@ -522,7 +407,7 @@ def run_agent(
     if skip_permissions:
         base_cmd.append("--dangerously-skip-permissions")
 
-    prompt = "Read mission.md and create a valid DSN schedule. Save your final solution to solution.json."
+    prompt = load_template("prompt.txt").strip()
 
     if interactive:
         cmd = base_cmd + [prompt]
