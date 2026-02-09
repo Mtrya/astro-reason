@@ -1,0 +1,1753 @@
+{
+  "tasks": [
+    {
+      "release_time": 1924,
+      "due_time": 2946,
+      "duration": 25,
+      "coordinate": [
+        34.700847651120526,
+        -85.94543171926856
+      ],
+      "sensor_type": 1,
+      "id": 0
+    },
+    {
+      "release_time": 3317,
+      "due_time": 3519,
+      "duration": 53,
+      "coordinate": [
+        -1.2798638039386674,
+        -121.57101709435685
+      ],
+      "sensor_type": 1,
+      "id": 1
+    },
+    {
+      "release_time": 448,
+      "due_time": 1373,
+      "duration": 24,
+      "coordinate": [
+        -43.91827963350268,
+        -55.15080250801839
+      ],
+      "sensor_type": 1,
+      "id": 2
+    },
+    {
+      "release_time": 2886,
+      "due_time": 3194,
+      "duration": 25,
+      "coordinate": [
+        57.62507430958897,
+        -172.75733452878012
+      ],
+      "sensor_type": 1,
+      "id": 3
+    },
+    {
+      "release_time": 2373,
+      "due_time": 2988,
+      "duration": 60,
+      "coordinate": [
+        78.82145384627742,
+        -112.82600125149864
+      ],
+      "sensor_type": 1,
+      "id": 4
+    },
+    {
+      "release_time": 2901,
+      "due_time": 3549,
+      "duration": 52,
+      "coordinate": [
+        -37.73134505542647,
+        -124.43760118385669
+      ],
+      "sensor_type": 1,
+      "id": 5
+    },
+    {
+      "release_time": 2530,
+      "due_time": 3565,
+      "duration": 37,
+      "coordinate": [
+        80.92417634587292,
+        -28.45069523232712
+      ],
+      "sensor_type": 1,
+      "id": 6
+    },
+    {
+      "release_time": 386,
+      "due_time": 3292,
+      "duration": 45,
+      "coordinate": [
+        34.51682286696726,
+        -127.53018782689139
+      ],
+      "sensor_type": 1,
+      "id": 7
+    },
+    {
+      "release_time": 2911,
+      "due_time": 3553,
+      "duration": 57,
+      "coordinate": [
+        -40.409221129473714,
+        5.532981805686433
+      ],
+      "sensor_type": 1,
+      "id": 8
+    },
+    {
+      "release_time": 3107,
+      "due_time": 3289,
+      "duration": 40,
+      "coordinate": [
+        -3.077012685272905,
+        -179.04685027135372
+      ],
+      "sensor_type": 1,
+      "id": 9
+    },
+    {
+      "release_time": 2380,
+      "due_time": 3347,
+      "duration": 48,
+      "coordinate": [
+        -72.2407853340073,
+        156.92528723120643
+      ],
+      "sensor_type": 1,
+      "id": 10
+    },
+    {
+      "release_time": 430,
+      "due_time": 2170,
+      "duration": 19,
+      "coordinate": [
+        9.015318873731047,
+        -175.90664562996173
+      ],
+      "sensor_type": 1,
+      "id": 11
+    },
+    {
+      "release_time": 1227,
+      "due_time": 1954,
+      "duration": 15,
+      "coordinate": [
+        -71.6629985837375,
+        158.56638819678028
+      ],
+      "sensor_type": 1,
+      "id": 12
+    },
+    {
+      "release_time": 2963,
+      "due_time": 3223,
+      "duration": 53,
+      "coordinate": [
+        -39.19644747913987,
+        -11.375564146439217
+      ],
+      "sensor_type": 1,
+      "id": 13
+    },
+    {
+      "release_time": 883,
+      "due_time": 1273,
+      "duration": 27,
+      "coordinate": [
+        -4.638522701092455,
+        -118.67233232680405
+      ],
+      "sensor_type": 1,
+      "id": 14
+    },
+    {
+      "release_time": 1761,
+      "due_time": 2198,
+      "duration": 60,
+      "coordinate": [
+        89.42879669491901,
+        19.863912547344
+      ],
+      "sensor_type": 1,
+      "id": 15
+    },
+    {
+      "release_time": 1623,
+      "due_time": 2423,
+      "duration": 49,
+      "coordinate": [
+        -11.463438162655834,
+        156.1854782278529
+      ],
+      "sensor_type": 1,
+      "id": 16
+    },
+    {
+      "release_time": 1767,
+      "due_time": 3534,
+      "duration": 51,
+      "coordinate": [
+        58.31320225649637,
+        -106.70154596222177
+      ],
+      "sensor_type": 1,
+      "id": 17
+    },
+    {
+      "release_time": 1638,
+      "due_time": 2972,
+      "duration": 31,
+      "coordinate": [
+        -58.474204442890795,
+        -50.96925617578765
+      ],
+      "sensor_type": 1,
+      "id": 18
+    },
+    {
+      "release_time": 2868,
+      "due_time": 3387,
+      "duration": 58,
+      "coordinate": [
+        6.964271449903691,
+        -41.34615077110169
+      ],
+      "sensor_type": 1,
+      "id": 19
+    },
+    {
+      "release_time": 2677,
+      "due_time": 3077,
+      "duration": 21,
+      "coordinate": [
+        -20.84855942793199,
+        -59.60325312455997
+      ],
+      "sensor_type": 1,
+      "id": 20
+    },
+    {
+      "release_time": 3053,
+      "due_time": 3474,
+      "duration": 22,
+      "coordinate": [
+        58.32690686142877,
+        -30.0731204468662
+      ],
+      "sensor_type": 1,
+      "id": 21
+    },
+    {
+      "release_time": 2739,
+      "due_time": 2990,
+      "duration": 60,
+      "coordinate": [
+        26.49827956564245,
+        -65.67349662350898
+      ],
+      "sensor_type": 1,
+      "id": 22
+    },
+    {
+      "release_time": 1993,
+      "due_time": 2788,
+      "duration": 50,
+      "coordinate": [
+        -84.75431107441683,
+        98.3525495744135
+      ],
+      "sensor_type": 1,
+      "id": 23
+    },
+    {
+      "release_time": 1907,
+      "due_time": 3391,
+      "duration": 25,
+      "coordinate": [
+        58.4542890076884,
+        -109.65066271641327
+      ],
+      "sensor_type": 1,
+      "id": 24
+    },
+    {
+      "release_time": 2123,
+      "due_time": 2375,
+      "duration": 41,
+      "coordinate": [
+        33.47632916927414,
+        -121.45973873848368
+      ],
+      "sensor_type": 1,
+      "id": 25
+    },
+    {
+      "release_time": 2371,
+      "due_time": 2722,
+      "duration": 39,
+      "coordinate": [
+        -81.4636606086315,
+        -64.03724950151103
+      ],
+      "sensor_type": 1,
+      "id": 26
+    },
+    {
+      "release_time": 2394,
+      "due_time": 3436,
+      "duration": 51,
+      "coordinate": [
+        52.60137463453714,
+        -46.287721153571226
+      ],
+      "sensor_type": 1,
+      "id": 27
+    },
+    {
+      "release_time": 3376,
+      "due_time": 3578,
+      "duration": 39,
+      "coordinate": [
+        -30.90537490098648,
+        75.59490848397854
+      ],
+      "sensor_type": 1,
+      "id": 28
+    },
+    {
+      "release_time": 1849,
+      "due_time": 2487,
+      "duration": 21,
+      "coordinate": [
+        -73.56674691385871,
+        155.09737768435764
+      ],
+      "sensor_type": 1,
+      "id": 29
+    },
+    {
+      "release_time": 2395,
+      "due_time": 3240,
+      "duration": 41,
+      "coordinate": [
+        -6.943154153556634,
+        135.25011827647808
+      ],
+      "sensor_type": 1,
+      "id": 30
+    },
+    {
+      "release_time": 2795,
+      "due_time": 3138,
+      "duration": 27,
+      "coordinate": [
+        -84.12057979179244,
+        29.289521885363996
+      ],
+      "sensor_type": 1,
+      "id": 31
+    },
+    {
+      "release_time": 2583,
+      "due_time": 3415,
+      "duration": 55,
+      "coordinate": [
+        79.2292624174957,
+        111.4534256180483
+      ],
+      "sensor_type": 1,
+      "id": 32
+    },
+    {
+      "release_time": 1623,
+      "due_time": 2438,
+      "duration": 23,
+      "coordinate": [
+        -41.00556862583444,
+        177.38235696546434
+      ],
+      "sensor_type": 1,
+      "id": 33
+    },
+    {
+      "release_time": 1590,
+      "due_time": 3013,
+      "duration": 25,
+      "coordinate": [
+        -12.401198747190818,
+        54.563809760330884
+      ],
+      "sensor_type": 1,
+      "id": 34
+    },
+    {
+      "release_time": 2672,
+      "due_time": 3462,
+      "duration": 55,
+      "coordinate": [
+        -65.08357494503903,
+        61.739486229830305
+      ],
+      "sensor_type": 1,
+      "id": 35
+    },
+    {
+      "release_time": 421,
+      "due_time": 3015,
+      "duration": 18,
+      "coordinate": [
+        -40.04249904966289,
+        -126.86717258597002
+      ],
+      "sensor_type": 1,
+      "id": 36
+    },
+    {
+      "release_time": 445,
+      "due_time": 2258,
+      "duration": 48,
+      "coordinate": [
+        71.16431355715372,
+        155.450443664501
+      ],
+      "sensor_type": 1,
+      "id": 37
+    },
+    {
+      "release_time": 2096,
+      "due_time": 2473,
+      "duration": 48,
+      "coordinate": [
+        -77.93153474636762,
+        59.60518412375771
+      ],
+      "sensor_type": 1,
+      "id": 38
+    },
+    {
+      "release_time": 147,
+      "due_time": 2812,
+      "duration": 60,
+      "coordinate": [
+        87.0098514711608,
+        -134.19697392893343
+      ],
+      "sensor_type": 1,
+      "id": 39
+    },
+    {
+      "release_time": 1388,
+      "due_time": 3254,
+      "duration": 51,
+      "coordinate": [
+        -59.0652868446183,
+        70.93108907170364
+      ],
+      "sensor_type": 1,
+      "id": 40
+    },
+    {
+      "release_time": 1633,
+      "due_time": 2874,
+      "duration": 15,
+      "coordinate": [
+        -38.89655911431291,
+        145.50955317980885
+      ],
+      "sensor_type": 1,
+      "id": 41
+    },
+    {
+      "release_time": 2629,
+      "due_time": 2856,
+      "duration": 38,
+      "coordinate": [
+        -37.95507057901003,
+        88.5427307139222
+      ],
+      "sensor_type": 1,
+      "id": 42
+    },
+    {
+      "release_time": 232,
+      "due_time": 635,
+      "duration": 26,
+      "coordinate": [
+        49.41791719799659,
+        28.671283455862152
+      ],
+      "sensor_type": 1,
+      "id": 43
+    },
+    {
+      "release_time": 2598,
+      "due_time": 2864,
+      "duration": 34,
+      "coordinate": [
+        40.949126288553,
+        11.764103119367178
+      ],
+      "sensor_type": 1,
+      "id": 44
+    },
+    {
+      "release_time": 1929,
+      "due_time": 2915,
+      "duration": 40,
+      "coordinate": [
+        -89.46735064093484,
+        153.332205366844
+      ],
+      "sensor_type": 1,
+      "id": 45
+    },
+    {
+      "release_time": 2949,
+      "due_time": 3489,
+      "duration": 18,
+      "coordinate": [
+        72.94251901663631,
+        166.19581312357917
+      ],
+      "sensor_type": 1,
+      "id": 46
+    },
+    {
+      "release_time": 1913,
+      "due_time": 2561,
+      "duration": 19,
+      "coordinate": [
+        87.97873999916146,
+        -41.69933377773907
+      ],
+      "sensor_type": 1,
+      "id": 47
+    },
+    {
+      "release_time": 2603,
+      "due_time": 3490,
+      "duration": 56,
+      "coordinate": [
+        -88.1126265657789,
+        -133.94948044146128
+      ],
+      "sensor_type": 1,
+      "id": 48
+    },
+    {
+      "release_time": 1446,
+      "due_time": 3205,
+      "duration": 49,
+      "coordinate": [
+        -21.132252652572987,
+        78.88230832471112
+      ],
+      "sensor_type": 1,
+      "id": 49
+    },
+    {
+      "release_time": 1897,
+      "due_time": 3136,
+      "duration": 40,
+      "coordinate": [
+        -68.13990787253867,
+        -149.15712193616258
+      ],
+      "sensor_type": 1,
+      "id": 50
+    },
+    {
+      "release_time": 2232,
+      "due_time": 2399,
+      "duration": 24,
+      "coordinate": [
+        -16.010788214480257,
+        -9.96751290287716
+      ],
+      "sensor_type": 1,
+      "id": 51
+    },
+    {
+      "release_time": 3181,
+      "due_time": 3408,
+      "duration": 45,
+      "coordinate": [
+        72.19538292619859,
+        -155.92756473096117
+      ],
+      "sensor_type": 1,
+      "id": 52
+    },
+    {
+      "release_time": 1958,
+      "due_time": 3113,
+      "duration": 33,
+      "coordinate": [
+        36.85946481014962,
+        37.279448757470334
+      ],
+      "sensor_type": 1,
+      "id": 53
+    },
+    {
+      "release_time": 3352,
+      "due_time": 3565,
+      "duration": 53,
+      "coordinate": [
+        -22.14142142406847,
+        -151.95728055000853
+      ],
+      "sensor_type": 1,
+      "id": 54
+    },
+    {
+      "release_time": 3284,
+      "due_time": 3552,
+      "duration": 50,
+      "coordinate": [
+        -47.7492741960084,
+        156.48305388129307
+      ],
+      "sensor_type": 1,
+      "id": 55
+    },
+    {
+      "release_time": 735,
+      "due_time": 3274,
+      "duration": 27,
+      "coordinate": [
+        71.10161961168444,
+        141.96751870842826
+      ],
+      "sensor_type": 1,
+      "id": 56
+    },
+    {
+      "release_time": 3394,
+      "due_time": 3512,
+      "duration": 34,
+      "coordinate": [
+        88.47582594485698,
+        58.66381158452697
+      ],
+      "sensor_type": 1,
+      "id": 57
+    },
+    {
+      "release_time": 3215,
+      "due_time": 3380,
+      "duration": 16,
+      "coordinate": [
+        -18.638309727849688,
+        72.11723051458026
+      ],
+      "sensor_type": 1,
+      "id": 58
+    },
+    {
+      "release_time": 871,
+      "due_time": 1478,
+      "duration": 33,
+      "coordinate": [
+        -66.33218099573253,
+        -24.477862440091997
+      ],
+      "sensor_type": 1,
+      "id": 59
+    },
+    {
+      "release_time": 749,
+      "due_time": 2119,
+      "duration": 29,
+      "coordinate": [
+        46.520837171210275,
+        -153.82566242845095
+      ],
+      "sensor_type": 1,
+      "id": 60
+    },
+    {
+      "release_time": 1548,
+      "due_time": 3534,
+      "duration": 15,
+      "coordinate": [
+        85.28449966230212,
+        148.1356322176203
+      ],
+      "sensor_type": 1,
+      "id": 61
+    },
+    {
+      "release_time": 20,
+      "due_time": 2025,
+      "duration": 60,
+      "coordinate": [
+        74.16659904946755,
+        29.85037573443651
+      ],
+      "sensor_type": 1,
+      "id": 62
+    },
+    {
+      "release_time": 1718,
+      "due_time": 3429,
+      "duration": 34,
+      "coordinate": [
+        44.38789900784192,
+        143.53227886901487
+      ],
+      "sensor_type": 1,
+      "id": 63
+    },
+    {
+      "release_time": 1781,
+      "due_time": 3301,
+      "duration": 42,
+      "coordinate": [
+        89.45623570979265,
+        21.422498345055203
+      ],
+      "sensor_type": 1,
+      "id": 64
+    },
+    {
+      "release_time": 2708,
+      "due_time": 3139,
+      "duration": 21,
+      "coordinate": [
+        -59.25886989803347,
+        -98.7642767030572
+      ],
+      "sensor_type": 1,
+      "id": 65
+    },
+    {
+      "release_time": 1269,
+      "due_time": 1528,
+      "duration": 36,
+      "coordinate": [
+        -82.9088876410642,
+        119.50997190915513
+      ],
+      "sensor_type": 1,
+      "id": 66
+    },
+    {
+      "release_time": 1498,
+      "due_time": 2456,
+      "duration": 35,
+      "coordinate": [
+        47.064805075988886,
+        -10.607299924077722
+      ],
+      "sensor_type": 1,
+      "id": 67
+    },
+    {
+      "release_time": 3380,
+      "due_time": 3538,
+      "duration": 50,
+      "coordinate": [
+        -29.270658239374676,
+        87.06042918692134
+      ],
+      "sensor_type": 1,
+      "id": 68
+    },
+    {
+      "release_time": 1005,
+      "due_time": 2669,
+      "duration": 26,
+      "coordinate": [
+        -11.212518491234931,
+        -81.25656901067265
+      ],
+      "sensor_type": 1,
+      "id": 69
+    },
+    {
+      "release_time": 1460,
+      "due_time": 2896,
+      "duration": 26,
+      "coordinate": [
+        -21.624049991312006,
+        -46.38701143345045
+      ],
+      "sensor_type": 1,
+      "id": 70
+    },
+    {
+      "release_time": 1680,
+      "due_time": 1998,
+      "duration": 29,
+      "coordinate": [
+        -57.63059695207186,
+        80.87570492585115
+      ],
+      "sensor_type": 1,
+      "id": 71
+    },
+    {
+      "release_time": 1335,
+      "due_time": 2865,
+      "duration": 27,
+      "coordinate": [
+        -73.19419023267773,
+        34.51043511928023
+      ],
+      "sensor_type": 1,
+      "id": 72
+    },
+    {
+      "release_time": 1174,
+      "due_time": 2634,
+      "duration": 15,
+      "coordinate": [
+        -24.208333227047433,
+        171.71420678326848
+      ],
+      "sensor_type": 1,
+      "id": 73
+    },
+    {
+      "release_time": 2998,
+      "due_time": 3214,
+      "duration": 54,
+      "coordinate": [
+        49.3454660625153,
+        168.14921920434108
+      ],
+      "sensor_type": 1,
+      "id": 74
+    },
+    {
+      "release_time": 3044,
+      "due_time": 3181,
+      "duration": 21,
+      "coordinate": [
+        27.71710748922962,
+        -51.52314686354438
+      ],
+      "sensor_type": 1,
+      "id": 75
+    },
+    {
+      "release_time": 2923,
+      "due_time": 3564,
+      "duration": 21,
+      "coordinate": [
+        -40.19004662983967,
+        9.508834122912475
+      ],
+      "sensor_type": 1,
+      "id": 76
+    },
+    {
+      "release_time": 2936,
+      "due_time": 3253,
+      "duration": 47,
+      "coordinate": [
+        6.040918385014194,
+        7.541787579881685
+      ],
+      "sensor_type": 1,
+      "id": 77
+    },
+    {
+      "release_time": 2502,
+      "due_time": 2744,
+      "duration": 19,
+      "coordinate": [
+        -37.92489347010925,
+        152.76721058951944
+      ],
+      "sensor_type": 1,
+      "id": 78
+    },
+    {
+      "release_time": 889,
+      "due_time": 1261,
+      "duration": 53,
+      "coordinate": [
+        -89.57250803783043,
+        -50.48571195056272
+      ],
+      "sensor_type": 1,
+      "id": 79
+    },
+    {
+      "release_time": 3404,
+      "due_time": 3586,
+      "duration": 33,
+      "coordinate": [
+        -57.60656222353134,
+        -166.6124205699655
+      ],
+      "sensor_type": 1,
+      "id": 80
+    },
+    {
+      "release_time": 3347,
+      "due_time": 3563,
+      "duration": 30,
+      "coordinate": [
+        -82.15177490591573,
+        92.8371870235635
+      ],
+      "sensor_type": 1,
+      "id": 81
+    },
+    {
+      "release_time": 1529,
+      "due_time": 3259,
+      "duration": 58,
+      "coordinate": [
+        -75.50478088816901,
+        147.508892015379
+      ],
+      "sensor_type": 1,
+      "id": 82
+    },
+    {
+      "release_time": 2245,
+      "due_time": 3385,
+      "duration": 26,
+      "coordinate": [
+        64.01550154041294,
+        110.72573869425418
+      ],
+      "sensor_type": 1,
+      "id": 83
+    },
+    {
+      "release_time": 3256,
+      "due_time": 3531,
+      "duration": 59,
+      "coordinate": [
+        48.48046691040565,
+        -123.59452153660399
+      ],
+      "sensor_type": 1,
+      "id": 84
+    },
+    {
+      "release_time": 365,
+      "due_time": 2992,
+      "duration": 19,
+      "coordinate": [
+        1.5456866843164363,
+        -104.3710103999968
+      ],
+      "sensor_type": 1,
+      "id": 85
+    },
+    {
+      "release_time": 2361,
+      "due_time": 2935,
+      "duration": 56,
+      "coordinate": [
+        -60.44983760307343,
+        111.65459708040623
+      ],
+      "sensor_type": 1,
+      "id": 86
+    },
+    {
+      "release_time": 590,
+      "due_time": 2787,
+      "duration": 16,
+      "coordinate": [
+        60.474024430510866,
+        72.25445530292424
+      ],
+      "sensor_type": 1,
+      "id": 87
+    },
+    {
+      "release_time": 1906,
+      "due_time": 3516,
+      "duration": 23,
+      "coordinate": [
+        -27.193058209620034,
+        79.03711671938987
+      ],
+      "sensor_type": 1,
+      "id": 88
+    },
+    {
+      "release_time": 1364,
+      "due_time": 2618,
+      "duration": 18,
+      "coordinate": [
+        -88.24438051309794,
+        100.72189658603958
+      ],
+      "sensor_type": 1,
+      "id": 89
+    },
+    {
+      "release_time": 2101,
+      "due_time": 2849,
+      "duration": 35,
+      "coordinate": [
+        -41.87991612116161,
+        22.64789834755456
+      ],
+      "sensor_type": 1,
+      "id": 90
+    },
+    {
+      "release_time": 958,
+      "due_time": 2590,
+      "duration": 35,
+      "coordinate": [
+        -3.804773334074838,
+        91.76455524612243
+      ],
+      "sensor_type": 1,
+      "id": 91
+    },
+    {
+      "release_time": 1322,
+      "due_time": 2690,
+      "duration": 25,
+      "coordinate": [
+        -51.91347006464641,
+        50.99072671678695
+      ],
+      "sensor_type": 1,
+      "id": 92
+    },
+    {
+      "release_time": 2570,
+      "due_time": 2938,
+      "duration": 35,
+      "coordinate": [
+        -45.35532202757959,
+        -43.001458268294215
+      ],
+      "sensor_type": 1,
+      "id": 93
+    },
+    {
+      "release_time": 1261,
+      "due_time": 3574,
+      "duration": 41,
+      "coordinate": [
+        -32.83555534082329,
+        39.25903748074819
+      ],
+      "sensor_type": 1,
+      "id": 94
+    },
+    {
+      "release_time": 2944,
+      "due_time": 3255,
+      "duration": 48,
+      "coordinate": [
+        -89.08025998181617,
+        123.65722292544592
+      ],
+      "sensor_type": 1,
+      "id": 95
+    },
+    {
+      "release_time": 3087,
+      "due_time": 3290,
+      "duration": 54,
+      "coordinate": [
+        -43.1547982391212,
+        -148.77894793197544
+      ],
+      "sensor_type": 1,
+      "id": 96
+    },
+    {
+      "release_time": 1972,
+      "due_time": 2277,
+      "duration": 46,
+      "coordinate": [
+        49.989238569078566,
+        -1.6843619588385366
+      ],
+      "sensor_type": 1,
+      "id": 97
+    },
+    {
+      "release_time": 3251,
+      "due_time": 3361,
+      "duration": 21,
+      "coordinate": [
+        26.16296849202908,
+        2.712146087368467
+      ],
+      "sensor_type": 1,
+      "id": 98
+    },
+    {
+      "release_time": 1682,
+      "due_time": 1910,
+      "duration": 15,
+      "coordinate": [
+        -4.332548450009668,
+        50.53046119395336
+      ],
+      "sensor_type": 1,
+      "id": 99
+    },
+    {
+      "release_time": 852,
+      "due_time": 3599,
+      "duration": 40,
+      "coordinate": [
+        -33.70781765485588,
+        -100.40804280843172
+      ],
+      "sensor_type": 1,
+      "id": 100
+    },
+    {
+      "release_time": 197,
+      "due_time": 3379,
+      "duration": 19,
+      "coordinate": [
+        49.56917882263798,
+        -167.25319134236975
+      ],
+      "sensor_type": 1,
+      "id": 101
+    },
+    {
+      "release_time": 2730,
+      "due_time": 3162,
+      "duration": 50,
+      "coordinate": [
+        -76.23265073673389,
+        60.73960495139764
+      ],
+      "sensor_type": 1,
+      "id": 102
+    },
+    {
+      "release_time": 222,
+      "due_time": 3583,
+      "duration": 21,
+      "coordinate": [
+        38.2310864330793,
+        -98.93759143046935
+      ],
+      "sensor_type": 1,
+      "id": 103
+    },
+    {
+      "release_time": 54,
+      "due_time": 1861,
+      "duration": 59,
+      "coordinate": [
+        80.48567580659295,
+        -141.1337806691461
+      ],
+      "sensor_type": 1,
+      "id": 104
+    },
+    {
+      "release_time": 1964,
+      "due_time": 2619,
+      "duration": 56,
+      "coordinate": [
+        -74.80222535659664,
+        11.658008951979753
+      ],
+      "sensor_type": 1,
+      "id": 105
+    },
+    {
+      "release_time": 39,
+      "due_time": 1652,
+      "duration": 50,
+      "coordinate": [
+        87.25014712262688,
+        -34.30924236804921
+      ],
+      "sensor_type": 1,
+      "id": 106
+    },
+    {
+      "release_time": 2409,
+      "due_time": 3535,
+      "duration": 45,
+      "coordinate": [
+        -31.544421208836305,
+        111.43958131670786
+      ],
+      "sensor_type": 1,
+      "id": 107
+    },
+    {
+      "release_time": 2566,
+      "due_time": 2720,
+      "duration": 40,
+      "coordinate": [
+        -3.712858515654588,
+        -123.1595081642783
+      ],
+      "sensor_type": 1,
+      "id": 108
+    },
+    {
+      "release_time": 2465,
+      "due_time": 2879,
+      "duration": 18,
+      "coordinate": [
+        47.137394860894545,
+        75.81251117701214
+      ],
+      "sensor_type": 1,
+      "id": 109
+    },
+    {
+      "release_time": 2343,
+      "due_time": 3231,
+      "duration": 44,
+      "coordinate": [
+        -6.474268973718324,
+        81.11664330962441
+      ],
+      "sensor_type": 1,
+      "id": 110
+    },
+    {
+      "release_time": 249,
+      "due_time": 3558,
+      "duration": 54,
+      "coordinate": [
+        58.787905682115934,
+        164.16068617900532
+      ],
+      "sensor_type": 1,
+      "id": 111
+    },
+    {
+      "release_time": 771,
+      "due_time": 1795,
+      "duration": 40,
+      "coordinate": [
+        -78.15348984752708,
+        -173.90600723212273
+      ],
+      "sensor_type": 1,
+      "id": 112
+    },
+    {
+      "release_time": 3223,
+      "due_time": 3541,
+      "duration": 36,
+      "coordinate": [
+        39.77628160105621,
+        117.12261617672664
+      ],
+      "sensor_type": 1,
+      "id": 113
+    },
+    {
+      "release_time": 2689,
+      "due_time": 3341,
+      "duration": 24,
+      "coordinate": [
+        16.1389545381937,
+        19.03705932692276
+      ],
+      "sensor_type": 1,
+      "id": 114
+    },
+    {
+      "release_time": 316,
+      "due_time": 2257,
+      "duration": 37,
+      "coordinate": [
+        -33.38216249174113,
+        101.8102860679694
+      ],
+      "sensor_type": 1,
+      "id": 115
+    },
+    {
+      "release_time": 2890,
+      "due_time": 3539,
+      "duration": 48,
+      "coordinate": [
+        76.4785731900908,
+        -149.12191942577283
+      ],
+      "sensor_type": 1,
+      "id": 116
+    },
+    {
+      "release_time": 2556,
+      "due_time": 3258,
+      "duration": 49,
+      "coordinate": [
+        34.889854086280565,
+        -155.71945447649077
+      ],
+      "sensor_type": 1,
+      "id": 117
+    },
+    {
+      "release_time": 3200,
+      "due_time": 3597,
+      "duration": 17,
+      "coordinate": [
+        65.08288334564685,
+        43.39579114012929
+      ],
+      "sensor_type": 1,
+      "id": 118
+    },
+    {
+      "release_time": 3068,
+      "due_time": 3128,
+      "duration": 16,
+      "coordinate": [
+        5.1342171685443105,
+        -127.86907518107608
+      ],
+      "sensor_type": 1,
+      "id": 119
+    },
+    {
+      "release_time": 7,
+      "due_time": 2664,
+      "duration": 46,
+      "coordinate": [
+        80.2358296031872,
+        101.05551606857165
+      ],
+      "sensor_type": 1,
+      "id": 120
+    },
+    {
+      "release_time": 1882,
+      "due_time": 2757,
+      "duration": 46,
+      "coordinate": [
+        -72.10796840923473,
+        47.80106791912564
+      ],
+      "sensor_type": 1,
+      "id": 121
+    },
+    {
+      "release_time": 200,
+      "due_time": 1017,
+      "duration": 41,
+      "coordinate": [
+        -67.32344479994326,
+        66.72599840473816
+      ],
+      "sensor_type": 1,
+      "id": 122
+    },
+    {
+      "release_time": 2077,
+      "due_time": 3342,
+      "duration": 22,
+      "coordinate": [
+        9.802694400730516,
+        -14.157149790780522
+      ],
+      "sensor_type": 1,
+      "id": 123
+    },
+    {
+      "release_time": 587,
+      "due_time": 2561,
+      "duration": 55,
+      "coordinate": [
+        -32.35838331182981,
+        4.826566037549469
+      ],
+      "sensor_type": 1,
+      "id": 124
+    },
+    {
+      "release_time": 543,
+      "due_time": 1431,
+      "duration": 28,
+      "coordinate": [
+        30.560976406080968,
+        77.24953414866263
+      ],
+      "sensor_type": 1,
+      "id": 125
+    },
+    {
+      "release_time": 532,
+      "due_time": 1956,
+      "duration": 58,
+      "coordinate": [
+        5.25395004704616,
+        97.53084196782521
+      ],
+      "sensor_type": 1,
+      "id": 126
+    },
+    {
+      "release_time": 1082,
+      "due_time": 2149,
+      "duration": 45,
+      "coordinate": [
+        31.703248935808247,
+        174.3917381345721
+      ],
+      "sensor_type": 1,
+      "id": 127
+    },
+    {
+      "release_time": 2553,
+      "due_time": 3502,
+      "duration": 55,
+      "coordinate": [
+        -39.76013683428815,
+        126.81600633263179
+      ],
+      "sensor_type": 1,
+      "id": 128
+    },
+    {
+      "release_time": 2451,
+      "due_time": 2642,
+      "duration": 53,
+      "coordinate": [
+        -42.543466670697896,
+        62.79690702297117
+      ],
+      "sensor_type": 1,
+      "id": 129
+    },
+    {
+      "release_time": 3390,
+      "due_time": 3600,
+      "duration": 58,
+      "coordinate": [
+        -16.258873628721716,
+        57.94208399947678
+      ],
+      "sensor_type": 1,
+      "id": 130
+    },
+    {
+      "release_time": 948,
+      "due_time": 1578,
+      "duration": 53,
+      "coordinate": [
+        9.302037992985419,
+        0.22793359070746533
+      ],
+      "sensor_type": 1,
+      "id": 131
+    },
+    {
+      "release_time": 2560,
+      "due_time": 2872,
+      "duration": 17,
+      "coordinate": [
+        57.557289036083546,
+        78.01299787540671
+      ],
+      "sensor_type": 1,
+      "id": 132
+    },
+    {
+      "release_time": 2055,
+      "due_time": 3418,
+      "duration": 16,
+      "coordinate": [
+        -16.58189963872691,
+        -67.68883247433214
+      ],
+      "sensor_type": 1,
+      "id": 133
+    },
+    {
+      "release_time": 1374,
+      "due_time": 2749,
+      "duration": 59,
+      "coordinate": [
+        63.7768759382117,
+        -65.67194619186591
+      ],
+      "sensor_type": 1,
+      "id": 134
+    },
+    {
+      "release_time": 2636,
+      "due_time": 3168,
+      "duration": 32,
+      "coordinate": [
+        -7.892409306708089,
+        24.15525721865646
+      ],
+      "sensor_type": 1,
+      "id": 135
+    },
+    {
+      "release_time": 1620,
+      "due_time": 2747,
+      "duration": 23,
+      "coordinate": [
+        35.02518332570821,
+        -7.818422985671418
+      ],
+      "sensor_type": 1,
+      "id": 136
+    },
+    {
+      "release_time": 3416,
+      "due_time": 3580,
+      "duration": 33,
+      "coordinate": [
+        73.62786065786796,
+        69.29219566571399
+      ],
+      "sensor_type": 1,
+      "id": 137
+    },
+    {
+      "release_time": 2893,
+      "due_time": 3243,
+      "duration": 54,
+      "coordinate": [
+        -77.74074297200508,
+        -54.88191125033009
+      ],
+      "sensor_type": 1,
+      "id": 138
+    },
+    {
+      "release_time": 802,
+      "due_time": 1798,
+      "duration": 16,
+      "coordinate": [
+        10.808391207259405,
+        -104.75278288897377
+      ],
+      "sensor_type": 1,
+      "id": 139
+    },
+    {
+      "release_time": 1466,
+      "due_time": 3020,
+      "duration": 21,
+      "coordinate": [
+        -83.96963605122289,
+        -90.18154232473354
+      ],
+      "sensor_type": 1,
+      "id": 140
+    },
+    {
+      "release_time": 2506,
+      "due_time": 2846,
+      "duration": 29,
+      "coordinate": [
+        89.84524701372558,
+        81.62664936300229
+      ],
+      "sensor_type": 1,
+      "id": 141
+    },
+    {
+      "release_time": 267,
+      "due_time": 3398,
+      "duration": 26,
+      "coordinate": [
+        10.920677414947136,
+        -115.0523913055214
+      ],
+      "sensor_type": 1,
+      "id": 142
+    },
+    {
+      "release_time": 1829,
+      "due_time": 2311,
+      "duration": 25,
+      "coordinate": [
+        -51.81710272265841,
+        -152.3909263468368
+      ],
+      "sensor_type": 1,
+      "id": 143
+    },
+    {
+      "release_time": 1218,
+      "due_time": 2877,
+      "duration": 43,
+      "coordinate": [
+        -42.18128822855238,
+        -158.38035994095344
+      ],
+      "sensor_type": 1,
+      "id": 144
+    },
+    {
+      "release_time": 1200,
+      "due_time": 3076,
+      "duration": 40,
+      "coordinate": [
+        -81.98873917143139,
+        169.38937919951803
+      ],
+      "sensor_type": 1,
+      "id": 145
+    },
+    {
+      "release_time": 957,
+      "due_time": 2095,
+      "duration": 35,
+      "coordinate": [
+        -15.880196709587452,
+        83.43025557519837
+      ],
+      "sensor_type": 1,
+      "id": 146
+    },
+    {
+      "release_time": 369,
+      "due_time": 2678,
+      "duration": 35,
+      "coordinate": [
+        60.76477047770808,
+        8.228896952292274
+      ],
+      "sensor_type": 1,
+      "id": 147
+    },
+    {
+      "release_time": 3123,
+      "due_time": 3294,
+      "duration": 57,
+      "coordinate": [
+        -0.28579564431652216,
+        -158.34365248362366
+      ],
+      "sensor_type": 1,
+      "id": 148
+    },
+    {
+      "release_time": 1308,
+      "due_time": 3359,
+      "duration": 50,
+      "coordinate": [
+        76.53800268371666,
+        100.23055111024871
+      ],
+      "sensor_type": 1,
+      "id": 149
+    },
+    {
+      "release_time": 1958,
+      "due_time": 2335,
+      "duration": 52,
+      "coordinate": [
+        85.5860632355168,
+        137.33700344151055
+      ],
+      "sensor_type": 1,
+      "id": 150
+    },
+    {
+      "release_time": 3432,
+      "due_time": 3576,
+      "duration": 25,
+      "coordinate": [
+        -4.515668310535659,
+        71.48264303069683
+      ],
+      "sensor_type": 1,
+      "id": 151
+    },
+    {
+      "release_time": 2499,
+      "due_time": 2913,
+      "duration": 37,
+      "coordinate": [
+        -83.3611918887025,
+        -172.75576237089214
+      ],
+      "sensor_type": 1,
+      "id": 152
+    },
+    {
+      "release_time": 3377,
+      "due_time": 3587,
+      "duration": 57,
+      "coordinate": [
+        73.04195574254086,
+        -98.78985681952767
+      ],
+      "sensor_type": 1,
+      "id": 153
+    },
+    {
+      "release_time": 3205,
+      "due_time": 3433,
+      "duration": 51,
+      "coordinate": [
+        -48.06778543766701,
+        -12.403915724561699
+      ],
+      "sensor_type": 1,
+      "id": 154
+    },
+    {
+      "release_time": 2064,
+      "due_time": 2755,
+      "duration": 58,
+      "coordinate": [
+        -76.6094271311661,
+        -50.89751592391326
+      ],
+      "sensor_type": 1,
+      "id": 155
+    },
+    {
+      "release_time": 624,
+      "due_time": 2022,
+      "duration": 17,
+      "coordinate": [
+        68.99308352293374,
+        -89.06300708121938
+      ],
+      "sensor_type": 1,
+      "id": 156
+    },
+    {
+      "release_time": 1239,
+      "due_time": 1862,
+      "duration": 52,
+      "coordinate": [
+        25.028001465766465,
+        -162.89543636192604
+      ],
+      "sensor_type": 1,
+      "id": 157
+    },
+    {
+      "release_time": 686,
+      "due_time": 1766,
+      "duration": 59,
+      "coordinate": [
+        -10.195952202626728,
+        -41.715867104161646
+      ],
+      "sensor_type": 1,
+      "id": 158
+    }
+  ]
+}
