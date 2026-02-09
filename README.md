@@ -247,7 +247,7 @@ Benchmark datasets are derived from the following sources:
 
 **Note:** Satellite parameters other than orbital elements (e.g., power budgets, data storage, slew rates) are fictional or represent typical values for benchmark purposes.
 
-Datasets are also available on [Hugging Face](https://huggingface.co/kaupane/astro-reason).
+Datasets are also available on [Hugging Face](https://huggingface.co/datasets/kaupane/astro-reason).
 
 ## License
 
