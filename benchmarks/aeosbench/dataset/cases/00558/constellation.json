@@ -1,0 +1,3926 @@
+{
+  "orbits": [
+    {
+      "id": 0,
+      "eccentricity": 0.0001419,
+      "semi_major_axis": 6921000.0,
+      "inclination": 53.2186,
+      "right_ascension_of_the_ascending_node": 69.9732,
+      "argument_of_perigee": 91.1023
+    },
+    {
+      "id": 1,
+      "eccentricity": 0.0001282,
+      "semi_major_axis": 6921000.0,
+      "inclination": 53.2172,
+      "right_ascension_of_the_ascending_node": 5.7177,
+      "argument_of_perigee": 87.8224
+    },
+    {
+      "id": 2,
+      "eccentricity": 0.0001099,
+      "semi_major_axis": 6921000.0,
+      "inclination": 53.2177,
+      "right_ascension_of_the_ascending_node": 329.4467,
+      "argument_of_perigee": 84.4563
+    },
+    {
+      "id": 3,
+      "eccentricity": 0.0001391,
+      "semi_major_axis": 6921000.0,
+      "inclination": 43.0033,
+      "right_ascension_of_the_ascending_node": 292.7493,
+      "argument_of_perigee": 268.239
+    },
+    {
+      "id": 4,
+      "eccentricity": 0.0001924,
+      "semi_major_axis": 6921000.0,
+      "inclination": 43.0045,
+      "right_ascension_of_the_ascending_node": 184.2788,
+      "argument_of_perigee": 290.3745
+    },
+    {
+      "id": 5,
+      "eccentricity": 0.0001294,
+      "semi_major_axis": 6921000.0,
+      "inclination": 53.217,
+      "right_ascension_of_the_ascending_node": 119.3054,
+      "argument_of_perigee": 96.8792
+    },
+    {
+      "id": 6,
+      "eccentricity": 0.0001488,
+      "semi_major_axis": 6921000.0,
+      "inclination": 53.2198,
+      "right_ascension_of_the_ascending_node": 344.2255,
+      "argument_of_perigee": 82.4497
+    },
+    {
+      "id": 7,
+      "eccentricity": 0.0002424,
+      "semi_major_axis": 6921000.0,
+      "inclination": 97.6555,
+      "right_ascension_of_the_ascending_node": 178.7425,
+      "argument_of_perigee": 98.2443
+    },
+    {
+      "id": 8,
+      "eccentricity": 0.00036,
+      "semi_major_axis": 6921000.0,
+      "inclination": 69.9987,
+      "right_ascension_of_the_ascending_node": 209.0528,
+      "argument_of_perigee": 266.4739
+    },
+    {
+      "id": 9,
+      "eccentricity": 0.0001203,
+      "semi_major_axis": 6921000.0,
+      "inclination": 53.2159,
+      "right_ascension_of_the_ascending_node": 177.6271,
+      "argument_of_perigee": 82.6394
+    },
+    {
+      "id": 10,
+      "eccentricity": 0.0018008,
+      "semi_major_axis": 6771000.0,
+      "inclination": 97.4366,
+      "right_ascension_of_the_ascending_node": 249.248,
+      "argument_of_perigee": 248.6437
+    },
+    {
+      "id": 11,
+      "eccentricity": 0.0001293,
+      "semi_major_axis": 6921000.0,
+      "inclination": 53.2163,
+      "right_ascension_of_the_ascending_node": 169.0942,
+      "argument_of_perigee": 98.2257
+    },
+    {
+      "id": 12,
+      "eccentricity": 0.0001421,
+      "semi_major_axis": 6921000.0,
+      "inclination": 53.2174,
+      "right_ascension_of_the_ascending_node": 119.9493,
+      "argument_of_perigee": 106.6567
+    },
+    {
+      "id": 13,
+      "eccentricity": 0.0001345,
+      "semi_major_axis": 6921000.0,
+      "inclination": 43.0034,
+      "right_ascension_of_the_ascending_node": 130.2603,
+      "argument_of_perigee": 268.3717
+    },
+    {
+      "id": 14,
+      "eccentricity": 0.0003609,
+      "semi_major_axis": 6921000.0,
+      "inclination": 53.0471,
+      "right_ascension_of_the_ascending_node": 19.0079,
+      "argument_of_perigee": 222.5827
+    },
+    {
+      "id": 15,
+      "eccentricity": 0.000194,
+      "semi_major_axis": 6921000.0,
+      "inclination": 43.0069,
+      "right_ascension_of_the_ascending_node": 279.543,
+      "argument_of_perigee": 281.8381
+    },
+    {
+      "id": 16,
+      "eccentricity": 0.0001335,
+      "semi_major_axis": 6921000.0,
+      "inclination": 53.2169,
+      "right_ascension_of_the_ascending_node": 139.1984,
+      "argument_of_perigee": 91.8776
+    },
+    {
+      "id": 17,
+      "eccentricity": 0.0001281,
+      "semi_major_axis": 6921000.0,
+      "inclination": 43.0038,
+      "right_ascension_of_the_ascending_node": 349.5251,
+      "argument_of_perigee": 257.3577
+    },
+    {
+      "id": 18,
+      "eccentricity": 0.0008611,
+      "semi_major_axis": 6906000.0,
+      "inclination": 97.4269,
+      "right_ascension_of_the_ascending_node": 235.1217,
+      "argument_of_perigee": 24.7521
+    },
+    {
+      "id": 19,
+      "eccentricity": 0.0001455,
+      "semi_major_axis": 6921000.0,
+      "inclination": 53.054,
+      "right_ascension_of_the_ascending_node": 195.9654,
+      "argument_of_perigee": 107.4082
+    },
+    {
+      "id": 20,
+      "eccentricity": 0.000328,
+      "semi_major_axis": 6771000.0,
+      "inclination": 36.954,
+      "right_ascension_of_the_ascending_node": 288.5264,
+      "argument_of_perigee": 66.6336
+    },
+    {
+      "id": 21,
+      "eccentricity": 0.0001618,
+      "semi_major_axis": 6921000.0,
+      "inclination": 53.2186,
+      "right_ascension_of_the_ascending_node": 84.9707,
+      "argument_of_perigee": 74.6312
+    },
+    {
+      "id": 22,
+      "eccentricity": 0.0001393,
+      "semi_major_axis": 6921000.0,
+      "inclination": 53.2182,
+      "right_ascension_of_the_ascending_node": 272.3614,
+      "argument_of_perigee": 96.8798
+    },
+    {
+      "id": 23,
+      "eccentricity": 0.000193,
+      "semi_major_axis": 6921000.0,
+      "inclination": 53.0553,
+      "right_ascension_of_the_ascending_node": 28.3382,
+      "argument_of_perigee": 126.588
+    },
+    {
+      "id": 24,
+      "eccentricity": 0.0001302,
+      "semi_major_axis": 6921000.0,
+      "inclination": 53.2186,
+      "right_ascension_of_the_ascending_node": 314.3005,
+      "argument_of_perigee": 76.7179
+    },
+    {
+      "id": 25,
+      "eccentricity": 0.0001412,
+      "semi_major_axis": 6921000.0,
+      "inclination": 43.0027,
+      "right_ascension_of_the_ascending_node": 178.5034,
+      "argument_of_perigee": 271.0282
+    },
+    {
+      "id": 26,
+      "eccentricity": 0.0001264,
+      "semi_major_axis": 6921000.0,
+      "inclination": 53.2154,
+      "right_ascension_of_the_ascending_node": 188.6228,
+      "argument_of_perigee": 97.5475
+    },
+    {
+      "id": 27,
+      "eccentricity": 0.0020865,
+      "semi_major_axis": 7785000.0,
+      "inclination": 82.5109,
+      "right_ascension_of_the_ascending_node": 35.6369,
+      "argument_of_perigee": 276.8185
+    },
+    {
+      "id": 28,
+      "eccentricity": 0.0001413,
+      "semi_major_axis": 6921000.0,
+      "inclination": 53.0549,
+      "right_ascension_of_the_ascending_node": 87.4268,
+      "argument_of_perigee": 82.557
+    },
+    {
+      "id": 29,
+      "eccentricity": 0.0001465,
+      "semi_major_axis": 6921000.0,
+      "inclination": 53.0546,
+      "right_ascension_of_the_ascending_node": 126.748,
+      "argument_of_perigee": 91.9708
+    },
+    {
+      "id": 30,
+      "eccentricity": 0.000265,
+      "semi_major_axis": 6921000.0,
+      "inclination": 70.0008,
+      "right_ascension_of_the_ascending_node": 49.308,
+      "argument_of_perigee": 254.5412
+    },
+    {
+      "id": 31,
+      "eccentricity": 0.0001568,
+      "semi_major_axis": 6921000.0,
+      "inclination": 53.2189,
+      "right_ascension_of_the_ascending_node": 59.7934,
+      "argument_of_perigee": 102.199
+    },
+    {
+      "id": 32,
+      "eccentricity": 0.0005994,
+      "semi_major_axis": 6993000.0,
+      "inclination": 97.4796,
+      "right_ascension_of_the_ascending_node": 193.0869,
+      "argument_of_perigee": 235.9813
+    },
+    {
+      "id": 33,
+      "eccentricity": 0.0001353,
+      "semi_major_axis": 6921000.0,
+      "inclination": 53.2161,
+      "right_ascension_of_the_ascending_node": 129.405,
+      "argument_of_perigee": 98.7211
+    },
+    {
+      "id": 34,
+      "eccentricity": 0.0002451,
+      "semi_major_axis": 6921000.0,
+      "inclination": 53.0546,
+      "right_ascension_of_the_ascending_node": 300.2854,
+      "argument_of_perigee": 146.301
+    },
+    {
+      "id": 35,
+      "eccentricity": 0.0002071,
+      "semi_major_axis": 7571000.0,
+      "inclination": 87.8962,
+      "right_ascension_of_the_ascending_node": 73.2274,
+      "argument_of_perigee": 79.5602
+    },
+    {
+      "id": 36,
+      "eccentricity": 0.0001276,
+      "semi_major_axis": 6921000.0,
+      "inclination": 53.2175,
+      "right_ascension_of_the_ascending_node": 85.0885,
+      "argument_of_perigee": 89.5562
+    },
+    {
+      "id": 37,
+      "eccentricity": 0.0001348,
+      "semi_major_axis": 6921000.0,
+      "inclination": 53.2185,
+      "right_ascension_of_the_ascending_node": 0.8595,
+      "argument_of_perigee": 101.2963
+    },
+    {
+      "id": 38,
+      "eccentricity": 0.0001664,
+      "semi_major_axis": 7571000.0,
+      "inclination": 87.8961,
+      "right_ascension_of_the_ascending_node": 73.1404,
+      "argument_of_perigee": 77.4097
+    },
+    {
+      "id": 39,
+      "eccentricity": 3.3e-05,
+      "semi_major_axis": 6921000.0,
+      "inclination": 97.657,
+      "right_ascension_of_the_ascending_node": 58.9263,
+      "argument_of_perigee": 170.7691
+    }
+  ],
+  "satellites": [
+    {
+      "inertia": [
+        163.10256958007812,
+        0.0,
+        0.0,
+        0.0,
+        67.39653015136719,
+        0.0,
+        0.0,
+        0.0,
+        75.96343231201172
+      ],
+      "mass": 163.87626081822143,
+      "center_of_mass": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "orbit": 0,
+      "solar_panel": {
+        "direction": [
+          -0.09799632577123146,
+          0.08184303710511984,
+          0.9918157275485949
+        ],
+        "area": 0.3549009805379696,
+        "efficiency": 0.2164958765572067
+      },
+      "sensor": {
+        "enabled": false,
+        "half_field_of_view": 0.10897470533074705,
+        "power": 9.764698798753649,
+        "type": 1
+      },
+      "battery": {
+        "capacity": 26513.70589774473,
+        "percentage": 0.47356897037374823
+      },
+      "reaction_wheels": [
+        {
+          "rw_type": "Honeywell_HR12",
+          "rw_direction": [
+            1.0,
+            0.0,
+            0.0
+          ],
+          "max_momentum": 25.0,
+          "rw_speed_init": 551.6041771922557,
+          "power": 6.18108061439003,
+          "efficiency": 0.5253560751652355
+        },
+        {
+          "rw_type": "Honeywell_HR12",
+          "rw_direction": [
+            0.0,
+            1.0,
+            0.0
+          ],
+          "max_momentum": 25.0,
+          "rw_speed_init": 500.6037160703763,
+          "power": 6.867299085732779,
+          "efficiency": 0.5350541857716589
+        },
+        {
+          "rw_type": "Honeywell_HR12",
+          "rw_direction": [
+            0.0,
+            0.0,
+            1.0
+          ],
+          "max_momentum": 25.0,
+          "rw_speed_init": 621.7591476567543,
+          "power": 5.591623848396004,
+          "efficiency": 0.5099630955330686
+        }
+      ],
+      "mrp_control": {
+        "k": 18.39541916471593,
+        "ki": 0.006959006708333527,
+        "p": 42.50695305476568,
+        "integral_limit": 0.011832896337060337
+      },
+      "true_anomaly": 142.04205854066961,
+      "mrp_attitude_bn": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "id": 0
+    },
+    {
+      "inertia": [
+        55.37273406982422,
+        0.0,
+        0.0,
+        0.0,
+        193.67376708984375,
+        0.0,
+        0.0,
+        0.0,
+        102.53012084960938
+      ],
+      "mass": 188.098627454494,
+      "center_of_mass": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "orbit": 1,
+      "solar_panel": {
+        "direction": [
+          0.6414924675694832,
+          0.17590231384005234,
+          0.7466898888007867
+        ],
+        "area": 0.27161547781095763,
+        "efficiency": 0.2538684708918856
+      },
+      "sensor": {
+        "enabled": false,
+        "half_field_of_view": 0.43356322489164667,
+        "power": 1.4653977139601588,
+        "type": 1
+      },
+      "battery": {
+        "capacity": 28071.611528656314,
+        "percentage": 0.9854729320893442
+      },
+      "reaction_wheels": [
+        {
+          "rw_type": "Honeywell_HR12",
+          "rw_direction": [
+            1.0,
+            0.0,
+            0.0
+          ],
+          "max_momentum": 12.0,
+          "rw_speed_init": 457.61594503150127,
+          "power": 5.947672965385836,
+          "efficiency": 0.5705419690095063
+        },
+        {
+          "rw_type": "Honeywell_HR12",
+          "rw_direction": [
+            0.0,
+            1.0,
+            0.0
+          ],
+          "max_momentum": 12.0,
+          "rw_speed_init": 729.737163104063,
+          "power": 6.23436436348222,
+          "efficiency": 0.5897559030358402
+        },
+        {
+          "rw_type": "Honeywell_HR12",
+          "rw_direction": [
+            0.0,
+            0.0,
+            1.0
+          ],
+          "max_momentum": 12.0,
+          "rw_speed_init": 449.6335802042621,
+          "power": 5.143386601362523,
+          "efficiency": 0.5628028165178242
+        }
+      ],
+      "mrp_control": {
+        "k": 79.09818191848355,
+        "ki": 0.005558940813903927,
+        "p": 256.01157665185906,
+        "integral_limit": 0.011333426011519336
+      },
+      "true_anomaly": 56.8358359054154,
+      "mrp_attitude_bn": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "id": 1
+    },
+    {
+      "inertia": [
+        58.805450439453125,
+        0.0,
+        0.0,
+        0.0,
+        110.27999877929688,
+        0.0,
+        0.0,
+        0.0,
+        140.87347412109375
+      ],
+      "mass": 78.0577576583922,
+      "center_of_mass": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "orbit": 2,
+      "solar_panel": {
+        "direction": [
+          0.3131460677694171,
+          0.7567369865220992,
+          -0.5738368003796932
+        ],
+        "area": 0.13050465652251697,
+        "efficiency": 0.30000133166686693
+      },
+      "sensor": {
+        "enabled": false,
+        "half_field_of_view": 0.42692337773363864,
+        "power": 6.46543245751155,
+        "type": 1
+      },
+      "battery": {
+        "capacity": 22872.45271199921,
+        "percentage": 0.5072614119400476
+      },
+      "reaction_wheels": [
+        {
+          "rw_type": "Honeywell_HR12",
+          "rw_direction": [
+            1.0,
+            0.0,
+            0.0
+          ],
+          "max_momentum": 12.0,
+          "rw_speed_init": 557.8758395223572,
+          "power": 5.397682463108999,
+          "efficiency": 0.5886796487056734
+        },
+        {
+          "rw_type": "Honeywell_HR12",
+          "rw_direction": [
+            0.0,
+            1.0,
+            0.0
+          ],
+          "max_momentum": 12.0,
+          "rw_speed_init": 661.0909508323643,
+          "power": 6.975551919737343,
+          "efficiency": 0.528989615340467
+        },
+        {
+          "rw_type": "Honeywell_HR12",
+          "rw_direction": [
+            0.0,
+            0.0,
+            1.0
+          ],
+          "max_momentum": 12.0,
+          "rw_speed_init": 691.1292026150629,
+          "power": 6.005571440990728,
+          "efficiency": 0.5945212564938382
+        }
+      ],
+      "mrp_control": {
+        "k": 40.89685115804644,
+        "ki": 0.004898881027663214,
+        "p": 140.6974180903899,
+        "integral_limit": 0.01484555934791159
+      },
+      "true_anomaly": 346.1490985276588,
+      "mrp_attitude_bn": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "id": 2
+    },
+    {
+      "inertia": [
+        167.1875457763672,
+        0.0,
+        0.0,
+        0.0,
+        130.8555450439453,
+        0.0,
+        0.0,
+        0.0,
+        62.424285888671875
+      ],
+      "mass": 148.38178275114257,
+      "center_of_mass": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "orbit": 3,
+      "solar_panel": {
+        "direction": [
+          -0.1026545097301636,
+          0.27791731537095277,
+          0.9551041919335618
+        ],
+        "area": 0.3967320269768191,
+        "efficiency": 0.4725658164212707
+      },
+      "sensor": {
+        "enabled": false,
+        "half_field_of_view": 0.43692596990829424,
+        "power": 6.534478203688534,
+        "type": 1
+      },
+      "battery": {
+        "capacity": 16147.099752261982,
+        "percentage": 0.7752562807139132
+      },
+      "reaction_wheels": [
+        {
+          "rw_type": "Honeywell_HR12",
+          "rw_direction": [
+            1.0,
+            0.0,
+            0.0
+          ],
+          "max_momentum": 25.0,
+          "rw_speed_init": 606.9202317054612,
+          "power": 5.4351909554065,
+          "efficiency": 0.5293106729822463
+        },
+        {
+          "rw_type": "Honeywell_HR12",
+          "rw_direction": [
+            0.0,
+            1.0,
+            0.0
+          ],
+          "max_momentum": 25.0,
+          "rw_speed_init": 454.5470988395749,
+          "power": 5.574926924359308,
+          "efficiency": 0.5690196474620416
+        },
+        {
+          "rw_type": "Honeywell_HR12",
+          "rw_direction": [
+            0.0,
+            0.0,
+            1.0
+          ],
+          "max_momentum": 25.0,
+          "rw_speed_init": 618.7976200180217,
+          "power": 6.141430498212746,
+          "efficiency": 0.5461896894255815
+        }
+      ],
+      "mrp_control": {
+        "k": 23.976641818621598,
+        "ki": 0.0045918755632704715,
+        "p": 55.24745501969649,
+        "integral_limit": 0.011689260587752597
+      },
+      "true_anomaly": 250.42157236898092,
+      "mrp_attitude_bn": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "id": 3
+    },
+    {
+      "inertia": [
+        160.36077880859375,
+        0.0,
+        0.0,
+        0.0,
+        181.41976928710938,
+        0.0,
+        0.0,
+        0.0,
+        54.4691162109375
+      ],
+      "mass": 177.58029235837145,
+      "center_of_mass": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "orbit": 4,
+      "solar_panel": {
+        "direction": [
+          -0.09781033564098647,
+          0.21823692430744646,
+          0.9709818654900942
+        ],
+        "area": 0.38215428195702805,
+        "efficiency": 0.38568176779056895
+      },
+      "sensor": {
+        "enabled": false,
+        "half_field_of_view": 0.3128019002069123,
+        "power": 9.224656730060968,
+        "type": 1
+      },
+      "battery": {
+        "capacity": 22113.906363596972,
+        "percentage": 0.22140996515187264
+      },
+      "reaction_wheels": [
+        {
+          "rw_type": "Honeywell_HR12",
+          "rw_direction": [
+            1.0,
+            0.0,
+            0.0
+          ],
+          "max_momentum": 12.0,
+          "rw_speed_init": 700.9259480314336,
+          "power": 6.626008139923617,
+          "efficiency": 0.5113079815476234
+        },
+        {
+          "rw_type": "Honeywell_HR12",
+          "rw_direction": [
+            0.0,
+            1.0,
+            0.0
+          ],
+          "max_momentum": 12.0,
+          "rw_speed_init": 589.8602760472834,
+          "power": 6.373324752388244,
+          "efficiency": 0.5359919403332496
+        },
+        {
+          "rw_type": "Honeywell_HR12",
+          "rw_direction": [
+            0.0,
+            0.0,
+            1.0
+          ],
+          "max_momentum": 12.0,
+          "rw_speed_init": 591.1162049052515,
+          "power": 5.750735462156338,
+          "efficiency": 0.5270437459206747
+        }
+      ],
+      "mrp_control": {
+        "k": 43.85465872693589,
+        "ki": 0.008069002719626859,
+        "p": 94.50371465937802,
+        "integral_limit": 0.01946346774660609
+      },
+      "true_anomaly": 283.99637843465615,
+      "mrp_attitude_bn": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "id": 4
+    },
+    {
+      "inertia": [
+        86.42733764648438,
+        0.0,
+        0.0,
+        0.0,
+        133.92864990234375,
+        0.0,
+        0.0,
+        0.0,
+        182.5267791748047
+      ],
+      "mass": 84.32819892379428,
+      "center_of_mass": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "orbit": 5,
+      "solar_panel": {
+        "direction": [
+          0.060675976785322584,
+          0.20155221887895808,
+          0.9775966084771958
+        ],
+        "area": 0.4919682861174124,
+        "efficiency": 0.49058143710690594
+      },
+      "sensor": {
+        "enabled": false,
+        "half_field_of_view": 0.4305658082945597,
+        "power": 6.526964569967172,
+        "type": 1
+      },
+      "battery": {
+        "capacity": 26160.05378955062,
+        "percentage": 0.3725341738386716
+      },
+      "reaction_wheels": [
+        {
+          "rw_type": "Honeywell_HR14",
+          "rw_direction": [
+            1.0,
+            0.0,
+            0.0
+          ],
+          "max_momentum": 25.0,
+          "rw_speed_init": 609.1353816059377,
+          "power": 6.933385905374638,
+          "efficiency": 0.5875747636261938
+        },
+        {
+          "rw_type": "Honeywell_HR14",
+          "rw_direction": [
+            0.0,
+            1.0,
+            0.0
+          ],
+          "max_momentum": 25.0,
+          "rw_speed_init": 532.3015808249695,
+          "power": 6.9104337376706395,
+          "efficiency": 0.5193034710451719
+        },
+        {
+          "rw_type": "Honeywell_HR14",
+          "rw_direction": [
+            0.0,
+            0.0,
+            1.0
+          ],
+          "max_momentum": 25.0,
+          "rw_speed_init": 596.0369385505355,
+          "power": 5.868054257062248,
+          "efficiency": 0.5613205492708114
+        }
+      ],
+      "mrp_control": {
+        "k": 22.53897384648916,
+        "ki": 0.005987985871793919,
+        "p": 87.53012025751485,
+        "integral_limit": 0.015398596761522236
+      },
+      "true_anomaly": 27.431965327551822,
+      "mrp_attitude_bn": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "id": 5
+    },
+    {
+      "inertia": [
+        135.80995178222656,
+        0.0,
+        0.0,
+        0.0,
+        133.7823028564453,
+        0.0,
+        0.0,
+        0.0,
+        73.94473266601562
+      ],
+      "mass": 95.27177136788747,
+      "center_of_mass": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "orbit": 6,
+      "solar_panel": {
+        "direction": [
+          0.647070581149648,
+          0.4009468361773529,
+          -0.6484915555117335
+        ],
+        "area": 0.3564330801517227,
+        "efficiency": 0.2043804648916858
+      },
+      "sensor": {
+        "enabled": false,
+        "half_field_of_view": 0.2922348691591091,
+        "power": 6.076042817531332,
+        "type": 1
+      },
+      "battery": {
+        "capacity": 12928.799019285063,
+        "percentage": 0.3547497956393161
+      },
+      "reaction_wheels": [
+        {
+          "rw_type": "Honeywell_HR12",
+          "rw_direction": [
+            1.0,
+            0.0,
+            0.0
+          ],
+          "max_momentum": 12.0,
+          "rw_speed_init": 642.697615741192,
+          "power": 5.067722838873689,
+          "efficiency": 0.5737271154412026
+        },
+        {
+          "rw_type": "Honeywell_HR12",
+          "rw_direction": [
+            0.0,
+            1.0,
+            0.0
+          ],
+          "max_momentum": 12.0,
+          "rw_speed_init": 671.6678736017427,
+          "power": 6.880980946320389,
+          "efficiency": 0.5705753012761658
+        },
+        {
+          "rw_type": "Honeywell_HR12",
+          "rw_direction": [
+            0.0,
+            0.0,
+            1.0
+          ],
+          "max_momentum": 12.0,
+          "rw_speed_init": 647.1472148290617,
+          "power": 6.308984934029866,
+          "efficiency": 0.5996995037047448
+        }
+      ],
+      "mrp_control": {
+        "k": 30.743675578596356,
+        "ki": 0.007450053799645318,
+        "p": 81.55217763433558,
+        "integral_limit": 0.021163076622272414
+      },
+      "true_anomaly": 147.59148208420274,
+      "mrp_attitude_bn": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "id": 6
+    },
+    {
+      "inertia": [
+        120.35233306884766,
+        0.0,
+        0.0,
+        0.0,
+        132.09222412109375,
+        0.0,
+        0.0,
+        0.0,
+        166.93527221679688
+      ],
+      "mass": 198.90747717753922,
+      "center_of_mass": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "orbit": 7,
+      "solar_panel": {
+        "direction": [
+          -0.0910068990455956,
+          0.20340654182809734,
+          0.9748556421684388
+        ],
+        "area": 0.25248224188301205,
+        "efficiency": 0.16796269881247664
+      },
+      "sensor": {
+        "enabled": false,
+        "half_field_of_view": 0.36004754317668475,
+        "power": 3.9876070357376046,
+        "type": 1
+      },
+      "battery": {
+        "capacity": 27617.640818134434,
+        "percentage": 0.7701826097422444
+      },
+      "reaction_wheels": [
+        {
+          "rw_type": "Honeywell_HR14",
+          "rw_direction": [
+            1.0,
+            0.0,
+            0.0
+          ],
+          "max_momentum": 25.0,
+          "rw_speed_init": 599.1765773543096,
+          "power": 6.383641076331219,
+          "efficiency": 0.5825011034019507
+        },
+        {
+          "rw_type": "Honeywell_HR14",
+          "rw_direction": [
+            0.0,
+            1.0,
+            0.0
+          ],
+          "max_momentum": 25.0,
+          "rw_speed_init": 452.1053788642011,
+          "power": 5.364559351016545,
+          "efficiency": 0.5650061054347425
+        },
+        {
+          "rw_type": "Honeywell_HR14",
+          "rw_direction": [
+            0.0,
+            0.0,
+            1.0
+          ],
+          "max_momentum": 25.0,
+          "rw_speed_init": 417.83312636153886,
+          "power": 5.854105390974855,
+          "efficiency": 0.528162373714302
+        }
+      ],
+      "mrp_control": {
+        "k": 17.14177368037322,
+        "ki": 0.004975340042211277,
+        "p": 46.26467202807666,
+        "integral_limit": 0.01568934686469015
+      },
+      "true_anomaly": 274.11947659624633,
+      "mrp_attitude_bn": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "id": 7
+    },
+    {
+      "inertia": [
+        94.58576202392578,
+        0.0,
+        0.0,
+        0.0,
+        70.16993713378906,
+        0.0,
+        0.0,
+        0.0,
+        94.76202392578125
+      ],
+      "mass": 77.76272724422103,
+      "center_of_mass": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "orbit": 8,
+      "solar_panel": {
+        "direction": [
+          -0.19094794315325578,
+          0.28399514050524105,
+          -0.9396199461351112
+        ],
+        "area": 0.11197037218279707,
+        "efficiency": 0.28534554188426076
+      },
+      "sensor": {
+        "enabled": false,
+        "half_field_of_view": 0.32245907993109946,
+        "power": 8.140741019404423,
+        "type": 1
+      },
+      "battery": {
+        "capacity": 28270.655901870057,
+        "percentage": 0.981075231302438
+      },
+      "reaction_wheels": [
+        {
+          "rw_type": "Honeywell_HR12",
+          "rw_direction": [
+            1.0,
+            0.0,
+            0.0
+          ],
+          "max_momentum": 12.0,
+          "rw_speed_init": 414.7259341816335,
+          "power": 5.788099335447404,
+          "efficiency": 0.5757401034413469
+        },
+        {
+          "rw_type": "Honeywell_HR12",
+          "rw_direction": [
+            0.0,
+            1.0,
+            0.0
+          ],
+          "max_momentum": 12.0,
+          "rw_speed_init": 732.4024576006252,
+          "power": 6.937429344438286,
+          "efficiency": 0.5604165304135554
+        },
+        {
+          "rw_type": "Honeywell_HR12",
+          "rw_direction": [
+            0.0,
+            0.0,
+            1.0
+          ],
+          "max_momentum": 12.0,
+          "rw_speed_init": 447.90471429674903,
+          "power": 6.997784752111545,
+          "efficiency": 0.5978345913608148
+        }
+      ],
+      "mrp_control": {
+        "k": 34.800845409643664,
+        "ki": 0.006804864567080542,
+        "p": 128.87257681382277,
+        "integral_limit": 0.0014305222383286427
+      },
+      "true_anomaly": 271.537278463874,
+      "mrp_attitude_bn": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "id": 8
+    },
+    {
+      "inertia": [
+        189.91510009765625,
+        0.0,
+        0.0,
+        0.0,
+        96.212646484375,
+        0.0,
+        0.0,
+        0.0,
+        80.96493530273438
+      ],
+      "mass": 76.03592464771076,
+      "center_of_mass": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "orbit": 9,
+      "solar_panel": {
+        "direction": [
+          -0.32487105372325636,
+          0.38408167727580245,
+          -0.8642569430636629
+        ],
+        "area": 0.42239840142768537,
+        "efficiency": 0.33807453290110534
+      },
+      "sensor": {
+        "enabled": false,
+        "half_field_of_view": 0.43307330315153303,
+        "power": 6.115241283662957,
+        "type": 1
+      },
+      "battery": {
+        "capacity": 21209.547964836762,
+        "percentage": 0.5070178379399346
+      },
+      "reaction_wheels": [
+        {
+          "rw_type": "Honeywell_HR12",
+          "rw_direction": [
+            1.0,
+            0.0,
+            0.0
+          ],
+          "max_momentum": 12.0,
+          "rw_speed_init": 643.876226354392,
+          "power": 5.217043063108282,
+          "efficiency": 0.5996551754225851
+        },
+        {
+          "rw_type": "Honeywell_HR12",
+          "rw_direction": [
+            0.0,
+            1.0,
+            0.0
+          ],
+          "max_momentum": 12.0,
+          "rw_speed_init": 568.0758677139615,
+          "power": 5.883070651156723,
+          "efficiency": 0.5657136684684599
+        },
+        {
+          "rw_type": "Honeywell_HR12",
+          "rw_direction": [
+            0.0,
+            0.0,
+            1.0
+          ],
+          "max_momentum": 12.0,
+          "rw_speed_init": 607.5244213888147,
+          "power": 5.391950501544836,
+          "efficiency": 0.5264070620484146
+        }
+      ],
+      "mrp_control": {
+        "k": 33.73253996462885,
+        "ki": 0.0014744865856211454,
+        "p": 132.60663278644537,
+        "integral_limit": 0.005997236940280274
+      },
+      "true_anomaly": 333.28638698419024,
+      "mrp_attitude_bn": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "id": 9
+    },
+    {
+      "inertia": [
+        134.94754028320312,
+        0.0,
+        0.0,
+        0.0,
+        137.10926818847656,
+        0.0,
+        0.0,
+        0.0,
+        118.87919616699219
+      ],
+      "mass": 174.0263132437999,
+      "center_of_mass": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "orbit": 10,
+      "solar_panel": {
+        "direction": [
+          -0.16355148685807225,
+          0.850370135527916,
+          0.5001215289794548
+        ],
+        "area": 0.3304960565373839,
+        "efficiency": 0.22541816225256872
+      },
+      "sensor": {
+        "enabled": false,
+        "half_field_of_view": 0.10292422244073221,
+        "power": 8.651515827215288,
+        "type": 1
+      },
+      "battery": {
+        "capacity": 23161.61011760991,
+        "percentage": 0.4628027059385029
+      },
+      "reaction_wheels": [
+        {
+          "rw_type": "Honeywell_HR14",
+          "rw_direction": [
+            1.0,
+            0.0,
+            0.0
+          ],
+          "max_momentum": 25.0,
+          "rw_speed_init": 623.4956670255999,
+          "power": 6.413084460498601,
+          "efficiency": 0.5370169293898648
+        },
+        {
+          "rw_type": "Honeywell_HR14",
+          "rw_direction": [
+            0.0,
+            1.0,
+            0.0
+          ],
+          "max_momentum": 25.0,
+          "rw_speed_init": 551.9893652216965,
+          "power": 5.908567524193804,
+          "efficiency": 0.5669863832752007
+        },
+        {
+          "rw_type": "Honeywell_HR14",
+          "rw_direction": [
+            0.0,
+            0.0,
+            1.0
+          ],
+          "max_momentum": 25.0,
+          "rw_speed_init": 690.1218690290632,
+          "power": 6.489814315112987,
+          "efficiency": 0.5746891118646822
+        }
+      ],
+      "mrp_control": {
+        "k": 25.398365567016118,
+        "ki": 0.008240449760615711,
+        "p": 71.36409268976733,
+        "integral_limit": 0.02765929715594984
+      },
+      "true_anomaly": 311.08875341776667,
+      "mrp_attitude_bn": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "id": 10
+    },
+    {
+      "inertia": [
+        86.96397399902344,
+        0.0,
+        0.0,
+        0.0,
+        58.420955657958984,
+        0.0,
+        0.0,
+        0.0,
+        139.75782775878906
+      ],
+      "mass": 182.29718334935458,
+      "center_of_mass": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "orbit": 11,
+      "solar_panel": {
+        "direction": [
+          -0.8415129613170336,
+          0.19863032246736606,
+          -0.5023961892092205
+        ],
+        "area": 0.38277870848861795,
+        "efficiency": 0.47760451534502724
+      },
+      "sensor": {
+        "enabled": false,
+        "half_field_of_view": 0.23842754817840098,
+        "power": 2.270649516941176,
+        "type": 1
+      },
+      "battery": {
+        "capacity": 28531.562517077316,
+        "percentage": 0.46940348256788367
+      },
+      "reaction_wheels": [
+        {
+          "rw_type": "Honeywell_HR12",
+          "rw_direction": [
+            1.0,
+            0.0,
+            0.0
+          ],
+          "max_momentum": 25.0,
+          "rw_speed_init": 598.6567673676425,
+          "power": 6.1936808721433465,
+          "efficiency": 0.5953742298073474
+        },
+        {
+          "rw_type": "Honeywell_HR12",
+          "rw_direction": [
+            0.0,
+            1.0,
+            0.0
+          ],
+          "max_momentum": 25.0,
+          "rw_speed_init": 603.3836666094414,
+          "power": 6.587373065676337,
+          "efficiency": 0.5031480222633173
+        },
+        {
+          "rw_type": "Honeywell_HR12",
+          "rw_direction": [
+            0.0,
+            0.0,
+            1.0
+          ],
+          "max_momentum": 25.0,
+          "rw_speed_init": 620.8297008519761,
+          "power": 5.889842013055345,
+          "efficiency": 0.5182191884721403
+        }
+      ],
+      "mrp_control": {
+        "k": 27.476768906819313,
+        "ki": 0.007170268847129153,
+        "p": 79.70009952866023,
+        "integral_limit": 0.009128251910592721
+      },
+      "true_anomaly": 33.10604622047543,
+      "mrp_attitude_bn": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "id": 11
+    },
+    {
+      "inertia": [
+        119.64872741699219,
+        0.0,
+        0.0,
+        0.0,
+        159.80076599121094,
+        0.0,
+        0.0,
+        0.0,
+        163.5137939453125
+      ],
+      "mass": 190.8238079894127,
+      "center_of_mass": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "orbit": 12,
+      "solar_panel": {
+        "direction": [
+          -0.37432592602831166,
+          0.34956461648632486,
+          -0.8588857199906258
+        ],
+        "area": 0.2752531918749217,
+        "efficiency": 0.39218370839693284
+      },
+      "sensor": {
+        "enabled": false,
+        "half_field_of_view": 0.2302798849684763,
+        "power": 4.051296207819174,
+        "type": 1
+      },
+      "battery": {
+        "capacity": 16644.802305132216,
+        "percentage": 0.8823631728918626
+      },
+      "reaction_wheels": [
+        {
+          "rw_type": "Honeywell_HR14",
+          "rw_direction": [
+            1.0,
+            0.0,
+            0.0
+          ],
+          "max_momentum": 25.0,
+          "rw_speed_init": 412.44379430731306,
+          "power": 5.523023417990215,
+          "efficiency": 0.5298528666451148
+        },
+        {
+          "rw_type": "Honeywell_HR14",
+          "rw_direction": [
+            0.0,
+            1.0,
+            0.0
+          ],
+          "max_momentum": 25.0,
+          "rw_speed_init": 572.2900068158193,
+          "power": 5.559226353026511,
+          "efficiency": 0.508760355982102
+        },
+        {
+          "rw_type": "Honeywell_HR14",
+          "rw_direction": [
+            0.0,
+            0.0,
+            1.0
+          ],
+          "max_momentum": 25.0,
+          "rw_speed_init": 682.316619224687,
+          "power": 5.396776214473754,
+          "efficiency": 0.5529695173110621
+        }
+      ],
+      "mrp_control": {
+        "k": 28.29614115959812,
+        "ki": 0.0075686982098975885,
+        "p": 66.59896582352846,
+        "integral_limit": 0.022701535770486076
+      },
+      "true_anomaly": 277.1894244362525,
+      "mrp_attitude_bn": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "id": 12
+    },
+    {
+      "inertia": [
+        128.71348571777344,
+        0.0,
+        0.0,
+        0.0,
+        51.00836944580078,
+        0.0,
+        0.0,
+        0.0,
+        197.89894104003906
+      ],
+      "mass": 107.1257877328712,
+      "center_of_mass": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "orbit": 13,
+      "solar_panel": {
+        "direction": [
+          0.12190688136606527,
+          0.9911125070230659,
+          0.053242001258907705
+        ],
+        "area": 0.48539351500932315,
+        "efficiency": 0.27858435751199156
+      },
+      "sensor": {
+        "enabled": false,
+        "half_field_of_view": 0.15127570510254165,
+        "power": 8.418191784835727,
+        "type": 1
+      },
+      "battery": {
+        "capacity": 13172.787680210178,
+        "percentage": 0.4085627529980663
+      },
+      "reaction_wheels": [
+        {
+          "rw_type": "Honeywell_HR12",
+          "rw_direction": [
+            1.0,
+            0.0,
+            0.0
+          ],
+          "max_momentum": 12.0,
+          "rw_speed_init": 674.4583244379075,
+          "power": 5.599620586570064,
+          "efficiency": 0.5645461567420648
+        },
+        {
+          "rw_type": "Honeywell_HR12",
+          "rw_direction": [
+            0.0,
+            1.0,
+            0.0
+          ],
+          "max_momentum": 12.0,
+          "rw_speed_init": 432.5039711375474,
+          "power": 5.812607061914612,
+          "efficiency": 0.5688208330658115
+        },
+        {
+          "rw_type": "Honeywell_HR12",
+          "rw_direction": [
+            0.0,
+            0.0,
+            1.0
+          ],
+          "max_momentum": 12.0,
+          "rw_speed_init": 525.9776358178232,
+          "power": 6.670847453784088,
+          "efficiency": 0.5142198753702638
+        }
+      ],
+      "mrp_control": {
+        "k": 59.822926088149124,
+        "ki": 0.003246963833955012,
+        "p": 128.03933659600446,
+        "integral_limit": 0.0067989255338369746
+      },
+      "true_anomaly": 202.62434837336073,
+      "mrp_attitude_bn": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "id": 13
+    },
+    {
+      "inertia": [
+        66.38557434082031,
+        0.0,
+        0.0,
+        0.0,
+        100.28651428222656,
+        0.0,
+        0.0,
+        0.0,
+        98.77840423583984
+      ],
+      "mass": 78.06910535209194,
+      "center_of_mass": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "orbit": 14,
+      "solar_panel": {
+        "direction": [
+          -0.5372397561800769,
+          0.8298179626048942,
+          0.15091584846474526
+        ],
+        "area": 0.19853743968186233,
+        "efficiency": 0.1925157481155614
+      },
+      "sensor": {
+        "enabled": false,
+        "half_field_of_view": 0.1950091278170795,
+        "power": 2.7925816903331273,
+        "type": 1
+      },
+      "battery": {
+        "capacity": 23998.708347171614,
+        "percentage": 0.7303376088509127
+      },
+      "reaction_wheels": [
+        {
+          "rw_type": "Honeywell_HR12",
+          "rw_direction": [
+            1.0,
+            0.0,
+            0.0
+          ],
+          "max_momentum": 12.0,
+          "rw_speed_init": 538.1008006684367,
+          "power": 5.429451583426324,
+          "efficiency": 0.5937820463372485
+        },
+        {
+          "rw_type": "Honeywell_HR12",
+          "rw_direction": [
+            0.0,
+            1.0,
+            0.0
+          ],
+          "max_momentum": 12.0,
+          "rw_speed_init": 661.7863250967888,
+          "power": 6.882607345182338,
+          "efficiency": 0.5805993547153508
+        },
+        {
+          "rw_type": "Honeywell_HR12",
+          "rw_direction": [
+            0.0,
+            0.0,
+            1.0
+          ],
+          "max_momentum": 12.0,
+          "rw_speed_init": 469.1462498295293,
+          "power": 6.157991725767046,
+          "efficiency": 0.5474702478378829
+        }
+      ],
+      "mrp_control": {
+        "k": 24.546425697911,
+        "ki": 0.005144085011203709,
+        "p": 58.13055770243723,
+        "integral_limit": 0.005838841570634679
+      },
+      "true_anomaly": 154.31656195885122,
+      "mrp_attitude_bn": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "id": 14
+    },
+    {
+      "inertia": [
+        179.31297302246094,
+        0.0,
+        0.0,
+        0.0,
+        100.02051544189453,
+        0.0,
+        0.0,
+        0.0,
+        177.91259765625
+      ],
+      "mass": 147.68194034308692,
+      "center_of_mass": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "orbit": 15,
+      "solar_panel": {
+        "direction": [
+          0.1255038060462619,
+          0.6766276929472471,
+          0.7255506597094293
+        ],
+        "area": 0.2819949598619705,
+        "efficiency": 0.394801336888318
+      },
+      "sensor": {
+        "enabled": false,
+        "half_field_of_view": 0.4363185428827451,
+        "power": 2.7232085661397987,
+        "type": 1
+      },
+      "battery": {
+        "capacity": 16711.08265674039,
+        "percentage": 0.24167107188025302
+      },
+      "reaction_wheels": [
+        {
+          "rw_type": "Honeywell_HR14",
+          "rw_direction": [
+            1.0,
+            0.0,
+            0.0
+          ],
+          "max_momentum": 25.0,
+          "rw_speed_init": 518.2409088117493,
+          "power": 5.489820826324042,
+          "efficiency": 0.5692752505316714
+        },
+        {
+          "rw_type": "Honeywell_HR14",
+          "rw_direction": [
+            0.0,
+            1.0,
+            0.0
+          ],
+          "max_momentum": 25.0,
+          "rw_speed_init": 441.94207088650427,
+          "power": 5.634815442759573,
+          "efficiency": 0.5287556995754588
+        },
+        {
+          "rw_type": "Honeywell_HR14",
+          "rw_direction": [
+            0.0,
+            0.0,
+            1.0
+          ],
+          "max_momentum": 25.0,
+          "rw_speed_init": 606.3190585067105,
+          "power": 6.2406958339474565,
+          "efficiency": 0.5547920850973431
+        }
+      ],
+      "mrp_control": {
+        "k": 21.674226082187257,
+        "ki": 0.009578559905749094,
+        "p": 84.03823910874742,
+        "integral_limit": 0.03396898010767368
+      },
+      "true_anomaly": 199.0280457082481,
+      "mrp_attitude_bn": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "id": 15
+    },
+    {
+      "inertia": [
+        123.15946960449219,
+        0.0,
+        0.0,
+        0.0,
+        61.644954681396484,
+        0.0,
+        0.0,
+        0.0,
+        168.77931213378906
+      ],
+      "mass": 50.71609217868367,
+      "center_of_mass": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "orbit": 16,
+      "solar_panel": {
+        "direction": [
+          -0.06935290140809618,
+          0.2716835960866376,
+          0.9598844715296272
+        ],
+        "area": 0.28033376973654645,
+        "efficiency": 0.37359491458576255
+      },
+      "sensor": {
+        "enabled": false,
+        "half_field_of_view": 0.11405069756965469,
+        "power": 3.484680697033329,
+        "type": 1
+      },
+      "battery": {
+        "capacity": 20256.283191264876,
+        "percentage": 0.3681066179001181
+      },
+      "reaction_wheels": [
+        {
+          "rw_type": "Honeywell_HR14",
+          "rw_direction": [
+            1.0,
+            0.0,
+            0.0
+          ],
+          "max_momentum": 25.0,
+          "rw_speed_init": 454.82059584194,
+          "power": 6.85350160677582,
+          "efficiency": 0.5924705185161001
+        },
+        {
+          "rw_type": "Honeywell_HR14",
+          "rw_direction": [
+            0.0,
+            1.0,
+            0.0
+          ],
+          "max_momentum": 25.0,
+          "rw_speed_init": 474.36453280264226,
+          "power": 6.65238904753124,
+          "efficiency": 0.5060729186145255
+        },
+        {
+          "rw_type": "Honeywell_HR14",
+          "rw_direction": [
+            0.0,
+            0.0,
+            1.0
+          ],
+          "max_momentum": 25.0,
+          "rw_speed_init": 471.6075257638865,
+          "power": 5.83499196208176,
+          "efficiency": 0.5467076677531822
+        }
+      ],
+      "mrp_control": {
+        "k": 15.962148699891124,
+        "ki": 0.0003009463771980814,
+        "p": 52.25144226018124,
+        "integral_limit": 0.0009706437745256839
+      },
+      "true_anomaly": 101.03783753601387,
+      "mrp_attitude_bn": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "id": 16
+    },
+    {
+      "inertia": [
+        65.87477111816406,
+        0.0,
+        0.0,
+        0.0,
+        178.44712829589844,
+        0.0,
+        0.0,
+        0.0,
+        136.357666015625
+      ],
+      "mass": 191.77308969711575,
+      "center_of_mass": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "orbit": 17,
+      "solar_panel": {
+        "direction": [
+          -0.3561329002487041,
+          0.5813854355452884,
+          -0.7315465348809067
+        ],
+        "area": 0.15279928689957598,
+        "efficiency": 0.15763061302792344
+      },
+      "sensor": {
+        "enabled": false,
+        "half_field_of_view": 0.47499852336780657,
+        "power": 7.862385491857716,
+        "type": 1
+      },
+      "battery": {
+        "capacity": 23484.857498790167,
+        "percentage": 0.15629579422136447
+      },
+      "reaction_wheels": [
+        {
+          "rw_type": "Honeywell_HR12",
+          "rw_direction": [
+            1.0,
+            0.0,
+            0.0
+          ],
+          "max_momentum": 12.0,
+          "rw_speed_init": 458.4509016193006,
+          "power": 5.562256109483563,
+          "efficiency": 0.5784759658430004
+        },
+        {
+          "rw_type": "Honeywell_HR12",
+          "rw_direction": [
+            0.0,
+            1.0,
+            0.0
+          ],
+          "max_momentum": 12.0,
+          "rw_speed_init": 643.6352119496503,
+          "power": 6.785824056017486,
+          "efficiency": 0.5442465546560269
+        },
+        {
+          "rw_type": "Honeywell_HR12",
+          "rw_direction": [
+            0.0,
+            0.0,
+            1.0
+          ],
+          "max_momentum": 12.0,
+          "rw_speed_init": 741.173398016683,
+          "power": 6.821418822767896,
+          "efficiency": 0.5727821450309946
+        }
+      ],
+      "mrp_control": {
+        "k": 68.64233296432478,
+        "ki": 0.009979683338489115,
+        "p": 220.54110178494327,
+        "integral_limit": 0.042318880654236495
+      },
+      "true_anomaly": 169.05947174747524,
+      "mrp_attitude_bn": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "id": 17
+    },
+    {
+      "inertia": [
+        61.73554992675781,
+        0.0,
+        0.0,
+        0.0,
+        172.5933837890625,
+        0.0,
+        0.0,
+        0.0,
+        87.24958801269531
+      ],
+      "mass": 188.38006728566054,
+      "center_of_mass": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "orbit": 18,
+      "solar_panel": {
+        "direction": [
+          -0.7024501164785086,
+          0.707046438972902,
+          0.0815424245106075
+        ],
+        "area": 0.16677850397017902,
+        "efficiency": 0.4424470935081173
+      },
+      "sensor": {
+        "enabled": false,
+        "half_field_of_view": 0.41477316395449426,
+        "power": 1.5821853000452868,
+        "type": 1
+      },
+      "battery": {
+        "capacity": 25506.379121731276,
+        "percentage": 0.38547359072488396
+      },
+      "reaction_wheels": [
+        {
+          "rw_type": "Honeywell_HR12",
+          "rw_direction": [
+            1.0,
+            0.0,
+            0.0
+          ],
+          "max_momentum": 25.0,
+          "rw_speed_init": 600.0083352804004,
+          "power": 5.911017224172164,
+          "efficiency": 0.5125716091345308
+        },
+        {
+          "rw_type": "Honeywell_HR12",
+          "rw_direction": [
+            0.0,
+            1.0,
+            0.0
+          ],
+          "max_momentum": 25.0,
+          "rw_speed_init": 544.0673848544212,
+          "power": 5.802026083805667,
+          "efficiency": 0.5710493601807679
+        },
+        {
+          "rw_type": "Honeywell_HR12",
+          "rw_direction": [
+            0.0,
+            0.0,
+            1.0
+          ],
+          "max_momentum": 25.0,
+          "rw_speed_init": 602.8288958719886,
+          "power": 6.91621066271366,
+          "efficiency": 0.5487501831217466
+        }
+      ],
+      "mrp_control": {
+        "k": 34.179936325349516,
+        "ki": 0.0037626556759818774,
+        "p": 74.81646687914801,
+        "integral_limit": 0.011690446508629986
+      },
+      "true_anomaly": 313.37349093023164,
+      "mrp_attitude_bn": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "id": 18
+    },
+    {
+      "inertia": [
+        63.3100700378418,
+        0.0,
+        0.0,
+        0.0,
+        173.8755340576172,
+        0.0,
+        0.0,
+        0.0,
+        62.97138595581055
+      ],
+      "mass": 115.4030183662277,
+      "center_of_mass": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "orbit": 19,
+      "solar_panel": {
+        "direction": [
+          0.07806853055519222,
+          0.01260342015380692,
+          0.9968683254760278
+        ],
+        "area": 0.14444862797938504,
+        "efficiency": 0.24432575693762676
+      },
+      "sensor": {
+        "enabled": false,
+        "half_field_of_view": 0.41883643736142295,
+        "power": 3.0516740179220987,
+        "type": 1
+      },
+      "battery": {
+        "capacity": 14071.706157462475,
+        "percentage": 0.43280793463461276
+      },
+      "reaction_wheels": [
+        {
+          "rw_type": "Honeywell_HR12",
+          "rw_direction": [
+            1.0,
+            0.0,
+            0.0
+          ],
+          "max_momentum": 12.0,
+          "rw_speed_init": 567.0562207121486,
+          "power": 5.768634971512077,
+          "efficiency": 0.5361196620561431
+        },
+        {
+          "rw_type": "Honeywell_HR12",
+          "rw_direction": [
+            0.0,
+            1.0,
+            0.0
+          ],
+          "max_momentum": 12.0,
+          "rw_speed_init": 683.9338261007751,
+          "power": 5.446695778901002,
+          "efficiency": 0.5077212986928619
+        },
+        {
+          "rw_type": "Honeywell_HR12",
+          "rw_direction": [
+            0.0,
+            0.0,
+            1.0
+          ],
+          "max_momentum": 12.0,
+          "rw_speed_init": 464.5487224835356,
+          "power": 5.069026594355382,
+          "efficiency": 0.5384959814784954
+        }
+      ],
+      "mrp_control": {
+        "k": 60.740737986244575,
+        "ki": 0.008880205199259104,
+        "p": 173.18836212583278,
+        "integral_limit": 0.040575051061409115
+      },
+      "true_anomaly": 318.47723220450325,
+      "mrp_attitude_bn": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "id": 19
+    },
+    {
+      "inertia": [
+        119.87696838378906,
+        0.0,
+        0.0,
+        0.0,
+        142.05059814453125,
+        0.0,
+        0.0,
+        0.0,
+        77.88534545898438
+      ],
+      "mass": 186.18059253584758,
+      "center_of_mass": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "orbit": 20,
+      "solar_panel": {
+        "direction": [
+          -0.6174881050197844,
+          0.062400636530409254,
+          -0.784101141894128
+        ],
+        "area": 0.13432870737956107,
+        "efficiency": 0.13625003714192818
+      },
+      "sensor": {
+        "enabled": false,
+        "half_field_of_view": 0.10947082507174871,
+        "power": 8.89937798423287,
+        "type": 1
+      },
+      "battery": {
+        "capacity": 10001.449196885467,
+        "percentage": 0.8670601994675377
+      },
+      "reaction_wheels": [
+        {
+          "rw_type": "Honeywell_HR14",
+          "rw_direction": [
+            1.0,
+            0.0,
+            0.0
+          ],
+          "max_momentum": 25.0,
+          "rw_speed_init": 412.49104456457763,
+          "power": 6.232382569281481,
+          "efficiency": 0.516184743469322
+        },
+        {
+          "rw_type": "Honeywell_HR14",
+          "rw_direction": [
+            0.0,
+            1.0,
+            0.0
+          ],
+          "max_momentum": 25.0,
+          "rw_speed_init": 420.74341118620384,
+          "power": 6.016846789325607,
+          "efficiency": 0.5498441005880869
+        },
+        {
+          "rw_type": "Honeywell_HR14",
+          "rw_direction": [
+            0.0,
+            0.0,
+            1.0
+          ],
+          "max_momentum": 25.0,
+          "rw_speed_init": 541.5785821945585,
+          "power": 5.550959270618513,
+          "efficiency": 0.538778685627281
+        }
+      ],
+      "mrp_control": {
+        "k": 17.2451537427043,
+        "ki": 0.0051889422286236254,
+        "p": 66.56679033678522,
+        "integral_limit": 0.020427561107661443
+      },
+      "true_anomaly": 261.22644131246466,
+      "mrp_attitude_bn": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "id": 20
+    },
+    {
+      "inertia": [
+        114.18364715576172,
+        0.0,
+        0.0,
+        0.0,
+        88.39901733398438,
+        0.0,
+        0.0,
+        0.0,
+        179.83631896972656
+      ],
+      "mass": 179.91930685650127,
+      "center_of_mass": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "orbit": 21,
+      "solar_panel": {
+        "direction": [
+          -0.698087810454195,
+          0.6444611623775621,
+          -0.31199874852670423
+        ],
+        "area": 0.256671494250747,
+        "efficiency": 0.3272465907587906
+      },
+      "sensor": {
+        "enabled": false,
+        "half_field_of_view": 0.2871758590282714,
+        "power": 6.901435792281275,
+        "type": 1
+      },
+      "battery": {
+        "capacity": 9146.985104709362,
+        "percentage": 0.6713632880130841
+      },
+      "reaction_wheels": [
+        {
+          "rw_type": "Honeywell_HR14",
+          "rw_direction": [
+            1.0,
+            0.0,
+            0.0
+          ],
+          "max_momentum": 25.0,
+          "rw_speed_init": 576.5466495404987,
+          "power": 6.215008046993763,
+          "efficiency": 0.5158125069296008
+        },
+        {
+          "rw_type": "Honeywell_HR14",
+          "rw_direction": [
+            0.0,
+            1.0,
+            0.0
+          ],
+          "max_momentum": 25.0,
+          "rw_speed_init": 686.7661871161824,
+          "power": 6.577750191854992,
+          "efficiency": 0.5396599772410736
+        },
+        {
+          "rw_type": "Honeywell_HR14",
+          "rw_direction": [
+            0.0,
+            0.0,
+            1.0
+          ],
+          "max_momentum": 25.0,
+          "rw_speed_init": 402.2778905175752,
+          "power": 5.198821097672399,
+          "efficiency": 0.5650140541710047
+        }
+      ],
+      "mrp_control": {
+        "k": 26.13298239339203,
+        "ki": 0.0013110887323875297,
+        "p": 94.02022091362618,
+        "integral_limit": 0.002943551493547132
+      },
+      "true_anomaly": 46.92649602128719,
+      "mrp_attitude_bn": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "id": 21
+    },
+    {
+      "inertia": [
+        171.8408203125,
+        0.0,
+        0.0,
+        0.0,
+        120.8842544555664,
+        0.0,
+        0.0,
+        0.0,
+        71.39202880859375
+      ],
+      "mass": 136.76887903777927,
+      "center_of_mass": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "orbit": 22,
+      "solar_panel": {
+        "direction": [
+          -0.005852261977262004,
+          0.003586801921009384,
+          -0.9999764426633904
+        ],
+        "area": 0.10293334836877147,
+        "efficiency": 0.22557005805007746
+      },
+      "sensor": {
+        "enabled": false,
+        "half_field_of_view": 0.12718478368432762,
+        "power": 2.498976037491282,
+        "type": 1
+      },
+      "battery": {
+        "capacity": 8467.431434416385,
+        "percentage": 0.4713336611293334
+      },
+      "reaction_wheels": [
+        {
+          "rw_type": "Honeywell_HR12",
+          "rw_direction": [
+            1.0,
+            0.0,
+            0.0
+          ],
+          "max_momentum": 12.0,
+          "rw_speed_init": 488.8565962646161,
+          "power": 5.466324850917527,
+          "efficiency": 0.5256652875342241
+        },
+        {
+          "rw_type": "Honeywell_HR12",
+          "rw_direction": [
+            0.0,
+            1.0,
+            0.0
+          ],
+          "max_momentum": 12.0,
+          "rw_speed_init": 747.169044482601,
+          "power": 5.980232031672884,
+          "efficiency": 0.5591537649347161
+        },
+        {
+          "rw_type": "Honeywell_HR12",
+          "rw_direction": [
+            0.0,
+            0.0,
+            1.0
+          ],
+          "max_momentum": 12.0,
+          "rw_speed_init": 536.8568946308293,
+          "power": 5.369519908944163,
+          "efficiency": 0.549969374019848
+        }
+      ],
+      "mrp_control": {
+        "k": 36.248934940192804,
+        "ki": 0.007781907912176809,
+        "p": 109.90066412666866,
+        "integral_limit": 0.009819247149824158
+      },
+      "true_anomaly": 305.0972300276394,
+      "mrp_attitude_bn": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "id": 22
+    },
+    {
+      "inertia": [
+        147.03170776367188,
+        0.0,
+        0.0,
+        0.0,
+        94.22300720214844,
+        0.0,
+        0.0,
+        0.0,
+        66.82019805908203
+      ],
+      "mass": 86.18839130658634,
+      "center_of_mass": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "orbit": 23,
+      "solar_panel": {
+        "direction": [
+          -0.45211029889274945,
+          0.23522836281167464,
+          0.8603858988640202
+        ],
+        "area": 0.4133743126189321,
+        "efficiency": 0.10391505890236585
+      },
+      "sensor": {
+        "enabled": false,
+        "half_field_of_view": 0.29405118417549003,
+        "power": 5.568533684124562,
+        "type": 1
+      },
+      "battery": {
+        "capacity": 9309.28216629751,
+        "percentage": 0.2636719591929488
+      },
+      "reaction_wheels": [
+        {
+          "rw_type": "Honeywell_HR12",
+          "rw_direction": [
+            1.0,
+            0.0,
+            0.0
+          ],
+          "max_momentum": 12.0,
+          "rw_speed_init": 600.2750924603085,
+          "power": 6.302726073243321,
+          "efficiency": 0.5385020762176496
+        },
+        {
+          "rw_type": "Honeywell_HR12",
+          "rw_direction": [
+            0.0,
+            1.0,
+            0.0
+          ],
+          "max_momentum": 12.0,
+          "rw_speed_init": 730.5494275200163,
+          "power": 5.664487614917163,
+          "efficiency": 0.5309616569235853
+        },
+        {
+          "rw_type": "Honeywell_HR12",
+          "rw_direction": [
+            0.0,
+            0.0,
+            1.0
+          ],
+          "max_momentum": 12.0,
+          "rw_speed_init": 499.1813696437696,
+          "power": 5.001274617183095,
+          "efficiency": 0.5924097304026301
+        }
+      ],
+      "mrp_control": {
+        "k": 49.64633416249094,
+        "ki": 0.0062450546639850005,
+        "p": 167.69515205746754,
+        "integral_limit": 0.028585021971996416
+      },
+      "true_anomaly": 66.87493232419934,
+      "mrp_attitude_bn": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "id": 23
+    },
+    {
+      "inertia": [
+        183.34242248535156,
+        0.0,
+        0.0,
+        0.0,
+        133.8968505859375,
+        0.0,
+        0.0,
+        0.0,
+        127.21334838867188
+      ],
+      "mass": 60.55619983582899,
+      "center_of_mass": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "orbit": 24,
+      "solar_panel": {
+        "direction": [
+          -0.0738344466442902,
+          0.9372766558808239,
+          -0.34067718566054744
+        ],
+        "area": 0.31178249102822897,
+        "efficiency": 0.15365492970313538
+      },
+      "sensor": {
+        "enabled": false,
+        "half_field_of_view": 0.21042092165270485,
+        "power": 7.438578468452376,
+        "type": 1
+      },
+      "battery": {
+        "capacity": 15120.982501233502,
+        "percentage": 0.30724751868401823
+      },
+      "reaction_wheels": [
+        {
+          "rw_type": "Honeywell_HR14",
+          "rw_direction": [
+            1.0,
+            0.0,
+            0.0
+          ],
+          "max_momentum": 25.0,
+          "rw_speed_init": 619.3291370123364,
+          "power": 6.263046120122208,
+          "efficiency": 0.5368253834639672
+        },
+        {
+          "rw_type": "Honeywell_HR14",
+          "rw_direction": [
+            0.0,
+            1.0,
+            0.0
+          ],
+          "max_momentum": 25.0,
+          "rw_speed_init": 627.2568891316989,
+          "power": 5.66013435522453,
+          "efficiency": 0.5974431268229934
+        },
+        {
+          "rw_type": "Honeywell_HR14",
+          "rw_direction": [
+            0.0,
+            0.0,
+            1.0
+          ],
+          "max_momentum": 25.0,
+          "rw_speed_init": 471.6046259586225,
+          "power": 5.897768140363535,
+          "efficiency": 0.5265826569838631
+        }
+      ],
+      "mrp_control": {
+        "k": 26.64428773906946,
+        "ki": 0.007235778762675257,
+        "p": 54.81643280975228,
+        "integral_limit": 0.023036315105980424
+      },
+      "true_anomaly": 322.39091187717145,
+      "mrp_attitude_bn": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "id": 24
+    },
+    {
+      "inertia": [
+        53.344749450683594,
+        0.0,
+        0.0,
+        0.0,
+        188.04869079589844,
+        0.0,
+        0.0,
+        0.0,
+        69.00105285644531
+      ],
+      "mass": 101.43093258135232,
+      "center_of_mass": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "orbit": 25,
+      "solar_panel": {
+        "direction": [
+          0.7838605447957562,
+          0.6061173513047584,
+          -0.13484955602375723
+        ],
+        "area": 0.1650488508336425,
+        "efficiency": 0.19359328964151956
+      },
+      "sensor": {
+        "enabled": false,
+        "half_field_of_view": 0.21107974343073577,
+        "power": 5.048303389268891,
+        "type": 1
+      },
+      "battery": {
+        "capacity": 8056.437921858878,
+        "percentage": 0.27093903877866776
+      },
+      "reaction_wheels": [
+        {
+          "rw_type": "Honeywell_HR12",
+          "rw_direction": [
+            1.0,
+            0.0,
+            0.0
+          ],
+          "max_momentum": 25.0,
+          "rw_speed_init": 523.0817163535719,
+          "power": 5.174263415536342,
+          "efficiency": 0.5588932554798604
+        },
+        {
+          "rw_type": "Honeywell_HR12",
+          "rw_direction": [
+            0.0,
+            1.0,
+            0.0
+          ],
+          "max_momentum": 25.0,
+          "rw_speed_init": 450.3982368216771,
+          "power": 6.042412942873364,
+          "efficiency": 0.5589097429284013
+        },
+        {
+          "rw_type": "Honeywell_HR12",
+          "rw_direction": [
+            0.0,
+            0.0,
+            1.0
+          ],
+          "max_momentum": 25.0,
+          "rw_speed_init": 430.7871737391731,
+          "power": 6.80048966319506,
+          "efficiency": 0.5222001992806936
+        }
+      ],
+      "mrp_control": {
+        "k": 15.923098692962439,
+        "ki": 0.008413248591092893,
+        "p": 36.339098000169905,
+        "integral_limit": 0.03697236698849713
+      },
+      "true_anomaly": 269.9302340652188,
+      "mrp_attitude_bn": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "id": 25
+    },
+    {
+      "inertia": [
+        155.41302490234375,
+        0.0,
+        0.0,
+        0.0,
+        160.46665954589844,
+        0.0,
+        0.0,
+        0.0,
+        138.77691650390625
+      ],
+      "mass": 130.40963585360242,
+      "center_of_mass": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "orbit": 26,
+      "solar_panel": {
+        "direction": [
+          -0.1221767120126607,
+          0.7247076670207443,
+          -0.6781383696585273
+        ],
+        "area": 0.20580874584627035,
+        "efficiency": 0.3603565826016423
+      },
+      "sensor": {
+        "enabled": false,
+        "half_field_of_view": 0.3473994340915886,
+        "power": 1.274393939260399,
+        "type": 1
+      },
+      "battery": {
+        "capacity": 29857.739181862482,
+        "percentage": 0.8860140306441733
+      },
+      "reaction_wheels": [
+        {
+          "rw_type": "Honeywell_HR12",
+          "rw_direction": [
+            1.0,
+            0.0,
+            0.0
+          ],
+          "max_momentum": 12.0,
+          "rw_speed_init": 446.46780817314124,
+          "power": 5.992711810400934,
+          "efficiency": 0.5607175794466395
+        },
+        {
+          "rw_type": "Honeywell_HR12",
+          "rw_direction": [
+            0.0,
+            1.0,
+            0.0
+          ],
+          "max_momentum": 12.0,
+          "rw_speed_init": 613.0456186396656,
+          "power": 6.121449602258026,
+          "efficiency": 0.5883918787738889
+        },
+        {
+          "rw_type": "Honeywell_HR12",
+          "rw_direction": [
+            0.0,
+            0.0,
+            1.0
+          ],
+          "max_momentum": 12.0,
+          "rw_speed_init": 501.77677029882415,
+          "power": 5.482829434804071,
+          "efficiency": 0.5757356244864734
+        }
+      ],
+      "mrp_control": {
+        "k": 46.116255656219074,
+        "ki": 0.0034868695948625274,
+        "p": 102.91394608340701,
+        "integral_limit": 0.0022375881565971983
+      },
+      "true_anomaly": 162.03752893690861,
+      "mrp_attitude_bn": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "id": 26
+    },
+    {
+      "inertia": [
+        99.735107421875,
+        0.0,
+        0.0,
+        0.0,
+        145.61126708984375,
+        0.0,
+        0.0,
+        0.0,
+        65.57545471191406
+      ],
+      "mass": 78.25122034520967,
+      "center_of_mass": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "orbit": 27,
+      "solar_panel": {
+        "direction": [
+          -0.9974745574214223,
+          0.07096128585982275,
+          0.003000534295458506
+        ],
+        "area": 0.44618672467954124,
+        "efficiency": 0.19605490175410464
+      },
+      "sensor": {
+        "enabled": false,
+        "half_field_of_view": 0.3475733447508622,
+        "power": 5.693171567426197,
+        "type": 1
+      },
+      "battery": {
+        "capacity": 9091.625117764526,
+        "percentage": 0.47192195678620497
+      },
+      "reaction_wheels": [
+        {
+          "rw_type": "Honeywell_HR12",
+          "rw_direction": [
+            1.0,
+            0.0,
+            0.0
+          ],
+          "max_momentum": 12.0,
+          "rw_speed_init": 684.7533067104644,
+          "power": 5.914263007722988,
+          "efficiency": 0.5137768785729405
+        },
+        {
+          "rw_type": "Honeywell_HR12",
+          "rw_direction": [
+            0.0,
+            1.0,
+            0.0
+          ],
+          "max_momentum": 12.0,
+          "rw_speed_init": 614.6494406570268,
+          "power": 5.60452335003426,
+          "efficiency": 0.5572277804702629
+        },
+        {
+          "rw_type": "Honeywell_HR12",
+          "rw_direction": [
+            0.0,
+            0.0,
+            1.0
+          ],
+          "max_momentum": 12.0,
+          "rw_speed_init": 749.3847589477141,
+          "power": 5.686367436095958,
+          "efficiency": 0.5844849796079228
+        }
+      ],
+      "mrp_control": {
+        "k": 32.492347709745566,
+        "ki": 0.002329263322663344,
+        "p": 103.06518712595216,
+        "integral_limit": 0.01114095196279085
+      },
+      "true_anomaly": 209.12667746130506,
+      "mrp_attitude_bn": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "id": 27
+    },
+    {
+      "inertia": [
+        58.317691802978516,
+        0.0,
+        0.0,
+        0.0,
+        53.16250228881836,
+        0.0,
+        0.0,
+        0.0,
+        101.88726806640625
+      ],
+      "mass": 155.58744244626354,
+      "center_of_mass": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "orbit": 28,
+      "solar_panel": {
+        "direction": [
+          0.22136733270476486,
+          0.6519891556522263,
+          -0.7251942118653975
+        ],
+        "area": 0.22942436767171853,
+        "efficiency": 0.22170862164357602
+      },
+      "sensor": {
+        "enabled": false,
+        "half_field_of_view": 0.24058631132305847,
+        "power": 4.478628738600694,
+        "type": 1
+      },
+      "battery": {
+        "capacity": 10594.926599494243,
+        "percentage": 0.6636366798724629
+      },
+      "reaction_wheels": [
+        {
+          "rw_type": "Honeywell_HR12",
+          "rw_direction": [
+            1.0,
+            0.0,
+            0.0
+          ],
+          "max_momentum": 12.0,
+          "rw_speed_init": 716.9294538081034,
+          "power": 6.481997180694298,
+          "efficiency": 0.557581915036118
+        },
+        {
+          "rw_type": "Honeywell_HR12",
+          "rw_direction": [
+            0.0,
+            1.0,
+            0.0
+          ],
+          "max_momentum": 12.0,
+          "rw_speed_init": 557.5813841448066,
+          "power": 6.7248815924594485,
+          "efficiency": 0.5013624182928795
+        },
+        {
+          "rw_type": "Honeywell_HR12",
+          "rw_direction": [
+            0.0,
+            0.0,
+            1.0
+          ],
+          "max_momentum": 12.0,
+          "rw_speed_init": 569.1614906960119,
+          "power": 5.0172854969323915,
+          "efficiency": 0.560187378796634
+        }
+      ],
+      "mrp_control": {
+        "k": 34.056645097498354,
+        "ki": 0.009872990309979431,
+        "p": 83.82805489430531,
+        "integral_limit": 0.048002856496327996
+      },
+      "true_anomaly": 128.6760042247892,
+      "mrp_attitude_bn": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "id": 28
+    },
+    {
+      "inertia": [
+        182.3009033203125,
+        0.0,
+        0.0,
+        0.0,
+        106.37471008300781,
+        0.0,
+        0.0,
+        0.0,
+        78.61691284179688
+      ],
+      "mass": 113.4231500748864,
+      "center_of_mass": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "orbit": 29,
+      "solar_panel": {
+        "direction": [
+          0.49506401715461784,
+          0.8654388662653977,
+          -0.0769882307628591
+        ],
+        "area": 0.4061713984870584,
+        "efficiency": 0.2589871419569012
+      },
+      "sensor": {
+        "enabled": false,
+        "half_field_of_view": 0.4932209306361711,
+        "power": 1.8237903351627596,
+        "type": 1
+      },
+      "battery": {
+        "capacity": 16317.19317271288,
+        "percentage": 0.10009182316977934
+      },
+      "reaction_wheels": [
+        {
+          "rw_type": "Honeywell_HR14",
+          "rw_direction": [
+            1.0,
+            0.0,
+            0.0
+          ],
+          "max_momentum": 25.0,
+          "rw_speed_init": 616.608507835109,
+          "power": 5.412911152609462,
+          "efficiency": 0.5085045221833686
+        },
+        {
+          "rw_type": "Honeywell_HR14",
+          "rw_direction": [
+            0.0,
+            1.0,
+            0.0
+          ],
+          "max_momentum": 25.0,
+          "rw_speed_init": 406.1368067634203,
+          "power": 6.836068778623788,
+          "efficiency": 0.5693926445012146
+        },
+        {
+          "rw_type": "Honeywell_HR14",
+          "rw_direction": [
+            0.0,
+            0.0,
+            1.0
+          ],
+          "max_momentum": 25.0,
+          "rw_speed_init": 451.40578268375344,
+          "power": 5.614877805078205,
+          "efficiency": 0.5254732846378883
+        }
+      ],
+      "mrp_control": {
+        "k": 31.409448255177693,
+        "ki": 0.003598163831895964,
+        "p": 93.06929107687112,
+        "integral_limit": 0.017941434178675546
+      },
+      "true_anomaly": 220.5894215116624,
+      "mrp_attitude_bn": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "id": 29
+    },
+    {
+      "inertia": [
+        80.09928894042969,
+        0.0,
+        0.0,
+        0.0,
+        118.20590209960938,
+        0.0,
+        0.0,
+        0.0,
+        169.4437255859375
+      ],
+      "mass": 120.49731494669385,
+      "center_of_mass": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "orbit": 30,
+      "solar_panel": {
+        "direction": [
+          0.6689758694361996,
+          0.7079774919050412,
+          0.22636067915591737
+        ],
+        "area": 0.28323059819909013,
+        "efficiency": 0.2998641880339409
+      },
+      "sensor": {
+        "enabled": false,
+        "half_field_of_view": 0.21487642059881418,
+        "power": 3.510769547489993,
+        "type": 1
+      },
+      "battery": {
+        "capacity": 9578.400804227816,
+        "percentage": 0.709028518456043
+      },
+      "reaction_wheels": [
+        {
+          "rw_type": "Honeywell_HR12",
+          "rw_direction": [
+            1.0,
+            0.0,
+            0.0
+          ],
+          "max_momentum": 12.0,
+          "rw_speed_init": 514.7394242876496,
+          "power": 5.928286777173326,
+          "efficiency": 0.5073680613330941
+        },
+        {
+          "rw_type": "Honeywell_HR12",
+          "rw_direction": [
+            0.0,
+            1.0,
+            0.0
+          ],
+          "max_momentum": 12.0,
+          "rw_speed_init": 527.7614713555722,
+          "power": 5.30696407912247,
+          "efficiency": 0.5407444048110289
+        },
+        {
+          "rw_type": "Honeywell_HR12",
+          "rw_direction": [
+            0.0,
+            0.0,
+            1.0
+          ],
+          "max_momentum": 12.0,
+          "rw_speed_init": 551.154532848945,
+          "power": 6.382770819656211,
+          "efficiency": 0.5717003095658605
+        }
+      ],
+      "mrp_control": {
+        "k": 57.29861224509489,
+        "ki": 0.009862735126159148,
+        "p": 162.87160876726622,
+        "integral_limit": 0.0450194933674529
+      },
+      "true_anomaly": 193.189379127913,
+      "mrp_attitude_bn": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "id": 30
+    },
+    {
+      "inertia": [
+        90.67628479003906,
+        0.0,
+        0.0,
+        0.0,
+        131.96517944335938,
+        0.0,
+        0.0,
+        0.0,
+        183.85403442382812
+      ],
+      "mass": 68.90401656112498,
+      "center_of_mass": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "orbit": 31,
+      "solar_panel": {
+        "direction": [
+          0.4646424031220778,
+          0.4646809457721722,
+          0.7537765291233339
+        ],
+        "area": 0.19892554773426788,
+        "efficiency": 0.48414749522174827
+      },
+      "sensor": {
+        "enabled": false,
+        "half_field_of_view": 0.2956748942164674,
+        "power": 2.0313243519194786,
+        "type": 1
+      },
+      "battery": {
+        "capacity": 28554.866122925796,
+        "percentage": 0.9443907121800268
+      },
+      "reaction_wheels": [
+        {
+          "rw_type": "Honeywell_HR12",
+          "rw_direction": [
+            1.0,
+            0.0,
+            0.0
+          ],
+          "max_momentum": 12.0,
+          "rw_speed_init": 640.6798523134361,
+          "power": 5.908433227680407,
+          "efficiency": 0.5651634083571798
+        },
+        {
+          "rw_type": "Honeywell_HR12",
+          "rw_direction": [
+            0.0,
+            1.0,
+            0.0
+          ],
+          "max_momentum": 12.0,
+          "rw_speed_init": 427.7408763988699,
+          "power": 6.475885701009992,
+          "efficiency": 0.5830872848803974
+        },
+        {
+          "rw_type": "Honeywell_HR12",
+          "rw_direction": [
+            0.0,
+            0.0,
+            1.0
+          ],
+          "max_momentum": 12.0,
+          "rw_speed_init": 461.15841840161426,
+          "power": 6.228857815030918,
+          "efficiency": 0.5219603608492506
+        }
+      ],
+      "mrp_control": {
+        "k": 65.88095247003544,
+        "ki": 0.006039192074718068,
+        "p": 221.26483628556375,
+        "integral_limit": 0.009029286653334485
+      },
+      "true_anomaly": 282.867105776852,
+      "mrp_attitude_bn": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "id": 31
+    },
+    {
+      "inertia": [
+        195.9453887939453,
+        0.0,
+        0.0,
+        0.0,
+        53.42475891113281,
+        0.0,
+        0.0,
+        0.0,
+        142.0194854736328
+      ],
+      "mass": 197.10177343670256,
+      "center_of_mass": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "orbit": 32,
+      "solar_panel": {
+        "direction": [
+          -0.4565008457464873,
+          0.7576521371274514,
+          -0.46644422704000454
+        ],
+        "area": 0.18650574899348793,
+        "efficiency": 0.3241334524702735
+      },
+      "sensor": {
+        "enabled": false,
+        "half_field_of_view": 0.49985253193009116,
+        "power": 7.418679607111137,
+        "type": 1
+      },
+      "battery": {
+        "capacity": 11732.115742642858,
+        "percentage": 0.45630340060513797
+      },
+      "reaction_wheels": [
+        {
+          "rw_type": "Honeywell_HR12",
+          "rw_direction": [
+            1.0,
+            0.0,
+            0.0
+          ],
+          "max_momentum": 12.0,
+          "rw_speed_init": 679.441604922176,
+          "power": 5.354011718483324,
+          "efficiency": 0.5738195770478509
+        },
+        {
+          "rw_type": "Honeywell_HR12",
+          "rw_direction": [
+            0.0,
+            1.0,
+            0.0
+          ],
+          "max_momentum": 12.0,
+          "rw_speed_init": 403.6357080605503,
+          "power": 5.661370051162475,
+          "efficiency": 0.5566886525766697
+        },
+        {
+          "rw_type": "Honeywell_HR12",
+          "rw_direction": [
+            0.0,
+            0.0,
+            1.0
+          ],
+          "max_momentum": 12.0,
+          "rw_speed_init": 457.81902803325124,
+          "power": 6.24010727747603,
+          "efficiency": 0.581363182205749
+        }
+      ],
+      "mrp_control": {
+        "k": 48.99599819840776,
+        "ki": 0.0054298409077438905,
+        "p": 139.41895936649772,
+        "integral_limit": 0.025289680646944552
+      },
+      "true_anomaly": 83.69917803076422,
+      "mrp_attitude_bn": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "id": 32
+    },
+    {
+      "inertia": [
+        71.60331726074219,
+        0.0,
+        0.0,
+        0.0,
+        169.08859252929688,
+        0.0,
+        0.0,
+        0.0,
+        137.07366943359375
+      ],
+      "mass": 73.87525968560065,
+      "center_of_mass": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "orbit": 33,
+      "solar_panel": {
+        "direction": [
+          -0.17436328506159218,
+          0.07845363233544503,
+          -0.9815510544010967
+        ],
+        "area": 0.15625307032373917,
+        "efficiency": 0.2998334657246886
+      },
+      "sensor": {
+        "enabled": false,
+        "half_field_of_view": 0.22906431953631712,
+        "power": 9.282219371594968,
+        "type": 1
+      },
+      "battery": {
+        "capacity": 22451.17293704618,
+        "percentage": 0.9241893181374513
+      },
+      "reaction_wheels": [
+        {
+          "rw_type": "Honeywell_HR12",
+          "rw_direction": [
+            1.0,
+            0.0,
+            0.0
+          ],
+          "max_momentum": 12.0,
+          "rw_speed_init": 672.5770060692046,
+          "power": 5.15712694587004,
+          "efficiency": 0.5494981305189687
+        },
+        {
+          "rw_type": "Honeywell_HR12",
+          "rw_direction": [
+            0.0,
+            1.0,
+            0.0
+          ],
+          "max_momentum": 12.0,
+          "rw_speed_init": 493.1042596689134,
+          "power": 5.918176043533928,
+          "efficiency": 0.5982561046847907
+        },
+        {
+          "rw_type": "Honeywell_HR12",
+          "rw_direction": [
+            0.0,
+            0.0,
+            1.0
+          ],
+          "max_momentum": 12.0,
+          "rw_speed_init": 586.2696104996498,
+          "power": 6.00486494153315,
+          "efficiency": 0.5805191958408481
+        }
+      ],
+      "mrp_control": {
+        "k": 54.58245350906527,
+        "ki": 0.008256500870204086,
+        "p": 218.2134160901147,
+        "integral_limit": 0.025863093595299987
+      },
+      "true_anomaly": 72.8086663948698,
+      "mrp_attitude_bn": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "id": 33
+    },
+    {
+      "inertia": [
+        130.58897399902344,
+        0.0,
+        0.0,
+        0.0,
+        64.48477172851562,
+        0.0,
+        0.0,
+        0.0,
+        111.1352310180664
+      ],
+      "mass": 137.9341654846939,
+      "center_of_mass": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "orbit": 34,
+      "solar_panel": {
+        "direction": [
+          0.8746975534019884,
+          0.12021886295978093,
+          -0.4695227524425553
+        ],
+        "area": 0.3437469844301575,
+        "efficiency": 0.22969300290188116
+      },
+      "sensor": {
+        "enabled": false,
+        "half_field_of_view": 0.3698402357630227,
+        "power": 1.0519563142900434,
+        "type": 1
+      },
+      "battery": {
+        "capacity": 29053.14105144662,
+        "percentage": 0.4461835119179349
+      },
+      "reaction_wheels": [
+        {
+          "rw_type": "Honeywell_HR14",
+          "rw_direction": [
+            1.0,
+            0.0,
+            0.0
+          ],
+          "max_momentum": 25.0,
+          "rw_speed_init": 591.7447170428381,
+          "power": 6.044994136802966,
+          "efficiency": 0.5255838104622262
+        },
+        {
+          "rw_type": "Honeywell_HR14",
+          "rw_direction": [
+            0.0,
+            1.0,
+            0.0
+          ],
+          "max_momentum": 25.0,
+          "rw_speed_init": 418.2841721769402,
+          "power": 5.143274215000482,
+          "efficiency": 0.5513750361656841
+        },
+        {
+          "rw_type": "Honeywell_HR14",
+          "rw_direction": [
+            0.0,
+            0.0,
+            1.0
+          ],
+          "max_momentum": 25.0,
+          "rw_speed_init": 418.37437214273575,
+          "power": 6.674728641704139,
+          "efficiency": 0.5950635332909471
+        }
+      ],
+      "mrp_control": {
+        "k": 15.100421449423106,
+        "ki": 0.006659096717068008,
+        "p": 40.56758678500944,
+        "integral_limit": 0.019597818506880624
+      },
+      "true_anomaly": 94.0050268073211,
+      "mrp_attitude_bn": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "id": 34
+    },
+    {
+      "inertia": [
+        157.22381591796875,
+        0.0,
+        0.0,
+        0.0,
+        183.34652709960938,
+        0.0,
+        0.0,
+        0.0,
+        149.06112670898438
+      ],
+      "mass": 123.9106759409783,
+      "center_of_mass": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "orbit": 35,
+      "solar_panel": {
+        "direction": [
+          -0.07158361951031894,
+          0.39019689443977795,
+          0.9179445348098951
+        ],
+        "area": 0.38428304862562157,
+        "efficiency": 0.4825575167841456
+      },
+      "sensor": {
+        "enabled": false,
+        "half_field_of_view": 0.3583527274679853,
+        "power": 5.19846279421216,
+        "type": 1
+      },
+      "battery": {
+        "capacity": 28532.46114900969,
+        "percentage": 0.38043936987705473
+      },
+      "reaction_wheels": [
+        {
+          "rw_type": "Honeywell_HR12",
+          "rw_direction": [
+            1.0,
+            0.0,
+            0.0
+          ],
+          "max_momentum": 12.0,
+          "rw_speed_init": 426.4144646052646,
+          "power": 5.401292296776323,
+          "efficiency": 0.5004139697600141
+        },
+        {
+          "rw_type": "Honeywell_HR12",
+          "rw_direction": [
+            0.0,
+            1.0,
+            0.0
+          ],
+          "max_momentum": 12.0,
+          "rw_speed_init": 744.5663152645368,
+          "power": 6.920887951024499,
+          "efficiency": 0.5634033913805523
+        },
+        {
+          "rw_type": "Honeywell_HR12",
+          "rw_direction": [
+            0.0,
+            0.0,
+            1.0
+          ],
+          "max_momentum": 12.0,
+          "rw_speed_init": 579.6616731498532,
+          "power": 5.981691463920562,
+          "efficiency": 0.5312020184854174
+        }
+      ],
+      "mrp_control": {
+        "k": 74.78209774625506,
+        "ki": 0.004725263084870626,
+        "p": 154.5739241549009,
+        "integral_limit": 0.006351957262840655
+      },
+      "true_anomaly": 277.92505370483104,
+      "mrp_attitude_bn": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "id": 35
+    },
+    {
+      "inertia": [
+        110.465087890625,
+        0.0,
+        0.0,
+        0.0,
+        122.02111053466797,
+        0.0,
+        0.0,
+        0.0,
+        109.68540954589844
+      ],
+      "mass": 153.2115098249791,
+      "center_of_mass": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "orbit": 36,
+      "solar_panel": {
+        "direction": [
+          -0.5213798767946864,
+          0.24520983460056373,
+          0.8173341795671596
+        ],
+        "area": 0.1234972664304883,
+        "efficiency": 0.373332026912659
+      },
+      "sensor": {
+        "enabled": false,
+        "half_field_of_view": 0.2025708989109145,
+        "power": 6.230360038790508,
+        "type": 1
+      },
+      "battery": {
+        "capacity": 27091.309366363326,
+        "percentage": 0.761114935381207
+      },
+      "reaction_wheels": [
+        {
+          "rw_type": "Honeywell_HR12",
+          "rw_direction": [
+            1.0,
+            0.0,
+            0.0
+          ],
+          "max_momentum": 12.0,
+          "rw_speed_init": 561.52163263424,
+          "power": 6.8664210678161774,
+          "efficiency": 0.5095547347837202
+        },
+        {
+          "rw_type": "Honeywell_HR12",
+          "rw_direction": [
+            0.0,
+            1.0,
+            0.0
+          ],
+          "max_momentum": 12.0,
+          "rw_speed_init": 494.80436403523606,
+          "power": 6.748097431620345,
+          "efficiency": 0.5703054877133322
+        },
+        {
+          "rw_type": "Honeywell_HR12",
+          "rw_direction": [
+            0.0,
+            0.0,
+            1.0
+          ],
+          "max_momentum": 12.0,
+          "rw_speed_init": 515.5900309495134,
+          "power": 5.555819020983698,
+          "efficiency": 0.5946218168702601
+        }
+      ],
+      "mrp_control": {
+        "k": 31.62692422386898,
+        "ki": 0.0036962347357206416,
+        "p": 121.42425966787773,
+        "integral_limit": 0.01775294266988211
+      },
+      "true_anomaly": 172.06205003862053,
+      "mrp_attitude_bn": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "id": 36
+    },
+    {
+      "inertia": [
+        116.3469009399414,
+        0.0,
+        0.0,
+        0.0,
+        156.98513793945312,
+        0.0,
+        0.0,
+        0.0,
+        129.77749633789062
+      ],
+      "mass": 150.9523990298972,
+      "center_of_mass": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "orbit": 37,
+      "solar_panel": {
+        "direction": [
+          0.05070886765692926,
+          0.001916057330026943,
+          -0.9987116397966233
+        ],
+        "area": 0.16021752255237054,
+        "efficiency": 0.25025457328785794
+      },
+      "sensor": {
+        "enabled": false,
+        "half_field_of_view": 0.4127445473491057,
+        "power": 4.455238538104918,
+        "type": 1
+      },
+      "battery": {
+        "capacity": 22849.622274430534,
+        "percentage": 0.15706761360121352
+      },
+      "reaction_wheels": [
+        {
+          "rw_type": "Honeywell_HR12",
+          "rw_direction": [
+            1.0,
+            0.0,
+            0.0
+          ],
+          "max_momentum": 25.0,
+          "rw_speed_init": 457.51235583689123,
+          "power": 6.607291678498073,
+          "efficiency": 0.5426594897933654
+        },
+        {
+          "rw_type": "Honeywell_HR12",
+          "rw_direction": [
+            0.0,
+            1.0,
+            0.0
+          ],
+          "max_momentum": 25.0,
+          "rw_speed_init": 417.042585129079,
+          "power": 5.04311985734518,
+          "efficiency": 0.5238716464086621
+        },
+        {
+          "rw_type": "Honeywell_HR12",
+          "rw_direction": [
+            0.0,
+            0.0,
+            1.0
+          ],
+          "max_momentum": 25.0,
+          "rw_speed_init": 719.7224235983355,
+          "power": 6.706120241390732,
+          "efficiency": 0.503498148121165
+        }
+      ],
+      "mrp_control": {
+        "k": 19.37376837532923,
+        "ki": 0.0038394333727684816,
+        "p": 75.54378671593095,
+        "integral_limit": 0.019138416024438925
+      },
+      "true_anomaly": 127.11915531772961,
+      "mrp_attitude_bn": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "id": 37
+    },
+    {
+      "inertia": [
+        84.66107177734375,
+        0.0,
+        0.0,
+        0.0,
+        62.769264221191406,
+        0.0,
+        0.0,
+        0.0,
+        87.70770263671875
+      ],
+      "mass": 74.46902427336607,
+      "center_of_mass": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "orbit": 38,
+      "solar_panel": {
+        "direction": [
+          0.34077467037653364,
+          0.7608731406887091,
+          0.5522179712833191
+        ],
+        "area": 0.49565429381808634,
+        "efficiency": 0.3855628604688316
+      },
+      "sensor": {
+        "enabled": false,
+        "half_field_of_view": 0.16965426429066732,
+        "power": 7.108961503048686,
+        "type": 1
+      },
+      "battery": {
+        "capacity": 18302.662164213238,
+        "percentage": 0.5173289951954337
+      },
+      "reaction_wheels": [
+        {
+          "rw_type": "Honeywell_HR12",
+          "rw_direction": [
+            1.0,
+            0.0,
+            0.0
+          ],
+          "max_momentum": 25.0,
+          "rw_speed_init": 571.4036816067098,
+          "power": 6.9800688698007995,
+          "efficiency": 0.5333946209800008
+        },
+        {
+          "rw_type": "Honeywell_HR12",
+          "rw_direction": [
+            0.0,
+            1.0,
+            0.0
+          ],
+          "max_momentum": 25.0,
+          "rw_speed_init": 485.90774157434566,
+          "power": 5.716639147884508,
+          "efficiency": 0.5741234898811103
+        },
+        {
+          "rw_type": "Honeywell_HR12",
+          "rw_direction": [
+            0.0,
+            0.0,
+            1.0
+          ],
+          "max_momentum": 25.0,
+          "rw_speed_init": 413.3929800043785,
+          "power": 6.198928304587109,
+          "efficiency": 0.5284076385344966
+        }
+      ],
+      "mrp_control": {
+        "k": 16.521236619225597,
+        "ki": 0.005719178522670976,
+        "p": 57.76174508597128,
+        "integral_limit": 0.011229526684386698
+      },
+      "true_anomaly": 203.02021054678022,
+      "mrp_attitude_bn": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "id": 38
+    },
+    {
+      "inertia": [
+        55.55162811279297,
+        0.0,
+        0.0,
+        0.0,
+        89.18527221679688,
+        0.0,
+        0.0,
+        0.0,
+        176.1938018798828
+      ],
+      "mass": 118.99688723310146,
+      "center_of_mass": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "orbit": 39,
+      "solar_panel": {
+        "direction": [
+          -0.20838251549471504,
+          0.25165459710595023,
+          -0.9451172895421693
+        ],
+        "area": 0.2863936887532935,
+        "efficiency": 0.34718634218903466
+      },
+      "sensor": {
+        "enabled": false,
+        "half_field_of_view": 0.4199966502693254,
+        "power": 7.190701144194224,
+        "type": 1
+      },
+      "battery": {
+        "capacity": 25989.165971551414,
+        "percentage": 0.5367891981027715
+      },
+      "reaction_wheels": [
+        {
+          "rw_type": "Honeywell_HR12",
+          "rw_direction": [
+            1.0,
+            0.0,
+            0.0
+          ],
+          "max_momentum": 12.0,
+          "rw_speed_init": 474.62653646742484,
+          "power": 6.81648282478782,
+          "efficiency": 0.5306016091472355
+        },
+        {
+          "rw_type": "Honeywell_HR12",
+          "rw_direction": [
+            0.0,
+            1.0,
+            0.0
+          ],
+          "max_momentum": 12.0,
+          "rw_speed_init": 565.1802065831141,
+          "power": 6.519542894198638,
+          "efficiency": 0.515410652185916
+        },
+        {
+          "rw_type": "Honeywell_HR12",
+          "rw_direction": [
+            0.0,
+            0.0,
+            1.0
+          ],
+          "max_momentum": 12.0,
+          "rw_speed_init": 585.2514343229208,
+          "power": 6.925673900074187,
+          "efficiency": 0.5844688747815419
+        }
+      ],
+      "mrp_control": {
+        "k": 50.14796421134883,
+        "ki": 0.007167462640499612,
+        "p": 163.45574244969058,
+        "integral_limit": 0.027352668535722127
+      },
+      "true_anomaly": 22.856791154355204,
+      "mrp_attitude_bn": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "id": 39
+    }
+  ]
+}
