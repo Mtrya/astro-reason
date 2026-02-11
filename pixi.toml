@@ -16,5 +16,6 @@ pytest = ">=9.0.2,<10"
 [pypi-dependencies]
 requests = ">=2.32.5, <3"
 skyfield = ">=1.54, <2"
-numpy = ">=2.4.2, <3"
 brahe = ">=1.0.1, <2"
+bsk = ">=2.9.0, <3"
+numpy = ">=2.3.5, <3"
