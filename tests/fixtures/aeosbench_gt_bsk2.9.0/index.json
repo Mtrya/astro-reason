@@ -1,0 +1,105 @@
+{
+  "num_fixtures": 20,
+  "fixtures": [
+    {
+      "case_id": 30769,
+      "split": "train",
+      "algorithm": "optimal"
+    },
+    {
+      "case_id": 36492,
+      "split": "train",
+      "algorithm": "optimal"
+    },
+    {
+      "case_id": 48723,
+      "split": "train",
+      "algorithm": "optimal"
+    },
+    {
+      "case_id": 52804,
+      "split": "train",
+      "algorithm": "optimal"
+    },
+    {
+      "case_id": 54390,
+      "split": "train",
+      "algorithm": "optimal"
+    },
+    {
+      "case_id": 55662,
+      "split": "train",
+      "algorithm": "optimal"
+    },
+    {
+      "case_id": 90503,
+      "split": "train",
+      "algorithm": "optimal"
+    },
+    {
+      "case_id": 92004,
+      "split": "train",
+      "algorithm": "optimal"
+    },
+    {
+      "case_id": 109,
+      "split": "val_seen",
+      "algorithm": "optimal"
+    },
+    {
+      "case_id": 203,
+      "split": "val_seen",
+      "algorithm": "optimal"
+    },
+    {
+      "case_id": 300,
+      "split": "val_seen",
+      "algorithm": "optimal"
+    },
+    {
+      "case_id": 449,
+      "split": "val_seen",
+      "algorithm": "optimal"
+    },
+    {
+      "case_id": 157,
+      "split": "val_unseen",
+      "algorithm": "optimal"
+    },
+    {
+      "case_id": 190,
+      "split": "val_unseen",
+      "algorithm": "optimal"
+    },
+    {
+      "case_id": 377,
+      "split": "val_unseen",
+      "algorithm": "optimal"
+    },
+    {
+      "case_id": 451,
+      "split": "val_unseen",
+      "algorithm": "optimal"
+    },
+    {
+      "case_id": 105,
+      "split": "test",
+      "algorithm": "optimal"
+    },
+    {
+      "case_id": 170,
+      "split": "test",
+      "algorithm": "optimal"
+    },
+    {
+      "case_id": 500,
+      "split": "test",
+      "algorithm": "optimal"
+    },
+    {
+      "case_id": 819,
+      "split": "test",
+      "algorithm": "optimal"
+    }
+  ]
+}

@@ -1,0 +1,15 @@
+{
+  "case_id": 105,
+  "algorithm": "OptimalAlgorithm",
+  "metrics": {
+    "CR": 0.717948717948718,
+    "WCR": 0.7258632779121399,
+    "PCR": 0.7378944754600525,
+    "WPCR": 0.750176191329956,
+    "TAT": 367.5535583496094,
+    "PC": 176589.671875
+  },
+  "num_succeeded": 56,
+  "num_failed": 22,
+  "num_total": 78
+}

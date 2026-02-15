@@ -9,11 +9,13 @@ version = "0.1.0"
 
 [dependencies]
 python = ">=3.12.12,<3.13"
-tudatpy = ">=1.0.0,<2"
-pip = ">=25.3,<26"
-requests = ">=2.32.5,<3"
+pip = ">=26.0.1,<27"
 bubblewrap = ">=0.11.0,<0.12"
 pytest = ">=9.0.2,<10"
-skyfield = ">=1.54,<2"
-mcp = ">=1.25.0,<2"
-numpy = ">=1.26.4,<2"
+
+[pypi-dependencies]
+requests = ">=2.32.5, <3"
+skyfield = ">=1.54, <2"
+brahe = ">=1.0.1, <2"
+bsk = ">=2.9.0, <3"
+numpy = ">=2.3.5, <3"
