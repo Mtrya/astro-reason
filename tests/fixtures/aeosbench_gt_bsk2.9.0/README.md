@@ -9,7 +9,6 @@ A **fixture** is a tuple of `(case, solution, metrics, curves)` that captures a 
 - **Case**: The problem instance (satellite constellation + task set)
 - **Solution**: The scheduling decisions (which satellite does which task at each timestep)
 - **Metrics**: Aggregated performance metrics (completion rates, turnaround time, power consumption)
-- **Curves**: Time-series dynamics data (positions, velocities, attitudes, battery levels, reaction wheel states)
 
 These fixtures serve as ground truth for verifying the correctness of AEOS-Bench custom verifier implementations.
 
@@ -56,24 +55,6 @@ After solution generation, the solution is replayed through the Basilisk simulat
 - **TAT** (Turn-Around Time): Average time from task release to completion
 - **PC** (Power Consumption): Total energy consumed by sensors
 
-### Curve Extraction
-
-During metrics replay, time-series data is extracted at each timestep:
-
-**Per-Satellite Curves**:
-- `position_eci`: ECI position vector [x, y, z] in meters
-- `velocity_eci`: ECI velocity vector [vx, vy, vz] in m/s
-- `attitude_mrp`: Attitude as Modified Rodrigues Parameters [σ₁, σ₂, σ₃]
-- `battery_level`: Battery charge level in Joules
-- `sensor_enabled`: Boolean sensor state (true=on, false=off)
-- `reaction_wheel_omega`: Reaction wheel speeds [ω₁, ω₂, ω₃] in rad/s
-- `reaction_wheel_torque`: Reaction wheel torques [τ₁, τ₂, τ₃] in Nm
-- `assignment`: Task ID assigned at this timestep (-1 = idle)
-
-**Per-Task Curves**:
-- `visibility`: Visibility matrix per satellite per timestep
-- `progress`: Task progress (timesteps worked) at each timestep
-
 ## Directory Structure
 
 ```
@@ -87,11 +68,8 @@ fixtures/
 ├── solutions/                 # Scheduling solutions
 │   ├── 00000.json            # Per-satellite task assignments
 │   └── ...
-├── metrics/                   # Performance metrics
-│   ├── 00000.json            # CR, WCR, PCR, WPCR, TAT, PC
-│   └── ...
-└── curves/                    # Dynamics time-series data
-    ├── 00000.json            # Per-timestep state vectors
+└── metrics/                   # Performance metrics
+    ├── 00000.json            # CR, WCR, PCR, WPCR, TAT, PC
     └── ...
 ```
 
