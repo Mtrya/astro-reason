@@ -10,7 +10,6 @@ venv/
 ENV/
 env.bak/
 venv.bak/
-.pixi/
 
 # Project-specific ignores
 .factory/
@@ -27,4 +26,3 @@ QWEN.md
 
 sandbox_template/
 sandbox/
-docs/internal/
