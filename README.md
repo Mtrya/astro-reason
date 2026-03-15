@@ -1,46 +1,56 @@
 # AstroReason-Bench
 
-A benchmark suite for evaluating LLM agents on space mission planning problems.
+AstroReason-Bench is a benchmark-core repository for evaluating LLM agents on space mission design and planning problems.
+
+This branch is under active development as we expand the suite with more subtasks and decouple benchmarks from solution implementations. To reproduce the results from the current paper, use the `v1` branch, where benchmarks and solutions are still coupled. A separate solutions repository is planned and will be released in the future.
 
 ## Why This Project?
 
-**Aerospace lacks rigorous, standardized, algorithm-agnostic benchmarks.** While AI has ImageNet and GLUE, space mission planning has no standardized evaluation suite. This project fills that gap with:
+**Aerospace lacks rigorous, standardized, algorithm-agnostic benchmarks.** While AI has ImageNet and GLUE, space mission design still lacks a shared evaluation suite built around well-defined problems and verifiable scoring.
 
-- **Datasets**: Well-defined problem instances
-- **Verifiers**: Standalone scoring logic, independent of solution method
-- **Baselines**: Reference implementations to establish performance floors
+This repository focuses on:
 
-Any approach can be evaluated — LLM agents, metaheuristics, RL, or human experts.
+- **Datasets**: Canonical benchmark instances
+- **Verifiers**: Standalone validation and scoring logic
+- **Reproducibility tools**: Optional benchmark-local generators and visualizers
+
+Any approach can be evaluated: LLM agents, metaheuristics, RL systems, or human experts. This repository defines the benchmark; it does **not** ship solution implementations.
 
 ## Repository Structure
 
-```
+```text
 astro-reason/
-├── benchmarks/{name}/   # Each benchmark is standalone
-│   ├── dataset/         # Problem instances
-│   ├── verifier.py      # Validation + scoring
-│   ├── baselines/       # Optional reference implementations
-│   └── README.md        # Problem specification
-├── skills/              # Teaching materials for space agents
-│   ├── libraries/       # How to use brahe, tudatpy, basilisk
-│   └── problems/        # Problem-solving patterns
-└── tests/               # Test suites mirroring source structure
+├── benchmarks/{name}/
+│   ├── dataset/              # Problem instances
+│   ├── verifier.py           # or verifier/run.py
+│   ├── visualizer.py         # optional, or visualizer/run.py
+│   ├── generator.py          # optional, or generator/run.py
+│   └── README.md             # Problem specification and file formats
+└── tests/
+    └── benchmarks/           # Focused tests for verifiers and benchmark tooling
 ```
 
-## Roadmap
+## Benchmark Design Principles
 
-| Phase | Focus | Examples |
-|-------|-------|----------|
-| 1 | Legacy benchmarks | spot5 ✅, satnet ✅, aeosbench |
-| 2 | LEO constellation (6DOF) | revisit gaps, relay networks, imaging & cartography |
-| 3 | Deep space (3DOF) | interplanetary, small body rendezvous |
-| 4 | Rocket trajectories | ascent, descent, reentry *(pending library)* |
+- **Algorithm-agnostic**: Benchmarks define problems and verification, not the method used to solve them.
+- **Standalone**: Each benchmark is self-contained with no dependencies on other benchmarks.
+- **Reproducible**: Optional generators can recreate or extend datasets when appropriate.
+- **Solution-free core**: Solutions and baselines live outside this repository.
 
 ## Environment
 
-Uses `pixi` for dependency management (supports Python, Rust, C++ verifiers).
+This project uses `uv` for environment management. To ensure verifier integrity, run:
 
 ```bash
-pixi shell        # Activate environment
-pytest tests/...  # Run tests
+uv run pytest tests/benchmarks/test_<name>_verifier.py
 ```
+
+Run focused tests instead of the full suite unless you specifically need a broader check.
+
+## Status
+
+Current priorities include
+- finishing legacy benchmark verifiers, 
+- refactoring dataset layouts where needed, 
+- reimplementing several existing verifiers, 
+- and writing dataset generators for reproducibility.
