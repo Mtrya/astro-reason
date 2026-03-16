@@ -217,7 +217,6 @@ def test_case_157_metrics() -> None:
     )
 
 
-@pytest.mark.slow
 @pytest.mark.parametrize(
     "case_id",
     [
@@ -248,7 +247,6 @@ def test_specific_case(case_id: int) -> None:
     )
 
 
-@pytest.mark.slow
 def test_all_fixtures() -> None:
     if not FIXTURES_DIR.exists():
         pytest.skip("Fixtures directory not found")
