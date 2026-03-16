@@ -22,7 +22,11 @@ import sys
 from pathlib import Path
 from typing import Any
 
-from . import AEOSVerifierBSK
+if __package__ in {None, ""}:
+    sys.path.insert(0, str(Path(__file__).resolve().parents[3]))
+    from benchmarks.aeosbench.verifier import AEOSVerifierBSK
+else:
+    from . import AEOSVerifierBSK
 
 
 def load_case(case_dir: Path) -> tuple[dict[str, Any], dict[str, Any]]:

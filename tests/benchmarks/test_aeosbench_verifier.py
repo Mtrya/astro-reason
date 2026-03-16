@@ -9,12 +9,17 @@ from __future__ import annotations
 import json
 import os
 import shutil
+import subprocess
+import sys
 import tarfile
 import tempfile
 from pathlib import Path
+from types import SimpleNamespace
 
+import numpy as np
 import pytest
 
+import benchmarks.aeosbench.verifier as aeos_verifier_module
 from benchmarks.aeosbench.verifier import AEOSVerifierBSK
 
 
@@ -23,6 +28,8 @@ DEFAULT_CASE_ID = 157
 FULL_FIXTURES_ENV = "AEOSBENCH_FULL_FIXTURES"
 ARCHIVE_NAMES = ("cases.tar.gz", "solutions.tar.gz", "metrics.tar.gz")
 EXTRACTED_FIXTURES_DIR = Path(tempfile.gettempdir()) / "aeosbench_gt_bsk2.9.0"
+REPO_ROOT = Path(__file__).resolve().parents[2]
+RUNNER_PATH = REPO_ROOT / "benchmarks" / "aeosbench" / "verifier" / "run.py"
 
 
 def _full_fixtures_requested() -> bool:
@@ -105,6 +112,88 @@ def _assert_metrics_close(*, actual: dict[str, float], expected: dict[str, float
             f"got {actual[key]:.10f}, expected {expected[key]:.10f}, "
             f"diff={diff:.10e} (tol={tol:.2e})"
         )
+
+
+def test_verify_normalizes_string_satellite_ids(monkeypatch: pytest.MonkeyPatch) -> None:
+    sat_ids = list(range(12))
+    raw_assignments = {
+        str(sat_id): [sat_id] * aeos_verifier_module.NUM_TIMESTEPS for sat_id in sat_ids
+    }
+    captured_assignment_t: list[int] = []
+
+    class FakeEnvironment:
+        def __init__(self, constellation: SimpleNamespace, taskset: SimpleNamespace) -> None:
+            self.satellites = [
+                SimpleNamespace(id=sat.id, is_sensor_enabled=False)
+                for sat in sorted(constellation.satellites, key=lambda sat: sat.id)
+            ]
+
+        def is_visible(self, taskset: SimpleNamespace) -> np.ndarray:
+            return np.zeros((len(self.satellites), len(taskset.tasks)), dtype=bool)
+
+        def take_actions(
+            self,
+            toggles: list[bool],
+            target_locations: list[tuple[float, float] | None],
+        ) -> None:
+            return None
+
+        def step(self, time_nano: int) -> None:
+            return None
+
+    class FakeTracker:
+        def __init__(self, constellation: SimpleNamespace, taskset: SimpleNamespace) -> None:
+            return None
+
+        def get_ongoing_ids(self, timestep: int) -> set[int]:
+            return set()
+
+        def record(
+            self,
+            timestep: int,
+            vis: np.ndarray,
+            assignment_t: list[int],
+        ) -> None:
+            if timestep == 0:
+                captured_assignment_t[:] = assignment_t
+
+        def compute_metrics(self) -> dict[str, float]:
+            return {
+                "CR": 0.0,
+                "WCR": 0.0,
+                "PCR": 0.0,
+                "WPCR": 0.0,
+                "TAT": 0.0,
+                "PC": 0.0,
+                "valid": True,
+            }
+
+    monkeypatch.setattr(aeos_verifier_module, "BSKEnvironment", FakeEnvironment)
+    monkeypatch.setattr(aeos_verifier_module, "ProgressTracker", FakeTracker)
+
+    verifier = object.__new__(AEOSVerifierBSK)
+    verifier.constellation = SimpleNamespace(
+        satellites=[SimpleNamespace(id=sat_id) for sat_id in sat_ids]
+    )
+    verifier.taskset = SimpleNamespace(tasks=[])
+
+    result = verifier.verify(raw_assignments)
+
+    assert result["valid"]
+    assert captured_assignment_t == sat_ids
+
+
+def test_run_py_help_works_when_executed_directly() -> None:
+    result = subprocess.run(
+        [sys.executable, str(RUNNER_PATH), "--help"],
+        cwd=REPO_ROOT,
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+    assert result.returncode == 0, result.stderr
+    assert "Verify AEOS-Bench satellite scheduling solutions" in result.stdout
 
 
 def test_case_157_metrics() -> None:

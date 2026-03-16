@@ -72,6 +72,15 @@ class AEOSVerifierBSK:
         Returns:
             Dict with metrics: CR, WCR, PCR, WPCR, TAT, PC, valid.
         """
+        # Normalize satellite IDs so direct JSON-loaded inputs behave the same
+        # as the CLI path, which already converts assignment keys to integers.
+        normalized_assignments: dict[int, list[int]] = {}
+        for sat_id_raw, assignment_list in assignments.items():
+            sat_id = int(sat_id_raw)
+            normalized_assignments[sat_id] = assignment_list
+
+        assignments = normalized_assignments
+
         # Create BSK environment
         env = BSKEnvironment(self.constellation, self.taskset)
 
