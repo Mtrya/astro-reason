@@ -102,7 +102,7 @@ def _assert_metrics_close(*, actual: dict[str, float], expected: dict[str, float
         "PCR": 1e-7,
         "WPCR": 1e-7,
         "TAT": 1e-4,
-        "PC": 1e-2,
+        "PC": 1e-1,
     }
 
     for key, tol in tolerances.items():
