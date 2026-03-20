@@ -19,12 +19,13 @@ import shutil
 import tempfile
 import zipfile
 from pathlib import Path
-from urllib.request import urlretrieve
+from urllib.request import Request, urlopen
 
 
 UPSTREAM_DATASET_URL = "https://data.mendeley.com/public-api/zip/2kbzg9nw3b/download/1"
 UPSTREAM_DATASET_PAGE = "https://data.mendeley.com/datasets/2kbzg9nw3b/1"
 MULTI_ORBIT_INSTANCES = {"1021", "1401", "1403", "1405", "1502", "1504", "1506"}
+DOWNLOAD_USER_AGENT = "Mozilla/5.0 AstroReason-Bench/1.0"
 
 
 def _write_json(path: Path, data: object) -> None:
@@ -36,7 +37,12 @@ def download_upstream_zip(destination: Path) -> Path:
     """Download the published SPOT-5 dataset ZIP from Mendeley Data."""
 
     destination.parent.mkdir(parents=True, exist_ok=True)
-    urlretrieve(UPSTREAM_DATASET_URL, destination)  # noqa: S310 - fixed public dataset URL
+    request = Request(
+        UPSTREAM_DATASET_URL,
+        headers={"User-Agent": DOWNLOAD_USER_AGENT},
+    )
+    with urlopen(request) as response, destination.open("wb") as output_file:  # noqa: S310 - fixed public dataset URL
+        shutil.copyfileobj(response, output_file)
     return destination
 
 
@@ -75,6 +81,22 @@ def build_local_zip_provenance(zip_path: Path) -> dict:
         "kind": "local_zip",
         "zip_name": zip_path.name,
     }
+
+
+def extract_zip_tree(zip_path: Path, destination: Path) -> None:
+    """Extract a ZIP archive and any nested ZIPs into ``destination``."""
+
+    destination.mkdir(parents=True, exist_ok=True)
+    with zipfile.ZipFile(zip_path) as archive:
+        archive.extractall(destination)
+
+    nested_archives = sorted(destination.rglob("*.zip"))
+    for nested_archive in nested_archives:
+        nested_destination = nested_archive.with_suffix("")
+        if nested_destination.exists():
+            continue
+        with zipfile.ZipFile(nested_archive) as archive:
+            archive.extractall(nested_destination)
 
 
 def build_case_dataset(
@@ -139,6 +161,11 @@ def main() -> int:  # pragma: no cover - CLI wrapper
     if args.source_dir is not None:
         spot_files = collect_spot_files(args.source_dir)
         provenance = build_local_directory_provenance(args.source_dir)
+        build_case_dataset(
+            spot_files=spot_files,
+            output_dir=args.output_dir,
+            provenance=provenance,
+        )
     else:
         with tempfile.TemporaryDirectory(prefix="spot5-generator-") as temp_dir_name:
             temp_dir = Path(temp_dir_name)
@@ -151,15 +178,13 @@ def main() -> int:  # pragma: no cover - CLI wrapper
                 provenance = build_local_zip_provenance(args.zip_path)
 
             extract_dir = temp_dir / "source"
-            with zipfile.ZipFile(zip_path) as archive:
-                archive.extractall(extract_dir)
+            extract_zip_tree(zip_path, extract_dir)
             spot_files = collect_spot_files(extract_dir)
-
-    build_case_dataset(
-        spot_files=spot_files,
-        output_dir=args.output_dir,
-        provenance=provenance,
-    )
+            build_case_dataset(
+                spot_files=spot_files,
+                output_dir=args.output_dir,
+                provenance=provenance,
+            )
     print(f"Wrote SPOT-5 dataset to {args.output_dir}")
     return 0
 
