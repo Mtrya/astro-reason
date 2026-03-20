@@ -5,11 +5,5 @@
   "request_count": 293,
   "mission_count": 32,
   "maintenance_window_count": 35,
-  "total_requested_hours": 1464.0,
-  "source": {
-    "repository": "https://github.com/edwinytgoh/satnet",
-    "ref": "master",
-    "problems_path": "data/problems.json",
-    "maintenance_path": "data/maintenance.csv"
-  }
+  "total_requested_hours": 1464.0
 }

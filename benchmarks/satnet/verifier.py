@@ -536,21 +536,48 @@ def verify_case(case_path: str | Path, solution_path: str | Path) -> Verificatio
     return verify(instance, solution)
 
 
-def main() -> int:  # pragma: no cover - CLI utility
-    import argparse
-
-    parser = argparse.ArgumentParser(description="Verify SatNet scheduling solutions")
-    parser.add_argument("case", help="Path to a SatNet case directory")
-    parser.add_argument("solution", help="Path to a solution JSON file")
-    parser.add_argument("-v", "--verbose", action="store_true", help="Verbose output")
-    args = parser.parse_args()
-
-    result = verify_case(args.case, args.solution)
-    if args.verbose:
+def _print_cli_result(result: VerificationResult, verbose: bool) -> None:
+    if verbose:
         print(result)
     else:
         status = "VALID" if result.is_valid else "INVALID"
         print(f"{status}: score={result.score:.4f}h, tracks={result.n_tracks}")
+
+
+def main() -> int:  # pragma: no cover - CLI utility
+    import argparse
+
+    parser = argparse.ArgumentParser(description="Verify SatNet scheduling solutions")
+    parser.add_argument(
+        "paths",
+        nargs="+",
+        help=(
+            "Either <case_dir> <solution.json> or "
+            "<problems.json> <maintenance.csv> <solution.json>"
+        ),
+    )
+    parser.add_argument("--week", type=int, help="Week number for aggregate problems.json")
+    parser.add_argument("--year", type=int, help="Year for aggregate problems.json")
+    parser.add_argument("-v", "--verbose", action="store_true", help="Verbose output")
+    args = parser.parse_args()
+
+    if len(args.paths) == 2:
+        result = verify_case(args.paths[0], args.paths[1])
+    elif len(args.paths) == 3:
+        result = verify_files(
+            problems_path=args.paths[0],
+            maintenance_path=args.paths[1],
+            solution_path=args.paths[2],
+            week=args.week,
+            year=args.year,
+        )
+    else:
+        parser.error(
+            "expected either 2 paths (<case_dir> <solution.json>) "
+            "or 3 paths (<problems.json> <maintenance.csv> <solution.json>)"
+        )
+
+    _print_cli_result(result, verbose=args.verbose)
 
     return 0 if result.is_valid else 1
 

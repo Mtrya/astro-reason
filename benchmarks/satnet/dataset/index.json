@@ -4,6 +4,14 @@
   "shared_files": [
     "mission_color_map.json"
   ],
+  "source": {
+    "kind": "upstream",
+    "repository": "https://github.com/edwinytgoh/satnet",
+    "ref": "master",
+    "problems_path": "data/problems.json",
+    "maintenance_path": "data/maintenance.csv",
+    "mission_color_map_path": "data/mission_color_map.json"
+  },
   "cases": [
     {
       "case_id": "W10_2018",

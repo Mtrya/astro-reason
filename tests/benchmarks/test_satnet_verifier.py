@@ -6,10 +6,13 @@ from copy import deepcopy
 from dataclasses import dataclass
 import json
 from pathlib import Path
+import subprocess
+import sys
 
 import numpy as np
 import pytest
 
+from benchmarks.satnet.generator import build_case_dataset, build_local_provenance
 from benchmarks.satnet.verifier import (
     Instance,
     Solution,
@@ -118,6 +121,41 @@ def test_verify_case_helper_matches_direct_verification():
     assert np.isclose(direct.u_max, via_case.u_max, atol=1e-8)
 
 
+def test_legacy_cli_invocation_still_supported(tmp_path: Path):
+    """The verifier CLI should still accept the old aggregate-file shape."""
+
+    case_dir = CASES_DIR / "W10_2018"
+    aggregate_problems_path = tmp_path / "problems.json"
+    aggregate_maintenance_path = tmp_path / "maintenance.csv"
+
+    with (case_dir / "problem.json").open("r") as file_obj:
+        requests = json.load(file_obj)
+    aggregate_problems_path.write_text(json.dumps({"W10_2018": requests}) + "\n")
+    aggregate_maintenance_path.write_text((case_dir / "maintenance.csv").read_text())
+
+    solution_path = FIXTURES_DIR / "W10_2018_solution.json"
+    result = subprocess.run(
+        [
+            sys.executable,
+            "benchmarks/satnet/verifier.py",
+            str(aggregate_problems_path),
+            str(aggregate_maintenance_path),
+            str(solution_path),
+            "--week",
+            "10",
+            "--year",
+            "2018",
+        ],
+        cwd=Path.cwd(),
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+
+    assert result.returncode == 0, result.stderr
+    assert "VALID" in result.stdout
+
+
 @pytest.fixture
 def simple_valid_case() -> tuple[Instance, Solution]:
     """Load a single valid case for corruption testing."""
@@ -139,11 +177,13 @@ def test_case_metadata_matches_instance():
     """Case metadata should agree with the parsed instance."""
 
     instance = load_case(CASES_DIR / "W20_2018")
+    index = json.loads((DATASET_DIR / "index.json").read_text())
     assert instance.case_id == "W20_2018"
     assert instance.week == 20
     assert instance.year == 2018
     assert instance.metadata["request_count"] == len(instance.requests)
     assert instance.metadata["maintenance_window_count"] == len(instance.maintenance)
+    assert index["source"]["kind"] == "upstream"
 
 
 def test_violation_view_period(simple_valid_case):
@@ -245,3 +285,56 @@ def test_fairness_metric_calculation(load_ground_truth):
     assert len(result.per_mission_u_i) > 0
     assert 0.0 <= result.u_rms <= 1.0
     assert 0.0 <= result.u_max <= 1.0
+
+
+def test_build_case_dataset_records_dataset_level_local_provenance(tmp_path: Path):
+    """Local generator inputs should be recorded at dataset scope, not per case."""
+
+    problems = {
+        "W10_2018": [
+            {
+                "subject": 1,
+                "user": "1_0",
+                "week": 10,
+                "year": 2018,
+                "duration": 1.0,
+                "duration_min": 1.0,
+                "resources": [["DSS-34"]],
+                "track_id": "track-1",
+                "setup_time": 10,
+                "teardown_time": 5,
+                "time_window_start": 100,
+                "time_window_end": 200,
+                "resource_vp_dict": {"DSS-34": [{"TRX ON": 110, "TRX OFF": 170}]},
+            }
+        ]
+    }
+    maintenance_rows = [
+        {
+            "week": "10.0",
+            "year": "2018",
+            "starttime": "300",
+            "endtime": "360",
+            "antenna": "DSS-14",
+        }
+    ]
+    mission_color_map = {"1": "#ffffff"}
+
+    build_case_dataset(
+        problems=problems,
+        maintenance_rows=maintenance_rows,
+        mission_color_map=mission_color_map,
+        output_dir=tmp_path / "dataset",
+        provenance=build_local_provenance(Path("local-satnet-data"), "patched local copy"),
+    )
+
+    index = json.loads((tmp_path / "dataset" / "index.json").read_text())
+    metadata = json.loads(
+        (tmp_path / "dataset" / "cases" / "W10_2018" / "metadata.json").read_text()
+    )
+
+    assert index["source"]["kind"] == "local_directory"
+    assert index["source"]["source_dir_name"] == "local-satnet-data"
+    assert index["source"]["description"] == "patched local copy"
+    assert "repository" not in index["source"]
+    assert "source" not in metadata

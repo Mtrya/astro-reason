@@ -22,11 +22,11 @@ Each case directory contains everything required to verify one SatNet instance:
 
 - `problem.json`: request list for exactly one `(week, year)` instance
 - `maintenance.csv`: maintenance windows filtered to that same instance
-- `metadata.json`: lightweight summary and provenance metadata
+- `metadata.json`: lightweight per-case summary metadata
 
 Shared, non-verifier-critical benchmark metadata remains at dataset scope:
 
-- `index.json`: manifest of canonical cases
+- `index.json`: dataset manifest and dataset-level provenance
 - `mission_color_map.json`: mission display metadata carried over from the
   upstream SatNet release
 
@@ -38,6 +38,6 @@ The canonical cases are generated from the aggregate upstream SatNet data:
 - source files: `data/problems.json`, `data/maintenance.csv`,
   `data/mission_color_map.json`
 
-Use [generator.py](/home/betelgeuse/Developments/AstroReason-Bench/benchmarks/satnet/generator.py)
+Use [generator.py](../generator.py)
 to regenerate this layout from the upstream source or a local copy of the
 upstream `data/` directory.

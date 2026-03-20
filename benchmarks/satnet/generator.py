@@ -67,12 +67,40 @@ def load_local_inputs(source_dir: Path) -> tuple[dict, list[dict], dict]:
     return problems, maintenance_rows, mission_color_map
 
 
+def build_upstream_provenance(ref: str) -> dict:
+    """Return metadata describing an upstream SatNet data source."""
+
+    return {
+        "kind": "upstream",
+        "repository": UPSTREAM_REPOSITORY,
+        "ref": ref,
+        "problems_path": "data/problems.json",
+        "maintenance_path": "data/maintenance.csv",
+        "mission_color_map_path": "data/mission_color_map.json",
+    }
+
+
+def build_local_provenance(source_dir: Path, description: str | None = None) -> dict:
+    """Return metadata describing a local SatNet data source."""
+
+    provenance = {
+        "kind": "local_directory",
+        "source_dir_name": source_dir.name,
+        "problems_path": "problems.json",
+        "maintenance_path": "maintenance.csv",
+        "mission_color_map_path": "mission_color_map.json",
+    }
+    if description:
+        provenance["description"] = description
+    return provenance
+
+
 def build_case_dataset(
     problems: dict,
     maintenance_rows: list[dict],
     mission_color_map: dict,
     output_dir: Path,
-    source_ref: str,
+    provenance: dict,
 ) -> None:
     """Write the canonical SatNet case-by-case dataset."""
 
@@ -81,6 +109,7 @@ def build_case_dataset(
         "benchmark": "satnet",
         "case_id_format": "W##_YYYY",
         "shared_files": ["mission_color_map.json"],
+        "source": provenance,
         "cases": [],
     }
 
@@ -110,12 +139,6 @@ def build_case_dataset(
             "mission_count": len({int(row["subject"]) for row in requests}),
             "maintenance_window_count": len(case_maintenance),
             "total_requested_hours": sum(float(row["duration"]) for row in requests),
-            "source": {
-                "repository": UPSTREAM_REPOSITORY,
-                "ref": source_ref,
-                "problems_path": "data/problems.json",
-                "maintenance_path": "data/maintenance.csv",
-            },
         }
         _write_json(case_dir / "metadata.json", metadata)
 
@@ -152,19 +175,28 @@ def main() -> int:  # pragma: no cover - CLI wrapper
         default="master",
         help="Upstream SatNet git ref to download when --source-dir is not used",
     )
+    parser.add_argument(
+        "--source-description",
+        help="Optional provenance note to record when --source-dir is used",
+    )
     args = parser.parse_args()
 
     if args.source_dir is not None:
         problems, maintenance_rows, mission_color_map = load_local_inputs(args.source_dir)
+        provenance = build_local_provenance(
+            args.source_dir,
+            description=args.source_description,
+        )
     else:
         problems, maintenance_rows, mission_color_map = load_upstream_inputs(args.upstream_ref)
+        provenance = build_upstream_provenance(args.upstream_ref)
 
     build_case_dataset(
         problems=problems,
         maintenance_rows=maintenance_rows,
         mission_color_map=mission_color_map,
         output_dir=args.output_dir,
-        source_ref=args.upstream_ref,
+        provenance=provenance,
     )
     print(f"Wrote SatNet dataset to {args.output_dir}")
     return 0
