@@ -253,16 +253,6 @@ python benchmarks/satnet/verifier.py \
     --verbose
 ```
 
-Legacy aggregate invocation is also still supported for compatibility:
-
-```bash
-python benchmarks/satnet/verifier.py \
-    path/to/problems.json \
-    path/to/maintenance.csv \
-    solution.json \
-    --week 10 --year 2018
-```
-
 **Output (verbose):**
 ```
 Status: VALID

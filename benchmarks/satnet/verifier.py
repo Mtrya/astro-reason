@@ -10,8 +10,7 @@ Key responsibilities:
 * Parse case-local antenna maintenance schedules.
 * Parse solution JSON files into :class:`Track` / :class:`Solution` objects.
 * Verify that all physical and operational constraints are respected.
-* Compute score and fairness metrics compatible with the legacy SatNet
-  semantics used by the public fixtures.
+* Compute score and fairness metrics compatible with the public fixtures.
 """
 
 from __future__ import annotations
@@ -179,34 +178,17 @@ def _infer_week_year_from_requests(rows: List[Dict]) -> Tuple[int, int]:
     return week, year
 
 
-def parse_problems(
-    problems_path: str | Path, week: int | None = None, year: int | None = None
-) -> Dict[str, Request]:
-    """Parse a SatNet problem file into ``track_id -> Request``.
-
-    Supports both the canonical case-local ``problem.json`` layout, which is a
-    list of requests, and the historical aggregate ``problems.json`` layout,
-    which is a dict keyed by ``W##_YYYY``.
-    """
+def parse_problems(problems_path: str | Path) -> Dict[str, Request]:
+    """Parse a canonical SatNet case ``problem.json`` into ``track_id -> Request``."""
 
     data = _load_json(problems_path)
+    if not isinstance(data, list):
+        raise ValueError(
+            f"SatNet problem files must be case-local JSON arrays, got {problems_path}"
+        )
 
-    if isinstance(data, list):
-        rows = data
-        inferred_week, inferred_year = _infer_week_year_from_requests(rows)
-        week = inferred_week if week is None else int(week)
-        year = inferred_year if year is None else int(year)
-    elif isinstance(data, dict):
-        if week is None or year is None:
-            raise ValueError(
-                "week and year are required when parsing aggregate problems.json"
-            )
-        key = make_case_id(week, year)
-        if key not in data:
-            raise KeyError(f"Week key {key!r} not found in {problems_path}")
-        rows = data[key]
-    else:
-        raise ValueError(f"Unsupported problems file structure in {problems_path}")
+    rows = data
+    week, year = _infer_week_year_from_requests(rows)
 
     requests: Dict[str, Request] = {}
     for row in rows:
@@ -237,14 +219,8 @@ def parse_problems(
     return requests
 
 
-def parse_maintenance(
-    maintenance_path: str | Path, week: int | None = None, year: int | None = None
-) -> List[MaintenanceWindow]:
-    """Parse a SatNet maintenance CSV file.
-
-    If ``week`` and ``year`` are omitted, all rows in the file are returned.
-    This matches the canonical case-local ``maintenance.csv`` layout.
-    """
+def parse_maintenance(maintenance_path: str | Path) -> List[MaintenanceWindow]:
+    """Parse a canonical SatNet case ``maintenance.csv`` file."""
 
     path = Path(maintenance_path)
     windows: List[MaintenanceWindow] = []
@@ -256,11 +232,6 @@ def parse_maintenance(
                 row_week = int(float(row["week"]))
                 row_year = int(row["year"])
             except (KeyError, ValueError):
-                continue
-
-            if week is not None and row_week != int(week):
-                continue
-            if year is not None and row_year != int(year):
                 continue
 
             windows.append(
@@ -316,7 +287,7 @@ def load_case(case_path: str | Path) -> Instance:
     any_request = next(iter(requests.values()))
     week = int(metadata.get("week", any_request.week))
     year = int(metadata.get("year", any_request.year))
-    maintenance = parse_maintenance(maintenance_path, week=week, year=year)
+    maintenance = parse_maintenance(maintenance_path)
 
     return Instance(
         week=week,
@@ -506,28 +477,6 @@ def verify(instance: Instance, solution: Solution) -> VerificationResult:
     )
 
 
-def verify_files(
-    problems_path: str | Path,
-    maintenance_path: str | Path,
-    solution_path: str | Path,
-    week: int | None = None,
-    year: int | None = None,
-) -> VerificationResult:
-    """Verify a solution from explicit SatNet file paths."""
-
-    requests = parse_problems(problems_path, week=week, year=year)
-    if not requests:
-        raise ValueError("No requests found for the supplied SatNet problem file")
-
-    any_request = next(iter(requests.values()))
-    week = any_request.week if week is None else int(week)
-    year = any_request.year if year is None else int(year)
-    maintenance = parse_maintenance(maintenance_path, week=week, year=year)
-    instance = Instance(week=week, year=year, requests=requests, maintenance=maintenance)
-    solution = load_solution(solution_path)
-    return verify(instance, solution)
-
-
 def verify_case(case_path: str | Path, solution_path: str | Path) -> VerificationResult:
     """Verify a solution against a canonical SatNet case directory."""
 
@@ -549,34 +498,14 @@ def main() -> int:  # pragma: no cover - CLI utility
 
     parser = argparse.ArgumentParser(description="Verify SatNet scheduling solutions")
     parser.add_argument(
-        "paths",
-        nargs="+",
-        help=(
-            "Either <case_dir> <solution.json> or "
-            "<problems.json> <maintenance.csv> <solution.json>"
-        ),
+        "case",
+        help="Path to a canonical SatNet case directory",
     )
-    parser.add_argument("--week", type=int, help="Week number for aggregate problems.json")
-    parser.add_argument("--year", type=int, help="Year for aggregate problems.json")
+    parser.add_argument("solution", help="Path to a solution JSON file")
     parser.add_argument("-v", "--verbose", action="store_true", help="Verbose output")
     args = parser.parse_args()
 
-    if len(args.paths) == 2:
-        result = verify_case(args.paths[0], args.paths[1])
-    elif len(args.paths) == 3:
-        result = verify_files(
-            problems_path=args.paths[0],
-            maintenance_path=args.paths[1],
-            solution_path=args.paths[2],
-            week=args.week,
-            year=args.year,
-        )
-    else:
-        parser.error(
-            "expected either 2 paths (<case_dir> <solution.json>) "
-            "or 3 paths (<problems.json> <maintenance.csv> <solution.json>)"
-        )
-
+    result = verify_case(args.case, args.solution)
     _print_cli_result(result, verbose=args.verbose)
 
     return 0 if result.is_valid else 1

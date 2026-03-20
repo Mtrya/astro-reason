@@ -121,30 +121,17 @@ def test_verify_case_helper_matches_direct_verification():
     assert np.isclose(direct.u_max, via_case.u_max, atol=1e-8)
 
 
-def test_legacy_cli_invocation_still_supported(tmp_path: Path):
-    """The verifier CLI should still accept the old aggregate-file shape."""
+def test_cli_case_invocation_supported():
+    """The verifier CLI should accept the canonical case-directory shape."""
 
     case_dir = CASES_DIR / "W10_2018"
-    aggregate_problems_path = tmp_path / "problems.json"
-    aggregate_maintenance_path = tmp_path / "maintenance.csv"
-
-    with (case_dir / "problem.json").open("r") as file_obj:
-        requests = json.load(file_obj)
-    aggregate_problems_path.write_text(json.dumps({"W10_2018": requests}) + "\n")
-    aggregate_maintenance_path.write_text((case_dir / "maintenance.csv").read_text())
-
     solution_path = FIXTURES_DIR / "W10_2018_solution.json"
     result = subprocess.run(
         [
             sys.executable,
             "benchmarks/satnet/verifier.py",
-            str(aggregate_problems_path),
-            str(aggregate_maintenance_path),
+            str(case_dir),
             str(solution_path),
-            "--week",
-            "10",
-            "--year",
-            "2018",
         ],
         cwd=Path.cwd(),
         capture_output=True,
