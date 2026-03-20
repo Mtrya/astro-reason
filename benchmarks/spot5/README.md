@@ -22,7 +22,13 @@ This maps to a Disjunctively Constrained Knapsack Problem (DCKP) with complex lo
 | 2001-2003 | Vasquez & Hao abstract physical constraints into conflict graphs (VCSP formulation) |
 | 2021 | Wei & Hao further simplified and published 21 benchmark instances on Mendeley Data as DCKP format |
 
-The current dataset (`.spot` files) is the DCKP abstraction hosted on [Mendeley Data](https://data.mendeley.com/datasets/2kbzg9nw3b/1) under **CC BY 4.0**. This license is permissive—not viral—because the abstraction process created a derived dataset separate from CNES's proprietary raw telemetry.
+The current dataset (`.spot` files) is the DCKP abstraction hosted on [Mendeley Data](https://data.mendeley.com/datasets/2kbzg9nw3b/1) under **CC BY 4.0**. This license is permissive, because the abstraction process created a derived dataset separate from CNES's proprietary raw telemetry.
+
+In this repository, each published instance is stored as its own benchmark case:
+
+```text
+benchmarks/spot5/dataset/cases/<case_id>/<case_id>.spot
+```
 
 ## Instance File Format (.spot)
 
@@ -260,7 +266,7 @@ The verifier treats these cases as **valid solutions**; the discrepancies appear
 ```bash
 # Verify a solution
 python benchmarks/spot5/verifier.py \
-    benchmarks/spot5/dataset/8.spot \
+    benchmarks/spot5/dataset/cases/8 \
     tests/fixtures/spot5_val_sol/8.spot_sol.txt
 ```
 
@@ -275,9 +281,12 @@ The verifier checks:
 
 ## File Locations
 
-- **Instance files**: `benchmarks/spot5/dataset/*.spot`
+- **Case directories**: `benchmarks/spot5/dataset/cases/<case_id>/`
+- **Instance files**: `benchmarks/spot5/dataset/cases/<case_id>/<case_id>.spot`
+- **Dataset manifest**: `benchmarks/spot5/dataset/index.json`
 - **Solution files**: `tests/fixtures/spot5_val_sol/*.spot_sol.txt`
 - **Verifier**: `benchmarks/spot5/verifier.py`
+- **Generator**: `benchmarks/spot5/generator.py`
 
 ## License & Attribution
 
