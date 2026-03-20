@@ -1,0 +1,57 @@
+{
+  "benchmark": "satnet",
+  "case_id_format": "W##_YYYY",
+  "shared_files": [
+    "mission_color_map.json"
+  ],
+  "source": {
+    "kind": "upstream",
+    "repository": "https://github.com/edwinytgoh/satnet",
+    "ref": "master",
+    "problems_path": "data/problems.json",
+    "maintenance_path": "data/maintenance.csv",
+    "mission_color_map_path": "data/mission_color_map.json"
+  },
+  "cases": [
+    {
+      "case_id": "W10_2018",
+      "path": "cases/W10_2018",
+      "week": 10,
+      "year": 2018,
+      "request_count": 257,
+      "maintenance_window_count": 37
+    },
+    {
+      "case_id": "W20_2018",
+      "path": "cases/W20_2018",
+      "week": 20,
+      "year": 2018,
+      "request_count": 294,
+      "maintenance_window_count": 31
+    },
+    {
+      "case_id": "W30_2018",
+      "path": "cases/W30_2018",
+      "week": 30,
+      "year": 2018,
+      "request_count": 293,
+      "maintenance_window_count": 35
+    },
+    {
+      "case_id": "W40_2018",
+      "path": "cases/W40_2018",
+      "week": 40,
+      "year": 2018,
+      "request_count": 333,
+      "maintenance_window_count": 38
+    },
+    {
+      "case_id": "W50_2018",
+      "path": "cases/W50_2018",
+      "week": 50,
+      "year": 2018,
+      "request_count": 275,
+      "maintenance_window_count": 41
+    }
+  ]
+}
