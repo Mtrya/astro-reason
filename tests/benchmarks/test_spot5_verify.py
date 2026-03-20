@@ -26,6 +26,7 @@ from benchmarks.spot5.verifier import (
 # Paths
 PROJECT_ROOT = Path(__file__).parent.parent.parent
 DATASET_DIR = PROJECT_ROOT / "benchmarks" / "spot5" / "dataset"
+CASES_DIR = DATASET_DIR / "cases"
 FIXTURES_DIR = PROJECT_ROOT / "tests" / "fixtures" / "spot5_val_sol"
 
 # All instance names from the fixtures
@@ -54,12 +55,16 @@ ALL_INSTANCES = [
 ]
 
 
+def get_case_dir(instance_name: str) -> Path:
+    return CASES_DIR / instance_name
+
+
 class TestParseInstance:
     """Tests for instance file parsing."""
 
     def test_parse_small_instance(self):
         """Test parsing the smallest instance (8.spot)."""
-        instance = parse_instance(DATASET_DIR / "8.spot")
+        instance = parse_instance(get_case_dir("8"))
 
         assert instance.n_variables == 8
         assert len(instance.constraints) == 7
@@ -80,7 +85,7 @@ class TestParseInstance:
 
     def test_parse_multi_orbit_instance(self):
         """Test parsing a multi-orbit instance with memory constraints."""
-        instance = parse_instance(DATASET_DIR / "1502.spot")
+        instance = parse_instance(get_case_dir("1502"))
 
         assert instance.is_multi_orbit
         assert instance.capacity == FIXED_CAPACITY
@@ -92,7 +97,7 @@ class TestParseInstance:
 
     def test_parse_constraint_binary(self):
         """Test parsing binary constraints."""
-        instance = parse_instance(DATASET_DIR / "8.spot")
+        instance = parse_instance(get_case_dir("8"))
 
         # First constraint: "2 1 0 3 3 2 2 1 1"
         # Binary constraint between vars 1 and 0 with forbidden pairs
@@ -106,7 +111,7 @@ class TestParseInstance:
     def test_parse_constraint_ternary(self):
         """Test parsing ternary constraints."""
         # Instance 11 has ternary constraints
-        instance = parse_instance(DATASET_DIR / "11.spot")
+        instance = parse_instance(get_case_dir("11"))
 
         # Find a ternary constraint
         ternary = [c for c in instance.constraints if c.arity == 3]
@@ -152,7 +157,7 @@ class TestVerifyValidSolutions:
     @pytest.mark.parametrize("instance_name", ALL_INSTANCES)
     def test_reference_solution_valid(self, instance_name: str):
         """Test that each reference solution passes verification."""
-        instance_path = DATASET_DIR / f"{instance_name}.spot"
+        instance_path = get_case_dir(instance_name)
         solution_path = FIXTURES_DIR / f"{instance_name}.spot_sol.txt"
 
         if not instance_path.exists():
@@ -169,7 +174,7 @@ class TestVerifyValidSolutions:
     def test_8_spot_detailed(self):
         """Detailed test for 8.spot - verify exact values."""
         result = verify_files(
-            DATASET_DIR / "8.spot",
+            get_case_dir("8"),
             FIXTURES_DIR / "8.spot_sol.txt"
         )
 
@@ -181,7 +186,7 @@ class TestVerifyValidSolutions:
     def test_multi_orbit_capacity_respected(self):
         """Test that multi-orbit solutions respect capacity constraint."""
         for name in MULTI_ORBIT_INSTANCES:
-            instance_path = DATASET_DIR / f"{name}.spot"
+            instance_path = get_case_dir(name)
             solution_path = FIXTURES_DIR / f"{name}.spot_sol.txt"
 
             if not instance_path.exists() or not solution_path.exists():

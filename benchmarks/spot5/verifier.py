@@ -102,6 +102,27 @@ WEIGHT_DIVISOR = 451
 FIXED_CAPACITY = 200
 
 
+def resolve_instance_path(path: str | Path) -> Path:
+    """Resolve a SPOT-5 case directory or direct ``.spot`` file path."""
+    path = Path(path)
+    if path.is_file():
+        return path
+
+    if not path.exists():
+        raise FileNotFoundError(f"SPOT-5 instance path not found: {path}")
+
+    if not path.is_dir():
+        raise ValueError(f"SPOT-5 instance path must be a file or directory: {path}")
+
+    spot_files = sorted(path.glob("*.spot"))
+    if len(spot_files) != 1:
+        raise ValueError(
+            f"Expected exactly one .spot file in SPOT-5 case directory {path}, "
+            f"found {len(spot_files)}"
+        )
+    return spot_files[0]
+
+
 def parse_instance(filepath: str | Path) -> Instance:
     """
     Parse a .spot instance file.
@@ -115,7 +136,7 @@ def parse_instance(filepath: str | Path) -> Instance:
         ...
         [<capacity>]  # optional, only for multi-orbit
     """
-    filepath = Path(filepath)
+    filepath = resolve_instance_path(filepath)
     instance_name = filepath.stem
 
     with open(filepath, "r") as f:
@@ -369,7 +390,10 @@ def main():
     parser = argparse.ArgumentParser(
         description="Verify SPOT-5 satellite scheduling solutions"
     )
-    parser.add_argument("instance", help="Path to .spot instance file")
+    parser.add_argument(
+        "instance",
+        help="Path to a SPOT-5 case directory or direct .spot instance file",
+    )
     parser.add_argument("solution", help="Path to .spot_sol.txt solution file")
     parser.add_argument("-v", "--verbose", action="store_true", help="Verbose output")
 

@@ -1,0 +1,137 @@
+{
+  "benchmark": "spot5",
+  "case_id_format": "instance_stem",
+  "source": {
+    "kind": "upstream_zip",
+    "dataset_page": "https://data.mendeley.com/datasets/2kbzg9nw3b/1",
+    "download_url": "https://data.mendeley.com/public-api/zip/2kbzg9nw3b/download/1"
+  },
+  "cases": [
+    {
+      "case_id": "1021",
+      "path": "cases/1021",
+      "instance_file": "1021.spot",
+      "is_multi_orbit": true
+    },
+    {
+      "case_id": "11",
+      "path": "cases/11",
+      "instance_file": "11.spot",
+      "is_multi_orbit": false
+    },
+    {
+      "case_id": "1401",
+      "path": "cases/1401",
+      "instance_file": "1401.spot",
+      "is_multi_orbit": true
+    },
+    {
+      "case_id": "1403",
+      "path": "cases/1403",
+      "instance_file": "1403.spot",
+      "is_multi_orbit": true
+    },
+    {
+      "case_id": "1405",
+      "path": "cases/1405",
+      "instance_file": "1405.spot",
+      "is_multi_orbit": true
+    },
+    {
+      "case_id": "1502",
+      "path": "cases/1502",
+      "instance_file": "1502.spot",
+      "is_multi_orbit": true
+    },
+    {
+      "case_id": "1504",
+      "path": "cases/1504",
+      "instance_file": "1504.spot",
+      "is_multi_orbit": true
+    },
+    {
+      "case_id": "1506",
+      "path": "cases/1506",
+      "instance_file": "1506.spot",
+      "is_multi_orbit": true
+    },
+    {
+      "case_id": "28",
+      "path": "cases/28",
+      "instance_file": "28.spot",
+      "is_multi_orbit": false
+    },
+    {
+      "case_id": "29",
+      "path": "cases/29",
+      "instance_file": "29.spot",
+      "is_multi_orbit": false
+    },
+    {
+      "case_id": "404",
+      "path": "cases/404",
+      "instance_file": "404.spot",
+      "is_multi_orbit": false
+    },
+    {
+      "case_id": "408",
+      "path": "cases/408",
+      "instance_file": "408.spot",
+      "is_multi_orbit": false
+    },
+    {
+      "case_id": "412",
+      "path": "cases/412",
+      "instance_file": "412.spot",
+      "is_multi_orbit": false
+    },
+    {
+      "case_id": "42",
+      "path": "cases/42",
+      "instance_file": "42.spot",
+      "is_multi_orbit": false
+    },
+    {
+      "case_id": "5",
+      "path": "cases/5",
+      "instance_file": "5.spot",
+      "is_multi_orbit": false
+    },
+    {
+      "case_id": "503",
+      "path": "cases/503",
+      "instance_file": "503.spot",
+      "is_multi_orbit": false
+    },
+    {
+      "case_id": "505",
+      "path": "cases/505",
+      "instance_file": "505.spot",
+      "is_multi_orbit": false
+    },
+    {
+      "case_id": "507",
+      "path": "cases/507",
+      "instance_file": "507.spot",
+      "is_multi_orbit": false
+    },
+    {
+      "case_id": "509",
+      "path": "cases/509",
+      "instance_file": "509.spot",
+      "is_multi_orbit": false
+    },
+    {
+      "case_id": "54",
+      "path": "cases/54",
+      "instance_file": "54.spot",
+      "is_multi_orbit": false
+    },
+    {
+      "case_id": "8",
+      "path": "cases/8",
+      "instance_file": "8.spot",
+      "is_multi_orbit": false
+    }
+  ]
+}
