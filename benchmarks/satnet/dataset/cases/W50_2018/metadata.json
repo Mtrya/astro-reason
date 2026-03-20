@@ -1,0 +1,15 @@
+{
+  "case_id": "W50_2018",
+  "week": 50,
+  "year": 2018,
+  "request_count": 275,
+  "mission_count": 29,
+  "maintenance_window_count": 41,
+  "total_requested_hours": 1292.2,
+  "source": {
+    "repository": "https://github.com/edwinytgoh/satnet",
+    "ref": "master",
+    "problems_path": "data/problems.json",
+    "maintenance_path": "data/maintenance.csv"
+  }
+}

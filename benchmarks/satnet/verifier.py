@@ -1,35 +1,32 @@
 """SatNet scheduling benchmark verifier.
 
-This module validates SatNet schedules against the public benchmark dataset
-in :mod:`benchmarks.satnet.dataset`. It is a lightweight reimplementation of
-the reference SatNet verifier logic, designed to be self‑contained and free of
-dependencies on the original `satnet` package.
+This module validates SatNet schedules against the public benchmark dataset in
+``benchmarks/satnet/dataset``. The canonical dataset is organized as
+case-by-case week/year instances under ``dataset/cases/``.
 
 Key responsibilities:
 
-* Parse problem instances from ``problems.json`` into :class:`Request` objects.
-* Parse antenna maintenance from ``maintenance.csv``.
+* Parse single-case problem instances into :class:`Request` objects.
+* Parse case-local antenna maintenance schedules.
 * Parse solution JSON files into :class:`Track` / :class:`Solution` objects.
-* Verify that all physical and operational constraints are respected
-  (view periods, setup/teardown, non‑overlap, maintenance, durations).
-* Compute score (total tracking hours) and fairness metrics (``U_rms``,
-  ``U_max``, per‑mission ``U_i``) compatible with the reference
-  :class:`SchedulingSimulator`.
-
-The public tests in ``tests/benchmarks/test_satnet_verifier.py`` define the
-API surface and error message substrings that this module must expose.
+* Verify that all physical and operational constraints are respected.
+* Compute score and fairness metrics compatible with the legacy SatNet
+  semantics used by the public fixtures.
 """
 
 from __future__ import annotations
 
+from collections import defaultdict
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Dict, Iterable, List, Tuple
+from typing import Dict, List, Tuple
 
 import csv
 import json
 import math
-from collections import defaultdict
+
+
+DEFAULT_DATASET_DIR = Path(__file__).resolve().parent / "dataset"
 
 
 # Antennas used in the SatNet benchmark (from satnet.envs.DSS_RESOURCES)
@@ -40,15 +37,7 @@ ALL_ANTENNAS = {
 
 @dataclass
 class Request:
-    """Single communication request from ``problems.json``.
-
-    Times in this structure follow the dataset conventions:
-
-    * ``duration`` / ``duration_min`` are in **hours**.
-    * ``setup_time`` / ``teardown_time`` are in **minutes**.
-    * ``time_window_start`` / ``time_window_end`` are UNIX seconds.
-    * ``resource_vp_dict`` stores absolute UNIX seconds for (TRX ON, TRX OFF).
-    """
+    """Single communication request from a case ``problem.json`` file."""
 
     subject: int
     user: str
@@ -69,11 +58,7 @@ class Request:
 
 @dataclass
 class Track:
-    """Single scheduled track from a solution JSON file.
-
-    This is a *per‑antenna* row. Arrayed tracks appear as several rows with
-    the same ``track_id`` and times but different ``resource`` values.
-    """
+    """Single scheduled track from a solution JSON file."""
 
     resource: str
     sc: int
@@ -98,7 +83,7 @@ class Track:
 
 @dataclass
 class Solution:
-    """A complete schedule solution consisting of per‑antenna tracks."""
+    """A complete schedule solution consisting of per-antenna tracks."""
 
     tracks: List[Track]
 
@@ -118,13 +103,14 @@ class MaintenanceWindow:
 
 @dataclass
 class Instance:
-    """All static data required to verify a solution for one week."""
+    """All static data required to verify a solution for one SatNet case."""
 
     week: int
     year: int
-    # Mapping from track_id to Request
     requests: Dict[str, Request]
     maintenance: List[MaintenanceWindow]
+    case_id: str | None = None
+    metadata: Dict[str, object] = field(default_factory=dict)
 
 
 @dataclass
@@ -151,27 +137,23 @@ class VerificationResult:
         lines.append(f"U_max: {self.u_max:.6f}")
         if self.errors:
             lines.append("Errors:")
-            for e in self.errors:
-                lines.append(f"  - {e}")
+            for error in self.errors:
+                lines.append(f"  - {error}")
         if self.warnings:
             lines.append("Warnings:")
-            for w in self.warnings:
-                lines.append(f"  - {w}")
+            for warning in self.warnings:
+                lines.append(f"  - {warning}")
         return "\n".join(lines)
 
 
-# ---------------------------------------------------------------------------
-# Parsing helpers
-# ---------------------------------------------------------------------------
+def make_case_id(week: int, year: int) -> str:
+    """Return the canonical SatNet case identifier for a week/year pair."""
+
+    return f"W{int(week)}_{int(year)}"
 
 
 def _normalize_vp_interval(vp: Dict) -> Tuple[int, int]:
-    """Extract a (TRX_ON, TRX_OFF) tuple in absolute seconds from a VP dict.
-
-    The dataset sometimes includes RISE/SET and optional TRX ON/OFF fields.
-    For verification we only care about the transmission window, so we
-    prioritise TRX fields and fall back to RISE/SET when necessary.
-    """
+    """Extract a ``(TRX_ON, TRX_OFF)`` tuple in absolute seconds."""
 
     start = vp.get("TRX ON") or vp.get("TRX_ON") or vp.get("RISE")
     end = vp.get("TRX OFF") or vp.get("TRX_OFF") or vp.get("SET")
@@ -180,73 +162,111 @@ def _normalize_vp_interval(vp: Dict) -> Tuple[int, int]:
     return int(start), int(end)
 
 
-def parse_problems(problems_path: str | Path, week: int, year: int) -> Dict[str, Request]:
-    """Parse ``problems.json`` for a given week/year into ``Request`` objects.
+def _load_json(path: str | Path):
+    with Path(path).open("r") as file_obj:
+        return json.load(file_obj)
 
-    Returns a mapping ``track_id -> Request``.
+
+def _infer_week_year_from_requests(rows: List[Dict]) -> Tuple[int, int]:
+    if not rows:
+        raise ValueError("Problem file does not contain any requests")
+
+    week = int(rows[0]["week"])
+    year = int(rows[0]["year"])
+    for row in rows:
+        if int(row["week"]) != week or int(row["year"]) != year:
+            raise ValueError("Problem file contains multiple week/year combinations")
+    return week, year
+
+
+def parse_problems(
+    problems_path: str | Path, week: int | None = None, year: int | None = None
+) -> Dict[str, Request]:
+    """Parse a SatNet problem file into ``track_id -> Request``.
+
+    Supports both the canonical case-local ``problem.json`` layout, which is a
+    list of requests, and the historical aggregate ``problems.json`` layout,
+    which is a dict keyed by ``W##_YYYY``.
     """
 
-    path = Path(problems_path)
-    with path.open("r") as f:
-        data = json.load(f)
+    data = _load_json(problems_path)
 
-    key = f"W{week}_{year}"
-    if key not in data:
-        raise KeyError(f"Week key {key!r} not found in {path}")
+    if isinstance(data, list):
+        rows = data
+        inferred_week, inferred_year = _infer_week_year_from_requests(rows)
+        week = inferred_week if week is None else int(week)
+        year = inferred_year if year is None else int(year)
+    elif isinstance(data, dict):
+        if week is None or year is None:
+            raise ValueError(
+                "week and year are required when parsing aggregate problems.json"
+            )
+        key = make_case_id(week, year)
+        if key not in data:
+            raise KeyError(f"Week key {key!r} not found in {problems_path}")
+        rows = data[key]
+    else:
+        raise ValueError(f"Unsupported problems file structure in {problems_path}")
 
     requests: Dict[str, Request] = {}
-    for r in data[key]:
-        # Basic sanity: all entries under this key should agree on week/year
-        if int(r["week"]) != int(week) or int(r["year"]) != int(year):
+    for row in rows:
+        if int(row["week"]) != int(week) or int(row["year"]) != int(year):
             continue
 
         vp_out: Dict[str, List[Tuple[int, int]]] = {}
-        for combo_key, vps in r["resource_vp_dict"].items():
-            intervals = [_normalize_vp_interval(vp) for vp in vps]
-            vp_out[combo_key] = intervals
+        for combo_key, vps in row["resource_vp_dict"].items():
+            vp_out[combo_key] = [_normalize_vp_interval(vp) for vp in vps]
 
-        req = Request(
-            subject=int(r["subject"]),
-            user=str(r["user"]),
-            week=int(r["week"]),
-            year=int(r["year"]),
-            duration=float(r["duration"]),
-            duration_min=float(r["duration_min"]),
-            resources=[[str(a) for a in res] for res in r.get("resources", [])],
-            track_id=str(r["track_id"]),
-            setup_time=float(r["setup_time"]),
-            teardown_time=float(r["teardown_time"]),
-            time_window_start=int(r["time_window_start"]),
-            time_window_end=int(r["time_window_end"]),
+        request = Request(
+            subject=int(row["subject"]),
+            user=str(row["user"]),
+            week=int(row["week"]),
+            year=int(row["year"]),
+            duration=float(row["duration"]),
+            duration_min=float(row["duration_min"]),
+            resources=[[str(a) for a in resource] for resource in row.get("resources", [])],
+            track_id=str(row["track_id"]),
+            setup_time=float(row["setup_time"]),
+            teardown_time=float(row["teardown_time"]),
+            time_window_start=int(row["time_window_start"]),
+            time_window_end=int(row["time_window_end"]),
             resource_vp_dict=vp_out,
         )
-        requests[req.track_id] = req
+        requests[request.track_id] = request
 
     return requests
 
 
 def parse_maintenance(
-    maintenance_path: str | Path, week: int, year: int
+    maintenance_path: str | Path, week: int | None = None, year: int | None = None
 ) -> List[MaintenanceWindow]:
-    """Parse ``maintenance.csv`` for maintenance windows in the given week."""
+    """Parse a SatNet maintenance CSV file.
+
+    If ``week`` and ``year`` are omitted, all rows in the file are returned.
+    This matches the canonical case-local ``maintenance.csv`` layout.
+    """
 
     path = Path(maintenance_path)
     windows: List[MaintenanceWindow] = []
 
-    with path.open("r", newline="") as f:
-        reader = csv.DictReader(f)
+    with path.open("r", newline="") as file_obj:
+        reader = csv.DictReader(file_obj)
         for row in reader:
             try:
-                w = int(float(row["week"]))
-                y = int(row["year"])
+                row_week = int(float(row["week"]))
+                row_year = int(row["year"])
             except (KeyError, ValueError):
                 continue
-            if w != int(week) or y != int(year):
+
+            if week is not None and row_week != int(week):
                 continue
+            if year is not None and row_year != int(year):
+                continue
+
             windows.append(
                 MaintenanceWindow(
-                    week=w,
-                    year=y,
+                    week=row_week,
+                    year=row_year,
                     start_time=int(row["starttime"]),
                     end_time=int(row["endtime"]),
                     antenna=str(row["antenna"]),
@@ -256,196 +276,211 @@ def parse_maintenance(
     return windows
 
 
-# ---------------------------------------------------------------------------
-# Verification logic
-# ---------------------------------------------------------------------------
+def list_case_directories(dataset_dir: str | Path = DEFAULT_DATASET_DIR) -> List[Path]:
+    """Return all SatNet case directories in canonical order."""
+
+    root = Path(dataset_dir)
+    index_path = root / "index.json"
+    if index_path.exists():
+        index = _load_json(index_path)
+        return [root / item["path"] for item in index.get("cases", [])]
+
+    cases_dir = root / "cases"
+    return sorted(path for path in cases_dir.iterdir() if path.is_dir())
+
+
+def resolve_case_directory(
+    case_id: str, dataset_dir: str | Path = DEFAULT_DATASET_DIR
+) -> Path:
+    """Resolve a SatNet case id like ``W10_2018`` to its case directory."""
+
+    case_dir = Path(dataset_dir) / "cases" / case_id
+    if not case_dir.exists():
+        raise FileNotFoundError(f"SatNet case directory not found: {case_dir}")
+    return case_dir
+
+
+def load_case(case_path: str | Path) -> Instance:
+    """Load a canonical SatNet case directory into an :class:`Instance`."""
+
+    case_dir = Path(case_path)
+    metadata_path = case_dir / "metadata.json"
+    metadata = _load_json(metadata_path) if metadata_path.exists() else {}
+
+    problem_path = case_dir / "problem.json"
+    maintenance_path = case_dir / "maintenance.csv"
+    requests = parse_problems(problem_path)
+    if not requests:
+        raise ValueError(f"No requests found in SatNet case: {case_dir}")
+
+    any_request = next(iter(requests.values()))
+    week = int(metadata.get("week", any_request.week))
+    year = int(metadata.get("year", any_request.year))
+    maintenance = parse_maintenance(maintenance_path, week=week, year=year)
+
+    return Instance(
+        week=week,
+        year=year,
+        requests=requests,
+        maintenance=maintenance,
+        case_id=str(metadata.get("case_id") or case_dir.name),
+        metadata=metadata,
+    )
+
+
+def load_solution(solution_path: str | Path) -> Solution:
+    """Load a SatNet solution JSON file."""
+
+    with Path(solution_path).open("r") as file_obj:
+        raw_tracks = json.load(file_obj)
+    return Solution(tracks=[Track.from_dict(track) for track in raw_tracks])
 
 
 def _intervals_overlap(a0: int, a1: int, b0: int, b1: int) -> bool:
-    """Return True if two half‑open intervals [a0, a1) and [b0, b1) overlap."""
+    """Return True if two half-open intervals ``[a0, a1)`` and ``[b0, b1)`` overlap."""
 
     return not (a1 <= b0 or b1 <= a0)
 
 
 def verify(instance: Instance, solution: Solution) -> VerificationResult:
-    """Verify a :class:`Solution` against a given :class:`Instance`.
-
-    The function always computes metrics (score, fairness) from the provided
-    solution; ``is_valid`` simply indicates whether any constraint violations
-    were detected.
-    """
+    """Verify a :class:`Solution` against a given :class:`Instance`."""
 
     errors: List[str] = []
     warnings: List[str] = []
-
     requests = instance.requests
 
-    # Group maintenance windows by antenna for quick lookup
     maintenance_by_ant: Dict[str, List[MaintenanceWindow]] = defaultdict(list)
-    for mw in instance.maintenance:
-        maintenance_by_ant[mw.antenna].append(mw)
+    for window in instance.maintenance:
+        maintenance_by_ant[window.antenna].append(window)
 
-    # Group tracks per antenna for overlap checks
     tracks_by_ant: Dict[str, List[Track]] = defaultdict(list)
-    for t in solution.tracks:
-        tracks_by_ant[t.resource].append(t)
+    for track in solution.tracks:
+        tracks_by_ant[track.resource].append(track)
 
-    # Group physical rows into logical tracks: one entry per (request, time span)
     logical_tracks: Dict[Tuple[str, int, int, int, int], List[Track]] = defaultdict(list)
-    for t in solution.tracks:
-        key = (t.track_id, t.start_time, t.tracking_on, t.tracking_off, t.end_time)
-        logical_tracks[key].append(t)
+    for track in solution.tracks:
+        key = (
+            track.track_id,
+            track.start_time,
+            track.tracking_on,
+            track.tracking_off,
+            track.end_time,
+        )
+        logical_tracks[key].append(track)
 
-    # ------------------------------------------------------------------
-    # Per‑row checks: unknown track_id, invalid antenna, maintenance, basic
-    # resource availability.
-    # ------------------------------------------------------------------
-
-    for t in solution.tracks:
-        # Unknown track_id
-        if t.track_id not in requests:
-            errors.append(f"Unknown track_id '{t.track_id}' in solution")
+    for track in solution.tracks:
+        if track.track_id not in requests:
+            errors.append(f"Unknown track_id '{track.track_id}' in solution")
             continue
 
-        req = requests[t.track_id]
+        request = requests[track.track_id]
 
-        # Antenna name must be one of the known DSN resources
-        if t.resource not in ALL_ANTENNAS:
-            errors.append(f"Antenna '{t.resource}' not available")
+        if track.resource not in ALL_ANTENNAS:
+            errors.append(f"Antenna '{track.resource}' not available")
             continue
 
-        # Antenna must participate in at least one VP combination for this request
-        if not any(t.resource in combo.split("_") for combo in req.resource_vp_dict):
+        if not any(track.resource in combo.split("_") for combo in request.resource_vp_dict):
             errors.append(
-                f"Antenna '{t.resource}' not available for request {t.track_id}"
+                f"Antenna '{track.resource}' not available for request {track.track_id}"
             )
 
-        # Maintenance conflict check on this physical antenna
-        for mw in maintenance_by_ant.get(t.resource, []):
-            if _intervals_overlap(t.start_time, t.end_time, mw.start_time, mw.end_time):
+        for window in maintenance_by_ant.get(track.resource, []):
+            if _intervals_overlap(
+                track.start_time, track.end_time, window.start_time, window.end_time
+            ):
                 errors.append(
-                    f"Track {t.track_id} on {t.resource} overlaps maintenance window"
+                    f"Track {track.track_id} on {track.resource} overlaps maintenance window"
                 )
 
-    # ------------------------------------------------------------------
-    # Overlap detection per antenna (including setup/teardown periods).
-    # ------------------------------------------------------------------
-
-    for ant, trs in tracks_by_ant.items():
-        if len(trs) <= 1:
+    for antenna, antenna_tracks in tracks_by_ant.items():
+        if len(antenna_tracks) <= 1:
             continue
-        trs_sorted = sorted(trs, key=lambda tr: tr.start_time)
-        for prev, curr in zip(trs_sorted, trs_sorted[1:]):
+        sorted_tracks = sorted(antenna_tracks, key=lambda track: track.start_time)
+        for prev, curr in zip(sorted_tracks, sorted_tracks[1:]):
             if _intervals_overlap(
                 prev.start_time, prev.end_time, curr.start_time, curr.end_time
             ):
                 errors.append(
-                    f"Overlap between tracks on {ant}: {prev.track_id} and {curr.track_id}"
+                    f"Overlap between tracks on {antenna}: {prev.track_id} and {curr.track_id}"
                 )
 
-    # ------------------------------------------------------------------
-    # Combination‑aware VP containment, setup/teardown consistency, and
-    # per‑track minimum duration checks, evaluated per logical track.
-    # ------------------------------------------------------------------
-
-    for (tid, start, on, off, end), group in logical_tracks.items():
-        if tid not in requests:
+    for (track_id, start, on, off, end), group in logical_tracks.items():
+        if track_id not in requests:
             continue
-        req = requests[tid]
+        request = requests[track_id]
 
-        # Reconstruct actual antenna combination used by this logical track
-        resources = sorted({t.resource for t in group})
+        resources = sorted({track.resource for track in group})
         combo_key = "_".join(resources)
-
-        # View period containment for the full antenna combination
-        vp_intervals = req.resource_vp_dict.get(combo_key)
+        vp_intervals = request.resource_vp_dict.get(combo_key)
         if not vp_intervals:
             errors.append(
-                f"Antenna combination '{combo_key}' not available for request {tid}"
+                f"Antenna combination '{combo_key}' not available for request {track_id}"
             )
         else:
-            contained = any(vp_start <= on <= off <= vp_end for vp_start, vp_end in vp_intervals)
+            contained = any(
+                vp_start <= on <= off <= vp_end for vp_start, vp_end in vp_intervals
+            )
             if not contained:
-                errors.append(
-                    f"Track {tid} on {combo_key} not within any View Period"
-                )
+                errors.append(f"Track {track_id} on {combo_key} not within any View Period")
 
-        # Setup / teardown consistency (use request's nominal times)
-        expected_on = start + int(req.setup_time * 60)
-        expected_end = off + int(req.teardown_time * 60)
-
+        expected_on = start + int(request.setup_time * 60)
+        expected_end = off + int(request.teardown_time * 60)
         if on != expected_on:
             errors.append(
-                f"Setup time mismatch for {tid}: expected TRACKING_ON = START_TIME + {int(req.setup_time * 60)}s"
+                f"Setup time mismatch for {track_id}: expected TRACKING_ON = START_TIME + {int(request.setup_time * 60)}s"
             )
-
         if end != expected_end:
             errors.append(
-                f"Teardown time mismatch for {tid}: expected END_TIME = TRACKING_OFF + {int(req.teardown_time * 60)}s"
+                f"Teardown time mismatch for {track_id}: expected END_TIME = TRACKING_OFF + {int(request.teardown_time * 60)}s"
             )
 
-        # Per‑logical‑track minimum duration check (seconds)
         track_duration = off - on
-        # Match reference implementation: float hours * 3600 then truncation.
-        req_dur_sec = int(req.duration * 3600.0)
-        req_min_sec = int(req.duration_min * 3600.0)
-
+        req_dur_sec = int(request.duration * 3600.0)
+        req_min_sec = int(request.duration_min * 3600.0)
         if req_dur_sec >= 28800:
-            # Long requests are splittable; the reference env allows ~4h splits.
             per_track_min_sec = min(req_min_sec, 14400)
         else:
             per_track_min_sec = req_min_sec
 
         if track_duration < per_track_min_sec:
             errors.append(
-                f"Track {tid} duration {track_duration}s below minimum {per_track_min_sec}s"
+                f"Track {track_id} duration {track_duration}s below minimum {per_track_min_sec}s"
             )
 
-    # ------------------------------------------------------------------
-    # Metrics: score, satisfied requests, and fairness measures.
-    # ------------------------------------------------------------------
-
-    # Score is the sum of all per‑row tracking times in hours.
     score_hours = sum(
-        (t.tracking_off - t.tracking_on) / 3600.0 for t in solution.tracks
+        (track.tracking_off - track.tracking_on) / 3600.0 for track in solution.tracks
     )
 
-    # Aggregate allocated time per request using logical tracks, so that
-    # arrayed tracks are only counted once per request.
     intervals_by_tid: Dict[str, List[Tuple[int, int]]] = defaultdict(list)
-    for (tid, _start, on, off, _end), _group in logical_tracks.items():
-        if tid not in requests:
+    for (track_id, _start, on, off, _end), _group in logical_tracks.items():
+        if track_id not in requests:
             continue
-        intervals_by_tid[tid].append((on, off))
+        intervals_by_tid[track_id].append((on, off))
 
     allocated_by_tid: Dict[str, int] = {}
     satisfied_requests: set[str] = set()
-
-    for tid, req in requests.items():
-        req_dur_sec = int(req.duration * 3600.0)
-        req_min_sec = int(req.duration_min * 3600.0)
-        total_alloc = sum(off - on for (on, off) in intervals_by_tid.get(tid, []))
+    for track_id, request in requests.items():
+        req_dur_sec = int(request.duration * 3600.0)
+        req_min_sec = int(request.duration_min * 3600.0)
+        total_alloc = sum(off - on for (on, off) in intervals_by_tid.get(track_id, []))
         total_alloc = min(total_alloc, req_dur_sec)
-        allocated_by_tid[tid] = total_alloc
+        allocated_by_tid[track_id] = total_alloc
         if total_alloc >= req_min_sec:
-            satisfied_requests.add(tid)
+            satisfied_requests.add(track_id)
 
-    # Fairness metrics per mission (subject)
     missions: Dict[int, List[Request]] = defaultdict(list)
-    for req in requests.values():
-        missions[req.subject].append(req)
+    for request in requests.values():
+        missions[request.subject].append(request)
 
     per_mission_u_i: Dict[str, float] = {}
-    for mission in sorted(missions.keys()):
-        mission_reqs = missions[mission]
-        requested_s = sum(
-            int(r.duration * 3600.0) for r in mission_reqs
-        )
+    for mission in sorted(missions):
+        mission_requests = missions[mission]
+        requested_s = sum(int(request.duration * 3600.0) for request in mission_requests)
         if requested_s <= 0:
             per_mission_u_i[str(mission)] = 0.0
             continue
         allocated_s = sum(
-            allocated_by_tid.get(r.track_id, 0) for r in mission_reqs
+            allocated_by_tid.get(request.track_id, 0) for request in mission_requests
         )
         remaining_s = max(requested_s - allocated_s, 0)
         per_mission_u_i[str(mission)] = remaining_s / requested_s
@@ -453,12 +488,12 @@ def verify(instance: Instance, solution: Solution) -> VerificationResult:
     u_values = list(per_mission_u_i.values())
     if u_values:
         u_max = max(u_values)
-        u_rms = math.sqrt(sum(u * u for u in u_values) / len(u_values))
+        u_rms = math.sqrt(sum(value * value for value in u_values) / len(u_values))
     else:
         u_max = 0.0
         u_rms = 0.0
 
-    result = VerificationResult(
+    return VerificationResult(
         is_valid=not errors,
         score=score_hours,
         n_tracks=solution.n_tracks,
@@ -470,52 +505,47 @@ def verify(instance: Instance, solution: Solution) -> VerificationResult:
         warnings=warnings,
     )
 
-    return result
-
 
 def verify_files(
     problems_path: str | Path,
     maintenance_path: str | Path,
     solution_path: str | Path,
-    week: int,
-    year: int,
+    week: int | None = None,
+    year: int | None = None,
 ) -> VerificationResult:
-    """Convenience wrapper to verify using file paths and week/year."""
+    """Verify a solution from explicit SatNet file paths."""
 
-    requests = parse_problems(problems_path, week, year)
-    maintenance = parse_maintenance(maintenance_path, week, year)
+    requests = parse_problems(problems_path, week=week, year=year)
+    if not requests:
+        raise ValueError("No requests found for the supplied SatNet problem file")
+
+    any_request = next(iter(requests.values()))
+    week = any_request.week if week is None else int(week)
+    year = any_request.year if year is None else int(year)
+    maintenance = parse_maintenance(maintenance_path, week=week, year=year)
     instance = Instance(week=week, year=year, requests=requests, maintenance=maintenance)
+    solution = load_solution(solution_path)
+    return verify(instance, solution)
 
-    with Path(solution_path).open("r") as f:
-        raw_tracks = json.load(f)
 
-    solution = Solution(tracks=[Track.from_dict(t) for t in raw_tracks])
+def verify_case(case_path: str | Path, solution_path: str | Path) -> VerificationResult:
+    """Verify a solution against a canonical SatNet case directory."""
+
+    instance = load_case(case_path)
+    solution = load_solution(solution_path)
     return verify(instance, solution)
 
 
 def main() -> int:  # pragma: no cover - CLI utility
     import argparse
 
-    parser = argparse.ArgumentParser(
-        description="Verify SatNet scheduling solutions",
-    )
-    parser.add_argument("problems", help="Path to problems.json")
-    parser.add_argument("maintenance", help="Path to maintenance.csv")
-    parser.add_argument("solution", help="Path to solution JSON file")
-    parser.add_argument("--week", type=int, required=True, help="Week number")
-    parser.add_argument("--year", type=int, required=True, help="Year")
+    parser = argparse.ArgumentParser(description="Verify SatNet scheduling solutions")
+    parser.add_argument("case", help="Path to a SatNet case directory")
+    parser.add_argument("solution", help="Path to a solution JSON file")
     parser.add_argument("-v", "--verbose", action="store_true", help="Verbose output")
-
     args = parser.parse_args()
 
-    result = verify_files(
-        problems_path=args.problems,
-        maintenance_path=args.maintenance,
-        solution_path=args.solution,
-        week=args.week,
-        year=args.year,
-    )
-
+    result = verify_case(args.case, args.solution)
     if args.verbose:
         print(result)
     else:

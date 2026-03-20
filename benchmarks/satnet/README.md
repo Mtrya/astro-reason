@@ -76,40 +76,40 @@ maximize: Σ (track.tracking_off - track.tracking_on) / 3600
 
 ## Data Format Specifications
 
-### Problem Instance Format (problems.json)
+### Problem Instance Format (`cases/<CASE_ID>/problem.json`)
 
-A JSON object with week keys mapping to arrays of requests:
+Each canonical SatNet case is stored in its own directory under
+`benchmarks/satnet/dataset/cases/`. The `problem.json` file in a case
+directory contains a JSON array of requests for exactly one week/year pair:
 
 ```json
-{
-  "W10_2018": [
-    {
-      "subject": 521,
-      "user": "521_0",
-      "week": 10,
-      "year": 2018,
-      "duration": 1.0,
-      "duration_min": 1.0,
-      "resources": [["DSS-34"], ["DSS-36"]],
-      "track_id": "fc9bbb54-3-1",
-      "setup_time": 60,
-      "teardown_time": 15,
-      "time_window_start": 1520286007,
-      "time_window_end": 1520471551,
-      "resource_vp_dict": {
-        "DSS-34": [
-          {
-            "RISE": 1520286007,
-            "SET": 1520318699,
-            "TRX ON": 1520286007,
-            "TRX OFF": 1520318699
-          }
-        ],
-        "DSS-36": [...]
-      }
+[
+  {
+    "subject": 521,
+    "user": "521_0",
+    "week": 10,
+    "year": 2018,
+    "duration": 1.0,
+    "duration_min": 1.0,
+    "resources": [["DSS-34"], ["DSS-36"]],
+    "track_id": "fc9bbb54-3-1",
+    "setup_time": 60,
+    "teardown_time": 15,
+    "time_window_start": 1520286007,
+    "time_window_end": 1520471551,
+    "resource_vp_dict": {
+      "DSS-34": [
+        {
+          "RISE": 1520286007,
+          "SET": 1520318699,
+          "TRX ON": 1520286007,
+          "TRX OFF": 1520318699
+        }
+      ],
+      "DSS-36": []
     }
-  ]
-}
+  }
+]
 ```
 
 **Field Definitions:**
@@ -160,9 +160,10 @@ An array of scheduled tracks:
 START_TIME --[setup_time]--> TRACKING_ON --[actual_comms]--> TRACKING_OFF --[teardown_time]--> END_TIME
 ```
 
-### Maintenance Schedule Format (maintenance.csv)
+### Maintenance Schedule Format (`cases/<CASE_ID>/maintenance.csv`)
 
-CSV format with antenna downtime windows:
+Each case directory also contains a maintenance CSV filtered to that same
+week/year instance:
 
 ```csv
 week,year,starttime,endtime,antenna
@@ -229,11 +230,11 @@ score = sum((track['TRACKING_OFF'] - track['TRACKING_ON']) / 3600.0 for track in
 
 | Week | Requests | Total Requested Hours | Unique Missions |
 |------|----------|----------------------|-----------------|
-| W10_2018 | 292 | ~500h | ~30 |
-| W20_2018 | 290 | ~490h | ~30 |
-| W30_2018 | 290 | ~485h | ~30 |
-| W40_2018 | 290 | ~495h | ~30 |
-| W50_2018 | 290 | ~490h | ~30 |
+| W10_2018 | 257 | 1191.5h | 30 |
+| W20_2018 | 294 | 1406.5h | 33 |
+| W30_2018 | 293 | 1464.0h | 32 |
+| W40_2018 | 333 | 1736.7h | 34 |
+| W50_2018 | 275 | 1292.2h | 29 |
 
 **Complexity Factors:**
 - **View Period Fragmentation**: Some satellites have many short VPs vs few long VPs
@@ -247,10 +248,9 @@ score = sum((track['TRACKING_OFF'] - track['TRACKING_ON']) / 3600.0 for track in
 
 ```bash
 python benchmarks/satnet/verifier.py \
-    benchmarks/satnet/dataset/problems.json \
-    benchmarks/satnet/dataset/maintenance.csv \
+    benchmarks/satnet/dataset/cases/W10_2018 \
     solution.json \
-    --week 10 --year 2018
+    --verbose
 ```
 
 **Output (verbose):**
@@ -269,14 +269,11 @@ VALID: score=234.5678h, tracks=145
 ### Python API
 
 ```python
-from benchmarks.satnet.verifier import verify_files
+from benchmarks.satnet.verifier import verify_case
 
-result = verify_files(
-    problems_path="benchmarks/satnet/dataset/problems.json",
-    maintenance_path="benchmarks/satnet/dataset/maintenance.csv",
+result = verify_case(
+    case_path="benchmarks/satnet/dataset/cases/W10_2018",
     solution_path="solution.json",
-    week=10,
-    year=2018
 )
 
 print(f"Valid: {result.is_valid}")
@@ -298,11 +295,12 @@ From the original RL implementation (Chien et al., 2021):
 
 ## File Locations
 
-- **Instance files**: `benchmarks/satnet/dataset/problems.json`
-- **Maintenance schedule**: `benchmarks/satnet/dataset/maintenance.csv`
-- **Simple test cases**: `benchmarks/satnet/dataset/smallest_array_prob.json`, `small_longVP_prob.json`
+- **Case manifest**: `benchmarks/satnet/dataset/index.json`
+- **Canonical cases**: `benchmarks/satnet/dataset/cases/W##_YYYY/`
+- **Shared metadata**: `benchmarks/satnet/dataset/mission_color_map.json`
 - **Verifier**: `benchmarks/satnet/verifier.py`
-- **Test fixtures**: `tests/fixtures/satnet_solutions/` (if available)
+- **Generator**: `benchmarks/satnet/generator.py`
+- **Test fixtures**: `tests/fixtures/satnet_mock_solutions/`
 
 ## Key Technical Concepts
 
