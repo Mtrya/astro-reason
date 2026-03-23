@@ -50,7 +50,6 @@ Run focused tests instead of the full suite unless you specifically need a broad
 ## Status
 
 Current priorities include
-- finishing legacy benchmark verifiers, 
-- refactoring dataset layouts where needed, 
+- refactoring several newer benchmarks
 - reimplementing several existing verifiers, 
 - and writing dataset generators for reproducibility.
