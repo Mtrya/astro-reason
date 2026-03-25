@@ -1,0 +1,13 @@
+- id: city_pontevedra_ph_1
+  latitude_deg: 11.48
+  longitude_deg: 122.83
+  altitude_m: 0.0
+  min_elevation_deg: 10.0
+  max_slant_range_m: null
+
+- id: facility_queensland_transmitter
+  latitude_deg: -23.658
+  longitude_deg: 144.1454
+  altitude_m: 237.0
+  min_elevation_deg: 15.0
+  max_slant_range_m: null

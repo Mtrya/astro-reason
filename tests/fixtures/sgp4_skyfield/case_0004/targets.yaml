@@ -1,0 +1,41 @@
+- id: city_lisbon_pt_elev10
+  latitude_deg: 38.7122
+  longitude_deg: -9.134
+  altitude_m: 0.0
+  min_elevation_deg: 10.0
+  max_slant_range_m: null
+
+- id: city_lisbon_pt_elev30
+  latitude_deg: 38.7122
+  longitude_deg: -9.134
+  altitude_m: 0.0
+  min_elevation_deg: 30.0
+  max_slant_range_m: null
+
+- id: city_punta_arenas_cl_range_open
+  latitude_deg: -53.1667
+  longitude_deg: -70.9333
+  altitude_m: 0.0
+  min_elevation_deg: 10.0
+  max_slant_range_m: null
+
+- id: city_punta_arenas_cl_range_tight
+  latitude_deg: -53.1667
+  longitude_deg: -70.9333
+  altitude_m: 0.0
+  min_elevation_deg: 10.0
+  max_slant_range_m: 1500000.0
+
+- id: facility_sodankyla_low_elev
+  latitude_deg: 67.36383
+  longitude_deg: 26.63043
+  altitude_m: 193.0
+  min_elevation_deg: 5.0
+  max_slant_range_m: null
+
+- id: facility_sodankyla_high_elev
+  latitude_deg: 67.36383
+  longitude_deg: 26.63043
+  altitude_m: 193.0
+  min_elevation_deg: 25.0
+  max_slant_range_m: null
