@@ -1,0 +1,34 @@
+- id: city_pontevedra_ph_1
+  latitude_deg: 11.48
+  longitude_deg: 122.83
+  altitude_m: 0.0
+  min_elevation_deg: 10.0
+  max_slant_range_m: null
+
+- id: city_lisbon_pt
+  latitude_deg: 38.7122
+  longitude_deg: -9.134
+  altitude_m: 0.0
+  min_elevation_deg: 10.0
+  max_slant_range_m: null
+
+- id: city_punta_arenas_cl
+  latitude_deg: -53.1667
+  longitude_deg: -70.9333
+  altitude_m: 0.0
+  min_elevation_deg: 10.0
+  max_slant_range_m: null
+
+- id: city_same_tz
+  latitude_deg: -4.0667
+  longitude_deg: 37.7833
+  altitude_m: 0.0
+  min_elevation_deg: 10.0
+  max_slant_range_m: null
+
+- id: city_mositai_cn
+  latitude_deg: 45.5333
+  longitude_deg: 119.6528
+  altitude_m: 0.0
+  min_elevation_deg: 10.0
+  max_slant_range_m: null

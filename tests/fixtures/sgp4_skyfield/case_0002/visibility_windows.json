@@ -1,0 +1,650 @@
+{
+  "metadata": {
+    "case_id": "case_0002",
+    "generator": "tests/fixtures/sgp4_skyfield/generate.py",
+    "generator_library": "skyfield",
+    "generator_library_version": "1.54",
+    "time_system": "UTC",
+    "angle_unit": "deg",
+    "distance_unit": "m",
+    "duration_unit": "sec",
+    "horizon_start_utc": "2025-07-17T12:00:00Z",
+    "horizon_end_utc": "2025-07-18T12:00:00Z",
+    "sample_step_sec": 1800,
+    "boundary_tolerance_sec": 1,
+    "timestamp_inclusion": "start inclusive, end exclusive",
+    "ground_visibility_model": "topocentric line of sight with target-defined minimum elevation and optional maximum slant range",
+    "inter_satellite_visibility_model": "geometric line of sight above Earth limb",
+    "inter_satellite_constraints": {
+      "line_of_sight_required": true,
+      "max_range_m": null
+    },
+    "target_ids": [
+      "city_apia_ws",
+      "city_surrey_ca",
+      "city_taihe_cn",
+      "facility_greenbelt_test_brt_stdn_bltj",
+      "facility_queensland_transmitter",
+      "facility_sodankyla_eiscat_radar"
+    ],
+    "satellite_ids": [
+      "sat_qianfan-1",
+      "sat_skysat-a",
+      "sat_spot_1"
+    ],
+    "earth_occlusion_model": "line segment clearance against spherical Earth",
+    "earth_radius_m": 6371000.0
+  },
+  "satellite_to_target": [
+    {
+      "satellite_id": "sat_qianfan-1",
+      "target_id": "city_apia_ws",
+      "constraints": {
+        "min_elevation_deg": 10.0,
+        "max_slant_range_m": null
+      },
+      "windows": [
+        {
+          "start_utc": "2025-07-17T13:20:05Z",
+          "end_utc": "2025-07-17T13:31:48Z",
+          "duration_sec": 703,
+          "time_of_max_elevation_utc": "2025-07-17T13:30:00Z",
+          "max_elevation_deg": 18.12603434075362,
+          "min_slant_range_m": 2340164.27310715,
+          "max_slant_range_m": 2340164.27310715
+        }
+      ]
+    },
+    {
+      "satellite_id": "sat_qianfan-1",
+      "target_id": "city_surrey_ca",
+      "constraints": {
+        "min_elevation_deg": 10.0,
+        "max_slant_range_m": null
+      },
+      "windows": [
+        {
+          "start_utc": "2025-07-17T19:23:47Z",
+          "end_utc": "2025-07-17T19:32:19Z",
+          "duration_sec": 512,
+          "time_of_max_elevation_utc": "2025-07-17T19:30:00Z",
+          "max_elevation_deg": 15.523852051365761,
+          "min_slant_range_m": 2529908.472351449,
+          "max_slant_range_m": 2529908.472351449
+        },
+        {
+          "start_utc": "2025-07-17T22:56:43Z",
+          "end_utc": "2025-07-17T23:06:07Z",
+          "duration_sec": 564,
+          "time_of_max_elevation_utc": "2025-07-17T23:00:00Z",
+          "max_elevation_deg": 19.36806530325349,
+          "min_slant_range_m": 2307498.0904452936,
+          "max_slant_range_m": 2307498.0904452936
+        },
+        {
+          "start_utc": "2025-07-18T07:28:44Z",
+          "end_utc": "2025-07-18T07:36:25Z",
+          "duration_sec": 461,
+          "time_of_max_elevation_utc": "2025-07-18T07:30:00Z",
+          "max_elevation_deg": 13.106184026398362,
+          "min_slant_range_m": 2685647.137472377,
+          "max_slant_range_m": 2685647.137472377
+        }
+      ]
+    },
+    {
+      "satellite_id": "sat_qianfan-1",
+      "target_id": "city_taihe_cn",
+      "constraints": {
+        "min_elevation_deg": 10.0,
+        "max_slant_range_m": null
+      },
+      "windows": [
+        {
+          "start_utc": "2025-07-17T18:53:14Z",
+          "end_utc": "2025-07-17T19:05:33Z",
+          "duration_sec": 738,
+          "time_of_max_elevation_utc": "2025-07-17T19:00:00Z",
+          "max_elevation_deg": 37.97739112860269,
+          "min_slant_range_m": 1580134.3611832121,
+          "max_slant_range_m": 1580134.3611832121
+        }
+      ]
+    },
+    {
+      "satellite_id": "sat_qianfan-1",
+      "target_id": "facility_greenbelt_test_brt_stdn_bltj",
+      "constraints": {
+        "min_elevation_deg": 15.0,
+        "max_slant_range_m": null
+      },
+      "windows": [
+        {
+          "start_utc": "2025-07-17T19:27:33Z",
+          "end_utc": "2025-07-17T19:35:25Z",
+          "duration_sec": 472,
+          "time_of_max_elevation_utc": "2025-07-17T19:30:00Z",
+          "max_elevation_deg": 23.341476118019752,
+          "min_slant_range_m": 2100570.8770816308,
+          "max_slant_range_m": 2100570.8770816308
+        },
+        {
+          "start_utc": "2025-07-18T07:24:09Z",
+          "end_utc": "2025-07-18T07:32:59Z",
+          "duration_sec": 530,
+          "time_of_max_elevation_utc": "2025-07-18T07:30:00Z",
+          "max_elevation_deg": 26.61963266652985,
+          "min_slant_range_m": 1952425.518060165,
+          "max_slant_range_m": 1952425.518060165
+        }
+      ]
+    },
+    {
+      "satellite_id": "sat_qianfan-1",
+      "target_id": "facility_queensland_transmitter",
+      "constraints": {
+        "min_elevation_deg": 15.0,
+        "max_slant_range_m": null
+      },
+      "windows": [
+        {
+          "start_utc": "2025-07-18T02:52:28Z",
+          "end_utc": "2025-07-18T03:02:24Z",
+          "duration_sec": 596,
+          "time_of_max_elevation_utc": "2025-07-18T03:00:00Z",
+          "max_elevation_deg": 28.239365693691116,
+          "min_slant_range_m": 1881057.133024276,
+          "max_slant_range_m": 1881057.133024276
+        }
+      ]
+    },
+    {
+      "satellite_id": "sat_qianfan-1",
+      "target_id": "facility_sodankyla_eiscat_radar",
+      "constraints": {
+        "min_elevation_deg": 15.0,
+        "max_slant_range_m": null
+      },
+      "windows": [
+        {
+          "start_utc": "2025-07-17T13:58:31Z",
+          "end_utc": "2025-07-17T14:05:59Z",
+          "duration_sec": 448,
+          "time_of_max_elevation_utc": "2025-07-17T14:00:00Z",
+          "max_elevation_deg": 20.04237706877679,
+          "min_slant_range_m": 2278758.4845411116,
+          "max_slant_range_m": 2278758.4845411116
+        },
+        {
+          "start_utc": "2025-07-17T20:54:23Z",
+          "end_utc": "2025-07-17T21:02:00Z",
+          "duration_sec": 457,
+          "time_of_max_elevation_utc": "2025-07-17T21:00:00Z",
+          "max_elevation_deg": 21.737124907866328,
+          "min_slant_range_m": 2189327.4675713987,
+          "max_slant_range_m": 2189327.4675713987
+        },
+        {
+          "start_utc": "2025-07-18T00:24:43Z",
+          "end_utc": "2025-07-18T00:35:57Z",
+          "duration_sec": 674,
+          "time_of_max_elevation_utc": "2025-07-18T00:30:00Z",
+          "max_elevation_deg": 57.52106151653133,
+          "min_slant_range_m": 1255570.682036693,
+          "max_slant_range_m": 1255570.682036693
+        }
+      ]
+    },
+    {
+      "satellite_id": "sat_skysat-a",
+      "target_id": "city_apia_ws",
+      "constraints": {
+        "min_elevation_deg": 10.0,
+        "max_slant_range_m": null
+      },
+      "windows": [
+        {
+          "start_utc": "2025-07-18T08:57:48Z",
+          "end_utc": "2025-07-18T09:05:08Z",
+          "duration_sec": 440,
+          "time_of_max_elevation_utc": "2025-07-18T09:00:00Z",
+          "max_elevation_deg": 29.614001464782728,
+          "min_slant_range_m": 972994.5597912277,
+          "max_slant_range_m": 972994.5597912277
+        }
+      ]
+    },
+    {
+      "satellite_id": "sat_skysat-a",
+      "target_id": "city_surrey_ca",
+      "constraints": {
+        "min_elevation_deg": 10.0,
+        "max_slant_range_m": null
+      },
+      "windows": [
+        {
+          "start_utc": "2025-07-18T04:28:40Z",
+          "end_utc": "2025-07-18T04:36:10Z",
+          "duration_sec": 450,
+          "time_of_max_elevation_utc": "2025-07-18T04:30:00Z",
+          "max_elevation_deg": 20.875196960218084,
+          "min_slant_range_m": 1212068.8826851991,
+          "max_slant_range_m": 1212068.8826851991
+        }
+      ]
+    },
+    {
+      "satellite_id": "sat_skysat-a",
+      "target_id": "city_taihe_cn",
+      "constraints": {
+        "min_elevation_deg": 10.0,
+        "max_slant_range_m": null
+      },
+      "windows": []
+    },
+    {
+      "satellite_id": "sat_skysat-a",
+      "target_id": "facility_greenbelt_test_brt_stdn_bltj",
+      "constraints": {
+        "min_elevation_deg": 15.0,
+        "max_slant_range_m": null
+      },
+      "windows": []
+    },
+    {
+      "satellite_id": "sat_skysat-a",
+      "target_id": "facility_queensland_transmitter",
+      "constraints": {
+        "min_elevation_deg": 15.0,
+        "max_slant_range_m": null
+      },
+      "windows": []
+    },
+    {
+      "satellite_id": "sat_skysat-a",
+      "target_id": "facility_sodankyla_eiscat_radar",
+      "constraints": {
+        "min_elevation_deg": 15.0,
+        "max_slant_range_m": null
+      },
+      "windows": [
+        {
+          "start_utc": "2025-07-17T17:26:49Z",
+          "end_utc": "2025-07-17T17:32:46Z",
+          "duration_sec": 357,
+          "time_of_max_elevation_utc": "2025-07-17T17:30:00Z",
+          "max_elevation_deg": 48.96452528352637,
+          "min_slant_range_m": 689223.9553903306,
+          "max_slant_range_m": 689223.9553903306
+        },
+        {
+          "start_utc": "2025-07-18T07:56:36Z",
+          "end_utc": "2025-07-18T08:02:45Z",
+          "duration_sec": 369,
+          "time_of_max_elevation_utc": "2025-07-18T08:00:00Z",
+          "max_elevation_deg": 50.412816386159385,
+          "min_slant_range_m": 688755.8151236429,
+          "max_slant_range_m": 688755.8151236429
+        }
+      ]
+    },
+    {
+      "satellite_id": "sat_spot_1",
+      "target_id": "city_apia_ws",
+      "constraints": {
+        "min_elevation_deg": 10.0,
+        "max_slant_range_m": null
+      },
+      "windows": [
+        {
+          "start_utc": "2025-07-17T22:55:59Z",
+          "end_utc": "2025-07-17T23:05:27Z",
+          "duration_sec": 569,
+          "time_of_max_elevation_utc": "2025-07-17T23:00:00Z",
+          "max_elevation_deg": 66.3206796626412,
+          "min_slant_range_m": 756859.4007516184,
+          "max_slant_range_m": 756859.4007516184
+        }
+      ]
+    },
+    {
+      "satellite_id": "sat_spot_1",
+      "target_id": "city_surrey_ca",
+      "constraints": {
+        "min_elevation_deg": 10.0,
+        "max_slant_range_m": null
+      },
+      "windows": [
+        {
+          "start_utc": "2025-07-17T19:57:49Z",
+          "end_utc": "2025-07-17T20:05:54Z",
+          "duration_sec": 484,
+          "time_of_max_elevation_utc": "2025-07-17T20:00:00Z",
+          "max_elevation_deg": 19.537693451473338,
+          "min_slant_range_m": 1710623.3942490558,
+          "max_slant_range_m": 1710623.3942490558
+        },
+        {
+          "start_utc": "2025-07-18T09:23:42Z",
+          "end_utc": "2025-07-18T09:30:47Z",
+          "duration_sec": 425,
+          "time_of_max_elevation_utc": "2025-07-18T09:30:00Z",
+          "max_elevation_deg": 13.477604449759431,
+          "min_slant_range_m": 1872998.6538584544,
+          "max_slant_range_m": 1872998.6538584544
+        }
+      ]
+    },
+    {
+      "satellite_id": "sat_spot_1",
+      "target_id": "city_taihe_cn",
+      "constraints": {
+        "min_elevation_deg": 10.0,
+        "max_slant_range_m": null
+      },
+      "windows": []
+    },
+    {
+      "satellite_id": "sat_spot_1",
+      "target_id": "facility_greenbelt_test_brt_stdn_bltj",
+      "constraints": {
+        "min_elevation_deg": 15.0,
+        "max_slant_range_m": null
+      },
+      "windows": []
+    },
+    {
+      "satellite_id": "sat_spot_1",
+      "target_id": "facility_queensland_transmitter",
+      "constraints": {
+        "min_elevation_deg": 15.0,
+        "max_slant_range_m": null
+      },
+      "windows": []
+    },
+    {
+      "satellite_id": "sat_spot_1",
+      "target_id": "facility_sodankyla_eiscat_radar",
+      "constraints": {
+        "min_elevation_deg": 15.0,
+        "max_slant_range_m": null
+      },
+      "windows": [
+        {
+          "start_utc": "2025-07-17T21:54:03Z",
+          "end_utc": "2025-07-17T22:01:30Z",
+          "duration_sec": 447,
+          "time_of_max_elevation_utc": "2025-07-17T22:00:00Z",
+          "max_elevation_deg": 27.044883449844633,
+          "min_slant_range_m": 1328146.5100675102,
+          "max_slant_range_m": 1328146.5100675102
+        },
+        {
+          "start_utc": "2025-07-18T05:54:42Z",
+          "end_utc": "2025-07-18T06:01:06Z",
+          "duration_sec": 384,
+          "time_of_max_elevation_utc": "2025-07-18T06:00:00Z",
+          "max_elevation_deg": 20.95174892846226,
+          "min_slant_range_m": 1636002.626761508,
+          "max_slant_range_m": 1636002.626761508
+        }
+      ]
+    }
+  ],
+  "satellite_to_satellite": [
+    {
+      "satellite_id": "sat_qianfan-1",
+      "other_satellite_id": "sat_skysat-a",
+      "constraints": {
+        "line_of_sight_required": true,
+        "max_range_m": null
+      },
+      "windows": [
+        {
+          "start_utc": "2025-07-17T15:47:14Z",
+          "end_utc": "2025-07-17T16:03:27Z",
+          "duration_sec": 973,
+          "min_range_m": 5873476.505499578,
+          "max_range_m": 5873476.505499578
+        },
+        {
+          "start_utc": "2025-07-17T17:18:52Z",
+          "end_utc": "2025-07-17T17:52:15Z",
+          "duration_sec": 2002,
+          "min_range_m": 2698022.5151259797,
+          "max_range_m": 2698022.5151259797
+        },
+        {
+          "start_utc": "2025-07-17T18:07:23Z",
+          "end_utc": "2025-07-17T19:29:06Z",
+          "duration_sec": 4903,
+          "min_range_m": 2438277.9781025713,
+          "max_range_m": 6472994.265998467
+        },
+        {
+          "start_utc": "2025-07-17T19:54:35Z",
+          "end_utc": "2025-07-17T20:14:38Z",
+          "duration_sec": 1203,
+          "min_range_m": 5443113.370486065,
+          "max_range_m": 5443113.370486065
+        },
+        {
+          "start_utc": "2025-07-18T06:53:09Z",
+          "end_utc": "2025-07-18T07:10:15Z",
+          "duration_sec": 1026,
+          "min_range_m": 5492686.08192536,
+          "max_range_m": 5492686.08192536
+        },
+        {
+          "start_utc": "2025-07-18T07:38:20Z",
+          "end_utc": "2025-07-18T08:58:58Z",
+          "duration_sec": 4838,
+          "min_range_m": 4963267.62707351,
+          "max_range_m": 5066451.771332008
+        },
+        {
+          "start_utc": "2025-07-18T09:14:01Z",
+          "end_utc": "2025-07-18T09:48:37Z",
+          "duration_sec": 2076,
+          "min_range_m": 1228122.3463489974,
+          "max_range_m": 1228122.3463489974
+        },
+        {
+          "start_utc": "2025-07-18T10:05:54Z",
+          "end_utc": "2025-07-18T10:35:41Z",
+          "duration_sec": 1787,
+          "min_range_m": 4803559.944393273,
+          "max_range_m": 4803559.944393273
+        }
+      ]
+    },
+    {
+      "satellite_id": "sat_qianfan-1",
+      "other_satellite_id": "sat_spot_1",
+      "constraints": {
+        "line_of_sight_required": true,
+        "max_range_m": null
+      },
+      "windows": [
+        {
+          "start_utc": "2025-07-17T12:00:00Z",
+          "end_utc": "2025-07-17T12:14:48Z",
+          "duration_sec": 889,
+          "min_range_m": 5377671.906286137,
+          "max_range_m": 5377671.906286137
+        },
+        {
+          "start_utc": "2025-07-17T12:49:11Z",
+          "end_utc": "2025-07-17T13:05:26Z",
+          "duration_sec": 975,
+          "min_range_m": 2489610.2099620136,
+          "max_range_m": 2489610.2099620136
+        },
+        {
+          "start_utc": "2025-07-17T15:22:33Z",
+          "end_utc": "2025-07-17T15:38:40Z",
+          "duration_sec": 967,
+          "min_range_m": 1852226.5645881747,
+          "max_range_m": 1852226.5645881747
+        },
+        {
+          "start_utc": "2025-07-17T17:56:10Z",
+          "end_utc": "2025-07-17T18:11:15Z",
+          "duration_sec": 905,
+          "min_range_m": 4221192.688436886,
+          "max_range_m": 4221192.688436886
+        },
+        {
+          "start_utc": "2025-07-17T18:47:42Z",
+          "end_utc": "2025-07-17T19:02:06Z",
+          "duration_sec": 864,
+          "min_range_m": 5263125.572174207,
+          "max_range_m": 5263125.572174207
+        },
+        {
+          "start_utc": "2025-07-17T21:20:52Z",
+          "end_utc": "2025-07-17T21:35:13Z",
+          "duration_sec": 861,
+          "min_range_m": 4045921.162545405,
+          "max_range_m": 4045921.162545405
+        },
+        {
+          "start_utc": "2025-07-17T23:54:39Z",
+          "end_utc": "2025-07-18T00:08:04Z",
+          "duration_sec": 805,
+          "min_range_m": 3750012.935111035,
+          "max_range_m": 3750012.935111035
+        },
+        {
+          "start_utc": "2025-07-18T02:26:49Z",
+          "end_utc": "2025-07-18T02:42:19Z",
+          "duration_sec": 930,
+          "min_range_m": 4854584.980604296,
+          "max_range_m": 4854584.980604296
+        },
+        {
+          "start_utc": "2025-07-18T03:18:20Z",
+          "end_utc": "2025-07-18T03:32:56Z",
+          "duration_sec": 876,
+          "min_range_m": 4583426.888727207,
+          "max_range_m": 4583426.888727207
+        },
+        {
+          "start_utc": "2025-07-18T05:50:33Z",
+          "end_utc": "2025-07-18T06:07:14Z",
+          "duration_sec": 1001,
+          "min_range_m": 1728967.6961981251,
+          "max_range_m": 1728967.6961981251
+        },
+        {
+          "start_utc": "2025-07-18T08:23:55Z",
+          "end_utc": "2025-07-18T08:40:08Z",
+          "duration_sec": 973,
+          "min_range_m": 1709553.1233716314,
+          "max_range_m": 1709553.1233716314
+        },
+        {
+          "start_utc": "2025-07-18T09:14:47Z",
+          "end_utc": "2025-07-18T09:31:34Z",
+          "duration_sec": 1007,
+          "min_range_m": 5632627.736234912,
+          "max_range_m": 5632627.736234912
+        },
+        {
+          "start_utc": "2025-07-18T10:57:10Z",
+          "end_utc": "2025-07-18T11:13:30Z",
+          "duration_sec": 980,
+          "min_range_m": 4818230.44302986,
+          "max_range_m": 4818230.44302986
+        },
+        {
+          "start_utc": "2025-07-18T11:48:21Z",
+          "end_utc": "2025-07-18T12:00:00Z",
+          "duration_sec": 699,
+          "min_range_m": 3786623.2642998225,
+          "max_range_m": 3786623.2642998225
+        }
+      ]
+    },
+    {
+      "satellite_id": "sat_skysat-a",
+      "other_satellite_id": "sat_spot_1",
+      "constraints": {
+        "line_of_sight_required": true,
+        "max_range_m": null
+      },
+      "windows": [
+        {
+          "start_utc": "2025-07-17T12:22:05Z",
+          "end_utc": "2025-07-17T12:30:53Z",
+          "duration_sec": 528,
+          "min_range_m": 5015328.909441524,
+          "max_range_m": 5015328.909441524
+        },
+        {
+          "start_utc": "2025-07-17T13:58:54Z",
+          "end_utc": "2025-07-17T14:07:27Z",
+          "duration_sec": 512,
+          "min_range_m": 5049659.38437882,
+          "max_range_m": 5049659.38437882
+        },
+        {
+          "start_utc": "2025-07-17T16:23:26Z",
+          "end_utc": "2025-07-17T16:32:37Z",
+          "duration_sec": 551,
+          "min_range_m": 4672859.470954235,
+          "max_range_m": 4672859.470954235
+        },
+        {
+          "start_utc": "2025-07-17T20:25:48Z",
+          "end_utc": "2025-07-17T20:34:07Z",
+          "duration_sec": 499,
+          "min_range_m": 4329990.494323383,
+          "max_range_m": 4329990.494323383
+        },
+        {
+          "start_utc": "2025-07-18T00:26:53Z",
+          "end_utc": "2025-07-18T00:36:05Z",
+          "duration_sec": 552,
+          "min_range_m": 4372421.623420689,
+          "max_range_m": 4372421.623420689
+        },
+        {
+          "start_utc": "2025-07-18T02:52:00Z",
+          "end_utc": "2025-07-18T03:01:27Z",
+          "duration_sec": 568,
+          "min_range_m": 4820590.917161219,
+          "max_range_m": 4820590.917161219
+        },
+        {
+          "start_utc": "2025-07-18T04:28:28Z",
+          "end_utc": "2025-07-18T04:38:21Z",
+          "duration_sec": 593,
+          "min_range_m": 4859347.719712179,
+          "max_range_m": 4859347.719712179
+        },
+        {
+          "start_utc": "2025-07-18T06:53:05Z",
+          "end_utc": "2025-07-18T07:03:28Z",
+          "duration_sec": 623,
+          "min_range_m": 3913934.4968650853,
+          "max_range_m": 3913934.4968650853
+        },
+        {
+          "start_utc": "2025-07-18T08:29:35Z",
+          "end_utc": "2025-07-18T08:40:21Z",
+          "duration_sec": 646,
+          "min_range_m": 5329416.416007407,
+          "max_range_m": 5329416.416007407
+        },
+        {
+          "start_utc": "2025-07-18T10:54:18Z",
+          "end_utc": "2025-07-18T11:06:02Z",
+          "duration_sec": 704,
+          "min_range_m": 2931700.1251813197,
+          "max_range_m": 2931700.1251813197
+        }
+      ]
+    }
+  ]
+}
