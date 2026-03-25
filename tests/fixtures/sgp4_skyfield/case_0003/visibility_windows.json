@@ -1,0 +1,400 @@
+{
+  "metadata": {
+    "case_id": "case_0003",
+    "generator": "tests/fixtures/sgp4_skyfield/generate.py",
+    "generator_library": "skyfield",
+    "generator_library_version": "1.54",
+    "time_system": "UTC",
+    "angle_unit": "deg",
+    "distance_unit": "m",
+    "duration_unit": "sec",
+    "horizon_start_utc": "2025-07-17T12:00:00Z",
+    "horizon_end_utc": "2025-07-18T12:00:00Z",
+    "sample_step_sec": 1800,
+    "boundary_tolerance_sec": 1,
+    "timestamp_inclusion": "start inclusive, end exclusive",
+    "ground_visibility_model": "topocentric line of sight with target-defined minimum elevation and optional maximum slant range",
+    "inter_satellite_visibility_model": "geometric line of sight above Earth limb",
+    "inter_satellite_constraints": {
+      "line_of_sight_required": true,
+      "max_range_m": null
+    },
+    "target_ids": [
+      "city_pontevedra_ph_1",
+      "facility_queensland_transmitter"
+    ],
+    "satellite_ids": [
+      "sat_qianfan-1",
+      "sat_qianfan-2",
+      "sat_qianfan-3",
+      "sat_qianfan-4",
+      "sat_qianfan-19"
+    ],
+    "earth_occlusion_model": "line segment clearance against spherical Earth",
+    "earth_radius_m": 6371000.0
+  },
+  "satellite_to_target": [
+    {
+      "satellite_id": "sat_qianfan-1",
+      "target_id": "city_pontevedra_ph_1",
+      "constraints": {
+        "min_elevation_deg": 10.0,
+        "max_slant_range_m": null
+      },
+      "windows": [
+        {
+          "start_utc": "2025-07-18T04:27:08Z",
+          "end_utc": "2025-07-18T04:39:56Z",
+          "duration_sec": 768,
+          "time_of_max_elevation_utc": "2025-07-18T04:30:00Z",
+          "max_elevation_deg": 25.997661006405345,
+          "min_slant_range_m": 1970935.3267815455,
+          "max_slant_range_m": 1970935.3267815455
+        }
+      ]
+    },
+    {
+      "satellite_id": "sat_qianfan-1",
+      "target_id": "facility_queensland_transmitter",
+      "constraints": {
+        "min_elevation_deg": 15.0,
+        "max_slant_range_m": null
+      },
+      "windows": [
+        {
+          "start_utc": "2025-07-18T02:52:28Z",
+          "end_utc": "2025-07-18T03:02:24Z",
+          "duration_sec": 596,
+          "time_of_max_elevation_utc": "2025-07-18T03:00:00Z",
+          "max_elevation_deg": 28.239365693691116,
+          "min_slant_range_m": 1881057.133024276,
+          "max_slant_range_m": 1881057.133024276
+        }
+      ]
+    },
+    {
+      "satellite_id": "sat_qianfan-19",
+      "target_id": "city_pontevedra_ph_1",
+      "constraints": {
+        "min_elevation_deg": 10.0,
+        "max_slant_range_m": null
+      },
+      "windows": [
+        {
+          "start_utc": "2025-07-18T04:27:08Z",
+          "end_utc": "2025-07-18T04:39:56Z",
+          "duration_sec": 768,
+          "time_of_max_elevation_utc": "2025-07-18T04:30:00Z",
+          "max_elevation_deg": 25.997661006405345,
+          "min_slant_range_m": 1970935.3267815455,
+          "max_slant_range_m": 1970935.3267815455
+        }
+      ]
+    },
+    {
+      "satellite_id": "sat_qianfan-19",
+      "target_id": "facility_queensland_transmitter",
+      "constraints": {
+        "min_elevation_deg": 15.0,
+        "max_slant_range_m": null
+      },
+      "windows": [
+        {
+          "start_utc": "2025-07-18T02:52:28Z",
+          "end_utc": "2025-07-18T03:02:24Z",
+          "duration_sec": 596,
+          "time_of_max_elevation_utc": "2025-07-18T03:00:00Z",
+          "max_elevation_deg": 28.239365693691116,
+          "min_slant_range_m": 1881057.133024276,
+          "max_slant_range_m": 1881057.133024276
+        }
+      ]
+    },
+    {
+      "satellite_id": "sat_qianfan-2",
+      "target_id": "city_pontevedra_ph_1",
+      "constraints": {
+        "min_elevation_deg": 10.0,
+        "max_slant_range_m": null
+      },
+      "windows": [
+        {
+          "start_utc": "2025-07-18T04:27:08Z",
+          "end_utc": "2025-07-18T04:39:56Z",
+          "duration_sec": 768,
+          "time_of_max_elevation_utc": "2025-07-18T04:30:00Z",
+          "max_elevation_deg": 25.997661006405345,
+          "min_slant_range_m": 1970935.3267815455,
+          "max_slant_range_m": 1970935.3267815455
+        }
+      ]
+    },
+    {
+      "satellite_id": "sat_qianfan-2",
+      "target_id": "facility_queensland_transmitter",
+      "constraints": {
+        "min_elevation_deg": 15.0,
+        "max_slant_range_m": null
+      },
+      "windows": [
+        {
+          "start_utc": "2025-07-18T02:52:28Z",
+          "end_utc": "2025-07-18T03:02:24Z",
+          "duration_sec": 596,
+          "time_of_max_elevation_utc": "2025-07-18T03:00:00Z",
+          "max_elevation_deg": 28.239365693691116,
+          "min_slant_range_m": 1881057.133024276,
+          "max_slant_range_m": 1881057.133024276
+        }
+      ]
+    },
+    {
+      "satellite_id": "sat_qianfan-3",
+      "target_id": "city_pontevedra_ph_1",
+      "constraints": {
+        "min_elevation_deg": 10.0,
+        "max_slant_range_m": null
+      },
+      "windows": [
+        {
+          "start_utc": "2025-07-18T04:27:08Z",
+          "end_utc": "2025-07-18T04:39:56Z",
+          "duration_sec": 768,
+          "time_of_max_elevation_utc": "2025-07-18T04:30:00Z",
+          "max_elevation_deg": 25.997661006405345,
+          "min_slant_range_m": 1970935.3267815455,
+          "max_slant_range_m": 1970935.3267815455
+        }
+      ]
+    },
+    {
+      "satellite_id": "sat_qianfan-3",
+      "target_id": "facility_queensland_transmitter",
+      "constraints": {
+        "min_elevation_deg": 15.0,
+        "max_slant_range_m": null
+      },
+      "windows": [
+        {
+          "start_utc": "2025-07-18T02:52:28Z",
+          "end_utc": "2025-07-18T03:02:24Z",
+          "duration_sec": 596,
+          "time_of_max_elevation_utc": "2025-07-18T03:00:00Z",
+          "max_elevation_deg": 28.239365693691116,
+          "min_slant_range_m": 1881057.133024276,
+          "max_slant_range_m": 1881057.133024276
+        }
+      ]
+    },
+    {
+      "satellite_id": "sat_qianfan-4",
+      "target_id": "city_pontevedra_ph_1",
+      "constraints": {
+        "min_elevation_deg": 10.0,
+        "max_slant_range_m": null
+      },
+      "windows": [
+        {
+          "start_utc": "2025-07-18T04:27:08Z",
+          "end_utc": "2025-07-18T04:39:56Z",
+          "duration_sec": 768,
+          "time_of_max_elevation_utc": "2025-07-18T04:30:00Z",
+          "max_elevation_deg": 25.997661006405345,
+          "min_slant_range_m": 1970935.3267815455,
+          "max_slant_range_m": 1970935.3267815455
+        }
+      ]
+    },
+    {
+      "satellite_id": "sat_qianfan-4",
+      "target_id": "facility_queensland_transmitter",
+      "constraints": {
+        "min_elevation_deg": 15.0,
+        "max_slant_range_m": null
+      },
+      "windows": [
+        {
+          "start_utc": "2025-07-18T02:52:28Z",
+          "end_utc": "2025-07-18T03:02:24Z",
+          "duration_sec": 596,
+          "time_of_max_elevation_utc": "2025-07-18T03:00:00Z",
+          "max_elevation_deg": 28.239365693691116,
+          "min_slant_range_m": 1881057.133024276,
+          "max_slant_range_m": 1881057.133024276
+        }
+      ]
+    }
+  ],
+  "satellite_to_satellite": [
+    {
+      "satellite_id": "sat_qianfan-1",
+      "other_satellite_id": "sat_qianfan-19",
+      "constraints": {
+        "line_of_sight_required": true,
+        "max_range_m": null
+      },
+      "windows": [
+        {
+          "start_utc": "2025-07-17T12:00:00Z",
+          "end_utc": "2025-07-18T12:00:00Z",
+          "duration_sec": 86400,
+          "min_range_m": 0.0,
+          "max_range_m": 0.0
+        }
+      ]
+    },
+    {
+      "satellite_id": "sat_qianfan-1",
+      "other_satellite_id": "sat_qianfan-2",
+      "constraints": {
+        "line_of_sight_required": true,
+        "max_range_m": null
+      },
+      "windows": [
+        {
+          "start_utc": "2025-07-17T12:00:00Z",
+          "end_utc": "2025-07-18T12:00:00Z",
+          "duration_sec": 86400,
+          "min_range_m": 0.0,
+          "max_range_m": 0.0
+        }
+      ]
+    },
+    {
+      "satellite_id": "sat_qianfan-1",
+      "other_satellite_id": "sat_qianfan-3",
+      "constraints": {
+        "line_of_sight_required": true,
+        "max_range_m": null
+      },
+      "windows": [
+        {
+          "start_utc": "2025-07-17T12:00:00Z",
+          "end_utc": "2025-07-18T12:00:00Z",
+          "duration_sec": 86400,
+          "min_range_m": 0.0,
+          "max_range_m": 0.0
+        }
+      ]
+    },
+    {
+      "satellite_id": "sat_qianfan-1",
+      "other_satellite_id": "sat_qianfan-4",
+      "constraints": {
+        "line_of_sight_required": true,
+        "max_range_m": null
+      },
+      "windows": [
+        {
+          "start_utc": "2025-07-17T12:00:00Z",
+          "end_utc": "2025-07-18T12:00:00Z",
+          "duration_sec": 86400,
+          "min_range_m": 0.0,
+          "max_range_m": 0.0
+        }
+      ]
+    },
+    {
+      "satellite_id": "sat_qianfan-19",
+      "other_satellite_id": "sat_qianfan-2",
+      "constraints": {
+        "line_of_sight_required": true,
+        "max_range_m": null
+      },
+      "windows": [
+        {
+          "start_utc": "2025-07-17T12:00:00Z",
+          "end_utc": "2025-07-18T12:00:00Z",
+          "duration_sec": 86400,
+          "min_range_m": 0.0,
+          "max_range_m": 0.0
+        }
+      ]
+    },
+    {
+      "satellite_id": "sat_qianfan-19",
+      "other_satellite_id": "sat_qianfan-3",
+      "constraints": {
+        "line_of_sight_required": true,
+        "max_range_m": null
+      },
+      "windows": [
+        {
+          "start_utc": "2025-07-17T12:00:00Z",
+          "end_utc": "2025-07-18T12:00:00Z",
+          "duration_sec": 86400,
+          "min_range_m": 0.0,
+          "max_range_m": 0.0
+        }
+      ]
+    },
+    {
+      "satellite_id": "sat_qianfan-19",
+      "other_satellite_id": "sat_qianfan-4",
+      "constraints": {
+        "line_of_sight_required": true,
+        "max_range_m": null
+      },
+      "windows": [
+        {
+          "start_utc": "2025-07-17T12:00:00Z",
+          "end_utc": "2025-07-18T12:00:00Z",
+          "duration_sec": 86400,
+          "min_range_m": 0.0,
+          "max_range_m": 0.0
+        }
+      ]
+    },
+    {
+      "satellite_id": "sat_qianfan-2",
+      "other_satellite_id": "sat_qianfan-3",
+      "constraints": {
+        "line_of_sight_required": true,
+        "max_range_m": null
+      },
+      "windows": [
+        {
+          "start_utc": "2025-07-17T12:00:00Z",
+          "end_utc": "2025-07-18T12:00:00Z",
+          "duration_sec": 86400,
+          "min_range_m": 0.0,
+          "max_range_m": 0.0
+        }
+      ]
+    },
+    {
+      "satellite_id": "sat_qianfan-2",
+      "other_satellite_id": "sat_qianfan-4",
+      "constraints": {
+        "line_of_sight_required": true,
+        "max_range_m": null
+      },
+      "windows": [
+        {
+          "start_utc": "2025-07-17T12:00:00Z",
+          "end_utc": "2025-07-18T12:00:00Z",
+          "duration_sec": 86400,
+          "min_range_m": 0.0,
+          "max_range_m": 0.0
+        }
+      ]
+    },
+    {
+      "satellite_id": "sat_qianfan-3",
+      "other_satellite_id": "sat_qianfan-4",
+      "constraints": {
+        "line_of_sight_required": true,
+        "max_range_m": null
+      },
+      "windows": [
+        {
+          "start_utc": "2025-07-17T12:00:00Z",
+          "end_utc": "2025-07-18T12:00:00Z",
+          "duration_sec": 86400,
+          "min_range_m": 0.0,
+          "max_range_m": 0.0
+        }
+      ]
+    }
+  ]
+}

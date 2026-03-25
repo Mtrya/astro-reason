@@ -3,39 +3,39 @@
   longitude_deg: 144.1454
   altitude_m: 237.0
   min_elevation_deg: 15.0
-  max_slant_range_km: null
+  max_slant_range_m: null
 
 - id: facility_greenbelt_test_brt_stdn_bltj
   latitude_deg: 39.002704
   longitude_deg: -76.837928
   altitude_m: 60.06
   min_elevation_deg: 15.0
-  max_slant_range_km: null
+  max_slant_range_m: null
 
 - id: facility_sodankyla_eiscat_radar
   latitude_deg: 67.36383
   longitude_deg: 26.63043
   altitude_m: 193.0
   min_elevation_deg: 15.0
-  max_slant_range_km: null
+  max_slant_range_m: null
 
 - id: city_taihe_cn
   latitude_deg: 30.871
   longitude_deg: 105.388
   altitude_m: 0.0
   min_elevation_deg: 10.0
-  max_slant_range_km: null
+  max_slant_range_m: null
 
 - id: city_apia_ws
   latitude_deg: -13.8333
   longitude_deg: -171.75
   altitude_m: 0.0
   min_elevation_deg: 10.0
-  max_slant_range_km: null
+  max_slant_range_m: null
 
 - id: city_surrey_ca
   latitude_deg: 49.19
   longitude_deg: -122.8489
   altitude_m: 0.0
   min_elevation_deg: 10.0
-  max_slant_range_km: null
+  max_slant_range_m: null

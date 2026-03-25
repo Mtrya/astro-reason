@@ -1,0 +1,1407 @@
+{
+  "metadata": {
+    "case_id": "case_0003",
+    "generator": "tests/fixtures/sgp4_skyfield/generate.py",
+    "generator_library": "skyfield",
+    "generator_library_version": "1.54",
+    "time_system": "UTC",
+    "duration_unit": "sec",
+    "distance_unit": "m",
+    "illumination_source": "skyfield",
+    "illumination_model": "skyfield ICRF.is_sunlit with JPL de421.bsp ephemeris",
+    "horizon_start_utc": "2025-07-17T12:00:00Z",
+    "horizon_end_utc": "2025-07-18T12:00:00Z",
+    "sample_step_sec": 1800,
+    "boundary_tolerance_sec": 1,
+    "timestamp_inclusion": "start inclusive, end exclusive",
+    "satellite_ids": [
+      "sat_qianfan-1",
+      "sat_qianfan-2",
+      "sat_qianfan-3",
+      "sat_qianfan-4",
+      "sat_qianfan-19"
+    ]
+  },
+  "satellites": [
+    {
+      "satellite_id": "sat_qianfan-1",
+      "initial_state": "sunlit",
+      "final_state": "sunlit",
+      "sunlit_windows": [
+        {
+          "start_utc": "2025-07-17T12:00:00Z",
+          "end_utc": "2025-07-17T13:06:38Z",
+          "duration_sec": 3998
+        },
+        {
+          "start_utc": "2025-07-17T13:40:42Z",
+          "end_utc": "2025-07-17T14:53:17Z",
+          "duration_sec": 4355
+        },
+        {
+          "start_utc": "2025-07-17T15:27:22Z",
+          "end_utc": "2025-07-17T16:39:56Z",
+          "duration_sec": 4354
+        },
+        {
+          "start_utc": "2025-07-17T17:14:02Z",
+          "end_utc": "2025-07-17T18:26:36Z",
+          "duration_sec": 4353
+        },
+        {
+          "start_utc": "2025-07-17T19:00:42Z",
+          "end_utc": "2025-07-17T20:13:15Z",
+          "duration_sec": 4353
+        },
+        {
+          "start_utc": "2025-07-17T20:47:22Z",
+          "end_utc": "2025-07-17T21:59:54Z",
+          "duration_sec": 4352
+        },
+        {
+          "start_utc": "2025-07-17T22:34:02Z",
+          "end_utc": "2025-07-17T23:46:34Z",
+          "duration_sec": 4352
+        },
+        {
+          "start_utc": "2025-07-18T00:20:42Z",
+          "end_utc": "2025-07-18T01:33:14Z",
+          "duration_sec": 4351
+        },
+        {
+          "start_utc": "2025-07-18T02:07:22Z",
+          "end_utc": "2025-07-18T03:19:53Z",
+          "duration_sec": 4351
+        },
+        {
+          "start_utc": "2025-07-18T03:54:02Z",
+          "end_utc": "2025-07-18T05:06:32Z",
+          "duration_sec": 4351
+        },
+        {
+          "start_utc": "2025-07-18T05:40:42Z",
+          "end_utc": "2025-07-18T06:53:12Z",
+          "duration_sec": 4350
+        },
+        {
+          "start_utc": "2025-07-18T07:27:21Z",
+          "end_utc": "2025-07-18T08:39:52Z",
+          "duration_sec": 4351
+        },
+        {
+          "start_utc": "2025-07-18T09:14:01Z",
+          "end_utc": "2025-07-18T10:26:31Z",
+          "duration_sec": 4350
+        },
+        {
+          "start_utc": "2025-07-18T11:00:42Z",
+          "end_utc": "2025-07-18T12:00:00Z",
+          "duration_sec": 3558
+        }
+      ],
+      "eclipse_windows": [
+        {
+          "start_utc": "2025-07-17T13:06:38Z",
+          "end_utc": "2025-07-17T13:40:42Z",
+          "duration_sec": 2044
+        },
+        {
+          "start_utc": "2025-07-17T14:53:17Z",
+          "end_utc": "2025-07-17T15:27:22Z",
+          "duration_sec": 2045
+        },
+        {
+          "start_utc": "2025-07-17T16:39:56Z",
+          "end_utc": "2025-07-17T17:14:02Z",
+          "duration_sec": 2046
+        },
+        {
+          "start_utc": "2025-07-17T18:26:36Z",
+          "end_utc": "2025-07-17T19:00:42Z",
+          "duration_sec": 2046
+        },
+        {
+          "start_utc": "2025-07-17T20:13:15Z",
+          "end_utc": "2025-07-17T20:47:22Z",
+          "duration_sec": 2047
+        },
+        {
+          "start_utc": "2025-07-17T21:59:54Z",
+          "end_utc": "2025-07-17T22:34:02Z",
+          "duration_sec": 2048
+        },
+        {
+          "start_utc": "2025-07-17T23:46:34Z",
+          "end_utc": "2025-07-18T00:20:42Z",
+          "duration_sec": 2048
+        },
+        {
+          "start_utc": "2025-07-18T01:33:14Z",
+          "end_utc": "2025-07-18T02:07:22Z",
+          "duration_sec": 2048
+        },
+        {
+          "start_utc": "2025-07-18T03:19:53Z",
+          "end_utc": "2025-07-18T03:54:02Z",
+          "duration_sec": 2049
+        },
+        {
+          "start_utc": "2025-07-18T05:06:32Z",
+          "end_utc": "2025-07-18T05:40:42Z",
+          "duration_sec": 2050
+        },
+        {
+          "start_utc": "2025-07-18T06:53:12Z",
+          "end_utc": "2025-07-18T07:27:21Z",
+          "duration_sec": 2050
+        },
+        {
+          "start_utc": "2025-07-18T08:39:52Z",
+          "end_utc": "2025-07-18T09:14:01Z",
+          "duration_sec": 2050
+        },
+        {
+          "start_utc": "2025-07-18T10:26:31Z",
+          "end_utc": "2025-07-18T11:00:42Z",
+          "duration_sec": 2050
+        }
+      ],
+      "transitions": [
+        {
+          "timestamp_utc": "2025-07-17T13:06:38Z",
+          "from_state": "sunlit",
+          "to_state": "eclipse"
+        },
+        {
+          "timestamp_utc": "2025-07-17T13:40:42Z",
+          "from_state": "eclipse",
+          "to_state": "sunlit"
+        },
+        {
+          "timestamp_utc": "2025-07-17T14:53:17Z",
+          "from_state": "sunlit",
+          "to_state": "eclipse"
+        },
+        {
+          "timestamp_utc": "2025-07-17T15:27:22Z",
+          "from_state": "eclipse",
+          "to_state": "sunlit"
+        },
+        {
+          "timestamp_utc": "2025-07-17T16:39:56Z",
+          "from_state": "sunlit",
+          "to_state": "eclipse"
+        },
+        {
+          "timestamp_utc": "2025-07-17T17:14:02Z",
+          "from_state": "eclipse",
+          "to_state": "sunlit"
+        },
+        {
+          "timestamp_utc": "2025-07-17T18:26:36Z",
+          "from_state": "sunlit",
+          "to_state": "eclipse"
+        },
+        {
+          "timestamp_utc": "2025-07-17T19:00:42Z",
+          "from_state": "eclipse",
+          "to_state": "sunlit"
+        },
+        {
+          "timestamp_utc": "2025-07-17T20:13:15Z",
+          "from_state": "sunlit",
+          "to_state": "eclipse"
+        },
+        {
+          "timestamp_utc": "2025-07-17T20:47:22Z",
+          "from_state": "eclipse",
+          "to_state": "sunlit"
+        },
+        {
+          "timestamp_utc": "2025-07-17T21:59:54Z",
+          "from_state": "sunlit",
+          "to_state": "eclipse"
+        },
+        {
+          "timestamp_utc": "2025-07-17T22:34:02Z",
+          "from_state": "eclipse",
+          "to_state": "sunlit"
+        },
+        {
+          "timestamp_utc": "2025-07-17T23:46:34Z",
+          "from_state": "sunlit",
+          "to_state": "eclipse"
+        },
+        {
+          "timestamp_utc": "2025-07-18T00:20:42Z",
+          "from_state": "eclipse",
+          "to_state": "sunlit"
+        },
+        {
+          "timestamp_utc": "2025-07-18T01:33:14Z",
+          "from_state": "sunlit",
+          "to_state": "eclipse"
+        },
+        {
+          "timestamp_utc": "2025-07-18T02:07:22Z",
+          "from_state": "eclipse",
+          "to_state": "sunlit"
+        },
+        {
+          "timestamp_utc": "2025-07-18T03:19:53Z",
+          "from_state": "sunlit",
+          "to_state": "eclipse"
+        },
+        {
+          "timestamp_utc": "2025-07-18T03:54:02Z",
+          "from_state": "eclipse",
+          "to_state": "sunlit"
+        },
+        {
+          "timestamp_utc": "2025-07-18T05:06:32Z",
+          "from_state": "sunlit",
+          "to_state": "eclipse"
+        },
+        {
+          "timestamp_utc": "2025-07-18T05:40:42Z",
+          "from_state": "eclipse",
+          "to_state": "sunlit"
+        },
+        {
+          "timestamp_utc": "2025-07-18T06:53:12Z",
+          "from_state": "sunlit",
+          "to_state": "eclipse"
+        },
+        {
+          "timestamp_utc": "2025-07-18T07:27:21Z",
+          "from_state": "eclipse",
+          "to_state": "sunlit"
+        },
+        {
+          "timestamp_utc": "2025-07-18T08:39:52Z",
+          "from_state": "sunlit",
+          "to_state": "eclipse"
+        },
+        {
+          "timestamp_utc": "2025-07-18T09:14:01Z",
+          "from_state": "eclipse",
+          "to_state": "sunlit"
+        },
+        {
+          "timestamp_utc": "2025-07-18T10:26:31Z",
+          "from_state": "sunlit",
+          "to_state": "eclipse"
+        },
+        {
+          "timestamp_utc": "2025-07-18T11:00:42Z",
+          "from_state": "eclipse",
+          "to_state": "sunlit"
+        }
+      ]
+    },
+    {
+      "satellite_id": "sat_qianfan-2",
+      "initial_state": "sunlit",
+      "final_state": "sunlit",
+      "sunlit_windows": [
+        {
+          "start_utc": "2025-07-17T12:00:00Z",
+          "end_utc": "2025-07-17T13:06:38Z",
+          "duration_sec": 3998
+        },
+        {
+          "start_utc": "2025-07-17T13:40:42Z",
+          "end_utc": "2025-07-17T14:53:17Z",
+          "duration_sec": 4355
+        },
+        {
+          "start_utc": "2025-07-17T15:27:22Z",
+          "end_utc": "2025-07-17T16:39:56Z",
+          "duration_sec": 4354
+        },
+        {
+          "start_utc": "2025-07-17T17:14:02Z",
+          "end_utc": "2025-07-17T18:26:36Z",
+          "duration_sec": 4353
+        },
+        {
+          "start_utc": "2025-07-17T19:00:42Z",
+          "end_utc": "2025-07-17T20:13:15Z",
+          "duration_sec": 4353
+        },
+        {
+          "start_utc": "2025-07-17T20:47:22Z",
+          "end_utc": "2025-07-17T21:59:54Z",
+          "duration_sec": 4352
+        },
+        {
+          "start_utc": "2025-07-17T22:34:02Z",
+          "end_utc": "2025-07-17T23:46:34Z",
+          "duration_sec": 4352
+        },
+        {
+          "start_utc": "2025-07-18T00:20:42Z",
+          "end_utc": "2025-07-18T01:33:14Z",
+          "duration_sec": 4351
+        },
+        {
+          "start_utc": "2025-07-18T02:07:22Z",
+          "end_utc": "2025-07-18T03:19:53Z",
+          "duration_sec": 4351
+        },
+        {
+          "start_utc": "2025-07-18T03:54:02Z",
+          "end_utc": "2025-07-18T05:06:32Z",
+          "duration_sec": 4351
+        },
+        {
+          "start_utc": "2025-07-18T05:40:42Z",
+          "end_utc": "2025-07-18T06:53:12Z",
+          "duration_sec": 4350
+        },
+        {
+          "start_utc": "2025-07-18T07:27:21Z",
+          "end_utc": "2025-07-18T08:39:52Z",
+          "duration_sec": 4351
+        },
+        {
+          "start_utc": "2025-07-18T09:14:01Z",
+          "end_utc": "2025-07-18T10:26:31Z",
+          "duration_sec": 4350
+        },
+        {
+          "start_utc": "2025-07-18T11:00:42Z",
+          "end_utc": "2025-07-18T12:00:00Z",
+          "duration_sec": 3558
+        }
+      ],
+      "eclipse_windows": [
+        {
+          "start_utc": "2025-07-17T13:06:38Z",
+          "end_utc": "2025-07-17T13:40:42Z",
+          "duration_sec": 2044
+        },
+        {
+          "start_utc": "2025-07-17T14:53:17Z",
+          "end_utc": "2025-07-17T15:27:22Z",
+          "duration_sec": 2045
+        },
+        {
+          "start_utc": "2025-07-17T16:39:56Z",
+          "end_utc": "2025-07-17T17:14:02Z",
+          "duration_sec": 2046
+        },
+        {
+          "start_utc": "2025-07-17T18:26:36Z",
+          "end_utc": "2025-07-17T19:00:42Z",
+          "duration_sec": 2046
+        },
+        {
+          "start_utc": "2025-07-17T20:13:15Z",
+          "end_utc": "2025-07-17T20:47:22Z",
+          "duration_sec": 2047
+        },
+        {
+          "start_utc": "2025-07-17T21:59:54Z",
+          "end_utc": "2025-07-17T22:34:02Z",
+          "duration_sec": 2048
+        },
+        {
+          "start_utc": "2025-07-17T23:46:34Z",
+          "end_utc": "2025-07-18T00:20:42Z",
+          "duration_sec": 2048
+        },
+        {
+          "start_utc": "2025-07-18T01:33:14Z",
+          "end_utc": "2025-07-18T02:07:22Z",
+          "duration_sec": 2048
+        },
+        {
+          "start_utc": "2025-07-18T03:19:53Z",
+          "end_utc": "2025-07-18T03:54:02Z",
+          "duration_sec": 2049
+        },
+        {
+          "start_utc": "2025-07-18T05:06:32Z",
+          "end_utc": "2025-07-18T05:40:42Z",
+          "duration_sec": 2050
+        },
+        {
+          "start_utc": "2025-07-18T06:53:12Z",
+          "end_utc": "2025-07-18T07:27:21Z",
+          "duration_sec": 2050
+        },
+        {
+          "start_utc": "2025-07-18T08:39:52Z",
+          "end_utc": "2025-07-18T09:14:01Z",
+          "duration_sec": 2050
+        },
+        {
+          "start_utc": "2025-07-18T10:26:31Z",
+          "end_utc": "2025-07-18T11:00:42Z",
+          "duration_sec": 2050
+        }
+      ],
+      "transitions": [
+        {
+          "timestamp_utc": "2025-07-17T13:06:38Z",
+          "from_state": "sunlit",
+          "to_state": "eclipse"
+        },
+        {
+          "timestamp_utc": "2025-07-17T13:40:42Z",
+          "from_state": "eclipse",
+          "to_state": "sunlit"
+        },
+        {
+          "timestamp_utc": "2025-07-17T14:53:17Z",
+          "from_state": "sunlit",
+          "to_state": "eclipse"
+        },
+        {
+          "timestamp_utc": "2025-07-17T15:27:22Z",
+          "from_state": "eclipse",
+          "to_state": "sunlit"
+        },
+        {
+          "timestamp_utc": "2025-07-17T16:39:56Z",
+          "from_state": "sunlit",
+          "to_state": "eclipse"
+        },
+        {
+          "timestamp_utc": "2025-07-17T17:14:02Z",
+          "from_state": "eclipse",
+          "to_state": "sunlit"
+        },
+        {
+          "timestamp_utc": "2025-07-17T18:26:36Z",
+          "from_state": "sunlit",
+          "to_state": "eclipse"
+        },
+        {
+          "timestamp_utc": "2025-07-17T19:00:42Z",
+          "from_state": "eclipse",
+          "to_state": "sunlit"
+        },
+        {
+          "timestamp_utc": "2025-07-17T20:13:15Z",
+          "from_state": "sunlit",
+          "to_state": "eclipse"
+        },
+        {
+          "timestamp_utc": "2025-07-17T20:47:22Z",
+          "from_state": "eclipse",
+          "to_state": "sunlit"
+        },
+        {
+          "timestamp_utc": "2025-07-17T21:59:54Z",
+          "from_state": "sunlit",
+          "to_state": "eclipse"
+        },
+        {
+          "timestamp_utc": "2025-07-17T22:34:02Z",
+          "from_state": "eclipse",
+          "to_state": "sunlit"
+        },
+        {
+          "timestamp_utc": "2025-07-17T23:46:34Z",
+          "from_state": "sunlit",
+          "to_state": "eclipse"
+        },
+        {
+          "timestamp_utc": "2025-07-18T00:20:42Z",
+          "from_state": "eclipse",
+          "to_state": "sunlit"
+        },
+        {
+          "timestamp_utc": "2025-07-18T01:33:14Z",
+          "from_state": "sunlit",
+          "to_state": "eclipse"
+        },
+        {
+          "timestamp_utc": "2025-07-18T02:07:22Z",
+          "from_state": "eclipse",
+          "to_state": "sunlit"
+        },
+        {
+          "timestamp_utc": "2025-07-18T03:19:53Z",
+          "from_state": "sunlit",
+          "to_state": "eclipse"
+        },
+        {
+          "timestamp_utc": "2025-07-18T03:54:02Z",
+          "from_state": "eclipse",
+          "to_state": "sunlit"
+        },
+        {
+          "timestamp_utc": "2025-07-18T05:06:32Z",
+          "from_state": "sunlit",
+          "to_state": "eclipse"
+        },
+        {
+          "timestamp_utc": "2025-07-18T05:40:42Z",
+          "from_state": "eclipse",
+          "to_state": "sunlit"
+        },
+        {
+          "timestamp_utc": "2025-07-18T06:53:12Z",
+          "from_state": "sunlit",
+          "to_state": "eclipse"
+        },
+        {
+          "timestamp_utc": "2025-07-18T07:27:21Z",
+          "from_state": "eclipse",
+          "to_state": "sunlit"
+        },
+        {
+          "timestamp_utc": "2025-07-18T08:39:52Z",
+          "from_state": "sunlit",
+          "to_state": "eclipse"
+        },
+        {
+          "timestamp_utc": "2025-07-18T09:14:01Z",
+          "from_state": "eclipse",
+          "to_state": "sunlit"
+        },
+        {
+          "timestamp_utc": "2025-07-18T10:26:31Z",
+          "from_state": "sunlit",
+          "to_state": "eclipse"
+        },
+        {
+          "timestamp_utc": "2025-07-18T11:00:42Z",
+          "from_state": "eclipse",
+          "to_state": "sunlit"
+        }
+      ]
+    },
+    {
+      "satellite_id": "sat_qianfan-3",
+      "initial_state": "sunlit",
+      "final_state": "sunlit",
+      "sunlit_windows": [
+        {
+          "start_utc": "2025-07-17T12:00:00Z",
+          "end_utc": "2025-07-17T13:06:38Z",
+          "duration_sec": 3998
+        },
+        {
+          "start_utc": "2025-07-17T13:40:42Z",
+          "end_utc": "2025-07-17T14:53:17Z",
+          "duration_sec": 4355
+        },
+        {
+          "start_utc": "2025-07-17T15:27:22Z",
+          "end_utc": "2025-07-17T16:39:56Z",
+          "duration_sec": 4354
+        },
+        {
+          "start_utc": "2025-07-17T17:14:02Z",
+          "end_utc": "2025-07-17T18:26:36Z",
+          "duration_sec": 4353
+        },
+        {
+          "start_utc": "2025-07-17T19:00:42Z",
+          "end_utc": "2025-07-17T20:13:15Z",
+          "duration_sec": 4353
+        },
+        {
+          "start_utc": "2025-07-17T20:47:22Z",
+          "end_utc": "2025-07-17T21:59:54Z",
+          "duration_sec": 4352
+        },
+        {
+          "start_utc": "2025-07-17T22:34:02Z",
+          "end_utc": "2025-07-17T23:46:34Z",
+          "duration_sec": 4352
+        },
+        {
+          "start_utc": "2025-07-18T00:20:42Z",
+          "end_utc": "2025-07-18T01:33:14Z",
+          "duration_sec": 4351
+        },
+        {
+          "start_utc": "2025-07-18T02:07:22Z",
+          "end_utc": "2025-07-18T03:19:53Z",
+          "duration_sec": 4351
+        },
+        {
+          "start_utc": "2025-07-18T03:54:02Z",
+          "end_utc": "2025-07-18T05:06:32Z",
+          "duration_sec": 4351
+        },
+        {
+          "start_utc": "2025-07-18T05:40:42Z",
+          "end_utc": "2025-07-18T06:53:12Z",
+          "duration_sec": 4350
+        },
+        {
+          "start_utc": "2025-07-18T07:27:21Z",
+          "end_utc": "2025-07-18T08:39:52Z",
+          "duration_sec": 4351
+        },
+        {
+          "start_utc": "2025-07-18T09:14:01Z",
+          "end_utc": "2025-07-18T10:26:31Z",
+          "duration_sec": 4350
+        },
+        {
+          "start_utc": "2025-07-18T11:00:42Z",
+          "end_utc": "2025-07-18T12:00:00Z",
+          "duration_sec": 3558
+        }
+      ],
+      "eclipse_windows": [
+        {
+          "start_utc": "2025-07-17T13:06:38Z",
+          "end_utc": "2025-07-17T13:40:42Z",
+          "duration_sec": 2044
+        },
+        {
+          "start_utc": "2025-07-17T14:53:17Z",
+          "end_utc": "2025-07-17T15:27:22Z",
+          "duration_sec": 2045
+        },
+        {
+          "start_utc": "2025-07-17T16:39:56Z",
+          "end_utc": "2025-07-17T17:14:02Z",
+          "duration_sec": 2046
+        },
+        {
+          "start_utc": "2025-07-17T18:26:36Z",
+          "end_utc": "2025-07-17T19:00:42Z",
+          "duration_sec": 2046
+        },
+        {
+          "start_utc": "2025-07-17T20:13:15Z",
+          "end_utc": "2025-07-17T20:47:22Z",
+          "duration_sec": 2047
+        },
+        {
+          "start_utc": "2025-07-17T21:59:54Z",
+          "end_utc": "2025-07-17T22:34:02Z",
+          "duration_sec": 2048
+        },
+        {
+          "start_utc": "2025-07-17T23:46:34Z",
+          "end_utc": "2025-07-18T00:20:42Z",
+          "duration_sec": 2048
+        },
+        {
+          "start_utc": "2025-07-18T01:33:14Z",
+          "end_utc": "2025-07-18T02:07:22Z",
+          "duration_sec": 2048
+        },
+        {
+          "start_utc": "2025-07-18T03:19:53Z",
+          "end_utc": "2025-07-18T03:54:02Z",
+          "duration_sec": 2049
+        },
+        {
+          "start_utc": "2025-07-18T05:06:32Z",
+          "end_utc": "2025-07-18T05:40:42Z",
+          "duration_sec": 2050
+        },
+        {
+          "start_utc": "2025-07-18T06:53:12Z",
+          "end_utc": "2025-07-18T07:27:21Z",
+          "duration_sec": 2050
+        },
+        {
+          "start_utc": "2025-07-18T08:39:52Z",
+          "end_utc": "2025-07-18T09:14:01Z",
+          "duration_sec": 2050
+        },
+        {
+          "start_utc": "2025-07-18T10:26:31Z",
+          "end_utc": "2025-07-18T11:00:42Z",
+          "duration_sec": 2050
+        }
+      ],
+      "transitions": [
+        {
+          "timestamp_utc": "2025-07-17T13:06:38Z",
+          "from_state": "sunlit",
+          "to_state": "eclipse"
+        },
+        {
+          "timestamp_utc": "2025-07-17T13:40:42Z",
+          "from_state": "eclipse",
+          "to_state": "sunlit"
+        },
+        {
+          "timestamp_utc": "2025-07-17T14:53:17Z",
+          "from_state": "sunlit",
+          "to_state": "eclipse"
+        },
+        {
+          "timestamp_utc": "2025-07-17T15:27:22Z",
+          "from_state": "eclipse",
+          "to_state": "sunlit"
+        },
+        {
+          "timestamp_utc": "2025-07-17T16:39:56Z",
+          "from_state": "sunlit",
+          "to_state": "eclipse"
+        },
+        {
+          "timestamp_utc": "2025-07-17T17:14:02Z",
+          "from_state": "eclipse",
+          "to_state": "sunlit"
+        },
+        {
+          "timestamp_utc": "2025-07-17T18:26:36Z",
+          "from_state": "sunlit",
+          "to_state": "eclipse"
+        },
+        {
+          "timestamp_utc": "2025-07-17T19:00:42Z",
+          "from_state": "eclipse",
+          "to_state": "sunlit"
+        },
+        {
+          "timestamp_utc": "2025-07-17T20:13:15Z",
+          "from_state": "sunlit",
+          "to_state": "eclipse"
+        },
+        {
+          "timestamp_utc": "2025-07-17T20:47:22Z",
+          "from_state": "eclipse",
+          "to_state": "sunlit"
+        },
+        {
+          "timestamp_utc": "2025-07-17T21:59:54Z",
+          "from_state": "sunlit",
+          "to_state": "eclipse"
+        },
+        {
+          "timestamp_utc": "2025-07-17T22:34:02Z",
+          "from_state": "eclipse",
+          "to_state": "sunlit"
+        },
+        {
+          "timestamp_utc": "2025-07-17T23:46:34Z",
+          "from_state": "sunlit",
+          "to_state": "eclipse"
+        },
+        {
+          "timestamp_utc": "2025-07-18T00:20:42Z",
+          "from_state": "eclipse",
+          "to_state": "sunlit"
+        },
+        {
+          "timestamp_utc": "2025-07-18T01:33:14Z",
+          "from_state": "sunlit",
+          "to_state": "eclipse"
+        },
+        {
+          "timestamp_utc": "2025-07-18T02:07:22Z",
+          "from_state": "eclipse",
+          "to_state": "sunlit"
+        },
+        {
+          "timestamp_utc": "2025-07-18T03:19:53Z",
+          "from_state": "sunlit",
+          "to_state": "eclipse"
+        },
+        {
+          "timestamp_utc": "2025-07-18T03:54:02Z",
+          "from_state": "eclipse",
+          "to_state": "sunlit"
+        },
+        {
+          "timestamp_utc": "2025-07-18T05:06:32Z",
+          "from_state": "sunlit",
+          "to_state": "eclipse"
+        },
+        {
+          "timestamp_utc": "2025-07-18T05:40:42Z",
+          "from_state": "eclipse",
+          "to_state": "sunlit"
+        },
+        {
+          "timestamp_utc": "2025-07-18T06:53:12Z",
+          "from_state": "sunlit",
+          "to_state": "eclipse"
+        },
+        {
+          "timestamp_utc": "2025-07-18T07:27:21Z",
+          "from_state": "eclipse",
+          "to_state": "sunlit"
+        },
+        {
+          "timestamp_utc": "2025-07-18T08:39:52Z",
+          "from_state": "sunlit",
+          "to_state": "eclipse"
+        },
+        {
+          "timestamp_utc": "2025-07-18T09:14:01Z",
+          "from_state": "eclipse",
+          "to_state": "sunlit"
+        },
+        {
+          "timestamp_utc": "2025-07-18T10:26:31Z",
+          "from_state": "sunlit",
+          "to_state": "eclipse"
+        },
+        {
+          "timestamp_utc": "2025-07-18T11:00:42Z",
+          "from_state": "eclipse",
+          "to_state": "sunlit"
+        }
+      ]
+    },
+    {
+      "satellite_id": "sat_qianfan-4",
+      "initial_state": "sunlit",
+      "final_state": "sunlit",
+      "sunlit_windows": [
+        {
+          "start_utc": "2025-07-17T12:00:00Z",
+          "end_utc": "2025-07-17T13:06:38Z",
+          "duration_sec": 3998
+        },
+        {
+          "start_utc": "2025-07-17T13:40:42Z",
+          "end_utc": "2025-07-17T14:53:17Z",
+          "duration_sec": 4355
+        },
+        {
+          "start_utc": "2025-07-17T15:27:22Z",
+          "end_utc": "2025-07-17T16:39:56Z",
+          "duration_sec": 4354
+        },
+        {
+          "start_utc": "2025-07-17T17:14:02Z",
+          "end_utc": "2025-07-17T18:26:36Z",
+          "duration_sec": 4353
+        },
+        {
+          "start_utc": "2025-07-17T19:00:42Z",
+          "end_utc": "2025-07-17T20:13:15Z",
+          "duration_sec": 4353
+        },
+        {
+          "start_utc": "2025-07-17T20:47:22Z",
+          "end_utc": "2025-07-17T21:59:54Z",
+          "duration_sec": 4352
+        },
+        {
+          "start_utc": "2025-07-17T22:34:02Z",
+          "end_utc": "2025-07-17T23:46:34Z",
+          "duration_sec": 4352
+        },
+        {
+          "start_utc": "2025-07-18T00:20:42Z",
+          "end_utc": "2025-07-18T01:33:14Z",
+          "duration_sec": 4351
+        },
+        {
+          "start_utc": "2025-07-18T02:07:22Z",
+          "end_utc": "2025-07-18T03:19:53Z",
+          "duration_sec": 4351
+        },
+        {
+          "start_utc": "2025-07-18T03:54:02Z",
+          "end_utc": "2025-07-18T05:06:32Z",
+          "duration_sec": 4351
+        },
+        {
+          "start_utc": "2025-07-18T05:40:42Z",
+          "end_utc": "2025-07-18T06:53:12Z",
+          "duration_sec": 4350
+        },
+        {
+          "start_utc": "2025-07-18T07:27:21Z",
+          "end_utc": "2025-07-18T08:39:52Z",
+          "duration_sec": 4351
+        },
+        {
+          "start_utc": "2025-07-18T09:14:01Z",
+          "end_utc": "2025-07-18T10:26:31Z",
+          "duration_sec": 4350
+        },
+        {
+          "start_utc": "2025-07-18T11:00:42Z",
+          "end_utc": "2025-07-18T12:00:00Z",
+          "duration_sec": 3558
+        }
+      ],
+      "eclipse_windows": [
+        {
+          "start_utc": "2025-07-17T13:06:38Z",
+          "end_utc": "2025-07-17T13:40:42Z",
+          "duration_sec": 2044
+        },
+        {
+          "start_utc": "2025-07-17T14:53:17Z",
+          "end_utc": "2025-07-17T15:27:22Z",
+          "duration_sec": 2045
+        },
+        {
+          "start_utc": "2025-07-17T16:39:56Z",
+          "end_utc": "2025-07-17T17:14:02Z",
+          "duration_sec": 2046
+        },
+        {
+          "start_utc": "2025-07-17T18:26:36Z",
+          "end_utc": "2025-07-17T19:00:42Z",
+          "duration_sec": 2046
+        },
+        {
+          "start_utc": "2025-07-17T20:13:15Z",
+          "end_utc": "2025-07-17T20:47:22Z",
+          "duration_sec": 2047
+        },
+        {
+          "start_utc": "2025-07-17T21:59:54Z",
+          "end_utc": "2025-07-17T22:34:02Z",
+          "duration_sec": 2048
+        },
+        {
+          "start_utc": "2025-07-17T23:46:34Z",
+          "end_utc": "2025-07-18T00:20:42Z",
+          "duration_sec": 2048
+        },
+        {
+          "start_utc": "2025-07-18T01:33:14Z",
+          "end_utc": "2025-07-18T02:07:22Z",
+          "duration_sec": 2048
+        },
+        {
+          "start_utc": "2025-07-18T03:19:53Z",
+          "end_utc": "2025-07-18T03:54:02Z",
+          "duration_sec": 2049
+        },
+        {
+          "start_utc": "2025-07-18T05:06:32Z",
+          "end_utc": "2025-07-18T05:40:42Z",
+          "duration_sec": 2050
+        },
+        {
+          "start_utc": "2025-07-18T06:53:12Z",
+          "end_utc": "2025-07-18T07:27:21Z",
+          "duration_sec": 2050
+        },
+        {
+          "start_utc": "2025-07-18T08:39:52Z",
+          "end_utc": "2025-07-18T09:14:01Z",
+          "duration_sec": 2050
+        },
+        {
+          "start_utc": "2025-07-18T10:26:31Z",
+          "end_utc": "2025-07-18T11:00:42Z",
+          "duration_sec": 2050
+        }
+      ],
+      "transitions": [
+        {
+          "timestamp_utc": "2025-07-17T13:06:38Z",
+          "from_state": "sunlit",
+          "to_state": "eclipse"
+        },
+        {
+          "timestamp_utc": "2025-07-17T13:40:42Z",
+          "from_state": "eclipse",
+          "to_state": "sunlit"
+        },
+        {
+          "timestamp_utc": "2025-07-17T14:53:17Z",
+          "from_state": "sunlit",
+          "to_state": "eclipse"
+        },
+        {
+          "timestamp_utc": "2025-07-17T15:27:22Z",
+          "from_state": "eclipse",
+          "to_state": "sunlit"
+        },
+        {
+          "timestamp_utc": "2025-07-17T16:39:56Z",
+          "from_state": "sunlit",
+          "to_state": "eclipse"
+        },
+        {
+          "timestamp_utc": "2025-07-17T17:14:02Z",
+          "from_state": "eclipse",
+          "to_state": "sunlit"
+        },
+        {
+          "timestamp_utc": "2025-07-17T18:26:36Z",
+          "from_state": "sunlit",
+          "to_state": "eclipse"
+        },
+        {
+          "timestamp_utc": "2025-07-17T19:00:42Z",
+          "from_state": "eclipse",
+          "to_state": "sunlit"
+        },
+        {
+          "timestamp_utc": "2025-07-17T20:13:15Z",
+          "from_state": "sunlit",
+          "to_state": "eclipse"
+        },
+        {
+          "timestamp_utc": "2025-07-17T20:47:22Z",
+          "from_state": "eclipse",
+          "to_state": "sunlit"
+        },
+        {
+          "timestamp_utc": "2025-07-17T21:59:54Z",
+          "from_state": "sunlit",
+          "to_state": "eclipse"
+        },
+        {
+          "timestamp_utc": "2025-07-17T22:34:02Z",
+          "from_state": "eclipse",
+          "to_state": "sunlit"
+        },
+        {
+          "timestamp_utc": "2025-07-17T23:46:34Z",
+          "from_state": "sunlit",
+          "to_state": "eclipse"
+        },
+        {
+          "timestamp_utc": "2025-07-18T00:20:42Z",
+          "from_state": "eclipse",
+          "to_state": "sunlit"
+        },
+        {
+          "timestamp_utc": "2025-07-18T01:33:14Z",
+          "from_state": "sunlit",
+          "to_state": "eclipse"
+        },
+        {
+          "timestamp_utc": "2025-07-18T02:07:22Z",
+          "from_state": "eclipse",
+          "to_state": "sunlit"
+        },
+        {
+          "timestamp_utc": "2025-07-18T03:19:53Z",
+          "from_state": "sunlit",
+          "to_state": "eclipse"
+        },
+        {
+          "timestamp_utc": "2025-07-18T03:54:02Z",
+          "from_state": "eclipse",
+          "to_state": "sunlit"
+        },
+        {
+          "timestamp_utc": "2025-07-18T05:06:32Z",
+          "from_state": "sunlit",
+          "to_state": "eclipse"
+        },
+        {
+          "timestamp_utc": "2025-07-18T05:40:42Z",
+          "from_state": "eclipse",
+          "to_state": "sunlit"
+        },
+        {
+          "timestamp_utc": "2025-07-18T06:53:12Z",
+          "from_state": "sunlit",
+          "to_state": "eclipse"
+        },
+        {
+          "timestamp_utc": "2025-07-18T07:27:21Z",
+          "from_state": "eclipse",
+          "to_state": "sunlit"
+        },
+        {
+          "timestamp_utc": "2025-07-18T08:39:52Z",
+          "from_state": "sunlit",
+          "to_state": "eclipse"
+        },
+        {
+          "timestamp_utc": "2025-07-18T09:14:01Z",
+          "from_state": "eclipse",
+          "to_state": "sunlit"
+        },
+        {
+          "timestamp_utc": "2025-07-18T10:26:31Z",
+          "from_state": "sunlit",
+          "to_state": "eclipse"
+        },
+        {
+          "timestamp_utc": "2025-07-18T11:00:42Z",
+          "from_state": "eclipse",
+          "to_state": "sunlit"
+        }
+      ]
+    },
+    {
+      "satellite_id": "sat_qianfan-19",
+      "initial_state": "sunlit",
+      "final_state": "sunlit",
+      "sunlit_windows": [
+        {
+          "start_utc": "2025-07-17T12:00:00Z",
+          "end_utc": "2025-07-17T13:06:38Z",
+          "duration_sec": 3998
+        },
+        {
+          "start_utc": "2025-07-17T13:40:42Z",
+          "end_utc": "2025-07-17T14:53:17Z",
+          "duration_sec": 4355
+        },
+        {
+          "start_utc": "2025-07-17T15:27:22Z",
+          "end_utc": "2025-07-17T16:39:56Z",
+          "duration_sec": 4354
+        },
+        {
+          "start_utc": "2025-07-17T17:14:02Z",
+          "end_utc": "2025-07-17T18:26:36Z",
+          "duration_sec": 4353
+        },
+        {
+          "start_utc": "2025-07-17T19:00:42Z",
+          "end_utc": "2025-07-17T20:13:15Z",
+          "duration_sec": 4353
+        },
+        {
+          "start_utc": "2025-07-17T20:47:22Z",
+          "end_utc": "2025-07-17T21:59:54Z",
+          "duration_sec": 4352
+        },
+        {
+          "start_utc": "2025-07-17T22:34:02Z",
+          "end_utc": "2025-07-17T23:46:34Z",
+          "duration_sec": 4352
+        },
+        {
+          "start_utc": "2025-07-18T00:20:42Z",
+          "end_utc": "2025-07-18T01:33:14Z",
+          "duration_sec": 4351
+        },
+        {
+          "start_utc": "2025-07-18T02:07:22Z",
+          "end_utc": "2025-07-18T03:19:53Z",
+          "duration_sec": 4351
+        },
+        {
+          "start_utc": "2025-07-18T03:54:02Z",
+          "end_utc": "2025-07-18T05:06:32Z",
+          "duration_sec": 4351
+        },
+        {
+          "start_utc": "2025-07-18T05:40:42Z",
+          "end_utc": "2025-07-18T06:53:12Z",
+          "duration_sec": 4350
+        },
+        {
+          "start_utc": "2025-07-18T07:27:21Z",
+          "end_utc": "2025-07-18T08:39:52Z",
+          "duration_sec": 4351
+        },
+        {
+          "start_utc": "2025-07-18T09:14:01Z",
+          "end_utc": "2025-07-18T10:26:31Z",
+          "duration_sec": 4350
+        },
+        {
+          "start_utc": "2025-07-18T11:00:42Z",
+          "end_utc": "2025-07-18T12:00:00Z",
+          "duration_sec": 3558
+        }
+      ],
+      "eclipse_windows": [
+        {
+          "start_utc": "2025-07-17T13:06:38Z",
+          "end_utc": "2025-07-17T13:40:42Z",
+          "duration_sec": 2044
+        },
+        {
+          "start_utc": "2025-07-17T14:53:17Z",
+          "end_utc": "2025-07-17T15:27:22Z",
+          "duration_sec": 2045
+        },
+        {
+          "start_utc": "2025-07-17T16:39:56Z",
+          "end_utc": "2025-07-17T17:14:02Z",
+          "duration_sec": 2046
+        },
+        {
+          "start_utc": "2025-07-17T18:26:36Z",
+          "end_utc": "2025-07-17T19:00:42Z",
+          "duration_sec": 2046
+        },
+        {
+          "start_utc": "2025-07-17T20:13:15Z",
+          "end_utc": "2025-07-17T20:47:22Z",
+          "duration_sec": 2047
+        },
+        {
+          "start_utc": "2025-07-17T21:59:54Z",
+          "end_utc": "2025-07-17T22:34:02Z",
+          "duration_sec": 2048
+        },
+        {
+          "start_utc": "2025-07-17T23:46:34Z",
+          "end_utc": "2025-07-18T00:20:42Z",
+          "duration_sec": 2048
+        },
+        {
+          "start_utc": "2025-07-18T01:33:14Z",
+          "end_utc": "2025-07-18T02:07:22Z",
+          "duration_sec": 2048
+        },
+        {
+          "start_utc": "2025-07-18T03:19:53Z",
+          "end_utc": "2025-07-18T03:54:02Z",
+          "duration_sec": 2049
+        },
+        {
+          "start_utc": "2025-07-18T05:06:32Z",
+          "end_utc": "2025-07-18T05:40:42Z",
+          "duration_sec": 2050
+        },
+        {
+          "start_utc": "2025-07-18T06:53:12Z",
+          "end_utc": "2025-07-18T07:27:21Z",
+          "duration_sec": 2050
+        },
+        {
+          "start_utc": "2025-07-18T08:39:52Z",
+          "end_utc": "2025-07-18T09:14:01Z",
+          "duration_sec": 2050
+        },
+        {
+          "start_utc": "2025-07-18T10:26:31Z",
+          "end_utc": "2025-07-18T11:00:42Z",
+          "duration_sec": 2050
+        }
+      ],
+      "transitions": [
+        {
+          "timestamp_utc": "2025-07-17T13:06:38Z",
+          "from_state": "sunlit",
+          "to_state": "eclipse"
+        },
+        {
+          "timestamp_utc": "2025-07-17T13:40:42Z",
+          "from_state": "eclipse",
+          "to_state": "sunlit"
+        },
+        {
+          "timestamp_utc": "2025-07-17T14:53:17Z",
+          "from_state": "sunlit",
+          "to_state": "eclipse"
+        },
+        {
+          "timestamp_utc": "2025-07-17T15:27:22Z",
+          "from_state": "eclipse",
+          "to_state": "sunlit"
+        },
+        {
+          "timestamp_utc": "2025-07-17T16:39:56Z",
+          "from_state": "sunlit",
+          "to_state": "eclipse"
+        },
+        {
+          "timestamp_utc": "2025-07-17T17:14:02Z",
+          "from_state": "eclipse",
+          "to_state": "sunlit"
+        },
+        {
+          "timestamp_utc": "2025-07-17T18:26:36Z",
+          "from_state": "sunlit",
+          "to_state": "eclipse"
+        },
+        {
+          "timestamp_utc": "2025-07-17T19:00:42Z",
+          "from_state": "eclipse",
+          "to_state": "sunlit"
+        },
+        {
+          "timestamp_utc": "2025-07-17T20:13:15Z",
+          "from_state": "sunlit",
+          "to_state": "eclipse"
+        },
+        {
+          "timestamp_utc": "2025-07-17T20:47:22Z",
+          "from_state": "eclipse",
+          "to_state": "sunlit"
+        },
+        {
+          "timestamp_utc": "2025-07-17T21:59:54Z",
+          "from_state": "sunlit",
+          "to_state": "eclipse"
+        },
+        {
+          "timestamp_utc": "2025-07-17T22:34:02Z",
+          "from_state": "eclipse",
+          "to_state": "sunlit"
+        },
+        {
+          "timestamp_utc": "2025-07-17T23:46:34Z",
+          "from_state": "sunlit",
+          "to_state": "eclipse"
+        },
+        {
+          "timestamp_utc": "2025-07-18T00:20:42Z",
+          "from_state": "eclipse",
+          "to_state": "sunlit"
+        },
+        {
+          "timestamp_utc": "2025-07-18T01:33:14Z",
+          "from_state": "sunlit",
+          "to_state": "eclipse"
+        },
+        {
+          "timestamp_utc": "2025-07-18T02:07:22Z",
+          "from_state": "eclipse",
+          "to_state": "sunlit"
+        },
+        {
+          "timestamp_utc": "2025-07-18T03:19:53Z",
+          "from_state": "sunlit",
+          "to_state": "eclipse"
+        },
+        {
+          "timestamp_utc": "2025-07-18T03:54:02Z",
+          "from_state": "eclipse",
+          "to_state": "sunlit"
+        },
+        {
+          "timestamp_utc": "2025-07-18T05:06:32Z",
+          "from_state": "sunlit",
+          "to_state": "eclipse"
+        },
+        {
+          "timestamp_utc": "2025-07-18T05:40:42Z",
+          "from_state": "eclipse",
+          "to_state": "sunlit"
+        },
+        {
+          "timestamp_utc": "2025-07-18T06:53:12Z",
+          "from_state": "sunlit",
+          "to_state": "eclipse"
+        },
+        {
+          "timestamp_utc": "2025-07-18T07:27:21Z",
+          "from_state": "eclipse",
+          "to_state": "sunlit"
+        },
+        {
+          "timestamp_utc": "2025-07-18T08:39:52Z",
+          "from_state": "sunlit",
+          "to_state": "eclipse"
+        },
+        {
+          "timestamp_utc": "2025-07-18T09:14:01Z",
+          "from_state": "eclipse",
+          "to_state": "sunlit"
+        },
+        {
+          "timestamp_utc": "2025-07-18T10:26:31Z",
+          "from_state": "sunlit",
+          "to_state": "eclipse"
+        },
+        {
+          "timestamp_utc": "2025-07-18T11:00:42Z",
+          "from_state": "eclipse",
+          "to_state": "sunlit"
+        }
+      ]
+    }
+  ]
+}
