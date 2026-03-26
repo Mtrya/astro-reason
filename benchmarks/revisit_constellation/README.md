@@ -2,17 +2,14 @@
 
 ## Status
 
-This benchmark is in active design and migration.
+This benchmark is implemented and is the canonical revisit-focused
+constellation-design benchmark in this repository.
 
-It is intended to replace `benchmarks/revisit_optimization/` after the new
-benchmark is fully implemented, tested, and documented. Until then,
-`revisit_optimization` remains as a reference for legacy dataset structure and
-benchmark-side tooling ideas.
+It replaces the earlier `revisit_optimization` benchmark.
 
 ## Problem Summary
 
-Design an Earth observation constellation and an operating schedule that keeps
-target revisit gaps as small as possible over a mission horizon.
+Design an Earth observation constellation and an operating schedule that keeps target revisit gaps as small as possible over a mission horizon.
 
 For each case, the space agent receives a problem instance describing:
 
@@ -34,17 +31,11 @@ The benchmark combines two decisions in a single task:
 
 ## Intended Benchmark Scope
 
-The architecture-design part of the benchmark means defining the initial states
-of satellites at mission start time. At a high level, a solver chooses how many
-satellites to deploy, up to the case-specific cap, and specifies each
-satellite's initial state in the GCRF frame.
+The architecture-design part of the benchmark means defining the initial states of satellites at mission start time. At a high level, a solver chooses how many satellites to deploy, up to the case-specific cap, and specifies each satellite's initial state in the GCRF frame.
 
-The scheduling part of the benchmark means producing a feasible action sequence
-for that constellation over the mission horizon.
+The scheduling part of the benchmark means producing a feasible action sequence for that constellation over the mission horizon.
 
-Launch design, launch cost, and deployment operations are out of scope. The
-benchmark assumes that the proposed satellites already exist in their initial
-states at the mission start time.
+Launch design, launch cost, and deployment operations are out of scope. The benchmark assumes that the proposed satellites already exist in their initial states at the mission start time.
 
 ## Case Inputs
 
@@ -55,8 +46,7 @@ Each canonical case contains exactly two machine-readable files:
 
 ### `assets.json`
 
-`assets.json` contains the shared satellite model, satellite-count cap, and
-ground-station assets for the case.
+`assets.json` contains the shared satellite model, satellite-count cap, and ground-station assets for the case.
 
 The satellite model includes:
 
@@ -98,8 +88,7 @@ The file also includes:
 
 ### `mission.json`
 
-`mission.json` contains the mission horizon and target-specific revisit
-requirements:
+`mission.json` contains the mission horizon and target-specific revisit requirements:
 
 - `horizon_start`
 - `horizon_end`
@@ -162,8 +151,7 @@ Downlink actions also include:
 
 ## Validity Rules
 
-Constraint violations should invalidate a solution immediately. In other words,
-metrics are only meaningful for solutions that satisfy all hard constraints.
+Constraint violations should invalidate a solution immediately. In other words, metrics are only meaningful for solutions that satisfy all hard constraints.
 
 The verifier is expected to reject a solution if any of the following occur:
 
@@ -178,15 +166,14 @@ The verifier is expected to reject a solution if any of the following occur:
 - overlapping observation timing
 - references to unknown satellites, targets, or stations
 
-Additional hard-validity checks may be added as the schema becomes more
-concrete.
+Additional hard-validity checks may be added as the schema becomes more concrete.
 
 ## Metrics And Ranking
 
 The legacy mapping-coverage branch is intentionally removed from this benchmark.
 The new benchmark is purely revisit-driven.
 
-The intended metrics for valid solutions are:
+The verifier reports these metrics for valid solutions:
 
 - `mean_revisit_gap_hours`
 - `max_revisit_gap_hours`
@@ -204,11 +191,9 @@ The intended ranking logic is:
 
 ## Revisit Interpretation
 
-The benchmark treats poor revisit performance as poor scoring, not as an
-automatic validity failure.
+The benchmark treats poor revisit performance as poor scoring, not as an automatic validity failure.
 
-Successful observations are represented by their midpoint times. Revisit gaps
-include the mission start and mission end as boundary times:
+Successful observations are represented by their midpoint times. Revisit gaps include the mission start and mission end as boundary times:
 
 - zero successful observations: the revisit gap is the full mission horizon
 - one successful observation: gaps are start-to-observation and
@@ -216,9 +201,24 @@ include the mission start and mission end as boundary times:
 - multiple successful observations: gaps are computed between consecutive
   observation midpoints plus the mission boundaries
 
+## Verifier Output
+
+The verifier returns a JSON object with:
+
+- `is_valid`
+- `metrics`
+- `errors`
+- `warnings`
+
+CLI entry:
+
+```bash
+uv run python benchmarks/revisit_constellation/verifier/run.py <case_dir> <solution.json>
+```
+
 ## Canonical Benchmark Shape
 
-The intended repository structure is:
+The repository structure is:
 
 ```text
 benchmarks/revisit_constellation/
@@ -241,12 +241,6 @@ benchmarks/revisit_constellation/
 └── README.md
 ```
 
-Current CLI entry:
-
-```bash
-uv run python benchmarks/revisit_constellation/verifier/run.py <case_dir> <solution.json>
-```
-
 Associated test-side artifacts live under:
 
 ```text
@@ -254,31 +248,9 @@ tests/fixtures/
 tests/benchmarks/
 ```
 
-## Near-Term Design Questions
-
-The following details may still evolve as the benchmark matures:
-
-- whether any additional orbit admissibility constraints should be added later
-- whether the public verifier should keep its phase-1 sampled interval checks or
-  move to more exact event handling
-- whether any golden metric fixtures should be added beyond small corner cases
-
-## Implementation Direction
-
-This benchmark should be built as a new standalone benchmark, even if parts of
-`revisit_optimization` are reused as raw ingredients or migration references.
-
-The expected implementation sequence is:
-
-1. implement the verifier around the settled contract
-2. create fixtures and focused tests
-3. add a generator and generate the canonical dataset
-4. retire `revisit_optimization` once the replacement is complete
-
 ## Canonical Dataset
 
-The committed dataset lives under `dataset/cases/` and includes dataset-level
-metadata in `dataset/index.json`.
+The committed dataset lives under `dataset/cases/` and includes dataset-level metadata in `dataset/index.json`. The current canonical dataset contains five cases: `case_0001` through `case_0005`.
 
 The canonical generator entry point is:
 
@@ -286,7 +258,4 @@ The canonical generator entry point is:
 uv run python benchmarks/revisit_constellation/generator/run.py
 ```
 
-Downloaded raw source CSVs are stored under the dataset directory by default at
-`dataset/source_data/`. The generator downloads the documented Kaggle datasets
-itself through `kagglehub`, then builds the canonical cases without any manual
-CSV preparation step.
+Downloaded raw source CSVs are stored under the dataset directory by default at `dataset/source_data/`. The generator downloads the documented Kaggle datasets itself through `kagglehub`, then builds the canonical cases without any manual CSV preparation step.
