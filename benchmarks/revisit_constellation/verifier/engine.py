@@ -546,14 +546,16 @@ def _simulate_resources(
             )
 
             discharge_w = resource.idle_discharge_rate_w
-            storage_rate_mbps = 0.0
+            storage_rate_mb_per_s = 0.0
 
             if active_observation is not None:
                 discharge_w += sensor.obs_discharge_rate_w
-                storage_rate_mbps += sensor.obs_store_rate_mbps
+                storage_rate_mb_per_s += sensor.obs_store_rate_mb_per_s
             if active_downlinks:
                 discharge_w += len(active_downlinks) * terminal.downlink_discharge_rate_w
-                storage_rate_mbps -= len(active_downlinks) * terminal.downlink_release_rate_mbps
+                storage_rate_mb_per_s -= (
+                    len(active_downlinks) * terminal.downlink_release_rate_mb_per_s
+                )
             if active_maneuver:
                 discharge_w += attitude.maneuver_discharge_rate_w
 
@@ -562,7 +564,7 @@ def _simulate_resources(
             )
 
             battery_wh += ((charge_w - discharge_w) * duration_sec) / 3600.0
-            storage_mb += storage_rate_mbps * duration_sec
+            storage_mb += storage_rate_mb_per_s * duration_sec
 
             if battery_wh < -NUMERICAL_EPS:
                 errors.append(

@@ -1,0 +1,17 @@
+{
+  "horizon_start": "2025-01-01T00:00:00Z",
+  "horizon_end": "2025-01-01T01:00:00Z",
+  "targets": [
+    {
+      "id": "t1",
+      "name": "T1",
+      "latitude_deg": 0.0,
+      "longitude_deg": 0.0,
+      "altitude_m": 0.0,
+      "expected_revisit_period_hours": 0.5,
+      "min_elevation_deg": 0.0,
+      "max_slant_range_m": 30000000.0,
+      "min_duration_sec": 1.0
+    }
+  ]
+}
