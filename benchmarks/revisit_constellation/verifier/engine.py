@@ -81,6 +81,36 @@ def _initial_altitude_m(state_eci_m_mps: np.ndarray) -> float:
     return float(np.linalg.norm(state_eci_m_mps[:3]) - brahe.R_EARTH)
 
 
+def _initial_orbital_elements(
+    state_eci_m_mps: np.ndarray,
+) -> tuple[float, float, float, float]:
+    position_m = np.asarray(state_eci_m_mps[:3], dtype=float)
+    velocity_m_s = np.asarray(state_eci_m_mps[3:], dtype=float)
+    radius_m = float(np.linalg.norm(position_m))
+    speed_m_s = float(np.linalg.norm(velocity_m_s))
+    if radius_m <= NUMERICAL_EPS:
+        raise ValueError("initial position magnitude must be positive")
+
+    mu_m3_s2 = brahe.GM_EARTH
+    specific_energy_m2_s2 = (0.5 * speed_m_s * speed_m_s) - (mu_m3_s2 / radius_m)
+    if specific_energy_m2_s2 >= 0.0:
+        raise ValueError("initial state is not a bound Earth orbit")
+
+    semi_major_axis_m = -mu_m3_s2 / (2.0 * specific_energy_m2_s2)
+    radial_velocity_m2_s = float(np.dot(position_m, velocity_m_s))
+    eccentricity_vector = (
+        ((speed_m_s * speed_m_s) - (mu_m3_s2 / radius_m)) * position_m
+        - (radial_velocity_m2_s * velocity_m_s)
+    ) / mu_m3_s2
+    eccentricity = float(np.linalg.norm(eccentricity_vector))
+    if semi_major_axis_m <= 0.0 or eccentricity >= 1.0:
+        raise ValueError("initial state is not a closed elliptic orbit")
+
+    perigee_altitude_m = (semi_major_axis_m * (1.0 - eccentricity)) - brahe.R_EARTH
+    apogee_altitude_m = (semi_major_axis_m * (1.0 + eccentricity)) - brahe.R_EARTH
+    return semi_major_axis_m, eccentricity, perigee_altitude_m, apogee_altitude_m
+
+
 def _sample_times(start: datetime, end: datetime, step_sec: float) -> list[datetime]:
     if end <= start:
         return [start]
@@ -164,6 +194,25 @@ def _validate_satellites(
             errors.append(
                 f"Satellite {satellite.satellite_id} starts above max altitude: "
                 f"{altitude_m:.3f} m > {instance.satellite_model.max_altitude_m:.3f} m"
+            )
+        try:
+            semi_major_axis_m, eccentricity, perigee_altitude_m, apogee_altitude_m = (
+                _initial_orbital_elements(satellite.state_eci_m_mps)
+            )
+        except ValueError as exc:
+            errors.append(f"Satellite {satellite.satellite_id} has invalid initial orbit: {exc}")
+            continue
+        if perigee_altitude_m < instance.satellite_model.min_altitude_m - NUMERICAL_EPS:
+            errors.append(
+                f"Satellite {satellite.satellite_id} has perigee below min altitude: "
+                f"{perigee_altitude_m:.3f} m < {instance.satellite_model.min_altitude_m:.3f} m "
+                f"(a={semi_major_axis_m:.3f} m, e={eccentricity:.9f})"
+            )
+        if apogee_altitude_m > instance.satellite_model.max_altitude_m + NUMERICAL_EPS:
+            errors.append(
+                f"Satellite {satellite.satellite_id} has apogee above max altitude: "
+                f"{apogee_altitude_m:.3f} m > {instance.satellite_model.max_altitude_m:.3f} m "
+                f"(a={semi_major_axis_m:.3f} m, e={eccentricity:.9f})"
             )
 
 
@@ -670,6 +719,14 @@ def verify(instance: Instance, solution: Solution) -> VerificationResult:
 
 
 def verify_solution(case_dir: str | Path, solution_path: str | Path) -> VerificationResult:
-    instance = load_case(case_dir)
-    solution = load_solution(solution_path)
+    try:
+        instance = load_case(case_dir)
+    except (FileNotFoundError, TypeError, ValueError) as exc:
+        return VerificationResult(is_valid=False, errors=[f"Failed to load case: {exc}"])
+
+    try:
+        solution = load_solution(solution_path)
+    except (FileNotFoundError, TypeError, ValueError) as exc:
+        return VerificationResult(is_valid=False, errors=[f"Failed to load solution: {exc}"])
+
     return verify(instance, solution)
