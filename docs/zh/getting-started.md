@@ -123,5 +123,5 @@ targets:
 | aeosbench | completion_rate（任务完成率） |
 | spot5 | profit（总利润） |
 | latency_optimization | latency_min/max/mean（延迟统计） |
-| revisit_optimization | max_gap_hours（最大重访间隔） |
+| revisit_constellation | mean/max_revisit_gap_hours（平均/最大重访间隔） |
 | satnet | total_hours（总通信时长） |
