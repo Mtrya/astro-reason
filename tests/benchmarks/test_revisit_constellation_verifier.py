@@ -13,13 +13,17 @@ import numpy as np
 import pytest
 
 from benchmarks.revisit_constellation.verifier import (
+    Action,
     ObservationRecord,
     load_case,
     load_solution,
     verify,
     verify_solution,
 )
-from benchmarks.revisit_constellation.verifier.engine import _compute_metrics
+from benchmarks.revisit_constellation.verifier.engine import (
+    _compute_metrics,
+    _validate_action_geometry,
+)
 from benchmarks.revisit_constellation.verifier.run import main as cli_main
 
 
@@ -880,6 +884,46 @@ def test_verify_rejects_storage_underflow_during_downlink(tmp_path: Path) -> Non
     assert any("depletes storage below zero" in error for error in result.errors)
 
 
+def test_validate_action_geometry_excludes_exact_action_end_instant(tmp_path: Path) -> None:
+    case_dir = _write_case(tmp_path)
+    instance = load_case(case_dir)
+    station = instance.ground_stations["gs1"]
+
+    class FakePropagator:
+        def __init__(self) -> None:
+            self.calls = 0
+
+        def state_ecef(self, _epoch: brahe.Epoch) -> np.ndarray:
+            self.calls += 1
+            radial_unit = station.ecef_position_m / np.linalg.norm(station.ecef_position_m)
+            altitude_m = brahe.R_EARTH + 500000.0
+            if self.calls == 1:
+                position_m = radial_unit * altitude_m
+            else:
+                position_m = -radial_unit * altitude_m
+            return np.asarray([*position_m, 0.0, 0.0, 0.0], dtype=float)
+
+    action = Action(
+        action_type="downlink",
+        satellite_id="sat1",
+        start=_parse_iso8601_utc("2025-01-01T00:00:00Z"),
+        end=_parse_iso8601_utc("2025-01-01T00:00:10Z"),
+        station_id="gs1",
+    )
+    errors: list[str] = []
+    propagator = FakePropagator()
+
+    _validate_action_geometry(
+        instance,
+        {"sat1": [action]},
+        {"sat1": propagator},
+        errors,
+    )
+
+    assert errors == []
+    assert propagator.calls == 1
+
+
 def test_compute_metrics_zero_observations() -> None:
     instance = load_case(ZERO_OBSERVATION_FIXTURE_DIR)
 
@@ -936,6 +980,33 @@ def test_compute_metrics_multiple_observations_reduce_max_gap() -> None:
     assert metrics["mean_revisit_gap_hours"] == pytest.approx(1.0 / 3.0)
     assert metrics["max_revisit_gap_hours"] == pytest.approx(0.5)
     assert metrics["threshold_satisfied"] is True
+
+
+def test_compute_metrics_deduplicates_simultaneous_target_observations() -> None:
+    instance = load_case(ZERO_OBSERVATION_FIXTURE_DIR)
+    midpoint = instance.horizon_start + timedelta(minutes=15)
+    observations = [
+        ObservationRecord(
+            satellite_id="sat1",
+            target_id="t1",
+            start=instance.horizon_start + timedelta(minutes=10),
+            end=instance.horizon_start + timedelta(minutes=20),
+            midpoint=midpoint,
+        ),
+        ObservationRecord(
+            satellite_id="sat2",
+            target_id="t1",
+            start=instance.horizon_start + timedelta(minutes=12),
+            end=instance.horizon_start + timedelta(minutes=18),
+            midpoint=midpoint,
+        ),
+    ]
+
+    metrics = _compute_metrics(instance, observations, satellite_count=2)
+
+    assert metrics["mean_revisit_gap_hours"] == pytest.approx(0.5)
+    assert metrics["max_revisit_gap_hours"] == pytest.approx(0.75)
+    assert metrics["target_gap_summary"]["t1"]["observation_count"] == 1
 
 
 def test_compute_metrics_threshold_is_per_target_max_gap(tmp_path: Path) -> None:

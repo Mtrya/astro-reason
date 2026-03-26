@@ -111,7 +111,7 @@ def _initial_orbital_elements(
     return semi_major_axis_m, eccentricity, perigee_altitude_m, apogee_altitude_m
 
 
-def _sample_times(start: datetime, end: datetime, step_sec: float) -> list[datetime]:
+def _action_sample_times(start: datetime, end: datetime, step_sec: float) -> list[datetime]:
     if end <= start:
         return [start]
     points = [start]
@@ -120,8 +120,6 @@ def _sample_times(start: datetime, end: datetime, step_sec: float) -> list[datet
     while current + delta < end:
         current = current + delta
         points.append(current)
-    if points[-1] != end:
-        points.append(end)
     return points
 
 
@@ -359,7 +357,9 @@ def _validate_action_geometry(
     for satellite_id, actions in actions_by_satellite.items():
         propagator = propagators[satellite_id]
         for action in actions:
-            sample_times = _sample_times(action.start, action.end, ACTION_SAMPLE_STEP_SEC)
+            sample_times = _action_sample_times(
+                action.start, action.end, ACTION_SAMPLE_STEP_SEC
+            )
             if action.action_type == "observation":
                 target = instance.targets[action.target_id or ""]
                 if action.duration_sec < target.min_duration_sec - NUMERICAL_EPS:
@@ -609,8 +609,8 @@ def _compute_metrics(
     target_max_gaps: list[float] = []
 
     for target_id, target in instance.targets.items():
-        midpoints = sorted(observations_by_target.get(target_id, []))
-        times = [instance.horizon_start, *midpoints, instance.horizon_end]
+        unique_midpoints = sorted(set(observations_by_target.get(target_id, [])))
+        times = [instance.horizon_start, *unique_midpoints, instance.horizon_end]
         gaps_hours = [
             (right - left).total_seconds() / 3600.0
             for left, right in zip(times, times[1:])
@@ -620,7 +620,7 @@ def _compute_metrics(
         target_gap_summary[target_id] = {
             "mean_revisit_gap_hours": mean_gap,
             "max_revisit_gap_hours": max_gap,
-            "observation_count": len(midpoints),
+            "observation_count": len(unique_midpoints),
             "expected_revisit_period_hours": target.expected_revisit_period_hours,
         }
         target_mean_gaps.append(mean_gap)
