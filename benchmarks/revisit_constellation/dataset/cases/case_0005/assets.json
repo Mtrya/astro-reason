@@ -1,0 +1,90 @@
+{
+  "ground_stations": [
+    {
+      "altitude_m": 0.0,
+      "id": "auckland",
+      "latitude_deg": -36.8508827,
+      "longitude_deg": 174.7644881,
+      "min_duration_sec": 120.0,
+      "min_elevation_deg": 10.0,
+      "name": "Auckland"
+    },
+    {
+      "altitude_m": 0.0,
+      "id": "aws_ground_station_cape_town",
+      "latitude_deg": -33.922087,
+      "longitude_deg": 18.4231418,
+      "min_duration_sec": 120.0,
+      "min_elevation_deg": 10.0,
+      "name": "AWS Ground Station - Cape Town"
+    },
+    {
+      "altitude_m": 0.0,
+      "id": "ground_station_at_universidad_privada_boliviana",
+      "latitude_deg": -16.5752089,
+      "longitude_deg": -68.1270692,
+      "min_duration_sec": 120.0,
+      "min_elevation_deg": 10.0,
+      "name": "Ground Station at Universidad Privada Boliviana"
+    },
+    {
+      "altitude_m": 0.0,
+      "id": "husky_satellite_lab_ground_station",
+      "latitude_deg": 47.6503177,
+      "longitude_deg": -122.3016101,
+      "min_duration_sec": 120.0,
+      "min_elevation_deg": 10.0,
+      "name": "Husky Satellite Lab Ground Station"
+    },
+    {
+      "altitude_m": 0.0,
+      "id": "leafspace_pleven",
+      "latitude_deg": 43.4170423,
+      "longitude_deg": 24.6066847,
+      "min_duration_sec": 120.0,
+      "min_elevation_deg": 10.0,
+      "name": "LeafSpace - Pleven"
+    },
+    {
+      "altitude_m": 0.0,
+      "id": "uitm_ground_station",
+      "latitude_deg": 3.0728751,
+      "longitude_deg": 101.4972577,
+      "min_duration_sec": 120.0,
+      "min_elevation_deg": 10.0,
+      "name": "UiTM Ground Station"
+    }
+  ],
+  "max_num_satellites": 16,
+  "satellite_model": {
+    "attitude_model": {
+      "maneuver_discharge_rate_w": 90.0,
+      "max_slew_acceleration_deg_per_sec2": 0.45,
+      "max_slew_velocity_deg_per_sec": 1.0,
+      "settling_time_sec": 10.0
+    },
+    "max_altitude_m": 850000.0,
+    "min_altitude_m": 500000.0,
+    "model_name": "balanced_leo_eo_bus_v1",
+    "resource_model": {
+      "battery_capacity_wh": 2000.0,
+      "idle_discharge_rate_w": 5.0,
+      "initial_battery_wh": 1600.0,
+      "initial_storage_mb": 1000.0,
+      "storage_capacity_mb": 20000.0,
+      "sunlight_charge_rate_w": 100.0
+    },
+    "sensor": {
+      "field_of_view_half_angle_deg": 25.0,
+      "max_range_m": 1000000.0,
+      "obs_discharge_rate_w": 120.0,
+      "obs_store_rate_mb_per_s": 20.0
+    },
+    "terminals": [
+      {
+        "downlink_discharge_rate_w": 80.0,
+        "downlink_release_rate_mb_per_s": 40.0
+      }
+    ]
+  }
+}

@@ -1,0 +1,138 @@
+{
+  "horizon_end": "2025-07-19T12:00:00Z",
+  "horizon_start": "2025-07-17T12:00:00Z",
+  "targets": [
+    {
+      "altitude_m": 0.0,
+      "expected_revisit_period_hours": 10.0,
+      "id": "target_001",
+      "latitude_deg": -25.0667,
+      "longitude_deg": -130.0833,
+      "max_slant_range_m": 1800000.0,
+      "min_duration_sec": 30.0,
+      "min_elevation_deg": 20.0,
+      "name": "Adamstown, Pitcairn Islands"
+    },
+    {
+      "altitude_m": 0.0,
+      "expected_revisit_period_hours": 10.0,
+      "id": "target_002",
+      "latitude_deg": 12.67,
+      "longitude_deg": 124.38,
+      "max_slant_range_m": 1800000.0,
+      "min_duration_sec": 30.0,
+      "min_elevation_deg": 20.0,
+      "name": "Biri, Philippines"
+    },
+    {
+      "altitude_m": 0.0,
+      "expected_revisit_period_hours": 10.0,
+      "id": "target_003",
+      "latitude_deg": -33.9253,
+      "longitude_deg": 18.4239,
+      "max_slant_range_m": 1800000.0,
+      "min_duration_sec": 30.0,
+      "min_elevation_deg": 20.0,
+      "name": "Cape Town, South Africa"
+    },
+    {
+      "altitude_m": 0.0,
+      "expected_revisit_period_hours": 10.0,
+      "id": "target_004",
+      "latitude_deg": 28.61,
+      "longitude_deg": 77.23,
+      "max_slant_range_m": 1800000.0,
+      "min_duration_sec": 30.0,
+      "min_elevation_deg": 20.0,
+      "name": "Delhi, India"
+    },
+    {
+      "altitude_m": 0.0,
+      "expected_revisit_period_hours": 10.0,
+      "id": "target_005",
+      "latitude_deg": 69.25,
+      "longitude_deg": 33.4167,
+      "max_slant_range_m": 1800000.0,
+      "min_duration_sec": 30.0,
+      "min_elevation_deg": 20.0,
+      "name": "Gadzhiyevo, Russia"
+    },
+    {
+      "altitude_m": 0.0,
+      "expected_revisit_period_hours": 10.0,
+      "id": "target_006",
+      "latitude_deg": 24.9644,
+      "longitude_deg": 10.1781,
+      "max_slant_range_m": 1800000.0,
+      "min_duration_sec": 30.0,
+      "min_elevation_deg": 20.0,
+      "name": "Gh\u0101t, Libya"
+    },
+    {
+      "altitude_m": 0.0,
+      "expected_revisit_period_hours": 10.0,
+      "id": "target_007",
+      "latitude_deg": 46.2,
+      "longitude_deg": -59.9667,
+      "max_slant_range_m": 1800000.0,
+      "min_duration_sec": 30.0,
+      "min_elevation_deg": 20.0,
+      "name": "Glace Bay, Canada"
+    },
+    {
+      "altitude_m": 0.0,
+      "expected_revisit_period_hours": 10.0,
+      "id": "target_008",
+      "latitude_deg": 34.6618,
+      "longitude_deg": -120.4714,
+      "max_slant_range_m": 1800000.0,
+      "min_duration_sec": 30.0,
+      "min_elevation_deg": 20.0,
+      "name": "Lompoc, United States"
+    },
+    {
+      "altitude_m": 0.0,
+      "expected_revisit_period_hours": 10.0,
+      "id": "target_009",
+      "latitude_deg": 7.0833,
+      "longitude_deg": 171.3833,
+      "max_slant_range_m": 1800000.0,
+      "min_duration_sec": 30.0,
+      "min_elevation_deg": 20.0,
+      "name": "Majuro, Marshall Islands"
+    },
+    {
+      "altitude_m": 0.0,
+      "expected_revisit_period_hours": 10.0,
+      "id": "target_010",
+      "latitude_deg": -20.2408,
+      "longitude_deg": -56.3778,
+      "max_slant_range_m": 1800000.0,
+      "min_duration_sec": 30.0,
+      "min_elevation_deg": 20.0,
+      "name": "Miranda, Brazil"
+    },
+    {
+      "altitude_m": 0.0,
+      "expected_revisit_period_hours": 10.0,
+      "id": "target_011",
+      "latitude_deg": 60.5816,
+      "longitude_deg": 169.05,
+      "max_slant_range_m": 1800000.0,
+      "min_duration_sec": 30.0,
+      "min_elevation_deg": 20.0,
+      "name": "Pakhachi, Russia"
+    },
+    {
+      "altitude_m": 0.0,
+      "expected_revisit_period_hours": 10.0,
+      "id": "target_012",
+      "latitude_deg": -32.799,
+      "longitude_deg": 134.2048,
+      "max_slant_range_m": 1800000.0,
+      "min_duration_sec": 30.0,
+      "min_elevation_deg": 20.0,
+      "name": "Streaky Bay, Australia"
+    }
+  ]
+}

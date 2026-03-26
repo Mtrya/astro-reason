@@ -3,8 +3,15 @@
 from __future__ import annotations
 
 import argparse
+from pathlib import Path
 
-from .engine import verify_solution
+if __package__ in {None, ""}:  # pragma: no cover - script-path import support
+    import sys
+
+    sys.path.insert(0, str(Path(__file__).resolve().parents[3]))
+    from benchmarks.revisit_constellation.verifier.engine import verify_solution
+else:  # pragma: no cover - exercised through the same runtime path
+    from .engine import verify_solution
 
 
 def main(argv: list[str] | None = None) -> int:

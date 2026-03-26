@@ -1,0 +1,94 @@
+{
+  "horizon_end": "2025-07-19T12:00:00Z",
+  "horizon_start": "2025-07-17T12:00:00Z",
+  "targets": [
+    {
+      "altitude_m": 0.0,
+      "expected_revisit_period_hours": 12.0,
+      "id": "target_001",
+      "latitude_deg": -21.207,
+      "longitude_deg": -159.771,
+      "max_slant_range_m": 1800000.0,
+      "min_duration_sec": 30.0,
+      "min_elevation_deg": 20.0,
+      "name": "Avarua, Cook Islands"
+    },
+    {
+      "altitude_m": 0.0,
+      "expected_revisit_period_hours": 12.0,
+      "id": "target_002",
+      "latitude_deg": 32.7333,
+      "longitude_deg": -17.1667,
+      "max_slant_range_m": 1800000.0,
+      "min_duration_sec": 30.0,
+      "min_elevation_deg": 20.0,
+      "name": "Calheta, Portugal"
+    },
+    {
+      "altitude_m": 0.0,
+      "expected_revisit_period_hours": 12.0,
+      "id": "target_003",
+      "latitude_deg": 6.25,
+      "longitude_deg": -73.0833,
+      "max_slant_range_m": 1800000.0,
+      "min_duration_sec": 30.0,
+      "min_elevation_deg": 20.0,
+      "name": "Charal\u00e1, Colombia"
+    },
+    {
+      "altitude_m": 0.0,
+      "expected_revisit_period_hours": 12.0,
+      "id": "target_004",
+      "latitude_deg": -6.175,
+      "longitude_deg": 106.8275,
+      "max_slant_range_m": 1800000.0,
+      "min_duration_sec": 30.0,
+      "min_elevation_deg": 20.0,
+      "name": "Jakarta, Indonesia"
+    },
+    {
+      "altitude_m": 0.0,
+      "expected_revisit_period_hours": 12.0,
+      "id": "target_005",
+      "latitude_deg": -54.9333,
+      "longitude_deg": -67.6167,
+      "max_slant_range_m": 1800000.0,
+      "min_duration_sec": 30.0,
+      "min_elevation_deg": 20.0,
+      "name": "Puerto Williams, Chile"
+    },
+    {
+      "altitude_m": 0.0,
+      "expected_revisit_period_hours": 12.0,
+      "id": "target_006",
+      "latitude_deg": 37.0264,
+      "longitude_deg": 54.2214,
+      "max_slant_range_m": 1800000.0,
+      "min_duration_sec": 30.0,
+      "min_elevation_deg": 20.0,
+      "name": "S\u012bm\u012bn Shahr, Iran"
+    },
+    {
+      "altitude_m": 0.0,
+      "expected_revisit_period_hours": 12.0,
+      "id": "target_007",
+      "latitude_deg": -16.7467,
+      "longitude_deg": 14.9747,
+      "max_slant_range_m": 1800000.0,
+      "min_duration_sec": 30.0,
+      "min_elevation_deg": 20.0,
+      "name": "Xangongo, Angola"
+    },
+    {
+      "altitude_m": 0.0,
+      "expected_revisit_period_hours": 12.0,
+      "id": "target_008",
+      "latitude_deg": 70.9333,
+      "longitude_deg": -179.6,
+      "max_slant_range_m": 1800000.0,
+      "min_duration_sec": 30.0,
+      "min_elevation_deg": 20.0,
+      "name": "Zv\u00ebzdnyy, Russia"
+    }
+  ]
+}

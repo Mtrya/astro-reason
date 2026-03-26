@@ -1,0 +1,60 @@
+{
+  "benchmark": "revisit_constellation",
+  "case_dir_layout": "cases/<case_id>",
+  "cases": [
+    {
+      "case_id": "case_0001",
+      "ground_station_count": 3,
+      "max_num_satellites": 4,
+      "path": "cases/case_0001",
+      "target_count": 8,
+      "uniform_revisit_threshold_hours": 12.0
+    },
+    {
+      "case_id": "case_0002",
+      "ground_station_count": 4,
+      "max_num_satellites": 5,
+      "path": "cases/case_0002",
+      "target_count": 12,
+      "uniform_revisit_threshold_hours": 10.0
+    },
+    {
+      "case_id": "case_0003",
+      "ground_station_count": 4,
+      "max_num_satellites": 8,
+      "path": "cases/case_0003",
+      "target_count": 16,
+      "uniform_revisit_threshold_hours": 8.0
+    },
+    {
+      "case_id": "case_0004",
+      "ground_station_count": 5,
+      "max_num_satellites": 12,
+      "path": "cases/case_0004",
+      "target_count": 20,
+      "uniform_revisit_threshold_hours": 6.0
+    },
+    {
+      "case_id": "case_0005",
+      "ground_station_count": 6,
+      "max_num_satellites": 16,
+      "path": "cases/case_0005",
+      "target_count": 24,
+      "uniform_revisit_threshold_hours": 6.0
+    }
+  ],
+  "generator_seed": 42,
+  "horizon_hours": 48,
+  "source": {
+    "ground_stations": {
+      "dataset": "pratiksharm/ground-station-dataset",
+      "kind": "kaggle_dataset",
+      "page_url": "https://www.kaggle.com/datasets/pratiksharm/ground-station-dataset"
+    },
+    "world_cities": {
+      "dataset": "juanmah/world-cities",
+      "kind": "kaggle_dataset",
+      "page_url": "https://www.kaggle.com/datasets/juanmah/world-cities"
+    }
+  }
+}
