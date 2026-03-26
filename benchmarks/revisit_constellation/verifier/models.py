@@ -12,10 +12,9 @@ import numpy as np
 
 
 DEFAULT_DATASET_DIR = Path(__file__).resolve().parent.parent / "dataset"
-ACTION_SAMPLE_STEP_SEC = 30.0
+ACTION_SAMPLE_STEP_SEC = 10.0
 RESOURCE_STEP_SEC = 30.0
 NUMERICAL_EPS = 1e-9
-BRAHE_EOP_INITIALIZED = False
 
 
 @dataclass(frozen=True)
