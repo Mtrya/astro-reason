@@ -42,12 +42,10 @@ SATELLITE_MODEL = {
         "obs_discharge_rate_w": 120.0,
         "obs_store_rate_mb_per_s": 20.0,
     },
-    "terminals": [
-        {
-            "downlink_release_rate_mb_per_s": 40.0,
-            "downlink_discharge_rate_w": 80.0,
-        },
-    ],
+    "terminal": {
+        "downlink_release_rate_mb_per_s": 40.0,
+        "downlink_discharge_rate_w": 80.0,
+    },
     "resource_model": {
         "battery_capacity_wh": 2_000.0,
         "storage_capacity_mb": 20_000.0,

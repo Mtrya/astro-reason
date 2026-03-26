@@ -63,12 +63,10 @@ def _base_assets() -> dict:
                 "obs_discharge_rate_w": 5.0,
                 "obs_store_rate_mb_per_s": 1.0,
             },
-            "terminals": [
-                {
-                    "downlink_release_rate_mb_per_s": 1.0,
-                    "downlink_discharge_rate_w": 5.0,
-                }
-            ],
+            "terminal": {
+                "downlink_release_rate_mb_per_s": 1.0,
+                "downlink_discharge_rate_w": 5.0,
+            },
             "resource_model": {
                 "battery_capacity_wh": 1.0e6,
                 "storage_capacity_mb": 1.0e6,
@@ -314,6 +312,15 @@ def test_load_case_rejects_duplicate_target_ids(tmp_path: Path) -> None:
     case_dir = _write_case(tmp_path, mission=mission)
 
     with pytest.raises(ValueError, match="Target IDs must be unique"):
+        load_case(case_dir)
+
+
+def test_load_case_rejects_legacy_terminals_list(tmp_path: Path) -> None:
+    assets = _base_assets()
+    assets["satellite_model"]["terminals"] = [assets["satellite_model"].pop("terminal")]
+    case_dir = _write_case(tmp_path, assets=assets)
+
+    with pytest.raises(ValueError, match="assets.json.satellite_model.terminal must be a JSON object"):
         load_case(case_dir)
 
 
@@ -643,50 +650,9 @@ def test_verify_rejects_downlink_when_station_min_elevation_is_impossible(tmp_pa
     assert any("below station minimum" in error for error in result.errors)
 
 
-def test_verify_allows_parallel_downlinks_with_two_terminals(tmp_path: Path) -> None:
+def test_verify_rejects_parallel_downlinks_with_single_terminal(tmp_path: Path) -> None:
     assets = _base_assets()
-    assets["satellite_model"]["terminals"] = [
-        {
-            "downlink_release_rate_mb_per_s": 1.0,
-            "downlink_discharge_rate_w": 5.0,
-        },
-        {
-            "downlink_release_rate_mb_per_s": 1.0,
-            "downlink_discharge_rate_w": 5.0,
-        },
-    ]
-    case_dir = _write_case(tmp_path, assets=assets)
-    solution_path = _write_solution(
-        tmp_path,
-        _solution_payload(
-            satellites=[_overhead_satellite("2025-01-01T00:00:00Z")],
-            actions=[
-                {
-                    "action_type": "downlink",
-                    "satellite_id": "sat1",
-                    "station_id": "gs1",
-                    "start": "2025-01-01T00:00:00Z",
-                    "end": "2025-01-01T00:00:10Z",
-                },
-                {
-                    "action_type": "downlink",
-                    "satellite_id": "sat1",
-                    "station_id": "gs1",
-                    "start": "2025-01-01T00:00:00Z",
-                    "end": "2025-01-01T00:00:10Z",
-                },
-            ],
-        ),
-    )
-
-    result = verify_solution(case_dir, solution_path)
-
-    assert result.is_valid, result.errors
-
-
-def test_verify_rejects_parallel_downlinks_above_terminal_count(tmp_path: Path) -> None:
-    assets = _base_assets()
-    assets["satellite_model"]["terminals"][0]["downlink_release_rate_mb_per_s"] = 0.1
+    assets["satellite_model"]["terminal"]["downlink_release_rate_mb_per_s"] = 0.1
     assets["satellite_model"]["resource_model"]["initial_storage_mb"] = 100.0
     case_dir = _write_case(tmp_path, assets=assets)
     solution_path = _write_solution(
@@ -715,7 +681,7 @@ def test_verify_rejects_parallel_downlinks_above_terminal_count(tmp_path: Path) 
     result = verify_solution(case_dir, solution_path)
 
     assert not result.is_valid
-    assert any("simultaneous downlinks" in error for error in result.errors)
+    assert any("overlapping actions" in error for error in result.errors)
 
 
 def test_verify_rejects_insufficient_maneuver_gap(tmp_path: Path) -> None:
@@ -842,7 +808,7 @@ def test_verify_rejects_storage_overflow_during_observation(tmp_path: Path) -> N
 def test_verify_rejects_storage_underflow_during_downlink(tmp_path: Path) -> None:
     assets = _base_assets()
     assets["satellite_model"]["resource_model"]["initial_storage_mb"] = 0.0
-    assets["satellite_model"]["terminals"][0]["downlink_release_rate_mb_per_s"] = 10.0
+    assets["satellite_model"]["terminal"]["downlink_release_rate_mb_per_s"] = 10.0
     case_dir = _write_case(tmp_path, assets=assets)
     solution_path = _write_solution(
         tmp_path,

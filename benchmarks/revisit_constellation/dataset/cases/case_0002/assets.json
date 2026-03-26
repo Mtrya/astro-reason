@@ -62,11 +62,9 @@
       "obs_discharge_rate_w": 120.0,
       "obs_store_rate_mb_per_s": 20.0
     },
-    "terminals": [
-      {
-        "downlink_discharge_rate_w": 80.0,
-        "downlink_release_rate_mb_per_s": 40.0
-      }
-    ]
+    "terminal": {
+      "downlink_discharge_rate_w": 80.0,
+      "downlink_release_rate_mb_per_s": 40.0
+    }
   }
 }

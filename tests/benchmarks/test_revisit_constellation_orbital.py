@@ -60,12 +60,10 @@ def _build_assets_payload(satellite_count: int) -> dict[str, Any]:
                 "obs_discharge_rate_w": 1.0,
                 "obs_store_rate_mb_per_s": 0.0,
             },
-            "terminals": [
-                {
-                    "downlink_release_rate_mb_per_s": 1.0,
-                    "downlink_discharge_rate_w": 1.0,
-                }
-            ],
+            "terminal": {
+                "downlink_release_rate_mb_per_s": 1.0,
+                "downlink_discharge_rate_w": 1.0,
+            },
             "resource_model": {
                 "battery_capacity_wh": 1.0e9,
                 "storage_capacity_mb": 1.0e9,

@@ -56,7 +56,7 @@ The satellite model includes:
   - `max_range_m`
   - `obs_discharge_rate_w`
   - `obs_store_rate_mb_per_s`
-- `terminals[]`
+- `terminal`
   - `downlink_release_rate_mb_per_s`
   - `downlink_discharge_rate_w`
 - `resource_model`
@@ -73,6 +73,9 @@ The satellite model includes:
   - `maneuver_discharge_rate_w`
 - `min_altitude_m`
 - `max_altitude_m`
+
+This benchmark models exactly one downlink terminal per satellite. Downlink
+actions do not identify a terminal.
 
 The file also includes:
 
@@ -163,7 +166,7 @@ The verifier is expected to reject a solution if any of the following occur:
 - power constraint violations
 - storage constraint violations
 - inconsistent action timing
-- overlapping observation timing
+- overlapping action timing
 - references to unknown satellites, targets, or stations
 
 Additional hard-validity checks may be added as the schema becomes more concrete.
