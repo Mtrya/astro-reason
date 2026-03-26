@@ -1,0 +1,10 @@
+{
+  "error_count": 1,
+  "errors_contain": [
+    "needs",
+    "between observations"
+  ],
+  "is_valid": false,
+  "metrics": {},
+  "warnings": []
+}
