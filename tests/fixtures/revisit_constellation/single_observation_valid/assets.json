@@ -1,0 +1,43 @@
+{
+  "ground_stations": [
+    {
+      "altitude_m": 0.0,
+      "id": "gs1",
+      "latitude_deg": 0.0,
+      "longitude_deg": 0.0,
+      "min_duration_sec": 1.0,
+      "min_elevation_deg": -90.0,
+      "name": "GS1"
+    }
+  ],
+  "max_num_satellites": 2,
+  "satellite_model": {
+    "attitude_model": {
+      "maneuver_discharge_rate_w": 2.0,
+      "max_slew_acceleration_deg_per_sec2": 1.0,
+      "max_slew_velocity_deg_per_sec": 2.0,
+      "settling_time_sec": 1.0
+    },
+    "max_altitude_m": 1000000.0,
+    "min_altitude_m": 100000.0,
+    "model_name": "test_bus",
+    "resource_model": {
+      "battery_capacity_wh": 1000000.0,
+      "idle_discharge_rate_w": 1.0,
+      "initial_battery_wh": 1000000.0,
+      "initial_storage_mb": 1000.0,
+      "storage_capacity_mb": 1000000.0,
+      "sunlight_charge_rate_w": 0.0
+    },
+    "sensor": {
+      "field_of_view_half_angle_deg": 180.0,
+      "max_range_m": 1000000000.0,
+      "obs_discharge_rate_w": 5.0,
+      "obs_store_rate_mb_per_s": 1.0
+    },
+    "terminal": {
+      "downlink_discharge_rate_w": 5.0,
+      "downlink_release_rate_mb_per_s": 1.0
+    }
+  }
+}

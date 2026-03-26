@@ -24,7 +24,15 @@ from benchmarks.revisit_constellation.verifier.run import main as cli_main
 
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
-FIXTURE_DIR = REPO_ROOT / "tests" / "fixtures" / "revisit_constellation" / "zero_observation"
+FIXTURES_DIR = REPO_ROOT / "tests" / "fixtures" / "revisit_constellation"
+ZERO_OBSERVATION_FIXTURE_DIR = FIXTURES_DIR / "zero_observation"
+GOLDEN_FIXTURE_NAMES = (
+    "zero_observation",
+    "single_observation_valid",
+    "downlink_overlap_invalid",
+    "maneuver_conflict_invalid",
+    "storage_underflow_invalid",
+)
 MU_EARTH_M3_S2 = 3.986004418e14
 
 
@@ -141,6 +149,29 @@ def _write_solution(tmp_path: Path, payload: dict) -> Path:
     return solution_path
 
 
+def _fixture_dir(name: str) -> Path:
+    return FIXTURES_DIR / name
+
+
+def _assert_expected_value(actual: object, expected: object) -> None:
+    if isinstance(expected, float):
+        assert actual == pytest.approx(expected)
+        return
+    if isinstance(expected, dict):
+        assert isinstance(actual, dict)
+        for key, value in expected.items():
+            assert key in actual
+            _assert_expected_value(actual[key], value)
+        return
+    if isinstance(expected, list):
+        assert isinstance(actual, list)
+        assert len(actual) == len(expected)
+        for actual_item, expected_item in zip(actual, expected):
+            _assert_expected_value(actual_item, expected_item)
+        return
+    assert actual == expected
+
+
 def _circular_speed_m_s(radius_m: float) -> float:
     return math.sqrt(MU_EARTH_M3_S2 / radius_m)
 
@@ -245,29 +276,41 @@ def _solution_payload(*, satellites: list[dict], actions: list[dict]) -> dict:
     return {"satellites": satellites, "actions": actions}
 
 
-def test_zero_observation_fixture_matches_expected_metrics() -> None:
-    expected = json.loads((FIXTURE_DIR / "expected.json").read_text(encoding="utf-8"))
+@pytest.mark.parametrize("fixture_name", GOLDEN_FIXTURE_NAMES)
+def test_golden_fixture_matches_expected_result(fixture_name: str) -> None:
+    fixture_dir = _fixture_dir(fixture_name)
+    expected = json.loads((fixture_dir / "expected.json").read_text(encoding="utf-8"))
 
-    result = verify_solution(FIXTURE_DIR, FIXTURE_DIR / "solution.json")
+    result = verify_solution(fixture_dir, fixture_dir / "solution.json")
+    payload = result.to_dict()
 
-    assert result.is_valid is expected["is_valid"]
-    assert result.metrics["mean_revisit_gap_hours"] == pytest.approx(
-        expected["metrics"]["mean_revisit_gap_hours"]
-    )
-    assert result.metrics["max_revisit_gap_hours"] == pytest.approx(
-        expected["metrics"]["max_revisit_gap_hours"]
-    )
-    assert result.metrics["satellite_count"] == expected["metrics"]["satellite_count"]
-    assert result.metrics["threshold_satisfied"] is expected["metrics"]["threshold_satisfied"]
-    assert result.metrics["target_gap_summary"]["t1"]["observation_count"] == 0
+    assert payload["is_valid"] is expected["is_valid"]
+    _assert_expected_value(payload["metrics"], expected.get("metrics", {}))
+    _assert_expected_value(payload["warnings"], expected.get("warnings", []))
+
+    if "errors" in expected:
+        _assert_expected_value(payload["errors"], expected["errors"])
+    elif expected["is_valid"]:
+        assert payload["errors"] == []
+
+    for fragment in expected.get("errors_contain", []):
+        assert any(fragment in error for error in payload["errors"])
+
+    if "error_count" in expected:
+        assert len(payload["errors"]) == expected["error_count"]
+    if "warning_count" in expected:
+        assert len(payload["warnings"]) == expected["warning_count"]
 
 
 def test_verify_solution_helper_matches_manual_loading() -> None:
-    instance = load_case(FIXTURE_DIR)
-    solution = load_solution(FIXTURE_DIR / "solution.json")
+    instance = load_case(ZERO_OBSERVATION_FIXTURE_DIR)
+    solution = load_solution(ZERO_OBSERVATION_FIXTURE_DIR / "solution.json")
 
     direct = verify(instance, solution)
-    via_helper = verify_solution(FIXTURE_DIR, FIXTURE_DIR / "solution.json")
+    via_helper = verify_solution(
+        ZERO_OBSERVATION_FIXTURE_DIR,
+        ZERO_OBSERVATION_FIXTURE_DIR / "solution.json",
+    )
 
     assert direct.is_valid == via_helper.is_valid
     assert direct.metrics["mean_revisit_gap_hours"] == pytest.approx(
@@ -279,7 +322,12 @@ def test_verify_solution_helper_matches_manual_loading() -> None:
 
 
 def test_cli_main_uses_case_directory_contract(capsys: pytest.CaptureFixture[str]) -> None:
-    exit_code = cli_main([str(FIXTURE_DIR), str(FIXTURE_DIR / "solution.json")])
+    exit_code = cli_main(
+        [
+            str(ZERO_OBSERVATION_FIXTURE_DIR),
+            str(ZERO_OBSERVATION_FIXTURE_DIR / "solution.json"),
+        ]
+    )
     captured = capsys.readouterr()
 
     assert exit_code == 0
@@ -833,7 +881,7 @@ def test_verify_rejects_storage_underflow_during_downlink(tmp_path: Path) -> Non
 
 
 def test_compute_metrics_zero_observations() -> None:
-    instance = load_case(FIXTURE_DIR)
+    instance = load_case(ZERO_OBSERVATION_FIXTURE_DIR)
 
     metrics = _compute_metrics(instance, [], satellite_count=1)
 
@@ -843,7 +891,7 @@ def test_compute_metrics_zero_observations() -> None:
 
 
 def test_compute_metrics_one_observation_uses_midpoint_and_boundaries() -> None:
-    instance = load_case(FIXTURE_DIR)
+    instance = load_case(ZERO_OBSERVATION_FIXTURE_DIR)
     start = instance.horizon_start + timedelta(minutes=10)
     end = instance.horizon_start + timedelta(minutes=20)
     midpoint = start + ((end - start) / 2)
@@ -865,7 +913,7 @@ def test_compute_metrics_one_observation_uses_midpoint_and_boundaries() -> None:
 
 
 def test_compute_metrics_multiple_observations_reduce_max_gap() -> None:
-    instance = load_case(FIXTURE_DIR)
+    instance = load_case(ZERO_OBSERVATION_FIXTURE_DIR)
     observations = [
         ObservationRecord(
             satellite_id="sat1",
