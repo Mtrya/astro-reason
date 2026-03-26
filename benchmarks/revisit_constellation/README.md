@@ -223,7 +223,15 @@ The intended repository structure is:
 ```text
 benchmarks/revisit_constellation/
 ├── dataset/
-├── generator.py
+│   ├── README.md
+│   ├── index.json
+│   └── cases/
+│       └── case_0001/{assets.json,mission.json}
+├── generator/
+│   ├── __init__.py
+│   ├── build.py
+│   ├── sources.py
+│   └── run.py
 ├── verifier/
 │   ├── __init__.py
 │   ├── models.py
@@ -236,10 +244,10 @@ benchmarks/revisit_constellation/
 Current CLI entry:
 
 ```bash
-uv run python -m benchmarks.revisit_constellation.verifier.run <case_dir> <solution.json>
+uv run python benchmarks/revisit_constellation/verifier/run.py <case_dir> <solution.json>
 ```
 
-Associated test-side artifacts are expected under:
+Associated test-side artifacts live under:
 
 ```text
 tests/fixtures/
@@ -248,10 +256,8 @@ tests/benchmarks/
 
 ## Near-Term Design Questions
 
-The following details may still evolve as the generator and canonical dataset
-are built:
+The following details may still evolve as the benchmark matures:
 
-- the exact canonical dataset cases
 - whether any additional orbit admissibility constraints should be added later
 - whether the public verifier should keep its phase-1 sampled interval checks or
   move to more exact event handling
@@ -268,3 +274,19 @@ The expected implementation sequence is:
 2. create fixtures and focused tests
 3. add a generator and generate the canonical dataset
 4. retire `revisit_optimization` once the replacement is complete
+
+## Canonical Dataset
+
+The committed dataset lives under `dataset/cases/` and includes dataset-level
+metadata in `dataset/index.json`.
+
+The canonical generator entry point is:
+
+```bash
+uv run python benchmarks/revisit_constellation/generator/run.py
+```
+
+Downloaded raw source CSVs are stored under the dataset directory by default at
+`dataset/source_data/`. The generator downloads the documented Kaggle datasets
+itself through `kagglehub`, then builds the canonical cases without any manual
+CSV preparation step.

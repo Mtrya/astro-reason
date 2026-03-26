@@ -24,5 +24,4 @@ AGENTS.md
 GEMINI.md
 QWEN.md
 
-sandbox_template/
-sandbox/
+benchmarks/*/dataset/source_data

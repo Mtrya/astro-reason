@@ -1,0 +1,226 @@
+{
+  "horizon_end": "2025-07-19T12:00:00Z",
+  "horizon_start": "2025-07-17T12:00:00Z",
+  "targets": [
+    {
+      "altitude_m": 0.0,
+      "expected_revisit_period_hours": 6.0,
+      "id": "target_001",
+      "latitude_deg": 53.3167,
+      "longitude_deg": 9.8667,
+      "max_slant_range_m": 1800000.0,
+      "min_duration_sec": 30.0,
+      "min_elevation_deg": 20.0,
+      "name": "Buchholz in der Nordheide, Germany"
+    },
+    {
+      "altitude_m": 0.0,
+      "expected_revisit_period_hours": 6.0,
+      "id": "target_002",
+      "latitude_deg": -16.2833,
+      "longitude_deg": 14.3167,
+      "max_slant_range_m": 1800000.0,
+      "min_duration_sec": 30.0,
+      "min_elevation_deg": 20.0,
+      "name": "Cahama, Angola"
+    },
+    {
+      "altitude_m": 0.0,
+      "expected_revisit_period_hours": 6.0,
+      "id": "target_003",
+      "latitude_deg": 47.5167,
+      "longitude_deg": -52.9833,
+      "max_slant_range_m": 1800000.0,
+      "min_duration_sec": 30.0,
+      "min_elevation_deg": 20.0,
+      "name": "Conception Bay South, Canada"
+    },
+    {
+      "altitude_m": 0.0,
+      "expected_revisit_period_hours": 6.0,
+      "id": "target_004",
+      "latitude_deg": -21.9331,
+      "longitude_deg": 114.1281,
+      "max_slant_range_m": 1800000.0,
+      "min_duration_sec": 30.0,
+      "min_elevation_deg": 20.0,
+      "name": "Exmouth, Australia"
+    },
+    {
+      "altitude_m": 0.0,
+      "expected_revisit_period_hours": 6.0,
+      "id": "target_005",
+      "latitude_deg": -54.2806,
+      "longitude_deg": -36.508,
+      "max_slant_range_m": 1800000.0,
+      "min_duration_sec": 30.0,
+      "min_elevation_deg": 20.0,
+      "name": "Grytviken, South Georgia and South Sandwich Islands"
+    },
+    {
+      "altitude_m": 0.0,
+      "expected_revisit_period_hours": 6.0,
+      "id": "target_006",
+      "latitude_deg": 4.3667,
+      "longitude_deg": -7.7167,
+      "max_slant_range_m": 1800000.0,
+      "min_duration_sec": 30.0,
+      "min_elevation_deg": 20.0,
+      "name": "Harper, Liberia"
+    },
+    {
+      "altitude_m": 0.0,
+      "expected_revisit_period_hours": 6.0,
+      "id": "target_007",
+      "latitude_deg": 43.472,
+      "longitude_deg": -110.7746,
+      "max_slant_range_m": 1800000.0,
+      "min_duration_sec": 30.0,
+      "min_elevation_deg": 20.0,
+      "name": "Jackson, United States"
+    },
+    {
+      "altitude_m": 0.0,
+      "expected_revisit_period_hours": 6.0,
+      "id": "target_008",
+      "latitude_deg": 11.01,
+      "longitude_deg": 29.7,
+      "max_slant_range_m": 1800000.0,
+      "min_duration_sec": 30.0,
+      "min_elevation_deg": 20.0,
+      "name": "Kadugli, Sudan"
+    },
+    {
+      "altitude_m": 0.0,
+      "expected_revisit_period_hours": 6.0,
+      "id": "target_009",
+      "latitude_deg": 11.9333,
+      "longitude_deg": -86.1833,
+      "max_slant_range_m": 1800000.0,
+      "min_duration_sec": 30.0,
+      "min_elevation_deg": 20.0,
+      "name": "La Concepci\u00f3n, Nicaragua"
+    },
+    {
+      "altitude_m": 0.0,
+      "expected_revisit_period_hours": 6.0,
+      "id": "target_010",
+      "latitude_deg": 21.4739,
+      "longitude_deg": -158.2102,
+      "max_slant_range_m": 1800000.0,
+      "min_duration_sec": 30.0,
+      "min_elevation_deg": 20.0,
+      "name": "Makaha, United States"
+    },
+    {
+      "altitude_m": 0.0,
+      "expected_revisit_period_hours": 6.0,
+      "id": "target_011",
+      "latitude_deg": 14.5958,
+      "longitude_deg": 120.9772,
+      "max_slant_range_m": 1800000.0,
+      "min_duration_sec": 30.0,
+      "min_elevation_deg": 20.0,
+      "name": "Manila, Philippines"
+    },
+    {
+      "altitude_m": 0.0,
+      "expected_revisit_period_hours": 6.0,
+      "id": "target_012",
+      "latitude_deg": -17.5334,
+      "longitude_deg": -149.5667,
+      "max_slant_range_m": 1800000.0,
+      "min_duration_sec": 30.0,
+      "min_elevation_deg": 20.0,
+      "name": "Papeete, French Polynesia"
+    },
+    {
+      "altitude_m": 0.0,
+      "expected_revisit_period_hours": 6.0,
+      "id": "target_013",
+      "latitude_deg": -15.2258,
+      "longitude_deg": -59.335,
+      "max_slant_range_m": 1800000.0,
+      "min_duration_sec": 30.0,
+      "min_elevation_deg": 20.0,
+      "name": "Pontes e Lacerda, Brazil"
+    },
+    {
+      "altitude_m": 0.0,
+      "expected_revisit_period_hours": 6.0,
+      "id": "target_014",
+      "latitude_deg": 60.75,
+      "longitude_deg": 72.7833,
+      "max_slant_range_m": 1800000.0,
+      "min_duration_sec": 30.0,
+      "min_elevation_deg": 20.0,
+      "name": "Pyt\u2019-Yakh, Russia"
+    },
+    {
+      "altitude_m": 0.0,
+      "expected_revisit_period_hours": 6.0,
+      "id": "target_015",
+      "latitude_deg": 77.4667,
+      "longitude_deg": -69.2306,
+      "max_slant_range_m": 1800000.0,
+      "min_duration_sec": 30.0,
+      "min_elevation_deg": 20.0,
+      "name": "Qaanaaq, Greenland"
+    },
+    {
+      "altitude_m": 0.0,
+      "expected_revisit_period_hours": 6.0,
+      "id": "target_016",
+      "latitude_deg": -42.0806,
+      "longitude_deg": 145.5556,
+      "max_slant_range_m": 1800000.0,
+      "min_duration_sec": 30.0,
+      "min_elevation_deg": 20.0,
+      "name": "Queenstown, Australia"
+    },
+    {
+      "altitude_m": 0.0,
+      "expected_revisit_period_hours": 6.0,
+      "id": "target_017",
+      "latitude_deg": 24.8806,
+      "longitude_deg": 67.1625,
+      "max_slant_range_m": 1800000.0,
+      "min_duration_sec": 30.0,
+      "min_elevation_deg": 20.0,
+      "name": "Shah Latif Town, Pakistan"
+    },
+    {
+      "altitude_m": 0.0,
+      "expected_revisit_period_hours": 6.0,
+      "id": "target_018",
+      "latitude_deg": -25.3054,
+      "longitude_deg": 44.9762,
+      "max_slant_range_m": 1800000.0,
+      "min_duration_sec": 30.0,
+      "min_elevation_deg": 20.0,
+      "name": "Tranovaho, Madagascar"
+    },
+    {
+      "altitude_m": 0.0,
+      "expected_revisit_period_hours": 6.0,
+      "id": "target_019",
+      "latitude_deg": -0.5456,
+      "longitude_deg": 166.925,
+      "max_slant_range_m": 1800000.0,
+      "min_duration_sec": 30.0,
+      "min_elevation_deg": 20.0,
+      "name": "Yaren, Nauru"
+    },
+    {
+      "altitude_m": 0.0,
+      "expected_revisit_period_hours": 6.0,
+      "id": "target_020",
+      "latitude_deg": 65.736,
+      "longitude_deg": 150.89,
+      "max_slant_range_m": 1800000.0,
+      "min_duration_sec": 30.0,
+      "min_elevation_deg": 20.0,
+      "name": "Zyryanka, Russia"
+    }
+  ]
+}
