@@ -48,68 +48,117 @@ states at the mission start time.
 
 ## Case Inputs
 
-The exact file schema is still being refined, but each canonical case is
-expected to include inputs equivalent to:
+Each canonical case contains exactly two machine-readable files:
 
-- `satellite_model.*`
-  A benchmark-defined satellite model or model family. This will describe the
-  resource and operational properties shared by satellites in the case.
-- `targets.*`
-  Target identities and locations.
-- `stations.*`
-  Ground station identities and locations for downlink opportunities.
-- `constraints.*`
-  Hard case constraints, including at least:
-  - maximum number of satellites
-  - orbit admissibility constraints
-  - observation-success conditions such as elevation and distance rules
-  - onboard resource limits such as power and storage
-- `mission.*`
-  Mission horizon with start and end times.
-- `requirements.*`
-  Revisit-oriented mission requirements, including an expected revisit gap
-  threshold.
-- `manifest.json`
-  Case metadata and summary values used for identification and inspection.
+- `assets.json`
+- `mission.json`
 
-The final file names and field-level schema are intentionally left open for now.
+### `assets.json`
+
+`assets.json` contains the shared satellite model, satellite-count cap, and
+ground-station assets for the case.
+
+The satellite model includes:
+
+- `model_name`
+- `sensor`
+  - `field_of_view_half_angle_deg`
+  - `max_range_m`
+  - `obs_discharge_rate_w`
+  - `obs_store_rate_mbps`
+- `terminals[]`
+  - `downlink_release_rate_mbps`
+  - `downlink_discharge_rate_w`
+- `resource_model`
+  - `battery_capacity_wh`
+  - `storage_capacity_mb`
+  - `initial_battery_wh`
+  - `initial_storage_mb`
+  - `idle_discharge_rate_w`
+  - `sunlight_charge_rate_w`
+- `attitude_model`
+  - `max_slew_velocity_deg_per_sec`
+  - `max_slew_acceleration_deg_per_sec2`
+  - `settling_time_sec`
+  - `maneuver_discharge_rate_w`
+- `min_altitude_m`
+- `max_altitude_m`
+
+The file also includes:
+
+- `max_num_satellites`
+- `ground_stations[]`
+  - `id`
+  - `name`
+  - `latitude_deg`
+  - `longitude_deg`
+  - `altitude_m`
+  - `min_elevation_deg`
+  - `min_duration_sec`
+
+### `mission.json`
+
+`mission.json` contains the mission horizon and target-specific revisit
+requirements:
+
+- `horizon_start`
+- `horizon_end`
+- `targets[]`
+  - `id`
+  - `name`
+  - `latitude_deg`
+  - `longitude_deg`
+  - `altitude_m`
+  - `expected_revisit_period_hours`
+  - `min_elevation_deg`
+  - `max_slant_range_m`
+  - `min_duration_sec`
+
+The initial benchmark target is a `48h` mission horizon.
 
 ## Solution Contract
 
-A valid solution is expected to contain two top-level parts:
+A valid solution is a single JSON document with two top-level arrays:
 
-- `constellation`
+- `satellites`
 - `actions`
 
-### Constellation
+### `satellites`
 
-The constellation section defines the satellites present at mission start. Each
-satellite entry is expected to include:
+Each satellite entry defines one solver-chosen satellite at mission start:
 
-- a solver-chosen satellite identifier
-- a state epoch matching the case horizon start
-- a reference frame of `GCRF`
-- initial position
-- initial velocity
+- `satellite_id`
+- `x_m`
+- `y_m`
+- `z_m`
+- `vx_m_s`
+- `vy_m_s`
+- `vz_m_s`
 
-At a high level, the solver is designing the constellation by choosing the
-initial states of satellites, subject to the benchmark's orbit and count
-constraints.
+All states are interpreted as GCRF Cartesian states in SI units.
 
-### Actions
+### `actions`
 
 The action list defines the mission schedule for the proposed constellation.
-
-The intended initial action types are:
+Supported action types are:
 
 - `observation`
 - `downlink`
 
-Each action is expected to identify the satellite involved and the action start
-and end times. Observation actions also identify a target, and downlink actions
-also identify a ground station.
+Each action includes:
 
-The exact action schema is still to be finalized.
+- `action_type`
+- `satellite_id`
+- `start`
+- `end`
+
+Observation actions also include:
+
+- `target_id`
+
+Downlink actions also include:
+
+- `station_id`
 
 ## Validity Rules
 
@@ -125,7 +174,8 @@ The verifier is expected to reject a solution if any of the following occur:
 - infeasible downlink geometry
 - power constraint violations
 - storage constraint violations
-- inconsistent or overlapping action timing
+- inconsistent action timing
+- overlapping observation timing
 - references to unknown satellites, targets, or stations
 
 Additional hard-validity checks may be added as the schema becomes more
@@ -138,35 +188,33 @@ The new benchmark is purely revisit-driven.
 
 The intended metrics for valid solutions are:
 
-- `mean_revisit_gap`
+- `mean_revisit_gap_hours`
+- `max_revisit_gap_hours`
 - `satellite_count`
+- `threshold_satisfied`
 
 The intended ranking logic is:
 
-1. If not all targets achieve revisit gaps below the expected revisit gap
-   threshold, prefer the solution with better revisit performance.
-2. If all targets achieve revisit gaps below the expected revisit gap
-   threshold, prefer the solution that uses fewer satellites.
-3. Use revisit performance as a tie-break among solutions with the same
-   satellite count.
-
-The exact tie-break details and any derived summary metrics are still open for
-refinement.
+1. Valid solutions beat invalid solutions.
+2. If not all targets achieve revisit gaps below the expected threshold, prefer
+   lower `max_revisit_gap_hours`, then lower `mean_revisit_gap_hours`.
+3. If all targets achieve revisit gaps below the expected threshold, prefer the
+   solution that uses fewer satellites, then use
+   `mean_revisit_gap_hours` as a tie-break.
 
 ## Revisit Interpretation
 
-The benchmark should treat poor revisit performance as poor scoring, not as an
+The benchmark treats poor revisit performance as poor scoring, not as an
 automatic validity failure.
 
-In particular:
+Successful observations are represented by their midpoint times. Revisit gaps
+include the mission start and mission end as boundary times:
 
-- missing observations should degrade revisit metrics
-- sparse observations should degrade revisit metrics
-- only hard physical, temporal, geometric, and resource violations should make
-  a solution invalid
-
-The precise definition of revisit gap, especially at mission boundaries or for
-targets with zero or one successful observation, is still to be finalized.
+- zero successful observations: the revisit gap is the full mission horizon
+- one successful observation: gaps are start-to-observation and
+  observation-to-end
+- multiple successful observations: gaps are computed between consecutive
+  observation midpoints plus the mission boundaries
 
 ## Canonical Benchmark Shape
 
@@ -176,8 +224,19 @@ The intended repository structure is:
 benchmarks/revisit_constellation/
 ├── dataset/
 ├── generator.py
-├── verifier.py
+├── verifier/
+│   ├── __init__.py
+│   ├── models.py
+│   ├── io.py
+│   ├── engine.py
+│   └── run.py
 └── README.md
+```
+
+Current CLI entry:
+
+```bash
+uv run python -m benchmarks.revisit_constellation.verifier.run <case_dir> <solution.json>
 ```
 
 Associated test-side artifacts are expected under:
@@ -189,17 +248,14 @@ tests/benchmarks/
 
 ## Near-Term Design Questions
 
-The following details are intentionally still open and should be settled before
-full implementation:
+The following details may still evolve as the generator and canonical dataset
+are built:
 
-- the exact satellite model schema
-- the exact case file names and formats
-- the exact solution JSON schema
-- the exact orbit admissibility rules
-- the exact observation and downlink geometry rules
-- the exact resource propagation model
-- the exact revisit-gap computation at mission boundaries
-- the exact tie-break rule once all targets meet the threshold
+- the exact canonical dataset cases
+- whether any additional orbit admissibility constraints should be added later
+- whether the public verifier should keep its phase-1 sampled interval checks or
+  move to more exact event handling
+- whether any golden metric fixtures should be added beyond small corner cases
 
 ## Implementation Direction
 
@@ -208,9 +264,7 @@ This benchmark should be built as a new standalone benchmark, even if parts of
 
 The expected implementation sequence is:
 
-1. finalize the benchmark spec
-2. define one pilot case and solution schema
-3. implement the verifier around that contract
-4. create fixtures and focused tests
-5. add a generator and generate the canonical dataset
-6. retire `revisit_optimization` once the replacement is complete
+1. implement the verifier around the settled contract
+2. create fixtures and focused tests
+3. add a generator and generate the canonical dataset
+4. retire `revisit_optimization` once the replacement is complete
