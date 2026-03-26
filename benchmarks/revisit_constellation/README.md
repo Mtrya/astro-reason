@@ -52,7 +52,7 @@ The satellite model includes:
 
 - `model_name`
 - `sensor`
-  - `field_of_view_half_angle_deg`
+  - `max_off_nadir_angle_deg`
   - `max_range_m`
   - `obs_discharge_rate_w`
   - `obs_store_rate_mb_per_s`
@@ -203,6 +203,79 @@ Successful observations are represented by their midpoint times. Revisit gaps in
   observation-to-end
 - multiple successful observations: gaps are computed between consecutive
   observation midpoints plus the mission boundaries
+
+## Simulation Scenario
+
+This section describes the physics and resource models used by the verifier.
+
+### Orbital Propagation
+
+Satellite states are propagated using `brahe.NumericalOrbitPropagator`:
+
+- **Force model**: J2-only gravity (`spherical_harmonic(2, 0)` in `brahe`)
+- **Frame**: GCRF/ECI for propagation, ECEF for geometry checks
+- **Time system**: UTC
+- **EOP**: Zero-valued static EOP provider for deterministic, offline-friendly verification
+
+The verifier validates initial satellite states against case-specific altitude
+bounds (min/max). Initial states must form closed elliptic orbits (perigee and
+apogee within bounds).
+
+### Visibility Computation
+
+Observation geometry is validated at 10-second intervals during actions:
+
+**Target visibility constraints**:
+- Elevation angle above target's minimum (local ENU frame)
+- Slant range within target's maximum and sensor maximum
+- Off-nadir angle within the sensor's maximum off-nadir pointing limit
+
+The current sensor model is a nadir-centered pointing cone, not a full imaging
+footprint model. A target is observable only when its line of sight stays
+within `max_off_nadir_angle_deg` of nadir.
+
+**Ground station visibility constraints**:
+- Elevation angle above station's minimum
+
+All geometric checks use the instantaneous satellite position propagated to the
+sample time. The fixed 10-second sampling balances correctness with runtime;
+brief violations between samples may not be detected.
+
+### Onboard Resources
+
+Resource accounting simulates battery and storage state at discrete time points:
+
+**Power model**:
+- Sunlight detection via `brahe` eclipse calculation
+- Charging when sunlit at `sunlight_charge_rate_w`
+- Discharging components:
+  - Idle: `idle_discharge_rate_w`
+  - Observation: +`obs_discharge_rate_w`
+  - Downlink: +`downlink_discharge_rate_w` while a downlink is active
+  - Maneuver: +`maneuver_discharge_rate_w` during slew/settling windows
+
+**Storage model**:
+- Observation fills storage at `obs_store_rate_mb_per_s`
+- Downlink empties storage at `downlink_release_rate_mb_per_s`
+- Overlapping downlinks on one satellite are invalid
+
+Resource checks occur at action boundaries, maneuver window boundaries, and
+30-second intervals. Battery and storage are bounded by capacity and zero;
+violations invalidate the solution.
+
+### Attitude and Maneuver Windows
+
+Between consecutive observations, the verifier computes required slew time using
+a bang-coast-bang slew profile:
+
+- Maximum slew velocity and acceleration limits from `attitude_model`
+- Settling time added after slew completes
+- Maneuver windows must not overlap with any other action
+- Computed slew angle uses target vectors at observation midpoints
+
+The verifier does not validate pointing during the observation itself—only that
+the geometry allows acquisition and that sufficient time exists to slew between
+consecutive targets.
 
 ## Verifier Output
 

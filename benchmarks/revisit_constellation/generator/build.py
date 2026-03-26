@@ -37,7 +37,7 @@ STATION_COLUMN_ALIASES = {
 SATELLITE_MODEL = {
     "model_name": "balanced_leo_eo_bus_v1",
     "sensor": {
-        "field_of_view_half_angle_deg": 25.0,
+        "max_off_nadir_angle_deg": 25.0,
         "max_range_m": 1_000_000.0,
         "obs_discharge_rate_w": 120.0,
         "obs_store_rate_mb_per_s": 20.0,

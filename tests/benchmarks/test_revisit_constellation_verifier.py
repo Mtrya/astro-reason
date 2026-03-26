@@ -70,7 +70,7 @@ def _base_assets() -> dict:
         "satellite_model": {
             "model_name": "test_bus",
             "sensor": {
-                "field_of_view_half_angle_deg": 180.0,
+                "max_off_nadir_angle_deg": 180.0,
                 "max_range_m": 1.0e9,
                 "obs_discharge_rate_w": 5.0,
                 "obs_store_rate_mb_per_s": 1.0,

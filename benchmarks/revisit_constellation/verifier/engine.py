@@ -312,11 +312,11 @@ def _observation_geometry_ok(
     line_of_sight = target_eci_m - state_eci_m_mps[:3]
     nadir = -state_eci_m_mps[:3]
     off_nadir_deg = _angle_between_deg(nadir, line_of_sight)
-    if off_nadir_deg > sensor.field_of_view_half_angle_deg + NUMERICAL_EPS:
+    if off_nadir_deg > sensor.max_off_nadir_angle_deg + NUMERICAL_EPS:
         return (
             False,
-            f"off-nadir angle {off_nadir_deg:.3f} deg exceeds sensor half FOV "
-            f"{sensor.field_of_view_half_angle_deg:.3f} deg",
+            f"off-nadir angle {off_nadir_deg:.3f} deg exceeds sensor max off-nadir angle "
+            f"{sensor.max_off_nadir_angle_deg:.3f} deg",
         )
 
     return True, None
