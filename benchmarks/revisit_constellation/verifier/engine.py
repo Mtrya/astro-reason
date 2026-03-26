@@ -28,12 +28,12 @@ from .models import (
 from .io import load_case, load_solution
 
 
-BRAHE_EOP_INITIALIZED = False
+_BRAHE_EOP_INITIALIZED = False
 
 
 def _ensure_brahe_ready() -> None:
-    global BRAHE_EOP_INITIALIZED
-    if BRAHE_EOP_INITIALIZED:
+    global _BRAHE_EOP_INITIALIZED
+    if _BRAHE_EOP_INITIALIZED:
         return
 
     # Use a static zero-valued EOP provider so the verifier stays deterministic
@@ -41,7 +41,7 @@ def _ensure_brahe_ready() -> None:
     brahe.set_global_eop_provider_from_static_provider(
         brahe.StaticEOPProvider.from_zero()
     )
-    BRAHE_EOP_INITIALIZED = True
+    _BRAHE_EOP_INITIALIZED = True
 
 
 def _datetime_to_epoch(value: datetime) -> brahe.Epoch:
