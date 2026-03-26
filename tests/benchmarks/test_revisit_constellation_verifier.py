@@ -147,6 +147,23 @@ def _circular_speed_m_s(radius_m: float) -> float:
     return math.sqrt(MU_EARTH_M3_S2 / radius_m)
 
 
+def _satellite_at_radius_with_tangential_speed(
+    *,
+    satellite_id: str = "sat1",
+    radius_m: float,
+    speed_m_s: float,
+) -> dict:
+    return {
+        "satellite_id": satellite_id,
+        "x_m": radius_m,
+        "y_m": 0.0,
+        "z_m": 0.0,
+        "vx_m_s": 0.0,
+        "vy_m_s": speed_m_s,
+        "vz_m_s": 0.0,
+    }
+
+
 def _surface_eci_unit_vector(
     timestamp: str,
     *,
@@ -337,6 +354,42 @@ def test_load_solution_rejects_timezone_free_action_timestamp(tmp_path: Path) ->
         load_solution(solution_path)
 
 
+def test_verify_solution_returns_invalid_result_for_malformed_case(tmp_path: Path) -> None:
+    case_dir = tmp_path / "case"
+    case_dir.mkdir()
+    _write_json(case_dir / "mission.json", _base_mission())
+    solution_path = _write_solution(
+        tmp_path,
+        _solution_payload(satellites=[_overhead_satellite("2025-01-01T00:00:00Z")], actions=[]),
+    )
+
+    result = verify_solution(case_dir, solution_path)
+
+    assert not result.is_valid
+    assert any("Failed to load case" in error for error in result.errors)
+    assert any("Missing case file" in error for error in result.errors)
+
+
+def test_verify_solution_returns_invalid_result_for_malformed_solution(tmp_path: Path) -> None:
+    case_dir = _write_case(tmp_path)
+    solution_path = _write_solution(
+        tmp_path,
+        _solution_payload(
+            satellites=[
+                _overhead_satellite("2025-01-01T00:00:00Z", satellite_id="sat1"),
+                _overhead_satellite("2025-01-01T00:00:00Z", satellite_id="sat1"),
+            ],
+            actions=[],
+        ),
+    )
+
+    result = verify_solution(case_dir, solution_path)
+
+    assert not result.is_valid
+    assert any("Failed to load solution" in error for error in result.errors)
+    assert any("Duplicate satellite_id" in error for error in result.errors)
+
+
 def test_verify_rejects_satellite_below_min_altitude(tmp_path: Path) -> None:
     case_dir = _write_case(tmp_path)
     radius_m = brahe.R_EARTH + 50000.0
@@ -344,15 +397,10 @@ def test_verify_rejects_satellite_below_min_altitude(tmp_path: Path) -> None:
         tmp_path,
         _solution_payload(
             satellites=[
-                {
-                    "satellite_id": "sat1",
-                    "x_m": radius_m,
-                    "y_m": 0.0,
-                    "z_m": 0.0,
-                    "vx_m_s": 0.0,
-                    "vy_m_s": _circular_speed_m_s(radius_m),
-                    "vz_m_s": 0.0,
-                }
+                _satellite_at_radius_with_tangential_speed(
+                    radius_m=radius_m,
+                    speed_m_s=_circular_speed_m_s(radius_m),
+                )
             ],
             actions=[],
         ),
@@ -362,6 +410,51 @@ def test_verify_rejects_satellite_below_min_altitude(tmp_path: Path) -> None:
 
     assert not result.is_valid
     assert any("below min altitude" in error for error in result.errors)
+
+
+def test_verify_rejects_suborbital_initial_state_with_allowed_start_altitude(tmp_path: Path) -> None:
+    case_dir = _write_case(tmp_path)
+    radius_m = brahe.R_EARTH + 500000.0
+    solution_path = _write_solution(
+        tmp_path,
+        _solution_payload(
+            satellites=[
+                _satellite_at_radius_with_tangential_speed(
+                    radius_m=radius_m,
+                    speed_m_s=7000.0,
+                )
+            ],
+            actions=[],
+        ),
+    )
+
+    result = verify_solution(case_dir, solution_path)
+
+    assert not result.is_valid
+    assert any("perigee below min altitude" in error for error in result.errors)
+
+
+def test_verify_rejects_escape_initial_state_with_allowed_start_altitude(tmp_path: Path) -> None:
+    case_dir = _write_case(tmp_path)
+    radius_m = brahe.R_EARTH + 500000.0
+    solution_path = _write_solution(
+        tmp_path,
+        _solution_payload(
+            satellites=[
+                _satellite_at_radius_with_tangential_speed(
+                    radius_m=radius_m,
+                    speed_m_s=11000.0,
+                )
+            ],
+            actions=[],
+        ),
+    )
+
+    result = verify_solution(case_dir, solution_path)
+
+    assert not result.is_valid
+    assert any("invalid initial orbit" in error for error in result.errors)
+    assert any("not a bound Earth orbit" in error for error in result.errors)
 
 
 @pytest.mark.parametrize(
