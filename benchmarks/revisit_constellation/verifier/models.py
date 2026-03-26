@@ -53,19 +53,11 @@ class AttitudeModel:
 class SatelliteModel:
     model_name: str
     sensor: SensorModel
-    terminals: tuple[TerminalModel, ...]
+    terminal: TerminalModel
     resource_model: ResourceModel
     attitude_model: AttitudeModel
     min_altitude_m: float
     max_altitude_m: float
-
-    @property
-    def terminal_count(self) -> int:
-        return len(self.terminals)
-
-    @property
-    def terminal_profile(self) -> TerminalModel:
-        return self.terminals[0]
 
 
 @dataclass(frozen=True)

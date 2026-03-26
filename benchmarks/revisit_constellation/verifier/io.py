@@ -125,7 +125,7 @@ def _parse_target(payload: dict[str, Any], index: int) -> Target:
 def _parse_satellite_model(payload: dict[str, Any]) -> SatelliteModel:
     context = "assets.json.satellite_model"
     sensor_payload = _require_mapping(payload.get("sensor"), f"{context}.sensor")
-    terminals_payload = _require_list(payload.get("terminals"), f"{context}.terminals")
+    terminal_payload = _require_mapping(payload.get("terminal"), f"{context}.terminal")
     resource_payload = _require_mapping(
         payload.get("resource_model"), f"{context}.resource_model"
     )
@@ -133,31 +133,18 @@ def _parse_satellite_model(payload: dict[str, Any]) -> SatelliteModel:
         payload.get("attitude_model"), f"{context}.attitude_model"
     )
 
-    terminals = tuple(
-        TerminalModel(
-            downlink_release_rate_mb_per_s=_require_float(
-                _require_mapping(item, f"{context}.terminals[{index}]"),
-                "downlink_release_rate_mb_per_s",
-                f"{context}.terminals[{index}]",
-            ),
-            downlink_discharge_rate_w=_require_float(
-                _require_mapping(item, f"{context}.terminals[{index}]"),
-                "downlink_discharge_rate_w",
-                f"{context}.terminals[{index}]",
-            ),
-        )
-        for index, item in enumerate(terminals_payload)
+    terminal = TerminalModel(
+        downlink_release_rate_mb_per_s=_require_float(
+            terminal_payload,
+            "downlink_release_rate_mb_per_s",
+            f"{context}.terminal",
+        ),
+        downlink_discharge_rate_w=_require_float(
+            terminal_payload,
+            "downlink_discharge_rate_w",
+            f"{context}.terminal",
+        ),
     )
-    if not terminals:
-        raise ValueError(f"{context}.terminals must contain at least one terminal")
-
-    first_terminal = terminals[0]
-    for terminal in terminals[1:]:
-        if terminal != first_terminal:
-            raise ValueError(
-                "assets.json.satellite_model.terminals must use identical terminal "
-                "profiles in phase 1 because actions do not identify a terminal"
-            )
 
     return SatelliteModel(
         model_name=_require_str(payload, "model_name", context),
@@ -175,7 +162,7 @@ def _parse_satellite_model(payload: dict[str, Any]) -> SatelliteModel:
                 sensor_payload, "obs_store_rate_mb_per_s", f"{context}.sensor"
             ),
         ),
-        terminals=terminals,
+        terminal=terminal,
         resource_model=ResourceModel(
             battery_capacity_wh=_require_float(
                 resource_payload, "battery_capacity_wh", f"{context}.resource_model"

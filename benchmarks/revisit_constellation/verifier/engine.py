@@ -259,10 +259,8 @@ def _validate_action_structure(
         for previous, current in zip(actions, actions[1:]):
             if previous.end <= current.start:
                 continue
-            if previous.action_type == "downlink" and current.action_type == "downlink":
-                continue
             errors.append(
-                f"Satellite {satellite_id} has overlapping non-downlink-compatible actions: "
+                f"Satellite {satellite_id} has overlapping actions: "
                 f"{previous.action_type} {_isoformat_z(previous.start)}-{_isoformat_z(previous.end)} "
                 f"overlaps {current.action_type} {_isoformat_z(current.start)}-{_isoformat_z(current.end)}"
             )
@@ -491,42 +489,6 @@ def _build_maneuver_windows(
 
     return maneuver_windows
 
-
-def _validate_downlink_concurrency(
-    instance: Instance,
-    actions_by_satellite: dict[str, list[Action]],
-    errors: list[str],
-) -> None:
-    terminal_count = instance.satellite_model.terminal_count
-    for satellite_id, actions in actions_by_satellite.items():
-        downlinks = [action for action in actions if action.action_type == "downlink"]
-        if not downlinks:
-            continue
-
-        time_points = sorted(
-            {
-                instant
-                for action in downlinks
-                for instant in (action.start, action.end)
-            }
-        )
-        for start, end in zip(time_points, time_points[1:]):
-            if end <= start:
-                continue
-            midpoint = start + ((end - start) / 2)
-            concurrent_count = sum(
-                1
-                for action in downlinks
-                if _interval_contains(midpoint, action.start, action.end)
-            )
-            if concurrent_count > terminal_count:
-                errors.append(
-                    f"Satellite {satellite_id} uses {concurrent_count} simultaneous downlinks but only "
-                    f"{terminal_count} terminals are available"
-                )
-                break
-
-
 def _simulate_resources(
     instance: Instance,
     actions_by_satellite: dict[str, list[Action]],
@@ -536,7 +498,7 @@ def _simulate_resources(
 ) -> None:
     resource = instance.satellite_model.resource_model
     sensor = instance.satellite_model.sensor
-    terminal = instance.satellite_model.terminal_profile
+    terminal = instance.satellite_model.terminal
     attitude = instance.satellite_model.attitude_model
 
     for satellite_id, propagator in propagators.items():
@@ -699,7 +661,6 @@ def verify(instance: Instance, solution: Solution) -> VerificationResult:
     maneuver_windows = _build_maneuver_windows(
         instance, actions_by_satellite, propagators, errors
     )
-    _validate_downlink_concurrency(instance, actions_by_satellite, errors)
     if errors:
         return VerificationResult(is_valid=False, errors=errors, warnings=warnings)
 
