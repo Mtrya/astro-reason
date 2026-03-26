@@ -1,0 +1,17 @@
+{
+  "is_valid": true,
+  "metrics": {
+    "mean_revisit_gap_hours": 1.0,
+    "max_revisit_gap_hours": 1.0,
+    "satellite_count": 1,
+    "threshold_satisfied": false,
+    "target_gap_summary": {
+      "t1": {
+        "mean_revisit_gap_hours": 1.0,
+        "max_revisit_gap_hours": 1.0,
+        "observation_count": 0,
+        "expected_revisit_period_hours": 0.5
+      }
+    }
+  }
+}

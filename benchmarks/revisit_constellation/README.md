@@ -65,9 +65,9 @@ The satellite model includes:
   - `field_of_view_half_angle_deg`
   - `max_range_m`
   - `obs_discharge_rate_w`
-  - `obs_store_rate_mbps`
+  - `obs_store_rate_mb_per_s`
 - `terminals[]`
-  - `downlink_release_rate_mbps`
+  - `downlink_release_rate_mb_per_s`
   - `downlink_discharge_rate_w`
 - `resource_model`
   - `battery_capacity_wh`

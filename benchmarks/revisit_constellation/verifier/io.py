@@ -135,9 +135,9 @@ def _parse_satellite_model(payload: dict[str, Any]) -> SatelliteModel:
 
     terminals = tuple(
         TerminalModel(
-            downlink_release_rate_mbps=_require_float(
+            downlink_release_rate_mb_per_s=_require_float(
                 _require_mapping(item, f"{context}.terminals[{index}]"),
-                "downlink_release_rate_mbps",
+                "downlink_release_rate_mb_per_s",
                 f"{context}.terminals[{index}]",
             ),
             downlink_discharge_rate_w=_require_float(
@@ -171,8 +171,8 @@ def _parse_satellite_model(payload: dict[str, Any]) -> SatelliteModel:
             obs_discharge_rate_w=_require_float(
                 sensor_payload, "obs_discharge_rate_w", f"{context}.sensor"
             ),
-            obs_store_rate_mbps=_require_float(
-                sensor_payload, "obs_store_rate_mbps", f"{context}.sensor"
+            obs_store_rate_mb_per_s=_require_float(
+                sensor_payload, "obs_store_rate_mb_per_s", f"{context}.sensor"
             ),
         ),
         terminals=terminals,

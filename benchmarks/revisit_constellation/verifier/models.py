@@ -23,12 +23,12 @@ class SensorModel:
     field_of_view_half_angle_deg: float
     max_range_m: float
     obs_discharge_rate_w: float
-    obs_store_rate_mbps: float
+    obs_store_rate_mb_per_s: float
 
 
 @dataclass(frozen=True)
 class TerminalModel:
-    downlink_release_rate_mbps: float
+    downlink_release_rate_mb_per_s: float
     downlink_discharge_rate_w: float
 
 
