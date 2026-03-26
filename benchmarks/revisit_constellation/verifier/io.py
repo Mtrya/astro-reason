@@ -149,8 +149,8 @@ def _parse_satellite_model(payload: dict[str, Any]) -> SatelliteModel:
     return SatelliteModel(
         model_name=_require_str(payload, "model_name", context),
         sensor=SensorModel(
-            field_of_view_half_angle_deg=_require_float(
-                sensor_payload, "field_of_view_half_angle_deg", f"{context}.sensor"
+            max_off_nadir_angle_deg=_require_float(
+                sensor_payload, "max_off_nadir_angle_deg", f"{context}.sensor"
             ),
             max_range_m=_require_float(
                 sensor_payload, "max_range_m", f"{context}.sensor"

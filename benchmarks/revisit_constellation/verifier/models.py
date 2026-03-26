@@ -19,7 +19,7 @@ NUMERICAL_EPS = 1e-9
 
 @dataclass(frozen=True)
 class SensorModel:
-    field_of_view_half_angle_deg: float
+    max_off_nadir_angle_deg: float
     max_range_m: float
     obs_discharge_rate_w: float
     obs_store_rate_mb_per_s: float

@@ -55,7 +55,7 @@ def _build_assets_payload(satellite_count: int) -> dict[str, Any]:
         "satellite_model": {
             "model_name": "sgp4_fixture_adapter",
             "sensor": {
-                "field_of_view_half_angle_deg": 180.0,
+                "max_off_nadir_angle_deg": 180.0,
                 "max_range_m": NO_SLANT_RANGE_LIMIT_M,
                 "obs_discharge_rate_w": 1.0,
                 "obs_store_rate_mb_per_s": 0.0,
