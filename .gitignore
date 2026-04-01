@@ -19,6 +19,7 @@ venv.bak/
 .agents/
 .qwen/
 .vscode/
+.codex
 CLAUDE.md
 AGENTS.md
 GEMINI.md
