@@ -6,11 +6,13 @@ This directory contains the canonical committed dataset for the
 ## Layout
 
 - `index.json`
+- `example_solutions.json`
 - `cases/<case_id>/assets.json`
 - `cases/<case_id>/mission.json`
 
 Each case directory contains only the two canonical machine-readable files used
-by the verifier.
+by the verifier. `example_solutions.json` maps case IDs to minimal runnable
+examples for verifier smoke tests; these are not baselines.
 
 ## Canonical Generation
 

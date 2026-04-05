@@ -498,14 +498,14 @@ def main() -> int:  # pragma: no cover - CLI utility
 
     parser = argparse.ArgumentParser(description="Verify SatNet scheduling solutions")
     parser.add_argument(
-        "case",
+        "case_dir",
         help="Path to a canonical SatNet case directory",
     )
-    parser.add_argument("solution", help="Path to a solution JSON file")
+    parser.add_argument("solution_path", help="Path to a solution JSON file")
     parser.add_argument("-v", "--verbose", action="store_true", help="Verbose output")
     args = parser.parse_args()
 
-    result = verify_case(args.case, args.solution)
+    result = verify_case(args.case_dir, args.solution_path)
     _print_cli_result(result, verbose=args.verbose)
 
     return 0 if result.is_valid else 1
