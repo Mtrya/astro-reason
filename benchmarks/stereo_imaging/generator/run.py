@@ -27,7 +27,7 @@ def _load_runtime_modules():
         sys.modules[package_name] = package
 
     loaded = {}
-    for module_name in ("normalize", "sources"):
+    for module_name in ("normalize", "sources", "build"):
         qualified_name = f"{package_name}.{module_name}"
         module = sys.modules.get(qualified_name)
         if module is None:
@@ -42,22 +42,29 @@ def _load_runtime_modules():
             sys.modules[qualified_name] = module
             spec.loader.exec_module(module)
         loaded[module_name] = module
-    return loaded["normalize"], loaded["sources"]
+    return loaded["normalize"], loaded["sources"], loaded["build"]
 
 
 if __package__ in {None, ""}:  # pragma: no cover - script-path import support
-    _normalize_module, _sources_module = _load_runtime_modules()
+    _normalize_module, _sources_module, _build_module = _load_runtime_modules()
     fetch_all_sources = _sources_module.fetch_all_sources
     query_etopo_elevation = _normalize_module.query_etopo_elevation
     query_worldcover_class = _normalize_module.query_worldcover_class
+    generate_dataset = _build_module.generate_dataset
+    CANONICAL_SEED = _build_module.CANONICAL_SEED
     sources_module = _sources_module
 else:  # pragma: no cover
+    from .build import CANONICAL_SEED, generate_dataset
     from . import sources as sources_module
     from .normalize import query_etopo_elevation, query_worldcover_class
     from .sources import fetch_all_sources
 
 
-DEFAULT_DOWNLOAD_DIR = Path(__file__).resolve().parent.parent / "dataset" / "source_data"
+# Benchmark root: .../benchmarks/stereo_imaging
+_BENCHMARK_ROOT = Path(__file__).resolve().parent.parent
+DEFAULT_DOWNLOAD_DIR = _BENCHMARK_ROOT / "dataset" / "source_data"
+# Canonical v3 outputs (cases/, index.json, example_solution.json) — independent of --download-dir.
+DEFAULT_DATASET_DIR = _BENCHMARK_ROOT / "dataset"
 
 
 def _git_revision(repo_root: Path) -> str | None:
@@ -141,14 +148,43 @@ def _write_provenance(
 
 
 def main(argv: list[str] | None = None) -> int:
+    # Per docs/benchmark_contract.md (Generator Contract): running with no flags must produce
+    # the default canonical dataset (fetch sources if needed, then write dataset/cases/, etc.).
     parser = argparse.ArgumentParser(
-        description="Fetch and normalize v3 source data for stereo_imaging (CelesTrak, ETOPO, WorldCover, world cities)"
+        description=(
+            "Stereo imaging v3 generator: fetch source data if needed, then emit the canonical "
+            "dataset (dataset/cases/, index.json, example_solution.json). "
+            "Default: no flags = full canonical path per repository benchmark contract."
+        )
     )
     parser.add_argument(
         "--download-dir",
         type=Path,
         default=DEFAULT_DOWNLOAD_DIR,
         help="Where to store source_data (default: <benchmark>/dataset/source_data)",
+    )
+    parser.add_argument(
+        "--dataset-dir",
+        type=Path,
+        default=None,
+        help=(
+            "Where to write cases, index.json, example_solution.json "
+            f"(default: {DEFAULT_DATASET_DIR})"
+        ),
+    )
+    parser.add_argument(
+        "--sources-only",
+        action="store_true",
+        help=(
+            "Dev-only: only fetch and normalize source_data; skip canonical dataset emission. "
+            "Not required for the normal canonical dataset (omit this flag)."
+        ),
+    )
+    parser.add_argument(
+        "--seed",
+        type=int,
+        default=None,
+        help=f"Canonical RNG seed for dataset generation (default: {CANONICAL_SEED})",
     )
     parser.add_argument(
         "--force-download",
@@ -163,7 +199,9 @@ def main(argv: list[str] | None = None) -> int:
     args = parser.parse_args(argv)
 
     dest_dir = args.download_dir.resolve()
+    dataset_dir = (args.dataset_dir or DEFAULT_DATASET_DIR).resolve()
     repo_root = Path(__file__).resolve().parents[3]
+    seed = CANONICAL_SEED if args.seed is None else args.seed
 
     results = fetch_all_sources(
         dest_dir,
@@ -188,6 +226,19 @@ def main(argv: list[str] | None = None) -> int:
         print(f"Sample WorldCover class (Paris tile): {sample}")
 
     print(f"Stereo imaging source data ready under {dest_dir}")
+
+    if args.sources_only:
+        return 0
+
+    rev = _git_revision(repo_root)
+    generate_dataset(
+        source_dir=dest_dir,
+        output_dir=dataset_dir,
+        seed=seed,
+        git_revision=rev,
+    )
+    print(f"Canonical v3 dataset written under {dataset_dir / 'cases'}")
+    print(f"Wrote {dataset_dir / 'index.json'} and {dataset_dir / 'example_solution.json'}")
     return 0
 
 

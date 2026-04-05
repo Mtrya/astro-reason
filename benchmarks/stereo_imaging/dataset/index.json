@@ -1,0 +1,137 @@
+{
+  "benchmark": "stereo_imaging",
+  "canonical_seed": 20260406,
+  "cases": [
+    {
+      "case_id": "case_0001",
+      "horizon_end": "2026-06-19T22:00:00Z",
+      "horizon_start": "2026-06-17T22:00:00Z",
+      "norad_catalog_ids": [
+        41556,
+        38012,
+        40118
+      ],
+      "num_satellites": 3,
+      "num_targets": 46,
+      "satellite_ids": [
+        "sat_ziyuan_3_02",
+        "sat_pleiades_1a",
+        "sat_gaofen_2"
+      ]
+    },
+    {
+      "case_id": "case_0002",
+      "horizon_end": "2026-06-20T04:00:00Z",
+      "horizon_start": "2026-06-18T04:00:00Z",
+      "norad_catalog_ids": [
+        41556,
+        40013
+      ],
+      "num_satellites": 2,
+      "num_targets": 25,
+      "satellite_ids": [
+        "sat_ziyuan_3_02",
+        "sat_deimos_2"
+      ]
+    },
+    {
+      "case_id": "case_0003",
+      "horizon_end": "2026-06-20T10:00:00Z",
+      "horizon_start": "2026-06-18T10:00:00Z",
+      "norad_catalog_ids": [
+        38755,
+        41556
+      ],
+      "num_satellites": 2,
+      "num_targets": 25,
+      "satellite_ids": [
+        "sat_spot_6",
+        "sat_ziyuan_3_02"
+      ]
+    },
+    {
+      "case_id": "case_0004",
+      "horizon_end": "2026-06-20T16:00:00Z",
+      "horizon_start": "2026-06-18T16:00:00Z",
+      "norad_catalog_ids": [
+        38012,
+        41556,
+        40118,
+        38755
+      ],
+      "num_satellites": 4,
+      "num_targets": 30,
+      "satellite_ids": [
+        "sat_pleiades_1a",
+        "sat_ziyuan_3_02",
+        "sat_gaofen_2",
+        "sat_spot_6"
+      ]
+    },
+    {
+      "case_id": "case_0005",
+      "horizon_end": "2026-06-20T22:00:00Z",
+      "horizon_start": "2026-06-18T22:00:00Z",
+      "norad_catalog_ids": [
+        40118,
+        41556
+      ],
+      "num_satellites": 2,
+      "num_targets": 45,
+      "satellite_ids": [
+        "sat_gaofen_2",
+        "sat_ziyuan_3_02"
+      ]
+    }
+  ],
+  "generator_revision": "5cbe90b541d1b72366db6a203169c13fb63ce525",
+  "horizon_duration_s": 172800,
+  "selected_norad_catalog_ids": [
+    38012,
+    38755,
+    40013,
+    40053,
+    40118,
+    41556
+  ],
+  "source_provenance": {
+    "celestrak": {
+      "record_count": 162,
+      "retrieval_timestamp_utc": "2026-04-05T17:21:38Z",
+      "skipped_cached": true,
+      "url": "https://celestrak.org/NORAD/elements/gp.php?GROUP=resource&FORMAT=tle"
+    },
+    "etopo_2022": {
+      "local_path": "etopo/ETOPO_2022_v1_60s_N90W180_surface.tif",
+      "product_id": "ETOPO_2022_v1_60s_N90W180_surface",
+      "retrieval_timestamp_utc": "2026-04-05T17:21:38Z",
+      "sha256": "9d27d4b8ea8e76977e2988bca667d7c8fa68b927355feffcddd6b4875a7fd08e",
+      "skipped_cached": true,
+      "url": "https://www.ngdc.noaa.gov/mgg/global/relief/ETOPO2022/data/60s/60s_surface_elev_gtif/ETOPO_2022_v1_60s_N90W180_surface.tif",
+      "urls_tried": [
+        "https://www.ngdc.noaa.gov/mgg/global/relief/ETOPO2022/data/60s/60s_surface_elev_gtif/ETOPO_2022_v1_60s_N90W180_surface.tif",
+        "https://www.ngdc.noaa.gov/thredds/fileServer/global/ETOPO2022/60s/60s_surface_elevation_geotiff/ETOPO_2022_v1_60s_N90W180_surface.tif"
+      ]
+    },
+    "generated_at_utc": "2026-04-05T17:21:38Z",
+    "generator_revision": "5cbe90b541d1b72366db6a203169c13fb63ce525",
+    "world_cities": {
+      "kaggle_dataset": "juanmah/world-cities",
+      "retrieval_timestamp_utc": "2026-04-05T17:21:38Z",
+      "skipped_cached": true
+    },
+    "worldcover": {
+      "base_url": "https://esa-worldcover.s3.eu-central-1.amazonaws.com/v200/2021/map",
+      "demo_tile_paths": [
+        "worldcover/ESA_WorldCover_10m_2021_v200_N48E000_Map.tif",
+        "worldcover/ESA_WorldCover_10m_2021_v200_N36W123_Map.tif",
+        "worldcover/ESA_WorldCover_10m_2021_v200_N33E138_Map.tif",
+        "worldcover/ESA_WorldCover_10m_2021_v200_S36E150_Map.tif"
+      ],
+      "product_version": "v200",
+      "retrieval_timestamp_utc": "2026-04-05T17:21:38Z",
+      "year": 2021
+    }
+  },
+  "spec_version": "v3"
+}

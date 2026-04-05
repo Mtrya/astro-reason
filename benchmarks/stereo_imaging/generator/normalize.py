@@ -9,6 +9,7 @@ from typing import Any
 
 import numpy as np
 import rasterio
+from rasterio.windows import Window
 
 # World cities CSV: canonical column names after normalization
 WORLD_CITIES_CANONICAL_FIELDS = (
@@ -164,8 +165,9 @@ def query_etopo_elevation(tif_path: Path, lat: float, lon: float) -> float:
     """Sample ETOPO GeoTIFF at WGS84 (lat, lon); returns elevation in meters."""
     with rasterio.open(tif_path) as ds:
         row, col = ds.index(lon, lat)
-        band = ds.read(1)
-        val = float(band[row, col])
+        ir, ic = int(row), int(col)
+        win = Window(ic, ir, 1, 1)
+        val = float(ds.read(1, window=win)[0, 0])
         nodata = ds.nodata
         if nodata is not None and val == nodata:
             return float("nan")
@@ -183,5 +185,6 @@ def query_worldcover_class(tile_dir: Path, lat: float, lon: float) -> int:
         )
     with rasterio.open(path) as ds:
         row, col = ds.index(lon, lat)
-        band = ds.read(1)
-        return int(band[row, col])
+        ir, ic = int(row), int(col)
+        win = Window(ic, ir, 1, 1)
+        return int(ds.read(1, window=win)[0, 0])

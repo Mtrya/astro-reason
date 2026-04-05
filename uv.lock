@@ -43,6 +43,7 @@ dependencies = [
     { name = "kagglehub", extra = ["pandas-datasets"] },
     { name = "numpy" },
     { name = "pytest" },
+    { name = "pyyaml" },
     { name = "rasterio" },
     { name = "skyfield" },
 ]
@@ -55,6 +56,7 @@ requires-dist = [
     { name = "kagglehub", extras = ["pandas-datasets"], specifier = ">=1.0.0" },
     { name = "numpy", specifier = ">=2.3.5" },
     { name = "pytest", specifier = ">=9.0.2" },
+    { name = "pyyaml", specifier = ">=6.0" },
     { name = "rasterio", specifier = ">=1.5.0" },
     { name = "skyfield", specifier = ">=1.54" },
 ]
