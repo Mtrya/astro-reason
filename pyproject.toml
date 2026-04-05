@@ -11,5 +11,6 @@ dependencies = [
     "kagglehub[pandas-datasets]>=1.0.0",
     "numpy>=2.3.5",
     "pytest>=9.0.2",
+    "rasterio>=1.5.0",
     "skyfield>=1.54",
 ]
