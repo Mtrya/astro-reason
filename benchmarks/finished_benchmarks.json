@@ -1,0 +1,30 @@
+{
+  "version": 1,
+  "benchmarks": [
+    {
+      "name": "revisit_constellation",
+      "repro_ci": false,
+      "generated_paths": [
+        "dataset/cases",
+        "dataset/index.json"
+      ]
+    },
+    {
+      "name": "satnet",
+      "repro_ci": true,
+      "generated_paths": [
+        "dataset/cases",
+        "dataset/index.json",
+        "dataset/mission_color_map.json"
+      ]
+    },
+    {
+      "name": "spot5",
+      "repro_ci": true,
+      "generated_paths": [
+        "dataset/cases",
+        "dataset/index.json"
+      ]
+    }
+  ]
+}

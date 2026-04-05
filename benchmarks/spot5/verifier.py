@@ -6,6 +6,7 @@ Based on the ROADEF 2003 Challenge dataset and Wei & Hao's DCKP formulation.
 """
 
 from dataclasses import dataclass, field
+import json
 from pathlib import Path
 from typing import Optional
 
@@ -206,7 +207,7 @@ def parse_instance(filepath: str | Path) -> Instance:
 
 def parse_solution(filepath: str | Path) -> Solution:
     """
-    Parse a .spot_sol.txt solution file.
+    Parse a .spot_sol.txt solution file or an equivalent JSON solution file.
 
     File format:
         profit = <P>, weight = <W>
@@ -217,6 +218,22 @@ def parse_solution(filepath: str | Path) -> Solution:
         ...
     """
     filepath = Path(filepath)
+
+    if filepath.suffix == ".json":
+        with open(filepath, "r") as f:
+            payload = json.load(f)
+
+        assignments = [int(value) for value in payload["assignments"]]
+        n_candidates = int(payload.get("n_candidates", len(assignments)))
+        n_selected = int(payload.get("n_selected", sum(1 for value in assignments if value != 0)))
+
+        return Solution(
+            claimed_profit=int(payload.get("claimed_profit", 0)),
+            claimed_weight=int(payload.get("claimed_weight", 0)),
+            n_candidates=n_candidates,
+            n_selected=n_selected,
+            assignments=assignments,
+        )
 
     with open(filepath, "r") as f:
         lines = [line.strip() for line in f if line.strip()]
@@ -391,15 +408,15 @@ def main():
         description="Verify SPOT-5 satellite scheduling solutions"
     )
     parser.add_argument(
-        "instance",
+        "case_dir",
         help="Path to a SPOT-5 case directory or direct .spot instance file",
     )
-    parser.add_argument("solution", help="Path to .spot_sol.txt solution file")
+    parser.add_argument("solution_path", help="Path to .spot_sol.txt solution file")
     parser.add_argument("-v", "--verbose", action="store_true", help="Verbose output")
 
     args = parser.parse_args()
 
-    result = verify_files(args.instance, args.solution)
+    result = verify_files(args.case_dir, args.solution_path)
 
     if args.verbose:
         print(result)

@@ -301,6 +301,7 @@ benchmarks/revisit_constellation/
 ├── dataset/
 │   ├── README.md
 │   ├── index.json
+│   ├── example_solutions.json
 │   └── cases/
 │       └── case_0001/{assets.json,mission.json}
 ├── generator/

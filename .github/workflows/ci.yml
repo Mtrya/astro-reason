@@ -1,0 +1,30 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+
+jobs:
+  test-and-contract:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: astral-sh/setup-uv@v6
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version-file: pyproject.toml
+
+      - name: Sync environment
+        run: uv sync
+
+      - name: Validate finished benchmark contract
+        run: uv run python scripts/validate_benchmark_contract.py
+
+      - name: Run tests
+        run: uv run pytest tests/
