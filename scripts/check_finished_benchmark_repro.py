@@ -71,7 +71,7 @@ def _copy_generator(benchmark_root: Path, temp_benchmark_root: Path, entrypoint:
     if entrypoint.parent.name == "generator":
         generator_dir = entrypoint.parent
         temp_generator_dir = temp_entrypoint.parent
-        shutil.copytree(generator_dir, temp_generator_dir, dirs_exist_ok=True)
+        shutil.copytree(generator_dir, temp_generator_dir, dirs_exist_ok=True, ignore=shutil.ignore_patterns("__pycache__", "*.pyc"))
     else:
         # Single-file generator, just copy the entrypoint
         shutil.copy2(entrypoint, temp_entrypoint)
