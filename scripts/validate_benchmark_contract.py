@@ -4,9 +4,11 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 import json
+import os
 from pathlib import Path
 import subprocess
 import sys
+import tempfile
 
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
@@ -56,6 +58,22 @@ def find_example_solution(dataset_dir: Path) -> Path | None:
         solutions_path = dataset_dir / filename
         if solutions_path.is_file():
             return solutions_path
+    return None
+
+
+def _generator_entrypoint(benchmark_root: Path) -> Path | None:
+    for relative in ("generator.py", "generator/run.py"):
+        candidate = benchmark_root / relative
+        if candidate.exists():
+            return candidate
+    return None
+
+
+def _verifier_entrypoint(benchmark_root: Path) -> Path | None:
+    for relative in ("verifier.py", "verifier/run.py"):
+        candidate = benchmark_root / relative
+        if candidate.exists():
+            return candidate
     return None
 
 
@@ -144,6 +162,94 @@ def _check_public_code(benchmark_root: Path, errors: list[str]) -> None:
                 errors.append(f"{relative}: {explanation}")
 
 
+def _check_generator_help(benchmark_root: Path, errors: list[str]) -> None:
+    entrypoint = _generator_entrypoint(benchmark_root)
+    if entrypoint is None:
+        errors.append(f"{benchmark_root.name}: missing generator entrypoint")
+        return
+    result = subprocess.run(
+        [sys.executable, str(entrypoint), "--help"],
+        cwd=REPO_ROOT,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    if result.returncode != 0:
+        errors.append(f"{benchmark_root.name}: generator --help failed: {result.stderr}")
+    elif "usage:" not in result.stdout.lower():
+        errors.append(f"{benchmark_root.name}: generator --help missing usage information")
+
+
+def _check_verifier_smoke(benchmark_root: Path, errors: list[str]) -> None:
+    verifier_entrypoint = _verifier_entrypoint(benchmark_root)
+    if verifier_entrypoint is None:
+        errors.append(f"{benchmark_root.name}: missing verifier entrypoint")
+        return
+
+    dataset_dir = benchmark_root / "dataset"
+    solutions_path = find_example_solution(dataset_dir)
+    if solutions_path is None:
+        errors.append(f"{benchmark_root.name}: missing example_solution.json for smoke test")
+        return
+
+    try:
+        all_solutions = json.loads(solutions_path.read_text())
+    except (json.JSONDecodeError, OSError) as e:
+        errors.append(f"{benchmark_root.name}: failed to parse example_solution.json: {e}")
+        return
+
+    if not all_solutions:
+        errors.append(f"{benchmark_root.name}: empty example_solution.json")
+        return
+
+    cases_dir = dataset_dir / "cases"
+    case_dirs = sorted(path for path in cases_dir.iterdir() if path.is_dir())
+    if not case_dirs:
+        errors.append(f"{benchmark_root.name}: no cases found for smoke test")
+        return
+
+    case_solution = None
+    case_dir = None
+    case_id = None
+    for cd in case_dirs:
+        cid = cd.name
+        if cid in all_solutions:
+            case_solution = all_solutions[cid]
+            case_dir = cd
+            case_id = cid
+            break
+
+    if case_solution is None:
+        errors.append(f"{benchmark_root.name}: no matching case found in example_solution.json")
+        return
+
+    with tempfile.TemporaryDirectory() as tmp_dir:
+        tmp_path = Path(tmp_dir)
+        env = dict(os.environ)
+        env["MPLCONFIGDIR"] = str(tmp_path / "mplconfig")
+        case_solution_path = tmp_path / f"{case_id}_solution.json"
+        case_solution_path.write_text(json.dumps(case_solution))
+
+        result = subprocess.run(
+            [
+                sys.executable,
+                str(verifier_entrypoint),
+                str(case_dir),
+                str(case_solution_path),
+            ],
+            cwd=REPO_ROOT,
+            capture_output=True,
+            text=True,
+            check=False,
+            env=env,
+        )
+
+        if result.returncode != 0:
+            errors.append(f"{benchmark_root.name}: verifier smoke test failed: {result.stderr}")
+        elif not result.stdout.strip():
+            errors.append(f"{benchmark_root.name}: verifier produced no output")
+
+
 def validate_finished_benchmarks(repo_root: Path = REPO_ROOT) -> list[str]:
     errors: list[str] = []
     for benchmark in load_finished_benchmarks(repo_root / "benchmarks" / "finished_benchmarks.json"):
@@ -154,6 +260,8 @@ def validate_finished_benchmarks(repo_root: Path = REPO_ROOT) -> list[str]:
         _check_required_root_entries(benchmark_root, errors)
         _check_dataset_layout(benchmark_root, errors)
         _check_public_code(benchmark_root, errors)
+        _check_generator_help(benchmark_root, errors)
+        _check_verifier_smoke(benchmark_root, errors)
     return errors
 
 
