@@ -17,7 +17,7 @@ See `datasets/case_0001/` for example structure:
 
 ## Metrics
 
-See `verifier.py` for scoring details.
+See [`SPEC_v3.md`](SPEC_v3.md) and [`verifier/run.py`](verifier/run.py) for scoring details.
 
 Key metrics:
 - `stereo_coverage` - Fraction of targets with valid stereo pairs
