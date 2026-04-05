@@ -99,6 +99,17 @@ def extract_zip_tree(zip_path: Path, destination: Path) -> None:
             archive.extractall(nested_destination)
 
 
+def build_example_solution(case_id: str, n_candidates: int) -> dict:
+    """Return a minimal example solution for smoke tests."""
+    return {
+        "claimed_profit": 0,
+        "claimed_weight": 0,
+        "n_candidates": n_candidates,
+        "n_selected": 0,
+        "assignments": [0] * n_candidates,
+    }
+
+
 def build_case_dataset(
     spot_files: list[Path],
     output_dir: Path,
@@ -114,6 +125,7 @@ def build_case_dataset(
         "source": provenance,
         "cases": [],
     }
+    example_solution: dict[str, dict] = {}
 
     for source_path in sorted(spot_files, key=lambda path: path.stem):
         case_id = source_path.stem
@@ -122,6 +134,14 @@ def build_case_dataset(
 
         destination = case_dir / f"{case_id}.spot"
         shutil.copyfile(source_path, destination)
+
+        # Parse n_candidates from the spot file for the example solution
+        spot_content = destination.read_text()
+        lines = spot_content.strip().splitlines()
+        n_vars = int(lines[0].strip()) if lines else 0
+
+        if case_id == "8":
+            example_solution[case_id] = build_example_solution(case_id, n_vars)
 
         index["cases"].append(
             {
@@ -133,6 +153,7 @@ def build_case_dataset(
         )
 
     _write_json(output_dir / "index.json", index)
+    _write_json(output_dir / "example_solution.json", example_solution)
 
 
 def main() -> int:  # pragma: no cover - CLI wrapper

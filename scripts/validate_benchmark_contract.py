@@ -23,10 +23,10 @@ ROOT_ENTRY_REQUIRED_GROUPS = (
     ("generator.py", "generator"),
     ("verifier.py", "verifier"),
 )
-EXAMPLE_SOLUTIONS_FILENAMES = (
-    "example_solutions.json",
-    "example_solutions.yaml",
-    "example_solutions.yml",
+EXAMPLE_SOLUTION_FILENAMES = (
+    "example_solution.json",
+    "example_solution.yaml",
+    "example_solution.yml",
 )
 
 
@@ -51,12 +51,8 @@ def load_finished_benchmarks(path: Path = FINISHED_BENCHMARKS_PATH) -> list[Fini
     return benchmarks
 
 
-def load_finished_benchmark_names(path: Path = FINISHED_BENCHMARKS_PATH) -> list[str]:
-    return [benchmark.name for benchmark in load_finished_benchmarks(path)]
-
-
-def find_example_solutions(dataset_dir: Path) -> Path | None:
-    for filename in EXAMPLE_SOLUTIONS_FILENAMES:
+def find_example_solution(dataset_dir: Path) -> Path | None:
+    for filename in EXAMPLE_SOLUTION_FILENAMES:
         solutions_path = dataset_dir / filename
         if solutions_path.is_file():
             return solutions_path
@@ -105,9 +101,9 @@ def _check_dataset_layout(benchmark_root: Path, errors: list[str]) -> None:
     case_dirs = sorted(path for path in cases_dir.iterdir() if path.is_dir())
     if not case_dirs:
         errors.append(f"{benchmark_root.name}: dataset/cases must contain at least one case directory")
-    if find_example_solutions(dataset_dir) is None:
+    if find_example_solution(dataset_dir) is None:
         errors.append(
-            f"{benchmark_root.name}: dataset must include example_solutions.json or example_solutions.yaml"
+            f"{benchmark_root.name}: dataset must include example_solution.json or example_solution.yaml"
         )
 
     for tracked_path in _git_tracked_files(dataset_dir):
