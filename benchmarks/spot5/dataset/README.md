@@ -7,7 +7,7 @@ Each case directory contains exactly one raw instance file:
 ```text
 dataset/
 ├── index.json
-├── example_solutions.json
+├── example_solution.json
 └── cases/
     └── <case_id>/
         └── <case_id>.spot
@@ -22,7 +22,7 @@ Examples:
 `index.json` records the benchmark name, upstream provenance, and the list of
 published case IDs.
 
-`example_solutions.json` maps case IDs to minimal runnable examples for
+`example_solution.json` maps case IDs to minimal runnable examples for
 verifier smoke tests. These are not baselines.
 
 To regenerate this layout from the upstream Mendeley release, run:

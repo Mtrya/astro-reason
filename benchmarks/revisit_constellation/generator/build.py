@@ -428,11 +428,13 @@ This directory contains the canonical committed dataset for the
 ## Layout
 
 - `index.json`
+- `example_solution.json`
 - `cases/<case_id>/assets.json`
 - `cases/<case_id>/mission.json`
 
 Each case directory contains only the two canonical machine-readable files used
-by the verifier.
+by the verifier. `example_solution.json` maps case IDs to minimal runnable
+examples for verifier smoke tests; these are not baselines.
 
 ## Canonical Generation
 
@@ -501,6 +503,8 @@ def generate_dataset(
     shutil.rmtree(cases_dir, ignore_errors=True)
     cases_dir.mkdir(parents=True, exist_ok=True)
 
+    example_solution: dict[str, dict] = {}
+
     for index, case_spec in enumerate(case_specs):
         case_seed = seed + (index * 10_000)
         case_targets = select_targets(cities, case_spec.target_count, seed=case_seed + 1)
@@ -509,7 +513,11 @@ def generate_dataset(
         _write_json(case_dir / "assets.json", build_assets_payload(case_spec, case_stations))
         _write_json(case_dir / "mission.json", build_mission_payload(case_spec, case_targets))
 
+        if case_spec.case_id == "case_0001":
+            example_solution[case_spec.case_id] = {"satellites": [], "actions": []}
+
     index_payload = build_index_payload(case_specs, seed=seed)
     _write_json(output_dir / "index.json", index_payload)
+    _write_json(output_dir / "example_solution.json", example_solution)
     _write_text(output_dir / "README.md", build_dataset_readme(index_payload))
     return output_dir

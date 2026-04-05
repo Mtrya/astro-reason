@@ -112,6 +112,7 @@ def build_case_dataset(
         "source": provenance,
         "cases": [],
     }
+    example_solution: dict[str, list] = {}
 
     for case_id in sorted(problems):
         week = int(case_id.split("_")[0][1:])
@@ -142,6 +143,9 @@ def build_case_dataset(
         }
         _write_json(case_dir / "metadata.json", metadata)
 
+        if case_id == "W10_2018":
+            example_solution[case_id] = []
+
         index["cases"].append(
             {
                 "case_id": case_id,
@@ -155,6 +159,7 @@ def build_case_dataset(
 
     _write_json(output_dir / "index.json", index)
     _write_json(output_dir / "mission_color_map.json", mission_color_map)
+    _write_json(output_dir / "example_solution.json", example_solution)
 
 
 def main() -> int:  # pragma: no cover - CLI wrapper

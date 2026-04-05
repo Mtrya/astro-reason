@@ -6,7 +6,7 @@ import subprocess
 import sys
 
 from scripts.validate_benchmark_contract import (
-    find_example_solutions,
+    find_example_solution,
     load_finished_benchmarks,
 )
 
@@ -75,12 +75,12 @@ def test_finished_benchmark_verifier_examples_run(tmp_path):
         benchmark_root = REPO_ROOT / "benchmarks" / benchmark.name
         verifier_entrypoint = _verifier_entrypoint(benchmark_root)
         dataset_dir = benchmark_root / "dataset"
-        solutions_path = find_example_solutions(dataset_dir)
+        solutions_path = find_example_solution(dataset_dir)
 
-        assert solutions_path, f"{benchmark.name} is missing example_solutions.json"
+        assert solutions_path, f"{benchmark.name} is missing example_solution.json"
 
         all_solutions = json.loads(solutions_path.read_text())
-        assert all_solutions, f"{benchmark.name} has empty example_solutions.json"
+        assert all_solutions, f"{benchmark.name} has empty example_solution.json"
 
         cases_dir = dataset_dir / "cases"
         case_dirs = sorted(path for path in cases_dir.iterdir() if path.is_dir())

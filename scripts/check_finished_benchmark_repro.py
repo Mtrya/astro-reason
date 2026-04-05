@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import filecmp
 from pathlib import Path
+import shutil
 import subprocess
 import sys
 import tempfile
@@ -28,11 +29,19 @@ def _compare_paths(expected: Path, actual: Path, label: str, errors: list[str]) 
             errors.append(f"{label}: expected generated directory {actual} is missing")
             return
         comparison = filecmp.dircmp(expected, actual)
-        if comparison.left_only or comparison.right_only or comparison.diff_files or comparison.funny_files:
+        # Check for files/directories that only exist on one side
+        if comparison.left_only or comparison.right_only or comparison.funny_files:
             errors.append(
                 f"{label}: generated directory differs for {expected.relative_to(REPO_ROOT)}"
             )
             return
+        # Verify diff_files actually have different content (not just different mtime)
+        for filename in comparison.diff_files:
+            if not filecmp.cmp(expected / filename, actual / filename, shallow=False):
+                errors.append(
+                    f"{label}: generated file differs for {(expected / filename).relative_to(REPO_ROOT)}"
+                )
+                return
         for child in comparison.common_dirs:
             _compare_paths(expected / child, actual / child, label, errors)
         return
@@ -40,14 +49,15 @@ def _compare_paths(expected: Path, actual: Path, label: str, errors: list[str]) 
     if not actual.is_file():
         errors.append(f"{label}: expected generated file {actual} is missing")
         return
-    if expected.read_bytes() != actual.read_bytes():
+    # Use filecmp.cmp with shallow=False for efficient content comparison
+    if not filecmp.cmp(expected, actual, shallow=False):
         errors.append(f"{label}: generated file differs for {expected.relative_to(REPO_ROOT)}")
 
 
-def _run_generator(entrypoint: Path, output_dir: Path) -> None:
+def _run_generator(entrypoint: Path, cwd: Path) -> None:
     subprocess.run(
-        [sys.executable, str(entrypoint), "--output-dir", str(output_dir)],
-        cwd=REPO_ROOT,
+        [sys.executable, str(entrypoint)],
+        cwd=cwd,
         check=True,
     )
 
@@ -60,12 +70,19 @@ def check_reproducibility() -> list[str]:
         benchmark_root = REPO_ROOT / "benchmarks" / benchmark.name
         entrypoint = _generator_entrypoint(benchmark_root)
         with tempfile.TemporaryDirectory(prefix=f"{benchmark.name}-repro-") as temp_dir_name:
-            output_dir = Path(temp_dir_name) / "dataset"
-            _run_generator(entrypoint, output_dir)
+            temp_benchmark_root = Path(temp_dir_name) / benchmark.name
+            temp_benchmark_root.mkdir(parents=True)
+            # Copy generator entrypoint to temp directory
+            temp_entrypoint = temp_benchmark_root / entrypoint.relative_to(benchmark_root)
+            temp_entrypoint.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copy2(entrypoint, temp_entrypoint)
+            # Run generator (it writes to default dataset/ location)
+            _run_generator(temp_entrypoint, temp_benchmark_root)
+            # Compare generated paths
             for relative_str in benchmark.generated_paths:
                 relative = Path(relative_str)
                 expected = benchmark_root / relative
-                actual = output_dir / relative.relative_to("dataset")
+                actual = temp_benchmark_root / relative
                 _compare_paths(expected, actual, benchmark.name, errors)
     return errors
 

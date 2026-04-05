@@ -6,7 +6,8 @@
       "repro_ci": false,
       "generated_paths": [
         "dataset/cases",
-        "dataset/index.json"
+        "dataset/index.json",
+        "dataset/example_solution.json"
       ]
     },
     {
@@ -15,7 +16,8 @@
       "generated_paths": [
         "dataset/cases",
         "dataset/index.json",
-        "dataset/mission_color_map.json"
+        "dataset/mission_color_map.json",
+        "dataset/example_solution.json"
       ]
     },
     {
@@ -23,7 +25,8 @@
       "repro_ci": true,
       "generated_paths": [
         "dataset/cases",
-        "dataset/index.json"
+        "dataset/index.json",
+        "dataset/example_solution.json"
       ]
     }
   ]
