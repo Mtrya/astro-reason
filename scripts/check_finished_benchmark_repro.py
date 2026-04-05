@@ -62,6 +62,23 @@ def _run_generator(entrypoint: Path, cwd: Path) -> None:
     )
 
 
+def _copy_generator(benchmark_root: Path, temp_benchmark_root: Path, entrypoint: Path) -> Path:
+    """Copy generator files to temp directory."""
+    temp_entrypoint = temp_benchmark_root / entrypoint.relative_to(benchmark_root)
+    temp_entrypoint.parent.mkdir(parents=True, exist_ok=True)
+    
+    # If entrypoint is in a generator/ directory, copy the whole directory
+    if entrypoint.parent.name == "generator":
+        generator_dir = entrypoint.parent
+        temp_generator_dir = temp_entrypoint.parent
+        shutil.copytree(generator_dir, temp_generator_dir, dirs_exist_ok=True, ignore=shutil.ignore_patterns("__pycache__", "*.pyc"))
+    else:
+        # Single-file generator, just copy the entrypoint
+        shutil.copy2(entrypoint, temp_entrypoint)
+    
+    return temp_entrypoint
+
+
 def check_reproducibility() -> list[str]:
     errors: list[str] = []
     for benchmark in load_finished_benchmarks():
@@ -72,10 +89,8 @@ def check_reproducibility() -> list[str]:
         with tempfile.TemporaryDirectory(prefix=f"{benchmark.name}-repro-") as temp_dir_name:
             temp_benchmark_root = Path(temp_dir_name) / benchmark.name
             temp_benchmark_root.mkdir(parents=True)
-            # Copy generator entrypoint to temp directory
-            temp_entrypoint = temp_benchmark_root / entrypoint.relative_to(benchmark_root)
-            temp_entrypoint.parent.mkdir(parents=True, exist_ok=True)
-            shutil.copy2(entrypoint, temp_entrypoint)
+            # Copy generator to temp directory
+            temp_entrypoint = _copy_generator(benchmark_root, temp_benchmark_root, entrypoint)
             # Run generator (it writes to default dataset/ location)
             _run_generator(temp_entrypoint, temp_benchmark_root)
             # Compare generated paths
