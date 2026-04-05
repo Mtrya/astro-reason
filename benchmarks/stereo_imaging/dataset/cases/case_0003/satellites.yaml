@@ -1,0 +1,24 @@
+- id: sat_spot_6
+  norad_catalog_id: 38755
+  tle_line1: 1 38755U 12047A   26095.47965377  .00000810  00000+0  18405-3 0  9991
+  tle_line2: 2 38755  98.2169 163.6217 0001458  83.2029 276.9336 14.58566157722457
+  pixel_ifov_deg: 0.00012
+  cross_track_pixels: 12000
+  max_off_nadir_deg: 30.0
+  max_slew_velocity_deg_per_s: 2.35
+  max_slew_acceleration_deg_per_s2: 1.15
+  settling_time_s: 1.35
+  min_obs_duration_s: 2.0
+  max_obs_duration_s: 60.0
+- id: sat_ziyuan_3_02
+  norad_catalog_id: 41556
+  tle_line1: 1 41556U 16033A   26095.51054204  .00008407  00000+0  37715-3 0  9991
+  tle_line2: 2 41556  97.3858 172.6674 0013648 185.2791 174.8304 15.21364482546931
+  pixel_ifov_deg: 0.00017
+  cross_track_pixels: 6000
+  max_off_nadir_deg: 25.0
+  max_slew_velocity_deg_per_s: 0.78
+  max_slew_acceleration_deg_per_s2: 0.08
+  settling_time_s: 2.5
+  min_obs_duration_s: 2.0
+  max_obs_duration_s: 60.0
