@@ -10,6 +10,8 @@ import subprocess
 import sys
 import tempfile
 
+import yaml
+
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 FINISHED_BENCHMARKS_PATH = REPO_ROOT / "benchmarks" / "finished_benchmarks.json"
@@ -59,6 +61,17 @@ def find_example_solution(dataset_dir: Path) -> Path | None:
         if solutions_path.is_file():
             return solutions_path
     return None
+
+
+def _load_example_solution_payload(path: Path) -> object:
+    """Load dataset-level example solution from JSON or YAML (contract allows both)."""
+    text = path.read_text(encoding="utf-8")
+    suffix = path.suffix.lower()
+    if suffix == ".json":
+        return json.loads(text)
+    if suffix in (".yaml", ".yml"):
+        return yaml.safe_load(text)
+    raise ValueError(f"unsupported example solution extension {suffix!r} for {path.name}")
 
 
 def _generator_entrypoint(benchmark_root: Path) -> Path | None:
@@ -121,7 +134,8 @@ def _check_dataset_layout(benchmark_root: Path, errors: list[str]) -> None:
         errors.append(f"{benchmark_root.name}: dataset/cases must contain at least one case directory")
     if find_example_solution(dataset_dir) is None:
         errors.append(
-            f"{benchmark_root.name}: dataset must include example_solution.json or example_solution.yaml"
+            f"{benchmark_root.name}: dataset must include example_solution.json, "
+            "example_solution.yaml, or example_solution.yml"
         )
 
     for tracked_path in _git_tracked_files(dataset_dir):
@@ -181,7 +195,7 @@ def _check_generator_help(benchmark_root: Path, errors: list[str]) -> None:
 
 
 def _example_solution_shape_ok(parsed: object) -> bool:
-    """True if JSON matches a single-solution file (not a legacy case-id mapping)."""
+    """True if parsed example solution matches a single-solution file (not a legacy case-id mapping)."""
     if parsed == {}:
         return False
     if isinstance(parsed, list):
@@ -225,18 +239,22 @@ def _check_verifier_smoke(benchmark_root: Path, errors: list[str]) -> None:
     dataset_dir = benchmark_root / "dataset"
     solutions_path = find_example_solution(dataset_dir)
     if solutions_path is None:
-        errors.append(f"{benchmark_root.name}: missing example_solution.json for smoke test")
+        errors.append(
+            f"{benchmark_root.name}: missing example solution file for smoke test "
+            "(example_solution.json, example_solution.yaml, or example_solution.yml)"
+        )
         return
 
+    label = solutions_path.name
     try:
-        parsed = json.loads(solutions_path.read_text(encoding="utf-8"))
-    except (json.JSONDecodeError, OSError) as e:
-        errors.append(f"{benchmark_root.name}: failed to parse example_solution.json: {e}")
+        parsed = _load_example_solution_payload(solutions_path)
+    except (json.JSONDecodeError, yaml.YAMLError, OSError, UnicodeDecodeError, ValueError) as e:
+        errors.append(f"{benchmark_root.name}: failed to parse {label}: {e}")
         return
 
     if not _example_solution_shape_ok(parsed):
         errors.append(
-            f"{benchmark_root.name}: example_solution.json must be a single solution "
+            f"{benchmark_root.name}: {label} must be a single solution "
             "(same schema as a per-case solution file), not a mapping of case IDs"
         )
         return

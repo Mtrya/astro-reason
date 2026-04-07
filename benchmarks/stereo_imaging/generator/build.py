@@ -550,8 +550,6 @@ def build_example_solution(
     Single per-case shape matching real solutions; aligned with the first canonical case.
     """
     del horizon_starts
-    if not cases:
-        return {"actions": []}
     return {"actions": []}
 
 
