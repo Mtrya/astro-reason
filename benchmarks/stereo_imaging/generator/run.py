@@ -105,7 +105,6 @@ def _write_provenance(
         "world_cities": {
             "kaggle_dataset": sources_module.WORLD_CITIES_DATASET,
             "sha256": cities.extra.get("sha256"),
-            "skipped_cached": cities.extra.get("skipped_cached"),
         },
         "lookup_tables": lookup_table_metadata(),
     }

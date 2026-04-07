@@ -524,15 +524,20 @@ def _write_yaml(path: Path, data: Any) -> None:
 
 
 def _source_provenance_for_index(raw: dict[str, Any]) -> dict[str, Any]:
-    """Strip volatile timestamp fields so `dataset/index.json` is stable for CI hashing."""
+    """Drop volatile fields so `dataset/index.json` is stable for reproducibility hashing.
+
+    Removes timestamps and cache-run flags (e.g. whether world-cities was a cache hit).
+    """
     if not raw:
         return {}
     cleaned = json.loads(json.dumps(raw))
     cleaned.pop("generated_at_utc", None)
+    _VOLATILE_SUBKEYS = frozenset({"retrieval_timestamp_utc", "skipped_cached"})
     for key in ("celestrak", "world_cities"):
         sub = cleaned.get(key)
         if isinstance(sub, dict):
-            sub.pop("retrieval_timestamp_utc", None)
+            for vk in _VOLATILE_SUBKEYS:
+                sub.pop(vk, None)
     return cleaned
 
 
