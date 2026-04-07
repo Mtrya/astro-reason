@@ -71,6 +71,7 @@ class ObservationAction:
 class DerivedObservation:
     satellite_id: str
     target_id: str
+    action_index: int
     start_time: str
     end_time: str
     midpoint_time: str

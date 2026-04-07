@@ -391,7 +391,10 @@ def _monte_carlo_tri_overlap(
 
 
 def _combined_off_nadir_deg(along: float, across: float) -> float:
-    return math.hypot(float(along), float(across))
+    """Tilt angle (deg) from nadir for the tan-steering model in `_boresight_unit_vector`."""
+    a = math.radians(float(along))
+    b = math.radians(float(across))
+    return math.degrees(math.atan(math.sqrt(math.tan(a) ** 2 + math.tan(b) ** 2)))
 
 
 def _access_predicate(
@@ -734,6 +737,7 @@ def verify_solution(case_dir: str | Path, solution_path: str | Path) -> Verifica
             DerivedObservation(
                 satellite_id=act.satellite_id,
                 target_id=act.target_id,
+                action_index=k,
                 start_time=_iso_z(act.start),
                 end_time=_iso_z(act.end),
                 midpoint_time=_iso_z(mid),
@@ -751,11 +755,11 @@ def verify_solution(case_dir: str | Path, solution_path: str | Path) -> Verifica
 
     # Stereo products (same satellite, same target, same access id)
     derived_by_key: dict[tuple[str, str, str], list[tuple[int, DerivedObservation]]] = {}
-    for i, d in enumerate(derived_list):
+    for d in derived_list:
         if d.access_interval_id == "none":
             continue
         key = (d.satellite_id, d.target_id, d.access_interval_id)
-        derived_by_key.setdefault(key, []).append((i, d))
+        derived_by_key.setdefault(key, []).append((d.action_index, d))
 
     pair_diagnostics: list[dict[str, Any]] = []
 
@@ -990,8 +994,13 @@ def verify_solution(case_dir: str | Path, solution_path: str | Path) -> Verifica
                             per_target_best[target_id] = q_tri
 
     n_targets = len(targets)
-    coverage_ratio = len(covered) / n_targets
-    normalized_quality = sum(per_target_best[tid] for tid in targets) / n_targets
+    if n_targets == 0:
+        violations.append(f"case {case_id}: targets.yaml defines no targets")
+        coverage_ratio = 0.0
+        normalized_quality = 0.0
+    else:
+        coverage_ratio = len(covered) / n_targets
+        normalized_quality = sum(per_target_best[tid] for tid in targets) / n_targets
 
     valid = len(violations) == 0
 
