@@ -96,19 +96,20 @@ def download_celestrak(dest_dir: Path, *, force_download: bool) -> SourceFetchRe
         raise RuntimeError(
             f"Vendored TLE snapshot parse mismatch: expected {len(rows)} satellites, got {len(records)}"
         )
-    raw_path.write_text(raw_text, encoding="utf-8")
+    raw_bytes = raw_text.encode("utf-8")
+    raw_path.write_bytes(raw_bytes)
 
     csv_buf = io.StringIO()
     writer = csv.DictWriter(
         csv_buf,
         fieldnames=["name", "norad_catalog_id", "tle_line1", "tle_line2", "epoch_iso"],
+        lineterminator="\n",
     )
     writer.writeheader()
-    for row in rows:
-        writer.writerow(row)
-    csv_text = csv_buf.getvalue()
-    csv_path.write_text(csv_text, encoding="utf-8")
-    csv_sha256 = hashlib.sha256(csv_text.encode("utf-8")).hexdigest()
+    writer.writerows(rows)
+    csv_bytes = csv_buf.getvalue().encode("utf-8")
+    csv_path.write_bytes(csv_bytes)
+    csv_sha256 = hashlib.sha256(csv_bytes).hexdigest()
 
     return SourceFetchResult(
         "celestrak",
