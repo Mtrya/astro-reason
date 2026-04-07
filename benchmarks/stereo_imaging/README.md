@@ -53,7 +53,7 @@ A YAML sequence. Each entry defines one satellite:
 
   pixel_ifov_deg: float          # angular IFOV of one pixel, cross-track direction
   cross_track_pixels: int        # number of cross-track detector pixels
-  max_off_nadir_deg: float       # maximum combined boresight off-nadir angle
+  max_off_nadir_deg: float       # max tilt from nadir; see combined-angle formula in Hard action constraints
 
   max_slew_velocity_deg_per_s: float
   max_slew_acceleration_deg_per_s2: float
@@ -147,7 +147,7 @@ The verifier rejects a solution as invalid if any of the following hold:
 - `end_time` is not strictly after `start_time`
 - the observation window falls outside the mission horizon
 - observation duration is outside `[min_obs_duration_s, max_obs_duration_s]`
-- combined boresight off-nadir `sqrt(along² + across²) > max_off_nadir_deg`
+- combined boresight off-nadir angle exceeds `max_off_nadir_deg`, where the angle (in degrees) is $\arctan\sqrt{\tan^2\alpha + \tan^2\beta}$ with $\alpha$ = `off_nadir_along_deg` and $\beta$ = `off_nadir_across_deg` (tangents use radians). This is the same geometric tilt from nadir the verifier uses when forming the boresight ray from those steering angles.
 - the boresight ray does not intersect the Earth surface
 - two observations on the same satellite overlap in time
 - the slew-plus-settle time between consecutive observations on the same satellite is insufficient

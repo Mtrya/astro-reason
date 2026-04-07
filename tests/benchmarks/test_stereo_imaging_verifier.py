@@ -320,11 +320,19 @@ class TestBoresightGroundIntercept:
 
 
 class TestCombinedOffNadir:
-    def test_pythagorean(self):
-        assert _combined_off_nadir_deg(3.0, 4.0) == pytest.approx(5.0)
-
     def test_zero(self):
         assert _combined_off_nadir_deg(0.0, 0.0) == pytest.approx(0.0)
+
+    def test_axis_matches_single_component(self):
+        assert _combined_off_nadir_deg(22.5, 0.0) == pytest.approx(22.5)
+        assert _combined_off_nadir_deg(0.0, 18.0) == pytest.approx(18.0)
+
+    def test_tangent_model_not_euclidean_hypot(self):
+        # atan(sqrt(tan^2 a + tan^2 b)) — for (3°,4°) this is ~4.994°, not 5° from hypot(3,4).
+        assert _combined_off_nadir_deg(3.0, 4.0) == pytest.approx(4.994169393106, abs=1e-9)
+        # Equal split on a 30° hypot circle: geometric tilt ~28.76°, not 30°.
+        s = 30.0 / math.sqrt(2.0)
+        assert _combined_off_nadir_deg(s, s) == pytest.approx(28.762922637351, abs=1e-9)
 
 
 class TestPointDistanceToPolyline:
@@ -512,6 +520,43 @@ class TestEmptySolution:
         assert report.valid is True
         assert report.metrics["coverage_ratio"] == pytest.approx(0.0)
         assert report.metrics["normalized_quality"] == pytest.approx(0.0)
+
+
+class TestDerivedObservationActionIndex:
+    """Regression: pair/tri scoring must index actions by original solution index, not derived-list position."""
+
+    def test_skipped_unknown_target_action_does_not_shift_indices(self, tmp_path):
+        case_dir = _write_case(tmp_path / "case")
+        sol = _write_solution(
+            tmp_path / "sol.json",
+            [
+                _obs_action(target="nonexistent_target"),
+                _obs_action(
+                    start="2026-06-18T01:00:00Z",
+                    end="2026-06-18T01:00:05Z",
+                ),
+            ],
+        )
+        report = verify_solution(case_dir, sol)
+        assert len(report.derived_observations) == 1
+        assert report.derived_observations[0]["action_index"] == 1
+
+
+class TestZeroTargetsCase:
+    """Regression: empty targets.yaml must not crash verify_solution with ZeroDivisionError."""
+
+    def test_returns_report_with_zero_metrics_and_violation(self, tmp_path):
+        # _write_case uses `targets or [default]`; [] is falsy, so write an empty list explicitly.
+        case_dir = tmp_path / "case"
+        case_dir.mkdir(parents=True)
+        _write_yaml(case_dir / "mission.yaml", _base_mission_dict())
+        _write_yaml(case_dir / "satellites.yaml", [_base_satellite_dict()])
+        _write_yaml(case_dir / "targets.yaml", [])
+        sol = _write_solution(tmp_path / "sol.json", [])
+        report = verify_solution(case_dir, sol)
+        assert report.metrics["coverage_ratio"] == pytest.approx(0.0)
+        assert report.metrics["normalized_quality"] == pytest.approx(0.0)
+        assert any("no targets" in v.lower() for v in report.violations)
 
 
 class TestUnknownIds:
