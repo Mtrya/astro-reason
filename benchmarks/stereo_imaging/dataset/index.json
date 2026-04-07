@@ -84,7 +84,7 @@
       ]
     }
   ],
-  "generator_revision": "5cbe90b541d1b72366db6a203169c13fb63ce525",
+  "generator_revision": "cc1b5914d3de9f89843ba8fee9103d185c0a6d8f",
   "horizon_duration_s": 172800,
   "selected_norad_catalog_ids": [
     38012,
@@ -97,40 +97,25 @@
   "source_provenance": {
     "celestrak": {
       "record_count": 162,
-      "retrieval_timestamp_utc": "2026-04-05T17:21:38Z",
+      "retrieval_timestamp_utc": "2026-04-07T08:15:19Z",
+      "sha256": "7e7b4cc279f963c9b7b774a05d892fbbcb83e9bd7b1f598017d37c350e74c2f5",
       "skipped_cached": true,
       "url": "https://celestrak.org/NORAD/elements/gp.php?GROUP=resource&FORMAT=tle"
     },
-    "etopo_2022": {
-      "local_path": "etopo/ETOPO_2022_v1_60s_N90W180_surface.tif",
-      "product_id": "ETOPO_2022_v1_60s_N90W180_surface",
-      "retrieval_timestamp_utc": "2026-04-05T17:21:38Z",
-      "sha256": "9d27d4b8ea8e76977e2988bca667d7c8fa68b927355feffcddd6b4875a7fd08e",
-      "skipped_cached": true,
-      "url": "https://www.ngdc.noaa.gov/mgg/global/relief/ETOPO2022/data/60s/60s_surface_elev_gtif/ETOPO_2022_v1_60s_N90W180_surface.tif",
-      "urls_tried": [
-        "https://www.ngdc.noaa.gov/mgg/global/relief/ETOPO2022/data/60s/60s_surface_elev_gtif/ETOPO_2022_v1_60s_N90W180_surface.tif",
-        "https://www.ngdc.noaa.gov/thredds/fileServer/global/ETOPO2022/60s/60s_surface_elevation_geotiff/ETOPO_2022_v1_60s_N90W180_surface.tif"
-      ]
+    "generated_at_utc": "2026-04-07T08:15:19Z",
+    "generator_revision": "cc1b5914d3de9f89843ba8fee9103d185c0a6d8f",
+    "lookup_tables": {
+      "elevation_cell_count": 23412,
+      "resolution_deg": 1.0,
+      "scene_cell_count": 23412,
+      "sha256": "0d365c163bb19d7feedf16951f88824907dd37395f7c9cfa30ca5de69eafe5a5",
+      "version": "wc2021-etopo2022-20260406"
     },
-    "generated_at_utc": "2026-04-05T17:21:38Z",
-    "generator_revision": "5cbe90b541d1b72366db6a203169c13fb63ce525",
     "world_cities": {
       "kaggle_dataset": "juanmah/world-cities",
-      "retrieval_timestamp_utc": "2026-04-05T17:21:38Z",
+      "retrieval_timestamp_utc": "2026-04-07T08:15:19Z",
+      "sha256": "67a4fed1d7ddd92ad3d7b5befef6e2d1b65f7a54f0764e5cec98e8720c587200",
       "skipped_cached": true
-    },
-    "worldcover": {
-      "base_url": "https://esa-worldcover.s3.eu-central-1.amazonaws.com/v200/2021/map",
-      "demo_tile_paths": [
-        "worldcover/ESA_WorldCover_10m_2021_v200_N48E000_Map.tif",
-        "worldcover/ESA_WorldCover_10m_2021_v200_N36W123_Map.tif",
-        "worldcover/ESA_WorldCover_10m_2021_v200_N33E138_Map.tif",
-        "worldcover/ESA_WorldCover_10m_2021_v200_S36E150_Map.tif"
-      ],
-      "product_version": "v200",
-      "retrieval_timestamp_utc": "2026-04-05T17:21:38Z",
-      "year": 2021
     }
   },
   "spec_version": "v3"

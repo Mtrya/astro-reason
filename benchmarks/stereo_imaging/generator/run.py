@@ -1,4 +1,4 @@
-"""CLI entry point for the stereo_imaging generator (v3 source layer)."""
+"""CLI entry point for the stereo_imaging generator."""
 
 from __future__ import annotations
 
@@ -12,11 +12,9 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
-import rasterio
-
 
 def _load_runtime_modules():
-    """Support `python path/to/run.py` without package context (see revisit_constellation)."""
+    """Support `python path/to/run.py` without package context."""
     package_name = "_stereo_imaging_generator_runtime"
     package_dir = Path(__file__).resolve().parent
 
@@ -27,7 +25,7 @@ def _load_runtime_modules():
         sys.modules[package_name] = package
 
     loaded = {}
-    for module_name in ("normalize", "sources", "build"):
+    for module_name in ("normalize", "lookup_tables", "sources", "build"):
         qualified_name = f"{package_name}.{module_name}"
         module = sys.modules.get(qualified_name)
         if module is None:
@@ -42,28 +40,32 @@ def _load_runtime_modules():
             sys.modules[qualified_name] = module
             spec.loader.exec_module(module)
         loaded[module_name] = module
-    return loaded["normalize"], loaded["sources"], loaded["build"]
+    return loaded["sources"], loaded["build"]
 
 
 if __package__ in {None, ""}:  # pragma: no cover - script-path import support
-    _normalize_module, _sources_module, _build_module = _load_runtime_modules()
+    _sources_module, _build_module = _load_runtime_modules()
     fetch_all_sources = _sources_module.fetch_all_sources
-    query_etopo_elevation = _normalize_module.query_etopo_elevation
-    query_worldcover_class = _normalize_module.query_worldcover_class
     generate_dataset = _build_module.generate_dataset
+    lookup_table_metadata = _build_module.lookup_table_metadata
+    bilinear_elevation_m = _build_module.bilinear_elevation_m
+    lookup_scene_type = _build_module.lookup_scene_type
     CANONICAL_SEED = _build_module.CANONICAL_SEED
     sources_module = _sources_module
 else:  # pragma: no cover
-    from .build import CANONICAL_SEED, generate_dataset
+    from .build import (
+        CANONICAL_SEED,
+        bilinear_elevation_m,
+        generate_dataset,
+        lookup_scene_type,
+        lookup_table_metadata,
+    )
     from . import sources as sources_module
-    from .normalize import query_etopo_elevation, query_worldcover_class
     from .sources import fetch_all_sources
 
 
-# Benchmark root: .../benchmarks/stereo_imaging
 _BENCHMARK_ROOT = Path(__file__).resolve().parent.parent
 DEFAULT_DOWNLOAD_DIR = _BENCHMARK_ROOT / "dataset" / "source_data"
-# Canonical v3 outputs (cases/, index.json, example_solution.json) — independent of --download-dir.
 DEFAULT_DATASET_DIR = _BENCHMARK_ROOT / "dataset"
 
 
@@ -88,16 +90,6 @@ def _utc_now_iso() -> str:
     return datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
 
 
-def _verify_geotiff(path: Path) -> dict[str, Any]:
-    with rasterio.open(path) as ds:
-        return {
-            "width": ds.width,
-            "height": ds.height,
-            "crs": str(ds.crs) if ds.crs else None,
-            "count": ds.count,
-        }
-
-
 def _write_provenance(
     dest_dir: Path,
     results: dict[str, Any],
@@ -106,9 +98,7 @@ def _write_provenance(
 ) -> Path:
     prov_path = dest_dir / "provenance.json"
     cele = results["celestrak"]
-    etopo = results["etopo"]
     cities = results["world_cities"]
-    wc_tiles: list[Path] = list(results.get("worldcover_tiles") or [])
 
     doc: dict[str, Any] = {
         "generated_at_utc": _utc_now_iso(),
@@ -117,29 +107,16 @@ def _write_provenance(
             "url": sources_module.CELESTRAK_EARTH_RESOURCES_URL,
             "retrieval_timestamp_utc": _utc_now_iso(),
             "record_count": cele.extra.get("record_count"),
+            "sha256": cele.extra.get("sha256"),
             "skipped_cached": cele.extra.get("skipped_cached"),
-        },
-        "etopo_2022": {
-            "product_id": etopo.extra.get("product_id"),
-            "url": etopo.extra.get("url") or sources_module.ETOPO_2022_60S_URLS[0],
-            "urls_tried": etopo.extra.get("urls_tried"),
-            "retrieval_timestamp_utc": _utc_now_iso(),
-            "local_path": str(etopo.paths[0].relative_to(dest_dir)) if etopo.paths else None,
-            "sha256": etopo.extra.get("sha256"),
-            "skipped_cached": etopo.extra.get("skipped_cached"),
-        },
-        "worldcover": {
-            "product_version": "v200",
-            "year": 2021,
-            "base_url": sources_module.WORLDCOVER_S3_BASE,
-            "demo_tile_paths": [str(p.relative_to(dest_dir)) for p in wc_tiles],
-            "retrieval_timestamp_utc": _utc_now_iso(),
         },
         "world_cities": {
             "kaggle_dataset": sources_module.WORLD_CITIES_DATASET,
             "retrieval_timestamp_utc": _utc_now_iso(),
+            "sha256": cities.extra.get("sha256"),
             "skipped_cached": cities.extra.get("skipped_cached"),
         },
+        "lookup_tables": lookup_table_metadata(),
     }
 
     prov_path.parent.mkdir(parents=True, exist_ok=True)
@@ -148,20 +125,17 @@ def _write_provenance(
 
 
 def main(argv: list[str] | None = None) -> int:
-    # Per docs/benchmark_contract.md (Generator Contract): running with no flags must produce
-    # the default canonical dataset (fetch sources if needed, then write dataset/cases/, etc.).
     parser = argparse.ArgumentParser(
         description=(
-            "Stereo imaging v3 generator: fetch source data if needed, then emit the canonical "
-            "dataset (dataset/cases/, index.json, example_solution.json). "
-            "Default: no flags = full canonical path per repository benchmark contract."
+            "Stereo imaging v3 generator: fetch the runtime sources if needed, then emit the "
+            "canonical dataset (dataset/cases/, index.json, example_solution.json)."
         )
     )
     parser.add_argument(
         "--download-dir",
         type=Path,
         default=DEFAULT_DOWNLOAD_DIR,
-        help="Where to store source_data (default: <benchmark>/dataset/source_data)",
+        help="Where to store runtime source_data (default: <benchmark>/dataset/source_data)",
     )
     parser.add_argument(
         "--dataset-dir",
@@ -175,10 +149,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument(
         "--sources-only",
         action="store_true",
-        help=(
-            "Dev-only: only fetch and normalize source_data; skip canonical dataset emission. "
-            "Not required for the normal canonical dataset (omit this flag)."
-        ),
+        help="Only fetch and normalize runtime source data; skip canonical dataset emission.",
     )
     parser.add_argument(
         "--seed",
@@ -189,12 +160,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument(
         "--force-download",
         action="store_true",
-        help="Re-download sources even when cached files exist",
-    )
-    parser.add_argument(
-        "--skip-worldcover-demo-tiles",
-        action="store_true",
-        help="Do not fetch the fixed WorldCover demo tiles (smaller run)",
+        help="Re-download runtime sources even when cached files exist",
     )
     args = parser.parse_args(argv)
 
@@ -202,30 +168,35 @@ def main(argv: list[str] | None = None) -> int:
     dataset_dir = (args.dataset_dir or DEFAULT_DATASET_DIR).resolve()
     repo_root = Path(__file__).resolve().parents[3]
     seed = CANONICAL_SEED if args.seed is None else args.seed
+    lookup_meta = lookup_table_metadata()
+
+    if not args.sources_only and (
+        lookup_meta["elevation_cell_count"] == 0 or lookup_meta["scene_cell_count"] == 0
+    ):
+        print(
+            "Vendored lookup tables are empty. Generate "
+            "benchmarks/stereo_imaging/generator/lookup_tables.py before dataset emission."
+        )
+        print(f"Current lookup metadata: {lookup_meta}")
+        return 1
 
     results = fetch_all_sources(
         dest_dir,
         force_download=args.force_download,
-        include_worldcover_demo_tiles=not args.skip_worldcover_demo_tiles,
     )
 
     prov_path = _write_provenance(dest_dir, results, repo_root=repo_root)
     print(f"Wrote provenance to {prov_path}")
-
-    # Smoke verification: GeoTIFFs open and point queries succeed
-    etopo_path = dest_dir / "etopo" / sources_module.ETOPO_LOCAL_FILENAME
-    if etopo_path.is_file():
-        meta = _verify_geotiff(etopo_path)
-        print(f"ETOPO GeoTIFF ok: {meta}")
-        el = query_etopo_elevation(etopo_path, 48.8566, 2.3522)
-        print(f"Sample ETOPO elevation (Paris): {el:.2f} m")
-
-    wc_dir = dest_dir / "worldcover"
-    if wc_dir.is_dir() and any(wc_dir.glob("*.tif")):
-        sample = query_worldcover_class(wc_dir, 48.8566, 2.3522)
-        print(f"Sample WorldCover class (Paris tile): {sample}")
-
-    print(f"Stereo imaging source data ready under {dest_dir}")
+    print(f"Vendored lookup tables: {lookup_meta}")
+    if lookup_meta["elevation_cell_count"] > 0 and lookup_meta["scene_cell_count"] > 0:
+        print(f"Sample lookup elevation (Paris): {bilinear_elevation_m(48.8566, 2.3522):.2f} m")
+        print(f"Sample lookup scene (Paris): {lookup_scene_type(48.8566, 2.3522)}")
+    else:
+        print(
+            "Vendored lookup tables are empty. Generate "
+            "benchmarks/stereo_imaging/generator/lookup_tables.py before dataset emission."
+        )
+    print(f"Stereo imaging runtime source data ready under {dest_dir}")
 
     if args.sources_only:
         return 0

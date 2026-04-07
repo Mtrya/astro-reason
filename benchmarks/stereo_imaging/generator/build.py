@@ -1,26 +1,22 @@
-"""Canonical v3 stereo_imaging dataset generation (Phase 1.B)."""
+"""Canonical v3 stereo_imaging dataset generation."""
 
 from __future__ import annotations
 
+import hashlib
 import json
+import math
 import random
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
+from functools import lru_cache
 from pathlib import Path
 from typing import Any
 
-import numpy as np
-import rasterio
 import yaml
-from rasterio.windows import Window
 
 from . import sources as sources_module
-from .normalize import (
-    load_celestrak_csv,
-    load_world_cities,
-    query_worldcover_class,
-    worldcover_tile_filename,
-)
+from .lookup_tables import ELEVATION_GRID, LOOKUP_TABLE_VERSION, SCENE_GRID
+from .normalize import load_celestrak_csv, load_world_cities
 
 # -----------------------------------------------------------------------------
 # Canonical release parameters
@@ -29,15 +25,21 @@ from .normalize import (
 CANONICAL_SEED = 20260406
 DEFAULT_HORIZON_DURATION_S = 172800  # 48 h
 
-# Canonical release: fixed number of cases; per-case satellite set and target count are sampled from the seed.
 NUM_CANONICAL_CASES = 5
 MIN_SATELLITES_PER_CASE = 2
 MAX_SATELLITES_PER_CASE = 4
 MIN_TARGETS_PER_CASE = 24
 MAX_TARGETS_PER_CASE = 48
 
-# Curated optical Earth-observation satellites present in CelesTrak earth-resources.
-# v3 public fields only; NORAD IDs must exist in normalized CelesTrak CSV.
+LOOKUP_GRID_RESOLUTION_DEG = 1.0
+LOOKUP_LAT_MIN = -89
+LOOKUP_LAT_MAX = 90
+LOOKUP_LON_MIN = -179
+LOOKUP_LON_MAX = 180
+
+MIN_URBAN_POPULATION = 100_000
+NON_URBAN_JITTER_DEG = 0.48
+
 SATELLITE_CATALOG: dict[int, dict[str, Any]] = {
     38755: {
         "id": "sat_spot_6",
@@ -107,60 +109,6 @@ SATELLITE_CATALOG: dict[int, dict[str, Any]] = {
     },
 }
 
-WORLDCOVER_VEGETATED = {10, 20, 30, 40}
-# ESA v200: 50 built-up, 60 bare/sparse, 70 snow/ice, 80 permanent water, 90 herbaceous wetland, 95 mangroves, 100 moss/lichen
-# 80 is ocean/inland water — never treat as land targets; excluded from "open" land.
-WORLDCOVER_PERMANENT_WATER = 80
-WORLDCOVER_OPEN_LAND = {60, 70, 90, 95, 100}
-RUGGED_STD_THRESHOLD_M = 200.0
-
-# ETOPO surface elevation: ocean cells are bathymetry (negative below sea level); land is
-# typically > 0. Without a land mask, random lat/lon hits open ocean and yields ~-5 km refs.
-LAND_MIN_ELEVATION_REF_M = 0.0
-
-
-class _EtopoReader:
-    """Single open ETOPO dataset with windowed reads (avoids full-raster loads per query)."""
-
-    def __init__(self, path: Path):
-        self._path = path
-        self._ds = rasterio.open(path)
-        self._nodata = self._ds.nodata
-
-    def close(self) -> None:
-        self._ds.close()
-
-    def __enter__(self) -> _EtopoReader:
-        return self
-
-    def __exit__(self, *args: object) -> None:
-        self.close()
-
-    def elevation_m(self, lat: float, lon: float) -> float:
-        row, col = self._ds.index(lon, lat)
-        ir, ic = int(row), int(col)
-        win = Window(ic, ir, 1, 1)
-        val = float(self._ds.read(1, window=win)[0, 0])
-        if self._nodata is not None and val == self._nodata:
-            return float("nan")
-        return val
-
-    def neighborhood_std_m(self, lat: float, lon: float, half: int = 2) -> float:
-        row, col = self._ds.index(lon, lat)
-        ir, ic = int(row), int(col)
-        h, wdim = self._ds.height, self._ds.width
-        r0 = max(0, ir - half)
-        r1 = min(h, ir + half + 1)
-        c0 = max(0, ic - half)
-        c1 = min(wdim, ic + half + 1)
-        win = Window(c0, r0, c1 - c0, r1 - r0)
-        patch = self._ds.read(1, window=win).astype(np.float64)
-        if self._nodata is not None:
-            patch = np.where(patch == self._nodata, np.nan, patch)
-        if np.all(np.isnan(patch)):
-            return 0.0
-        return float(np.nanstd(patch))
-
 
 def _sample_case_satellites_and_target_count(
     rng: random.Random,
@@ -201,35 +149,13 @@ def _horizon_for_case(seed: int, case_index: int) -> tuple[str, str]:
     return _utc_iso(start), _utc_iso(end)
 
 
-def _etopo_is_land(elevation_m: float) -> bool:
-    """True if ETOPO sample is land (not deep/shallow ocean bathymetry)."""
-    if elevation_m != elevation_m:  # NaN
-        return False
-    return elevation_m > LAND_MIN_ELEVATION_REF_M
-
-
-def _location_is_land_target(
-    lat: float,
-    lon: float,
-    etopo: _EtopoReader,
-    wc_dir: Path,
-) -> bool:
-    """Exclude ocean ETOPO cells and WorldCover permanent water (class 80)."""
-    el = float(etopo.elevation_m(lat, lon))
-    if not _etopo_is_land(el):
-        return False
-    wc = _worldcover_class_if_available(wc_dir, lat, lon)
-    if wc is not None and wc == WORLDCOVER_PERMANENT_WATER:
-        return False
-    return True
-
-
 def _passes_feasibility(
     lat: float,
     lon: float,
     inclinations_deg: list[float],
 ) -> bool:
     """Lightweight conservative filter: latitude within inclination band and non-polar."""
+    del lon
     if abs(lat) > 85.0:
         return False
     max_inc = max(inclinations_deg) if inclinations_deg else 98.0
@@ -293,43 +219,105 @@ def _build_satellite_dict(
     }
 
 
-def _worldcover_class_if_available(wc_dir: Path, lat: float, lon: float) -> int | None:
-    fname = worldcover_tile_filename(lat, lon)
-    if not (wc_dir / fname).is_file():
-        return None
-    try:
-        return query_worldcover_class(wc_dir, lat, lon)
-    except (OSError, ValueError):
-        return None
+def _round_half_away_from_zero(value: float) -> int:
+    if value >= 0:
+        return int(math.floor(value + 0.5))
+    return int(math.ceil(value - 0.5))
 
 
-def _classify_non_urban(
+def _clamp_target_coordinates(lat: float, lon: float) -> tuple[float, float]:
+    clamped_lat = min(max(lat, LOOKUP_LAT_MIN), LOOKUP_LAT_MAX)
+    clamped_lon = min(max(lon, LOOKUP_LON_MIN), LOOKUP_LON_MAX)
+    return clamped_lat, clamped_lon
+
+
+def lookup_scene_type(
     lat: float,
     lon: float,
-    etopo: _EtopoReader,
-    wc_dir: Path,
-) -> tuple[str, float]:
-    """Assign scene_type and elevation_ref_m for a non-urban candidate."""
-    std_m = etopo.neighborhood_std_m(lat, lon)
-    el = float(etopo.elevation_m(lat, lon))
-    wc = _worldcover_class_if_available(wc_dir, lat, lon)
+    *,
+    scene_grid: dict[tuple[int, int], str] | None = None,
+) -> str:
+    """Return the nearest-cell scene label or raise when the point maps to ocean/invalid terrain."""
+    lat, lon = _clamp_target_coordinates(lat, lon)
+    grid = SCENE_GRID if scene_grid is None else scene_grid
+    key = (_round_half_away_from_zero(lat), _round_half_away_from_zero(lon))
+    try:
+        return grid[key]
+    except KeyError as exc:
+        raise ValueError(f"Target ({lat}, {lon}) maps to an invalid scene cell") from exc
 
-    if std_m >= RUGGED_STD_THRESHOLD_M:
-        return "rugged", el
 
-    if wc is not None:
-        if wc in WORLDCOVER_VEGETATED:
-            return "vegetated", el
-        if wc in WORLDCOVER_OPEN_LAND:
-            return "open", el
+def bilinear_elevation_m(
+    lat: float,
+    lon: float,
+    *,
+    elevation_grid: dict[tuple[int, int], float] | None = None,
+) -> float:
+    """Bilinear interpolation over the four surrounding 1-degree cell centers."""
+    lat, lon = _clamp_target_coordinates(lat, lon)
+    grid = ELEVATION_GRID if elevation_grid is None else elevation_grid
 
-    # Heuristic when tile missing or class ambiguous
-    alat = abs(lat)
-    if 35.0 <= alat <= 55.0 and std_m < 80.0:
-        return "vegetated", el
-    if std_m < 50.0 and alat < 40.0:
-        return "open", el
-    return "open", el
+    lat0 = max(LOOKUP_LAT_MIN, min(int(math.floor(lat)), LOOKUP_LAT_MAX))
+    lon0 = max(LOOKUP_LON_MIN, min(int(math.floor(lon)), LOOKUP_LON_MAX))
+    lat1 = min(lat0 + 1, LOOKUP_LAT_MAX)
+    lon1 = min(lon0 + 1, LOOKUP_LON_MAX)
+
+    corners = {
+        (lat0, lon0): grid.get((lat0, lon0)),
+        (lat1, lon0): grid.get((lat1, lon0)),
+        (lat0, lon1): grid.get((lat0, lon1)),
+        (lat1, lon1): grid.get((lat1, lon1)),
+    }
+    if all(value is None for value in corners.values()):
+        raise ValueError(f"Target ({lat}, {lon}) falls in an ocean cell")
+
+    fy = 0.0 if lat1 == lat0 else lat - lat0
+    fx = 0.0 if lon1 == lon0 else lon - lon0
+
+    v00 = float(corners[(lat0, lon0)] or 0.0)
+    v10 = float(corners[(lat1, lon0)] or 0.0)
+    v01 = float(corners[(lat0, lon1)] or 0.0)
+    v11 = float(corners[(lat1, lon1)] or 0.0)
+
+    return (
+        v00 * (1.0 - fy) * (1.0 - fx)
+        + v10 * fy * (1.0 - fx)
+        + v01 * (1.0 - fy) * fx
+        + v11 * fy * fx
+    )
+
+
+def _lookup_metadata_payload() -> dict[str, Any]:
+    elevation_items = [
+        [lat_idx, lon_idx, round(float(value), 6)]
+        for (lat_idx, lon_idx), value in sorted(ELEVATION_GRID.items())
+    ]
+    scene_items = [
+        [lat_idx, lon_idx, scene]
+        for (lat_idx, lon_idx), scene in sorted(SCENE_GRID.items())
+    ]
+    return {
+        "version": LOOKUP_TABLE_VERSION,
+        "resolution_deg": LOOKUP_GRID_RESOLUTION_DEG,
+        "elevation_cell_count": len(ELEVATION_GRID),
+        "scene_cell_count": len(SCENE_GRID),
+        "elevation_items": elevation_items,
+        "scene_items": scene_items,
+    }
+
+
+@lru_cache(maxsize=1)
+def lookup_table_metadata() -> dict[str, Any]:
+    payload = _lookup_metadata_payload()
+    digest_source = json.dumps(payload, separators=(",", ":"), ensure_ascii=True).encode("utf-8")
+    lookup_hash = hashlib.sha256(digest_source).hexdigest()
+    return {
+        "version": payload["version"],
+        "resolution_deg": payload["resolution_deg"],
+        "elevation_cell_count": payload["elevation_cell_count"],
+        "scene_cell_count": payload["scene_cell_count"],
+        "sha256": lookup_hash,
+    }
 
 
 @dataclass
@@ -344,41 +332,40 @@ class BuiltCase:
     horizon_end: str
 
 
+def _city_slug(name: str) -> str:
+    slug = name.lower().replace(" ", "_").replace("`", "").replace("'", "")
+    return slug[:24]
+
+
 def _sample_urban_targets(
     cities: list[dict[str, Any]],
     rng: random.Random,
     count: int,
     used: set[tuple[float, float]],
     inclinations_deg: list[float],
-    etopo: _EtopoReader,
-    wc_dir: Path,
 ) -> list[dict[str, Any]]:
-    """Sample cities with population floor and geographic spread."""
-    pool = [c for c in cities if c.get("population", 0) >= 100_000]
+    """Sample city targets from the reproducible world-cities source."""
+    pool = [c for c in cities if c.get("population", 0) >= MIN_URBAN_POPULATION]
     rng.shuffle(pool)
     out: list[dict[str, Any]] = []
     idx = 0
     while len(out) < count and idx < len(pool) * 3:
-        c = pool[idx % len(pool)]
+        city = pool[idx % len(pool)]
         idx += 1
-        lat = float(c["latitude_deg"])
-        lon = float(c["longitude_deg"])
+        lat = float(city["latitude_deg"])
+        lon = float(city["longitude_deg"])
+        lat, lon = _clamp_target_coordinates(lat, lon)
         key = (round(lat, 2), round(lon, 2))
         if key in used:
             continue
         if not _passes_feasibility(lat, lon, inclinations_deg):
             continue
-        if not _location_is_land_target(lat, lon, etopo, wc_dir):
+        try:
+            bilinear_elevation_m(lat, lon)
+        except ValueError:
             continue
         used.add(key)
-        slug = (
-            str(c["name"])
-            .lower()
-            .replace(" ", "_")
-            .replace("`", "")
-            .replace("'", "")
-        )[:24]
-        cid = f"urban_{slug}_{len(out):02d}"
+        cid = f"urban_{_city_slug(str(city['name']))}_{len(out):02d}"
         out.append(
             {
                 "id": cid,
@@ -401,122 +388,125 @@ def _split_three_way(n: int) -> tuple[int, int, int]:
     )
 
 
+def _candidate_cells_by_scene(inclinations_deg: list[float]) -> dict[str, list[tuple[int, int]]]:
+    candidates: dict[str, list[tuple[int, int]]] = {
+        "vegetated": [],
+        "rugged": [],
+        "open": [],
+    }
+    for cell, scene in SCENE_GRID.items():
+        if scene not in candidates:
+            continue
+        lat_idx, lon_idx = cell
+        if not _passes_feasibility(float(lat_idx), float(lon_idx), inclinations_deg):
+            continue
+        candidates[scene].append(cell)
+    return candidates
+
+
+def _cell_area_weight(cell: tuple[int, int]) -> float:
+    lat_idx, _lon_idx = cell
+    # One-degree cells shrink with latitude, so sampling uniformly over cell indices
+    # overweights the Arctic/Antarctic. Use a cosine proxy for relative surface area.
+    return max(math.cos(math.radians(abs(lat_idx))), 1.0e-3)
+
+
+def _weighted_cell_order(
+    cells: list[tuple[int, int]],
+    rng: random.Random,
+) -> list[tuple[int, int]]:
+    ranked: list[tuple[float, tuple[int, int]]] = []
+    for cell in cells:
+        u = max(rng.random(), 1.0e-12)
+        key = math.log(u) / _cell_area_weight(cell)
+        ranked.append((key, cell))
+    ranked.sort(reverse=True)
+    return [cell for _key, cell in ranked]
+
+
+def _jitter_point_inside_cell(
+    rng: random.Random,
+    cell: tuple[int, int],
+    *,
+    scene: str,
+) -> tuple[float, float]:
+    lat_idx, lon_idx = cell
+    for _ in range(10):
+        lat = lat_idx + rng.uniform(-NON_URBAN_JITTER_DEG, NON_URBAN_JITTER_DEG)
+        lon = lon_idx + rng.uniform(-NON_URBAN_JITTER_DEG, NON_URBAN_JITTER_DEG)
+        if lookup_scene_type(lat, lon) != scene:
+            continue
+        bilinear_elevation_m(lat, lon)
+        return lat, lon
+    raise RuntimeError(f"Could not sample a stable point inside scene cell {cell} ({scene})")
+
+
 def _sample_non_urban_targets(
     rng: random.Random,
     count: int,
-    etopo: _EtopoReader,
-    wc_dir: Path,
     used: set[tuple[float, float]],
     inclinations_deg: list[float],
 ) -> list[dict[str, Any]]:
-    """Rejection sample lat/lon until each scene bucket is filled."""
+    """Sample non-urban targets from committed lookup-table cells."""
     n_veg, n_rug, n_open = _split_three_way(count)
-    need: dict[str, int] = {
+    remaining = {
         "vegetated": n_veg,
         "rugged": n_rug,
         "open": n_open,
     }
+    candidates = _candidate_cells_by_scene(inclinations_deg)
+    for scene, cells in candidates.items():
+        candidates[scene] = _weighted_cell_order(cells, rng)
+
+    used_cells: set[tuple[int, int]] = set()
     targets: list[dict[str, Any]] = []
-    attempts = 0
-    max_attempts = 80000
-
-    while sum(need.values()) > 0 and attempts < max_attempts:
-        attempts += 1
-        lat = rng.uniform(-60.0, 60.0)
-        lon = rng.uniform(-180.0, 180.0)
-        key = (round(lat, 2), round(lon, 2))
-        if key in used:
-            continue
-        if not _passes_feasibility(lat, lon, inclinations_deg):
-            continue
-        if not _location_is_land_target(lat, lon, etopo, wc_dir):
-            continue
-
-        scene, _el = _classify_non_urban(lat, lon, etopo, wc_dir)
-        if need.get(scene, 0) <= 0:
-            continue
-
-        used.add(key)
-        need[scene] -= 1
-        tid = f"{scene}_{len(targets):03d}"
-        targets.append(
-            {
-                "id": tid,
-                "latitude_deg": lat,
-                "longitude_deg": lon,
-                "scene_type": scene,
-            }
-        )
-
-    # Relax: assign remaining quota to whichever scene still classifies
-    while sum(need.values()) > 0:
-        attempts += 1
-        if attempts > max_attempts + 50000:
-            break
-        lat = rng.uniform(-55.0, 55.0)
-        lon = rng.uniform(-180.0, 180.0)
-        key = (round(lat, 2), round(lon, 2))
-        if key in used:
-            continue
-        if not _passes_feasibility(lat, lon, inclinations_deg):
-            continue
-        if not _location_is_land_target(lat, lon, etopo, wc_dir):
-            continue
-        scene, _el = _classify_non_urban(lat, lon, etopo, wc_dir)
-        if need.get(scene, 0) <= 0:
-            # Force into a bucket that still needs fills
-            for k in ("open", "vegetated", "rugged"):
-                if need.get(k, 0) > 0:
-                    scene = k
-                    break
-            else:
+    for scene in ("vegetated", "rugged", "open"):
+        for cell in candidates[scene]:
+            if remaining[scene] <= 0:
+                break
+            if cell in used_cells:
                 continue
-        used.add(key)
-        need[scene] -= 1
-        tid = f"{scene}_{len(targets):03d}"
-        targets.append(
-            {
-                "id": tid,
-                "latitude_deg": lat,
-                "longitude_deg": lon,
-                "scene_type": scene,
-            }
-        )
+            lat, lon = _jitter_point_inside_cell(rng, cell, scene=scene)
+            key = (round(lat, 2), round(lon, 2))
+            if key in used:
+                continue
+            used.add(key)
+            used_cells.add(cell)
+            remaining[scene] -= 1
+            targets.append(
+                {
+                    "id": f"{scene}_{len(targets):03d}",
+                    "latitude_deg": lat,
+                    "longitude_deg": lon,
+                    "scene_type": scene,
+                }
+            )
 
-    if sum(need.values()) > 0:
-        raise RuntimeError(
-            f"Non-urban sampling incomplete after {attempts} attempts; remaining={need}"
-        )
+    if sum(remaining.values()) > 0:
+        raise RuntimeError(f"Non-urban sampling incomplete; remaining={remaining}")
 
     return targets
 
 
 def _finalize_targets(
     raw: list[dict[str, Any]],
-    etopo: _EtopoReader,
-    wc_dir: Path,
     rng: random.Random,
 ) -> list[dict[str, Any]]:
-    """Add aoi_radius_m and elevation_ref_m (land-only; ocean/water grids rejected)."""
+    """Add AOI radius and elevation from vendored lookup tables."""
     out: list[dict[str, Any]] = []
-    for t in raw:
-        lat = t["latitude_deg"]
-        lon = t["longitude_deg"]
-        if not _location_is_land_target(lat, lon, etopo, wc_dir):
-            raise ValueError(
-                f"Non-land target slipped through sampling: ({lat}, {lon}). "
-                "Ocean and WorldCover permanent-water cells must be excluded."
-            )
-        el = float(etopo.elevation_m(lat, lon))
-        aoi = round(rng.uniform(2500.0, 7500.0), 1)
+    for target in raw:
+        lat = float(target["latitude_deg"])
+        lon = float(target["longitude_deg"])
+        elevation_m = float(bilinear_elevation_m(lat, lon))
+        aoi_radius_m = round(rng.uniform(2500.0, 7500.0), 1)
         out.append(
             {
-                "id": t["id"],
+                "id": target["id"],
                 "latitude_deg": lat,
                 "longitude_deg": lon,
-                "aoi_radius_m": aoi,
-                "elevation_ref_m": el,
-                "scene_type": t["scene_type"],
+                "aoi_radius_m": aoi_radius_m,
+                "elevation_ref_m": elevation_m,
+                "scene_type": target["scene_type"],
             }
         )
     return out
@@ -537,46 +527,11 @@ def build_example_solution(
     cases: list[BuiltCase],
     horizon_starts: dict[str, str],
 ) -> dict[str, Any]:
-    """Minimal v3 actions for verifier smoke tests (not a quality baseline)."""
+    """Minimal valid v3 actions for verifier smoke tests (not a quality baseline)."""
+    del horizon_starts
     sol: dict[str, Any] = {}
     for bc in cases:
-        start = horizon_starts[bc.case_id]
-        t0 = _parse_iso_utc(start)
-        # Three short observations: two on first satellite, one on second if present
-        sat0 = bc.satellite_ids[0]
-        sat1 = bc.satellite_ids[1] if len(bc.satellite_ids) > 1 else sat0
-        tgt0 = bc.target_ids[0]
-        tgt1 = bc.target_ids[1] if len(bc.target_ids) > 1 else tgt0
-        actions = [
-            {
-                "type": "observation",
-                "satellite_id": sat0,
-                "target_id": tgt0,
-                "start_time": _utc_iso(t0 + timedelta(seconds=3600)),
-                "end_time": _utc_iso(t0 + timedelta(seconds=3615)),
-                "off_nadir_along_deg": 0.0,
-                "off_nadir_across_deg": 5.0,
-            },
-            {
-                "type": "observation",
-                "satellite_id": sat0,
-                "target_id": tgt1,
-                "start_time": _utc_iso(t0 + timedelta(seconds=7200)),
-                "end_time": _utc_iso(t0 + timedelta(seconds=7220)),
-                "off_nadir_along_deg": 2.0,
-                "off_nadir_across_deg": 4.0,
-            },
-            {
-                "type": "observation",
-                "satellite_id": sat1,
-                "target_id": tgt0,
-                "start_time": _utc_iso(t0 + timedelta(seconds=10800)),
-                "end_time": _utc_iso(t0 + timedelta(seconds=10818)),
-                "off_nadir_along_deg": -1.0,
-                "off_nadir_across_deg": 6.0,
-            },
-        ]
-        sol[bc.case_id] = {"actions": actions}
+        sol[bc.case_id] = {"actions": []}
     return sol
 
 
@@ -588,23 +543,20 @@ def generate_dataset(
     git_revision: str | None = None,
 ) -> dict[str, Any]:
     """
-    Build canonical v3 cases under output_dir/dataset/cases/ plus index.json and example_solution.json.
+    Build canonical v3 cases under output_dir plus index.json and example_solution.json.
 
-    Expects normalized source_data under source_dir (CelesTrak CSV, ETOPO GeoTIFF, world cities CSV,
-    optional WorldCover tiles).
+    Expects normalized runtime source data under source_dir and vendored lookup tables in this package.
     """
     cele_path = source_dir / "celestrak" / sources_module.CELESTRAK_CSV_NAME
     cities_path = source_dir / "world_cities" / sources_module.WORLD_CITIES_FILENAME
-    etopo_path = source_dir / "etopo" / sources_module.ETOPO_LOCAL_FILENAME
-    wc_dir = source_dir / "worldcover"
     prov_path = source_dir / "provenance.json"
 
     if not cele_path.is_file():
         raise FileNotFoundError(f"Missing CelesTrak CSV: {cele_path}")
     if not cities_path.is_file():
         raise FileNotFoundError(f"Missing world cities CSV: {cities_path}")
-    if not etopo_path.is_file():
-        raise FileNotFoundError(f"Missing ETOPO GeoTIFF: {etopo_path}")
+    if not ELEVATION_GRID or not SCENE_GRID:
+        raise RuntimeError("Vendored lookup tables are empty; regenerate generator/lookup_tables.py")
 
     cele_rows = load_celestrak_csv(cele_path)
     celestrak_by_norad: dict[int, dict[str, Any]] = {}
@@ -630,69 +582,64 @@ def generate_dataset(
 
     dataset_root = output_dir
     cases_root = dataset_root / "cases"
-
     pool_norads = sorted(SATELLITE_CATALOG.keys())
-    with _EtopoReader(etopo_path) as etopo:
-        for case_index in range(NUM_CANONICAL_CASES):
-            case_id = f"case_{case_index + 1:04d}"
-            rng = random.Random(seed + case_index * 10007)
-            norad_list, n_targets = _sample_case_satellites_and_target_count(rng, pool_norads)
-            inclinations = [
-                _inclination_deg_from_tle_line2(celestrak_by_norad[n]["tle_line2"]) for n in norad_list
-            ]
 
-            satellites = [_build_satellite_dict(celestrak_by_norad, n) for n in norad_list]
-            sat_ids = [s["id"] for s in satellites]
+    for case_index in range(NUM_CANONICAL_CASES):
+        case_id = f"case_{case_index + 1:04d}"
+        rng = random.Random(seed + case_index * 10007)
+        norad_list, n_targets = _sample_case_satellites_and_target_count(rng, pool_norads)
+        inclinations = [
+            _inclination_deg_from_tle_line2(celestrak_by_norad[n]["tle_line2"]) for n in norad_list
+        ]
 
-            n_urban = n_targets // 4
-            used_coords: set[tuple[float, float]] = set()
+        satellites = [_build_satellite_dict(celestrak_by_norad, n) for n in norad_list]
+        sat_ids = [sat["id"] for sat in satellites]
 
-            urban = _sample_urban_targets(
-                cities,
-                rng,
-                n_urban,
-                used_coords,
-                inclinations,
-                etopo,
-                wc_dir,
+        n_urban = n_targets // 4
+        used_coords: set[tuple[float, float]] = set()
+
+        urban = _sample_urban_targets(
+            cities,
+            rng,
+            n_urban,
+            used_coords,
+            inclinations,
+        )
+        non_urban = _sample_non_urban_targets(
+            rng,
+            n_targets - n_urban,
+            used_coords,
+            inclinations,
+        )
+        raw_targets = urban + non_urban
+        rng.shuffle(raw_targets)
+        if len(raw_targets) < n_targets:
+            raise RuntimeError(
+                f"Could not sample enough targets for {case_id} (got {len(raw_targets)})."
             )
-            non_urban = _sample_non_urban_targets(
-                rng,
-                n_targets - n_urban,
-                etopo,
-                wc_dir,
-                used_coords,
-                inclinations,
+        raw_targets = raw_targets[:n_targets]
+        targets = _finalize_targets(raw_targets, rng)
+
+        horizon_start, horizon_end = _horizon_for_case(seed, case_index)
+        horizon_starts[case_id] = horizon_start
+
+        case_dir = cases_root / case_id
+        _write_yaml(case_dir / "satellites.yaml", satellites)
+        _write_yaml(case_dir / "targets.yaml", targets)
+        _write_yaml(case_dir / "mission.yaml", _mission_template(horizon_start, horizon_end))
+
+        cases_out.append(
+            BuiltCase(
+                case_id=case_id,
+                num_satellites=len(satellites),
+                num_targets=len(targets),
+                norad_catalog_ids=list(norad_list),
+                satellite_ids=sat_ids,
+                target_ids=[target["id"] for target in targets],
+                horizon_start=horizon_start,
+                horizon_end=horizon_end,
             )
-            raw_targets = urban + non_urban
-            rng.shuffle(raw_targets)
-            if len(raw_targets) < n_targets:
-                raise RuntimeError(
-                    f"Could not sample enough targets for {case_id} (got {len(raw_targets)})."
-                )
-            raw_targets = raw_targets[:n_targets]
-            targets = _finalize_targets(raw_targets, etopo, wc_dir, rng)
-
-            h_start, h_end = _horizon_for_case(seed, case_index)
-            horizon_starts[case_id] = h_start
-
-            case_dir = cases_root / case_id
-            _write_yaml(case_dir / "satellites.yaml", satellites)
-            _write_yaml(case_dir / "targets.yaml", targets)
-            _write_yaml(case_dir / "mission.yaml", _mission_template(h_start, h_end))
-
-            cases_out.append(
-                BuiltCase(
-                    case_id=case_id,
-                    num_satellites=len(satellites),
-                    num_targets=len(targets),
-                    norad_catalog_ids=list(norad_list),
-                    satellite_ids=sat_ids,
-                    target_ids=[t["id"] for t in targets],
-                    horizon_start=h_start,
-                    horizon_end=h_end,
-                )
-            )
+        )
 
     example_map = build_example_solution(cases_out, horizon_starts)
     example_path = dataset_root / "example_solution.json"
@@ -734,6 +681,10 @@ __all__ = [
     "CANONICAL_SEED",
     "NUM_CANONICAL_CASES",
     "SATELLITE_CATALOG",
+    "LOOKUP_TABLE_VERSION",
+    "lookup_scene_type",
+    "bilinear_elevation_m",
+    "lookup_table_metadata",
     "generate_dataset",
     "build_example_solution",
 ]
