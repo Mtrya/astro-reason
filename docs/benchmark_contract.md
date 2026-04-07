@@ -33,6 +33,15 @@ Optional:
 
 No other tracked top-level benchmark entries are allowed for finished benchmarks.
 
+## Entrypoint Invocation Policy
+
+Benchmark entrypoint invocation follows the file layout:
+
+- **Top-level script** (`generator.py`, `verifier.py`, `visualizer.py`): invoke directly as `python benchmarks/<name>/<entrypoint>.py ...` (from the repository root).
+- **Package entrypoint** (`generator/run.py`, `verifier/run.py`, `visualizer/run.py`): invoke as a module: `python -m benchmarks.<name>.<entrypoint_pkg>.run ...` (from the repository root).
+
+Do not support both invocation styles for the same entrypoint. Do not add bootstrap hacks (`sys.path` surgery, fake runtime packages) solely to make a nested `run.py` work as a direct path script.
+
 ## Dataset Contract
 
 The canonical dataset layout for finished benchmarks is:
@@ -56,28 +65,56 @@ Rules:
 - Additional tracked dataset files are allowed when they are benchmark-owned public artifacts and are documented in the benchmark README.
 - `dataset/source_data/` may be used as a download/cache directory, but it must stay gitignored and must not be required to exist before running the generator.
 
+## Unit Conventions (recommended, not CI-enforced)
+
+Benchmark datasets should encode physical units consistently:
+
+- Linear quantities: meters (key suffix `_m` or documented in README when a key is dimensionless).
+- Area quantities: square meters.
+- Time durations: seconds (suffix `_s` or `_sec` as documented for that benchmark).
+- Speed quantities: meters per second (suffix `_m_s` or equivalent documented naming).
+- Angular quantities: either degrees (suffix `_deg`) or radians (suffix `_rad`).
+- Timestamps: ISO 8601 with `Z` or an explicit UTC offset.
+
+Prefer SI-style keys and values where it improves clarity, but benchmarks may use non-SI time units such as hours when that is the natural problem vocabulary and is clearly documented in the benchmark README.
+
 ## Generator Contract
 
 Finished benchmark generators must satisfy the following:
 
-- They are runnable with `python benchmarks/<name>/generator.py` or `python benchmarks/<name>/generator/run.py`.
+- **Top-level** `generator.py`: runnable as `python benchmarks/<name>/generator.py ...`.
+- **Nested** `generator/run.py`: runnable as `python -m benchmarks.<name>.generator.run ...`.
 - Running without flags produces the default canonical dataset for that benchmark.
 - Reproducing the canonical dataset must not require a manual multi-step setup with many required flags.
 - Extra CLI flags may expand or redirect generation, but the no-flag path is the canonical one.
 - If source downloads are needed, the generator may cache them under `dataset/source_data/`, but it must also be able to perform a live download when that cache is absent.
 
+Case specifications should be derived algorithmically from parameters (seed, scaling rules, sampling), not from hand-maintained lists of per-case tuples. Hardcoding curated lists such as `base_specs` or `BASE_SPECS` is discouraged; see `stereo_imaging` generator patterns (e.g. sampling driven by seed) for a reference approach.
+
 ## Verifier Contract
 
 Finished benchmark verifiers must satisfy the following:
 
-- They are runnable with `python benchmarks/<name>/verifier.py` or `python benchmarks/<name>/verifier/run.py`.
+- **Top-level** `verifier.py`: runnable as `python benchmarks/<name>/verifier.py ...`.
+- **Nested** `verifier/run.py`: runnable as `python -m benchmarks.<name>.verifier.run ...`.
 - The public CLI accepts two positional arguments:
   - `case_dir`
   - `solution_path`
 - Any additional CLI options must be optional.
-- Verifiers must be runnable directly as scripts and must be able to load canonical cases without crashing.
+- Verifiers must be runnable as documented and must be able to load canonical cases without crashing.
 
 The dataset-level `example_solution.json` or `example_solution.yaml` is the preferred verifier smoke-test convention for finished benchmarks. It holds one minimal runnable solution whose schema matches real submissions. Pairing with a case directory uses `example_smoke_case_id` in `index.json` when the smoke case is not the lexicographically first under `dataset/cases/`. These are runnable examples, not baselines.
+
+### Reference frames (recommendations, not CI-enforced)
+
+Frame choices are benchmark-specific. For verifiers that use Earth-centered frames:
+
+- **Earth-fixed (ECEF):** prefer a defined realization such as ITRF when high precision matters.
+- **Inertial (ECI):** prefer a standard celestial frame such as GCRF when applicable.
+- Use one astrodynamics stack consistently within a verifier to avoid mixed-frame inconsistencies.
+- If Earth orientation parameters (EOP) or similar affect solutions, document the strategy in the benchmark README.
+
+These are recommendations, not strict CI requirements: some benchmarks may use simplified frames for clarity.
 
 ## Enforced CI Checks
 
@@ -91,6 +128,7 @@ For finished benchmarks, CI enforces:
 - no tracked editor backup artifacts such as files ending in `~`
 - no `sys.path` hacks in benchmark generator/verifier/visualizer code
 - no `from benchmarks.` imports in benchmark generator/verifier/visualizer code
+- generator `--help` and verifier smoke tests using the supported invocation for each entrypoint shape (direct script vs `python -m`)
 - passing repository tests
 
 GitHub Actions runs:

@@ -3,11 +3,8 @@
 from __future__ import annotations
 
 import argparse
-import importlib.util
 import json
 import math
-import sys
-import types
 from collections import Counter, defaultdict
 from datetime import UTC, datetime, timedelta
 from itertools import combinations
@@ -30,77 +27,21 @@ from matplotlib.lines import Line2D
 from matplotlib.patches import Circle, Polygon
 from skyfield.api import EarthSatellite
 
-
-def _ensure_runtime_package(name: str, path: Path) -> types.ModuleType:
-    package = sys.modules.get(name)
-    if package is None:
-        package = types.ModuleType(name)
-        package.__path__ = [str(path)]
-        sys.modules[name] = package
-    return package
-
-
-def _load_runtime_modules():
-    """Support `python path/to/visualizer/run.py` without package context."""
-    package_name = "_stereo_imaging_visualizer_runtime"
-
-    _ensure_runtime_package(package_name, _BENCHMARK_DIR)
-    _ensure_runtime_package(f"{package_name}.verifier", _BENCHMARK_DIR / "verifier")
-
-    loaded: dict[str, Any] = {}
-    for module_name, rel_path in (
-        ("verifier.io", "verifier/io.py"),
-        ("verifier.engine", "verifier/engine.py"),
-    ):
-        qualified_name = f"{package_name}.{module_name}"
-        module = sys.modules.get(qualified_name)
-        if module is None:
-            spec = importlib.util.spec_from_file_location(
-                qualified_name,
-                _BENCHMARK_DIR / rel_path,
-            )
-            if spec is None or spec.loader is None:
-                raise ImportError(f"Unable to load {qualified_name}")
-            module = importlib.util.module_from_spec(spec)
-            module.__package__ = qualified_name.rpartition(".")[0]
-            sys.modules[qualified_name] = module
-            spec.loader.exec_module(module)
-        loaded[module_name] = module
-    return loaded["verifier.io"], loaded["verifier.engine"]
-
-
-if __package__ in {None, ""}:  # pragma: no cover - script-path import support
-    _io_module, _engine_module = _load_runtime_modules()
-    load_case = _io_module.load_case
-    load_solution_actions = _io_module.load_solution_actions
-    verify_solution = _engine_module.verify_solution
-    _TS = _engine_module._TS
-    _angle_between_deg = _engine_module._angle_between_deg
-    _ecef_to_enz = _engine_module._ecef_to_enz
-    _pair_geom_quality = _engine_module._pair_geom_quality
-    _monte_carlo_overlap_fraction = _engine_module._monte_carlo_overlap_fraction
-    _monte_carlo_tri_overlap = _engine_module._monte_carlo_tri_overlap
-    _satellite_state_ecef_m = _engine_module._satellite_state_ecef_m
-    _strip_polyline_en = _engine_module._strip_polyline_en
-    _target_ecef_m = _engine_module._target_ecef_m
-    _tri_bonus_R = _engine_module._tri_bonus_R
-    _tri_quality_from_valid_pairs = _engine_module._tri_quality_from_valid_pairs
-else:  # pragma: no cover
-    from ..verifier.engine import (
-        _TS,
-        _angle_between_deg,
-        _ecef_to_enz,
-        _monte_carlo_overlap_fraction,
-        _monte_carlo_tri_overlap,
-        _pair_geom_quality,
-        _satellite_state_ecef_m,
-        _strip_polyline_en,
-        _target_ecef_m,
-        _tri_bonus_R,
-        _tri_quality_from_valid_pairs,
-        verify_solution,
-    )
-    from ..verifier.io import load_case, load_solution_actions
+from ..verifier.engine import (
+    _TS,
+    _angle_between_deg,
+    _ecef_to_enz,
+    _monte_carlo_overlap_fraction,
+    _monte_carlo_tri_overlap,
+    _pair_geom_quality,
+    _satellite_state_ecef_m,
+    _strip_polyline_en,
+    _target_ecef_m,
+    _tri_bonus_R,
+    _tri_quality_from_valid_pairs,
+    verify_solution,
+)
+from ..verifier.io import load_case, load_solution_actions
 
 
 _SCENE_COLORS = {

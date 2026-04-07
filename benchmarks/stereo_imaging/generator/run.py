@@ -3,64 +3,20 @@
 from __future__ import annotations
 
 import argparse
-import importlib.util
 import json
 import subprocess
-import sys
-import types
 from pathlib import Path
 from typing import Any
 
-
-def _load_runtime_modules():
-    """Support `python path/to/run.py` without package context."""
-    package_name = "_stereo_imaging_generator_runtime"
-    package_dir = Path(__file__).resolve().parent
-
-    package = sys.modules.get(package_name)
-    if package is None:
-        package = types.ModuleType(package_name)
-        package.__path__ = [str(package_dir)]
-        sys.modules[package_name] = package
-
-    loaded = {}
-    for module_name in ("normalize", "lookup_tables", "cached_tles", "sources", "build"):
-        qualified_name = f"{package_name}.{module_name}"
-        module = sys.modules.get(qualified_name)
-        if module is None:
-            spec = importlib.util.spec_from_file_location(
-                qualified_name,
-                package_dir / f"{module_name}.py",
-            )
-            if spec is None or spec.loader is None:
-                raise ImportError(f"Unable to load {qualified_name}")
-            module = importlib.util.module_from_spec(spec)
-            module.__package__ = package_name
-            sys.modules[qualified_name] = module
-            spec.loader.exec_module(module)
-        loaded[module_name] = module
-    return loaded["sources"], loaded["build"]
-
-
-if __package__ in {None, ""}:  # pragma: no cover - script-path import support
-    _sources_module, _build_module = _load_runtime_modules()
-    fetch_all_sources = _sources_module.fetch_all_sources
-    generate_dataset = _build_module.generate_dataset
-    lookup_table_metadata = _build_module.lookup_table_metadata
-    bilinear_elevation_m = _build_module.bilinear_elevation_m
-    lookup_scene_type = _build_module.lookup_scene_type
-    CANONICAL_SEED = _build_module.CANONICAL_SEED
-    sources_module = _sources_module
-else:  # pragma: no cover
-    from .build import (
-        CANONICAL_SEED,
-        bilinear_elevation_m,
-        generate_dataset,
-        lookup_scene_type,
-        lookup_table_metadata,
-    )
-    from . import sources as sources_module
-    from .sources import fetch_all_sources
+from .build import (
+    CANONICAL_SEED,
+    bilinear_elevation_m,
+    generate_dataset,
+    lookup_scene_type,
+    lookup_table_metadata,
+)
+from . import sources as sources_module
+from .sources import fetch_all_sources
 
 
 _BENCHMARK_ROOT = Path(__file__).resolve().parent.parent

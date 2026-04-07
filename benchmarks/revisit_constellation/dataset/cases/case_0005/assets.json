@@ -11,15 +11,6 @@
     },
     {
       "altitude_m": 0.0,
-      "id": "aws_ground_station_cape_town",
-      "latitude_deg": -33.922087,
-      "longitude_deg": 18.4231418,
-      "min_duration_sec": 120.0,
-      "min_elevation_deg": 10.0,
-      "name": "AWS Ground Station - Cape Town"
-    },
-    {
-      "altitude_m": 0.0,
       "id": "ground_station_at_universidad_privada_boliviana",
       "latitude_deg": -16.5752089,
       "longitude_deg": -68.1270692,
@@ -55,7 +46,7 @@
       "name": "UiTM Ground Station"
     }
   ],
-  "max_num_satellites": 16,
+  "max_num_satellites": 14,
   "satellite_model": {
     "attitude_model": {
       "maneuver_discharge_rate_w": 90.0,

@@ -46,7 +46,7 @@
       "name": "Ventspils International Radio Astronomy Centre (VIRAC)"
     }
   ],
-  "max_num_satellites": 12,
+  "max_num_satellites": 10,
   "satellite_model": {
     "attitude_model": {
       "maneuver_discharge_rate_w": 90.0,

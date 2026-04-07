@@ -266,21 +266,6 @@ Satisfied Requests: 132
 VALID: score=234.5678h, tracks=145
 ```
 
-### Python API
-
-```python
-from benchmarks.satnet.verifier import verify_case
-
-result = verify_case(
-    case_path="benchmarks/satnet/dataset/cases/W10_2018",
-    solution_path="solution.json",
-)
-
-print(f"Valid: {result.is_valid}")
-print(f"Score: {result.score:.4f} hours")
-print(f"Errors: {result.errors}")
-```
-
 ## Baseline Performance
 
 From the original RL implementation (Chien et al., 2021):

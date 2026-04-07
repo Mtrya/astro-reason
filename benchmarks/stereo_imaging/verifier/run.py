@@ -3,43 +3,10 @@
 from __future__ import annotations
 
 import argparse
-import importlib.util
 import json
 from pathlib import Path
-import sys
-import types
 
-
-def _load_engine_module():
-    package_name = "_stereo_imaging_verifier_runtime"
-    package_dir = Path(__file__).resolve().parent
-
-    package = sys.modules.get(package_name)
-    if package is None:
-        package = types.ModuleType(package_name)
-        package.__path__ = [str(package_dir)]
-        sys.modules[package_name] = package
-
-    qualified_name = f"{package_name}.engine"
-    module = sys.modules.get(qualified_name)
-    if module is None:
-        spec = importlib.util.spec_from_file_location(
-            qualified_name,
-            package_dir / "engine.py",
-        )
-        if spec is None or spec.loader is None:
-            raise ImportError(f"Unable to load {qualified_name}")
-        module = importlib.util.module_from_spec(spec)
-        sys.modules[qualified_name] = module
-        spec.loader.exec_module(module)
-    return module
-
-
-if __package__ in {None, ""}:  # pragma: no cover - script-path import support
-    _engine = _load_engine_module()
-    verify_solution = _engine.verify_solution
-else:  # pragma: no cover
-    from .engine import verify_solution
+from .engine import verify_solution
 
 
 def main(argv: list[str] | None = None) -> int:

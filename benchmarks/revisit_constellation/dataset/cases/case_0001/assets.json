@@ -28,7 +28,7 @@
       "name": "Orion Astropreneur Space Academy (OASA) Ground Station"
     }
   ],
-  "max_num_satellites": 4,
+  "max_num_satellites": 6,
   "satellite_model": {
     "attitude_model": {
       "maneuver_discharge_rate_w": 90.0,

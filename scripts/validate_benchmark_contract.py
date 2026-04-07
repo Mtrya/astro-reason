@@ -15,7 +15,7 @@ import yaml
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 FINISHED_BENCHMARKS_PATH = REPO_ROOT / "benchmarks" / "finished_benchmarks.json"
-ALLOWED_ROOT_FILES = {"README.md", "generator.py", "verifier.py", "visualizer.py"}
+ALLOWED_ROOT_FILES = {"README.md", "__init__.py", "generator.py", "verifier.py", "visualizer.py"}
 ALLOWED_ROOT_DIRS = {"dataset", "generator", "verifier", "visualizer"}
 BANNED_CODE_SNIPPETS = {
     "sys.path.insert": "contains a sys.path hack",
@@ -88,6 +88,31 @@ def _verifier_entrypoint(benchmark_root: Path) -> Path | None:
         if candidate.exists():
             return candidate
     return None
+
+
+def _is_nested_run_py(entrypoint: Path, benchmark_root: Path) -> bool:
+    try:
+        rel = entrypoint.relative_to(benchmark_root)
+    except ValueError:
+        return False
+    return (
+        len(rel.parts) == 2
+        and rel.parts[1] == "run.py"
+        and rel.parts[0] in ("generator", "verifier", "visualizer")
+    )
+
+
+def _python_cmd_for_entrypoint(
+    benchmark_name: str,
+    entrypoint: Path,
+    benchmark_root: Path,
+    extra_args: list[str],
+) -> list[str]:
+    """Build argv for generator/verifier/visualizer per layout policy."""
+    if _is_nested_run_py(entrypoint, benchmark_root):
+        subpkg = entrypoint.relative_to(benchmark_root).parts[0]
+        return [sys.executable, "-m", f"benchmarks.{benchmark_name}.{subpkg}.run", *extra_args]
+    return [sys.executable, str(entrypoint), *extra_args]
 
 
 def _git_tracked_files(root: Path) -> list[Path]:
@@ -182,7 +207,7 @@ def _check_generator_help(benchmark_root: Path, errors: list[str]) -> None:
         errors.append(f"{benchmark_root.name}: missing generator entrypoint")
         return
     result = subprocess.run(
-        [sys.executable, str(entrypoint), "--help"],
+        _python_cmd_for_entrypoint(benchmark_root.name, entrypoint, benchmark_root, ["--help"]),
         cwd=REPO_ROOT,
         capture_output=True,
         text=True,
@@ -231,7 +256,7 @@ def _check_verifier_smoke(benchmark_root: Path, errors: list[str]) -> None:
 
     label = solutions_path.name
     try:
-        parsed = _load_example_solution_payload(solutions_path)
+        _load_example_solution_payload(solutions_path)
     except (json.JSONDecodeError, yaml.YAMLError, OSError, UnicodeDecodeError, ValueError) as e:
         errors.append(f"{benchmark_root.name}: failed to parse {label}: {e}")
         return
@@ -247,12 +272,12 @@ def _check_verifier_smoke(benchmark_root: Path, errors: list[str]) -> None:
         env["MPLCONFIGDIR"] = str(tmp_path / "mplconfig")
 
         result = subprocess.run(
-            [
-                sys.executable,
-                str(verifier_entrypoint),
-                str(case_dir),
-                str(solutions_path),
-            ],
+            _python_cmd_for_entrypoint(
+                benchmark_root.name,
+                verifier_entrypoint,
+                benchmark_root,
+                [str(case_dir), str(solutions_path)],
+            ),
             cwd=REPO_ROOT,
             capture_output=True,
             text=True,

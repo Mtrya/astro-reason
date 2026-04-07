@@ -49,7 +49,7 @@
 ## 数据集与工具
 
 - 规范数据集位于 `benchmarks/revisit_constellation/dataset/`
-- 验证入口位于 `benchmarks/revisit_constellation/verifier/run.py`
-- 生成器入口位于 `benchmarks/revisit_constellation/generator/run.py`
+- 验证入口：`uv run python -m benchmarks.revisit_constellation.verifier.run`（实现文件在 `benchmarks/revisit_constellation/verifier/run.py`）
+- 生成器入口：`uv run python -m benchmarks.revisit_constellation.generator.run`（实现文件在 `benchmarks/revisit_constellation/generator/run.py`）
 
 生成器会自动下载公开数据源，写入 `dataset/source_data/`，并据此重建规范案例。
