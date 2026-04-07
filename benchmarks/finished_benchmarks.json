@@ -28,6 +28,14 @@
         "dataset/index.json",
         "dataset/example_solution.json"
       ]
+    },
+    {
+      "name": "stereo_imaging",
+      "repro_ci": true,
+      "generated_paths": [
+        "dataset/cases",
+        "dataset/example_solution.json"
+      ]
     }
   ]
 }

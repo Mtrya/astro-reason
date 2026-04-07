@@ -1,4 +1,4 @@
-"""CLI entry point for the stereo_imaging Phase 3.A visualizer."""
+"""CLI entry point for the stereo_imaging visualizer."""
 
 from __future__ import annotations
 
@@ -1083,7 +1083,7 @@ def render_batch(
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(
-        description="Stereo imaging Phase 3.A visualizer with overview and batch geometry rendering.",
+        description="Stereo imaging visualizer with overview and batch geometry rendering.",
     )
     subparsers = parser.add_subparsers(dest="command", required=True)
 
