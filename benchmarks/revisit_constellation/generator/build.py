@@ -94,6 +94,21 @@ class CaseSpec:
     revisit_threshold_hours: float
 
 
+def _sample_case_spec(rng: random.Random) -> tuple[int, int, int, float]:
+    """Sample case parameters from the per-case RNG (same seeding policy as stereo_imaging)."""
+    target_bounds = (12, 24)
+    station_bounds = (3, 6)
+    satellite_bounds = (6, 18)
+
+    target_count = rng.randint(*target_bounds)
+    station_count = rng.randint(*station_bounds)
+    max_num_satellites = rng.randint(*satellite_bounds)
+
+    threshold_options = (6.0, 8.0, 10.0, 12.0)
+    revisit_threshold_hours = rng.choice(threshold_options)
+    return target_count, station_count, max_num_satellites, revisit_threshold_hours
+
+
 def _write_json(path: Path, data: object) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(json.dumps(data, indent=2, sort_keys=True) + "\n", encoding="utf-8")
@@ -271,31 +286,22 @@ def load_station_rows(csv_path: Path) -> list[StationRecord]:
     return stations
 
 
-def build_case_specs(case_count: int) -> list[CaseSpec]:
+def build_case_specs(case_count: int, *, seed: int) -> list[CaseSpec]:
     if case_count <= 0:
         raise ValueError("--case-count must be positive")
 
-    base_specs = [
-        CaseSpec("case_0001", 8, 3, 4, 12.0),
-        CaseSpec("case_0002", 12, 4, 5, 10.0),
-        CaseSpec("case_0003", 16, 4, 8, 8.0),
-        CaseSpec("case_0004", 20, 5, 12, 6.0),
-        CaseSpec("case_0005", 24, 6, 16, 6.0),
-    ]
-    if case_count <= len(base_specs):
-        return base_specs[:case_count]
-
-    specs = list(base_specs)
-    while len(specs) < case_count:
-        previous = specs[-1]
-        next_index = len(specs) + 1
+    specs: list[CaseSpec] = []
+    for case_index in range(case_count):
+        # Per-case stream depends only on `seed` and `case_index` (see stereo_imaging `generate_dataset`).
+        case_rng = random.Random(seed + case_index * 10_007)
+        tc, sc, ms, thr_h = _sample_case_spec(case_rng)
         specs.append(
             CaseSpec(
-                case_id=f"case_{next_index:04d}",
-                target_count=previous.target_count + 4,
-                station_count=min(previous.station_count + (1 if next_index % 2 == 0 else 0), 8),
-                max_num_satellites=previous.max_num_satellites + 2,
-                revisit_threshold_hours=6.0,
+                case_id=f"case_{case_index + 1:04d}",
+                target_count=tc,
+                station_count=sc,
+                max_num_satellites=ms,
+                revisit_threshold_hours=thr_h,
             )
         )
     return specs
@@ -497,7 +503,7 @@ def generate_dataset(
 ) -> Path:
     cities = load_city_rows(world_cities_path)
     stations = load_station_rows(ground_stations_path)
-    case_specs = build_case_specs(case_count)
+    case_specs = build_case_specs(case_count, seed=seed)
 
     cases_dir = output_dir / "cases"
     shutil.rmtree(cases_dir, ignore_errors=True)

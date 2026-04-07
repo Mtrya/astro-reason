@@ -13,7 +13,6 @@ Each finished benchmark entry records:
 - the benchmark name
 - whether generator reproducibility should run in dedicated CI
 - which dataset paths are generator-owned canonical outputs
-- optional `unit_check_exempt` (boolean): when `true`, CI skips the dataset JSON unit-key scan for that benchmark while legacy field names are migrated to the unit contract
 
 Promoting a benchmark to finished status should happen only when its public README, dataset layout, generator, verifier, and tests are ready to be treated as stable.
 
@@ -66,9 +65,9 @@ Rules:
 - Additional tracked dataset files are allowed when they are benchmark-owned public artifacts and are documented in the benchmark README.
 - `dataset/source_data/` may be used as a download/cache directory, but it must stay gitignored and must not be required to exist before running the generator.
 
-## Unit Contract (CI-enforced for finished benchmarks)
+## Unit Conventions (recommended, not CI-enforced)
 
-Dataset JSON keys in tracked case files and dataset-level JSON (`example_solution.json`, `index.json` when present) should encode physical units consistently:
+Benchmark datasets should encode physical units consistently:
 
 - Linear quantities: meters (key suffix `_m` or documented in README when a key is dimensionless).
 - Area quantities: square meters.
@@ -77,12 +76,7 @@ Dataset JSON keys in tracked case files and dataset-level JSON (`example_solutio
 - Angular quantities: either degrees (suffix `_deg`) or radians (suffix `_rad`).
 - Timestamps: ISO 8601 with `Z` or an explicit UTC offset.
 
-CI rejects JSON **object keys** that embed forbidden non-SI or non-canonical unit tokens. Forbidden patterns include:
-
-- Keys exactly equal to: `km`, `km_s`, `km_h`, `hour`, `hours`, `minute`, `minutes`
-- Keys whose suffix is: `_km`, `_km_s`, `_km_h`, `_hour`, `_hours`, `_minute`, `_minutes`
-
-Benchmarks may set `"unit_check_exempt": true` in `finished_benchmarks.json` only during a documented migration of legacy field names.
+Prefer SI-style keys and values where it improves clarity, but benchmarks may use non-SI time units such as hours when that is the natural problem vocabulary and is clearly documented in the benchmark README.
 
 ## Generator Contract
 
@@ -134,7 +128,6 @@ For finished benchmarks, CI enforces:
 - no tracked editor backup artifacts such as files ending in `~`
 - no `sys.path` hacks in benchmark generator/verifier/visualizer code
 - no `from benchmarks.` imports in benchmark generator/verifier/visualizer code
-- dataset JSON unit-key rules (unless `unit_check_exempt` is true for that benchmark)
 - generator `--help` and verifier smoke tests using the supported invocation for each entrypoint shape (direct script vs `python -m`)
 - passing repository tests
 

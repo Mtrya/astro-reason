@@ -101,7 +101,7 @@ The file also includes:
   - `latitude_deg`
   - `longitude_deg`
   - `altitude_m`
-  - `expected_revisit_period_hours`
+- `expected_revisit_period_hours` (required revisit cadence as a period in hours)
   - `min_elevation_deg`
   - `max_slant_range_m`
   - `min_duration_sec`

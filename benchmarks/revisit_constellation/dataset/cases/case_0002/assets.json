@@ -20,12 +20,30 @@
     },
     {
       "altitude_m": 0.0,
+      "id": "fukui_university_of_technology_ground_station",
+      "latitude_deg": 36.0689822,
+      "longitude_deg": 136.1959134,
+      "min_duration_sec": 120.0,
+      "min_elevation_deg": 10.0,
+      "name": "Fukui University of Technology Ground Station"
+    },
+    {
+      "altitude_m": 0.0,
       "id": "goonhilly_ghy_6",
       "latitude_deg": 50.0481728,
       "longitude_deg": -5.1810449,
       "min_duration_sec": 120.0,
       "min_elevation_deg": 10.0,
       "name": "Goonhilly GHY-6"
+    },
+    {
+      "altitude_m": 0.0,
+      "id": "hughes_san_diego_earth_station",
+      "latitude_deg": 32.7459359,
+      "longitude_deg": -117.0682658,
+      "min_duration_sec": 120.0,
+      "min_elevation_deg": 10.0,
+      "name": "Hughes San Diego Earth Station"
     },
     {
       "altitude_m": 0.0,
@@ -37,7 +55,7 @@
       "name": "University of La Reunion ground station"
     }
   ],
-  "max_num_satellites": 5,
+  "max_num_satellites": 17,
   "satellite_model": {
     "attitude_model": {
       "maneuver_discharge_rate_w": 90.0,

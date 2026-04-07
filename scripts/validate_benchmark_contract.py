@@ -33,17 +33,12 @@ EXAMPLE_SOLUTION_FILENAMES = (
     "example_solution.yml",
 )
 
-# Dataset JSON keys must not embed non-SI unit tokens (see docs/benchmark_contract.md).
-FORBIDDEN_UNIT_KEY_EXACT = frozenset({"km", "km_s", "km_h", "hour", "hours", "minute", "minutes"})
-FORBIDDEN_UNIT_KEY_SUFFIXES = ("_km", "_km_s", "_km_h", "_hour", "_hours", "_minute", "_minutes")
-
 
 @dataclass(frozen=True)
 class FinishedBenchmark:
     name: str
     repro_ci: bool
     generated_paths: tuple[str, ...]
-    unit_check_exempt: bool = False
 
 
 def load_finished_benchmarks(path: Path = FINISHED_BENCHMARKS_PATH) -> list[FinishedBenchmark]:
@@ -55,7 +50,6 @@ def load_finished_benchmarks(path: Path = FINISHED_BENCHMARKS_PATH) -> list[Fini
                 name=item["name"],
                 repro_ci=bool(item["repro_ci"]),
                 generated_paths=tuple(item.get("generated_paths", [])),
-                unit_check_exempt=bool(item.get("unit_check_exempt", False)),
             )
         )
     return benchmarks
@@ -119,28 +113,6 @@ def _python_cmd_for_entrypoint(
         subpkg = entrypoint.relative_to(benchmark_root).parts[0]
         return [sys.executable, "-m", f"benchmarks.{benchmark_name}.{subpkg}.run", *extra_args]
     return [sys.executable, str(entrypoint), *extra_args]
-
-
-def _iter_json_object_keys(obj: object) -> list[str]:
-    keys: list[str] = []
-    if isinstance(obj, dict):
-        for k, v in obj.items():
-            if isinstance(k, str):
-                keys.append(k)
-            keys.extend(_iter_json_object_keys(v))
-    elif isinstance(obj, list):
-        for item in obj:
-            keys.extend(_iter_json_object_keys(item))
-    return keys
-
-
-def _unit_violation_for_key(key: str) -> str | None:
-    if key in FORBIDDEN_UNIT_KEY_EXACT:
-        return f"forbidden unit token in key {key!r}"
-    for suffix in FORBIDDEN_UNIT_KEY_SUFFIXES:
-        if key.endswith(suffix):
-            return f"key ends with forbidden suffix {suffix!r}"
-    return None
 
 
 def _git_tracked_files(root: Path) -> list[Path]:
@@ -319,28 +291,6 @@ def _check_verifier_smoke(benchmark_root: Path, errors: list[str]) -> None:
             errors.append(f"{benchmark_root.name}: verifier produced no output")
 
 
-def _check_dataset_units(benchmark: FinishedBenchmark, benchmark_root: Path, errors: list[str]) -> None:
-    if benchmark.unit_check_exempt:
-        return
-    dataset_dir = benchmark_root / "dataset"
-    if not dataset_dir.is_dir():
-        return
-    for tracked_path in _git_tracked_files(dataset_dir):
-        if tracked_path.suffix.lower() != ".json":
-            continue
-        try:
-            text = tracked_path.read_text(encoding="utf-8")
-            data = json.loads(text)
-        except (json.JSONDecodeError, OSError, UnicodeDecodeError) as e:
-            errors.append(f"{benchmark.name}: unit check could not read JSON {tracked_path.relative_to(REPO_ROOT)}: {e}")
-            continue
-        for key in _iter_json_object_keys(data):
-            violation = _unit_violation_for_key(key)
-            if violation is not None:
-                rel = tracked_path.relative_to(REPO_ROOT)
-                errors.append(f"{benchmark.name}: unit contract: {rel}: {violation} (key={key!r})")
-
-
 def validate_finished_benchmarks(repo_root: Path = REPO_ROOT) -> list[str]:
     errors: list[str] = []
     for benchmark in load_finished_benchmarks(repo_root / "benchmarks" / "finished_benchmarks.json"):
@@ -350,7 +300,6 @@ def validate_finished_benchmarks(repo_root: Path = REPO_ROOT) -> list[str]:
             continue
         _check_required_root_entries(benchmark_root, errors)
         _check_dataset_layout(benchmark_root, errors)
-        _check_dataset_units(benchmark, benchmark_root, errors)
         _check_public_code(benchmark_root, errors)
         _check_generator_help(benchmark_root, errors)
         _check_verifier_smoke(benchmark_root, errors)

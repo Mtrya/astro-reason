@@ -2,6 +2,15 @@
   "ground_stations": [
     {
       "altitude_m": 0.0,
+      "id": "atlas_punta_arenas_chile",
+      "latitude_deg": -53.1633778,
+      "longitude_deg": -70.907705,
+      "min_duration_sec": 120.0,
+      "min_elevation_deg": 10.0,
+      "name": "Atlas Punta Arenas, Chile*"
+    },
+    {
+      "altitude_m": 0.0,
       "id": "calgary_teleport",
       "latitude_deg": 51.0447331,
       "longitude_deg": -114.0718831,
@@ -29,6 +38,15 @@
     },
     {
       "altitude_m": 0.0,
+      "id": "university_ground_station_likely",
+      "latitude_deg": 35.86166,
+      "longitude_deg": 104.195397,
+      "min_duration_sec": 120.0,
+      "min_elevation_deg": 10.0,
+      "name": "University Ground Station (Likely)"
+    },
+    {
+      "altitude_m": 0.0,
       "id": "usp_tonga_campus_ground_station",
       "latitude_deg": -21.1847034,
       "longitude_deg": -175.2200953,
@@ -37,7 +55,7 @@
       "name": "USP Tonga Campus Ground Station"
     }
   ],
-  "max_num_satellites": 8,
+  "max_num_satellites": 14,
   "satellite_model": {
     "attitude_model": {
       "maneuver_discharge_rate_w": 90.0,
