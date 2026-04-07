@@ -180,6 +180,42 @@ def _check_generator_help(benchmark_root: Path, errors: list[str]) -> None:
         errors.append(f"{benchmark_root.name}: generator --help missing usage information")
 
 
+def _example_solution_shape_ok(parsed: object) -> bool:
+    """True if JSON matches a single-solution file (not a legacy case-id mapping)."""
+    if parsed == {}:
+        return False
+    if isinstance(parsed, list):
+        return True
+    if not isinstance(parsed, dict):
+        return False
+    if any(
+        key in parsed
+        for key in ("actions", "claimed_profit", "assignments", "satellites")
+    ):
+        return True
+    return False
+
+
+def _resolve_smoke_case_dir(dataset_dir: Path) -> Path | None:
+    cases_dir = dataset_dir / "cases"
+    case_dirs = sorted(path for path in cases_dir.iterdir() if path.is_dir())
+    if not case_dirs:
+        return None
+    index_path = dataset_dir / "index.json"
+    if index_path.is_file():
+        try:
+            index = json.loads(index_path.read_text(encoding="utf-8"))
+        except (json.JSONDecodeError, OSError):
+            index = {}
+        else:
+            cid = index.get("example_smoke_case_id")
+            if isinstance(cid, str) and cid:
+                candidate = cases_dir / cid
+                if candidate.is_dir():
+                    return candidate
+    return case_dirs[0]
+
+
 def _check_verifier_smoke(benchmark_root: Path, errors: list[str]) -> None:
     verifier_entrypoint = _verifier_entrypoint(benchmark_root)
     if verifier_entrypoint is None:
@@ -193,49 +229,34 @@ def _check_verifier_smoke(benchmark_root: Path, errors: list[str]) -> None:
         return
 
     try:
-        all_solutions = json.loads(solutions_path.read_text())
+        parsed = json.loads(solutions_path.read_text(encoding="utf-8"))
     except (json.JSONDecodeError, OSError) as e:
         errors.append(f"{benchmark_root.name}: failed to parse example_solution.json: {e}")
         return
 
-    if not all_solutions:
-        errors.append(f"{benchmark_root.name}: empty example_solution.json")
+    if not _example_solution_shape_ok(parsed):
+        errors.append(
+            f"{benchmark_root.name}: example_solution.json must be a single solution "
+            "(same schema as a per-case solution file), not a mapping of case IDs"
+        )
         return
 
-    cases_dir = dataset_dir / "cases"
-    case_dirs = sorted(path for path in cases_dir.iterdir() if path.is_dir())
-    if not case_dirs:
+    case_dir = _resolve_smoke_case_dir(dataset_dir)
+    if case_dir is None:
         errors.append(f"{benchmark_root.name}: no cases found for smoke test")
-        return
-
-    case_solution = None
-    case_dir = None
-    case_id = None
-    for cd in case_dirs:
-        cid = cd.name
-        if cid in all_solutions:
-            case_solution = all_solutions[cid]
-            case_dir = cd
-            case_id = cid
-            break
-
-    if case_solution is None:
-        errors.append(f"{benchmark_root.name}: no matching case found in example_solution.json")
         return
 
     with tempfile.TemporaryDirectory() as tmp_dir:
         tmp_path = Path(tmp_dir)
         env = dict(os.environ)
         env["MPLCONFIGDIR"] = str(tmp_path / "mplconfig")
-        case_solution_path = tmp_path / f"{case_id}_solution.json"
-        case_solution_path.write_text(json.dumps(case_solution))
 
         result = subprocess.run(
             [
                 sys.executable,
                 str(verifier_entrypoint),
                 str(case_dir),
-                str(case_solution_path),
+                str(solutions_path),
             ],
             cwd=REPO_ROOT,
             capture_output=True,

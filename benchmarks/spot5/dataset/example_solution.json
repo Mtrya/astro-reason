@@ -1,18 +1,16 @@
 {
-  "8": {
-    "claimed_profit": 0,
-    "claimed_weight": 0,
-    "n_candidates": 8,
-    "n_selected": 0,
-    "assignments": [
-      0,
-      0,
-      0,
-      0,
-      0,
-      0,
-      0,
-      0
-    ]
-  }
+  "claimed_profit": 0,
+  "claimed_weight": 0,
+  "n_candidates": 8,
+  "n_selected": 0,
+  "assignments": [
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0
+  ]
 }

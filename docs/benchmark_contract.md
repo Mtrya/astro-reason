@@ -39,7 +39,7 @@ The canonical dataset layout for finished benchmarks is:
 
 ```text
 dataset/
-├── example_solution.json  # required, maps case IDs to minimal runnable examples
+├── example_solution.json  # required, one minimal runnable example (same schema as a real solution)
 ├── cases/
 │   └── <case_id>/
 ├── index.json      # optional
@@ -50,8 +50,8 @@ Rules:
 
 - `dataset/cases/` is mandatory.
 - Case identifiers are benchmark-specific. CI does not require a `case_####` naming pattern.
-- The dataset root must include `example_solution.json`, `example_solution.yaml`, or `example_solution.yml` so CI can run the public verifier against a real benchmark case automatically. This file maps case IDs to minimal runnable examples.
-- `index.json` is optional. If present, it is benchmark metadata, not a second source of truth for completion status.
+- The dataset root must include `example_solution.json`, `example_solution.yaml`, or `example_solution.yml` so CI can run the public verifier against a real benchmark case automatically. This file must contain a **single** solution object with the same schema as a normal per-case solution file (not a mapping from case IDs to solutions).
+- `index.json` is optional. If present, it is benchmark metadata, not a second source of truth for completion status. It may include optional `example_smoke_case_id` (string): the `dataset/cases/<case_id>` directory to pair with `example_solution.json` in verifier smoke tests. When omitted, CI uses the lexicographically first case directory under `dataset/cases/`.
 - Generators must not write `dataset/README.md`.
 - Additional tracked dataset files are allowed when they are benchmark-owned public artifacts and are documented in the benchmark README.
 - `dataset/source_data/` may be used as a download/cache directory, but it must stay gitignored and must not be required to exist before running the generator.
@@ -77,7 +77,7 @@ Finished benchmark verifiers must satisfy the following:
 - Any additional CLI options must be optional.
 - Verifiers must be runnable directly as scripts and must be able to load canonical cases without crashing.
 
-The dataset-level `example_solution.json` or `example_solution.yaml` is the preferred verifier smoke-test convention for finished benchmarks. It maps case IDs to minimal runnable examples. These are runnable examples, not baselines.
+The dataset-level `example_solution.json` or `example_solution.yaml` is the preferred verifier smoke-test convention for finished benchmarks. It holds one minimal runnable solution whose schema matches real submissions. Pairing with a case directory uses `example_smoke_case_id` in `index.json` when the smoke case is not the lexicographically first under `dataset/cases/`. These are runnable examples, not baselines.
 
 ## Enforced CI Checks
 

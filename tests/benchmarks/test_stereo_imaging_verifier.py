@@ -584,11 +584,11 @@ class TestIOLoadSolution:
         actions = load_solution_actions(sol, "case")
         assert actions == []
 
-    def test_per_case_key(self, tmp_path):
+    def test_rejects_legacy_case_id_mapping(self, tmp_path):
         sol = tmp_path / "sol.json"
         _write_json(sol, {"my_case": {"actions": []}})
-        actions = load_solution_actions(sol, "my_case")
-        assert actions == []
+        with pytest.raises(ValueError, match="actions"):
+            load_solution_actions(sol, "my_case")
 
 
 # ===================================================================

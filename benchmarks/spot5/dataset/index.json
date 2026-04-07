@@ -133,5 +133,6 @@
       "instance_file": "8.spot",
       "is_multi_orbit": false
     }
-  ]
+  ],
+  "example_smoke_case_id": "8"
 }

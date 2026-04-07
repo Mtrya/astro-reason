@@ -433,8 +433,8 @@ This directory contains the canonical committed dataset for the
 - `cases/<case_id>/mission.json`
 
 Each case directory contains only the two canonical machine-readable files used
-by the verifier. `example_solution.json` maps case IDs to minimal runnable
-examples for verifier smoke tests; these are not baselines.
+by the verifier. `example_solution.json` is a single minimal runnable solution
+(same schema as a real submission) for verifier smoke tests; these are not baselines.
 
 ## Canonical Generation
 
@@ -503,7 +503,7 @@ def generate_dataset(
     shutil.rmtree(cases_dir, ignore_errors=True)
     cases_dir.mkdir(parents=True, exist_ok=True)
 
-    example_solution: dict[str, dict] = {}
+    example_solution: dict | None = None
 
     for index, case_spec in enumerate(case_specs):
         case_seed = seed + (index * 10_000)
@@ -514,10 +514,12 @@ def generate_dataset(
         _write_json(case_dir / "mission.json", build_mission_payload(case_spec, case_targets))
 
         if case_spec.case_id == "case_0001":
-            example_solution[case_spec.case_id] = {"satellites": [], "actions": []}
+            example_solution = {"satellites": [], "actions": []}
 
     index_payload = build_index_payload(case_specs, seed=seed)
     _write_json(output_dir / "index.json", index_payload)
+    if example_solution is None:
+        raise RuntimeError("Expected case_0001 for example_solution.json")
     _write_json(output_dir / "example_solution.json", example_solution)
     _write_text(output_dir / "README.md", build_dataset_readme(index_payload))
     return output_dir
