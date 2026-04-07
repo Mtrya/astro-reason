@@ -84,7 +84,6 @@
       ]
     }
   ],
-  "generator_revision": "cc1b5914d3de9f89843ba8fee9103d185c0a6d8f",
   "horizon_duration_s": 172800,
   "selected_norad_catalog_ids": [
     38012,
@@ -96,14 +95,11 @@
   ],
   "source_provenance": {
     "celestrak": {
-      "record_count": 162,
-      "retrieval_timestamp_utc": "2026-04-07T08:15:19Z",
-      "sha256": "7e7b4cc279f963c9b7b774a05d892fbbcb83e9bd7b1f598017d37c350e74c2f5",
-      "skipped_cached": true,
-      "url": "https://celestrak.org/NORAD/elements/gp.php?GROUP=resource&FORMAT=tle"
+      "record_count": 6,
+      "sha256": "9e8804012146eb76f295a0cfda80d2749bab690a6467c396fe6fbb9276f1a9f3",
+      "url": "https://celestrak.org/NORAD/elements/gp.php?GROUP=resource&FORMAT=tle",
+      "vendored_snapshot": true
     },
-    "generated_at_utc": "2026-04-07T08:15:19Z",
-    "generator_revision": "cc1b5914d3de9f89843ba8fee9103d185c0a6d8f",
     "lookup_tables": {
       "elevation_cell_count": 23412,
       "resolution_deg": 1.0,
@@ -113,7 +109,6 @@
     },
     "world_cities": {
       "kaggle_dataset": "juanmah/world-cities",
-      "retrieval_timestamp_utc": "2026-04-07T08:15:19Z",
       "sha256": "67a4fed1d7ddd92ad3d7b5befef6e2d1b65f7a54f0764e5cec98e8720c587200",
       "skipped_cached": true
     }

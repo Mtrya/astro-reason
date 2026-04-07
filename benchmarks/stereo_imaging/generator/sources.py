@@ -5,14 +5,13 @@ from __future__ import annotations
 import csv
 import hashlib
 import shutil
-import urllib.error
-import urllib.request
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
 import kagglehub
 
+from . import cached_tles
 from .normalize import WORLD_CITIES_REQUIRED_COLUMNS, parse_tle_text
 
 CELESTRAK_EARTH_RESOURCES_URL = (
@@ -23,19 +22,6 @@ CELESTRAK_CSV_NAME = "earth_resources.csv"
 
 WORLD_CITIES_DATASET = "juanmah/world-cities"
 WORLD_CITIES_FILENAME = "world_cities.csv"
-
-USER_AGENT = "AstroReason-Bench-stereo-imaging-generator/1.0"
-
-
-def _http_get_bytes(url: str) -> bytes:
-    req = urllib.request.Request(url, headers={"User-Agent": USER_AGENT})
-    try:
-        with urllib.request.urlopen(req, timeout=120) as resp:  # noqa: S310
-            return resp.read()
-    except urllib.error.HTTPError as exc:
-        raise RuntimeError(f"HTTP error fetching {url}: {exc.code} {exc.reason}") from exc
-    except urllib.error.URLError as exc:
-        raise RuntimeError(f"Network error fetching {url}: {exc}") from exc
 
 
 def _normalize_header_lookup(fieldnames: list[str]) -> set[str]:
@@ -91,47 +77,43 @@ class SourceFetchResult:
 
 
 def download_celestrak(dest_dir: Path, *, force_download: bool) -> SourceFetchResult:
-    """Download Earth-resources TLEs from CelesTrak and write normalized CSV."""
+    """Write normalized CelesTrak-format TLE CSV from `cached_tles` (no live HTTP fetch)."""
+    del force_download  # Kept for API parity with `download_world_cities`; TLEs are always vendored.
+
     cele_dir = dest_dir / "celestrak"
     raw_path = cele_dir / CELESTRAK_RAW_NAME
     csv_path = cele_dir / CELESTRAK_CSV_NAME
-
-    if not force_download and csv_path.is_file() and raw_path.is_file():
-        records = parse_tle_text(raw_path.read_text(encoding="utf-8", errors="replace"))
-        return SourceFetchResult(
-            "celestrak",
-            [raw_path, csv_path],
-            {
-                "url": CELESTRAK_EARTH_RESOURCES_URL,
-                "record_count": len(records),
-                "sha256": _sha256_file(csv_path),
-                "skipped_cached": True,
-            },
-        )
-
-    raw_bytes = _http_get_bytes(CELESTRAK_EARTH_RESOURCES_URL)
-    text = raw_bytes.decode("utf-8", errors="replace")
     cele_dir.mkdir(parents=True, exist_ok=True)
-    raw_path.write_text(text, encoding="utf-8")
 
-    records = parse_tle_text(text)
+    rows = list(cached_tles.CACHED_CELESTRAK_ROWS)
+    lines: list[str] = []
+    for row in rows:
+        lines.extend([row["name"], row["tle_line1"], row["tle_line2"]])
+    raw_path.write_text("\n".join(lines) + "\n", encoding="utf-8")
+
     with csv_path.open("w", encoding="utf-8", newline="") as handle:
         writer = csv.DictWriter(
             handle,
             fieldnames=["name", "norad_catalog_id", "tle_line1", "tle_line2", "epoch_iso"],
         )
         writer.writeheader()
-        for row in records:
+        for row in rows:
             writer.writerow(row)
+
+    records = parse_tle_text(raw_path.read_text(encoding="utf-8", errors="replace"))
+    if len(records) != len(rows):
+        raise RuntimeError(
+            f"Vendored TLE snapshot parse mismatch: expected {len(rows)} satellites, got {len(records)}"
+        )
 
     return SourceFetchResult(
         "celestrak",
         [raw_path, csv_path],
         {
             "url": CELESTRAK_EARTH_RESOURCES_URL,
-            "record_count": len(records),
+            "record_count": len(rows),
             "sha256": _sha256_file(csv_path),
-            "skipped_cached": False,
+            "vendored_snapshot": True,
         },
     )
 
