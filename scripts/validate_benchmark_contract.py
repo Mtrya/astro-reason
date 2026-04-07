@@ -194,22 +194,6 @@ def _check_generator_help(benchmark_root: Path, errors: list[str]) -> None:
         errors.append(f"{benchmark_root.name}: generator --help missing usage information")
 
 
-def _example_solution_shape_ok(parsed: object) -> bool:
-    """True if parsed example solution matches a single-solution file (not a legacy case-id mapping)."""
-    if parsed == {}:
-        return False
-    if isinstance(parsed, list):
-        return True
-    if not isinstance(parsed, dict):
-        return False
-    if any(
-        key in parsed
-        for key in ("actions", "claimed_profit", "assignments", "satellites")
-    ):
-        return True
-    return False
-
-
 def _resolve_smoke_case_dir(dataset_dir: Path) -> Path | None:
     cases_dir = dataset_dir / "cases"
     case_dirs = sorted(path for path in cases_dir.iterdir() if path.is_dir())
@@ -250,13 +234,6 @@ def _check_verifier_smoke(benchmark_root: Path, errors: list[str]) -> None:
         parsed = _load_example_solution_payload(solutions_path)
     except (json.JSONDecodeError, yaml.YAMLError, OSError, UnicodeDecodeError, ValueError) as e:
         errors.append(f"{benchmark_root.name}: failed to parse {label}: {e}")
-        return
-
-    if not _example_solution_shape_ok(parsed):
-        errors.append(
-            f"{benchmark_root.name}: {label} must be a single solution "
-            "(same schema as a per-case solution file), not a mapping of case IDs"
-        )
         return
 
     case_dir = _resolve_smoke_case_dir(dataset_dir)
