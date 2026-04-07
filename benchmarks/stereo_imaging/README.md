@@ -300,17 +300,17 @@ The verifier exits with code `0` when valid, `1` when invalid.
 ### Generator
 
 ```bash
-# Re-generate the canonical dataset (requires network for CelesTrak and world-cities):
+# Re-generate the canonical dataset (Earth-resources TLEs are vendored in-generator; Kaggle may be needed for world-cities):
 uv run python benchmarks/stereo_imaging/generator/run.py
 
 # Fetch and cache runtime sources only (skip case generation):
 uv run python benchmarks/stereo_imaging/generator/run.py --sources-only
 
-# Force re-download even when cached:
+# Force re-download of world-cities from Kaggle even when cached:
 uv run python benchmarks/stereo_imaging/generator/run.py --force-download
 ```
 
-The generator writes cases under `dataset/cases/`, updates `dataset/index.json`, and writes `dataset/example_solution.json`. Runtime sources are cached under `dataset/source_data/`.
+The generator writes cases under `dataset/cases/`, updates `dataset/index.json`, and writes `dataset/example_solution.json`. Runtime sources are staged under `dataset/source_data/` (CelesTrak-format TLE CSV written from the vendored snapshot in `generator/cached_tles.py`).
 
 ### Visualizer
 

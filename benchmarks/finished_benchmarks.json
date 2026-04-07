@@ -34,6 +34,7 @@
       "repro_ci": true,
       "generated_paths": [
         "dataset/cases",
+        "dataset/index.json",
         "dataset/example_solution.json"
       ]
     }

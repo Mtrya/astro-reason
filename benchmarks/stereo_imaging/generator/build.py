@@ -523,6 +523,19 @@ def _write_yaml(path: Path, data: Any) -> None:
     path.write_text(text, encoding="utf-8")
 
 
+def _source_provenance_for_index(raw: dict[str, Any]) -> dict[str, Any]:
+    """Strip volatile timestamp fields so `dataset/index.json` is stable for CI hashing."""
+    if not raw:
+        return {}
+    cleaned = json.loads(json.dumps(raw))
+    cleaned.pop("generated_at_utc", None)
+    for key in ("celestrak", "world_cities"):
+        sub = cleaned.get(key)
+        if isinstance(sub, dict):
+            sub.pop("retrieval_timestamp_utc", None)
+    return cleaned
+
+
 def build_example_solution(
     cases: list[BuiltCase],
     horizon_starts: dict[str, str],
@@ -652,9 +665,8 @@ def generate_dataset(
         "benchmark": "stereo_imaging",
         "spec_version": "v3",
         "canonical_seed": seed,
-        "generator_revision": git_revision,
         "horizon_duration_s": DEFAULT_HORIZON_DURATION_S,
-        "source_provenance": provenance,
+        "source_provenance": _source_provenance_for_index(provenance),
         "cases": [
             {
                 "case_id": bc.case_id,
