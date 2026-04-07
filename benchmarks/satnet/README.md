@@ -268,6 +268,8 @@ VALID: score=234.5678h, tracks=145
 
 ### Python API
 
+The verifier CLI is a top-level script (`benchmarks/satnet/verifier.py`). Programmatic imports use the `benchmarks.satnet` package when the repository root is on `PYTHONPATH` (for example, run Python from the repo root with `uv run python`).
+
 ```python
 from benchmarks.satnet.verifier import verify_case
 

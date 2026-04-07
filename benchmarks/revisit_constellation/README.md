@@ -289,7 +289,7 @@ The verifier returns a JSON object with:
 CLI entry:
 
 ```bash
-uv run python benchmarks/revisit_constellation/verifier/run.py <case_dir> <solution.json>
+uv run python -m benchmarks.revisit_constellation.verifier.run <case_dir> <solution.json>
 ```
 
 ## Canonical Benchmark Shape
@@ -332,7 +332,7 @@ The committed dataset lives under `dataset/cases/` and includes dataset-level me
 The canonical generator entry point is:
 
 ```bash
-uv run python benchmarks/revisit_constellation/generator/run.py
+uv run python -m benchmarks.revisit_constellation.generator.run
 ```
 
 Downloaded raw source CSVs are stored under the dataset directory by default at `dataset/source_data/`. The generator downloads the documented Kaggle datasets itself through `kagglehub`, then builds the canonical cases without any manual CSV preparation step.

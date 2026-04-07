@@ -3,47 +3,10 @@
 from __future__ import annotations
 
 import argparse
-import importlib.util
 from pathlib import Path
-import sys
-import types
 
-
-def _load_runtime_modules():
-    package_name = "_revisit_constellation_generator_runtime"
-    package_dir = Path(__file__).resolve().parent
-
-    package = sys.modules.get(package_name)
-    if package is None:
-        package = types.ModuleType(package_name)
-        package.__path__ = [str(package_dir)]
-        sys.modules[package_name] = package
-
-    loaded = {}
-    for module_name in ("build", "sources"):
-        qualified_name = f"{package_name}.{module_name}"
-        module = sys.modules.get(qualified_name)
-        if module is None:
-            spec = importlib.util.spec_from_file_location(
-                qualified_name,
-                package_dir / f"{module_name}.py",
-            )
-            if spec is None or spec.loader is None:
-                raise ImportError(f"Unable to load {qualified_name}")
-            module = importlib.util.module_from_spec(spec)
-            sys.modules[qualified_name] = module
-            spec.loader.exec_module(module)
-        loaded[module_name] = module
-    return loaded["build"], loaded["sources"]
-
-
-if __package__ in {None, ""}:  # pragma: no cover - script-path import support
-    _build_module, _sources_module = _load_runtime_modules()
-    generate_dataset = _build_module.generate_dataset
-    download_sources = _sources_module.download_sources
-else:  # pragma: no cover - exercised through the same runtime path
-    from .build import generate_dataset
-    from .sources import download_sources
+from .build import generate_dataset
+from .sources import download_sources
 
 
 DEFAULT_OUTPUT_DIR = Path(__file__).resolve().parent.parent / "dataset"

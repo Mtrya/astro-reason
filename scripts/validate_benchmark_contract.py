@@ -15,7 +15,7 @@ import yaml
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 FINISHED_BENCHMARKS_PATH = REPO_ROOT / "benchmarks" / "finished_benchmarks.json"
-ALLOWED_ROOT_FILES = {"README.md", "generator.py", "verifier.py", "visualizer.py"}
+ALLOWED_ROOT_FILES = {"README.md", "__init__.py", "generator.py", "verifier.py", "visualizer.py"}
 ALLOWED_ROOT_DIRS = {"dataset", "generator", "verifier", "visualizer"}
 BANNED_CODE_SNIPPETS = {
     "sys.path.insert": "contains a sys.path hack",
@@ -33,12 +33,17 @@ EXAMPLE_SOLUTION_FILENAMES = (
     "example_solution.yml",
 )
 
+# Dataset JSON keys must not embed non-SI unit tokens (see docs/benchmark_contract.md).
+FORBIDDEN_UNIT_KEY_EXACT = frozenset({"km", "km_s", "km_h", "hour", "hours", "minute", "minutes"})
+FORBIDDEN_UNIT_KEY_SUFFIXES = ("_km", "_km_s", "_km_h", "_hour", "_hours", "_minute", "_minutes")
+
 
 @dataclass(frozen=True)
 class FinishedBenchmark:
     name: str
     repro_ci: bool
     generated_paths: tuple[str, ...]
+    unit_check_exempt: bool = False
 
 
 def load_finished_benchmarks(path: Path = FINISHED_BENCHMARKS_PATH) -> list[FinishedBenchmark]:
@@ -50,6 +55,7 @@ def load_finished_benchmarks(path: Path = FINISHED_BENCHMARKS_PATH) -> list[Fini
                 name=item["name"],
                 repro_ci=bool(item["repro_ci"]),
                 generated_paths=tuple(item.get("generated_paths", [])),
+                unit_check_exempt=bool(item.get("unit_check_exempt", False)),
             )
         )
     return benchmarks
@@ -87,6 +93,53 @@ def _verifier_entrypoint(benchmark_root: Path) -> Path | None:
         candidate = benchmark_root / relative
         if candidate.exists():
             return candidate
+    return None
+
+
+def _is_nested_run_py(entrypoint: Path, benchmark_root: Path) -> bool:
+    try:
+        rel = entrypoint.relative_to(benchmark_root)
+    except ValueError:
+        return False
+    return (
+        len(rel.parts) == 2
+        and rel.parts[1] == "run.py"
+        and rel.parts[0] in ("generator", "verifier", "visualizer")
+    )
+
+
+def _python_cmd_for_entrypoint(
+    benchmark_name: str,
+    entrypoint: Path,
+    benchmark_root: Path,
+    extra_args: list[str],
+) -> list[str]:
+    """Build argv for generator/verifier/visualizer per layout policy."""
+    if _is_nested_run_py(entrypoint, benchmark_root):
+        subpkg = entrypoint.relative_to(benchmark_root).parts[0]
+        return [sys.executable, "-m", f"benchmarks.{benchmark_name}.{subpkg}.run", *extra_args]
+    return [sys.executable, str(entrypoint), *extra_args]
+
+
+def _iter_json_object_keys(obj: object) -> list[str]:
+    keys: list[str] = []
+    if isinstance(obj, dict):
+        for k, v in obj.items():
+            if isinstance(k, str):
+                keys.append(k)
+            keys.extend(_iter_json_object_keys(v))
+    elif isinstance(obj, list):
+        for item in obj:
+            keys.extend(_iter_json_object_keys(item))
+    return keys
+
+
+def _unit_violation_for_key(key: str) -> str | None:
+    if key in FORBIDDEN_UNIT_KEY_EXACT:
+        return f"forbidden unit token in key {key!r}"
+    for suffix in FORBIDDEN_UNIT_KEY_SUFFIXES:
+        if key.endswith(suffix):
+            return f"key ends with forbidden suffix {suffix!r}"
     return None
 
 
@@ -182,7 +235,7 @@ def _check_generator_help(benchmark_root: Path, errors: list[str]) -> None:
         errors.append(f"{benchmark_root.name}: missing generator entrypoint")
         return
     result = subprocess.run(
-        [sys.executable, str(entrypoint), "--help"],
+        _python_cmd_for_entrypoint(benchmark_root.name, entrypoint, benchmark_root, ["--help"]),
         cwd=REPO_ROOT,
         capture_output=True,
         text=True,
@@ -231,7 +284,7 @@ def _check_verifier_smoke(benchmark_root: Path, errors: list[str]) -> None:
 
     label = solutions_path.name
     try:
-        parsed = _load_example_solution_payload(solutions_path)
+        _load_example_solution_payload(solutions_path)
     except (json.JSONDecodeError, yaml.YAMLError, OSError, UnicodeDecodeError, ValueError) as e:
         errors.append(f"{benchmark_root.name}: failed to parse {label}: {e}")
         return
@@ -247,12 +300,12 @@ def _check_verifier_smoke(benchmark_root: Path, errors: list[str]) -> None:
         env["MPLCONFIGDIR"] = str(tmp_path / "mplconfig")
 
         result = subprocess.run(
-            [
-                sys.executable,
-                str(verifier_entrypoint),
-                str(case_dir),
-                str(solutions_path),
-            ],
+            _python_cmd_for_entrypoint(
+                benchmark_root.name,
+                verifier_entrypoint,
+                benchmark_root,
+                [str(case_dir), str(solutions_path)],
+            ),
             cwd=REPO_ROOT,
             capture_output=True,
             text=True,
@@ -266,6 +319,28 @@ def _check_verifier_smoke(benchmark_root: Path, errors: list[str]) -> None:
             errors.append(f"{benchmark_root.name}: verifier produced no output")
 
 
+def _check_dataset_units(benchmark: FinishedBenchmark, benchmark_root: Path, errors: list[str]) -> None:
+    if benchmark.unit_check_exempt:
+        return
+    dataset_dir = benchmark_root / "dataset"
+    if not dataset_dir.is_dir():
+        return
+    for tracked_path in _git_tracked_files(dataset_dir):
+        if tracked_path.suffix.lower() != ".json":
+            continue
+        try:
+            text = tracked_path.read_text(encoding="utf-8")
+            data = json.loads(text)
+        except (json.JSONDecodeError, OSError, UnicodeDecodeError) as e:
+            errors.append(f"{benchmark.name}: unit check could not read JSON {tracked_path.relative_to(REPO_ROOT)}: {e}")
+            continue
+        for key in _iter_json_object_keys(data):
+            violation = _unit_violation_for_key(key)
+            if violation is not None:
+                rel = tracked_path.relative_to(REPO_ROOT)
+                errors.append(f"{benchmark.name}: unit contract: {rel}: {violation} (key={key!r})")
+
+
 def validate_finished_benchmarks(repo_root: Path = REPO_ROOT) -> list[str]:
     errors: list[str] = []
     for benchmark in load_finished_benchmarks(repo_root / "benchmarks" / "finished_benchmarks.json"):
@@ -275,6 +350,7 @@ def validate_finished_benchmarks(repo_root: Path = REPO_ROOT) -> list[str]:
             continue
         _check_required_root_entries(benchmark_root, errors)
         _check_dataset_layout(benchmark_root, errors)
+        _check_dataset_units(benchmark, benchmark_root, errors)
         _check_public_code(benchmark_root, errors)
         _check_generator_help(benchmark_root, errors)
         _check_verifier_smoke(benchmark_root, errors)

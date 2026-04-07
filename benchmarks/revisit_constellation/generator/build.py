@@ -441,7 +441,7 @@ by the verifier. `example_solution.json` is a single minimal runnable solution
 This committed dataset is intended to be rebuilt with:
 
 ```bash
-uv run python benchmarks/revisit_constellation/generator/run.py
+uv run python -m benchmarks.revisit_constellation.generator.run
 ```
 
 The generator downloads the documented source datasets automatically via

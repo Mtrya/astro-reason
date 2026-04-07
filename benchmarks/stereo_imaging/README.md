@@ -284,12 +284,12 @@ A local secant correction for off-nadir projection is applied.
 ### Verifier
 
 ```bash
-uv run python benchmarks/stereo_imaging/verifier/run.py \
+uv run python -m benchmarks.stereo_imaging.verifier.run \
     benchmarks/stereo_imaging/dataset/cases/case_0001 \
     path/to/solution.json
 
 # Compact output (valid flag, metrics, violations only):
-uv run python benchmarks/stereo_imaging/verifier/run.py \
+uv run python -m benchmarks.stereo_imaging.verifier.run \
     benchmarks/stereo_imaging/dataset/cases/case_0001 \
     path/to/solution.json \
     --compact
@@ -301,13 +301,13 @@ The verifier exits with code `0` when valid, `1` when invalid.
 
 ```bash
 # Re-generate the canonical dataset (Earth-resources TLEs are vendored in-generator; Kaggle may be needed for world-cities):
-uv run python benchmarks/stereo_imaging/generator/run.py
+uv run python -m benchmarks.stereo_imaging.generator.run
 
 # Fetch and cache runtime sources only (skip case generation):
-uv run python benchmarks/stereo_imaging/generator/run.py --sources-only
+uv run python -m benchmarks.stereo_imaging.generator.run --sources-only
 
 # Force re-download of world-cities from Kaggle even when cached:
-uv run python benchmarks/stereo_imaging/generator/run.py --force-download
+uv run python -m benchmarks.stereo_imaging.generator.run --force-download
 ```
 
 The generator writes cases under `dataset/cases/`, updates `dataset/index.json`, and writes `dataset/example_solution.json` (one per-case-shaped minimal example, aligned with `case_0001` for smoke tests). Runtime sources are staged under `dataset/source_data/` (CelesTrak-format TLE CSV written from the vendored snapshot in `generator/cached_tles.py`).
@@ -316,11 +316,11 @@ The generator writes cases under `dataset/cases/`, updates `dataset/index.json`,
 
 ```bash
 # Case overview (ground tracks and target scatter map):
-uv run python benchmarks/stereo_imaging/visualizer/run.py overview \
+uv run python -m benchmarks.stereo_imaging.visualizer.run overview \
     benchmarks/stereo_imaging/dataset/cases/case_0001
 
 # Batch ECEF geometry plots for all stereo candidates in a solution:
-uv run python benchmarks/stereo_imaging/visualizer/run.py batch \
+uv run python -m benchmarks.stereo_imaging.visualizer.run batch \
     benchmarks/stereo_imaging/dataset/cases/case_0001 \
     path/to/solution.json
 ```

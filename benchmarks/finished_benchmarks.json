@@ -4,6 +4,7 @@
     {
       "name": "revisit_constellation",
       "repro_ci": true,
+      "unit_check_exempt": true,
       "generated_paths": [
         "dataset/cases",
         "dataset/index.json",
@@ -13,6 +14,7 @@
     {
       "name": "satnet",
       "repro_ci": true,
+      "unit_check_exempt": true,
       "generated_paths": [
         "dataset/cases",
         "dataset/index.json",
