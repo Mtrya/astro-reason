@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import hashlib
 import math
 import random
 from dataclasses import asdict
@@ -60,6 +61,30 @@ def _datetime_to_epoch(value: datetime) -> brahe.Epoch:
 
 def _iso_z(dt: datetime) -> str:
     return dt.astimezone(UTC).strftime("%Y-%m-%dT%H:%M:%SZ")
+
+
+def _observation_window_key(act: ObservationAction) -> tuple[str, str]:
+    """Stable (start, end) in UTC Z notation for MC seeding (order-independent identity)."""
+    return (_iso_z(act.start), _iso_z(act.end))
+
+
+def _stereo_mc_rng(
+    case_id: str,
+    satellite_id: str,
+    target_id: str,
+    access_interval_id: str,
+    *,
+    window_keys: tuple[tuple[str, str], ...],
+    n_samples: int,
+    role: str,
+) -> random.Random:
+    """Deterministic RNG per stereo MC evaluation; invariant to JSON action order."""
+    flat = "\x1f".join(f"{w[0]}\x1f{w[1]}" for w in sorted(window_keys))
+    payload = "\x1e".join(
+        (case_id, satellite_id, target_id, access_interval_id, role, str(n_samples), flat)
+    ).encode("utf-8")
+    seed = int.from_bytes(hashlib.sha256(payload).digest()[:8], "big")
+    return random.Random(seed)
 
 
 def _angle_between_deg(a: np.ndarray, b: np.ndarray) -> float:
@@ -592,7 +617,6 @@ def verify_solution(case_dir: str | Path, solution_path: str | Path) -> Verifica
     actions = load_solution_actions(solution_path, case_id)
 
     violations: list[str] = []
-    rng = random.Random(20260406)
 
     # EarthSatellite cache
     sf_sats: dict[str, EarthSatellite] = {}
@@ -818,6 +842,18 @@ def verify_solution(case_dir: str | Path, solution_path: str | Path) -> Verifica
                     off_nadir_along_deg=aj.off_nadir_along_deg,
                     off_nadir_across_deg=aj.off_nadir_across_deg,
                 )
+                wk_pair = tuple(
+                    sorted((_observation_window_key(ai), _observation_window_key(aj)))
+                )
+                rng_pair = _stereo_mc_rng(
+                    case_id,
+                    sat_id,
+                    target_id,
+                    di.access_interval_id,
+                    window_keys=wk_pair,
+                    n_samples=100,
+                    role="pair_overlap",
+                )
                 o_ij = _monte_carlo_overlap_fraction(
                     tg.aoi_radius_m,
                     poly_i,
@@ -825,7 +861,7 @@ def verify_solution(case_dir: str | Path, solution_path: str | Path) -> Verifica
                     poly_j,
                     rj,
                     n_samples=100,
-                    rng=rng,
+                    rng=rng_pair,
                 )
                 si_m = di.effective_pixel_scale_m
                 sj_m = dj.effective_pixel_scale_m
@@ -909,8 +945,26 @@ def verify_solution(case_dir: str | Path, solution_path: str | Path) -> Verifica
                         d1.slant_range_m * math.tan(math.radians(sd.half_cross_track_fov_deg)),
                         d2.slant_range_m * math.tan(math.radians(sd.half_cross_track_fov_deg)),
                     ]
+                    wk_tri = tuple(
+                        sorted(
+                            (
+                                _observation_window_key(a0),
+                                _observation_window_key(a1),
+                                _observation_window_key(a2),
+                            )
+                        )
+                    )
+                    rng_tri = _stereo_mc_rng(
+                        case_id,
+                        sat_id,
+                        target_id,
+                        d0.access_interval_id,
+                        window_keys=wk_tri,
+                        n_samples=100,
+                        role="tri_overlap",
+                    )
                     o_tri = _monte_carlo_tri_overlap(
-                        tg.aoi_radius_m, polys, hw, n_samples=100, rng=rng
+                        tg.aoi_radius_m, polys, hw, n_samples=100, rng=rng_tri
                     )
                     # pair validity flags among (0,1),(0,2),(1,2) using same geometry as above - approximate by recomputing
                     pair_flags = []
@@ -941,6 +995,18 @@ def verify_solution(case_dir: str | Path, solution_path: str | Path) -> Verifica
                             off_nadir_along_deg=aj.off_nadir_along_deg,
                             off_nadir_across_deg=aj.off_nadir_across_deg,
                         )
+                        wk_edge = tuple(
+                            sorted((_observation_window_key(ai), _observation_window_key(aj)))
+                        )
+                        rng_edge = _stereo_mc_rng(
+                            case_id,
+                            sat_id,
+                            target_id,
+                            di.access_interval_id,
+                            window_keys=wk_edge,
+                            n_samples=80,
+                            role="tri_pair_edge",
+                        )
                         o2 = _monte_carlo_overlap_fraction(
                             tg.aoi_radius_m,
                             poly_i,
@@ -948,7 +1014,7 @@ def verify_solution(case_dir: str | Path, solution_path: str | Path) -> Verifica
                             poly_j,
                             dj.slant_range_m * math.tan(math.radians(sd.half_cross_track_fov_deg)),
                             n_samples=80,
-                            rng=rng,
+                            rng=rng_edge,
                         )
                         si_m = di.effective_pixel_scale_m
                         sj_m = dj.effective_pixel_scale_m

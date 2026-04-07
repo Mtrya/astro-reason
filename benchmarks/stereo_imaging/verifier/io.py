@@ -16,8 +16,23 @@ _SCENE_TYPES = frozenset(
 )
 
 
-def _parse_iso_utc(value: str) -> datetime:
-    return datetime.fromisoformat(value.replace("Z", "+00:00")).astimezone(UTC)
+def _parse_iso_utc(value: str, *, field: str) -> datetime:
+    """Parse an ISO 8601 instant as UTC. Rejects timezone-naive strings so behavior is not host-local."""
+    s = value.strip()
+    if not s:
+        raise ValueError(f"{field}: empty timestamp")
+    if s.endswith("Z") or s.endswith("z"):
+        s = s[:-1] + "+00:00"
+    try:
+        dt = datetime.fromisoformat(s)
+    except ValueError as e:
+        raise ValueError(f"{field}: invalid ISO 8601 timestamp {value!r}") from e
+    if dt.tzinfo is None:
+        raise ValueError(
+            f"{field}: timestamp must end with Z or include an explicit timezone offset "
+            f"(naive timestamps are not allowed; got {value!r})"
+        )
+    return dt.astimezone(UTC)
 
 
 def _require_float(d: dict[str, Any], key: str, ctx: str) -> float:
@@ -47,8 +62,8 @@ def load_mission(case_dir: Path) -> Mission:
     vt = m["validity_thresholds"]
     qm = m["quality_model"]
     return Mission(
-        horizon_start=_parse_iso_utc(_require_str(m, "horizon_start", ctx)),
-        horizon_end=_parse_iso_utc(_require_str(m, "horizon_end", ctx)),
+        horizon_start=_parse_iso_utc(_require_str(m, "horizon_start", ctx), field=f"{ctx}.horizon_start"),
+        horizon_end=_parse_iso_utc(_require_str(m, "horizon_end", ctx), field=f"{ctx}.horizon_end"),
         allow_cross_satellite_stereo=bool(m.get("allow_cross_satellite_stereo", False)),
         allow_cross_date_stereo=bool(m.get("allow_cross_date_stereo", False)),
         min_overlap_fraction=_require_float(vt, "min_overlap_fraction", f"{ctx}.validity_thresholds"),
@@ -158,8 +173,8 @@ def load_solution_actions(solution_path: str | Path, case_id: str) -> list[Obser
             ObservationAction(
                 satellite_id=_require_str(a, "satellite_id", ctx),
                 target_id=_require_str(a, "target_id", ctx),
-                start=_parse_iso_utc(_require_str(a, "start_time", ctx)),
-                end=_parse_iso_utc(_require_str(a, "end_time", ctx)),
+                start=_parse_iso_utc(_require_str(a, "start_time", ctx), field=f"{ctx}.start_time"),
+                end=_parse_iso_utc(_require_str(a, "end_time", ctx), field=f"{ctx}.end_time"),
                 off_nadir_along_deg=_require_float(a, "off_nadir_along_deg", ctx),
                 off_nadir_across_deg=_require_float(a, "off_nadir_across_deg", ctx),
             )
