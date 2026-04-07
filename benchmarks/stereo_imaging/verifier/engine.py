@@ -107,7 +107,7 @@ def _ray_ellipsoid_intersection_m(
     bb = 2.0 * ((ox * dx + oy * dy) * inv_a2 + oz * dz * inv_b2)
     cc = (ox * ox + oy * oy) * inv_a2 + oz * oz * inv_b2 - 1.0
     disc = bb * bb - 4.0 * aa * cc
-    if disc < 0.0 or abs(aa) < _NUMERICAL_EPS:
+    if disc < 0.0 or abs(aa) < 1.0e-30:
         return None
     sqrt_disc = math.sqrt(disc)
     t1 = (-bb - sqrt_disc) / (2.0 * aa)
@@ -118,20 +118,28 @@ def _ray_ellipsoid_intersection_m(
     return min(candidates)
 
 
-def _ground_intercept_ecef_m(
+def _line_of_sight_clear(
     sat_pos_m: np.ndarray,
     target_pos_m: np.ndarray,
-) -> np.ndarray:
-    """Ground intercept of the ray from satellite toward target (positive t)."""
+) -> bool:
+    """True when the first Earth intersection is the target point itself."""
     los = target_pos_m - sat_pos_m
     dist = float(np.linalg.norm(los))
     if dist < _NUMERICAL_EPS:
-        return target_pos_m.copy()
+        return True
     d = los / dist
     t_hit = _ray_ellipsoid_intersection_m(sat_pos_m, d)
     if t_hit is None:
-        return target_pos_m.copy()
-    return sat_pos_m + t_hit * d
+        return False
+    tx, ty, tz = (float(target_pos_m[i]) for i in range(3))
+    inv_a2 = 1.0 / (_WGS84_A_M * _WGS84_A_M)
+    inv_b2 = 1.0 / (_WGS84_B_M * _WGS84_B_M)
+    q = (tx * tx + ty * ty) * inv_a2 + tz * tz * inv_b2
+    if q >= 1.0 - _NUMERICAL_EPS:
+        return t_hit + 1.0 >= dist
+    r_target = float(np.linalg.norm(target_pos_m))
+    depth_m = r_target * (1.0 / math.sqrt(q) - 1.0)
+    return t_hit + depth_m + 10.0 >= dist
 
 
 def _off_nadir_deg(sat_pos_m: np.ndarray, target_pos_m: np.ndarray) -> float:
@@ -160,12 +168,12 @@ def _solar_elevation_azimuth_deg(
     v = au * sun_dir_ecef - r_t
     v = v / np.linalg.norm(v)
     el = math.degrees(math.asin(max(-1.0, min(1.0, float(np.dot(up, v))))))
-    east = np.cross(up, np.array([0.0, 0.0, 1.0]))
+    east = np.cross(np.array([0.0, 0.0, 1.0]), up)
     if float(np.linalg.norm(east)) < _NUMERICAL_EPS:
         east = np.array([0.0, 1.0, 0.0])
     else:
         east = east / np.linalg.norm(east)
-    north = np.cross(east, up)
+    north = np.cross(up, east)
     north = north / np.linalg.norm(north)
     proj = v - float(np.dot(v, up)) * up
     if float(np.linalg.norm(proj)) < _NUMERICAL_EPS:
@@ -182,19 +190,6 @@ def _enu_horizontal(en_vec: np.ndarray) -> tuple[float, float]:
     return float(en_vec[0]), float(en_vec[1])
 
 
-def _boresight_azimuth_deg(target_ecef_m: np.ndarray, sat_ecef_m: np.ndarray) -> float:
-    los = sat_ecef_m - target_ecef_m
-    if float(np.linalg.norm(los)) < _NUMERICAL_EPS:
-        return 0.0
-    rel = brahe.relative_position_ecef_to_enz(
-        target_ecef_m,
-        sat_ecef_m,
-        brahe.EllipsoidalConversionType.GEOCENTRIC,
-    )
-    e, n = float(rel[0]), float(rel[1])
-    return math.degrees(math.atan2(e, n)) % 360.0
-
-
 def _ecef_to_enz(target_ecef_m: np.ndarray, point_ecef_m: np.ndarray) -> np.ndarray:
     return np.asarray(
         brahe.relative_position_ecef_to_enz(
@@ -204,6 +199,71 @@ def _ecef_to_enz(target_ecef_m: np.ndarray, point_ecef_m: np.ndarray) -> np.ndar
         ),
         dtype=float,
     ).reshape(3)
+
+
+def _satellite_local_axes(
+    sat_pos_m: np.ndarray,
+    sat_vel_mps: np.ndarray,
+) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+    """Return local (along-track, across-track, nadir) unit vectors."""
+    nadir = -sat_pos_m / np.linalg.norm(sat_pos_m)
+    along = sat_vel_mps - float(np.dot(sat_vel_mps, nadir)) * nadir
+    if float(np.linalg.norm(along)) < _NUMERICAL_EPS:
+        fallback = np.array([0.0, 0.0, 1.0])
+        if abs(float(np.dot(fallback, nadir))) > 0.9:
+            fallback = np.array([0.0, 1.0, 0.0])
+        along = fallback - float(np.dot(fallback, nadir)) * nadir
+    along = along / np.linalg.norm(along)
+    across = np.cross(along, nadir)
+    if float(np.linalg.norm(across)) < _NUMERICAL_EPS:
+        across = np.array([1.0, 0.0, 0.0])
+    else:
+        across = across / np.linalg.norm(across)
+    return along, across, nadir
+
+
+def _boresight_unit_vector(
+    sat_pos_m: np.ndarray,
+    sat_vel_mps: np.ndarray,
+    off_nadir_along_deg: float,
+    off_nadir_across_deg: float,
+) -> np.ndarray:
+    along_hat, across_hat, nadir_hat = _satellite_local_axes(sat_pos_m, sat_vel_mps)
+    vec = (
+        nadir_hat
+        + math.tan(math.radians(float(off_nadir_along_deg))) * along_hat
+        + math.tan(math.radians(float(off_nadir_across_deg))) * across_hat
+    )
+    return vec / np.linalg.norm(vec)
+
+
+def _boresight_ground_intercept_ecef_m(
+    sat_pos_m: np.ndarray,
+    sat_vel_mps: np.ndarray,
+    off_nadir_along_deg: float,
+    off_nadir_across_deg: float,
+) -> np.ndarray | None:
+    d = _boresight_unit_vector(
+        sat_pos_m,
+        sat_vel_mps,
+        off_nadir_along_deg,
+        off_nadir_across_deg,
+    )
+    t_hit = _ray_ellipsoid_intersection_m(sat_pos_m, d)
+    if t_hit is None:
+        return None
+    return sat_pos_m + t_hit * d
+
+
+def _boresight_azimuth_deg(
+    target_ecef_m: np.ndarray,
+    boresight_ground_ecef_m: np.ndarray,
+) -> float:
+    rel = _ecef_to_enz(target_ecef_m, boresight_ground_ecef_m)
+    e, n = float(rel[0]), float(rel[1])
+    if abs(e) < _NUMERICAL_EPS and abs(n) < _NUMERICAL_EPS:
+        return 0.0
+    return math.degrees(math.atan2(e, n)) % 360.0
 
 
 def _point_distance_to_polyline_2d(
@@ -236,18 +296,43 @@ def _strip_polyline_en(
     start: datetime,
     end: datetime,
     sample_step_s: float,
+    *,
+    off_nadir_along_deg: float = 0.0,
+    off_nadir_across_deg: float = 0.0,
 ) -> list[tuple[float, float]]:
     pts: list[tuple[float, float]] = []
     if end <= start:
         return pts
     t = start
     while t <= end:
-        sp, _ = _satellite_state_ecef_m(sat, t)
-        gp = _ground_intercept_ecef_m(sp, target_ecef_m)
+        sp, sv = _satellite_state_ecef_m(sat, t)
+        gp = _boresight_ground_intercept_ecef_m(
+            sp,
+            sv,
+            off_nadir_along_deg,
+            off_nadir_across_deg,
+        )
+        if gp is None:
+            t += timedelta(seconds=sample_step_s)
+            continue
         enz = _ecef_to_enz(target_ecef_m, gp)
         e, n = _enu_horizontal(enz)
         pts.append((e, n))
         t += timedelta(seconds=sample_step_s)
+    if not pts or t - timedelta(seconds=sample_step_s) < end:
+        sp, sv = _satellite_state_ecef_m(sat, end)
+        gp = _boresight_ground_intercept_ecef_m(
+            sp,
+            sv,
+            off_nadir_along_deg,
+            off_nadir_across_deg,
+        )
+        if gp is not None:
+            enz = _ecef_to_enz(target_ecef_m, gp)
+            e, n = _enu_horizontal(enz)
+            tail = (e, n)
+            if not pts or pts[-1] != tail:
+                pts.append(tail)
     return pts
 
 
@@ -318,6 +403,8 @@ def _access_predicate(
     dt: datetime,
 ) -> bool:
     sp, _ = _satellite_state_ecef_m(sat, dt)
+    if not _line_of_sight_clear(sp, target_ecef_m):
+        return False
     off = _off_nadir_deg(sp, target_ecef_m)
     if off > sat_def.max_off_nadir_deg + 1e-6:
         return False
@@ -328,7 +415,64 @@ def _access_predicate(
     return True
 
 
-def _build_access_intervals(
+def _access_interval_sampling_step_s(sat_def: SatelliteDef) -> float:
+    """
+    Sample access on observation-scale resolution.
+
+    v3 observations are 2-60 s long in the canonical release, so a 1 s grid keeps
+    short valid windows and brief daylight/off-nadir outages from being aliased away.
+    """
+    return max(0.25, min(1.0, sat_def.min_obs_duration_s / 2.0))
+
+
+def _assign_access_id(
+    start: datetime,
+    end: datetime,
+    intervals: list[tuple[datetime, datetime, str]],
+) -> str | None:
+    for a, b, aid in intervals:
+        if a <= start and end <= b:
+            return aid
+    return None
+
+
+def _iter_window_samples(
+    start: datetime,
+    end: datetime,
+    *,
+    step_s: float,
+):
+    if end < start:
+        return
+    yield start
+    if end == start:
+        return
+    step = timedelta(seconds=step_s)
+    current = start
+    while current + step < end:
+        current += step
+        yield current
+    yield end
+
+
+def _access_holds_over_window(
+    sat: EarthSatellite,
+    target: TargetDef,
+    target_ecef_m: np.ndarray,
+    sat_def: SatelliteDef,
+    mission: Mission,
+    start: datetime,
+    end: datetime,
+    *,
+    step_s: float,
+) -> bool:
+    return all(
+        _access_predicate(sat, target, target_ecef_m, sat_def, mission, dt)
+        for dt in _iter_window_samples(start, end, step_s=step_s)
+    )
+
+
+def _discover_access_interval_around_action(
     sat: EarthSatellite,
     target: TargetDef,
     target_ecef_m: np.ndarray,
@@ -336,56 +480,69 @@ def _build_access_intervals(
     mission: Mission,
     horizon_start: datetime,
     horizon_end: datetime,
-    grid_s: float = 60.0,
-) -> list[tuple[datetime, datetime, str]]:
-    """Return maximal contiguous intervals where access predicate holds."""
-    intervals: list[tuple[datetime, datetime, str]] = []
-    if horizon_end <= horizon_start:
-        return intervals
-    dts: list[datetime] = []
-    t = horizon_start
-    while t <= horizon_end:
-        dts.append(t)
-        t += timedelta(seconds=grid_s)
-    if dts[-1] < horizon_end:
-        dts.append(horizon_end)
+    start: datetime,
+    end: datetime,
+    *,
+    step_s: float,
+) -> tuple[datetime, datetime]:
+    """Expand from a known-valid action window to the surrounding continuous interval."""
+    step = timedelta(seconds=step_s)
 
-    mask = [
-        _access_predicate(sat, target, target_ecef_m, sat_def, mission, d)
-        for d in dts
-    ]
+    interval_start = start
+    probe = start
+    while probe > horizon_start:
+        prev = max(horizon_start, probe - step)
+        if not _access_predicate(sat, target, target_ecef_m, sat_def, mission, prev):
+            break
+        interval_start = prev
+        if prev == horizon_start:
+            break
+        probe = prev
 
-    i = 0
-    idx = 0
-    while i < len(mask):
-        if not mask[i]:
-            i += 1
-            continue
-        j = i
-        while j < len(mask) and mask[j]:
-            j += 1
-        start_dt = dts[i]
-        end_dt = dts[j - 1] + timedelta(seconds=grid_s)
-        if end_dt >= start_dt:
-            aid = f"{sat_def.sat_id}::{target.target_id}::{idx}"
-            idx += 1
-            intervals.append((start_dt, end_dt, aid))
-        i = j
-    return intervals
+    interval_end = end
+    probe = end
+    while probe < horizon_end:
+        nxt = min(horizon_end, probe + step)
+        if not _access_predicate(sat, target, target_ecef_m, sat_def, mission, nxt):
+            break
+        interval_end = nxt
+        if nxt == horizon_end:
+            break
+        probe = nxt
+
+    return interval_start, interval_end
 
 
-def _interval_contains(mid: datetime, start: datetime, end: datetime) -> bool:
-    return start <= mid <= end
-
-
-def _assign_access_id(
-    mid: datetime,
+def _register_access_interval(
     intervals: list[tuple[datetime, datetime, str]],
-) -> str | None:
-    for a, b, aid in intervals:
-        if _interval_contains(mid, a, b):
-            return aid
-    return None
+    sat_id: str,
+    target_id: str,
+    start: datetime,
+    end: datetime,
+) -> str:
+    for idx, (existing_start, existing_end, aid) in enumerate(intervals):
+        if end < existing_start or existing_end < start:
+            continue
+        merged = (min(start, existing_start), max(end, existing_end), aid)
+        intervals[idx] = merged
+        return aid
+    aid = f"{sat_id}::{target_id}::{len(intervals)}"
+    intervals.append((start, end, aid))
+    intervals.sort(key=lambda item: item[0])
+    return aid
+
+
+def _tri_quality_from_valid_pairs(
+    pair_flags: list[bool],
+    pair_qs: list[float],
+    *,
+    beta: float,
+    tri_bonus_R: float,
+) -> float:
+    valid_pair_qs = [q for ok, q in zip(pair_flags, pair_qs, strict=True) if ok]
+    if not valid_pair_qs:
+        return 0.0
+    return min(1.0, max(valid_pair_qs) + beta * tri_bonus_R)
 
 
 def _min_slew_time_s(delta_deg: float, sat_def: SatelliteDef) -> float:
@@ -439,24 +596,9 @@ def verify_solution(case_dir: str | Path, solution_path: str | Path) -> Verifica
     for sid, sd in satellites.items():
         sf_sats[sid] = EarthSatellite(sd.tle_line1, sd.tle_line2, name=sid, ts=_TS)
 
-    # Access intervals only for satellite–target pairs referenced by the solution
+    # Access intervals are discovered lazily around referenced observations.
     access_index: dict[tuple[str, str], list[tuple[datetime, datetime, str]]] = {}
     target_ecef: dict[str, np.ndarray] = {tid: _target_ecef_m(t) for tid, t in targets.items()}
-
-    needed_pairs = {(a.satellite_id, a.target_id) for a in actions}
-    for sid, tid in needed_pairs:
-        if sid not in satellites or tid not in targets:
-            continue
-        access_index[(sid, tid)] = _build_access_intervals(
-            sf_sats[sid],
-            targets[tid],
-            target_ecef[tid],
-            satellites[sid],
-            mission,
-            mission.horizon_start,
-            mission.horizon_end,
-            grid_s=90.0,
-        )
 
     derived_list: list[DerivedObservation] = []
 
@@ -475,7 +617,7 @@ def verify_solution(case_dir: str | Path, solution_path: str | Path) -> Verifica
             continue
         sd = satellites[act.satellite_id]
         dur = (act.end - act.start).total_seconds()
-        if dur + 1e-9 < sd.min_obs_duration_s or dur - 1e-9 > sd.max_obs_duration_s:
+        if dur + _NUMERICAL_EPS < sd.min_obs_duration_s or dur - _NUMERICAL_EPS > sd.max_obs_duration_s:
             violations.append(
                 f"{prefix}: duration {dur:.3f}s not in "
                 f"[{sd.min_obs_duration_s}, {sd.max_obs_duration_s}]"
@@ -490,6 +632,8 @@ def verify_solution(case_dir: str | Path, solution_path: str | Path) -> Verifica
     # Per-satellite: overlap and slew
     by_sat: dict[str, list[tuple[int, ObservationAction]]] = {}
     for i, act in enumerate(actions):
+        if act.satellite_id not in satellites or act.target_id not in targets:
+            continue
         by_sat.setdefault(act.satellite_id, []).append((i, act))
     for sid, lst in by_sat.items():
         lst.sort(key=lambda x: x[1].start)
@@ -502,14 +646,16 @@ def verify_solution(case_dir: str | Path, solution_path: str | Path) -> Verifica
                     f"[{a1.start.isoformat()}, {a1.end.isoformat()})"
                 )
             sd = satellites[sid]
-            te0 = target_ecef[a0.target_id]
-            te1 = target_ecef[a1.target_id]
             sf = sf_sats[sid]
-            los0 = _satellite_state_ecef_m(sf, a0.end)[0]
-            los1 = _satellite_state_ecef_m(sf, a1.start)[0]
-            v0 = (te0 - los0) / np.linalg.norm(te0 - los0)
-            v1 = (te1 - los1) / np.linalg.norm(te1 - los1)
-            delta_deg = _angle_between_deg(v0, v1)
+            sp0, sv0 = _satellite_state_ecef_m(sf, a0.end)
+            sp1, sv1 = _satellite_state_ecef_m(sf, a1.start)
+            b0 = _boresight_unit_vector(
+                sp0, sv0, a0.off_nadir_along_deg, a0.off_nadir_across_deg
+            )
+            b1 = _boresight_unit_vector(
+                sp1, sv1, a1.off_nadir_along_deg, a1.off_nadir_across_deg
+            )
+            delta_deg = _angle_between_deg(b0, b1)
             gap = (a1.start - a0.end).total_seconds()
             need = sd.settling_time_s + _min_slew_time_s(delta_deg, sd)
             if gap + 1e-6 < need:
@@ -521,6 +667,8 @@ def verify_solution(case_dir: str | Path, solution_path: str | Path) -> Verifica
     # Derived observations + access membership
     for k, act in enumerate(actions):
         prefix = f"actions[{k}]"
+        if act.satellite_id not in satellites or act.target_id not in targets:
+            continue
         sd = satellites[act.satellite_id]
         tg = targets[act.target_id]
         mid = act.start + (act.end - act.start) / 2
@@ -529,14 +677,58 @@ def verify_solution(case_dir: str | Path, solution_path: str | Path) -> Verifica
         te = target_ecef[act.target_id]
         epoch = _datetime_to_epoch(mid)
         el, saz = _solar_elevation_azimuth_deg(epoch, te)
-        off = _off_nadir_deg(sp, te)
-        slant = float(np.linalg.norm(te - sp))
+        gp = _boresight_ground_intercept_ecef_m(
+            sp,
+            sv,
+            act.off_nadir_along_deg,
+            act.off_nadir_across_deg,
+        )
+        if gp is None:
+            violations.append(f"{prefix}: boresight does not intersect the Earth ellipsoid")
+            gp = te
+        boresight_vec = gp - sp
+        off = _angle_between_deg(-sp, boresight_vec)
+        slant = float(np.linalg.norm(gp - sp))
         eff_px = slant * sd.pixel_ifov_deg * (math.pi / 180.0)
-        intervals = access_index.get((act.satellite_id, act.target_id), [])
-        aid = _assign_access_id(mid, intervals)
+        access_key = (act.satellite_id, act.target_id)
+        intervals = access_index.setdefault(access_key, [])
+        aid = _assign_access_id(act.start, act.end, intervals)
+        if aid is None:
+            step_s = _access_interval_sampling_step_s(sd)
+            if _access_holds_over_window(
+                sf,
+                tg,
+                te,
+                sd,
+                mission,
+                act.start,
+                act.end,
+                step_s=step_s,
+            ):
+                interval_start, interval_end = _discover_access_interval_around_action(
+                    sf,
+                    tg,
+                    te,
+                    sd,
+                    mission,
+                    mission.horizon_start,
+                    mission.horizon_end,
+                    act.start,
+                    act.end,
+                    step_s=step_s,
+                )
+                aid = _register_access_interval(
+                    intervals,
+                    act.satellite_id,
+                    act.target_id,
+                    interval_start,
+                    interval_end,
+                )
+            else:
+                aid = None
         if aid is None:
             violations.append(
-                f"{prefix}: observation midpoint not inside a continuous access interval"
+                f"{prefix}: observation is not fully contained inside a continuous access interval"
             )
         derived_list.append(
             DerivedObservation(
@@ -548,7 +740,7 @@ def verify_solution(case_dir: str | Path, solution_path: str | Path) -> Verifica
                 sat_position_ecef_m=sp.tolist(),
                 sat_velocity_ecef_mps=sv.tolist(),
                 boresight_off_nadir_deg=float(off),
-                boresight_azimuth_deg=float(_boresight_azimuth_deg(te, sp)),
+                boresight_azimuth_deg=float(_boresight_azimuth_deg(te, gp)),
                 solar_elevation_deg=float(el),
                 solar_azimuth_deg=float(saz),
                 effective_pixel_scale_m=float(eff_px),
@@ -591,10 +783,37 @@ def verify_solution(case_dir: str | Path, solution_path: str | Path) -> Verifica
                 ui = (si - te) / np.linalg.norm(si - te)
                 uj = (sj - te) / np.linalg.norm(sj - te)
                 gamma = _angle_between_deg(ui, uj)
+                bisector = ui + uj
+                bisector_norm = float(np.linalg.norm(bisector))
+                if bisector_norm < _NUMERICAL_EPS:
+                    bisector_el_deg = 0.0
+                    asymmetry_deg = 90.0
+                else:
+                    bisector_hat = bisector / bisector_norm
+                    up_t = te / float(np.linalg.norm(te))
+                    cos_a = max(-1.0, min(1.0, float(np.dot(up_t, bisector_hat))))
+                    asymmetry_deg = math.degrees(math.acos(cos_a))
+                    bisector_el_deg = 90.0 - asymmetry_deg
                 ri = di.slant_range_m * math.tan(math.radians(sd.half_cross_track_fov_deg))
                 rj = dj.slant_range_m * math.tan(math.radians(sd.half_cross_track_fov_deg))
-                poly_i = _strip_polyline_en(sf, te, ai.start, ai.end, sample_step_s=8.0)
-                poly_j = _strip_polyline_en(sf, te, aj.start, aj.end, sample_step_s=8.0)
+                poly_i = _strip_polyline_en(
+                    sf,
+                    te,
+                    ai.start,
+                    ai.end,
+                    sample_step_s=8.0,
+                    off_nadir_along_deg=ai.off_nadir_along_deg,
+                    off_nadir_across_deg=ai.off_nadir_across_deg,
+                )
+                poly_j = _strip_polyline_en(
+                    sf,
+                    te,
+                    aj.start,
+                    aj.end,
+                    sample_step_s=8.0,
+                    off_nadir_along_deg=aj.off_nadir_along_deg,
+                    off_nadir_across_deg=aj.off_nadir_across_deg,
+                )
                 o_ij = _monte_carlo_overlap_fraction(
                     tg.aoi_radius_m,
                     poly_i,
@@ -632,6 +851,8 @@ def verify_solution(case_dir: str | Path, solution_path: str | Path) -> Verifica
                         "target_id": target_id,
                         "access_interval_id": di.access_interval_id,
                         "gamma_deg": gamma,
+                        "bisector_elevation_deg": bisector_el_deg,
+                        "asymmetry_deg": asymmetry_deg,
                         "overlap_fraction": o_ij,
                         "pixel_scale_ratio": rscale,
                         "b_h_proxy": bh,
@@ -651,9 +872,33 @@ def verify_solution(case_dir: str | Path, solution_path: str | Path) -> Verifica
                     a0, a1, a2 = actions[obs_indices[i]], actions[obs_indices[j]], actions[obs_indices[k]]
                     d0, d1, d2 = ders[i], ders[j], ders[k]
                     polys = [
-                        _strip_polyline_en(sf, te, a0.start, a0.end, 8.0),
-                        _strip_polyline_en(sf, te, a1.start, a1.end, 8.0),
-                        _strip_polyline_en(sf, te, a2.start, a2.end, 8.0),
+                        _strip_polyline_en(
+                            sf,
+                            te,
+                            a0.start,
+                            a0.end,
+                            8.0,
+                            off_nadir_along_deg=a0.off_nadir_along_deg,
+                            off_nadir_across_deg=a0.off_nadir_across_deg,
+                        ),
+                        _strip_polyline_en(
+                            sf,
+                            te,
+                            a1.start,
+                            a1.end,
+                            8.0,
+                            off_nadir_along_deg=a1.off_nadir_along_deg,
+                            off_nadir_across_deg=a1.off_nadir_across_deg,
+                        ),
+                        _strip_polyline_en(
+                            sf,
+                            te,
+                            a2.start,
+                            a2.end,
+                            8.0,
+                            off_nadir_along_deg=a2.off_nadir_along_deg,
+                            off_nadir_across_deg=a2.off_nadir_across_deg,
+                        ),
                     ]
                     hw = [
                         d0.slant_range_m * math.tan(math.radians(sd.half_cross_track_fov_deg)),
@@ -674,8 +919,24 @@ def verify_solution(case_dir: str | Path, solution_path: str | Path) -> Verifica
                         ui = (si - te) / np.linalg.norm(si - te)
                         uj = (sj - te) / np.linalg.norm(sj - te)
                         gam = _angle_between_deg(ui, uj)
-                        poly_i = _strip_polyline_en(sf, te, ai.start, ai.end, 8.0)
-                        poly_j = _strip_polyline_en(sf, te, aj.start, aj.end, 8.0)
+                        poly_i = _strip_polyline_en(
+                            sf,
+                            te,
+                            ai.start,
+                            ai.end,
+                            8.0,
+                            off_nadir_along_deg=ai.off_nadir_along_deg,
+                            off_nadir_across_deg=ai.off_nadir_across_deg,
+                        )
+                        poly_j = _strip_polyline_en(
+                            sf,
+                            te,
+                            aj.start,
+                            aj.end,
+                            8.0,
+                            off_nadir_along_deg=aj.off_nadir_along_deg,
+                            off_nadir_across_deg=aj.off_nadir_across_deg,
+                        )
                         o2 = _monte_carlo_overlap_fraction(
                             tg.aoi_radius_m,
                             poly_i,
@@ -716,10 +977,12 @@ def verify_solution(case_dir: str | Path, solution_path: str | Path) -> Verifica
                         and anchor
                     )
                     beta = mission.tri_stereo_bonus_by_scene[tg.scene_type]
-                    r = _tri_bonus_R(pair_flags, anchor)
-                    q_tri = min(
-                        1.0,
-                        max(pair_qs) + beta * r,
+                    tri_bonus_R = _tri_bonus_R(pair_flags, anchor)
+                    q_tri = _tri_quality_from_valid_pairs(
+                        pair_flags,
+                        pair_qs,
+                        beta=beta,
+                        tri_bonus_R=tri_bonus_R,
                     )
                     if tri_ok:
                         covered.add(target_id)
