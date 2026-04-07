@@ -545,12 +545,12 @@ def build_example_solution(
     cases: list[BuiltCase],
     horizon_starts: dict[str, str],
 ) -> dict[str, Any]:
-    """Minimal valid v3 actions for verifier smoke tests (not a quality baseline)."""
+    """Minimal valid v3 solution for verifier smoke tests (not a quality baseline).
+
+    Single per-case shape matching real solutions; aligned with the first canonical case.
+    """
     del horizon_starts
-    sol: dict[str, Any] = {}
-    for bc in cases:
-        sol[bc.case_id] = {"actions": []}
-    return sol
+    return {"actions": []}
 
 
 def generate_dataset(
@@ -659,10 +659,10 @@ def generate_dataset(
             )
         )
 
-    example_map = build_example_solution(cases_out, horizon_starts)
+    example_obj = build_example_solution(cases_out, horizon_starts)
     example_path = dataset_root / "example_solution.json"
     example_path.write_text(
-        json.dumps(example_map, indent=2, sort_keys=True) + "\n",
+        json.dumps(example_obj, indent=2, sort_keys=True) + "\n",
         encoding="utf-8",
     )
 

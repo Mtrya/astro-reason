@@ -112,7 +112,7 @@ def build_case_dataset(
         "source": provenance,
         "cases": [],
     }
-    example_solution: dict[str, list] = {}
+    example_solution: list | None = None
 
     for case_id in sorted(problems):
         week = int(case_id.split("_")[0][1:])
@@ -144,7 +144,7 @@ def build_case_dataset(
         _write_json(case_dir / "metadata.json", metadata)
 
         if case_id == "W10_2018":
-            example_solution[case_id] = []
+            example_solution = []
 
         index["cases"].append(
             {
@@ -159,6 +159,8 @@ def build_case_dataset(
 
     _write_json(output_dir / "index.json", index)
     _write_json(output_dir / "mission_color_map.json", mission_color_map)
+    if example_solution is None:
+        raise RuntimeError("Expected W10_2018 case for example_solution.json")
     _write_json(output_dir / "example_solution.json", example_solution)
 
 

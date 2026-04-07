@@ -119,13 +119,13 @@ def build_case_dataset(
 
     cases_dir = output_dir / "cases"
     shutil.rmtree(cases_dir, ignore_errors=True)
-    index = {
+    index: dict = {
         "benchmark": "spot5",
         "case_id_format": "instance_stem",
         "source": provenance,
         "cases": [],
     }
-    example_solution: dict[str, dict] = {}
+    example_solution: dict | None = None
 
     for source_path in sorted(spot_files, key=lambda path: path.stem):
         case_id = source_path.stem
@@ -141,7 +141,8 @@ def build_case_dataset(
         n_vars = int(lines[0].strip()) if lines else 0
 
         if case_id == "8":
-            example_solution[case_id] = build_example_solution(case_id, n_vars)
+            example_solution = build_example_solution(case_id, n_vars)
+            index["example_smoke_case_id"] = "8"
 
         index["cases"].append(
             {
@@ -153,6 +154,8 @@ def build_case_dataset(
         )
 
     _write_json(output_dir / "index.json", index)
+    if example_solution is None:
+        raise RuntimeError("Expected at least one case with id '8' for example_solution.json")
     _write_json(output_dir / "example_solution.json", example_solution)
 
 

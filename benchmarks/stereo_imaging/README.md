@@ -310,7 +310,7 @@ uv run python benchmarks/stereo_imaging/generator/run.py --sources-only
 uv run python benchmarks/stereo_imaging/generator/run.py --force-download
 ```
 
-The generator writes cases under `dataset/cases/`, updates `dataset/index.json`, and writes `dataset/example_solution.json`. Runtime sources are staged under `dataset/source_data/` (CelesTrak-format TLE CSV written from the vendored snapshot in `generator/cached_tles.py`).
+The generator writes cases under `dataset/cases/`, updates `dataset/index.json`, and writes `dataset/example_solution.json` (one per-case-shaped minimal example, aligned with `case_0001` for smoke tests). Runtime sources are staged under `dataset/source_data/` (CelesTrak-format TLE CSV written from the vendored snapshot in `generator/cached_tles.py`).
 
 ### Visualizer
 

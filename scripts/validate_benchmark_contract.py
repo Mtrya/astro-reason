@@ -10,6 +10,8 @@ import subprocess
 import sys
 import tempfile
 
+import yaml
+
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 FINISHED_BENCHMARKS_PATH = REPO_ROOT / "benchmarks" / "finished_benchmarks.json"
@@ -59,6 +61,17 @@ def find_example_solution(dataset_dir: Path) -> Path | None:
         if solutions_path.is_file():
             return solutions_path
     return None
+
+
+def _load_example_solution_payload(path: Path) -> object:
+    """Load dataset-level example solution from JSON or YAML (contract allows both)."""
+    text = path.read_text(encoding="utf-8")
+    suffix = path.suffix.lower()
+    if suffix == ".json":
+        return json.loads(text)
+    if suffix in (".yaml", ".yml"):
+        return yaml.safe_load(text)
+    raise ValueError(f"unsupported example solution extension {suffix!r} for {path.name}")
 
 
 def _generator_entrypoint(benchmark_root: Path) -> Path | None:
@@ -121,7 +134,8 @@ def _check_dataset_layout(benchmark_root: Path, errors: list[str]) -> None:
         errors.append(f"{benchmark_root.name}: dataset/cases must contain at least one case directory")
     if find_example_solution(dataset_dir) is None:
         errors.append(
-            f"{benchmark_root.name}: dataset must include example_solution.json or example_solution.yaml"
+            f"{benchmark_root.name}: dataset must include example_solution.json, "
+            "example_solution.yaml, or example_solution.yml"
         )
 
     for tracked_path in _git_tracked_files(dataset_dir):
@@ -180,6 +194,26 @@ def _check_generator_help(benchmark_root: Path, errors: list[str]) -> None:
         errors.append(f"{benchmark_root.name}: generator --help missing usage information")
 
 
+def _resolve_smoke_case_dir(dataset_dir: Path) -> Path | None:
+    cases_dir = dataset_dir / "cases"
+    case_dirs = sorted(path for path in cases_dir.iterdir() if path.is_dir())
+    if not case_dirs:
+        return None
+    index_path = dataset_dir / "index.json"
+    if index_path.is_file():
+        try:
+            index = json.loads(index_path.read_text(encoding="utf-8"))
+        except (json.JSONDecodeError, OSError):
+            index = {}
+        else:
+            cid = index.get("example_smoke_case_id")
+            if isinstance(cid, str) and cid:
+                candidate = cases_dir / cid
+                if candidate.is_dir():
+                    return candidate
+    return case_dirs[0]
+
+
 def _check_verifier_smoke(benchmark_root: Path, errors: list[str]) -> None:
     verifier_entrypoint = _verifier_entrypoint(benchmark_root)
     if verifier_entrypoint is None:
@@ -189,53 +223,35 @@ def _check_verifier_smoke(benchmark_root: Path, errors: list[str]) -> None:
     dataset_dir = benchmark_root / "dataset"
     solutions_path = find_example_solution(dataset_dir)
     if solutions_path is None:
-        errors.append(f"{benchmark_root.name}: missing example_solution.json for smoke test")
+        errors.append(
+            f"{benchmark_root.name}: missing example solution file for smoke test "
+            "(example_solution.json, example_solution.yaml, or example_solution.yml)"
+        )
         return
 
+    label = solutions_path.name
     try:
-        all_solutions = json.loads(solutions_path.read_text())
-    except (json.JSONDecodeError, OSError) as e:
-        errors.append(f"{benchmark_root.name}: failed to parse example_solution.json: {e}")
+        parsed = _load_example_solution_payload(solutions_path)
+    except (json.JSONDecodeError, yaml.YAMLError, OSError, UnicodeDecodeError, ValueError) as e:
+        errors.append(f"{benchmark_root.name}: failed to parse {label}: {e}")
         return
 
-    if not all_solutions:
-        errors.append(f"{benchmark_root.name}: empty example_solution.json")
-        return
-
-    cases_dir = dataset_dir / "cases"
-    case_dirs = sorted(path for path in cases_dir.iterdir() if path.is_dir())
-    if not case_dirs:
+    case_dir = _resolve_smoke_case_dir(dataset_dir)
+    if case_dir is None:
         errors.append(f"{benchmark_root.name}: no cases found for smoke test")
-        return
-
-    case_solution = None
-    case_dir = None
-    case_id = None
-    for cd in case_dirs:
-        cid = cd.name
-        if cid in all_solutions:
-            case_solution = all_solutions[cid]
-            case_dir = cd
-            case_id = cid
-            break
-
-    if case_solution is None:
-        errors.append(f"{benchmark_root.name}: no matching case found in example_solution.json")
         return
 
     with tempfile.TemporaryDirectory() as tmp_dir:
         tmp_path = Path(tmp_dir)
         env = dict(os.environ)
         env["MPLCONFIGDIR"] = str(tmp_path / "mplconfig")
-        case_solution_path = tmp_path / f"{case_id}_solution.json"
-        case_solution_path.write_text(json.dumps(case_solution))
 
         result = subprocess.run(
             [
                 sys.executable,
                 str(verifier_entrypoint),
                 str(case_dir),
-                str(case_solution_path),
+                str(solutions_path),
             ],
             cwd=REPO_ROOT,
             capture_output=True,

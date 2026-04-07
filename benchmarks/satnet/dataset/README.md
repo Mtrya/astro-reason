@@ -24,12 +24,12 @@ Each case directory contains everything required to verify one SatNet instance:
 - `problem.json`: request list for exactly one `(week, year)` instance
 - `maintenance.csv`: maintenance windows filtered to that same instance
 - `metadata.json`: lightweight per-case summary metadata
-- `example_solution.json`: maps case IDs to minimal runnable examples for
-  verifier smoke tests; these are not baselines
 
 Shared, non-verifier-critical benchmark metadata remains at dataset scope:
 
 - `index.json`: dataset manifest and dataset-level provenance
+- `example_solution.json`: one minimal runnable solution at dataset scope (same
+  schema as a real submission) for verifier smoke tests; these are not baselines
 - `mission_color_map.json`: mission display metadata carried over from the
   upstream SatNet release
 

@@ -52,7 +52,7 @@ def main(argv: list[str] | None = None) -> int:
     )
     parser.add_argument(
         "solution_path",
-        help="Path to solution JSON (per-case object or dataset/example_solution.json mapping)",
+        help="Path to solution JSON (per-case object with an 'actions' array)",
     )
     parser.add_argument(
         "--compact",

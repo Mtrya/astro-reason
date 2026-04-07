@@ -11,8 +11,8 @@ This directory contains the canonical committed dataset for the
 - `cases/<case_id>/mission.json`
 
 Each case directory contains only the two canonical machine-readable files used
-by the verifier. `example_solution.json` maps case IDs to minimal runnable
-examples for verifier smoke tests; these are not baselines.
+by the verifier. `example_solution.json` is a single minimal runnable solution
+(same schema as a real submission) for verifier smoke tests; these are not baselines.
 
 ## Canonical Generation
 

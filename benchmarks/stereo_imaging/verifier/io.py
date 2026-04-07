@@ -141,25 +141,12 @@ def load_case(case_dir: str | Path) -> tuple[Mission, dict[str, SatelliteDef], d
     return load_mission(p), load_satellites(p), load_targets(p)
 
 
-def _extract_solution_for_case(raw: dict[str, Any], case_id: str) -> dict[str, Any]:
-    """Accept either a per-case object or dataset-level example_solution.json mapping."""
-    if "actions" in raw and isinstance(raw["actions"], list):
-        return raw
-    if case_id in raw and isinstance(raw[case_id], dict):
-        return raw[case_id]
-    raise ValueError(
-        "Solution JSON must contain an 'actions' list or a top-level entry for the case id "
-        f"({case_id!r})."
-    )
-
-
-def load_solution_actions(solution_path: str | Path, case_id: str) -> list[ObservationAction]:
+def load_solution_actions(solution_path: str | Path, _case_id: str) -> list[ObservationAction]:
     path = Path(solution_path)
     raw = json.loads(path.read_text(encoding="utf-8"))
     if not isinstance(raw, dict):
         raise ValueError("Solution JSON must be an object")
-    block = _extract_solution_for_case(raw, case_id)
-    actions_raw = block.get("actions")
+    actions_raw = raw.get("actions")
     if not isinstance(actions_raw, list):
         raise ValueError("Solution must contain an 'actions' array")
     actions: list[ObservationAction] = []

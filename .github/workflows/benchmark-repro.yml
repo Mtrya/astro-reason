@@ -1,6 +1,7 @@
 name: Benchmark Repro
 
 on:
+  pull_request:
   push:
     branches:
       - main
