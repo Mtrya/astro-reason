@@ -1,0 +1,6 @@
+- id: t1
+  latitude_deg: 0.0
+  longitude_deg: 30.0
+  aoi_radius_m: 5000.0
+  elevation_ref_m: 0.0
+  scene_type: urban_structured
