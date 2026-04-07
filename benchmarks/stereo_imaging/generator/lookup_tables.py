@@ -1,4 +1,9 @@
-"""Vendored stereo_imaging lookup tables."""
+"""Vendored stereo_imaging lookup tables.
+
+Canonical Earth-resources TLE lines for `build.SATELLITE_CATALOG` satellites are
+vendored in `cached_tles.py` (not this module) so dataset regeneration stays
+deterministic without live CelesTrak downloads.
+"""
 
 from __future__ import annotations
 

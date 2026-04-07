@@ -523,6 +523,24 @@ def _write_yaml(path: Path, data: Any) -> None:
     path.write_text(text, encoding="utf-8")
 
 
+def _source_provenance_for_index(raw: dict[str, Any]) -> dict[str, Any]:
+    """Drop volatile fields so `dataset/index.json` is stable for reproducibility hashing.
+
+    Removes timestamps and cache-run flags (e.g. whether world-cities was a cache hit).
+    """
+    if not raw:
+        return {}
+    cleaned = json.loads(json.dumps(raw))
+    cleaned.pop("generated_at_utc", None)
+    _VOLATILE_SUBKEYS = frozenset({"retrieval_timestamp_utc", "skipped_cached"})
+    for key in ("celestrak", "world_cities"):
+        sub = cleaned.get(key)
+        if isinstance(sub, dict):
+            for vk in _VOLATILE_SUBKEYS:
+                sub.pop(vk, None)
+    return cleaned
+
+
 def build_example_solution(
     cases: list[BuiltCase],
     horizon_starts: dict[str, str],
@@ -652,9 +670,8 @@ def generate_dataset(
         "benchmark": "stereo_imaging",
         "spec_version": "v3",
         "canonical_seed": seed,
-        "generator_revision": git_revision,
         "horizon_duration_s": DEFAULT_HORIZON_DURATION_S,
-        "source_provenance": provenance,
+        "source_provenance": _source_provenance_for_index(provenance),
         "cases": [
             {
                 "case_id": bc.case_id,

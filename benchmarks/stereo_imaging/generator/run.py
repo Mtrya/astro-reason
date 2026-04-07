@@ -8,7 +8,6 @@ import json
 import subprocess
 import sys
 import types
-from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
@@ -25,7 +24,7 @@ def _load_runtime_modules():
         sys.modules[package_name] = package
 
     loaded = {}
-    for module_name in ("normalize", "lookup_tables", "sources", "build"):
+    for module_name in ("normalize", "lookup_tables", "cached_tles", "sources", "build"):
         qualified_name = f"{package_name}.{module_name}"
         module = sys.modules.get(qualified_name)
         if module is None:
@@ -86,10 +85,6 @@ def _git_revision(repo_root: Path) -> str | None:
     return None
 
 
-def _utc_now_iso() -> str:
-    return datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
-
-
 def _write_provenance(
     dest_dir: Path,
     results: dict[str, Any],
@@ -101,20 +96,15 @@ def _write_provenance(
     cities = results["world_cities"]
 
     doc: dict[str, Any] = {
-        "generated_at_utc": _utc_now_iso(),
-        "generator_revision": _git_revision(repo_root),
         "celestrak": {
             "url": sources_module.CELESTRAK_EARTH_RESOURCES_URL,
-            "retrieval_timestamp_utc": _utc_now_iso(),
             "record_count": cele.extra.get("record_count"),
             "sha256": cele.extra.get("sha256"),
-            "skipped_cached": cele.extra.get("skipped_cached"),
+            "vendored_snapshot": cele.extra.get("vendored_snapshot"),
         },
         "world_cities": {
             "kaggle_dataset": sources_module.WORLD_CITIES_DATASET,
-            "retrieval_timestamp_utc": _utc_now_iso(),
             "sha256": cities.extra.get("sha256"),
-            "skipped_cached": cities.extra.get("skipped_cached"),
         },
         "lookup_tables": lookup_table_metadata(),
     }
@@ -127,8 +117,9 @@ def _write_provenance(
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(
         description=(
-            "Stereo imaging v3 generator: fetch the runtime sources if needed, then emit the "
-            "canonical dataset (dataset/cases/, index.json, example_solution.json)."
+            "Stereo imaging v3 generator: stage runtime sources (vendored CelesTrak-format TLEs; "
+            "Kaggle world-cities when needed), then emit the canonical dataset "
+            "(dataset/cases/, index.json, example_solution.json)."
         )
     )
     parser.add_argument(
