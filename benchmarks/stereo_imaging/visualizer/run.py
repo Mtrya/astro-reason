@@ -266,8 +266,23 @@ def _draw_world_texture(ax: plt.Axes) -> None:
     )
 
 
-def _parse_iso_utc(value: str) -> datetime:
-    return datetime.fromisoformat(value.replace("Z", "+00:00")).astimezone(UTC)
+def _parse_iso_utc(value: str, *, field: str = "timestamp") -> datetime:
+    """Parse ISO 8601 as UTC; reject naive strings (same rules as verifier `io._parse_iso_utc`)."""
+    s = value.strip()
+    if not s:
+        raise ValueError(f"{field}: empty timestamp")
+    if s.endswith("Z") or s.endswith("z"):
+        s = s[:-1] + "+00:00"
+    try:
+        dt = datetime.fromisoformat(s)
+    except ValueError as e:
+        raise ValueError(f"{field}: invalid ISO 8601 timestamp {value!r}") from e
+    if dt.tzinfo is None:
+        raise ValueError(
+            f"{field}: timestamp must end with Z or include an explicit timezone offset "
+            f"(naive timestamps are not allowed; got {value!r})"
+        )
+    return dt.astimezone(UTC)
 
 
 def _utc_iso(value: datetime) -> str:

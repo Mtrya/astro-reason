@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import math
+from datetime import UTC, datetime
 from pathlib import Path
 
 import numpy as np
@@ -17,18 +18,20 @@ from benchmarks.stereo_imaging.verifier.engine import (
     _combined_off_nadir_deg,
     _line_of_sight_clear,
     _min_slew_time_s,
+    _observation_window_key,
     _off_nadir_deg,
     _pair_geom_quality,
     _point_distance_to_polyline_2d,
     _ray_ellipsoid_intersection_m,
     _satellite_local_axes,
+    _stereo_mc_rng,
     _tri_bonus_R,
     _tri_quality_from_valid_pairs,
     _WGS84_A_M,
     verify_solution,
 )
 from benchmarks.stereo_imaging.verifier.io import load_case, load_solution_actions
-from benchmarks.stereo_imaging.verifier.models import SatelliteDef
+from benchmarks.stereo_imaging.verifier.models import ObservationAction, SatelliteDef
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 FIXTURES_DIR = REPO_ROOT / "tests" / "fixtures" / "stereo_imaging"
@@ -486,6 +489,87 @@ class TestIOLoadCase:
         assert "sat_test" in sats
         assert "t1" in targets
         assert mission.min_overlap_fraction == pytest.approx(0.8)
+
+
+class TestParseIsoUtcStrict:
+    def test_mission_rejects_naive_timestamp(self, tmp_path):
+        case_dir = tmp_path / "case"
+        case_dir.mkdir()
+        m = _base_mission_dict()
+        m["mission"]["horizon_start"] = "2026-06-18T00:00:00"
+        _write_yaml(case_dir / "mission.yaml", m)
+        _write_yaml(case_dir / "satellites.yaml", [_base_satellite_dict()])
+        _write_yaml(case_dir / "targets.yaml", [_base_target_dict()])
+        with pytest.raises(ValueError, match="naive|timezone|offset"):
+            load_case(case_dir)
+
+    def test_solution_rejects_naive_timestamp(self, tmp_path):
+        case_dir = _write_case(tmp_path / "case")
+        sol = _write_solution(
+            tmp_path / "sol.json",
+            [
+                {
+                    "type": "observation",
+                    "satellite_id": "sat_test",
+                    "target_id": "t1",
+                    "start_time": "2026-06-18T01:00:00",
+                    "end_time": "2026-06-18T01:00:05Z",
+                    "off_nadir_along_deg": 0.0,
+                    "off_nadir_across_deg": 0.0,
+                },
+            ],
+        )
+        with pytest.raises(ValueError, match="naive|timezone|offset"):
+            load_solution_actions(sol, "case")
+
+
+class TestStereoMcRng:
+    def test_pair_seed_invariant_to_observation_order(self):
+        t0 = datetime(2026, 6, 18, 1, 0, 0, tzinfo=UTC)
+        t1 = datetime(2026, 6, 18, 1, 0, 10, tzinfo=UTC)
+        t2 = datetime(2026, 6, 18, 1, 0, 20, tzinfo=UTC)
+        t3 = datetime(2026, 6, 18, 1, 0, 30, tzinfo=UTC)
+        a = ObservationAction("sat", "t1", t0, t1, 0.0, 0.0)
+        b = ObservationAction("sat", "t1", t2, t3, 0.0, 0.0)
+        w1 = tuple(sorted((_observation_window_key(a), _observation_window_key(b))))
+        w2 = tuple(sorted((_observation_window_key(b), _observation_window_key(a))))
+        assert w1 == w2
+        r1 = _stereo_mc_rng(
+            "case_x",
+            "sat",
+            "t1",
+            "acc1",
+            window_keys=w1,
+            n_samples=100,
+            role="pair_overlap",
+        )
+        r2 = _stereo_mc_rng(
+            "case_x",
+            "sat",
+            "t1",
+            "acc1",
+            window_keys=w2,
+            n_samples=100,
+            role="pair_overlap",
+        )
+        assert [r1.random() for _ in range(20)] == [r2.random() for _ in range(20)]
+
+    def test_role_and_n_samples_change_stream(self):
+        w_pair = tuple(
+            sorted(
+                (
+                    ("2026-06-18T01:00:00Z", "2026-06-18T01:00:10Z"),
+                    ("2026-06-18T01:00:20Z", "2026-06-18T01:00:30Z"),
+                )
+            )
+        )
+        r_a = _stereo_mc_rng(
+            "c", "s", "t", "a", window_keys=w_pair, n_samples=100, role="pair_overlap"
+        )
+        r_b = _stereo_mc_rng(
+            "c", "s", "t", "a", window_keys=w_pair, n_samples=80, role="pair_overlap"
+        )
+        assert r_a.random() != r_b.random()
 
 
 class TestIOLoadSolution:

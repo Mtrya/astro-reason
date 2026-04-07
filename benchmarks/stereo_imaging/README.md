@@ -22,7 +22,7 @@ All public quantities use SI units or degrees:
 | angle | degrees | `_deg` |
 | angular rate | deg/s | `_deg_per_s` |
 | angular acceleration | deg/s² | `_deg_per_s2` |
-| timestamps | ISO 8601 UTC strings | — |
+| timestamps | ISO 8601 with `Z` or explicit offset (naive timestamps are rejected) | — |
 
 ## Dataset structure
 
