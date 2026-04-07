@@ -1,4 +1,4 @@
-"""Normalization helpers and point queries over cached stereo_imaging source data."""
+"""Normalization helpers for cached stereo_imaging source data."""
 
 from __future__ import annotations
 
@@ -6,10 +6,6 @@ import csv
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any
-
-import numpy as np
-import rasterio
-from rasterio.windows import Window
 
 # World cities CSV: canonical column names after normalization
 WORLD_CITIES_CANONICAL_FIELDS = (
@@ -132,59 +128,3 @@ def load_world_cities(csv_path: Path) -> list[dict[str, Any]]:
                 }
             )
         return rows
-
-
-def worldcover_sw_corner(lat: float, lon: float) -> tuple[float, float]:
-    """Southwest corner (lat, lon) of the 3x3 degree WorldCover tile containing (lat, lon)."""
-    sw_lat = -90.0 + np.floor((lat + 90.0) / 3.0) * 3.0
-    sw_lon = -180.0 + np.floor((lon + 180.0) / 3.0) * 3.0
-    return float(sw_lat), float(sw_lon)
-
-
-def worldcover_tile_filename(lat: float, lon: float) -> str:
-    """Return WorldCover v200 map tile filename for the tile covering (lat, lon)."""
-    sw_lat, sw_lon = worldcover_sw_corner(lat, lon)
-    lat_tag = _format_lat_tag(sw_lat)
-    lon_tag = _format_lon_tag(sw_lon)
-    return f"ESA_WorldCover_10m_2021_v200_{lat_tag}{lon_tag}_Map.tif"
-
-
-def _format_lat_tag(lat: float) -> str:
-    alat = abs(lat)
-    deg = int(round(alat))
-    return f"N{deg:02d}" if lat >= 0 else f"S{deg:02d}"
-
-
-def _format_lon_tag(lon: float) -> str:
-    alon = abs(lon)
-    deg = int(round(alon))
-    return f"E{deg:03d}" if lon >= 0 else f"W{deg:03d}"
-
-
-def query_etopo_elevation(tif_path: Path, lat: float, lon: float) -> float:
-    """Sample ETOPO GeoTIFF at WGS84 (lat, lon); returns elevation in meters."""
-    with rasterio.open(tif_path) as ds:
-        row, col = ds.index(lon, lat)
-        ir, ic = int(row), int(col)
-        win = Window(ic, ir, 1, 1)
-        val = float(ds.read(1, window=win)[0, 0])
-        nodata = ds.nodata
-        if nodata is not None and val == nodata:
-            return float("nan")
-        return val
-
-
-def query_worldcover_class(tile_dir: Path, lat: float, lon: float) -> int:
-    """Land-cover class code at (lat, lon) using the cached tile in tile_dir."""
-    fname = worldcover_tile_filename(lat, lon)
-    path = tile_dir / fname
-    if not path.is_file():
-        raise FileNotFoundError(
-            f"WorldCover tile not found: {path}. "
-            f"Fetch it with fetch_worldcover_tile(..., lat={lat}, lon={lon})."
-        )
-    with rasterio.open(path) as ds:
-        row, col = ds.index(lon, lat)
-        ir, ic = int(row), int(col)
-        win = Window(ic, ir, 1, 1)
-        return int(ds.read(1, window=win)[0, 0])

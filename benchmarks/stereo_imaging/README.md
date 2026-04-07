@@ -2,33 +2,35 @@
 
 ## Problem Description
 
-Plan satellite observations to acquire stereo image pairs for 3D terrain reconstruction.
-The agent must schedule observations of targets from different viewing angles (azimuth separation)
-that meet stereo geometry constraints.
+Plan optical satellite observations to acquire same-pass stereo or tri-stereo imagery for 3D terrain reconstruction.
+The planning problem focuses on physically meaningful observation geometry, retargeting cost, and overlap quality rather than photogrammetry internals.
 
 ## Dataset Format
 
-See `datasets/case_0001/` for example structure:
-- `satellites.yaml` - Satellite definitions with TLE data
-- `targets.yaml` - Target locations requiring stereo imaging
-- `stations.yaml` - Ground station positions for downlinks
-- `requirements.yaml` - Stereo geometry requirements (min/max azimuth separation)
-- `manifest.json` - Case metadata including planning horizon
+See [`SPEC_v3.md`](SPEC_v3.md) for the canonical public contract.
+
+Each case lives under `dataset/cases/<case_id>/` and contains:
+- `satellites.yaml` - Real Earth-observation satellites with frozen TLEs and compact public sensor/agility fields
+- `targets.yaml` - Continuous target coordinates with `aoi_radius_m`, `elevation_ref_m`, and `scene_type`
+- `mission.yaml` - Planning horizon plus stereo validity and quality thresholds
+
+Dataset-level artifacts:
+- `dataset/index.json` - Canonical case inventory and source provenance
+- `dataset/example_solution.json` - Minimal runnable verifier smoke-test actions
 
 ## Metrics
 
 See [`SPEC_v3.md`](SPEC_v3.md) and [`verifier/run.py`](verifier/run.py) for scoring details.
 
 Key metrics:
-- `stereo_coverage` - Fraction of targets with valid stereo pairs
-- `num_stereo_targets` - Count of targets with stereo coverage
-- `target_coverage` - Overall observation requirements coverage
+- `valid` - Whether all hard action and geometry constraints are satisfied
+- `coverage_ratio` - Fraction of targets with at least one valid stereo or tri-stereo product
+- `normalized_quality` - Mean best-per-target stereo quality across the case
 
-## Baselines
+## Generator Notes
 
-- `baselines/greedy.py` - Greedy heuristic baseline
-- `baselines/simulated_annealing.py` - Simulated annealing baseline
+The canonical generator uses:
+- runtime downloads for CelesTrak Earth-resources TLEs and the reproducible world-cities table
+- vendored 1-degree lookup tables for elevation and non-urban scene classification
 
-## Toolkit Compatibility
-
-✓ Compatible with universal toolkit (`toolkit/`)
+Large terrain and land-cover inputs are used only during lookup-table derivation, not during normal dataset generation or CI.

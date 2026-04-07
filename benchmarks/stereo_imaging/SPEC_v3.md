@@ -59,34 +59,73 @@ Internal verifier code may convert `deg` to radians for computation, but radians
 
 ## 2. reproducible external data sources
 
-The v3 generator and dataset provenance should rely on three reproducible external inputs.
+The v3 generator relies on two runtime external inputs and one vendored lookup table.
+
+### 2.1 runtime external sources
 
 1. Orbit source
    - CelesTrak Earth-resources GP/TLE entries for the selected optical satellites.
 
-2. Scene-label source
-   - ESA WorldCover 2021 v200, used for broad land-cover screening and scene-pool construction.
-
-3. Elevation source
-   - ETOPO 2022 30 arc-second global relief, used as a lightweight elevation source.
-
-4. Urban seeding source
+2. Urban seeding source
    - A reproducibly fetched world-cities table, following the same Kaggle Hub workflow already used elsewhere in the repository.
+   - This provides candidate locations for `scene_type: urban_structured`.
 
-The point of `ETOPO 2022` in v3 is modest:
-- it supplies `elevation_ref_m` at the target center,
-- it may support a coarse ruggedness screen during generation,
-- it is not a claim of high-resolution terrain physics.
+### 2.2 vendored lookup tables
+
+The generator includes precomputed lookup tables for elevation and non-urban scene classification:
+
+1. Elevation grid
+   - `generator/lookup_tables.py` contains `ELEVATION_GRID: dict[tuple[int, int], float]`
+   - Keys are `(lat_index, lon_index)` at 1-degree resolution, representing cell centers at integer coordinates
+   - Values are average elevation in meters for that cell
+   - Missing keys indicate ocean
+
+2. Scene grid
+   - `generator/lookup_tables.py` contains `SCENE_GRID: dict[tuple[int, int], str]`
+   - Values are `"vegetated"`, `"rugged"`, or `"open"`
+   - Missing keys indicate ocean or invalid terrain
+   - Urban areas are handled separately via the world-cities source
+
+### 2.3 lookup semantics for continuous coordinates
+
+Target coordinates are continuous `(lat, lon)` values, not restricted to grid centers.
+
+For elevation:
+- Query the 4 nearest grid cells surrounding the target
+- If any cell is missing (ocean), treat its elevation as `0.0`
+- Return the bilinear interpolation of the 4 cell values
+- If the target is in an ocean cell (all 4 nearest grid cells missing), reject the target
+
+For scene type:
+- Find the nearest grid cell center (round to nearest integer lat/lon)
+- Return the scene type of that cell
+- If the cell is missing from `SCENE_GRID`, reject the target (ocean/invalid)
+
+This preserves coordinate continuity while keeping the lookup tables compact.
+
+### 2.4 lookup table derivation
+
+The lookup tables are derived once during generator development:
+
+1. Download ETOPO 2022 60 arc-second raster
+2. Download ESA WorldCover 2021 v200 tiles
+3. Run a temporary script that:
+   - Aggregates ETOPO to 1-degree cells → `ELEVATION_GRID`
+   - Classifies WorldCover pixels to scene types → `SCENE_GRID`
+4. Write the grids to `generator/lookup_tables.py`
+5. Delete the source files
+
+The lookup tables are committed to the repository. Generator users do not need to download ETOPO or WorldCover.
+
+### 2.5 provenance
 
 Released datasets should record provenance in `dataset/index.json`, including:
 - generator revision when available,
 - generator seed,
 - CelesTrak fetch URL and retrieval timestamp,
-- WorldCover product id and retrieval timestamp,
-- ETOPO product id and retrieval timestamp,
 - world-cities source id and retrieval timestamp,
-- selected satellite NORAD ids,
-- any useful normalized-input hashes.
+- lookup table version or hash,
+- selected satellite NORAD ids.
 
 ## 3. benchmark scope
 
@@ -205,16 +244,11 @@ The generator should assign `scene_type` reproducibly:
 - `urban_structured`
   - drawn from the world-cities pool.
 
-- `vegetated`
-  - drawn from WorldCover locations dominated by tree cover, shrubland, grassland, or similar vegetation-heavy classes.
+- `vegetated`, `rugged`, `open`
+  - lookup via `SCENE_GRID` at the target coordinates.
+  - reject targets that map to ocean (missing key in grid).
 
-- `rugged`
-  - drawn from non-urban land with coarse topographic variation from ETOPO over a fixed neighborhood.
-
-- `open`
-  - drawn from non-urban land that is neither strongly vegetated nor topographically rugged.
-
-The exact generator thresholds may evolve, but the scene labels should remain stable once the canonical dataset is released.
+The lookup tables are precomputed from ETOPO and WorldCover during generator development, but the generator itself does not depend on those large source files at runtime.
 
 ### 5.3 removed v2 target fields
 
@@ -233,21 +267,22 @@ The following v2 target fields are not required in the public v3 case schema:
 Target generation should remain reproducible and benchmark-oriented.
 
 Recommended flow:
-1. build urban candidates from the world-cities source,
-2. build non-urban candidates from WorldCover land classes,
-3. assign `elevation_ref_m` from ETOPO at the target center,
-4. assign `scene_type`,
-5. reject targets with no feasible daylight access and no potential same-pass stereo opportunity,
-6. assemble each case with scene diversity and geographic spread.
+1. build urban candidates from the world-cities source (assign `scene_type: urban_structured`),
+2. sample non-urban candidates from land cells in `SCENE_GRID` (continuous coordinates within valid cells),
+3. assign `elevation_ref_m` via bilinear interpolation from `ELEVATION_GRID`,
+4. assign `scene_type` from the nearest cell in `SCENE_GRID` for non-urban candidates,
+5. reject targets in ocean cells (missing from grids),
+6. reject targets with no feasible daylight access and no potential same-pass stereo opportunity,
+7. assemble each case with scene diversity and geographic spread.
 
-### 6.2 acceptable use of ETOPO
+### 6.2 acceptable use of lookup tables
 
-ETOPO is acceptable in v3 for:
+The vendored grids are acceptable in v3 for:
 - center elevation,
-- coarse ruggedness screening,
-- broad target-pool stratification.
+- coarse scene classification,
+- land/ocean screening.
 
-ETOPO is not the basis for:
+The grids are not the basis for:
 - AOI-scale slope truth,
 - fine relief estimation,
 - occlusion modeling,
@@ -415,6 +450,8 @@ For each candidate pair, the verifier should report:
 - effective pixel-scale ratio.
 
 Convergence remains the main hard-validity geometry check. The others are diagnostics and quality signals.
+
+No hard B/H ratio threshold is part of the v3 validity contract. B/H remains a diagnostic proxy only.
 
 ## 12. quality model
 

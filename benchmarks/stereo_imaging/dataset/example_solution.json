@@ -1,157 +1,17 @@
 {
   "case_0001": {
-    "actions": [
-      {
-        "end_time": "2026-06-17T23:00:15Z",
-        "off_nadir_across_deg": 5.0,
-        "off_nadir_along_deg": 0.0,
-        "satellite_id": "sat_ziyuan_3_02",
-        "start_time": "2026-06-17T23:00:00Z",
-        "target_id": "open_009",
-        "type": "observation"
-      },
-      {
-        "end_time": "2026-06-18T00:00:20Z",
-        "off_nadir_across_deg": 4.0,
-        "off_nadir_along_deg": 2.0,
-        "satellite_id": "sat_ziyuan_3_02",
-        "start_time": "2026-06-18T00:00:00Z",
-        "target_id": "rugged_033",
-        "type": "observation"
-      },
-      {
-        "end_time": "2026-06-18T01:00:18Z",
-        "off_nadir_across_deg": 6.0,
-        "off_nadir_along_deg": -1.0,
-        "satellite_id": "sat_pleiades_1a",
-        "start_time": "2026-06-18T01:00:00Z",
-        "target_id": "open_009",
-        "type": "observation"
-      }
-    ]
+    "actions": []
   },
   "case_0002": {
-    "actions": [
-      {
-        "end_time": "2026-06-18T05:00:15Z",
-        "off_nadir_across_deg": 5.0,
-        "off_nadir_along_deg": 0.0,
-        "satellite_id": "sat_ziyuan_3_02",
-        "start_time": "2026-06-18T05:00:00Z",
-        "target_id": "urban_winterveld_00",
-        "type": "observation"
-      },
-      {
-        "end_time": "2026-06-18T06:00:20Z",
-        "off_nadir_across_deg": 4.0,
-        "off_nadir_along_deg": 2.0,
-        "satellite_id": "sat_ziyuan_3_02",
-        "start_time": "2026-06-18T06:00:00Z",
-        "target_id": "vegetated_000",
-        "type": "observation"
-      },
-      {
-        "end_time": "2026-06-18T07:00:18Z",
-        "off_nadir_across_deg": 6.0,
-        "off_nadir_along_deg": -1.0,
-        "satellite_id": "sat_deimos_2",
-        "start_time": "2026-06-18T07:00:00Z",
-        "target_id": "urban_winterveld_00",
-        "type": "observation"
-      }
-    ]
+    "actions": []
   },
   "case_0003": {
-    "actions": [
-      {
-        "end_time": "2026-06-18T11:00:15Z",
-        "off_nadir_across_deg": 5.0,
-        "off_nadir_along_deg": 0.0,
-        "satellite_id": "sat_spot_6",
-        "start_time": "2026-06-18T11:00:00Z",
-        "target_id": "vegetated_010",
-        "type": "observation"
-      },
-      {
-        "end_time": "2026-06-18T12:00:20Z",
-        "off_nadir_across_deg": 4.0,
-        "off_nadir_along_deg": 2.0,
-        "satellite_id": "sat_spot_6",
-        "start_time": "2026-06-18T12:00:00Z",
-        "target_id": "rugged_004",
-        "type": "observation"
-      },
-      {
-        "end_time": "2026-06-18T13:00:18Z",
-        "off_nadir_across_deg": 6.0,
-        "off_nadir_along_deg": -1.0,
-        "satellite_id": "sat_ziyuan_3_02",
-        "start_time": "2026-06-18T13:00:00Z",
-        "target_id": "vegetated_010",
-        "type": "observation"
-      }
-    ]
+    "actions": []
   },
   "case_0004": {
-    "actions": [
-      {
-        "end_time": "2026-06-18T17:00:15Z",
-        "off_nadir_across_deg": 5.0,
-        "off_nadir_along_deg": 0.0,
-        "satellite_id": "sat_pleiades_1a",
-        "start_time": "2026-06-18T17:00:00Z",
-        "target_id": "vegetated_016",
-        "type": "observation"
-      },
-      {
-        "end_time": "2026-06-18T18:00:20Z",
-        "off_nadir_across_deg": 4.0,
-        "off_nadir_along_deg": 2.0,
-        "satellite_id": "sat_pleiades_1a",
-        "start_time": "2026-06-18T18:00:00Z",
-        "target_id": "rugged_010",
-        "type": "observation"
-      },
-      {
-        "end_time": "2026-06-18T19:00:18Z",
-        "off_nadir_across_deg": 6.0,
-        "off_nadir_along_deg": -1.0,
-        "satellite_id": "sat_ziyuan_3_02",
-        "start_time": "2026-06-18T19:00:00Z",
-        "target_id": "vegetated_016",
-        "type": "observation"
-      }
-    ]
+    "actions": []
   },
   "case_0005": {
-    "actions": [
-      {
-        "end_time": "2026-06-18T23:00:15Z",
-        "off_nadir_across_deg": 5.0,
-        "off_nadir_along_deg": 0.0,
-        "satellite_id": "sat_gaofen_2",
-        "start_time": "2026-06-18T23:00:00Z",
-        "target_id": "rugged_027",
-        "type": "observation"
-      },
-      {
-        "end_time": "2026-06-19T00:00:20Z",
-        "off_nadir_across_deg": 4.0,
-        "off_nadir_along_deg": 2.0,
-        "satellite_id": "sat_gaofen_2",
-        "start_time": "2026-06-19T00:00:00Z",
-        "target_id": "urban_ajmer_08",
-        "type": "observation"
-      },
-      {
-        "end_time": "2026-06-19T01:00:18Z",
-        "off_nadir_across_deg": 6.0,
-        "off_nadir_along_deg": -1.0,
-        "satellite_id": "sat_ziyuan_3_02",
-        "start_time": "2026-06-19T01:00:00Z",
-        "target_id": "rugged_027",
-        "type": "observation"
-      }
-    ]
+    "actions": []
   }
 }
