@@ -109,8 +109,7 @@
     },
     "world_cities": {
       "kaggle_dataset": "juanmah/world-cities",
-      "sha256": "67a4fed1d7ddd92ad3d7b5befef6e2d1b65f7a54f0764e5cec98e8720c587200",
-      "skipped_cached": true
+      "sha256": "67a4fed1d7ddd92ad3d7b5befef6e2d1b65f7a54f0764e5cec98e8720c587200"
     }
   },
   "spec_version": "v3"

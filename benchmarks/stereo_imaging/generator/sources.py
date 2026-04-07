@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import csv
 import hashlib
+import io
 import shutil
 from dataclasses import dataclass
 from pathlib import Path
@@ -89,22 +90,25 @@ def download_celestrak(dest_dir: Path, *, force_download: bool) -> SourceFetchRe
     lines: list[str] = []
     for row in rows:
         lines.extend([row["name"], row["tle_line1"], row["tle_line2"]])
-    raw_path.write_text("\n".join(lines) + "\n", encoding="utf-8")
-
-    with csv_path.open("w", encoding="utf-8", newline="") as handle:
-        writer = csv.DictWriter(
-            handle,
-            fieldnames=["name", "norad_catalog_id", "tle_line1", "tle_line2", "epoch_iso"],
-        )
-        writer.writeheader()
-        for row in rows:
-            writer.writerow(row)
-
-    records = parse_tle_text(raw_path.read_text(encoding="utf-8", errors="replace"))
+    raw_text = "\n".join(lines) + "\n"
+    records = parse_tle_text(raw_text)
     if len(records) != len(rows):
         raise RuntimeError(
             f"Vendored TLE snapshot parse mismatch: expected {len(rows)} satellites, got {len(records)}"
         )
+    raw_path.write_text(raw_text, encoding="utf-8")
+
+    csv_buf = io.StringIO()
+    writer = csv.DictWriter(
+        csv_buf,
+        fieldnames=["name", "norad_catalog_id", "tle_line1", "tle_line2", "epoch_iso"],
+    )
+    writer.writeheader()
+    for row in rows:
+        writer.writerow(row)
+    csv_text = csv_buf.getvalue()
+    csv_path.write_text(csv_text, encoding="utf-8")
+    csv_sha256 = hashlib.sha256(csv_text.encode("utf-8")).hexdigest()
 
     return SourceFetchResult(
         "celestrak",
@@ -112,7 +116,7 @@ def download_celestrak(dest_dir: Path, *, force_download: bool) -> SourceFetchRe
         {
             "url": CELESTRAK_EARTH_RESOURCES_URL,
             "record_count": len(rows),
-            "sha256": _sha256_file(csv_path),
+            "sha256": csv_sha256,
             "vendored_snapshot": True,
         },
     )
@@ -130,7 +134,6 @@ def download_world_cities(dest_dir: Path, *, force_download: bool) -> SourceFetc
             {
                 "kaggle_dataset": WORLD_CITIES_DATASET,
                 "sha256": _sha256_file(final_csv),
-                "skipped_cached": True,
             },
         )
 
@@ -153,7 +156,6 @@ def download_world_cities(dest_dir: Path, *, force_download: bool) -> SourceFetc
         {
             "kaggle_dataset": WORLD_CITIES_DATASET,
             "sha256": _sha256_file(copied),
-            "skipped_cached": False,
         },
     )
 
