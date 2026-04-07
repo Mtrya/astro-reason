@@ -1,0 +1,22 @@
+{
+  "actions": [
+    {
+      "type": "observation",
+      "satellite_id": "sat_test",
+      "target_id": "t1",
+      "start_time": "2026-06-18T01:00:00Z",
+      "end_time": "2026-06-18T01:00:05Z",
+      "off_nadir_along_deg": 0.0,
+      "off_nadir_across_deg": 0.0
+    },
+    {
+      "type": "observation",
+      "satellite_id": "sat_test",
+      "target_id": "t2",
+      "start_time": "2026-06-18T01:00:05Z",
+      "end_time": "2026-06-18T01:00:10Z",
+      "off_nadir_along_deg": 0.0,
+      "off_nadir_across_deg": 0.0
+    }
+  ]
+}
