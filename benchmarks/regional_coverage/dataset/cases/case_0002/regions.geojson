@@ -1,0 +1,123 @@
+{
+  "features": [
+    {
+      "geometry": {
+        "coordinates": [
+          [
+            [
+              29.5,
+              42.0
+            ],
+            [
+              33.0,
+              43.5
+            ],
+            [
+              37.0,
+              44.5
+            ],
+            [
+              39.0,
+              43.2
+            ],
+            [
+              36.5,
+              41.8
+            ],
+            [
+              32.0,
+              41.2
+            ],
+            [
+              29.5,
+              42.0
+            ]
+          ]
+        ],
+        "type": "Polygon"
+      },
+      "properties": {
+        "region_id": "black_sea",
+        "weight": 1.0
+      },
+      "type": "Feature"
+    },
+    {
+      "geometry": {
+        "coordinates": [
+          [
+            [
+              -94.0,
+              27.0
+            ],
+            [
+              -91.5,
+              25.5
+            ],
+            [
+              -89.0,
+              26.2
+            ],
+            [
+              -90.0,
+              28.2
+            ],
+            [
+              -92.5,
+              28.5
+            ],
+            [
+              -94.0,
+              27.0
+            ]
+          ]
+        ],
+        "type": "Polygon"
+      },
+      "properties": {
+        "region_id": "gulf_of_mexico",
+        "weight": 1.0
+      },
+      "type": "Feature"
+    },
+    {
+      "geometry": {
+        "coordinates": [
+          [
+            [
+              43.2,
+              10.5
+            ],
+            [
+              45.8,
+              9.8
+            ],
+            [
+              46.0,
+              7.2
+            ],
+            [
+              43.8,
+              6.5
+            ],
+            [
+              42.2,
+              8.5
+            ],
+            [
+              43.2,
+              10.5
+            ]
+          ]
+        ],
+        "type": "Polygon"
+      },
+      "properties": {
+        "region_id": "horn_of_africa",
+        "weight": 1.0
+      },
+      "type": "Feature"
+    }
+  ],
+  "type": "FeatureCollection"
+}

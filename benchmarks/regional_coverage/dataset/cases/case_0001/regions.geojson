@@ -1,0 +1,127 @@
+{
+  "features": [
+    {
+      "geometry": {
+        "coordinates": [
+          [
+            [
+              43.2,
+              10.5
+            ],
+            [
+              45.8,
+              9.8
+            ],
+            [
+              46.0,
+              7.2
+            ],
+            [
+              43.8,
+              6.5
+            ],
+            [
+              42.2,
+              8.5
+            ],
+            [
+              43.2,
+              10.5
+            ]
+          ]
+        ],
+        "type": "Polygon"
+      },
+      "properties": {
+        "region_id": "horn_of_africa",
+        "weight": 1.0
+      },
+      "type": "Feature"
+    },
+    {
+      "geometry": {
+        "coordinates": [
+          [
+            [
+              88.2,
+              16.8
+            ],
+            [
+              90.5,
+              15.8
+            ],
+            [
+              91.0,
+              13.5
+            ],
+            [
+              88.8,
+              12.8
+            ],
+            [
+              87.0,
+              14.0
+            ],
+            [
+              86.8,
+              16.0
+            ],
+            [
+              88.2,
+              16.8
+            ]
+          ]
+        ],
+        "type": "Polygon"
+      },
+      "properties": {
+        "region_id": "bay_of_bengal",
+        "weight": 1.0
+      },
+      "type": "Feature"
+    },
+    {
+      "geometry": {
+        "coordinates": [
+          [
+            [
+              131.5,
+              -3.0
+            ],
+            [
+              134.0,
+              -4.5
+            ],
+            [
+              135.5,
+              -6.5
+            ],
+            [
+              133.0,
+              -7.5
+            ],
+            [
+              130.5,
+              -6.0
+            ],
+            [
+              129.8,
+              -4.0
+            ],
+            [
+              131.5,
+              -3.0
+            ]
+          ]
+        ],
+        "type": "Polygon"
+      },
+      "properties": {
+        "region_id": "indonesia_east",
+        "weight": 1.0
+      },
+      "type": "Feature"
+    }
+  ],
+  "type": "FeatureCollection"
+}

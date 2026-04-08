@@ -1,0 +1,21 @@
+{
+  "benchmark": "regional_coverage",
+  "case_id": "case_0003",
+  "coverage_sample_step_s": 5,
+  "earth_model": {
+    "shape": "wgs84"
+  },
+  "grid_parameters": {
+    "sample_spacing_m": 5000.0
+  },
+  "horizon_end": "2025-07-21T00:00:00Z",
+  "horizon_start": "2025-07-18T00:00:00Z",
+  "scoring": {
+    "max_actions_total": 64,
+    "primary_metric": "coverage_ratio",
+    "revisit_bonus_alpha": 0.0
+  },
+  "seed": 20290430,
+  "spec_version": "v1",
+  "time_step_s": 10
+}
