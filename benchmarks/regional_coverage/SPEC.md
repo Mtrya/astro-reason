@@ -751,7 +751,15 @@ Loads:
 - `imaging_power_w` while a strip observation is active
 - `slew_power_w` during required retargeting intervals
 
-Recommended integration rule:
+Phase 3 implementation rule:
+
+- deterministic fixed-step integration on a verifier-owned mesh
+- canonical public cases use `coverage_sample_step_s = 5`, and the verifier may
+  reuse that same step for power integration
+- within each mesh interval, the verifier evaluates sunlight at the interval
+  midpoint and applies piecewise-constant loads
+
+Future refinement remains allowed before benchmark completion:
 
 - event-driven exact integration over intervals where sunlight state and action
   state are constant
