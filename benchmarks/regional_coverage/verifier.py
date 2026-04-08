@@ -130,8 +130,14 @@ class ParsedAction:
     theta_outer_deg: float | None = None
     segment_polygons: list[Polygon] = field(default_factory=list)
     covered_sample_ids: list[str] = field(default_factory=list)
+    covered_region_ids: list[str] = field(default_factory=list)
     covered_weight_m2_equivalent: float = 0.0
     derived_centerline_lonlat: list[tuple[float, float]] = field(default_factory=list)
+    sample_times: list[datetime] = field(default_factory=list)
+    sample_satellite_positions_ecef_m: list[np.ndarray] = field(default_factory=list, repr=False)
+    sample_center_hits_ecef_m: list[np.ndarray] = field(default_factory=list, repr=False)
+    sample_inner_hits_ecef_m: list[np.ndarray] = field(default_factory=list, repr=False)
+    sample_outer_hits_ecef_m: list[np.ndarray] = field(default_factory=list, repr=False)
 
 
 @dataclass(frozen=True)
@@ -141,6 +147,18 @@ class ManeuverWindow:
     end_time: datetime
     slew_angle_deg: float
     required_gap_s: float
+
+
+@dataclass(frozen=True)
+class VerificationArtifacts:
+    case: CaseData
+    parsed_actions: list[ParsedAction]
+    propagators: dict[str, brahe.SGPPropagator] = field(repr=False)
+    maneuvers: list[ManeuverWindow]
+    power_summaries: dict[str, dict[str, float]]
+    metrics: dict[str, Any]
+    violations: list[str]
+    diagnostics: dict[str, Any]
 
 
 def _ensure_brahe_ready() -> None:
@@ -765,6 +783,7 @@ def _derive_action_geometry(
 
         edge_hits: list[tuple[np.ndarray, np.ndarray, np.ndarray]] = []
         center_lonlat: list[tuple[float, float]] = []
+        sample_satellite_positions: list[np.ndarray] = []
         signed_inner = math.copysign(action.theta_inner_deg or 0.0, action.roll_deg)
         signed_outer = math.copysign(action.theta_outer_deg or 0.0, action.roll_deg)
         for sample_time in sample_times:
@@ -772,6 +791,7 @@ def _derive_action_geometry(
             state_ecef = np.asarray(propagator.state_ecef(epoch), dtype=float).reshape(6)
             sat_pos_m = state_ecef[:3]
             sat_vel_mps = state_ecef[3:]
+            sample_satellite_positions.append(sat_pos_m.copy())
             center_hit = _ground_intercept_ecef_m(sat_pos_m, sat_vel_mps, action.roll_deg)
             inner_hit = _ground_intercept_ecef_m(sat_pos_m, sat_vel_mps, signed_inner)
             outer_hit = _ground_intercept_ecef_m(sat_pos_m, sat_vel_mps, signed_outer)
@@ -804,6 +824,11 @@ def _derive_action_geometry(
 
         action.segment_polygons = segment_polygons
         action.derived_centerline_lonlat = center_lonlat
+        action.sample_times = sample_times
+        action.sample_satellite_positions_ecef_m = sample_satellite_positions
+        action.sample_inner_hits_ecef_m = [inner_hit for inner_hit, _, _ in edge_hits]
+        action.sample_center_hits_ecef_m = [center_hit for _, center_hit, _ in edge_hits]
+        action.sample_outer_hits_ecef_m = [outer_hit for _, _, outer_hit in edge_hits]
         action.accepted_for_geometry = True
 
 
@@ -845,6 +870,9 @@ def _apply_coverage(
             for sample_index in matched_indices:
                 region_grid.coverage_counts[sample_index] += 1
         action.covered_sample_ids = sorted(covered_sample_ids)
+        action.covered_region_ids = sorted(
+            region_id for region_id, matched_indices in matches_by_region.items() if matched_indices
+        )
         action.covered_weight_m2_equivalent = covered_weight
 
 
@@ -1134,6 +1162,7 @@ def _build_diagnostics(
                 "theta_outer_deg": action.theta_outer_deg,
                 "segment_count": len(action.segment_polygons),
                 "covered_sample_count": len(action.covered_sample_ids),
+                "covered_region_ids": action.covered_region_ids,
                 "covered_weight_m2_equivalent": action.covered_weight_m2_equivalent,
                 "centerline_lonlat": action.derived_centerline_lonlat,
                 "violations": action.violations,
@@ -1158,28 +1187,8 @@ def _build_diagnostics(
     }
 
 
-def verify_solution(case_dir: str | Path, solution_path: str | Path) -> dict[str, Any]:
-    try:
-        _ensure_brahe_ready()
-        case = load_case(case_dir)
-    except (FileNotFoundError, TypeError, ValueError) as exc:
-        return {
-            "valid": False,
-            "metrics": {},
-            "violations": [f"Failed to load case: {exc}"],
-            "diagnostics": {},
-        }
-
-    try:
-        parsed_actions, violations = _parse_actions(case, solution_path)
-    except (FileNotFoundError, TypeError, ValueError, json.JSONDecodeError) as exc:
-        return {
-            "valid": False,
-            "metrics": {},
-            "violations": [f"Failed to load solution: {exc}"],
-            "diagnostics": {},
-        }
-
+def _inspect_loaded_case(case: CaseData, solution_path: str | Path) -> VerificationArtifacts:
+    parsed_actions, violations = _parse_actions(case, solution_path)
     propagators = _build_propagators(case)
     _derive_action_geometry(case, parsed_actions, propagators, violations)
     _apply_coverage(case, parsed_actions)
@@ -1198,11 +1207,39 @@ def verify_solution(case_dir: str | Path, solution_path: str | Path) -> dict[str
     _apply_region_requirements(case, metrics, violations)
 
     diagnostics = _build_diagnostics(parsed_actions, maneuvers, power_summaries)
+    return VerificationArtifacts(
+        case=case,
+        parsed_actions=parsed_actions,
+        propagators=propagators,
+        maneuvers=maneuvers,
+        power_summaries=power_summaries,
+        metrics=metrics,
+        violations=violations,
+        diagnostics=diagnostics,
+    )
+
+
+def _inspect_solution(case_dir: str | Path, solution_path: str | Path) -> VerificationArtifacts:
+    _ensure_brahe_ready()
+    case = load_case(case_dir)
+    return _inspect_loaded_case(case, solution_path)
+
+
+def verify_solution(case_dir: str | Path, solution_path: str | Path) -> dict[str, Any]:
+    try:
+        artifacts = _inspect_solution(case_dir, solution_path)
+    except (FileNotFoundError, TypeError, ValueError, json.JSONDecodeError) as exc:
+        return {
+            "valid": False,
+            "metrics": {},
+            "violations": [str(exc)],
+            "diagnostics": {},
+        }
     return {
-        "valid": not violations,
-        "metrics": metrics,
-        "violations": violations,
-        "diagnostics": diagnostics,
+        "valid": not artifacts.violations,
+        "metrics": artifacts.metrics,
+        "violations": artifacts.violations,
+        "diagnostics": artifacts.diagnostics,
     }
 
 
