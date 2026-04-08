@@ -1,0 +1,67 @@
+{
+  "benchmark": "regional_coverage",
+  "cases": [
+    {
+      "case_id": "case_0001",
+      "horizon_hours": 72,
+      "num_regions": 3,
+      "num_satellites": 10,
+      "path": "cases/case_0001",
+      "satellite_class_ids": [
+        "sar_narrow"
+      ],
+      "total_region_area_m2": 443089508011.2145
+    },
+    {
+      "case_id": "case_0002",
+      "horizon_hours": 72,
+      "num_regions": 3,
+      "num_satellites": 8,
+      "path": "cases/case_0002",
+      "satellite_class_ids": [
+        "sar_narrow",
+        "sar_wide"
+      ],
+      "total_region_area_m2": 380608170064.2286
+    },
+    {
+      "case_id": "case_0003",
+      "horizon_hours": 72,
+      "num_regions": 3,
+      "num_satellites": 6,
+      "path": "cases/case_0003",
+      "satellite_class_ids": [
+        "sar_narrow",
+        "sar_wide"
+      ],
+      "total_region_area_m2": 435958225054.85254
+    },
+    {
+      "case_id": "case_0004",
+      "horizon_hours": 72,
+      "num_regions": 3,
+      "num_satellites": 12,
+      "path": "cases/case_0004",
+      "satellite_class_ids": [
+        "sar_narrow",
+        "sar_wide"
+      ],
+      "total_region_area_m2": 357474494272.17834
+    },
+    {
+      "case_id": "case_0005",
+      "horizon_hours": 72,
+      "num_regions": 2,
+      "num_satellites": 10,
+      "path": "cases/case_0005",
+      "satellite_class_ids": [
+        "sar_narrow",
+        "sar_wide"
+      ],
+      "total_region_area_m2": 275746309631.82245
+    }
+  ],
+  "example_smoke_case_id": "case_0001",
+  "generator_seed": 20260408,
+  "spec_version": "v1"
+}

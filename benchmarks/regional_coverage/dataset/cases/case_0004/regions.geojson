@@ -1,0 +1,119 @@
+{
+  "features": [
+    {
+      "geometry": {
+        "coordinates": [
+          [
+            [
+              -86.5,
+              43.0
+            ],
+            [
+              -84.0,
+              44.5
+            ],
+            [
+              -85.0,
+              46.5
+            ],
+            [
+              -88.0,
+              46.0
+            ],
+            [
+              -89.0,
+              44.0
+            ],
+            [
+              -87.8,
+              42.8
+            ],
+            [
+              -86.5,
+              43.0
+            ]
+          ]
+        ],
+        "type": "Polygon"
+      },
+      "properties": {
+        "region_id": "great_lakes",
+        "weight": 1.0
+      },
+      "type": "Feature"
+    },
+    {
+      "geometry": {
+        "coordinates": [
+          [
+            [
+              -64.0,
+              -1.0
+            ],
+            [
+              -60.0,
+              -1.0
+            ],
+            [
+              -60.0,
+              -4.0
+            ],
+            [
+              -64.0,
+              -4.0
+            ],
+            [
+              -64.0,
+              -1.0
+            ]
+          ]
+        ],
+        "type": "Polygon"
+      },
+      "properties": {
+        "region_id": "amazon_north",
+        "weight": 1.0
+      },
+      "type": "Feature"
+    },
+    {
+      "geometry": {
+        "coordinates": [
+          [
+            [
+              -94.0,
+              27.0
+            ],
+            [
+              -91.5,
+              25.5
+            ],
+            [
+              -89.0,
+              26.2
+            ],
+            [
+              -90.0,
+              28.2
+            ],
+            [
+              -92.5,
+              28.5
+            ],
+            [
+              -94.0,
+              27.0
+            ]
+          ]
+        ],
+        "type": "Polygon"
+      },
+      "properties": {
+        "region_id": "gulf_of_mexico",
+        "weight": 1.0
+      },
+      "type": "Feature"
+    }
+  ],
+  "type": "FeatureCollection"
+}

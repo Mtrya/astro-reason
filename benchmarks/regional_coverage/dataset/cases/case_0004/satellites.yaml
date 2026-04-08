@@ -1,0 +1,264 @@
+- satellite_id: sat_iceye-x38
+  tle_line1: 1 59100U 24043C   25198.15871670  .00003408  00000-0  22786-3 0  9991
+  tle_line2: 2 59100  97.7999 329.8977 0004109 129.3903 230.7689 15.07656642 74911
+  tle_epoch: '2025-07-17T03:48:33.122Z'
+  sensor:
+    min_edge_off_nadir_deg: 16.0
+    max_edge_off_nadir_deg: 40.0
+    cross_track_fov_deg: 4.8
+    min_strip_duration_s: 20
+    max_strip_duration_s: 180
+  agility:
+    max_roll_rate_deg_per_s: 1.8
+    max_roll_acceleration_deg_per_s2: 0.7
+    settling_time_s: 1.5
+  power:
+    battery_capacity_wh: 1300
+    initial_battery_wh: 780
+    idle_power_w: 105
+    imaging_power_w: 360
+    slew_power_w: 45
+    sunlit_charge_power_w: 230
+    imaging_duty_limit_s_per_orbit: 1200
+- satellite_id: sat_iceye-x11
+  tle_line1: 1 48918U 21059AR  25198.20029252  .00022303  00000-0  43262-3 0  9994
+  tle_line2: 2 48918  97.6589   3.5479 0010524 127.8955 232.3247 15.47631360225573
+  tle_epoch: '2025-07-17T04:48:25.273Z'
+  sensor:
+    min_edge_off_nadir_deg: 16.0
+    max_edge_off_nadir_deg: 40.0
+    cross_track_fov_deg: 4.8
+    min_strip_duration_s: 20
+    max_strip_duration_s: 180
+  agility:
+    max_roll_rate_deg_per_s: 1.8
+    max_roll_acceleration_deg_per_s2: 0.7
+    settling_time_s: 1.5
+  power:
+    battery_capacity_wh: 1300
+    initial_battery_wh: 780
+    idle_power_w: 105
+    imaging_power_w: 360
+    slew_power_w: 45
+    sunlit_charge_power_w: 230
+    imaging_duty_limit_s_per_orbit: 1200
+- satellite_id: sat_iceye-x21
+  tle_line1: 1 55049U 23001AS  25198.17331073  .00020181  00000-0  44589-3 0  9994
+  tle_line2: 2 55049  97.3728 264.9719 0015816 192.4139 167.6721 15.43751474141196
+  tle_epoch: '2025-07-17T04:09:34.047Z'
+  sensor:
+    min_edge_off_nadir_deg: 18.0
+    max_edge_off_nadir_deg: 34.0
+    cross_track_fov_deg: 2.8
+    min_strip_duration_s: 20
+    max_strip_duration_s: 120
+  agility:
+    max_roll_rate_deg_per_s: 1.2
+    max_roll_acceleration_deg_per_s2: 0.4
+    settling_time_s: 2.0
+  power:
+    battery_capacity_wh: 900
+    initial_battery_wh: 540
+    idle_power_w: 85
+    imaging_power_w: 290
+    slew_power_w: 35
+    sunlit_charge_power_w: 170
+    imaging_duty_limit_s_per_orbit: 900
+- satellite_id: sat_iceye-x6
+  tle_line1: 1 46497U 20068M   25198.19935046  .00004254  00000-0  33772-3 0  9998
+  tle_line2: 2 46497  98.0682 172.2514 0004744 114.5141 245.6577 15.01058397262918
+  tle_epoch: '2025-07-17T04:47:03.879Z'
+  sensor:
+    min_edge_off_nadir_deg: 18.0
+    max_edge_off_nadir_deg: 34.0
+    cross_track_fov_deg: 2.8
+    min_strip_duration_s: 20
+    max_strip_duration_s: 120
+  agility:
+    max_roll_rate_deg_per_s: 1.2
+    max_roll_acceleration_deg_per_s2: 0.4
+    settling_time_s: 2.0
+  power:
+    battery_capacity_wh: 900
+    initial_battery_wh: 540
+    idle_power_w: 85
+    imaging_power_w: 290
+    slew_power_w: 35
+    sunlit_charge_power_w: 170
+    imaging_duty_limit_s_per_orbit: 900
+- satellite_id: sat_iceye-x42
+  tle_line1: 1 62698U 25009CT  25197.75764879  .00001800  00000-0  18016-3 0  9992
+  tle_line2: 2 62698  97.7358 277.1554 0003322  82.8718 277.2879 14.92649037 27272
+  tle_epoch: '2025-07-16T18:11:00.855Z'
+  sensor:
+    min_edge_off_nadir_deg: 16.0
+    max_edge_off_nadir_deg: 40.0
+    cross_track_fov_deg: 4.8
+    min_strip_duration_s: 20
+    max_strip_duration_s: 180
+  agility:
+    max_roll_rate_deg_per_s: 1.8
+    max_roll_acceleration_deg_per_s2: 0.7
+    settling_time_s: 1.5
+  power:
+    battery_capacity_wh: 1300
+    initial_battery_wh: 780
+    idle_power_w: 105
+    imaging_power_w: 360
+    slew_power_w: 45
+    sunlit_charge_power_w: 230
+    imaging_duty_limit_s_per_orbit: 1200
+- satellite_id: sat_iceye-x2
+  tle_line1: 1 43800U 18099AU  25198.18226327  .00004966  00000-0  28924-3 0  9991
+  tle_line2: 2 43800  97.4850 253.1891 0011968  31.8178 328.3774 15.12407443362097
+  tle_epoch: '2025-07-17T04:22:27.546Z'
+  sensor:
+    min_edge_off_nadir_deg: 18.0
+    max_edge_off_nadir_deg: 34.0
+    cross_track_fov_deg: 2.8
+    min_strip_duration_s: 20
+    max_strip_duration_s: 120
+  agility:
+    max_roll_rate_deg_per_s: 1.2
+    max_roll_acceleration_deg_per_s2: 0.4
+    settling_time_s: 2.0
+  power:
+    battery_capacity_wh: 900
+    initial_battery_wh: 540
+    idle_power_w: 85
+    imaging_power_w: 290
+    slew_power_w: 35
+    sunlit_charge_power_w: 170
+    imaging_duty_limit_s_per_orbit: 900
+- satellite_id: sat_iceye-x31
+  tle_line1: 1 58288U 23174AJ  25198.21959582  .00010257  00000-0  44543-3 0  9992
+  tle_line2: 2 58288  97.4152 271.3853 0004792  79.6683 280.5093 15.22490304 93594
+  tle_epoch: '2025-07-17T05:16:13.078Z'
+  sensor:
+    min_edge_off_nadir_deg: 16.0
+    max_edge_off_nadir_deg: 40.0
+    cross_track_fov_deg: 4.8
+    min_strip_duration_s: 20
+    max_strip_duration_s: 180
+  agility:
+    max_roll_rate_deg_per_s: 1.8
+    max_roll_acceleration_deg_per_s2: 0.7
+    settling_time_s: 1.5
+  power:
+    battery_capacity_wh: 1300
+    initial_battery_wh: 780
+    idle_power_w: 105
+    imaging_power_w: 360
+    slew_power_w: 45
+    sunlit_charge_power_w: 230
+    imaging_duty_limit_s_per_orbit: 1200
+- satellite_id: sat_iceye-x5
+  tle_line1: 1 44389U 19038C   25198.19039474  .00015630  00000-0  49052-3 0  9999
+  tle_line2: 2 44389  97.9126 220.0010 0009728  22.5714 337.5952 15.33088716331302
+  tle_epoch: '2025-07-17T04:34:10.105Z'
+  sensor:
+    min_edge_off_nadir_deg: 18.0
+    max_edge_off_nadir_deg: 34.0
+    cross_track_fov_deg: 2.8
+    min_strip_duration_s: 20
+    max_strip_duration_s: 120
+  agility:
+    max_roll_rate_deg_per_s: 1.2
+    max_roll_acceleration_deg_per_s2: 0.4
+    settling_time_s: 2.0
+  power:
+    battery_capacity_wh: 900
+    initial_battery_wh: 540
+    idle_power_w: 85
+    imaging_power_w: 290
+    slew_power_w: 35
+    sunlit_charge_power_w: 170
+    imaging_duty_limit_s_per_orbit: 900
+- satellite_id: sat_iceye-x50
+  tle_line1: 1 63255U 25052AX  25198.17518200  .00001597  00000-0  15702-3 0  9994
+  tle_line2: 2 63255  97.7253  91.1881 0000724 209.0702 151.0478 14.93504225 18614
+  tle_epoch: '2025-07-17T04:12:15.724Z'
+  sensor:
+    min_edge_off_nadir_deg: 16.0
+    max_edge_off_nadir_deg: 40.0
+    cross_track_fov_deg: 4.8
+    min_strip_duration_s: 20
+    max_strip_duration_s: 180
+  agility:
+    max_roll_rate_deg_per_s: 1.8
+    max_roll_acceleration_deg_per_s2: 0.7
+    settling_time_s: 1.5
+  power:
+    battery_capacity_wh: 1300
+    initial_battery_wh: 780
+    idle_power_w: 105
+    imaging_power_w: 360
+    slew_power_w: 45
+    sunlit_charge_power_w: 230
+    imaging_duty_limit_s_per_orbit: 1200
+- satellite_id: sat_iceye-x43
+  tle_line1: 1 60539U 24149BZ  25198.17381721  .00002779  00000-0  24650-3 0  9993
+  tle_line2: 2 60539  97.7127 274.6316 0005085 102.9067 257.2723 14.96993599 49948
+  tle_epoch: '2025-07-17T04:10:17.806Z'
+  sensor:
+    min_edge_off_nadir_deg: 18.0
+    max_edge_off_nadir_deg: 34.0
+    cross_track_fov_deg: 2.8
+    min_strip_duration_s: 20
+    max_strip_duration_s: 120
+  agility:
+    max_roll_rate_deg_per_s: 1.2
+    max_roll_acceleration_deg_per_s2: 0.4
+    settling_time_s: 2.0
+  power:
+    battery_capacity_wh: 900
+    initial_battery_wh: 540
+    idle_power_w: 85
+    imaging_power_w: 290
+    slew_power_w: 35
+    sunlit_charge_power_w: 170
+    imaging_duty_limit_s_per_orbit: 900
+- satellite_id: sat_iceye-x45
+  tle_line1: 1 62705U 25009DA  25197.78008711  .00004327  00000-0  34466-3 0  9994
+  tle_line2: 2 62705  97.7568 278.5032 0001681 132.5695 227.5671 15.00888737 27374
+  tle_epoch: '2025-07-16T18:43:19.526Z'
+  sensor:
+    min_edge_off_nadir_deg: 18.0
+    max_edge_off_nadir_deg: 34.0
+    cross_track_fov_deg: 2.8
+    min_strip_duration_s: 20
+    max_strip_duration_s: 120
+  agility:
+    max_roll_rate_deg_per_s: 1.2
+    max_roll_acceleration_deg_per_s2: 0.4
+    settling_time_s: 2.0
+  power:
+    battery_capacity_wh: 900
+    initial_battery_wh: 540
+    idle_power_w: 85
+    imaging_power_w: 290
+    slew_power_w: 35
+    sunlit_charge_power_w: 170
+    imaging_duty_limit_s_per_orbit: 900
+- satellite_id: sat_iceye-x26
+  tle_line1: 1 56961U 23084AF  25197.93472661  .00027536  00000-0  48795-3 0  9995
+  tle_line2: 2 56961  97.5643 332.6812 0001815  62.8062 297.3374 15.50239059116739
+  tle_epoch: '2025-07-16T22:26:00.379Z'
+  sensor:
+    min_edge_off_nadir_deg: 16.0
+    max_edge_off_nadir_deg: 40.0
+    cross_track_fov_deg: 4.8
+    min_strip_duration_s: 20
+    max_strip_duration_s: 180
+  agility:
+    max_roll_rate_deg_per_s: 1.8
+    max_roll_acceleration_deg_per_s2: 0.7
+    settling_time_s: 1.5
+  power:
+    battery_capacity_wh: 1300
+    initial_battery_wh: 780
+    idle_power_w: 105
+    imaging_power_w: 360
+    slew_power_w: 45
+    sunlit_charge_power_w: 230
+    imaging_duty_limit_s_per_orbit: 1200

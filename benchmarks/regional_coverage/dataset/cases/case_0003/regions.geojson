@@ -1,0 +1,123 @@
+{
+  "features": [
+    {
+      "geometry": {
+        "coordinates": [
+          [
+            [
+              88.2,
+              16.8
+            ],
+            [
+              90.5,
+              15.8
+            ],
+            [
+              91.0,
+              13.5
+            ],
+            [
+              88.8,
+              12.8
+            ],
+            [
+              87.0,
+              14.0
+            ],
+            [
+              86.8,
+              16.0
+            ],
+            [
+              88.2,
+              16.8
+            ]
+          ]
+        ],
+        "type": "Polygon"
+      },
+      "properties": {
+        "region_id": "bay_of_bengal",
+        "weight": 1.0
+      },
+      "type": "Feature"
+    },
+    {
+      "geometry": {
+        "coordinates": [
+          [
+            [
+              29.5,
+              42.0
+            ],
+            [
+              33.0,
+              43.5
+            ],
+            [
+              37.0,
+              44.5
+            ],
+            [
+              39.0,
+              43.2
+            ],
+            [
+              36.5,
+              41.8
+            ],
+            [
+              32.0,
+              41.2
+            ],
+            [
+              29.5,
+              42.0
+            ]
+          ]
+        ],
+        "type": "Polygon"
+      },
+      "properties": {
+        "region_id": "black_sea",
+        "weight": 1.0
+      },
+      "type": "Feature"
+    },
+    {
+      "geometry": {
+        "coordinates": [
+          [
+            [
+              -64.0,
+              -1.0
+            ],
+            [
+              -60.0,
+              -1.0
+            ],
+            [
+              -60.0,
+              -4.0
+            ],
+            [
+              -64.0,
+              -4.0
+            ],
+            [
+              -64.0,
+              -1.0
+            ]
+          ]
+        ],
+        "type": "Polygon"
+      },
+      "properties": {
+        "region_id": "amazon_north",
+        "weight": 1.0
+      },
+      "type": "Feature"
+    }
+  ],
+  "type": "FeatureCollection"
+}
