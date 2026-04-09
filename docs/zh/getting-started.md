@@ -77,19 +77,29 @@ uv run pytest tests/benchmarks/test_aeosbench_verifier.py
 
 不同基准测试使用不同的数据格式，主要包括：
 
-### YAML 格式（stereo_imaging, regional_coverage 等）
+### YAML / JSON / GeoJSON 混合格式（如 `regional_coverage`）
 
 ```yaml
 # satellites.yaml
-satellites:
-  - name: "SAT1"
-    tle: "1 12345U 00000AAA 00 0000 00000-0 00000-0 0 9999"
-    
-# targets.yaml
-targets:
-  - name: "TARGET1"
-    lat: 45.0
-    lon: -120.0
+- satellite_id: "SAT1"
+  tle_line1: "1 12345U 00000AAA 00 0000 00000-0 00000-0 0 9999"
+  tle_line2: "2 12345  97.0  91.0 0001000 200.0 150.0 15.0 00001"
+  sensor:
+    cross_track_fov_deg: 2.8
+```
+
+```json
+{
+  "actions": [
+    {
+      "type": "strip_observation",
+      "satellite_id": "SAT1",
+      "start_time": "2025-07-17T04:12:20Z",
+      "duration_s": 20,
+      "roll_deg": 20.0
+    }
+  ]
+}
 ```
 
 ### JSON 格式（satnet）
@@ -119,7 +129,7 @@ targets:
 | 基准 | 主要指标 |
 |-----|---------|
 | stereo_imaging | stereo_coverage（立体覆盖比例） |
-| regional_coverage | coverage_percentage（区域覆盖比例） |
+| regional_coverage | coverage_ratio（区域唯一覆盖比例） |
 | aeosbench | completion_rate（任务完成率） |
 | spot5 | profit（总利润） |
 | latency_optimization | latency_min/max/mean（延迟统计） |
