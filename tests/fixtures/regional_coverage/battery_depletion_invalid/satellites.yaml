@@ -1,0 +1,21 @@
+- satellite_id: sat_test
+  tle_line1: "1 63255U 25052AX  25198.17518200  .00001597  00000-0  15702-3 0  9994"
+  tle_line2: "2 63255  97.7253  91.1881 0000724 209.0702 151.0478 14.93504225 18614"
+  tle_epoch: "2025-07-17T04:12:15.724Z"
+  sensor:
+    min_edge_off_nadir_deg: 18.0
+    max_edge_off_nadir_deg: 34.0
+    cross_track_fov_deg: 2.8
+    min_strip_duration_s: 20.0
+    max_strip_duration_s: 120.0
+  agility:
+    max_roll_rate_deg_per_s: 1.2
+    max_roll_acceleration_deg_per_s2: 0.4
+    settling_time_s: 2.0
+  power:
+    battery_capacity_wh: 2.0
+    initial_battery_wh: 0.2
+    idle_power_w: 0.0
+    imaging_power_w: 720.0
+    slew_power_w: 0.0
+    sunlit_charge_power_w: 0.0

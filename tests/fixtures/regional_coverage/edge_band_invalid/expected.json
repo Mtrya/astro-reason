@@ -1,0 +1,7 @@
+{
+  "valid": false,
+  "violations_contain": [
+    "theta_inner_deg"
+  ],
+  "violation_count": 1
+}

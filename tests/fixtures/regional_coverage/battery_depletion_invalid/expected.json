@@ -1,0 +1,7 @@
+{
+  "valid": false,
+  "violations_contain": [
+    "battery depletes below zero"
+  ],
+  "violation_count": 1
+}

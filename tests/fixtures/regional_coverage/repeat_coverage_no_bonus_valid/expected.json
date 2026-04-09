@@ -1,0 +1,14 @@
+{
+  "valid": true,
+  "metrics": {
+    "coverage_ratio": 1.0,
+    "covered_weight_m2_equivalent": 25000000.0,
+    "num_actions": 2,
+    "total_imaging_time_s": 40.0,
+    "region_coverages": {
+      "region_001": {
+        "coverage_ratio": 1.0
+      }
+    }
+  }
+}
