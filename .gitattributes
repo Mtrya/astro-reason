@@ -1,2 +1,26 @@
-# SCM syntax highlighting & preventing 3-way merges
-pixi.lock merge=binary linguist-language=YAML linguist-generated=true -diff
+# Lockfiles
+uv.lock merge=binary linguist-language=TOML linguist-generated=true -diff
+
+# Vendored or generated benchmark-generator inputs
+benchmarks/regional_coverage/generator/cached_satellites.py linguist-generated=true
+benchmarks/regional_coverage/generator/region_library.geojson linguist-vendored=true
+benchmarks/stereo_imaging/generator/cached_tles.py linguist-generated=true
+benchmarks/stereo_imaging/generator/lookup_tables.py linguist-generated=true -diff
+
+# Large generated benchmark dataset artifacts
+benchmarks/regional_coverage/dataset/cases/*/coverage_grid.json linguist-generated=true -diff
+benchmarks/satnet/dataset/cases/*/problem.json linguist-generated=true
+
+# Archived datasets and fixtures
+benchmarks/aeosbench/dataset/cases.tar.gz binary -diff linguist-generated=true
+tests/fixtures/aeosbench_gt_bsk2.9.0/*.tar.gz binary -diff linguist-generated=true
+
+# Vendored or reference fixture corpora
+benchmarks/spot5/dataset/cases/**/*.spot linguist-vendored=true
+tests/fixtures/spot5_val_sol/** linguist-vendored=true
+
+# Generated fixture corpora
+tests/fixtures/satnet_mock_solutions/*.json linguist-generated=true
+tests/fixtures/sgp4_skyfield/case_*/illumination_windows.json linguist-generated=true
+tests/fixtures/sgp4_skyfield/case_*/orbital_states.json linguist-generated=true
+tests/fixtures/sgp4_skyfield/case_*/visibility_windows.json linguist-generated=true
