@@ -1,0 +1,52 @@
+{
+  "benchmark": "relay_constellation",
+  "cases": [
+    {
+      "case_id": "case_0001",
+      "horizon_hours": 96,
+      "max_added_satellites": 6,
+      "num_backbone_satellites": 24,
+      "num_demands": 6,
+      "num_ground_endpoints": 6,
+      "path": "cases/case_0001"
+    },
+    {
+      "case_id": "case_0002",
+      "horizon_hours": 96,
+      "max_added_satellites": 4,
+      "num_backbone_satellites": 30,
+      "num_demands": 6,
+      "num_ground_endpoints": 5,
+      "path": "cases/case_0002"
+    },
+    {
+      "case_id": "case_0003",
+      "horizon_hours": 96,
+      "max_added_satellites": 8,
+      "num_backbone_satellites": 28,
+      "num_demands": 5,
+      "num_ground_endpoints": 4,
+      "path": "cases/case_0003"
+    },
+    {
+      "case_id": "case_0004",
+      "horizon_hours": 96,
+      "max_added_satellites": 8,
+      "num_backbone_satellites": 32,
+      "num_demands": 5,
+      "num_ground_endpoints": 6,
+      "path": "cases/case_0004"
+    },
+    {
+      "case_id": "case_0005",
+      "horizon_hours": 96,
+      "max_added_satellites": 6,
+      "num_backbone_satellites": 26,
+      "num_demands": 6,
+      "num_ground_endpoints": 5,
+      "path": "cases/case_0005"
+    }
+  ],
+  "example_smoke_case_id": "case_0001",
+  "generator_seed": 42
+}
