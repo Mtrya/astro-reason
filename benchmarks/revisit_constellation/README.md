@@ -2,8 +2,7 @@
 
 ## Status
 
-This benchmark is implemented and is the canonical revisit-focused
-constellation-design benchmark in this repository.
+This benchmark is implemented and is the canonical revisit-focused constellation-design benchmark in this repository.
 
 It replaces the earlier `revisit_optimization` benchmark.
 
@@ -74,8 +73,7 @@ The satellite model includes:
 - `min_altitude_m`
 - `max_altitude_m`
 
-This benchmark models exactly one downlink terminal per satellite. Downlink
-actions do not identify a terminal.
+This benchmark models exactly one downlink terminal per satellite. Downlink actions do not identify a terminal.
 
 The file also includes:
 
@@ -199,10 +197,8 @@ The benchmark treats poor revisit performance as poor scoring, not as an automat
 Successful observations are represented by their midpoint times. Revisit gaps include the mission start and mission end as boundary times:
 
 - zero successful observations: the revisit gap is the full mission horizon
-- one successful observation: gaps are start-to-observation and
-  observation-to-end
-- multiple successful observations: gaps are computed between consecutive
-  observation midpoints plus the mission boundaries
+- one successful observation: gaps are start-to-observation and observation-to-end
+- multiple successful observations: gaps are computed between consecutive observation midpoints plus the mission boundaries
 
 ## Simulation Scenario
 
@@ -217,9 +213,7 @@ Satellite states are propagated using `brahe.NumericalOrbitPropagator`:
 - **Time system**: UTC
 - **EOP**: Zero-valued static EOP provider for deterministic, offline-friendly verification
 
-The verifier validates initial satellite states against case-specific altitude
-bounds (min/max). Initial states must form closed elliptic orbits (perigee and
-apogee within bounds).
+The verifier validates initial satellite states against case-specific altitude bounds (min/max). Initial states must form closed elliptic orbits (perigee and apogee within bounds).
 
 ### Visibility Computation
 
@@ -230,16 +224,12 @@ Observation geometry is validated at 10-second intervals during actions:
 - Slant range within target's maximum and sensor maximum
 - Off-nadir angle within the sensor's maximum off-nadir pointing limit
 
-The current sensor model is a nadir-centered pointing cone, not a full imaging
-footprint model. A target is observable only when its line of sight stays
-within `max_off_nadir_angle_deg` of nadir.
+The current sensor model is a nadir-centered pointing cone, not a full imaging footprint model. A target is observable only when its line of sight stays within `max_off_nadir_angle_deg` of nadir.
 
 **Ground station visibility constraints**:
 - Elevation angle above station's minimum
 
-All geometric checks use the instantaneous satellite position propagated to the
-sample time. The fixed 10-second sampling balances correctness with runtime;
-brief violations between samples may not be detected.
+All geometric checks use the instantaneous satellite position propagated to the sample time. The fixed 10-second sampling balances correctness with runtime; brief violations between samples may not be detected.
 
 ### Onboard Resources
 
@@ -259,23 +249,18 @@ Resource accounting simulates battery and storage state at discrete time points:
 - Downlink empties storage at `downlink_release_rate_mb_per_s`
 - Overlapping downlinks on one satellite are invalid
 
-Resource checks occur at action boundaries, maneuver window boundaries, and
-30-second intervals. Battery and storage are bounded by capacity and zero;
-violations invalidate the solution.
+Resource checks occur at action boundaries, maneuver window boundaries, and 30-second intervals. Battery and storage are bounded by capacity and zero; violations invalidate the solution.
 
 ### Attitude and Maneuver Windows
 
-Between consecutive observations, the verifier computes required slew time using
-a bang-coast-bang slew profile:
+Between consecutive observations, the verifier computes required slew time using a bang-coast-bang slew profile:
 
 - Maximum slew velocity and acceleration limits from `attitude_model`
 - Settling time added after slew completes
 - Maneuver windows must not overlap with any other action
 - Computed slew angle uses target vectors at observation midpoints
 
-The verifier does not validate pointing during the observation itself—only that
-the geometry allows acquisition and that sufficient time exists to slew between
-consecutive targets.
+The verifier does not validate pointing during the observation itself—only that the geometry allows acquisition and that sufficient time exists to slew between consecutive targets.
 
 ## Verifier Output
 
