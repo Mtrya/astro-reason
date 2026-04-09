@@ -1,0 +1,7 @@
+{
+  "valid": false,
+  "violations_contain": [
+    "insufficient slew/settle time"
+  ],
+  "violation_count": 1
+}

@@ -1,0 +1,24 @@
+{
+  "type": "FeatureCollection",
+  "features": [
+    {
+      "type": "Feature",
+      "properties": {
+        "region_id": "region_001",
+        "weight": 1.0
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [89.914941, 3.346647],
+            [90.414941, 3.346647],
+            [90.414941, 3.846647],
+            [89.914941, 3.846647],
+            [89.914941, 3.346647]
+          ]
+        ]
+      }
+    }
+  ]
+}

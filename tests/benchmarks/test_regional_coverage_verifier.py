@@ -6,6 +6,8 @@ from datetime import UTC, datetime, timedelta
 from pathlib import Path
 import json
 import math
+import io
+from contextlib import redirect_stdout
 
 import brahe
 import numpy as np
@@ -19,9 +21,11 @@ from benchmarks.regional_coverage.verifier import (
     Power,
     _datetime_to_epoch,
     _ecef_to_lonlat_deg,
+    _ensure_brahe_ready,
     _ground_intercept_ecef_m,
     _ray_ellipsoid_intersection_m,
     _slew_time_s,
+    main as cli_main,
     verify_solution,
 )
 
@@ -30,6 +34,16 @@ REPO_ROOT = Path(__file__).resolve().parents[2]
 DATASET_DIR = REPO_ROOT / "benchmarks" / "regional_coverage" / "dataset"
 CASE_0001_DIR = DATASET_DIR / "cases" / "case_0001"
 EXAMPLE_SOLUTION_PATH = DATASET_DIR / "example_solution.json"
+FIXTURES_DIR = REPO_ROOT / "tests" / "fixtures" / "regional_coverage"
+GOLDEN_FIXTURE_NAMES = (
+    "single_strip_valid",
+    "weighted_region_scoring_valid",
+    "repeat_coverage_no_bonus_valid",
+    "slew_gap_invalid",
+    "edge_band_invalid",
+    "battery_depletion_invalid",
+    "imaging_duty_limit_invalid",
+)
 
 _TLE_LINE1 = "1 63255U 25052AX  25198.17518200  .00001597  00000-0  15702-3 0  9994"
 _TLE_LINE2 = "2 63255  97.7253  91.1881 0000724 209.0702 151.0478 14.93504225 18614"
@@ -50,6 +64,29 @@ def _write_yaml(path: Path, payload: object) -> None:
 
 def _parse_iso(value: str) -> datetime:
     return datetime.fromisoformat(value.replace("Z", "+00:00")).astimezone(UTC)
+
+
+def _fixture_dir(name: str) -> Path:
+    return FIXTURES_DIR / name
+
+
+def _assert_expected_value(actual: object, expected: object) -> None:
+    if isinstance(expected, float):
+        assert actual == pytest.approx(expected)
+        return
+    if isinstance(expected, dict):
+        assert isinstance(actual, dict)
+        for key, value in expected.items():
+            assert key in actual
+            _assert_expected_value(actual[key], value)
+        return
+    if isinstance(expected, list):
+        assert isinstance(actual, list)
+        assert len(actual) == len(expected)
+        for actual_item, expected_item in zip(actual, expected):
+            _assert_expected_value(actual_item, expected_item)
+        return
+    assert actual == expected
 
 
 def _default_satellite(
@@ -133,6 +170,7 @@ def _default_action(
 
 
 def _intercept_lonlat(start_time: str, duration_s: float, roll_deg: float) -> tuple[float, float]:
+    _ensure_brahe_ready()
     propagator = brahe.SGPPropagator.from_tle(_TLE_LINE1, _TLE_LINE2, 5.0)
     start = _parse_iso(start_time)
     midpoint = start + timedelta(seconds=duration_s / 2.0)
@@ -256,6 +294,35 @@ def test_verify_solution_smoke_on_canonical_example():
     assert report["metrics"]["num_actions"] == 0
 
 
+@pytest.mark.parametrize("fixture_name", GOLDEN_FIXTURE_NAMES)
+def test_golden_fixture_matches_expected_result(fixture_name: str) -> None:
+    fixture_dir = _fixture_dir(fixture_name)
+    expected = json.loads((fixture_dir / "expected.json").read_text(encoding="utf-8"))
+    report = verify_solution(fixture_dir, fixture_dir / "solution.json")
+
+    assert report["valid"] is expected["valid"]
+    _assert_expected_value(report["metrics"], expected.get("metrics", {}))
+
+    if expected["valid"]:
+        assert report["violations"] == []
+
+    for substring in expected.get("violations_contain", []):
+        assert any(substring in violation for violation in report["violations"])
+
+    if "violation_count" in expected:
+        assert len(report["violations"]) == expected["violation_count"]
+
+
+def test_cli_main_uses_case_directory_contract() -> None:
+    fixture_dir = _fixture_dir("single_strip_valid")
+    stdout = io.StringIO()
+    with redirect_stdout(stdout):
+        exit_code = cli_main([str(fixture_dir), str(fixture_dir / "solution.json")])
+
+    assert exit_code == 0
+    assert '"valid": true' in stdout.getvalue()
+
+
 def test_start_time_must_align_to_time_grid(tmp_path: Path):
     case_dir = _write_case(tmp_path)
     solution_path = _write_solution(
@@ -281,6 +348,37 @@ def test_same_satellite_overlap_rejected(tmp_path: Path):
     assert any("overlapping strip observations" in violation for violation in report["violations"])
 
 
+def test_unknown_satellite_reference_rejected(tmp_path: Path):
+    case_dir = _write_case(tmp_path)
+    solution_path = _write_solution(
+        tmp_path,
+        [_default_action(satellite_id="sat_unknown")],
+    )
+    report = verify_solution(case_dir, solution_path)
+    assert report["valid"] is False
+    assert any("unknown satellite_id" in violation for violation in report["violations"])
+
+
+@pytest.mark.parametrize(
+    ("duration_s", "expected_fragment"),
+    [
+        (10.0, "below min_strip_duration_s"),
+        (130.0, "above max_strip_duration_s"),
+    ],
+)
+def test_duration_bounds_rejected(
+    tmp_path: Path, duration_s: float, expected_fragment: str
+):
+    case_dir = _write_case(tmp_path)
+    solution_path = _write_solution(
+        tmp_path,
+        [_default_action(duration_s=duration_s)],
+    )
+    report = verify_solution(case_dir, solution_path)
+    assert report["valid"] is False
+    assert any(expected_fragment in violation for violation in report["violations"])
+
+
 def test_slew_gap_rejected(tmp_path: Path):
     case_dir = _write_case(tmp_path)
     solution_path = _write_solution(
@@ -293,6 +391,95 @@ def test_slew_gap_rejected(tmp_path: Path):
     report = verify_solution(case_dir, solution_path)
     assert report["valid"] is False
     assert any("insufficient slew/settle time" in violation for violation in report["violations"])
+
+
+def test_slew_gap_exact_boundary_is_valid(tmp_path: Path):
+    first_action = _default_action(
+        start_time="2025-07-17T04:12:20Z",
+        duration_s=20.0,
+        roll_deg=20.0,
+    )
+    second_action = _default_action(
+        start_time="2025-07-17T04:13:20Z",
+        duration_s=20.0,
+        roll_deg=-20.0,
+    )
+    first_end = _parse_iso(first_action["start_time"]) + timedelta(
+        seconds=float(first_action["duration_s"])
+    )
+    second_start = _parse_iso(second_action["start_time"])
+    gap_s = (second_start - first_end).total_seconds()
+    delta_angle_deg = abs(second_action["roll_deg"] - first_action["roll_deg"])
+    settling_time_s = gap_s - _slew_time_s(
+        delta_angle_deg,
+        Satellite(
+            satellite_id="sat_test",
+            tle_line1=_TLE_LINE1,
+            tle_line2=_TLE_LINE2,
+            tle_epoch="2025-07-17T04:12:15.724Z",
+            sensor=Sensor(18.0, 34.0, 2.8, 20.0, 120.0),
+            agility=Agility(1.2, 0.4, 2.0),
+            power=Power(900.0, 540.0, 85.0, 290.0, 35.0, 170.0, 900.0),
+        ),
+    )
+    assert settling_time_s > 0.0
+
+    case_dir = _write_case(
+        tmp_path,
+        agility_overrides={"settling_time_s": settling_time_s},
+    )
+    solution_path = _write_solution(tmp_path, [first_action, second_action])
+    report = verify_solution(case_dir, solution_path)
+    assert report["valid"] is True
+    assert report["violations"] == []
+
+
+def test_identical_roll_gap_requires_only_settling_time(tmp_path: Path):
+    first_action = _default_action(
+        start_time="2025-07-17T04:12:20Z",
+        duration_s=20.0,
+        roll_deg=20.0,
+    )
+    second_action = _default_action(
+        start_time="2025-07-17T04:13:00Z",
+        duration_s=20.0,
+        roll_deg=20.0,
+    )
+
+    valid_root = tmp_path / "valid_case"
+    valid_root.mkdir()
+    valid_case_dir = _write_case(
+        valid_root,
+        agility_overrides={"settling_time_s": 20.0},
+    )
+    valid_solution_root = tmp_path / "valid_solution"
+    valid_solution_root.mkdir()
+    valid_solution_path = _write_solution(
+        valid_solution_root,
+        [first_action, second_action],
+    )
+    valid_report = verify_solution(valid_case_dir, valid_solution_path)
+    assert valid_report["valid"] is True
+    assert valid_report["metrics"]["total_slew_angle_deg"] == pytest.approx(0.0)
+
+    invalid_root = tmp_path / "invalid_case"
+    invalid_root.mkdir()
+    invalid_case_dir = _write_case(
+        invalid_root,
+        agility_overrides={"settling_time_s": 20.1},
+    )
+    invalid_solution_root = tmp_path / "invalid_solution"
+    invalid_solution_root.mkdir()
+    invalid_solution_path = _write_solution(
+        invalid_solution_root,
+        [first_action, second_action],
+    )
+    invalid_report = verify_solution(invalid_case_dir, invalid_solution_path)
+    assert invalid_report["valid"] is False
+    assert any(
+        "insufficient slew/settle time" in violation
+        for violation in invalid_report["violations"]
+    )
 
 
 def test_valid_single_strip_covers_expected_weight(tmp_path: Path):

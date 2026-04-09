@@ -1,0 +1,18 @@
+{
+  "actions": [
+    {
+      "type": "strip_observation",
+      "satellite_id": "sat_a",
+      "start_time": "2025-07-17T04:12:20Z",
+      "duration_s": 20,
+      "roll_deg": 20.0
+    },
+    {
+      "type": "strip_observation",
+      "satellite_id": "sat_b",
+      "start_time": "2025-07-17T04:12:20Z",
+      "duration_s": 20,
+      "roll_deg": 20.0
+    }
+  ]
+}

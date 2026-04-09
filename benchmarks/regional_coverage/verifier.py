@@ -879,7 +879,6 @@ def _apply_coverage(
 def _check_overlaps_and_slew(
     case: CaseData,
     parsed_actions: list[ParsedAction],
-    propagators: dict[str, brahe.SGPPropagator],
     violations: list[str],
 ) -> tuple[list[ManeuverWindow], float]:
     maneuvers: list[ManeuverWindow] = []
@@ -892,7 +891,6 @@ def _check_overlaps_and_slew(
     for satellite_id, actions in actions_by_satellite.items():
         actions.sort(key=lambda item: (item.start_time, item.end_time or item.start_time))
         satellite = case.satellites[satellite_id]
-        propagator = propagators[satellite_id]
         for previous, current in zip(actions, actions[1:]):
             prefix = f"actions[{current.index}]"
             if (current.start_time < (previous.end_time or previous.start_time)):
@@ -902,17 +900,7 @@ def _check_overlaps_and_slew(
                     f"and [{_iso_z(current.start_time)}, {_iso_z(current.end_time or current.start_time)})"
                 )
                 continue
-            previous_epoch = _datetime_to_epoch(previous.end_time or previous.start_time)
-            current_epoch = _datetime_to_epoch(current.start_time)
-            prev_state = np.asarray(propagator.state_ecef(previous_epoch), dtype=float).reshape(6)
-            curr_state = np.asarray(propagator.state_ecef(current_epoch), dtype=float).reshape(6)
-            prev_boresight = _boresight_unit_vector(
-                prev_state[:3], prev_state[3:], previous.roll_deg
-            )
-            curr_boresight = _boresight_unit_vector(
-                curr_state[:3], curr_state[3:], current.roll_deg
-            )
-            slew_angle_deg = _angle_between_deg(prev_boresight, curr_boresight)
+            slew_angle_deg = abs(current.roll_deg - previous.roll_deg)
             total_slew_angle_deg += slew_angle_deg
             required_gap_s = _slew_time_s(slew_angle_deg, satellite) + satellite.agility.settling_time_s
             actual_gap_s = (
@@ -1193,7 +1181,7 @@ def _inspect_loaded_case(case: CaseData, solution_path: str | Path) -> Verificat
     _derive_action_geometry(case, parsed_actions, propagators, violations)
     _apply_coverage(case, parsed_actions)
     maneuvers, total_slew_angle_deg = _check_overlaps_and_slew(
-        case, parsed_actions, propagators, violations
+        case, parsed_actions, violations
     )
     _check_imaging_duty_limits(case, parsed_actions, violations)
     min_battery_wh, total_imaging_energy_wh, power_summaries = _simulate_power(

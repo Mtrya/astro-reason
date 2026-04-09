@@ -1,0 +1,11 @@
+{
+  "actions": [
+    {
+      "type": "strip_observation",
+      "satellite_id": "sat_test",
+      "start_time": "2025-07-17T04:12:20Z",
+      "duration_s": 20,
+      "roll_deg": 20.0
+    }
+  ]
+}

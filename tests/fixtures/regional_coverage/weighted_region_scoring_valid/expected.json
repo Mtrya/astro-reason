@@ -1,0 +1,16 @@
+{
+  "valid": true,
+  "metrics": {
+    "coverage_ratio": 0.6666666666666666,
+    "covered_weight_m2_equivalent": 25000000.0,
+    "num_actions": 1,
+    "region_coverages": {
+      "region_001": {
+        "coverage_ratio": 1.0
+      },
+      "region_002": {
+        "coverage_ratio": 0.0
+      }
+    }
+  }
+}
