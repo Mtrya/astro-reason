@@ -38,8 +38,11 @@ def test_render_inspection_example_solution_writes_summary_and_manifest(tmp_path
 
     assert written_dir == out_dir
     summary_path = out_dir / "summary.html"
+    region_zoom_path = out_dir / "region_zoom.png"
     manifest_path = out_dir / "manifest.json"
     assert summary_path.is_file()
+    assert region_zoom_path.is_file()
+    assert region_zoom_path.read_bytes().startswith(b"\x89PNG\r\n\x1a\n")
     assert manifest_path.is_file()
 
     manifest = _read_json(manifest_path)
@@ -47,6 +50,8 @@ def test_render_inspection_example_solution_writes_summary_and_manifest(tmp_path
     assert manifest["verifier_valid"] is True
     assert manifest["metrics"]["coverage_ratio"] == 0.0
     assert manifest["selected_action_indices"] == []
+    assert manifest["region_zoom_path"].endswith("region_zoom.png")
+    assert len(manifest["regions"]) == 3
 
 
 def test_render_inspection_invalid_solution_records_violations(tmp_path: Path) -> None:
@@ -77,4 +82,5 @@ def test_render_inspection_invalid_solution_records_violations(tmp_path: Path) -
     assert any("unknown satellite_id" in violation for violation in manifest["verifier_violations"])
     assert manifest["actions"][0]["accepted_for_schedule"] is False
     assert (out_dir / "summary.html").is_file()
+    assert (out_dir / "region_zoom.png").is_file()
     assert (out_dir / "action_000.html").is_file()

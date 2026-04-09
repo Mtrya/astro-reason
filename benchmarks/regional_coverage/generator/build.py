@@ -17,7 +17,6 @@ from pyproj import CRS, Geod, Transformer
 from shapely.geometry import Polygon, box, mapping, shape
 from shapely.ops import transform
 
-from ..schema import AgilityDef, GridSample, PowerDef, RegionCoverageGrid, SatelliteDef, SensorDef
 from .cached_satellites import CACHED_SATELLITES
 
 
@@ -50,6 +49,59 @@ class RegionRecord:
     area_m2: float
     centroid_lon: float
     centroid_lat: float
+
+
+@dataclass(frozen=True)
+class SensorDef:
+    min_edge_off_nadir_deg: float
+    max_edge_off_nadir_deg: float
+    cross_track_fov_deg: float
+    min_strip_duration_s: int
+    max_strip_duration_s: int
+
+
+@dataclass(frozen=True)
+class AgilityDef:
+    max_roll_rate_deg_per_s: float
+    max_roll_acceleration_deg_per_s2: float
+    settling_time_s: float
+
+
+@dataclass(frozen=True)
+class PowerDef:
+    battery_capacity_wh: int
+    initial_battery_wh: int
+    idle_power_w: int
+    imaging_power_w: int
+    slew_power_w: int
+    sunlit_charge_power_w: int
+    imaging_duty_limit_s_per_orbit: int | None
+
+
+@dataclass(frozen=True)
+class SatelliteDef:
+    satellite_id: str
+    tle_line1: str
+    tle_line2: str
+    tle_epoch: str
+    sensor: SensorDef
+    agility: AgilityDef
+    power: PowerDef
+
+
+@dataclass(frozen=True)
+class GridSample:
+    sample_id: str
+    longitude_deg: float
+    latitude_deg: float
+    weight_m2: float
+
+
+@dataclass(frozen=True)
+class RegionCoverageGrid:
+    region_id: str
+    total_weight_m2: float
+    samples: tuple[GridSample, ...]
 
 
 @dataclass(frozen=True)

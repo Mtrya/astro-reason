@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import math
 from collections import defaultdict
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
@@ -16,6 +17,7 @@ import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 from brahe.plots.texture_utils import load_earth_texture
 from matplotlib.lines import Line2D
+from shapely.geometry import Polygon as ShapelyPolygon
 
 matplotlib.use("Agg")
 
@@ -39,6 +41,7 @@ _DEFAULT_OUTPUT_ROOT = _VISUALIZER_DIR / "plots"
 _EARTH_RADIUS_M = float(brahe.R_EARTH)
 _WORLD_TEXTURE_EXTENT = (-180.0, 180.0, -90.0, 90.0)
 _WORLD_TEXTURE: np.ndarray | None = None
+_EARTH_TRACE_CACHE: dict[str, go.BaseTraceType] = {}
 _COLOR_CYCLE = [
     "#f97316",
     "#06b6d4",
@@ -162,33 +165,103 @@ def _draw_world_texture(ax: plt.Axes) -> None:
     )
 
 
-def _earth_surface_trace() -> go.Surface:
-    lon_values = np.linspace(-180.0, 180.0, 120)
-    lat_values = np.linspace(-90.0, 90.0, 60)
-    lon_grid, lat_grid = np.meshgrid(lon_values, lat_values)
-    lon_rad = np.radians(lon_grid)
-    lat_rad = np.radians(lat_grid)
-    x = _EARTH_RADIUS_M * np.cos(lat_rad) * np.cos(lon_rad)
-    y = _EARTH_RADIUS_M * np.cos(lat_rad) * np.sin(lon_rad)
-    z = _EARTH_RADIUS_M * np.sin(lat_rad)
-    surface_color = np.sin(lat_rad)
-    return go.Surface(
-        x=x,
-        y=y,
-        z=z,
-        surfacecolor=surface_color,
-        colorscale=[
-            [0.0, "#0f172a"],
-            [0.35, "#1d4ed8"],
-            [0.5, "#0ea5e9"],
-            [0.7, "#38bdf8"],
-            [1.0, "#e0f2fe"],
-        ],
+def _earth_surface_trace() -> go.BaseTraceType:
+    cached = _EARTH_TRACE_CACHE.get("default")
+    if cached is not None:
+        return cached
+
+    radius_m = _EARTH_RADIUS_M
+    try:
+        texture = _load_world_texture()
+    except FileNotFoundError:
+        lon_values = np.linspace(-180.0, 180.0, 120)
+        lat_values = np.linspace(-90.0, 90.0, 60)
+        lon_grid, lat_grid = np.meshgrid(lon_values, lat_values)
+        lon_rad = np.radians(lon_grid)
+        lat_rad = np.radians(lat_grid)
+        x = radius_m * np.cos(lat_rad) * np.cos(lon_rad)
+        y = radius_m * np.cos(lat_rad) * np.sin(lon_rad)
+        z = radius_m * np.sin(lat_rad)
+        surface_color = np.sin(lat_rad)
+        trace = go.Surface(
+            x=x,
+            y=y,
+            z=z,
+            surfacecolor=surface_color,
+            colorscale=[
+                [0.0, "#0f172a"],
+                [0.35, "#1d4ed8"],
+                [0.5, "#0ea5e9"],
+                [0.7, "#38bdf8"],
+                [1.0, "#e0f2fe"],
+            ],
+            showscale=False,
+            opacity=0.92,
+            hoverinfo="skip",
+            name="Earth",
+        )
+        _EARTH_TRACE_CACHE["default"] = trace
+        return trace
+
+    n_lon = 120
+    n_lat = 60
+    lons = np.linspace(0.0, 2.0 * math.pi, n_lon)
+    lats = np.linspace(0.0, math.pi, n_lat)
+
+    vertices = []
+    for lat in lats:
+        for lon in lons:
+            x = radius_m * math.sin(lat) * math.cos(lon)
+            y = radius_m * math.sin(lat) * math.sin(lon)
+            z = radius_m * math.cos(lat)
+            vertices.append((x, y, z))
+    verts = np.asarray(vertices, dtype=float)
+
+    faces = []
+    for i in range(n_lat - 1):
+        for j in range(n_lon - 1):
+            v0 = i * n_lon + j
+            v1 = i * n_lon + (j + 1)
+            v2 = (i + 1) * n_lon + j
+            v3 = (i + 1) * n_lon + (j + 1)
+            faces.append((v0, v1, v2))
+            faces.append((v1, v3, v2))
+    face_array = np.asarray(faces, dtype=int)
+
+    img_h, img_w = texture.shape[:2]
+    face_colors: list[str] = []
+    for face in face_array:
+        avg = verts[face].mean(axis=0)
+        r = float(np.linalg.norm(avg))
+        if r <= 0.0:
+            tex_x = tex_y = 0
+        else:
+            lat = math.acos(max(-1.0, min(1.0, avg[2] / r)))
+            lon = math.atan2(avg[1], avg[0])
+            u_coord = (lon % (2.0 * math.pi)) / (2.0 * math.pi)
+            v_coord = lat / math.pi
+            tex_x = min(img_w - 1, max(0, int(u_coord * (img_w - 1))))
+            tex_y = min(img_h - 1, max(0, int(v_coord * (img_h - 1))))
+        rgb = texture[tex_y, tex_x, :3]
+        face_colors.append(f"rgb({int(rgb[0])},{int(rgb[1])},{int(rgb[2])})")
+
+    trace = go.Mesh3d(
+        x=verts[:, 0],
+        y=verts[:, 1],
+        z=verts[:, 2],
+        i=face_array[:, 0],
+        j=face_array[:, 1],
+        k=face_array[:, 2],
+        facecolor=face_colors,
         showscale=False,
-        opacity=0.92,
-        hoverinfo="skip",
         name="Earth",
+        hoverinfo="skip",
+        lighting=dict(ambient=0.65, diffuse=0.75, specular=0.15, roughness=0.85),
+        lightposition=dict(x=100000.0, y=100000.0, z=100000.0),
+        opacity=0.97,
     )
+    _EARTH_TRACE_CACHE["default"] = trace
+    return trace
 
 
 def _sample_satellite_positions_ecef(
@@ -498,7 +571,7 @@ def _add_action_traces(
                             y=[float(point[1])],
                             z=[float(point[2])],
                             mode="markers",
-                            marker=dict(size=5, color=color, symbol=marker_symbol),
+                            marker=dict(size=3, color=color, symbol=marker_symbol),
                             name=f"{legend_name} {label}",
                             hovertemplate=(
                                 f"action={action.index}<br>{label}={_iso_z(action.start_time if label == 'start' else action.end_time or action.start_time)}<extra></extra>"
@@ -579,6 +652,199 @@ def _overview_summary_lines(case: Any, *, shown_ground_tracks: int) -> list[str]
 def _write_figure_html(fig: go.Figure, out_path: Path) -> Path:
     out_path.parent.mkdir(parents=True, exist_ok=True)
     fig.write_html(out_path, include_plotlyjs="directory", full_html=True)
+    return out_path
+
+
+def _region_polygon(region: Any) -> ShapelyPolygon:
+    return ShapelyPolygon(region.polygon_lonlat)
+
+
+def _actions_for_region(region: Any, actions: list[ParsedAction]) -> list[ParsedAction]:
+    region_poly = _region_polygon(region)
+    relevant: list[ParsedAction] = []
+    for action in actions:
+        if region.region_id in action.covered_region_ids:
+            relevant.append(action)
+            continue
+        if not action.accepted_for_geometry:
+            continue
+        if any(segment.intersects(region_poly) for segment in action.segment_polygons):
+            relevant.append(action)
+    return relevant
+
+
+def _sample_states_for_region(
+    region_grid: RegionGrid,
+    selected_actions: list[ParsedAction],
+    all_actions: list[ParsedAction],
+) -> dict[str, list[GridSample]]:
+    selected_ids = {
+        sample_id
+        for action in selected_actions
+        if region_grid.region.region_id in action.covered_region_ids
+        for sample_id in action.covered_sample_ids
+    }
+    covered_other_ids = {
+        sample_id
+        for action in all_actions
+        if region_grid.region.region_id in action.covered_region_ids
+        for sample_id in action.covered_sample_ids
+    } - selected_ids
+
+    states: dict[str, list[GridSample]] = defaultdict(list)
+    for sample in region_grid.samples:
+        if sample.sample_id in selected_ids:
+            states["selected"].append(sample)
+        elif sample.sample_id in covered_other_ids:
+            states["covered_other"].append(sample)
+        else:
+            states["uncovered"].append(sample)
+    return states
+
+
+def _zoom_limits(region: Any, actions: list[ParsedAction]) -> tuple[float, float, float, float]:
+    lons = [vertex[0] for vertex in region.polygon_lonlat]
+    lats = [vertex[1] for vertex in region.polygon_lonlat]
+    for action in actions:
+        if not action.accepted_for_geometry:
+            continue
+        for polygon in action.segment_polygons:
+            if not polygon.intersects(_region_polygon(region)):
+                continue
+            min_lon, min_lat, max_lon, max_lat = polygon.bounds
+            lons.extend([min_lon, max_lon])
+            lats.extend([min_lat, max_lat])
+
+    min_lon = min(lons)
+    max_lon = max(lons)
+    min_lat = min(lats)
+    max_lat = max(lats)
+    lon_span = max(max_lon - min_lon, 0.2)
+    lat_span = max(max_lat - min_lat, 0.2)
+    pad_lon = max(0.08, 0.15 * lon_span)
+    pad_lat = max(0.08, 0.15 * lat_span)
+    return min_lon - pad_lon, max_lon + pad_lon, min_lat - pad_lat, max_lat + pad_lat
+
+
+def _render_region_zoom_png(
+    case: Any,
+    selected_actions: list[ParsedAction],
+    all_actions: list[ParsedAction],
+    out_path: Path,
+) -> Path:
+    regions = list(case.region_grids.values())
+    num_regions = len(regions)
+    cols = 2 if num_regions > 1 else 1
+    rows = math.ceil(num_regions / cols)
+    fig, axes = plt.subplots(rows, cols, figsize=(7.2 * cols, 5.2 * rows), squeeze=False)
+    fig.patch.set_facecolor(_THEME["background"])
+    axes_flat = list(axes.flat)
+
+    for axis, region_grid in zip(axes_flat, regions, strict=False):
+        _apply_axes_theme(axis, facecolor="#fbfcfe")
+        region = region_grid.region
+        region_poly = _region_polygon(region)
+        region_actions = _actions_for_region(region, selected_actions if selected_actions else all_actions)
+        lons = [vertex[0] for vertex in region.polygon_lonlat]
+        lats = [vertex[1] for vertex in region.polygon_lonlat]
+        region_color = _REGION_COLORS[regions.index(region_grid) % len(_REGION_COLORS)]
+        axis.fill(lons, lats, facecolor=region_color, edgecolor=region_color, linewidth=2.2, alpha=0.16, zorder=1)
+        axis.plot(lons, lats, color=region_color, linewidth=2.3, alpha=0.95, zorder=2)
+
+        states = _sample_states_for_region(region_grid, selected_actions, all_actions)
+        for state, samples in states.items():
+            if not samples:
+                continue
+            axis.scatter(
+                [sample.longitude_deg for sample in samples],
+                [sample.latitude_deg for sample in samples],
+                s=16 if state == "selected" else 9,
+                c=_SAMPLE_STATE_COLORS[state],
+                alpha=0.82 if state == "selected" else 0.45,
+                linewidths=0.0,
+                zorder=3,
+            )
+
+        for ordinal, action in enumerate(region_actions):
+            color = _COLOR_CYCLE[ordinal % len(_COLOR_CYCLE)]
+            for polygon in action.segment_polygons:
+                if not polygon.intersects(region_poly):
+                    continue
+                coords = list(polygon.exterior.coords)
+                axis.fill(
+                    [coord[0] for coord in coords],
+                    [coord[1] for coord in coords],
+                    facecolor=color,
+                    edgecolor=color,
+                    linewidth=1.4,
+                    alpha=0.14,
+                    zorder=4,
+                )
+                axis.plot(
+                    [coord[0] for coord in coords],
+                    [coord[1] for coord in coords],
+                    color=color,
+                    linewidth=1.4,
+                    alpha=0.95,
+                    zorder=5,
+                )
+            if action.derived_centerline_lonlat:
+                axis.plot(
+                    [point[0] for point in action.derived_centerline_lonlat],
+                    [point[1] for point in action.derived_centerline_lonlat],
+                    color=color,
+                    linewidth=1.6,
+                    alpha=0.95,
+                    zorder=6,
+                )
+
+        xmin, xmax, ymin, ymax = _zoom_limits(region, region_actions)
+        axis.set_xlim(xmin, xmax)
+        axis.set_ylim(ymin, ymax)
+        axis.set_aspect("equal", adjustable="box")
+        axis.set_xlabel("Longitude (deg)", color=_THEME["text"])
+        axis.set_ylabel("Latitude (deg)", color=_THEME["text"])
+        axis.set_title(
+            (
+                f"{region.region_id}  "
+                f"({region_grid.total_weight_m2 / 1_000_000.0:.0f} km², "
+                f"{len(region_actions)} strip{'s' if len(region_actions) != 1 else ''})"
+            ),
+            color=_THEME["text"],
+            fontsize=11,
+            fontweight="bold",
+        )
+
+    for axis in axes_flat[num_regions:]:
+        axis.axis("off")
+
+    legend_handles = [
+        Line2D([0], [0], color=_REGION_COLORS[0], linewidth=2.2, label="region"),
+        Line2D([0], [0], color=_COLOR_CYCLE[0], linewidth=1.6, label="strip centerline"),
+        Line2D([0], [0], color=_COLOR_CYCLE[0], linewidth=4.0, alpha=0.2, label="strip footprint"),
+        Line2D([0], [0], marker="o", linestyle="None", markersize=5, markerfacecolor=_SAMPLE_STATE_COLORS["selected"], markeredgewidth=0, label="selected covered sample"),
+        Line2D([0], [0], marker="o", linestyle="None", markersize=5, markerfacecolor=_SAMPLE_STATE_COLORS["covered_other"], markeredgewidth=0, label="covered by other action"),
+        Line2D([0], [0], marker="o", linestyle="None", markersize=5, markerfacecolor=_SAMPLE_STATE_COLORS["uncovered"], markeredgewidth=0, label="uncovered sample"),
+    ]
+    fig.legend(
+        handles=legend_handles,
+        loc="lower center",
+        ncol=3,
+        frameon=False,
+        fontsize=9,
+        bbox_to_anchor=(0.5, 0.01),
+    )
+    fig.suptitle(
+        f"Regional Coverage Zoom: {case.manifest.case_id}",
+        fontsize=14,
+        color=_THEME["text"],
+        fontweight="bold",
+        y=0.98,
+    )
+    out_path.parent.mkdir(parents=True, exist_ok=True)
+    fig.subplots_adjust(left=0.06, right=0.98, top=0.9, bottom=0.12, hspace=0.28, wspace=0.2)
+    fig.savefig(out_path, dpi=150)
+    plt.close(fig)
     return out_path
 
 
@@ -802,6 +1068,12 @@ def render_inspection(
         title=f"regional_coverage inspection: {artifacts.case.manifest.case_id}",
     )
     summary_path = _write_figure_html(summary_figure, output_dir / "summary.html")
+    region_zoom_path = _render_region_zoom_png(
+        artifacts.case,
+        selected,
+        artifacts.parsed_actions,
+        output_dir / "region_zoom.png",
+    )
 
     action_pages: dict[int, Path] = {}
     for action in selected:
@@ -825,7 +1097,22 @@ def render_inspection(
         "verifier_violations": report["violations"],
         "metrics": report["metrics"],
         "summary_path": str(summary_path),
+        "region_zoom_path": str(region_zoom_path),
         "selected_action_indices": [action.index for action in selected],
+        "regions": [
+            {
+                "region_id": region_grid.region.region_id,
+                "area_km2_equivalent": region_grid.total_weight_m2 / 1_000_000.0,
+                "intersecting_action_indices": [
+                    action.index
+                    for action in _actions_for_region(
+                        region_grid.region,
+                        selected if selected else artifacts.parsed_actions,
+                    )
+                ],
+            }
+            for region_grid in artifacts.case.region_grids.values()
+        ],
         "actions": [
             {
                 "action_index": action.index,
