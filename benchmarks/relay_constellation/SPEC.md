@@ -61,7 +61,8 @@ benchmarks/relay_constellation/
 ├── README.md
 ├── generator/
 │   └── run.py
-├── verifier.py              # or verifier/
+├── verifier/
+│   └── run.py
 ├── SPEC.md                  # temporary tracked development artifact
 └── dataset/
     ├── example_solution.json
@@ -76,7 +77,7 @@ benchmarks/relay_constellation/
 Notes:
 
 - `generator/run.py` is the canonical public generator entrypoint.
-- `verifier.py` is the canonical public verifier entrypoint.
+- `verifier/run.py` is the canonical public verifier entrypoint.
 - The verifier public CLI accepts `case_dir` and `solution_path` as positional
   arguments.
 - `dataset/example_solution.json` is a single per-case solution object, not a
@@ -625,7 +626,6 @@ budget.
 
 - `case_id`
 - `benchmark`
-- `spec_version`
 - `seed`
 - `epoch`
 - `horizon_start`
@@ -641,7 +641,6 @@ Canonical logical shape:
 {
   "case_id": "case_0001",
   "benchmark": "relay_constellation",
-  "spec_version": "v1",
   "seed": 42,
   "epoch": "2026-01-01T00:00:00Z",
   "horizon_start": "2026-01-01T00:00:00Z",
@@ -752,7 +751,6 @@ Canonical logical shape:
 ```json
 {
   "benchmark": "relay_constellation",
-  "spec_version": "v1",
   "generator_seed": 42,
   "example_smoke_case_id": "case_0001",
   "cases": [
@@ -760,8 +758,8 @@ Canonical logical shape:
       "case_id": "case_0001",
       "path": "cases/case_0001",
       "horizon_hours": 96,
-      "num_backbone_satellites": 28,
-      "num_ground_endpoints": 5,
+      "num_backbone_satellites": 6,
+      "num_ground_endpoints": 4,
       "num_demanded_windows": 6,
       "num_endpoint_pairs": 3,
       "max_added_satellites": 6
