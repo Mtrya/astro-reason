@@ -115,6 +115,10 @@ def load_case(case_dir: Path | str) -> RelayCase:
             else None
         ),
     )
+    if manifest.horizon_end <= manifest.horizon_start:
+        raise ValueError("manifest.horizon_end must be after horizon_start")
+    if manifest.routing_step_s <= 0:
+        raise ValueError("manifest.routing_step_s must be > 0")
 
     satellites: dict[str, RelaySatellite] = {}
     for index, row in enumerate(network_payload.get("backbone_satellites", [])):

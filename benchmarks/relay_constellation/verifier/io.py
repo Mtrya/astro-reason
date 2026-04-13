@@ -116,17 +116,17 @@ def load_case(case_dir: str | Path) -> RelayCase:
         min_altitude_m=_require_float(constraints, "min_altitude_m", "manifest.json.constraints"),
         max_altitude_m=_require_float(constraints, "max_altitude_m", "manifest.json.constraints"),
         max_eccentricity=(
-            float(constraints["max_eccentricity"])
+            _require_float(constraints, "max_eccentricity", "manifest.json.constraints")
             if "max_eccentricity" in constraints
             else None
         ),
         min_inclination_deg=(
-            float(constraints["min_inclination_deg"])
+            _require_float(constraints, "min_inclination_deg", "manifest.json.constraints")
             if "min_inclination_deg" in constraints
             else None
         ),
         max_inclination_deg=(
-            float(constraints["max_inclination_deg"])
+            _require_float(constraints, "max_inclination_deg", "manifest.json.constraints")
             if "max_inclination_deg" in constraints
             else None
         ),
@@ -138,7 +138,7 @@ def load_case(case_dir: str | Path) -> RelayCase:
             constraints, "max_links_per_endpoint", "manifest.json.constraints"
         ),
         max_ground_range_m=(
-            float(constraints["max_ground_range_m"])
+            _require_float(constraints, "max_ground_range_m", "manifest.json.constraints")
             if "max_ground_range_m" in constraints
             else None
         ),
@@ -147,6 +147,7 @@ def load_case(case_dir: str | Path) -> RelayCase:
         raise ValueError("manifest.json.horizon_end must be after horizon_start")
     if manifest.routing_step_s <= 0:
         raise ValueError("manifest.json.routing_step_s must be positive")
+    _ = manifest.total_samples
 
     backbone_satellites: dict[str, RelaySatellite] = {}
     for index, row in enumerate(_require_list(network_payload.get("backbone_satellites"), "network.json.backbone_satellites")):
@@ -209,7 +210,9 @@ def load_case(case_dir: str | Path) -> RelayCase:
                 _require_str(payload, "end_time", f"demands.json.demanded_windows[{index}]"),
                 field=f"demands.json.demanded_windows[{index}].end_time",
             ),
-            weight=float(payload.get("weight", 1.0)),
+            weight=_require_float(payload, "weight", f"demands.json.demanded_windows[{index}]")
+            if "weight" in payload
+            else 1.0,
         )
         if demand.demand_id in seen_demand_ids:
             raise ValueError(f"Duplicate demand_id: {demand.demand_id}")
