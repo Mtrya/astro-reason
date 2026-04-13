@@ -220,6 +220,7 @@ def _shortest_path(
     adjacency: dict[str, list[tuple[str, float]]],
     source_id: str,
     destination_id: str,
+    all_endpoint_ids: set[str],
 ) -> tuple[tuple[str, ...] | None, float | None]:
     queue: list[tuple[float, str]] = [(0.0, source_id)]
     distances: dict[str, float] = {source_id: 0.0}
@@ -231,6 +232,8 @@ def _shortest_path(
         if node_id == destination_id:
             break
         for neighbor_id, edge_distance in adjacency.get(node_id, []):
+            if neighbor_id in all_endpoint_ids and neighbor_id != destination_id:
+                continue
             new_distance = distance + edge_distance
             if new_distance + 1e-9 < distances.get(neighbor_id, math.inf):
                 distances[neighbor_id] = new_distance
@@ -307,6 +310,7 @@ def compute_connectivity_summaries(
             sample_times,
         )
     pair_demands = _demand_pairs(case)
+    all_endpoint_ids = set(case.ground_endpoints)
 
     pair_samples: dict[str, list[tuple[datetime, tuple[str, ...] | None, float | None]]] = {
         _pair_id(source_id, destination_id): []
@@ -351,7 +355,12 @@ def compute_connectivity_summaries(
                 adjacency[satellite_id_2].append((satellite_id_1, distance_m))
 
         for source_id, destination_id in pair_demands:
-            path, total_length_m = _shortest_path(adjacency, source_id, destination_id)
+            path, total_length_m = _shortest_path(
+                adjacency,
+                source_id,
+                destination_id,
+                all_endpoint_ids,
+            )
             pair_samples[_pair_id(source_id, destination_id)].append(
                 (instant, path, total_length_m)
             )
