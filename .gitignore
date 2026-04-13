@@ -27,3 +27,4 @@ QWEN.md
 
 benchmarks/*/dataset/source_data
 benchmarks/*/visualizer/plots
+benchmarks/*/visualizer/cache

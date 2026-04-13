@@ -32,14 +32,15 @@ def main(argv: list[str] | None = None) -> int:
     summaries = generate_dataset(output_dir=args.dataset_dir, seed=args.seed)
     print(f"Wrote relay_constellation dataset to {args.dataset_dir.resolve()}")
     for summary in summaries:
-        shell_text = ", ".join(
-            f"{shell['count']} @ {shell['altitude_km']:.0f} km / {shell['inclination_deg']:.0f} deg"
-            for shell in summary["shells"]
-        )
+        backbone = summary["backbone"]
         print(
             f"{summary['case_id']}: backbone={summary['num_backbone_satellites']}, "
-            f"endpoints={summary['num_ground_endpoints']}, demands={summary['num_demands']}, "
-            f"max_added_satellites={summary['max_added_satellites']}, shells=[{shell_text}]"
+            f"endpoints={summary['num_ground_endpoints']}, "
+            f"endpoint_pairs={summary['num_endpoint_pairs']}, "
+            f"demanded_windows={summary['num_demanded_windows']}, "
+            f"max_added_satellites={summary['max_added_satellites']}, "
+            f"meo_backbone={backbone['count']} @ {backbone['altitude_km']:.0f} km / "
+            f"{backbone['inclination_deg']:.0f} deg across {backbone['num_planes']} planes"
         )
     return 0
 
