@@ -1,0 +1,45 @@
+{
+  "backbone_satellites": [
+    {
+      "satellite_id": "backbone_001",
+      "vx_m_s": 0.0,
+      "vy_m_s": 3887.289038522376,
+      "vz_m_s": 0.0,
+      "x_m": 26378136.3,
+      "y_m": 0.0,
+      "z_m": 0.0
+    },
+    {
+      "satellite_id": "backbone_002",
+      "vx_m_s": -1943.6445192611877,
+      "vy_m_s": 3366.491059213163,
+      "vz_m_s": 0.0,
+      "x_m": 22844136.14028846,
+      "y_m": 13189068.149999999,
+      "z_m": 0.0
+    }
+  ],
+  "ground_endpoints": [
+    {
+      "altitude_m": 0.0,
+      "endpoint_id": "ground_001",
+      "latitude_deg": 0.0,
+      "longitude_deg": -110.0,
+      "min_elevation_deg": -90.0
+    },
+    {
+      "altitude_m": 0.0,
+      "endpoint_id": "ground_mid",
+      "latitude_deg": 0.0,
+      "longitude_deg": -85.0,
+      "min_elevation_deg": -90.0
+    },
+    {
+      "altitude_m": 0.0,
+      "endpoint_id": "ground_002",
+      "latitude_deg": 0.0,
+      "longitude_deg": -60.0,
+      "min_elevation_deg": -90.0
+    }
+  ]
+}

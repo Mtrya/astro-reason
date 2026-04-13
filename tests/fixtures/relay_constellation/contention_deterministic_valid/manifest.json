@@ -1,0 +1,29 @@
+{
+  "benchmark": "relay_constellation",
+  "case_id": "contention_deterministic_valid",
+  "constraints": {
+    "max_added_satellites": 2,
+    "max_altitude_m": 1500000.0,
+    "max_eccentricity": 0.02,
+    "max_inclination_deg": 85.0,
+    "max_isl_range_m": 20000000.0,
+    "max_links_per_endpoint": 1,
+    "max_links_per_satellite": 3,
+    "min_altitude_m": 500000.0,
+    "min_inclination_deg": 0.0
+  },
+  "epoch": "2026-01-01T00:00:00Z",
+  "horizon_end": "2026-01-01T00:05:00Z",
+  "horizon_start": "2026-01-01T00:00:00Z",
+  "propagation": {
+    "earth_fixed_frame": "itrf",
+    "frame": "gcrf",
+    "model": "j2"
+  },
+  "routing_step_s": 60,
+  "scoring": {
+    "primary_metric": "service_fraction",
+    "secondary_metric": "latency_p95_ms"
+  },
+  "seed": 123
+}

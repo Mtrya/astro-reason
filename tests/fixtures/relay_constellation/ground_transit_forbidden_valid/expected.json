@@ -1,0 +1,15 @@
+{
+  "action_failures_len": 0,
+  "metrics": {
+    "mean_latency_ms": null,
+    "per_demand": {
+      "demand_001": {
+        "served_sample_count": 0,
+        "service_fraction": 0.0
+      }
+    },
+    "service_fraction": 0.0,
+    "worst_demand_service_fraction": 0.0
+  },
+  "valid": true
+}

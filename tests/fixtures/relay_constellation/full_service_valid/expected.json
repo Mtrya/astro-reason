@@ -1,0 +1,17 @@
+{
+  "action_failures_len": 0,
+  "metrics": {
+    "latency_p95_ms": 133.4598164852861,
+    "mean_latency_ms": 133.4598164852861,
+    "per_demand": {
+      "demand_001": {
+        "requested_sample_count": 1,
+        "served_sample_count": 1,
+        "service_fraction": 1.0
+      }
+    },
+    "service_fraction": 1.0,
+    "worst_demand_service_fraction": 1.0
+  },
+  "valid": true
+}

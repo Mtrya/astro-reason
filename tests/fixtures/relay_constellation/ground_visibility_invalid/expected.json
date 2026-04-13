@@ -1,0 +1,15 @@
+{
+  "action_failures_len": 1,
+  "first_action_failure": {
+    "action_index": 0,
+    "action_type": "ground_link",
+    "reason_substring": "geometrically infeasible"
+  },
+  "metrics": {
+    "service_fraction": 0.0
+  },
+  "valid": false,
+  "violation_substrings": [
+    "geometrically infeasible"
+  ]
+}
