@@ -14,6 +14,7 @@ import numpy as np
 
 from .io import load_case, load_solution
 from .models import (
+    ActionFailure,
     LIGHT_SPEED_M_S,
     NUMERICAL_EPS,
     OrbitSummary,
@@ -24,6 +25,9 @@ from .models import (
     RelayEndpoint,
     RelaySatellite,
     RelaySolution,
+    SampleAllocation,
+    SampleRouteAssignment,
+    SolutionAnalysis,
     ValidatedAction,
     VerificationResult,
 )
@@ -415,9 +419,10 @@ def _validate_action_geometry(
     sample_indices_by_action: dict[int, tuple[int, ...]],
     sample_lookup: dict[int, int],
     positions_ecef_by_satellite: dict[str, np.ndarray],
-) -> tuple[list[str], list[ValidatedAction], dict[str, int], dict[str, int]]:
+) -> tuple[list[str], list[ValidatedAction], list[ActionFailure], dict[str, int], dict[str, int]]:
     violations: list[str] = []
     validated_actions: list[ValidatedAction] = []
+    action_failures: list[ActionFailure] = []
     satellite_link_counts: defaultdict[int, defaultdict[str, int]] = defaultdict(lambda: defaultdict(int))
     endpoint_link_counts: defaultdict[int, defaultdict[str, int]] = defaultdict(lambda: defaultdict(int))
     feasibility_counts = {
@@ -456,8 +461,21 @@ def _validate_action_geometry(
                 feasibility_counts["inter_satellite_link_samples_checked"] += 1
 
             if not is_feasible:
-                violations.append(
-                    f"actions[{action_index}] is geometrically infeasible at {_isoformat_z(_time_for_index(case, sample_index))}"
+                reason = (
+                    f"actions[{action_index}] is geometrically infeasible at "
+                    f"{_isoformat_z(_time_for_index(case, sample_index))}"
+                )
+                violations.append(reason)
+                action_failures.append(
+                    ActionFailure(
+                        action_index=action_index,
+                        action_type=action.action_type,
+                        reason=reason,
+                        node_a=node_a,
+                        node_b=node_b,
+                        sample_index=sample_index,
+                        time=_time_for_index(case, sample_index),
+                    )
                 )
                 break
 
@@ -503,7 +521,7 @@ def _validate_action_geometry(
             1 for action in validated_actions if action.action_type == "inter_satellite_link"
         ),
     }
-    return violations, validated_actions, diagnostics_counts, feasibility_counts
+    return violations, validated_actions, action_failures, diagnostics_counts, feasibility_counts
 
 
 def _build_active_edges_by_sample(validated_actions: list[ValidatedAction]) -> dict[int, list[ValidatedAction]]:
@@ -761,7 +779,48 @@ def _percentile_95(values: list[float]) -> float | None:
     return float(np.percentile(np.asarray(values, dtype=float), 95))
 
 
-def verify(case: RelayCase, solution: RelaySolution) -> VerificationResult:
+def _schedule_action_failures(
+    case: RelayCase,
+    actions: list[RelayAction],
+    violations: list[str],
+) -> list[ActionFailure]:
+    failures: list[ActionFailure] = []
+    for violation in violations:
+        if not violation.startswith("actions["):
+            continue
+        index_end = violation.find("]")
+        if index_end <= len("actions["):
+            continue
+        try:
+            action_index = int(violation[len("actions[") : index_end])
+        except ValueError:
+            continue
+        if not (0 <= action_index < len(actions)):
+            continue
+        action = actions[action_index]
+        node_a = action.endpoint_id if action.action_type == "ground_link" else action.satellite_id_1
+        node_b = action.satellite_id if action.action_type == "ground_link" else action.satellite_id_2
+        failures.append(
+            ActionFailure(
+                action_index=action_index,
+                action_type=action.action_type,
+                reason=violation,
+                node_a=node_a,
+                node_b=node_b,
+                sample_index=None,
+                time=None,
+            )
+        )
+    failures.sort(key=lambda row: row.action_index)
+    return failures
+
+
+def analyze(
+    case: RelayCase,
+    solution: RelaySolution,
+    *,
+    include_demand_sample_positions: bool = False,
+) -> SolutionAnalysis:
     metrics = _default_metrics(case, solution)
 
     orbit_violations, orbit_summaries = _validate_added_satellites(case, solution)
@@ -771,15 +830,33 @@ def verify(case: RelayCase, solution: RelaySolution) -> VerificationResult:
         solution.actions,
     )
     violations = orbit_violations + schedule_violations
+    schedule_action_failures = _schedule_action_failures(case, solution.actions, schedule_violations)
+    demand_indices_by_id = {
+        demand.demand_id: _demand_indices(case, demand)
+        for demand in case.demands
+    }
     if violations:
-        return VerificationResult(
+        result = VerificationResult(
             valid=False,
             metrics=metrics,
             violations=violations,
             diagnostics={
                 "orbit_summaries": [row.to_dict() for row in orbit_summaries],
                 "action_counts": {"total": len(solution.actions)},
+                "action_failures": [row.to_dict() for row in schedule_action_failures],
             },
+        )
+        return SolutionAnalysis(
+            case=case,
+            solution=solution,
+            result=result,
+            propagation_sample_indices=(),
+            demand_sample_indices_by_id=demand_indices_by_id,
+            sample_lookup={},
+            positions_ecef_by_satellite={},
+            validated_actions=(),
+            action_failures=tuple(schedule_action_failures),
+            sample_allocations=(),
         )
 
     reduced_samples, demand_indices_by_id, demands_by_sample = _build_reduced_timeline(
@@ -805,12 +882,15 @@ def verify(case: RelayCase, solution: RelaySolution) -> VerificationResult:
         }.items()
         if satellite_id in referenced_satellite_ids
     }
+    propagation_samples = reduced_samples
+    if include_demand_sample_positions:
+        propagation_samples = sorted(set(reduced_samples) | set(demands_by_sample))
     sample_lookup, positions_ecef_by_satellite = _propagate_positions(
         case,
         all_satellites,
-        reduced_samples,
+        propagation_samples,
     )
-    geometry_violations, validated_actions, action_counts, link_feasibility_counts = _validate_action_geometry(
+    geometry_violations, validated_actions, geometry_failures, action_counts, link_feasibility_counts = _validate_action_geometry(
         case,
         solution,
         solution.actions,
@@ -820,7 +900,7 @@ def verify(case: RelayCase, solution: RelaySolution) -> VerificationResult:
         positions_ecef_by_satellite,
     )
     if geometry_violations:
-        return VerificationResult(
+        result = VerificationResult(
             valid=False,
             metrics=metrics,
             violations=geometry_violations,
@@ -828,13 +908,27 @@ def verify(case: RelayCase, solution: RelaySolution) -> VerificationResult:
                 "orbit_summaries": [row.to_dict() for row in orbit_summaries],
                 "action_counts": action_counts,
                 "link_feasibility": link_feasibility_counts,
+                "action_failures": [row.to_dict() for row in geometry_failures],
             },
+        )
+        return SolutionAnalysis(
+            case=case,
+            solution=solution,
+            result=result,
+            propagation_sample_indices=tuple(propagation_samples),
+            demand_sample_indices_by_id=demand_indices_by_id,
+            sample_lookup=sample_lookup,
+            positions_ecef_by_satellite=positions_ecef_by_satellite,
+            validated_actions=tuple(validated_actions),
+            action_failures=tuple(geometry_failures),
+            sample_allocations=(),
         )
 
     active_edges_by_sample = _build_active_edges_by_sample(validated_actions)
     served_latencies_by_demand: dict[str, list[float]] = defaultdict(list)
     served_counts_by_demand: dict[str, int] = defaultdict(int)
     pooled_latencies_ms: list[float] = []
+    sample_allocations: list[SampleAllocation] = []
     allocation_summary = {
         "sample_count_with_active_demands": 0,
         "served_demand_sample_count": 0,
@@ -850,6 +944,7 @@ def verify(case: RelayCase, solution: RelaySolution) -> VerificationResult:
             sample_index,
             set(case.ground_endpoints),
         )
+        served_routes: list[SampleRouteAssignment] = []
         served_this_sample = 0
         for demand in active_demands:
             candidate = assignments.get(demand.demand_id)
@@ -860,8 +955,25 @@ def verify(case: RelayCase, solution: RelaySolution) -> VerificationResult:
             served_counts_by_demand[demand.demand_id] += 1
             served_latencies_by_demand[demand.demand_id].append(latency_ms)
             pooled_latencies_ms.append(latency_ms)
+            served_routes.append(
+                SampleRouteAssignment(
+                    demand_id=demand.demand_id,
+                    nodes=candidate.nodes,
+                    edge_ids=candidate.edge_ids,
+                    total_distance_m=candidate.total_distance_m,
+                    latency_ms=latency_ms,
+                )
+            )
         allocation_summary["served_demand_sample_count"] += served_this_sample
         allocation_summary["unserved_demand_sample_count"] += len(active_demands) - served_this_sample
+        sample_allocations.append(
+            SampleAllocation(
+                sample_index=sample_index,
+                time=_time_for_index(case, sample_index),
+                active_demand_ids=tuple(demand.demand_id for demand in active_demands),
+                served_routes=tuple(sorted(served_routes, key=lambda row: row.demand_id)),
+            )
+        )
 
     per_demand_metrics: dict[str, dict[str, float | int | None]] = {}
     weighted_service_numerator = 0.0
@@ -924,13 +1036,30 @@ def verify(case: RelayCase, solution: RelaySolution) -> VerificationResult:
             for demand_id in sorted(per_demand_metrics)
         },
         "reduced_sample_count": len(reduced_samples),
+        "action_failures": [],
     }
-    return VerificationResult(
+    result = VerificationResult(
         valid=True,
         metrics=metrics,
         violations=[],
         diagnostics=diagnostics,
     )
+    return SolutionAnalysis(
+        case=case,
+        solution=solution,
+        result=result,
+        propagation_sample_indices=tuple(propagation_samples),
+        demand_sample_indices_by_id=demand_indices_by_id,
+        sample_lookup=sample_lookup,
+        positions_ecef_by_satellite=positions_ecef_by_satellite,
+        validated_actions=tuple(validated_actions),
+        action_failures=(),
+        sample_allocations=tuple(sample_allocations),
+    )
+
+
+def verify(case: RelayCase, solution: RelaySolution) -> VerificationResult:
+    return analyze(case, solution).result
 
 
 def verify_solution(case_dir: str | Path, solution_path: str | Path) -> VerificationResult:
@@ -947,3 +1076,18 @@ def verify_solution(case_dir: str | Path, solution_path: str | Path) -> Verifica
             diagnostics={},
         )
     return verify(case, solution)
+
+
+def analyze_solution(
+    case_dir: str | Path,
+    solution_path: str | Path,
+    *,
+    include_demand_sample_positions: bool = True,
+) -> SolutionAnalysis:
+    case = load_case(case_dir)
+    solution = load_solution(solution_path)
+    return analyze(
+        case,
+        solution,
+        include_demand_sample_positions=include_demand_sample_positions,
+    )

@@ -1,8 +1,9 @@
 """Public API for the relay_constellation verifier."""
 
-from .engine import verify, verify_solution
+from .engine import analyze, analyze_solution, verify, verify_solution
 from .io import load_case, load_solution
 from .models import (
+    ActionFailure,
     DEFAULT_DATASET_DIR,
     LIGHT_SPEED_M_S,
     NUMERICAL_EPS,
@@ -15,11 +16,15 @@ from .models import (
     RelayManifest,
     RelaySatellite,
     RelaySolution,
+    SampleAllocation,
+    SampleRouteAssignment,
+    SolutionAnalysis,
     ValidatedAction,
     VerificationResult,
 )
 
 __all__ = [
+    "ActionFailure",
     "DEFAULT_DATASET_DIR",
     "LIGHT_SPEED_M_S",
     "NUMERICAL_EPS",
@@ -32,8 +37,13 @@ __all__ = [
     "RelayManifest",
     "RelaySatellite",
     "RelaySolution",
+    "SampleAllocation",
+    "SampleRouteAssignment",
+    "SolutionAnalysis",
     "ValidatedAction",
     "VerificationResult",
+    "analyze",
+    "analyze_solution",
     "load_case",
     "load_solution",
     "verify",

@@ -134,6 +134,64 @@ class PathCandidate:
     total_distance_m: float
 
 
+@dataclass(frozen=True)
+class ActionFailure:
+    action_index: int
+    action_type: str
+    reason: str
+    node_a: str | None
+    node_b: str | None
+    sample_index: int | None
+    time: datetime | None
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "action_index": self.action_index,
+            "action_type": self.action_type,
+            "reason": self.reason,
+            "node_a": self.node_a,
+            "node_b": self.node_b,
+            "sample_index": self.sample_index,
+            "time": self.time.isoformat().replace("+00:00", "Z")
+            if self.time is not None
+            else None,
+        }
+
+
+@dataclass(frozen=True)
+class SampleRouteAssignment:
+    demand_id: str
+    nodes: tuple[str, ...]
+    edge_ids: tuple[str, ...]
+    total_distance_m: float
+    latency_ms: float
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "demand_id": self.demand_id,
+            "nodes": list(self.nodes),
+            "edge_ids": list(self.edge_ids),
+            "total_distance_m": self.total_distance_m,
+            "latency_ms": self.latency_ms,
+        }
+
+
+@dataclass(frozen=True)
+class SampleAllocation:
+    sample_index: int
+    time: datetime
+    active_demand_ids: tuple[str, ...]
+    served_routes: tuple[SampleRouteAssignment, ...]
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "sample_index": self.sample_index,
+            "time": self.time.isoformat().replace("+00:00", "Z"),
+            "active_demand_ids": list(self.active_demand_ids),
+            "served_routes": [route.to_dict() for route in self.served_routes],
+        }
+
+
 @dataclass
 class VerificationResult:
     valid: bool
@@ -151,3 +209,17 @@ class VerificationResult:
 
     def __str__(self) -> str:  # pragma: no cover - formatting helper
         return json.dumps(self.to_dict(), indent=2, sort_keys=True)
+
+
+@dataclass(frozen=True)
+class SolutionAnalysis:
+    case: RelayCase
+    solution: RelaySolution
+    result: VerificationResult
+    propagation_sample_indices: tuple[int, ...]
+    demand_sample_indices_by_id: dict[str, tuple[int, ...]]
+    sample_lookup: dict[int, int]
+    positions_ecef_by_satellite: dict[str, np.ndarray] = field(repr=False)
+    validated_actions: tuple[ValidatedAction, ...]
+    action_failures: tuple[ActionFailure, ...]
+    sample_allocations: tuple[SampleAllocation, ...]

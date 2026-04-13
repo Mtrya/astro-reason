@@ -403,7 +403,7 @@ def test_verify_solution_rejects_concurrency_violation(tmp_path: Path) -> None:
     assert any("max_links_per_satellite=1" in violation for violation in result.violations)
 
 
-def test_verify_solution_example_smoke_case_reports_zero_service() -> None:
+def test_verify_solution_example_smoke_case_reports_nonzero_service() -> None:
     dataset_dir = Path("benchmarks/relay_constellation/dataset")
     index_payload = json.loads((dataset_dir / "index.json").read_text(encoding="utf-8"))
     case_dir = dataset_dir / "cases" / index_payload["example_smoke_case_id"]
@@ -412,10 +412,10 @@ def test_verify_solution_example_smoke_case_reports_zero_service() -> None:
     result = verify_solution(case_dir, solution_path)
 
     assert result.valid is True
-    assert result.metrics["service_fraction"] == 0.0
+    assert result.metrics["service_fraction"] > 0.0
     assert result.metrics["worst_demand_service_fraction"] == 0.0
     assert result.metrics["num_demanded_windows"] > 0
-    assert result.metrics["mean_latency_ms"] is None
+    assert result.metrics["mean_latency_ms"] is not None
 
 
 def test_verify_solution_serves_single_demand_and_scores_latency(tmp_path: Path) -> None:
