@@ -1068,6 +1068,7 @@ def verify_solution(case_dir: str | Path, solution_path: str | Path) -> Verifica
     try:
         case = load_case(case_dir)
         solution = load_solution(solution_path)
+        return verify(case, solution)
     except (FileNotFoundError, ValueError) as exc:
         return VerificationResult(
             valid=False,
@@ -1075,7 +1076,6 @@ def verify_solution(case_dir: str | Path, solution_path: str | Path) -> Verifica
             violations=[str(exc)],
             diagnostics={},
         )
-    return verify(case, solution)
 
 
 def analyze_solution(

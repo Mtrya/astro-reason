@@ -94,6 +94,42 @@ def test_verify_solution_rejects_malformed_solution(tmp_path: Path) -> None:
     assert result.violations == ["solution.json must be a JSON object"]
 
 
+def test_verify_solution_rejects_duplicate_demand_ids(tmp_path: Path) -> None:
+    case_dir = tmp_path / "case_duplicate_demands"
+    fixture_dir = FIXTURES_DIR / "full_service_valid"
+    for filename in ("manifest.json", "network.json"):
+        (case_dir / filename).parent.mkdir(parents=True, exist_ok=True)
+        (case_dir / filename).write_text((fixture_dir / filename).read_text(encoding="utf-8"), encoding="utf-8")
+    _write_json(
+        case_dir / "demands.json",
+        {
+            "demanded_windows": [
+                {
+                    "demand_id": "demand_001",
+                    "source_endpoint_id": "ground_001",
+                    "destination_endpoint_id": "ground_002",
+                    "start_time": "2026-01-01T00:00:00Z",
+                    "end_time": "2026-01-01T00:01:00Z",
+                    "weight": 1.0,
+                },
+                {
+                    "demand_id": "demand_001",
+                    "source_endpoint_id": "ground_001",
+                    "destination_endpoint_id": "ground_002",
+                    "start_time": "2026-01-01T00:01:00Z",
+                    "end_time": "2026-01-01T00:02:00Z",
+                    "weight": 1.0,
+                },
+            ]
+        },
+    )
+
+    result = verify_solution(case_dir, FIXTURES_DIR / "full_service_valid" / "solution.json")
+
+    assert result.valid is False
+    assert result.violations == ["Duplicate demand_id: demand_001"]
+
+
 def test_verify_solution_rejects_invalid_added_orbit(tmp_path: Path) -> None:
     low_orbit_state = np.asarray(
         brahe.state_koe_to_eci(
@@ -149,6 +185,34 @@ def test_verify_solution_rejects_off_grid_action(tmp_path: Path) -> None:
     )
 
     result = verify_solution(FIXTURES_DIR / "full_service_valid", solution_path)
+
+    assert result.valid is False
+    assert any("routing_step_s grid" in violation for violation in result.violations)
+
+
+def test_verify_solution_returns_invalid_result_for_bad_case_demand_grid(tmp_path: Path) -> None:
+    case_dir = tmp_path / "case_bad_demand_grid"
+    fixture_dir = FIXTURES_DIR / "full_service_valid"
+    for filename in ("manifest.json", "network.json"):
+        (case_dir / filename).parent.mkdir(parents=True, exist_ok=True)
+        (case_dir / filename).write_text((fixture_dir / filename).read_text(encoding="utf-8"), encoding="utf-8")
+    _write_json(
+        case_dir / "demands.json",
+        {
+            "demanded_windows": [
+                {
+                    "demand_id": "demand_001",
+                    "source_endpoint_id": "ground_001",
+                    "destination_endpoint_id": "ground_002",
+                    "start_time": "2026-01-01T00:00:30Z",
+                    "end_time": "2026-01-01T00:01:00Z",
+                    "weight": 1.0,
+                }
+            ]
+        },
+    )
+
+    result = verify_solution(case_dir, FIXTURES_DIR / "full_service_valid" / "solution.json")
 
     assert result.valid is False
     assert any("routing_step_s grid" in violation for violation in result.violations)
