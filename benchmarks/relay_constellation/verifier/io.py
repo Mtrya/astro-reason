@@ -190,6 +190,7 @@ def load_case(case_dir: str | Path) -> RelayCase:
         )
 
     demands: list[RelayDemand] = []
+    seen_demand_ids: set[str] = set()
     for index, row in enumerate(_require_list(demands_payload.get("demanded_windows"), "demands.json.demanded_windows")):
         payload = _require_mapping(row, f"demands.json.demanded_windows[{index}]")
         demand = RelayDemand(
@@ -210,6 +211,9 @@ def load_case(case_dir: str | Path) -> RelayCase:
             ),
             weight=float(payload.get("weight", 1.0)),
         )
+        if demand.demand_id in seen_demand_ids:
+            raise ValueError(f"Duplicate demand_id: {demand.demand_id}")
+        seen_demand_ids.add(demand.demand_id)
         if demand.source_endpoint_id not in ground_endpoints:
             raise ValueError(f"Unknown demand source endpoint: {demand.source_endpoint_id}")
         if demand.destination_endpoint_id not in ground_endpoints:
