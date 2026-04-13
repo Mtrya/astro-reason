@@ -553,13 +553,6 @@ def generate_dataset(
         summaries.append(summary)
 
     _write_json(
-        output_dir / "example_solution.json",
-        {
-            "actions": [],
-            "added_satellites": [],
-        },
-    )
-    _write_json(
         output_dir / "index.json",
         {
             "benchmark": "relay_constellation",
@@ -576,7 +569,7 @@ def generate_dataset(
                 }
                 for summary in summaries
             ],
-            "example_smoke_case_id": summaries[0]["case_id"] if summaries else None,
+            "example_smoke_case_id": "case_0005",
             "generator_seed": seed,
         },
     )
