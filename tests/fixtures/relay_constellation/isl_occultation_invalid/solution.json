@@ -1,0 +1,12 @@
+{
+  "actions": [
+    {
+      "action_type": "inter_satellite_link",
+      "end_time": "2026-01-01T00:01:00Z",
+      "satellite_id_1": "backbone_001",
+      "satellite_id_2": "backbone_002",
+      "start_time": "2026-01-01T00:00:00Z"
+    }
+  ],
+  "added_satellites": []
+}

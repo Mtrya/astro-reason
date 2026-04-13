@@ -1,0 +1,12 @@
+{
+  "demanded_windows": [
+    {
+      "demand_id": "demand_001",
+      "destination_endpoint_id": "ground_002",
+      "end_time": "2026-01-01T00:01:00Z",
+      "source_endpoint_id": "ground_001",
+      "start_time": "2026-01-01T00:00:00Z",
+      "weight": 1.0
+    }
+  ]
+}

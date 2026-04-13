@@ -1,0 +1,18 @@
+{
+  "action_failures_len": 0,
+  "metrics": {
+    "per_demand": {
+      "demand_001": {
+        "served_sample_count": 1,
+        "service_fraction": 1.0
+      },
+      "demand_002": {
+        "served_sample_count": 0,
+        "service_fraction": 0.0
+      }
+    },
+    "service_fraction": 0.5,
+    "worst_demand_service_fraction": 0.0
+  },
+  "valid": true
+}

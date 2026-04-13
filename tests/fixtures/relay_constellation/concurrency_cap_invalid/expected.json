@@ -1,0 +1,10 @@
+{
+  "action_failures_len": 0,
+  "metrics": {
+    "service_fraction": 0.0
+  },
+  "valid": false,
+  "violation_substrings": [
+    "exceeding max_links_per_satellite=1"
+  ]
+}

@@ -1,0 +1,26 @@
+{
+  "actions": [
+    {
+      "action_type": "ground_link",
+      "end_time": "2026-01-01T00:01:00Z",
+      "endpoint_id": "ground_001",
+      "satellite_id": "backbone_001",
+      "start_time": "2026-01-01T00:00:00Z"
+    },
+    {
+      "action_type": "ground_link",
+      "end_time": "2026-01-01T00:01:00Z",
+      "endpoint_id": "ground_002",
+      "satellite_id": "backbone_001",
+      "start_time": "2026-01-01T00:00:00Z"
+    },
+    {
+      "action_type": "ground_link",
+      "end_time": "2026-01-01T00:01:00Z",
+      "endpoint_id": "ground_003",
+      "satellite_id": "backbone_001",
+      "start_time": "2026-01-01T00:00:00Z"
+    }
+  ],
+  "added_satellites": []
+}
