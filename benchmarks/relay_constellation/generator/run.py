@@ -12,7 +12,7 @@ def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(
         description=(
             "Generate the canonical relay_constellation dataset under dataset/cases/ "
-            "plus dataset/index.json and dataset/example_solution.json."
+            "plus dataset/index.json."
         )
     )
     parser.add_argument(

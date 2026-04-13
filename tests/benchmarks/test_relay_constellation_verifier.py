@@ -218,6 +218,49 @@ def test_verify_solution_returns_invalid_result_for_bad_case_demand_grid(tmp_pat
     assert any("routing_step_s grid" in violation for violation in result.violations)
 
 
+def test_verify_solution_rejects_non_integral_horizon_length(tmp_path: Path) -> None:
+    case_dir = tmp_path / "case_bad_horizon"
+    fixture_dir = FIXTURES_DIR / "full_service_valid"
+    (case_dir / "network.json").parent.mkdir(parents=True, exist_ok=True)
+    (case_dir / "network.json").write_text(
+        (fixture_dir / "network.json").read_text(encoding="utf-8"),
+        encoding="utf-8",
+    )
+    (case_dir / "demands.json").write_text(
+        (fixture_dir / "demands.json").read_text(encoding="utf-8"),
+        encoding="utf-8",
+    )
+    manifest = json.loads((fixture_dir / "manifest.json").read_text(encoding="utf-8"))
+    manifest["horizon_end"] = "2026-01-01T00:05:30Z"
+    _write_json(case_dir / "manifest.json", manifest)
+
+    result = verify_solution(case_dir, FIXTURES_DIR / "full_service_valid" / "solution.json")
+
+    assert result.valid is False
+    assert result.violations == [
+        "manifest.json horizon must be exactly divisible by routing_step_s"
+    ]
+
+
+def test_verify_solution_normalizes_optional_float_parse_errors(tmp_path: Path) -> None:
+    case_dir = tmp_path / "case_bad_optional_float"
+    fixture_dir = FIXTURES_DIR / "full_service_valid"
+    for filename in ("network.json", "demands.json"):
+        (case_dir / filename).parent.mkdir(parents=True, exist_ok=True)
+        (case_dir / filename).write_text(
+            (fixture_dir / filename).read_text(encoding="utf-8"),
+            encoding="utf-8",
+        )
+    manifest = json.loads((fixture_dir / "manifest.json").read_text(encoding="utf-8"))
+    manifest["constraints"]["max_eccentricity"] = None
+    _write_json(case_dir / "manifest.json", manifest)
+
+    result = verify_solution(case_dir, FIXTURES_DIR / "full_service_valid" / "solution.json")
+
+    assert result.valid is False
+    assert result.violations == ["manifest.json.constraints.max_eccentricity must be numeric"]
+
+
 def test_verify_solution_example_smoke_case_reports_nonzero_service() -> None:
     index_payload = json.loads((DATASET_DIR / "index.json").read_text(encoding="utf-8"))
     case_dir = DATASET_DIR / "cases" / index_payload["example_smoke_case_id"]

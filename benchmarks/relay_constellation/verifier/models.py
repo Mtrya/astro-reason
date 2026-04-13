@@ -37,7 +37,12 @@ class RelayManifest:
     @property
     def total_samples(self) -> int:
         horizon_seconds = (self.horizon_end - self.horizon_start).total_seconds()
-        return int(round(horizon_seconds / self.routing_step_s))
+        quotient = horizon_seconds / self.routing_step_s
+        if not quotient.is_integer():
+            raise ValueError(
+                "manifest.json horizon must be exactly divisible by routing_step_s"
+            )
+        return int(quotient)
 
 
 @dataclass(frozen=True)

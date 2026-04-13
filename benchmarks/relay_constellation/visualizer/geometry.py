@@ -15,6 +15,7 @@ from .io import RelayCase, RelayDemand, RelayEndpoint
 
 _BRAHE_EOP_INITIALIZED = False
 _LIGHT_SPEED_M_S = 299_792_458.0
+_LENGTH_EPS_M = 1e-6
 
 
 @dataclass(frozen=True)
@@ -67,6 +68,8 @@ def _datetime_to_epoch(value: datetime) -> brahe.Epoch:
 
 
 def _sample_times(start: datetime, end: datetime, step_s: int) -> list[datetime]:
+    if not isinstance(step_s, int) or step_s <= 0:
+        raise ValueError("step_s must be > 0")
     times: list[datetime] = []
     current = start
     delta = timedelta(seconds=step_s)
@@ -81,6 +84,8 @@ def _sample_times_for_windows(
     *,
     step_s: int,
 ) -> list[datetime]:
+    if not isinstance(step_s, int) or step_s <= 0:
+        raise ValueError("step_s must be > 0")
     sampled: list[datetime] = []
     seen: set[datetime] = set()
     step = timedelta(seconds=step_s)
@@ -378,7 +383,24 @@ def compute_connectivity_summaries(
         previous_instant: datetime | None = None
 
         for instant, route_nodes, total_length_m in samples:
-            if route_nodes == current_route:
+            contiguous = (
+                previous_instant is not None
+                and instant == previous_instant + step
+            )
+            same_length = (
+                (total_length_m is None and current_length_m is None)
+                or (
+                    total_length_m is not None
+                    and current_length_m is not None
+                    and abs(total_length_m - current_length_m) <= _LENGTH_EPS_M
+                )
+            )
+            if (
+                current_start is not None
+                and route_nodes == current_route
+                and contiguous
+                and same_length
+            ):
                 previous_instant = instant
                 continue
             if current_route is not None and current_start is not None and previous_instant is not None:
