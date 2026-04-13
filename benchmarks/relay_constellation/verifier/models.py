@@ -36,6 +36,14 @@ class RelayManifest:
 
     @property
     def total_samples(self) -> int:
+        """
+        Compute the number of routing samples covering the manifest horizon.
+        
+        Calculates the horizon duration divided by the routing step and rounds to the nearest integer.
+        
+        Returns:
+            int: Number of time samples in the horizon (rounded to the nearest integer).
+        """
         horizon_seconds = (self.horizon_end - self.horizon_start).total_seconds()
         return int(round(horizon_seconds / self.routing_step_s))
 
@@ -102,6 +110,18 @@ class OrbitSummary:
     apogee_altitude_m: float
 
     def to_dict(self) -> dict[str, float | str]:
+        """
+        Serialize the orbit summary into a plain dictionary.
+        
+        Returns:
+            dict: A mapping with the following keys:
+                - "satellite_id" (str): Satellite identifier.
+                - "semi_major_axis_m" (float): Semi-major axis in meters.
+                - "eccentricity" (float): Orbital eccentricity.
+                - "inclination_deg" (float): Inclination in degrees.
+                - "perigee_altitude_m" (float): Perigee altitude in meters.
+                - "apogee_altitude_m" (float): Apogee altitude in meters.
+        """
         return {
             "satellite_id": self.satellite_id,
             "semi_major_axis_m": self.semi_major_axis_m,
@@ -124,6 +144,12 @@ class ValidatedAction:
 
     @property
     def action_id(self) -> str:
+        """
+        Return a zero-padded identifier for this action.
+        
+        Returns:
+            action_id (str): Identifier formatted as "action_NNNN" where NNNN is the action_index zero-padded to 4 digits.
+        """
         return f"action_{self.action_index:04d}"
 
 
@@ -145,6 +171,14 @@ class ActionFailure:
     time: datetime | None
 
     def to_dict(self) -> dict[str, Any]:
+        """
+        Convert the action failure to a JSON-serializable dictionary.
+        
+        The returned dictionary contains the failure's fields; the `time` value is converted to an ISO 8601 string with a trailing 'Z' for UTC if present, otherwise `None`.
+        
+        Returns:
+            dict[str, Any]: Mapping with keys `action_index`, `action_type`, `reason`, `node_a`, `node_b`, `sample_index`, and `time` (ISO 8601 string or `None`).
+        """
         return {
             "action_index": self.action_index,
             "action_type": self.action_type,
@@ -167,6 +201,17 @@ class SampleRouteAssignment:
     latency_ms: float
 
     def to_dict(self) -> dict[str, Any]:
+        """
+        Convert the route assignment into a JSON-serializable dictionary.
+        
+        Returns:
+            dict: Dictionary containing:
+                - `demand_id`: demand identifier.
+                - `nodes`: list of node identifiers in the route.
+                - `edge_ids`: list of edge identifiers corresponding to route edges.
+                - `total_distance_m`: total route distance in meters.
+                - `latency_ms`: route latency in milliseconds.
+        """
         return {
             "demand_id": self.demand_id,
             "nodes": list(self.nodes),
@@ -184,6 +229,16 @@ class SampleAllocation:
     served_routes: tuple[SampleRouteAssignment, ...]
 
     def to_dict(self) -> dict[str, Any]:
+        """
+        Serialize the sample allocation to a JSON-serializable dictionary.
+        
+        Returns:
+            dict: Mapping with keys:
+                - "sample_index": int sample index.
+                - "time": ISO 8601 timestamp string (UTC) with timezone formatted as 'Z'.
+                - "active_demand_ids": list of active demand ID strings.
+                - "served_routes": list of serialized route assignments (each is the result of a route's `to_dict()`).
+        """
         return {
             "sample_index": self.sample_index,
             "time": self.time.isoformat().replace("+00:00", "Z"),
@@ -200,6 +255,12 @@ class VerificationResult:
     diagnostics: dict[str, Any]
 
     def to_dict(self) -> dict[str, Any]:
+        """
+        Serialize the verification result to a plain dictionary.
+        
+        Returns:
+            dict[str, Any]: A dictionary with keys "valid", "metrics", "violations", and "diagnostics" mapping to the instance's corresponding values.
+        """
         return {
             "valid": self.valid,
             "metrics": self.metrics,
@@ -208,6 +269,14 @@ class VerificationResult:
         }
 
     def __str__(self) -> str:  # pragma: no cover - formatting helper
+        """
+        Produce a JSON-formatted, human-readable string representation of the object.
+        
+        Serializes the dictionary returned by to_dict() to pretty-printed JSON with 2-space indentation and keys sorted.
+        
+        Returns:
+            str: JSON-formatted representation of the object.
+        """
         return json.dumps(self.to_dict(), indent=2, sort_keys=True)
 
 

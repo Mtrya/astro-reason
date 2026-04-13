@@ -9,6 +9,15 @@ from .build import CANONICAL_SEED, DEFAULT_DATASET_DIR, generate_dataset
 
 
 def main(argv: list[str] | None = None) -> int:
+    """
+    CLI entry point that generates the canonical relay_constellation dataset and prints per-case summaries.
+    
+    Parameters:
+        argv (list[str] | None): Command-line arguments to parse; if None, the process's command-line arguments are used.
+    
+    Returns:
+        int: Exit code `0` on success.
+    """
     parser = argparse.ArgumentParser(
         description=(
             "Generate the canonical relay_constellation dataset under dataset/cases/ "

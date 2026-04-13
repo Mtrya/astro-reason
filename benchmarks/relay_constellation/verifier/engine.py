@@ -44,6 +44,11 @@ class _SampleEdge:
 
 
 def _ensure_brahe_ready() -> None:
+    """
+    Initialize Brahe's global Earth orientation (EOP) provider to a zeroed static provider for propagation routines.
+    
+    This call is idempotent: on the first invocation it configures Brahe's global EOP provider; subsequent calls have no effect.
+    """
     global _BRAHE_EOP_INITIALIZED
     if _BRAHE_EOP_INITIALIZED:
         return
@@ -54,6 +59,24 @@ def _ensure_brahe_ready() -> None:
 
 
 def _default_metrics(case: RelayCase | None, solution: RelaySolution | None) -> dict[str, object]:
+    """
+    Create a default metrics dictionary populated with zero/empty values suitable for use when analysis cannot proceed.
+    
+    Parameters:
+        case (RelayCase | None): The problem case; used only to derive counts (`num_demanded_windows`, `num_backbone_satellites`) when provided.
+        solution (RelaySolution | None): The solution; used only to derive `num_added_satellites` when provided.
+    
+    Returns:
+        dict[str, object]: A metrics mapping with these keys:
+            - "service_fraction" (float): Weighted fraction of demand service, default 0.0.
+            - "worst_demand_service_fraction" (float): Minimum per-demand service fraction, default 0.0.
+            - "mean_latency_ms" (float | None): Pooled mean latency in milliseconds for served demand-samples, default None.
+            - "latency_p95_ms" (float | None): 95th percentile latency in milliseconds for served demand-samples, default None.
+            - "num_added_satellites" (int): Number of satellites in `solution.added_satellites` or 0 if `solution` is None.
+            - "num_demanded_windows" (int): Number of demands in `case.demands` or 0 if `case` is None.
+            - "num_backbone_satellites" (int): Number of backbone satellites in `case.backbone_satellites` or 0 if `case` is None.
+            - "per_demand" (dict): Mapping from demand_id to per-demand metrics (requested/served sample counts, service fraction, mean/95th latency); empty by default.
+    """
     return {
         "service_fraction": 0.0,
         "worst_demand_service_fraction": 0.0,
@@ -67,6 +90,12 @@ def _default_metrics(case: RelayCase | None, solution: RelaySolution | None) -> 
 
 
 def _datetime_to_epoch(value: datetime) -> brahe.Epoch:
+    """
+    Convert a datetime to a Brahe Epoch in UTC, preserving fractional seconds.
+    
+    Returns:
+        brahe.Epoch: The corresponding epoch in the Brahe UTC time system with fractional seconds from the input preserved.
+    """
     value = value.astimezone(UTC)
     second = float(value.second) + (value.microsecond / 1_000_000.0)
     return brahe.Epoch.from_datetime(
@@ -82,10 +111,35 @@ def _datetime_to_epoch(value: datetime) -> brahe.Epoch:
 
 
 def _isoformat_z(value: datetime) -> str:
+    """
+    Format a datetime as an ISO 8601 / RFC 3339 string in UTC using the 'Z' timezone designator.
+    
+    Parameters:
+        value (datetime): The datetime to format; it is converted to UTC if necessary.
+    
+    Returns:
+        iso (str): An ISO 8601 string for the given time in UTC, ending with 'Z' instead of '+00:00'.
+    """
     return value.astimezone(UTC).isoformat().replace("+00:00", "Z")
 
 
 def _sample_index(case: RelayCase, instant: datetime, *, field: str) -> int:
+    """
+    Convert an instant to the integer routing sample index measured from the case horizon start.
+    
+    The instant must be on the case.manifest.routing_step_s grid, not earlier than horizon_start (within a small numerical tolerance), and not after the horizon end.
+    
+    Parameters:
+        case: RelayCase providing manifest.horizon_start, manifest.routing_step_s, and manifest.total_samples.
+        instant (datetime): The UTC-aware time to convert.
+        field (str): Identifier used in raised ValueError messages to indicate which input failed validation.
+    
+    Returns:
+        int: The zero-based sample index corresponding to the instant.
+    
+    Raises:
+        ValueError: If the instant is before horizon_start, not aligned to the routing_step_s grid, or after the horizon end.
+    """
     delta = instant.astimezone(UTC) - case.manifest.horizon_start
     total_seconds = delta.total_seconds()
     if total_seconds < -NUMERICAL_EPS:
@@ -101,10 +155,34 @@ def _sample_index(case: RelayCase, instant: datetime, *, field: str) -> int:
 
 
 def _time_for_index(case: RelayCase, sample_index: int) -> datetime:
+    """
+    Compute the datetime corresponding to a routing sample index within the case horizon.
+    
+    Parameters:
+        case (RelayCase): Case containing a manifest with `horizon_start` and `routing_step_s`.
+        sample_index (int): Zero-based sample index; each index advances time by `routing_step_s` seconds.
+    
+    Returns:
+        datetime: The instant equal to `case.manifest.horizon_start + sample_index * routing_step_s`.
+    """
     return case.manifest.horizon_start + timedelta(seconds=sample_index * case.manifest.routing_step_s)
 
 
 def _interval_indices(case: RelayCase, start_time: datetime, end_time: datetime) -> tuple[int, ...]:
+    """
+    Compute the sequence of sample indices covered by an action's start and end times on the case's sampling grid.
+    
+    Parameters:
+        case (RelayCase): The relay case containing the planning horizon and sampling configuration.
+        start_time (datetime): Action start instant (inclusive).
+        end_time (datetime): Action end instant (exclusive).
+    
+    Returns:
+        tuple[int, ...]: A tuple of sample indices from the start sample (inclusive) up to but not including the end sample.
+    
+    Raises:
+        ValueError: If the end time is not after the start time, if the end time lies outside the planning horizon, or if either time does not align with the case sampling grid.
+    """
     start_index = _sample_index(case, start_time, field="action.start_time")
     end_index = _sample_index(case, end_time, field="action.end_time")
     if end_index <= start_index:
@@ -115,6 +193,15 @@ def _interval_indices(case: RelayCase, start_time: datetime, end_time: datetime)
 
 
 def _demand_indices(case: RelayCase, demand: RelayDemand) -> tuple[int, ...]:
+    """
+    Compute the sequence of routing-sample indices that fall within a demand's time window.
+    
+    Returns:
+    	tuple[int, ...]: Sample indices from the demand's start (inclusive) to end (exclusive) on the case's routing step grid.
+    
+    Raises:
+    	ValueError: If the demand's end time is not after its start time such that at least one sampled instant is covered.
+    """
     start_index = _sample_index(case, demand.start_time, field=f"demand {demand.demand_id} start_time")
     end_index = _sample_index(case, demand.end_time, field=f"demand {demand.demand_id} end_time")
     if end_index <= start_index:
@@ -123,6 +210,16 @@ def _demand_indices(case: RelayCase, demand: RelayDemand) -> tuple[int, ...]:
 
 
 def _segment_clear_of_earth(point_a_m: np.ndarray, point_b_m: np.ndarray) -> bool:
+    """
+    Determine whether the straight line segment between two ECEF points remains outside the Earth.
+    
+    Parameters:
+        point_a_m (np.ndarray): ECEF position of the first endpoint in meters.
+        point_b_m (np.ndarray): ECEF position of the second endpoint in meters.
+    
+    Returns:
+        bool: `true` if every point on the segment has distance greater than Earth radius + 1 meter, `false` otherwise. Degenerate segments (endpoints coincident) are treated by testing the endpoint's distance from Earth's center.
+    """
     segment = point_b_m - point_a_m
     denom = float(np.dot(segment, segment))
     if denom <= NUMERICAL_EPS:
@@ -139,6 +236,17 @@ def _ground_link_feasible(
     *,
     max_ground_range_m: float | None,
 ) -> tuple[bool, float]:
+    """
+    Determine whether a ground-to-satellite link meets the endpoint's elevation constraint and an optional maximum slant range.
+    
+    Parameters:
+        endpoint (RelayEndpoint): Ground endpoint providing ECEF position and `min_elevation_deg`.
+        satellite_position_ecef_m (numpy.ndarray): Satellite ECEF position (meters).
+        max_ground_range_m (float | None): Optional maximum allowed slant range (meters). If None, no range limit is applied.
+    
+    Returns:
+        tuple[bool, float]: `(feasible, slant_range_m)` where `feasible` is `True` if the computed elevation is greater than or equal to `endpoint.min_elevation_deg` and the slant range is less than or equal to `max_ground_range_m` when provided, `False` otherwise; `slant_range_m` is the computed slant range in meters.
+    """
     relative_enz = np.asarray(
         brahe.relative_position_ecef_to_enz(
             endpoint.ecef_position_m,
@@ -166,6 +274,17 @@ def _isl_feasible(
     *,
     max_isl_range_m: float,
 ) -> tuple[bool, float]:
+    """
+    Check whether an inter-satellite link between two ECEF positions is feasible under range and Earth-obstruction constraints.
+    
+    Parameters:
+        position_a_ecef_m (np.ndarray): ECEF coordinates of the first satellite in meters.
+        position_b_ecef_m (np.ndarray): ECEF coordinates of the second satellite in meters.
+        max_isl_range_m (float): Maximum allowable inter-satellite link range in meters.
+    
+    Returns:
+        tuple[bool, float]: (feasible, distance_m) where `feasible` is `True` if the Euclidean distance between the two positions is less than or equal to `max_isl_range_m` and the straight line segment between them does not intersect the Earth, `False` otherwise; `distance_m` is the computed Euclidean distance in meters.
+    """
     distance_m = float(np.linalg.norm(position_b_ecef_m - position_a_ecef_m))
     if distance_m > max_isl_range_m:
         return False, distance_m
@@ -173,6 +292,19 @@ def _isl_feasible(
 
 
 def _orbit_summary(satellite: RelaySatellite) -> OrbitSummary:
+    """
+    Compute a concise orbital-element summary for a satellite from its ECI state.
+    
+    Parameters:
+        satellite (RelaySatellite): Satellite record whose `state_eci_m_mps` (ECI position then velocity, meters and meters/second) and `satellite_id` are used.
+    
+    Returns:
+        OrbitSummary: Contains semi-major axis (meters), eccentricity, inclination (degrees), perigee altitude (meters), apogee altitude (meters), and the satellite_id.
+    
+    Raises:
+        ValueError: If the satellite position has zero magnitude, the specific orbital energy is non-negative (not a bound orbit),
+                    the eccentricity is >= 1.0 (not a closed orbit), or the orbital angular momentum is degenerate.
+    """
     position_m = np.asarray(satellite.state_eci_m_mps[:3], dtype=float)
     velocity_m_s = np.asarray(satellite.state_eci_m_mps[3:], dtype=float)
     radius_m = float(np.linalg.norm(position_m))
@@ -215,6 +347,18 @@ def _orbit_summary(satellite: RelaySatellite) -> OrbitSummary:
 
 
 def _validate_added_satellites(case: RelayCase, solution: RelaySolution) -> tuple[list[str], list[OrbitSummary]]:
+    """
+    Validate added satellites against case limits and orbital constraints.
+    
+    Checks that the number of added satellites does not exceed the case limit, that added satellite IDs do not collide with backbone satellite IDs, and that each added satellite's orbit satisfies bound/closed-orbit requirements and case-configured altitude, eccentricity, and inclination bounds. Violations are collected as human-readable strings.
+    
+    Parameters:
+        case (RelayCase): Problem case containing manifest limits and backbone satellite IDs.
+        solution (RelaySolution): Proposed solution containing `added_satellites` to validate.
+    
+    Returns:
+        tuple[list[str], list[OrbitSummary]]: A pair where the first element is a list of violation messages (empty if none), and the second element is a list of OrbitSummary objects for added satellites that produced valid orbit summaries, sorted by `satellite_id`.
+    """
     violations: list[str] = []
     orbit_summaries: list[OrbitSummary] = []
     if len(solution.added_satellites) > case.manifest.max_added_satellites:
@@ -277,6 +421,24 @@ def _normalize_action(
     *,
     known_satellite_ids: set[str],
 ) -> tuple[tuple[str, ...], str, str]:
+    """
+    Normalize a RelayAction into a canonical link key and its two endpoint identifiers.
+    
+    Validates required fields and references for supported action types and returns a tuple describing the logical link:
+    - For `ground_link`: returns link key ("ground_link", endpoint_id, satellite_id) and nodes (endpoint_id, satellite_id).
+    - For `inter_satellite_link`: returns link key ("inter_satellite_link", sat_a, sat_b) with satellite IDs ordered lexicographically and nodes (sat_a, sat_b).
+    
+    Parameters:
+        case: RelayCase containing ground endpoint definitions used to validate endpoint references.
+        action: RelayAction to normalize and validate.
+        known_satellite_ids: Set of satellite IDs considered valid for action references.
+    
+    Returns:
+        A tuple (link_key, node_a, node_b) where `link_key` is a tuple identifying the link type and endpoints, and `node_a`/`node_b` are the endpoint identifiers in the same order as used in `link_key`.
+    
+    Raises:
+        ValueError: If required fields are missing or empty, references are unknown, an inter-satellite link uses the same satellite on both ends, or the action_type is unsupported.
+    """
     if action.action_type == "ground_link":
         if not isinstance(action.endpoint_id, str) or not action.endpoint_id:
             raise ValueError("ground_link action requires endpoint_id")
@@ -310,6 +472,20 @@ def _validate_action_schedule(
     solution: RelaySolution,
     actions: list[RelayAction],
 ) -> tuple[list[str], dict[int, tuple[str, ...]], dict[int, tuple[int, ...]]]:
+    """
+    Validate and normalize an action schedule, ensuring each action references existing nodes, its time interval aligns with the case sampling grid and horizon, and no two actions overlap on the same logical link.
+    
+    Parameters:
+        case (RelayCase): Problem case containing manifest, backbone satellites, and endpoints used for validation.
+        solution (RelaySolution): Submitted solution whose added satellites are allowed in actions.
+        actions (list[RelayAction]): List of actions to validate.
+    
+    Returns:
+        tuple:
+            - violations (list[str]): Human-readable violation messages discovered (empty if none).
+            - link_keys_by_action (dict[int, tuple[str, ...]]): Mapping from action index to a canonical link key tuple identifying the logical link for that action (e.g., ("ground_link", endpoint_id, satellite_id) or ("inter_satellite_link", sat_a, sat_b")).
+            - sample_indices_by_action (dict[int, tuple[int, ...]]): Mapping from action index to the sequence of sample indices covered by the action (range of integers, end exclusive in internal checks but stored as contained indices).
+    """
     violations: list[str] = []
     link_keys_by_action: dict[int, tuple[str, ...]] = {}
     sample_indices_by_action: dict[int, tuple[int, ...]] = {}
@@ -356,6 +532,19 @@ def _build_reduced_timeline(
     actions: list[RelayAction],
     sample_indices_by_action: dict[int, tuple[int, ...]],
 ) -> tuple[list[int], dict[str, tuple[int, ...]], dict[int, list[RelayDemand]]]:
+    """
+    Builds a reduced timeline of sample indices referenced by actions and demands.
+    
+    Parameters:
+        case: RelayCase containing demands and manifest timing.
+        actions: List of actions (unused here except for alignment with call sites).
+        sample_indices_by_action: Mapping from action index to the tuple of sample indices that action covers.
+    
+    Returns:
+        action_samples (list[int]): Sorted list of unique sample indices covered by any action.
+        active_demand_indices (dict[str, tuple[int, ...]]): Mapping from demand_id to the tuple of sample indices when that demand is active.
+        demands_by_sample (dict[int, list[RelayDemand]]): Mapping from sample index to the list of demands active at that sample index.
+    """
     active_demand_indices: dict[str, tuple[int, ...]] = {}
     demands_by_sample: dict[int, list[RelayDemand]] = defaultdict(list)
 
@@ -380,6 +569,19 @@ def _propagate_positions(
     all_satellites: dict[str, RelaySatellite],
     reduced_samples: list[int],
 ) -> tuple[dict[int, int], dict[str, np.ndarray]]:
+    """
+    Propagate each satellite's initial ECI state to ECEF positions for the specified sample indices.
+    
+    Parameters:
+        case (RelayCase): Defines the epoch and routing time grid used to convert sample indices to epochs.
+        all_satellites (dict[str, RelaySatellite]): Mapping of satellite IDs to satellites whose `state_eci_m_mps` provide the initial ECI state.
+        reduced_samples (list[int]): Sorted list of sample indices for which positions are required.
+    
+    Returns:
+        tuple:
+            sample_lookup (dict[int, int]): Maps a sample index to its row index in the per-satellite position arrays (i.e., index into the second return's arrays).
+            positions_ecef_by_satellite (dict[str, numpy.ndarray]): Maps each satellite ID to a (N, 3) array of ECEF positions in meters, where N == len(reduced_samples) and rows are ordered according to `reduced_samples`.
+    """
     if not reduced_samples:
         return {}, {}
     _ensure_brahe_ready()
@@ -420,6 +622,34 @@ def _validate_action_geometry(
     sample_lookup: dict[int, int],
     positions_ecef_by_satellite: dict[str, np.ndarray],
 ) -> tuple[list[str], list[ValidatedAction], list[ActionFailure], dict[str, int], dict[str, int]]:
+    """
+    Validate geometric feasibility of actions across sampled times and enforce per-sample link capacity limits.
+    
+    For each action present in link_keys_by_action this function:
+    - Normalizes the action endpoints and, for each covered sample index, checks geometric feasibility using the propagated ECEF positions:
+      - ground links: endpoint elevation and max ground range
+      - inter-satellite links (ISLs): range and Earth-clear segment test
+    - On first infeasible sample for an action records a violation string and an ActionFailure and stops further checks for that action.
+    - For fully feasible actions collects a ValidatedAction with per-sample distances.
+    - Counts active links per satellite and per endpoint at each sample and after processing all actions emits violations for any sample where counts exceed manifest limits.
+    
+    Parameters:
+        case (RelayCase): Problem case containing manifest, ground endpoints, and limits.
+        solution (RelaySolution): Submitted solution (used to resolve added satellites).
+        actions (list[RelayAction]): Ordered list of actions to validate.
+        link_keys_by_action (dict[int, tuple[str, ...]]): Mapping from action index to normalized link key.
+        sample_indices_by_action (dict[int, tuple[int, ...]]): Mapping from action index to the sampled indices the action covers.
+        sample_lookup (dict[int, int]): Mapping from global sample index to row index in the propagated position arrays.
+        positions_ecef_by_satellite (dict[str, np.ndarray]): Per-satellite arrays of ECEF positions indexed by the propagated row index.
+    
+    Returns:
+        tuple containing:
+        - violations (list[str]): Human-readable violation messages (geometry and capacity).
+        - validated_actions (list[ValidatedAction]): Actions that were feasible for all their samples, including per-sample distances.
+        - action_failures (list[ActionFailure]): Failures recorded for actions that were geometrically infeasible (one per failing action at first failing sample).
+        - diagnostics_counts (dict[str, int]): Counts summarizing validated actions by type and total validated actions.
+        - feasibility_counts (dict[str, int]): Counts of samples checked for each link type (keys: "ground_link_samples_checked", "inter_satellite_link_samples_checked").
+    """
     violations: list[str] = []
     validated_actions: list[ValidatedAction] = []
     action_failures: list[ActionFailure] = []
@@ -525,6 +755,15 @@ def _validate_action_geometry(
 
 
 def _build_active_edges_by_sample(validated_actions: list[ValidatedAction]) -> dict[int, list[ValidatedAction]]:
+    """
+    Builds a mapping from sample index to the list of validated actions active at that sample.
+    
+    Parameters:
+        validated_actions (list[ValidatedAction]): Validated actions each containing a sequence of active sample indices.
+    
+    Returns:
+        dict[int, list[ValidatedAction]]: Mapping from sample index to the list of validated actions active at that index. Each list is sorted by the action's `action_id`.
+    """
     active_edges_by_sample: dict[int, list[ValidatedAction]] = defaultdict(list)
     for action in validated_actions:
         for sample_index in action.sample_indices:
@@ -540,6 +779,20 @@ def _enumerate_paths(
     destination_id: str,
     endpoint_ids: set[str],
 ) -> list[PathCandidate]:
+    """
+    Enumerate all simple, endpoint-constrained paths from source to destination in an undirected adjacency graph.
+    
+    Searches depth-first for all simple paths that start at `source_id` and end at `destination_id`, forbidding intermediate visits to any node in `endpoint_ids` (except when the endpoint is the destination). Each discovered path is returned as a PathCandidate with the ordered node sequence, the corresponding edge IDs in traversal order, and the summed distance. The returned list is sorted by (total_distance_m, nodes, edge_ids).
+    
+    Parameters:
+        adjacency (dict[str, list[_SampleEdge]]): Mapping from a node ID to a list of adjacent sampled edges.
+        source_id (str): Starting node ID for paths.
+        destination_id (str): Target node ID for paths.
+        endpoint_ids (set[str]): Set of endpoint node IDs that must not appear as intermediate nodes on a path (the destination may be in this set).
+    
+    Returns:
+        list[PathCandidate]: Sorted list of discovered path candidates, each containing `nodes`, `edge_ids`, and `total_distance_m`.
+    """
     candidates: list[PathCandidate] = []
 
     def _dfs(
@@ -549,6 +802,19 @@ def _enumerate_paths(
         edge_ids: list[str],
         total_distance_m: float,
     ) -> None:
+        """
+        Depth-first search that explores simple paths from the current node to a predefined destination and records complete path candidates.
+        
+        Parameters:
+            node_id (str): Current node identifier being explored.
+            visited (set[str]): Set of node IDs already visited in the current search branch to avoid cycles.
+            nodes (list[str]): Ordered list of node IDs along the current path (start through current node); mutated in-place.
+            edge_ids (list[str]): Ordered list of edge IDs corresponding to traversed edges along the current path; mutated in-place.
+            total_distance_m (float): Cumulative distance of the current path in meters.
+        
+        Side effects:
+            Appends a PathCandidate to the outer-scope `candidates` list when a path reaches the predefined destination. Mutates `visited`, `nodes`, and `edge_ids` during recursion.
+        """
         if node_id == destination_id:
             candidates.append(
                 PathCandidate(
@@ -589,6 +855,17 @@ def _shortest_path_candidate(
     destination_id: str,
     all_endpoint_ids: set[str],
 ) -> PathCandidate | None:
+    """
+    Finds the shortest simple path from source_id to destination_id that does not pass through other endpoint nodes.
+    
+    Searches for a minimum-total-distance path (no repeated nodes) using a Dijkstra-like best-first search. Intermediate visits to any node in all_endpoint_ids are disallowed unless the node is the destination.
+    
+    Parameters:
+        all_endpoint_ids (set[str]): Endpoint node IDs that must not appear as intermediate nodes on a path (the destination may be in this set).
+    
+    Returns:
+        PathCandidate | None: A PathCandidate containing `nodes` (tuple of node IDs in path order), `edge_ids` (tuple of edge IDs in the same order), and `total_distance_m` if a feasible path exists; `None` if no path is found.
+    """
     queue: list[tuple[float, tuple[str, ...], tuple[str, ...], str]] = [
         (0.0, (source_id,), (), source_id)
     ]
@@ -625,6 +902,15 @@ def _shortest_path_candidate(
 
 
 def _assignment_signature(assignments: dict[str, PathCandidate]) -> tuple[tuple[str, tuple[str, ...]], ...]:
+    """
+    Create a deterministic, order-independent signature for a set of demand path assignments.
+    
+    Parameters:
+        assignments (dict[str, PathCandidate]): Mapping from demand ID to chosen path candidate.
+    
+    Returns:
+        signature (tuple[tuple[str, tuple[str, ...]], ...]): A tuple of pairs (demand_id, nodes) sorted by `demand_id`, where `nodes` is the tuple of node IDs for that demand's path.
+    """
     return tuple(
         (demand_id, assignments[demand_id].nodes)
         for demand_id in sorted(assignments)
@@ -635,6 +921,19 @@ def _score_assignment(
     assignments: dict[str, PathCandidate],
     demand_by_id: dict[str, RelayDemand],
 ) -> tuple[float, float, tuple[tuple[str, tuple[str, ...]], ...]]:
+    """
+    Compute scoring components for a candidate assignment of demands to paths.
+    
+    Parameters:
+        assignments (dict[str, PathCandidate]): Mapping from demand ID to chosen path candidate.
+        demand_by_id (dict[str, RelayDemand]): Mapping from demand ID to its RelayDemand object (used to read weights).
+    
+    Returns:
+        tuple:
+            served_weight (float): Sum of weights for the demands present in `assignments`.
+            total_latency_ms (float): Sum of propagation latencies for assigned paths in milliseconds (distance / c * 1000).
+            signature (tuple[tuple[str, tuple[str, ...]], ...]): Deterministic, ordering-independent signature of the assignment used for tie-breaking.
+    """
     served_weight = sum(demand_by_id[demand_id].weight for demand_id in assignments)
     total_latency_ms = sum(
         1000.0 * candidate.total_distance_m / LIGHT_SPEED_M_S
@@ -647,6 +946,22 @@ def _better_assignment(
     candidate: tuple[float, float, tuple[tuple[str, tuple[str, ...]], ...]],
     incumbent: tuple[float, float, tuple[tuple[str, tuple[str, ...]], ...]] | None,
 ) -> bool:
+    """
+    Determine whether a candidate assignment is preferable to the incumbent based on served weight, latency, and signature tie-breaker.
+    
+    Parameters:
+        candidate (tuple): (served_weight, total_latency, signature) where
+            served_weight (float) is the summed weight of served demands,
+            total_latency (float) is the pooled latency metric (lower is better),
+            signature (tuple) is a deterministic ordering-independent tuple used for final tie-breaking.
+        incumbent (tuple | None): Same structure as `candidate`, or `None` to indicate no incumbent.
+    
+    Returns:
+        bool: `True` if `candidate` is strictly preferred to `incumbent` according to the following priority:
+            1. larger `served_weight` (uses NUMERICAL_EPS tolerance),
+            2. lower `total_latency` (uses NUMERICAL_EPS tolerance) if weights are effectively equal,
+            3. lexicographically smaller `signature` if both weight and latency are effectively equal.
+    """
     if incumbent is None:
         return True
     candidate_weight, candidate_latency, candidate_signature = candidate
@@ -666,6 +981,16 @@ def _build_sample_adjacency(
     active_edges: list[ValidatedAction],
     sample_index: int,
 ) -> dict[str, list[_SampleEdge]]:
+    """
+    Build an undirected adjacency map of nodes to neighboring sampled edges for a given sample index.
+    
+    Parameters:
+    	active_edges (list[ValidatedAction]): Validated actions active at the sample; each provides `node_a`, `node_b`, `action_id`, and `distances_m_by_sample`.
+    	sample_index (int): Index of the sample whose per-edge distances to use.
+    
+    Returns:
+    	adjacency (dict[str, list[_SampleEdge]]): Mapping from node ID to a list of _SampleEdge entries representing neighbors active at the sample. Each list is sorted by `(distance_m, neighbor_id, edge_id)`.
+    """
     adjacency: dict[str, list[_SampleEdge]] = defaultdict(list)
     for edge in active_edges:
         distance_m = edge.distances_m_by_sample[sample_index]
@@ -686,6 +1011,20 @@ def _allocate_sample_demands(
     sample_index: int,
     all_endpoint_ids: set[str],
 ) -> dict[str, PathCandidate]:
+    """
+    Selects and returns a best non-overlapping assignment of demand routes for a single sample instant.
+    
+    For the given sample index, builds the sample-specific adjacency from active edges and produces path candidates for each demand. If there is exactly one demand, returns its shortest feasible path candidate (if any). When multiple demands are present, searches for an assignment that uses disjoint edge sets and maximizes the sum of served demand weights; among assignments with equal served weight, selects the one with lower total latency (sum of path distances / c), and uses a deterministic signature tie-breaker for remaining ties.
+    
+    Parameters:
+        demands (list[RelayDemand]): Demands active at this sample.
+        active_edges (list[ValidatedAction]): Validated actions active at this sample providing edges and per-sample distances.
+        sample_index (int): Sample index for which adjacency and per-edge distances are evaluated.
+        all_endpoint_ids (set[str]): Set of endpoint node IDs (used to prevent routing through intermediate endpoints).
+    
+    Returns:
+        dict[str, PathCandidate]: Mapping from demand_id to the chosen PathCandidate for served demands. Returns an empty dict if no feasible assignment exists.
+    """
     if not demands or not active_edges:
         return {}
 
@@ -731,6 +1070,21 @@ def _allocate_sample_demands(
         served_weight: float,
         total_latency_ms: float,
     ) -> None:
+        """
+        Recursively searches for the best disjoint-path assignment for the ordered demands, maximizing total served demand weight and minimizing total latency as a tie-breaker.
+        
+        Performs depth-first backtracking over candidate paths for each demand, maintaining a set of already used edge IDs to ensure assignments are edge-disjoint. Prunes branches when the remaining possible served weight cannot beat the current best score or when equal-weight branches cannot improve latency.
+        
+        Parameters:
+            demand_index (int): Index in the ordered_demands list to process next.
+            used_edges (set[str]): Edge IDs already assigned to previous demands in the current partial solution.
+            assignments (dict[str, PathCandidate]): Current partial mapping from demand_id to chosen PathCandidate.
+            served_weight (float): Sum of weights of demands already assigned in the current partial solution.
+            total_latency_ms (float): Cumulative latency (milliseconds) of the current partial solution.
+        
+        Returns:
+            None
+        """
         nonlocal best_assignment, best_score
         if demand_index >= len(ordered_demands):
             candidate_score = _score_assignment(assignments, demand_by_id)
@@ -774,6 +1128,15 @@ def _allocate_sample_demands(
 
 
 def _percentile_95(values: list[float]) -> float | None:
+    """
+    Compute the 95th percentile of the provided numeric values.
+    
+    Parameters:
+        values (list[float]): Sample values to compute the percentile from.
+    
+    Returns:
+        float | None: The 95th percentile as a float if `values` is non-empty, `None` otherwise.
+    """
     if not values:
         return None
     return float(np.percentile(np.asarray(values, dtype=float), 95))
@@ -784,6 +1147,18 @@ def _schedule_action_failures(
     actions: list[RelayAction],
     violations: list[str],
 ) -> list[ActionFailure]:
+    """
+    Extracts action-indexed failures from textual violation messages and returns corresponding ActionFailure records.
+    
+    Parameters:
+        case (RelayCase): The analyzed case (used only to provide context; not read by this function).
+        actions (list[RelayAction]): List of actions to reference by index when constructing failures.
+        violations (list[str]): Violation strings; those starting with "actions[<index>]" will be parsed to extract <index>.
+    
+    Returns:
+        failures (list[ActionFailure]): Sorted list of ActionFailure objects for each well-formed "actions[<index>]" violation,
+        with `sample_index` and `time` set to None.
+    """
     failures: list[ActionFailure] = []
     for violation in violations:
         if not violation.startswith("actions["):
@@ -821,6 +1196,25 @@ def analyze(
     *,
     include_demand_sample_positions: bool = False,
 ) -> SolutionAnalysis:
+    """
+    Run full verification and allocation for a relay-constellation solution against a case.
+    
+    Performs orbit and schedule validation, propagates satellite positions for a reduced set of sample times,
+    validates geometric feasibility and capacity constraints for scheduled actions, and if geometry passes,
+    builds per-sample active-edge graphs and allocates demand samples to non-overlapping paths to compute
+    service and latency metrics.
+    
+    Parameters:
+        case (RelayCase): Problem case containing manifest, backbone satellites, endpoints, and demands.
+        solution (RelaySolution): Proposed solution including added satellites and scheduled actions.
+        include_demand_sample_positions (bool): If True, include demand sample instants in the propagated sample set
+            so propagated satellite positions are available at demand times (default False).
+    
+    Returns:
+        SolutionAnalysis: Complete analysis object containing the verification result (valid or not), diagnostics
+        and metrics, propagation sample indices and lookups, propagated ECEF positions for referenced satellites,
+        validated actions and any action failures, and per-sample allocation/route assignments when analysis succeeds.
+    """
     metrics = _default_metrics(case, solution)
 
     orbit_violations, orbit_summaries = _validate_added_satellites(case, solution)
@@ -1059,10 +1453,28 @@ def analyze(
 
 
 def verify(case: RelayCase, solution: RelaySolution) -> VerificationResult:
+    """
+    Run a full analysis for the given RelayCase and RelaySolution and return the verification result.
+    
+    Parameters:
+        case (RelayCase): The problem case to analyze.
+        solution (RelaySolution): The proposed solution to verify.
+    
+    Returns:
+        VerificationResult: Result object containing the validity flag, discovered violations, and diagnostics.
+    """
     return analyze(case, solution).result
 
 
 def verify_solution(case_dir: str | Path, solution_path: str | Path) -> VerificationResult:
+    """
+    Load a case and solution from the given filesystem paths and run verification on them.
+    
+    If loading the case or solution raises FileNotFoundError or ValueError, returns a VerificationResult with valid set to False, metrics produced by _default_metrics(case, solution), violations containing the exception message, and empty diagnostics. Otherwise returns the result of verify(case, solution).
+    
+    Returns:
+        VerificationResult: The verification outcome for the loaded case and solution.
+    """
     case: RelayCase | None = None
     solution: RelaySolution | None = None
     try:
@@ -1084,6 +1496,17 @@ def analyze_solution(
     *,
     include_demand_sample_positions: bool = True,
 ) -> SolutionAnalysis:
+    """
+    Load a case and a solution from the given paths and run the full relay-constellation analysis.
+    
+    Parameters:
+    	case_dir (str | Path): Path to the case directory to load.
+    	solution_path (str | Path): Path to the solution file to load.
+    	include_demand_sample_positions (bool): If True, include demand sample instants when propagating satellite positions for geometry checks and demand-position reporting.
+    
+    Returns:
+    	SolutionAnalysis: The complete analysis result containing the verification outcome, diagnostics, propagated positions, validated actions, and allocation/latency metrics.
+    """
     case = load_case(case_dir)
     solution = load_solution(solution_path)
     return analyze(

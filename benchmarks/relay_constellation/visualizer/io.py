@@ -59,10 +59,35 @@ class RelayCase:
 
 
 def _read_json(path: Path) -> dict[str, Any]:
+    """
+    Read UTF-8 text from the given Path and parse it as JSON.
+    
+    Parameters:
+        path (Path): Path to the JSON file to read.
+    
+    Returns:
+        dict[str, Any]: Parsed JSON object.
+    """
     return json.loads(path.read_text(encoding="utf-8"))
 
 
 def _parse_iso_utc(value: str, *, field: str) -> datetime:
+    """
+    Parse an ISO-8601 timestamp string and return it as an aware UTC datetime.
+    
+    Whitespace is trimmed and timestamps ending with 'Z' or 'z' are treated as UTC. The function requires the input to include a timezone; otherwise it raises an error.
+    
+    Parameters:
+        value (str): The timestamp string to parse.
+        field (str): Context name used in error messages when raising ValueError.
+    
+    Returns:
+        datetime: An aware datetime normalized to UTC.
+    
+    Raises:
+        ValueError: If the trimmed timestamp is empty ("{field}: empty timestamp").
+        ValueError: If the parsed timestamp has no timezone information ("{field}: timezone-aware timestamp required").
+    """
     text = value.strip()
     if not text:
         raise ValueError(f"{field}: empty timestamp")
@@ -75,12 +100,40 @@ def _parse_iso_utc(value: str, *, field: str) -> datetime:
 
 
 def _require_float(payload: dict[str, Any], key: str, context: str) -> float:
+    """
+    Require and convert a numeric field from a payload dictionary.
+    
+    Parameters:
+        payload (dict[str, Any]): Dictionary containing the field.
+        key (str): Key name to retrieve from the payload.
+        context (str): Context string used as a prefix in error messages.
+    
+    Returns:
+        float: The value converted to float.
+    
+    Raises:
+        ValueError: If `key` is not present in `payload`.
+    """
     if key not in payload:
         raise ValueError(f"{context}: missing {key}")
     return float(payload[key])
 
 
 def _require_str(payload: dict[str, Any], key: str, context: str) -> str:
+    """
+    Validate that the mapping contains a non-empty string under the given key and return it.
+    
+    Parameters:
+    	payload (dict[str, Any]): Mapping to read the value from.
+    	key (str): Key to look up in the mapping.
+    	context (str): Context string used to format error messages.
+    
+    Returns:
+    	str: The value associated with `key` as a non-empty string.
+    
+    Raises:
+    	ValueError: If `key` is missing from `payload` or the associated value is not a non-empty string.
+    """
     if key not in payload:
         raise ValueError(f"{context}: missing {key}")
     value = payload[key]
@@ -90,6 +143,20 @@ def _require_str(payload: dict[str, Any], key: str, context: str) -> str:
 
 
 def load_case(case_dir: Path | str) -> RelayCase:
+    """
+    Load and validate a relay visualization case from a directory containing manifest.json, network.json, and demands.json.
+    
+    Parameters:
+        case_dir (Path | str): Path to a case directory that must contain `manifest.json`, `network.json`, and `demands.json`.
+    
+    Returns:
+        RelayCase: Parsed and validated case containing a RelayManifest, backbone_satellites (mapping of satellite_id to RelaySatellite), ground_endpoints (mapping of endpoint_id to RelayEndpoint), sorted demands (list[RelayDemand]), and the resolved `case_dir` Path.
+    
+    Raises:
+        ValueError: If required fields are missing or have invalid formats (including timestamp parsing and required string/number validations).
+        KeyError: If required constraint keys (e.g., `max_isl_range_m`) are absent in the manifest constraints.
+        OSError, json.JSONDecodeError, or other exceptions from underlying I/O, JSON parsing, numeric conversions, or coordinate conversion operations may also propagate.
+    """
     case_dir = Path(case_dir).resolve()
     manifest_payload = _read_json(case_dir / "manifest.json")
     network_payload = _read_json(case_dir / "network.json")

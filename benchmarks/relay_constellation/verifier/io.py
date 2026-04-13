@@ -22,22 +22,70 @@ from .models import (
 
 
 def _load_json(path: Path) -> Any:
+    """
+    Load and parse a UTF-8 encoded JSON file from the given path.
+    
+    Reads the file as UTF-8 text and parses it into the corresponding Python object.
+    
+    Returns:
+        The parsed JSON value (e.g., dict, list, str, int, float, bool, or None).
+    """
     return json.loads(path.read_text(encoding="utf-8"))
 
 
 def _require_mapping(payload: Any, context: str) -> dict[str, Any]:
+    """
+    Ensure the given JSON value is an object and return it as a mapping.
+    
+    Parameters:
+        payload (Any): The JSON value to validate.
+        context (str): Context text used in the error message if validation fails.
+    
+    Returns:
+        mapping (dict[str, Any]): The same object cast to a dictionary.
+    
+    Raises:
+        ValueError: If `payload` is not a JSON object (dict).
+    """
     if not isinstance(payload, dict):
         raise ValueError(f"{context} must be a JSON object")
     return payload
 
 
 def _require_list(payload: Any, context: str) -> list[Any]:
+    """
+    Require that `payload` is a JSON array.
+    
+    Parameters:
+    	payload (Any): The value to check; expected to be a list representing a JSON array.
+    	context (str): Context used in the error message when the check fails.
+    
+    Returns:
+    	list[Any]: The original `payload` cast as a list.
+    
+    Raises:
+    	ValueError: If `payload` is not a list.
+    """
     if not isinstance(payload, list):
         raise ValueError(f"{context} must be a JSON array")
     return payload
 
 
 def _require_str(payload: dict[str, Any], key: str, context: str) -> str:
+    """
+    Ensure a mapping contains a non-empty string value for a given key.
+    
+    Parameters:
+        payload (dict[str, Any]): Mapping to validate.
+        key (str): Key to extract from the mapping.
+        context (str): Context used in the error message when validation fails.
+    
+    Returns:
+        The non-empty string stored at payload[key].
+    
+    Raises:
+        ValueError: If the key is missing, the value is not a string, or the string is empty.
+    """
     value = payload.get(key)
     if not isinstance(value, str) or not value:
         raise ValueError(f"{context}.{key} must be a non-empty string")
@@ -45,6 +93,22 @@ def _require_str(payload: dict[str, Any], key: str, context: str) -> str:
 
 
 def _require_float(payload: dict[str, Any], key: str, context: str) -> float:
+    """
+    Require and return a numeric field as a float.
+    
+    Extracts payload[key], requires the value to be an int or float, and returns it converted to float. The context string is used as a prefix in the ValueError message when validation fails.
+    
+    Parameters:
+        payload (dict[str, Any]): Mapping containing the field.
+        key (str): Key of the value to extract.
+        context (str): Context used in the error message prefix.
+    
+    Returns:
+        float: The numeric value converted to float.
+    
+    Raises:
+        ValueError: If the field is missing or not an int/float.
+    """
     value = payload.get(key)
     if not isinstance(value, (int, float)):
         raise ValueError(f"{context}.{key} must be numeric")
@@ -52,6 +116,20 @@ def _require_float(payload: dict[str, Any], key: str, context: str) -> float:
 
 
 def _require_int(payload: dict[str, Any], key: str, context: str) -> int:
+    """
+    Require that a mapping contains an integer value for the specified key.
+    
+    Parameters:
+        payload (dict[str, Any]): Mapping to read the value from.
+        key (str): Key whose value must be an integer.
+        context (str): Context prefix used in the error message (e.g., file or object path).
+    
+    Returns:
+        int: The integer value stored at `payload[key]`.
+    
+    Raises:
+        ValueError: If the key is missing or the value is not an integer.
+    """
     value = payload.get(key)
     if not isinstance(value, int):
         raise ValueError(f"{context}.{key} must be an integer")
@@ -59,6 +137,21 @@ def _require_int(payload: dict[str, Any], key: str, context: str) -> int:
 
 
 def _parse_iso_utc(value: str, *, field: str) -> datetime:
+    """
+    Parse an ISO-8601 timestamp string and return it as a UTC-aware datetime.
+    
+    Trims surrounding whitespace, accepts a trailing `Z` or `z` as UTC, requires the input to include a timezone, and converts the result to UTC.
+    
+    Parameters:
+        value (str): The timestamp string to parse.
+        field (str): Name of the input field used in error messages.
+    
+    Returns:
+        datetime: The parsed timestamp converted to UTC.
+    
+    Raises:
+        ValueError: If the trimmed string is empty, if the timestamp lacks timezone information, or if the string is not a valid ISO-8601 timestamp.
+    """
     text = value.strip()
     if not text:
         raise ValueError(f"{field}: empty timestamp")
@@ -71,6 +164,17 @@ def _parse_iso_utc(value: str, *, field: str) -> datetime:
 
 
 def _geodetic_to_ecef(longitude_deg: float, latitude_deg: float, altitude_m: float) -> np.ndarray:
+    """
+    Convert geodetic coordinates to Earth-Centered, Earth-Fixed (ECEF) Cartesian coordinates.
+    
+    Parameters:
+        longitude_deg (float): Longitude in degrees.
+        latitude_deg (float): Latitude in degrees.
+        altitude_m (float): Altitude above the WGS84 ellipsoid in meters.
+    
+    Returns:
+        np.ndarray: 3-element float array [x, y, z] giving ECEF coordinates in meters.
+    """
     return np.asarray(
         brahe.position_geodetic_to_ecef(
             [longitude_deg, latitude_deg, altitude_m],
@@ -81,6 +185,25 @@ def _geodetic_to_ecef(longitude_deg: float, latitude_deg: float, altitude_m: flo
 
 
 def load_case(case_dir: str | Path) -> RelayCase:
+    """
+    Load a relay verification case from a directory and construct a RelayCase with manifest, network, and demands.
+    
+    Validates presence of manifest.json, network.json, and demands.json, parses their JSON payloads, and builds:
+    - RelayManifest from manifest.json (including required constraints and optional constraint fields).
+    - backbone satellites from network.json.backbone_satellites (rejects duplicate satellite_id).
+    - ground endpoints from network.json.ground_endpoints with ECEF positions computed from geodetic coordinates (rejects duplicate endpoint_id).
+    - demands from demands.json.demanded_windows with parsed ISO-8601 UTC timestamps and a default weight of 1.0. Demands are validated, sorted by (start_time, end_time, demand_id), and returned as part of the RelayCase.
+    
+    Parameters:
+        case_dir (str | Path): Path to the case directory containing manifest.json, network.json, and demands.json.
+    
+    Returns:
+        RelayCase: Populated case including case_dir, manifest, backbone_satellites, ground_endpoints, and sorted demands.
+    
+    Raises:
+        FileNotFoundError: If the case directory or any required file is missing.
+        ValueError: If any JSON structure or required field is invalid, duplicate IDs are found, referenced endpoints are unknown, or temporal/manifest constraints are violated.
+    """
     case_path = Path(case_dir).resolve()
     manifest_path = case_path / "manifest.json"
     network_path = case_path / "network.json"
@@ -229,6 +352,15 @@ def load_case(case_dir: str | Path) -> RelayCase:
 
 
 def load_solution(solution_path: str | Path) -> RelaySolution:
+    """
+    Load a RelaySolution from a JSON file that follows the verifier's solution schema.
+    
+    Parameters:
+        solution_path (str | Path): Path to a JSON file containing `added_satellites` and `actions` as specified by the verifier.
+    
+    Returns:
+        RelaySolution: Object containing `added_satellites` (mapping satellite_id -> RelaySatellite) and `actions` (list of RelayAction).
+    """
     solution_file = Path(solution_path).resolve()
     if not solution_file.is_file():
         raise FileNotFoundError(f"Solution file not found: {solution_file}")

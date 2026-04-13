@@ -79,6 +79,12 @@ class MeoBackboneSummary:
 
 
 def _ensure_brahe_ready() -> None:
+    """
+    Ensure Brahe's Earth orientation parameters (EOP) provider is initialized globally.
+    
+    This function sets Brahe's global EOP provider to a static "zero" provider the first
+    time it is called; subsequent calls have no effect.
+    """
     global _BRAHE_EOP_INITIALIZED
     if _BRAHE_EOP_INITIALIZED:
         return
@@ -88,10 +94,27 @@ def _ensure_brahe_ready() -> None:
     _BRAHE_EOP_INITIALIZED = True
 
 def _isoformat_z(value: datetime) -> str:
+    """
+    Format a datetime as an ISO-8601 string using UTC with a trailing 'Z'.
+    
+    Converts the input to UTC and returns its ISO-8601 representation with the "+00:00" offset replaced by "Z".
+    
+    Returns:
+        str: ISO-8601 timestamp in UTC with a 'Z' suffix (e.g., "2026-04-13T12:34:56Z").
+    """
     return value.astimezone(UTC).isoformat().replace("+00:00", "Z")
 
 
 def _write_json(path: Path, payload: dict[str, Any]) -> None:
+    """
+    Write a JSON-serializable payload to a file, creating parent directories as needed.
+    
+    The payload is written with 2-space indentation, keys sorted, UTF-8 encoding, and the file is terminated with a single newline.
+    
+    Parameters:
+        path (Path): Destination file path to write.
+        payload (dict[str, Any]): JSON-serializable mapping to serialize and write.
+    """
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n", encoding="utf-8")
 
@@ -102,6 +125,18 @@ def _haversine_distance_m(
     latitude_b_deg: float,
     longitude_b_deg: float,
 ) -> float:
+    """
+    Compute the great-circle distance between two geographic coordinates using the haversine formula.
+    
+    Parameters:
+        latitude_a_deg (float): Latitude of point A in decimal degrees.
+        longitude_a_deg (float): Longitude of point A in decimal degrees.
+        latitude_b_deg (float): Latitude of point B in decimal degrees.
+        longitude_b_deg (float): Longitude of point B in decimal degrees.
+    
+    Returns:
+        distance_m (float): Great-circle distance between the two points in meters.
+    """
     lat_a = math.radians(latitude_a_deg)
     lon_a = math.radians(longitude_a_deg)
     lat_b = math.radians(latitude_b_deg)
@@ -116,6 +151,15 @@ def _haversine_distance_m(
 
 
 def _min_pairwise_separation_deg(sites: list[SiteRecord]) -> float:
+    """
+    Compute the minimum great-circle angular separation (in degrees) among all unique pairs of sites.
+    
+    Parameters:
+        sites (list[SiteRecord]): Sequence of site records to compare.
+    
+    Returns:
+        float: The smallest pairwise separation in degrees. If fewer than two sites are provided, returns 180.0.
+    """
     min_deg = math.inf
     for site_a, site_b in itertools.combinations(sites, 2):
         distance_m = _haversine_distance_m(
@@ -129,6 +173,17 @@ def _min_pairwise_separation_deg(sites: list[SiteRecord]) -> float:
 
 
 def _load_site_library() -> tuple[SiteRecord, ...]:
+    """
+    Load the canonical site library from disk and return an immutable sequence of SiteRecord entries.
+    
+    Reads SITE_LIBRARY_PATH as UTF-8 JSON, parses each object into a SiteRecord with stringified `site_id` and `name` and numeric `latitude_deg`, `longitude_deg`, and `altitude_m`. Ensures the library contains at least 24 sites.
+    
+    Returns:
+    	tuple[SiteRecord, ...]: Parsed site records in the order they appear in the source file.
+    
+    Raises:
+    	ValueError: If the parsed site library contains fewer than 24 entries.
+    """
     raw = json.loads(SITE_LIBRARY_PATH.read_text(encoding="utf-8"))
     sites = [
         SiteRecord(
@@ -146,10 +201,33 @@ def _load_site_library() -> tuple[SiteRecord, ...]:
 
 
 def _weighted_choice(rng: random.Random, values: tuple[Any, ...], weights: tuple[int, ...]) -> Any:
+    """
+    Selects a single element from `values` using the provided integer weights.
+    
+    Parameters:
+        rng (random.Random): Random source used for the selection.
+        values (tuple[Any, ...]): Candidate items to choose from.
+        weights (tuple[int, ...]): Integer weights parallel to `values`; larger values increase selection probability.
+    
+    Returns:
+        Any: One element from `values` chosen according to `weights`.
+    """
     return rng.choices(values, weights=weights, k=1)[0]
 
 
 def _partition_total(total: int, parts: int, rng: random.Random, minimum: int) -> list[int]:
+    """
+    Distribute an integer total across a fixed number of integer parts, giving each part at least `minimum` and randomly allocating any remaining units.
+    
+    Parameters:
+        total (int): The integer sum to partition.
+        parts (int): The number of parts to produce.
+        rng (random.Random): Random number generator used to assign remaining units.
+        minimum (int): Minimum value assigned to each part.
+    
+    Returns:
+        list[int]: A list of length `parts` whose elements are integers >= `minimum` and sum to `total`.
+    """
     remaining = total - (parts * minimum)
     counts = [minimum] * parts
     for _ in range(remaining):
@@ -162,6 +240,18 @@ def _sample_backbone(
     *,
     epoch: datetime,
 ) -> tuple[list[BackboneSatellite], MeoBackboneSummary]:
+    """
+    Sample a deterministic MEO backbone constellation configuration.
+    
+    Generates a set of backbone satellite records with ECI state vectors and a short summary describing the sampled constellation (total count, representative altitude, inclination, and plane count).
+    
+    Parameters:
+        rng (random.Random): Pseudo-random number generator used for all sampling decisions.
+        epoch (datetime): Reference epoch passed to the sampler (currently accepted but not used by the implementation).
+    
+    Returns:
+        tuple[list[BackboneSatellite], MeoBackboneSummary]: A tuple where the first element is the list of sampled backbone satellites (each with an id, ECI state vector in meters/meters-per-second, and shell index) and the second element is a summary of the sampled backbone (count, altitude_km, inclination_deg, num_planes).
+    """
     _ensure_brahe_ready()
     total_satellites = _weighted_choice(rng, (6, 8, 10), (1, 3, 1))
     num_planes = _weighted_choice(rng, (2, 3), (2, 3))
@@ -218,6 +308,21 @@ def _sample_endpoints(
     rng: random.Random,
     site_library: tuple[SiteRecord, ...],
 ) -> list[EndpointRecord]:
+    """
+    Selects a geographically diverse set of ground endpoints from the provided site library.
+    
+    Attempts up to 200 random draws to choose 4–6 distinct sites that satisfy minimum pairwise angular separation and distance-range constraints (at least one long pair and at least one medium-distance pair). For an accepted selection, returns EndpointRecord entries sorted by site_id with computed ECEF positions and a fixed minimum elevation of 10.0 degrees.
+    
+    Parameters:
+        rng (random.Random): Deterministic random number generator used for all sampling decisions.
+        site_library (tuple[SiteRecord, ...]): Immutable collection of available ground sites to sample from.
+    
+    Returns:
+        list[EndpointRecord]: A list of sampled endpoint records with ids "ground_001", "ground_002", ... and precomputed ECEF positions.
+    
+    Raises:
+        RuntimeError: If no valid diverse set of endpoints is found after 200 attempts.
+    """
     num_endpoints = _weighted_choice(rng, (4, 5, 6), (2, 3, 2))
     candidates = list(site_library)
     for _ in range(200):
@@ -260,6 +365,16 @@ def _pair_distance_m(
     source: EndpointRecord,
     destination: EndpointRecord,
 ) -> float:
+    """
+    Compute the great-circle distance in meters between two endpoints.
+    
+    Parameters:
+        source (EndpointRecord): Source endpoint with geodetic latitude/longitude.
+        destination (EndpointRecord): Destination endpoint with geodetic latitude/longitude.
+    
+    Returns:
+        distance_m (float): Great-circle distance in meters between source and destination.
+    """
     return _haversine_distance_m(
         source.latitude_deg,
         source.longitude_deg,
@@ -274,6 +389,23 @@ def _sample_demand_windows(
     horizon_end: datetime,
     endpoints: list[EndpointRecord],
 ) -> list[DemandWindow]:
+    """
+    Generate a list of demand windows between endpoint pairs within the given time horizon.
+    
+    Builds a small set of endpoint pairs (preferring long then medium separations), assigns 1–2 time windows per pair until a weighted total demand count is reached, and places window start times on a minute grid while avoiding large overlaps for windows of the same endpoint pair.
+    
+    Parameters:
+        rng (random.Random): Source of randomness used for weighted choices and sampling.
+        horizon_start (datetime): Inclusive horizon start time (UTC).
+        horizon_end (datetime): Exclusive horizon end time (UTC).
+        endpoints (list[EndpointRecord]): Available ground endpoints to form demand pairs.
+    
+    Returns:
+        list[DemandWindow]: Sorted list of generated demand windows (by start, end, id).
+    
+    Raises:
+        RuntimeError: If fewer than two endpoint pairs can be selected for demand generation.
+    """
     endpoint_by_id = {endpoint.endpoint_id: endpoint for endpoint in endpoints}
     all_pairs = [(a.endpoint_id, b.endpoint_id) for a, b in itertools.combinations(endpoints, 2)]
 
@@ -395,6 +527,28 @@ def _case_manifest(
     horizon_end: datetime,
     max_added_satellites: int,
 ) -> dict[str, Any]:
+    """
+    Builds the case manifest dictionary containing benchmark metadata, constraint values, propagation settings, routing and scoring configuration.
+    
+    Parameters:
+        case_id (str): Unique identifier for the case (e.g., "case_0001").
+        seed (int): Deterministic generator seed used for this case.
+        epoch (datetime): Reference epoch (UTC) for orbital element conversions; serialized as an ISO-8601 Z string.
+        horizon_start (datetime): Start of the case horizon (UTC); serialized as an ISO-8601 Z string.
+        horizon_end (datetime): End of the case horizon (UTC); serialized as an ISO-8601 Z string.
+        max_added_satellites (int): Upper limit on additional satellites permitted by the case constraints.
+    
+    Returns:
+        dict[str, Any]: Manifest dictionary ready for JSON serialization containing:
+            - "benchmark": benchmark name,
+            - "case_id": case identifier,
+            - "constraints": numeric and operational limits for the case,
+            - "epoch", "horizon_start", "horizon_end": ISO-8601 Z formatted times,
+            - "propagation": propagation frame/model settings,
+            - "routing_step_s": routing step in seconds,
+            - "scoring": primary and secondary scoring metrics,
+            - "seed": the provided seed.
+    """
     return {
         "benchmark": "relay_constellation",
         "case_id": case_id,
@@ -430,6 +584,18 @@ def _case_network(
     endpoints: list[EndpointRecord],
     satellites: list[BackboneSatellite],
 ) -> dict[str, Any]:
+    """
+    Serialize backbone satellites and ground endpoints into a network payload dictionary.
+    
+    Parameters:
+        endpoints (list[EndpointRecord]): Ground endpoints to include in the network payload.
+        satellites (list[BackboneSatellite]): Backbone satellites to include in the network payload.
+    
+    Returns:
+        dict[str, Any]: Dictionary with keys:
+            - "backbone_satellites": list of per-satellite records containing `satellite_id`, ECI position (`x_m`,`y_m`,`z_m`) and velocity (`vx_m_s`,`vy_m_s`,`vz_m_s`).
+            - "ground_endpoints": list of per-endpoint records containing `endpoint_id`, `latitude_deg`, `longitude_deg`, `altitude_m`, and `min_elevation_deg`.
+    """
     return {
         "backbone_satellites": [
             {
@@ -459,6 +625,21 @@ def _case_network(
 def _case_demands(
     demands: list[DemandWindow],
 ) -> dict[str, Any]:
+    """
+    Serialize a list of DemandWindow objects into the case demands payload structure.
+    
+    Parameters:
+        demands (list[DemandWindow]): Ordered list of demand windows to include.
+    
+    Returns:
+        dict: A mapping with key "demanded_windows" whose value is a list of serialized demand records. Each record contains:
+            - `demand_id`: demand identifier
+            - `source_endpoint_id`: source endpoint identifier
+            - `destination_endpoint_id`: destination endpoint identifier
+            - `start_time`: ISO-8601 UTC datetime string ending with `Z`
+            - `end_time`: ISO-8601 UTC datetime string ending with `Z`
+            - `weight`: numeric weight for the demand
+    """
     return {
         "demanded_windows": [
             {
@@ -479,6 +660,21 @@ def _build_case(
     seed: int,
     site_library: tuple[SiteRecord, ...],
 ) -> tuple[dict[str, Any], dict[str, Any], dict[str, Any], dict[str, Any]]:
+    """
+    Builds a single dataset case: samples constellation, endpoints, and demand windows, and returns serialized payloads plus a brief summary.
+    
+    Parameters:
+        case_index (int): Zero-based index of the case used to derive the case ID and per-case seed.
+        seed (int): Global generator seed; combined with case_index to derive the case-specific RNG seed.
+        site_library (tuple[SiteRecord, ...]): Immutable collection of available ground sites used to sample endpoints.
+    
+    Returns:
+        tuple[dict[str, Any], dict[str, Any], dict[str, Any], dict[str, Any]]: A 4-tuple containing:
+            - manifest: case metadata and constraint bundle for the case,
+            - network: serialized backbone satellite and ground endpoint records,
+            - demands_payload: serialized demanded windows for the case,
+            - summary: compact metrics about the generated case (IDs, counts, backbone summary, and configuration).
+    """
     case_id = f"case_{case_index + 1:04d}"
     horizon_start = BASE_EPOCH + timedelta(hours=12 * case_index)
     horizon_end = horizon_start + timedelta(hours=HORIZON_HOURS)
@@ -535,6 +731,19 @@ def generate_dataset(
     *,
     num_cases: int = NUM_CANONICAL_CASES,
 ) -> list[dict[str, Any]]:
+    """
+    Generate a canonical relay_constellation dataset and write per-case JSON files.
+    
+    Writes a per-case directory under output_dir/cases/<case_id>/ containing manifest.json, network.json, and demands.json, and writes an index.json at output_dir summarizing all cases. Existing output_dir/cases is removed before generation.
+    
+    Parameters:
+        output_dir (Path): Target directory for dataset output; created if missing. Per-case subdirectories are created under output_dir/cases and existing cases/ is removed.
+        seed (int): Master RNG seed used to derive deterministic per-case seeds.
+        num_cases (int): Number of dataset cases to generate.
+    
+    Returns:
+        list[dict[str, Any]]: List of per-case summary dictionaries. Each summary contains keys such as `case_id`, `horizon_hours`, `max_added_satellites`, `num_backbone_satellites`, `num_demanded_windows`, `num_endpoint_pairs`, and `num_ground_endpoints`.
+    """
     output_dir = output_dir.resolve()
     cases_dir = output_dir / "cases"
     if cases_dir.exists():
