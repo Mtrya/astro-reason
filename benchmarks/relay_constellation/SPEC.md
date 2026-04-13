@@ -20,7 +20,7 @@ The space agent receives:
 - a fixed planning horizon of 96 hours
 - an immutable relay backbone expressed as satellite initial states
 - a set of fixed ground communication endpoints
-- a set of communication demand windows between endpoint pairs
+- a set of demanded communication windows between endpoint pairs
 - case-specific orbital and communication constraints
 
 The space agent must return:
@@ -102,7 +102,7 @@ The canonical formulation is:
 
 - immutable baseline relay backbone provided by the case
 - fixed ground endpoints provided by the case
-- fixed communication demand windows provided by the case
+- fixed demanded communication windows provided by the case
 - solver-proposed additional satellites
 - solver-proposed time-bounded link activations
 - verifier-validated communication feasibility and verifier-owned routing
@@ -118,11 +118,17 @@ The benchmark does not accept solver-authored:
 
 The benchmark models partial constellation design, not full greenfield design.
 
-Each case provides an existing relay architecture with known service gaps. The
-solver may add up to a bounded number of satellites to improve service.
+Each case provides an immutable MEO relay backbone with known service gaps. The
+solver may add up to a bounded number of additional relay satellites to improve
+service and reduce latency.
 
-Existing satellites are immutable. The task is to augment the provided network,
-not redesign it from scratch.
+Existing backbone satellites are immutable. The task is to augment the provided
+network, not redesign it from scratch.
+
+The intended augmentation story is LEO-first: the provided MEO layer offers a
+stable but imperfect baseline, and the solver adds lower-altitude relays to pad
+coverage gaps or improve path length where baseline-only routes are unavailable
+or high-latency.
 
 ### 4.3 What this benchmark is and is not
 
@@ -477,7 +483,7 @@ Unserved samples do not contribute artificial latency.
 Additional reporting metrics:
 
 - `num_added_satellites`
-- `num_demands`
+- `num_demanded_windows`
 - `num_backbone_satellites`
 
 ## 10. Solution Contract
@@ -648,11 +654,11 @@ Canonical logical shape:
   },
   "constraints": {
     "max_added_satellites": 6,
-    "min_altitude_m": 700000.0,
-    "max_altitude_m": 1200000.0,
+    "min_altitude_m": 500000.0,
+    "max_altitude_m": 1500000.0,
     "max_eccentricity": 0.02,
-    "min_inclination_deg": 30.0,
-    "max_inclination_deg": 98.0,
+    "min_inclination_deg": 20.0,
+    "max_inclination_deg": 85.0,
     "max_isl_range_m": 6000000.0,
     "max_links_per_satellite": 3,
     "max_links_per_endpoint": 1
@@ -664,6 +670,10 @@ Canonical logical shape:
 }
 ```
 
+The numeric values shown above are illustrative of the intended added-satellite
+regime only. They are not yet frozen canonical release values and should be
+treated as tuning targets during generator calibration.
+
 ### 11.2 `network.json`
 
 `network.json` contains the immutable network assets:
@@ -674,6 +684,10 @@ Canonical logical shape:
 The v1 case format does not include pre-provisioned relay links. All
 communication links become usable only through solver-authored actions that are
 then verified against geometry.
+
+In the intended canonical story, `backbone_satellites` represent the provided
+MEO relay layer. The orbital constraints in `manifest.json` apply to
+solver-added augmentation satellites, not to the immutable backbone.
 
 Canonical logical shape:
 
@@ -704,15 +718,15 @@ Canonical logical shape:
 
 ### 11.3 `demands.json`
 
-`demands.json` contains the communication demand windows:
+`demands.json` contains the demanded communication windows:
 
-- `demands`
+- `demanded_windows`
 
 Canonical logical shape:
 
 ```json
 {
-  "demands": [
+  "demanded_windows": [
     {
       "demand_id": "demand_001",
       "source_endpoint_id": "ground_a",
@@ -725,8 +739,8 @@ Canonical logical shape:
 }
 ```
 
-Each demand record describes one service window. Repeated windows for the same
-pair are represented as separate demand objects.
+Each demanded-window record describes one service window. Repeated windows for
+the same endpoint pair are represented as separate records.
 
 ### 11.4 `dataset/index.json`
 
@@ -748,7 +762,8 @@ Canonical logical shape:
       "horizon_hours": 96,
       "num_backbone_satellites": 28,
       "num_ground_endpoints": 5,
-      "num_demands": 6,
+      "num_demanded_windows": 6,
+      "num_endpoint_pairs": 3,
       "max_added_satellites": 6
     }
   ]
@@ -784,7 +799,7 @@ Canonical logical shape:
     "mean_latency_ms": null,
     "latency_p95_ms": null,
     "num_added_satellites": 0,
-    "num_demands": 0,
+    "num_demanded_windows": 0,
     "num_backbone_satellites": 0,
     "per_demand": {}
   },
@@ -843,15 +858,23 @@ The first canonical public release should target:
 Recommended release targets:
 
 - horizon per case: fixed at `96 h` in the canonical public release
-- backbone satellites: `24` to `32`
-- allowed additions per case: `4` to `8`
+- immutable MEO backbone satellites: likely a modest fixed set rather than a
+  dense mesh, but the exact count is intentionally left to tuning
+- allowed additions per case: likely single-digit, for example `4` to `8`, but
+  this is intentionally left to tuning
 - ground endpoints per case: `4` to `6`
-- distinct endpoint pairs with demand: `2` to `5`
-- demand windows per case: `4` to `8`
+- endpoint pairs: `2` to `5`
+- demanded windows per case: `4` to `8`
 - `routing_step_s`: `60`
-- altitude band: roughly `700 km` to `1200 km`
-- near-circular eccentricity cap: `0.01` to `0.02`
-- `max_isl_range_m`: roughly `5000 km` to `7000 km`
+- added-satellite altitude band: expected to be LEO, with exact bounds left to
+  tuning
+- added-satellite eccentricity cap: near-circular, with exact bounds left to
+  tuning
+- added-satellite inclination band: expected to avoid both backbone copies and
+  implausibly polar-heavy defaults, with exact bounds left to tuning
+- `max_isl_range_m`: expected to be materially larger than the old low-orbit
+  shell setting because the immutable backbone is now MEO, but the exact bound
+  is intentionally left to tuning
 - `max_links_per_satellite`: `3`
 - `max_links_per_endpoint`: `1`
 
@@ -871,7 +894,7 @@ Recommended endpoint policy:
 
 Recommended demand-window policy:
 
-- sample `2` to `5` distinct endpoint pairs per case
+- sample `2` to `5` endpoint pairs per case
 - assign `1` to `2` windows per selected pair
 - quantize window starts to a `5 min` grid
 - draw window durations from a discrete mix:
@@ -891,15 +914,22 @@ Recommended calibration goals for Phase 02 inspection:
 - cases should include at least one interval with overlapping active demands
 - the demand set should include at least one demand whose baseline service
   appears materially improvable
+- the immutable MEO layer alone should often provide partial service but leave
+  clear availability or latency improvement headroom for added lower-altitude
+  relays
 
 Recommended backbone policy:
 
-- use a synthetic, generator-owned backbone rather than importing a real
+- use a generator-owned MEO-like backbone rather than importing a real
   operational constellation
 - use one homogeneous relay-satellite communication model in the first release
-- use `24` to `32` immutable satellites, typically in three or four near-circular shells (but the number might need tuning)
+- use a small immutable MEO constellation, likely across multiple planes, but
+  treat the count, altitude, and inclination choices as tuning parameters
+  rather than fixed commitments
 - keep the public case format in Cartesian initial states even if the generator
-  samples backbone families through higher-level shell parameters internally
+  samples higher-level backbone parameters internally
+- treat the solver-added layer as a separate augmentation regime with its own
+  orbital-constraint band, expected to be LEO-like in the first release
 
 ## 14. Tests and Fixtures
 

@@ -3,14 +3,14 @@
   "case_id": "case_0004",
   "constraints": {
     "max_added_satellites": 8,
-    "max_altitude_m": 1200000.0,
+    "max_altitude_m": 1500000.0,
     "max_eccentricity": 0.02,
-    "max_inclination_deg": 98.0,
-    "max_isl_range_m": 6000000.0,
+    "max_inclination_deg": 85.0,
+    "max_isl_range_m": 20000000.0,
     "max_links_per_endpoint": 1,
     "max_links_per_satellite": 3,
-    "min_altitude_m": 700000.0,
-    "min_inclination_deg": 30.0
+    "min_altitude_m": 500000.0,
+    "min_inclination_deg": 20.0
   },
   "epoch": "2026-01-02T12:00:00Z",
   "horizon_end": "2026-01-06T12:00:00Z",

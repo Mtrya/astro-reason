@@ -31,6 +31,7 @@ MIN_LONG_PAIR_DISTANCE_M = 7_000_000.0
 MIN_MEDIUM_PAIR_DISTANCE_M = 2_500_000.0
 MAX_MEDIUM_PAIR_DISTANCE_M = 6_500_000.0
 EARTH_RADIUS_M = float(brahe.R_EARTH)
+_BRAHE_EOP_INITIALIZED = False
 
 
 @dataclass(frozen=True)
@@ -70,12 +71,21 @@ class DemandWindow:
 
 
 @dataclass(frozen=True)
-class ShellSummary:
-    shell_index: int
+class MeoBackboneSummary:
     count: int
     altitude_km: float
     inclination_deg: float
     num_planes: int
+
+
+def _ensure_brahe_ready() -> None:
+    global _BRAHE_EOP_INITIALIZED
+    if _BRAHE_EOP_INITIALIZED:
+        return
+    brahe.set_global_eop_provider_from_static_provider(
+        brahe.StaticEOPProvider.from_zero()
+    )
+    _BRAHE_EOP_INITIALIZED = True
 
 def _isoformat_z(value: datetime) -> str:
     return value.astimezone(UTC).isoformat().replace("+00:00", "Z")
@@ -149,70 +159,59 @@ def _partition_total(total: int, parts: int, rng: random.Random, minimum: int) -
 
 def _sample_backbone(
     rng: random.Random,
-) -> tuple[list[BackboneSatellite], list[ShellSummary]]:
-    total_satellites = _weighted_choice(rng, (24, 26, 28, 30, 32), (1, 2, 3, 2, 1))
-    num_shells = rng.choice((3, 4))
-    shell_counts = _partition_total(total_satellites, num_shells, rng, minimum=6)
-
-    altitudes_km = sorted(rng.sample(range(760, 1151, 40), k=num_shells))
-    inclination_pool = [42.0, 53.0, 63.0, 74.0, 82.0, 88.0, 94.0, 97.0]
-    inclinations_deg = sorted(rng.sample(inclination_pool, k=num_shells))
+    *,
+    epoch: datetime,
+) -> tuple[list[BackboneSatellite], MeoBackboneSummary]:
+    _ensure_brahe_ready()
+    total_satellites = _weighted_choice(rng, (6, 8, 10), (1, 3, 1))
+    num_planes = _weighted_choice(rng, (2, 3), (2, 3))
+    plane_counts = _partition_total(total_satellites, num_planes, rng, minimum=2)
+    altitude_km = float(_weighted_choice(rng, (8_000.0, 10_000.0, 12_000.0, 14_000.0), (1, 2, 2, 1)))
+    inclination_deg = float(_weighted_choice(rng, (45.0, 55.0, 63.0, 75.0), (1, 3, 3, 1)))
+    eccentricity = rng.uniform(0.0002, 0.006)
+    argument_of_perigee_deg = rng.uniform(0.0, 360.0)
+    shell_raan_offset_deg = rng.uniform(0.0, 360.0)
+    shell_phase_offset_deg = rng.uniform(0.0, 360.0)
+    semi_major_axis_m = EARTH_RADIUS_M + altitude_km * 1_000.0
 
     satellites: list[BackboneSatellite] = []
-    summaries: list[ShellSummary] = []
     satellite_counter = 0
-    for shell_index, (count, altitude_km, inclination_deg) in enumerate(
-        zip(shell_counts, altitudes_km, inclinations_deg, strict=True),
-        start=1,
-    ):
-        num_planes = min(4, max(2, round(math.sqrt(count / 2.0))))
-        plane_counts = _partition_total(count, num_planes, rng, minimum=1)
-        eccentricity = rng.uniform(0.0002, 0.008)
-        argument_of_perigee_deg = rng.uniform(0.0, 360.0)
-        shell_raan_offset_deg = rng.uniform(0.0, 360.0)
-        shell_phase_offset_deg = rng.uniform(0.0, 360.0)
-        semi_major_axis_m = EARTH_RADIUS_M + altitude_km * 1_000.0
-
-        sat_index_in_shell = 0
-        for plane_index, plane_count in enumerate(plane_counts):
-            raan_deg = (shell_raan_offset_deg + plane_index * (360.0 / num_planes)) % 360.0
-            for slot_index in range(plane_count):
-                mean_anomaly_deg = (
-                    shell_phase_offset_deg
-                    + slot_index * (360.0 / plane_count)
-                    + plane_index * (180.0 / max(1, count))
-                ) % 360.0
-                koe = np.array(
-                    [
-                        semi_major_axis_m,
-                        eccentricity,
-                        inclination_deg,
-                        raan_deg,
-                        argument_of_perigee_deg,
-                        mean_anomaly_deg,
-                    ],
-                    dtype=float,
-                )
-                state = brahe.state_koe_to_eci(koe, brahe.AngleFormat.DEGREES)
-                satellite_counter += 1
-                sat_index_in_shell += 1
-                satellites.append(
-                    BackboneSatellite(
-                        satellite_id=f"backbone_{satellite_counter:03d}",
-                        state_eci_m_mps=tuple(float(value) for value in state.tolist()),
-                        shell_index=shell_index,
-                    )
-                )
-        summaries.append(
-            ShellSummary(
-                shell_index=shell_index,
-                count=count,
-                altitude_km=float(altitude_km),
-                inclination_deg=float(inclination_deg),
-                num_planes=num_planes,
+    for plane_index, plane_count in enumerate(plane_counts):
+        raan_deg = (shell_raan_offset_deg + plane_index * (360.0 / num_planes)) % 360.0
+        for slot_index in range(plane_count):
+            mean_anomaly_deg = (
+                shell_phase_offset_deg
+                + slot_index * (360.0 / plane_count)
+                + plane_index * (180.0 / max(1, total_satellites))
+            ) % 360.0
+            koe = np.array(
+                [
+                    semi_major_axis_m,
+                    eccentricity,
+                    inclination_deg,
+                    raan_deg,
+                    argument_of_perigee_deg,
+                    mean_anomaly_deg,
+                ],
+                dtype=float,
             )
-        )
-    return satellites, summaries
+            state_eci = brahe.state_koe_to_eci(koe, brahe.AngleFormat.DEGREES)
+            satellite_counter += 1
+            satellites.append(
+                BackboneSatellite(
+                    satellite_id=f"backbone_{satellite_counter:03d}",
+                    state_eci_m_mps=tuple(float(value) for value in state_eci.tolist()),
+                    shell_index=1,
+                )
+            )
+
+    summary = MeoBackboneSummary(
+        count=total_satellites,
+        altitude_km=altitude_km,
+        inclination_deg=inclination_deg,
+        num_planes=num_planes,
+    )
+    return satellites, summary
 
 
 def _sample_endpoints(
@@ -310,7 +309,8 @@ def _sample_demand_windows(
     if len(selected_pairs) < 2:
         raise RuntimeError("need at least two endpoint pairs for demand generation")
 
-    total_demands = _weighted_choice(rng, (4, 5, 6, 7, 8), (1, 2, 3, 2, 1))
+    total_demands = _weighted_choice(rng, (5, 6, 7, 8, 9), (1, 2, 3, 2, 1))
+    total_demands = min(total_demands, 2 * len(selected_pairs))
     window_counts = [1] * len(selected_pairs)
     while sum(window_counts) < total_demands:
         index = rng.randrange(len(window_counts))
@@ -401,13 +401,13 @@ def _case_manifest(
         "constraints": {
             "max_added_satellites": max_added_satellites,
             "max_eccentricity": 0.02,
-            "max_inclination_deg": 98.0,
-            "max_isl_range_m": 6_000_000.0,
+            "max_inclination_deg": 85.0,
+            "max_isl_range_m": 20_000_000.0,
             "max_links_per_endpoint": 1,
             "max_links_per_satellite": 3,
-            "max_altitude_m": 1_200_000.0,
-            "min_altitude_m": 700_000.0,
-            "min_inclination_deg": 30.0,
+            "max_altitude_m": 1_500_000.0,
+            "min_altitude_m": 500_000.0,
+            "min_inclination_deg": 20.0,
         },
         "epoch": _isoformat_z(epoch),
         "horizon_end": _isoformat_z(horizon_end),
@@ -460,7 +460,7 @@ def _case_demands(
     demands: list[DemandWindow],
 ) -> dict[str, Any]:
     return {
-        "demands": [
+        "demanded_windows": [
             {
                 "demand_id": demand.demand_id,
                 "source_endpoint_id": demand.source_endpoint_id,
@@ -485,7 +485,7 @@ def _build_case(
     case_seed = seed + case_index * 10_007
     rng = random.Random(case_seed)
     max_added_satellites = _weighted_choice(rng, (4, 6, 8), (2, 3, 2))
-    satellites, shell_summaries = _sample_backbone(rng)
+    satellites, backbone_summary = _sample_backbone(rng, epoch=horizon_start)
     endpoints = _sample_endpoints(rng, site_library)
     demands = _sample_demand_windows(
         rng,
@@ -504,22 +504,27 @@ def _build_case(
     )
     network = _case_network(endpoints, satellites)
     demands_payload = _case_demands(demands)
+    num_endpoint_pairs = len(
+        {
+            (demand.source_endpoint_id, demand.destination_endpoint_id)
+            for demand in demands
+        }
+    )
     summary = {
         "case_id": case_id,
         "horizon_hours": HORIZON_HOURS,
         "max_added_satellites": max_added_satellites,
         "num_backbone_satellites": len(satellites),
-        "num_demands": len(demands),
+        "num_demanded_windows": len(demands),
+        "num_endpoint_pairs": num_endpoint_pairs,
         "num_ground_endpoints": len(endpoints),
-        "shells": [
-            {
-                "altitude_km": shell.altitude_km,
-                "count": shell.count,
-                "inclination_deg": shell.inclination_deg,
-                "num_planes": shell.num_planes,
-            }
-            for shell in shell_summaries
-        ],
+        "backbone": {
+            "altitude_km": backbone_summary.altitude_km,
+            "count": backbone_summary.count,
+            "inclination_deg": backbone_summary.inclination_deg,
+            "num_planes": backbone_summary.num_planes,
+            "type": "meo",
+        },
     }
     return manifest, network, demands_payload, summary
 
@@ -564,7 +569,8 @@ def generate_dataset(
                     "horizon_hours": summary["horizon_hours"],
                     "max_added_satellites": summary["max_added_satellites"],
                     "num_backbone_satellites": summary["num_backbone_satellites"],
-                    "num_demands": summary["num_demands"],
+                    "num_demanded_windows": summary["num_demanded_windows"],
+                    "num_endpoint_pairs": summary["num_endpoint_pairs"],
                     "num_ground_endpoints": summary["num_ground_endpoints"],
                     "path": f"cases/{summary['case_id']}",
                 }
