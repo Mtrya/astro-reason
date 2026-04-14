@@ -1,4 +1,4 @@
-"""CLI entry point for the aeossp_standard case visualizer."""
+"""CLI entry point for the aeossp_standard visualizer."""
 
 from __future__ import annotations
 
@@ -6,11 +6,12 @@ import argparse
 from pathlib import Path
 
 from .plot import DEFAULT_PLOTS_DIR, render_case_bundle
+from .solution import render_solution_bundle
 
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(
-        description="Render aeossp_standard case-inspection artifacts."
+        description="Render aeossp_standard case and solution inspection artifacts."
     )
     subparsers = parser.add_subparsers(dest="command", required=True)
 
@@ -48,19 +49,63 @@ def main(argv: list[str] | None = None) -> int:
         help="Sampling step in seconds for satellite ground tracks",
     )
 
+    solution_parser = subparsers.add_parser(
+        "solution",
+        help="Render solution-inspection artifacts for one case and one solution.",
+    )
+    solution_parser.add_argument(
+        "--case-dir",
+        required=True,
+        help="Path to dataset/cases/<case_id>",
+    )
+    solution_parser.add_argument(
+        "--solution-path",
+        required=True,
+        help="Path to a single-case solution JSON file",
+    )
+    solution_parser.add_argument(
+        "--out-dir",
+        type=Path,
+        default=None,
+        help="Directory for rendered artifacts (default: benchmarks/aeossp_standard/visualizer/plots/<case_id>/solution/<solution_stem>)",
+    )
+    solution_parser.add_argument(
+        "--texture-path",
+        type=Path,
+        default=None,
+        help="Optional local Earth texture path for world-map artifacts",
+    )
+
     args = parser.parse_args(argv)
     case_dir = Path(args.case_dir).resolve()
-    out_dir = args.out_dir or (DEFAULT_PLOTS_DIR / case_dir.name / "case")
-    manifest = render_case_bundle(
+    if args.command == "case":
+        out_dir = args.out_dir or (DEFAULT_PLOTS_DIR / case_dir.name / "case")
+        manifest = render_case_bundle(
+            case_dir,
+            out_dir,
+            texture_path=args.texture_path,
+            access_step_s=args.access_step_s,
+            track_step_s=args.track_step_s,
+        )
+        print(
+            f"Wrote case artifacts to {Path(out_dir).resolve()} "
+            f"for {manifest['counts']['num_tasks']} tasks"
+        )
+        return 0
+
+    solution_path = Path(args.solution_path).resolve()
+    out_dir = args.out_dir or (
+        DEFAULT_PLOTS_DIR / case_dir.name / "solution" / solution_path.stem
+    )
+    manifest = render_solution_bundle(
         case_dir,
+        solution_path,
         out_dir,
         texture_path=args.texture_path,
-        access_step_s=args.access_step_s,
-        track_step_s=args.track_step_s,
     )
     print(
-        f"Wrote case artifacts to {Path(out_dir).resolve()} "
-        f"for {manifest['counts']['num_tasks']} tasks"
+        f"Wrote solution artifacts to {Path(out_dir).resolve()} "
+        f"with {len(manifest['artifacts']['snapshot_pngs'])} snapshots"
     )
     return 0
 
