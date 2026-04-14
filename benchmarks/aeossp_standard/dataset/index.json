@@ -1,0 +1,283 @@
+{
+  "benchmark": "aeossp_standard",
+  "canonical_seed": 42,
+  "case_ids": [
+    "case_0001",
+    "case_0002",
+    "case_0003",
+    "case_0004",
+    "case_0005"
+  ],
+  "cases": [
+    {
+      "case_id": "case_0001",
+      "case_seed": 1051,
+      "horizon_hours": 12,
+      "norad_catalog_ids": [
+        28051,
+        32783,
+        37387,
+        38012,
+        38038,
+        39019,
+        39084,
+        39418,
+        40013,
+        40053,
+        41556,
+        42920,
+        42988,
+        42990,
+        43111,
+        43259,
+        43260,
+        43262,
+        48079,
+        48268,
+        52912
+      ],
+      "num_satellites": 21,
+      "num_tasks": 318,
+      "path": "cases/case_0001",
+      "satellite_sensor_mix": {
+        "infrared": 4,
+        "visible": 17
+      },
+      "task_sensor_mix": {
+        "infrared": 64,
+        "visible": 254
+      },
+      "task_weight_summary": {
+        "max": 5.0,
+        "mean": 2.968553,
+        "min": 1.0
+      }
+    },
+    {
+      "case_id": "case_0002",
+      "case_seed": 2060,
+      "horizon_hours": 12,
+      "norad_catalog_ids": [
+        28051,
+        28649,
+        32783,
+        33396,
+        35681,
+        36795,
+        37387,
+        38012,
+        38038,
+        38755,
+        39019,
+        39084,
+        39418,
+        40013,
+        40053,
+        40072,
+        40118,
+        40894,
+        42063,
+        42767,
+        42920,
+        42988,
+        42990,
+        42991,
+        43111,
+        43259,
+        43260,
+        43262,
+        43461,
+        43484,
+        44622,
+        44804,
+        44819,
+        48079,
+        48268,
+        49070,
+        52912,
+        60989
+      ],
+      "num_satellites": 38,
+      "num_tasks": 499,
+      "path": "cases/case_0002",
+      "satellite_sensor_mix": {
+        "infrared": 8,
+        "visible": 30
+      },
+      "task_sensor_mix": {
+        "infrared": 100,
+        "visible": 399
+      },
+      "task_weight_summary": {
+        "max": 5.0,
+        "mean": 3.004008,
+        "min": 1.0
+      }
+    },
+    {
+      "case_id": "case_0003",
+      "case_seed": 3069,
+      "horizon_hours": 12,
+      "norad_catalog_ids": [
+        28649,
+        32783,
+        33396,
+        35681,
+        36795,
+        38038,
+        38755,
+        39084,
+        40053,
+        40072,
+        40697,
+        41556,
+        41599,
+        41727,
+        41772,
+        41948,
+        42063,
+        42767,
+        42992,
+        43111,
+        43260,
+        43262,
+        43461,
+        44804,
+        49070
+      ],
+      "num_satellites": 25,
+      "num_tasks": 357,
+      "path": "cases/case_0003",
+      "satellite_sensor_mix": {
+        "infrared": 5,
+        "visible": 20
+      },
+      "task_sensor_mix": {
+        "infrared": 71,
+        "visible": 286
+      },
+      "task_weight_summary": {
+        "max": 5.0,
+        "mean": 3.004202,
+        "min": 1.0
+      }
+    },
+    {
+      "case_id": "case_0004",
+      "case_seed": 4078,
+      "horizon_hours": 12,
+      "norad_catalog_ids": [
+        28051,
+        28649,
+        35681,
+        36795,
+        38038,
+        39150,
+        40118,
+        40697,
+        41727,
+        41877,
+        42990,
+        43260,
+        43262,
+        43461,
+        43484,
+        44622,
+        44804,
+        44819,
+        48079,
+        48268,
+        49260,
+        57654
+      ],
+      "num_satellites": 22,
+      "num_tasks": 772,
+      "path": "cases/case_0004",
+      "satellite_sensor_mix": {
+        "infrared": 4,
+        "visible": 18
+      },
+      "task_sensor_mix": {
+        "infrared": 154,
+        "visible": 618
+      },
+      "task_weight_summary": {
+        "max": 5.0,
+        "mean": 2.985751,
+        "min": 1.0
+      }
+    },
+    {
+      "case_id": "case_0005",
+      "case_seed": 5087,
+      "horizon_hours": 12,
+      "norad_catalog_ids": [
+        28051,
+        32783,
+        36795,
+        38755,
+        39019,
+        39084,
+        39150,
+        40013,
+        40053,
+        40072,
+        40697,
+        41556,
+        41599,
+        41601,
+        41727,
+        41772,
+        41877,
+        41948,
+        42063,
+        42767,
+        42920,
+        42988,
+        43111,
+        43259,
+        43260,
+        43262,
+        43461,
+        44819,
+        48079,
+        48268,
+        49260,
+        52912,
+        57654,
+        60989
+      ],
+      "num_satellites": 34,
+      "num_tasks": 500,
+      "path": "cases/case_0005",
+      "satellite_sensor_mix": {
+        "infrared": 7,
+        "visible": 27
+      },
+      "task_sensor_mix": {
+        "infrared": 100,
+        "visible": 400
+      },
+      "task_weight_summary": {
+        "max": 5.0,
+        "mean": 2.983,
+        "min": 1.0
+      }
+    }
+  ],
+  "example_smoke_case_id": "case_0001",
+  "sources": {
+    "celestrak": {
+      "path": "source_data/celestrak/earth_resources.csv",
+      "url": "https://celestrak.org/NORAD/elements/gp.php?GROUP=resource&FORMAT=tle"
+    },
+    "natural_earth_land": {
+      "path": "source_data/natural_earth/ne_110m_land.geojson",
+      "url": "https://raw.githubusercontent.com/nvkelso/natural-earth-vector/master/geojson/ne_110m_land.geojson"
+    },
+    "world_cities": {
+      "path": "source_data/world_cities/world_cities.csv",
+      "url": "https://download.geonames.org/export/dump/cities15000.zip"
+    }
+  }
+}
