@@ -11,6 +11,7 @@ from pathlib import Path
 import urllib.request
 import zipfile
 
+from . import cached_tles
 from .normalize import parse_tle_text
 
 
@@ -56,61 +57,53 @@ def _download_bytes(url: str, destination_path: Path) -> Path:
 
 
 def download_celestrak(dest_dir: Path, *, force_download: bool) -> SourceFetchResult:
+    del force_download  # Vendored snapshot is always used for reproducibility.
+
     cele_dir = dest_dir / "celestrak"
     raw_path = cele_dir / CELESTRAK_RAW_NAME
     csv_path = cele_dir / CELESTRAK_CSV_NAME
-
-    if not force_download and raw_path.is_file() and csv_path.is_file():
-        return SourceFetchResult(
-            "celestrak",
-            [raw_path, csv_path],
-            {
-                "url": CELESTRAK_EARTH_RESOURCES_URL,
-                "sha256": _sha256_file(csv_path),
-            },
-        )
-
-    _download_bytes(CELESTRAK_EARTH_RESOURCES_URL, raw_path)
-    records = parse_tle_text(raw_path.read_text(encoding="utf-8"))
     csv_path.parent.mkdir(parents=True, exist_ok=True)
-    with csv_path.open("w", encoding="utf-8", newline="") as handle:
-        writer = csv.DictWriter(
-            handle,
-            fieldnames=[
-                "name",
-                "norad_catalog_id",
-                "tle_line1",
-                "tle_line2",
-                "epoch_iso",
-                "inclination_deg",
-                "eccentricity",
-                "mean_motion_rev_per_day",
-                "altitude_m",
-            ],
-            lineterminator="\n",
+    rows = list(cached_tles.CACHED_CELESTRAK_ROWS)
+    raw_lines: list[str] = []
+    for row in rows:
+        raw_lines.extend([row["name"], row["tle_line1"], row["tle_line2"]])
+    raw_text = "\n".join(raw_lines) + "\n"
+    records = parse_tle_text(raw_text)
+    if len(records) != len(rows):
+        raise RuntimeError(
+            f"Vendored TLE snapshot parse mismatch: expected {len(rows)} satellites, got {len(records)}"
         )
-        writer.writeheader()
-        for record in records:
-            writer.writerow(
-                {
-                    "name": record.name,
-                    "norad_catalog_id": record.norad_catalog_id,
-                    "tle_line1": record.tle_line1,
-                    "tle_line2": record.tle_line2,
-                    "epoch_iso": record.epoch_iso,
-                    "inclination_deg": f"{record.inclination_deg:.6f}",
-                    "eccentricity": f"{record.eccentricity:.8f}",
-                    "mean_motion_rev_per_day": f"{record.mean_motion_rev_per_day:.8f}",
-                    "altitude_m": f"{record.altitude_m:.3f}",
-                }
-            )
+    raw_bytes = raw_text.encode("utf-8")
+    raw_path.write_bytes(raw_bytes)
+
+    csv_buffer = io.StringIO()
+    writer = csv.DictWriter(
+        csv_buffer,
+        fieldnames=[
+            "name",
+            "norad_catalog_id",
+            "tle_line1",
+            "tle_line2",
+            "epoch_iso",
+            "inclination_deg",
+            "eccentricity",
+            "mean_motion_rev_per_day",
+            "altitude_m",
+        ],
+        lineterminator="\n",
+    )
+    writer.writeheader()
+    writer.writerows(rows)
+    csv_bytes = csv_buffer.getvalue().encode("utf-8")
+    csv_path.write_bytes(csv_bytes)
     return SourceFetchResult(
         "celestrak",
         [raw_path, csv_path],
         {
             "url": CELESTRAK_EARTH_RESOURCES_URL,
-            "record_count": len(records),
-            "sha256": _sha256_file(csv_path),
+            "record_count": len(rows),
+            "sha256": hashlib.sha256(csv_bytes).hexdigest(),
+            "vendored_snapshot": True,
         },
     )
 

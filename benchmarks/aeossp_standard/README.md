@@ -2,15 +2,13 @@
 
 ## Status
 
-This benchmark is implemented and is the canonical finished AEOSSP benchmark in
-this repository.
+This benchmark is implemented and is the canonical finished AEOSSP benchmark in this repository.
 
 It replaces the earlier public `aeosbench` benchmark surface.
 
 ## Problem Summary
 
-`aeossp_standard` is a planning-oriented agile Earth-observation satellite
-scheduling benchmark.
+`aeossp_standard` is a planning-oriented agile Earth-observation satellite scheduling benchmark.
 
 For each case, the space agent receives:
 
@@ -24,9 +22,7 @@ The space agent must return:
 
 - an event-based schedule of `observation` actions
 
-The benchmark is scheduling-focused, not constellation-design-focused. The
-solver does not add satellites, choose orbits, redesign the fleet, or submit
-low-level attitude commands.
+The benchmark is scheduling-focused, not constellation-design-focused. The solver does not add satellites, choose orbits, redesign the fleet, or submit low-level attitude commands.
 
 Out of scope:
 
@@ -52,9 +48,7 @@ dataset/
         └── tasks.yaml
 ```
 
-`dataset/example_solution.json` is one real solution object with the same
-schema as normal submissions. `dataset/index.json` records case metadata and
-the smoke pairing through `example_smoke_case_id`.
+`dataset/example_solution.json` is one real solution object with the same schema as normal submissions. `dataset/index.json` records case metadata and the smoke pairing through `example_smoke_case_id`.
 
 ## Case Inputs
 
@@ -62,8 +56,7 @@ Each case directory contains exactly three machine-readable files.
 
 ### `mission.yaml`
 
-`mission.yaml` defines the planning horizon, public time grids, propagation
-model, and scoring metadata.
+`mission.yaml` defines the planning horizon, public time grids, propagation model, and scoring metadata.
 
 Important fields:
 
@@ -82,8 +75,7 @@ Important fields:
   - `ranking_order`
   - `reported_metrics`
 
-All timestamps are ISO 8601 in UTC. The horizon must be exactly divisible by
-the action, geometry, and resource steps.
+All timestamps are ISO 8601 in UTC. The horizon must be exactly divisible by the action, geometry, and resource steps.
 
 ### `satellites.yaml`
 
@@ -131,11 +123,9 @@ Each task includes:
 
 Frozen task semantics:
 
-- `release_time`, `due_time`, and `required_duration_s` must align to the
-  public action grid
+- `release_time`, `due_time`, and `required_duration_s` must align to the public action grid
 - a task is binary-complete, not partially creditable
-- the target must be observed continuously for exactly
-  `required_duration_s` inside its time window
+- the target must be observed continuously for exactly `required_duration_s` inside its time window
 
 ## Solution Contract
 
@@ -211,8 +201,7 @@ Observation geometry:
 
 - visibility is checked on the public geometry grid plus action boundaries
 - the target must remain continuously visible across the action interval
-- the required off-nadir angle must remain within
-  `attitude_model.max_off_nadir_deg`
+- the required off-nadir angle must remain within `attitude_model.max_off_nadir_deg`
 
 Attitude / slew model:
 
@@ -237,8 +226,7 @@ Power model:
   - plus `imaging_power_w` during observation
   - plus `slew_power_w` during maneuver windows
 - solar charging applies whenever the satellite is sunlit
-- `PC` reports gross electrical consumption only; it does not subtract solar
-  charging
+- `PC` reports gross electrical consumption only; it does not subtract solar charging
 
 ## Metrics And Ranking
 
@@ -253,8 +241,7 @@ Metric meanings:
 
 - `CR`: completed task fraction
 - `WCR`: completed weight fraction
-- `TAT`: mean `(completion_time - release_time)` over completed tasks, or
-  `null` if nothing completes
+- `TAT`: mean `(completion_time - release_time)` over completed tasks, or `null` if nothing completes
 - `PC`: total gross watt-hours consumed over the horizon
 
 Task completion semantics:
@@ -309,16 +296,13 @@ Visualizer artifact interpretation:
   - it is not a nominal attitude strategy plot
 - solution `attitude_curves.png` is schematic but verifier-aligned:
   - it is derived from verifier-backed observation intervals and maneuver windows
-  - it uses the benchmark's scalar bang-coast-bang slew profile rather than
-    linear angle interpolation
+  - it uses the benchmark's scalar bang-coast-bang slew profile rather than linear angle interpolation
 
-The generator’s no-flag path is canonical and reproduces the benchmark-owned
-dataset outputs under `dataset/cases/` and `dataset/index.json`.
+The generator’s no-flag path is canonical and reproduces the benchmark-owned dataset outputs under `dataset/cases/` and `dataset/index.json`.
 
 ## Generator And Canonical Dataset
 
-The generator builds cases from benchmark-owned rules rather than hand-authored
-case lists.
+The generator builds cases from benchmark-owned rules rather than hand-authored case lists.
 
 Current canonical family:
 
@@ -331,12 +315,11 @@ Current canonical family:
 
 Public source workflow:
 
-- CelesTrak Earth-resources TLE snapshot
+- vendored CelesTrak Earth-resources TLE snapshot (`generator/cached_tles.py`)
 - GeoNames city data
 - Natural Earth land polygons
 
-Source data may be cached under `dataset/source_data/`, but that directory is
-not tracked and is not required to exist before running the generator.
+Runtime source data for GeoNames and Natural Earth may be cached under `dataset/source_data/`, but that directory is not tracked and is not required to exist before running the generator. The CelesTrak TLE snapshot used for canonical reproduction is tracked in `generator/cached_tles.py`.
 
 ## Tests And Fixtures
 
@@ -358,6 +341,4 @@ These fixtures cover:
 
 ## Lineage
 
-`aeossp_standard` is informed by standard AEOSSP formulations and by prior
-benchmark work such as AEOS-Bench, but it is not a reproduction of any single
-legacy benchmark or simulator stack.
+`aeossp_standard` is informed by standard AEOSSP formulations and by prior benchmark work such as AEOS-Bench, but it is not a reproduction of any single legacy benchmark or simulator stack.

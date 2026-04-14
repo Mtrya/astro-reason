@@ -48,6 +48,7 @@ HOTSPOT_JITTER_OPTIONS_S = (-900, -600, -300, 0, 300, 600, 900)
 HOTSPOT_WINDOW_SLACK_OPTIONS_S = (300, 600, 900, 1200)
 UNIFORM_WINDOW_SLACK_OPTIONS_S = (900, 1200, 1800, 2400, 3600)
 MIN_CANDIDATE_BATCH = 24
+CITY_REACHABILITY_PREFILTER_MAX_SATELLITES = 4
 
 INCLUDE_NAME_TOKENS = (
     "LANDSAT",
@@ -478,10 +479,48 @@ def _sample_candidate_seeds(
     cities: list[CityRecord],
     land_geometry: Any,
     accepted: list[TaskSeed],
+    candidate_cities: list[CityRecord] | None = None,
 ) -> list[TaskSeed]:
     if source_kind == "city":
-        return _sample_city_tasks(rng, cities, count, accepted=accepted)
+        return _sample_city_tasks(rng, candidate_cities or cities, count, accepted=accepted)
     return _sample_background_tasks(rng, land_geometry, count, accepted=accepted)
+
+
+def _adaptive_retry_budget(remaining: int, compatible_satellite_count: int) -> int:
+    return max(
+        12,
+        remaining * 3,
+        12 * (1 + max(0, 8 - compatible_satellite_count)),
+    )
+
+
+def _reachable_city_candidates(
+    cities: list[CityRecord],
+    *,
+    satellites: list[dict[str, Any]],
+    orbit_grid: Any,
+    sensor_type: str,
+    compatible_satellite_ids: set[str],
+) -> list[CityRecord]:
+    min_duration_s = min(TASK_DURATION_OPTIONS_S)
+    reachable: list[CityRecord] = []
+    for city in cities:
+        intervals = derive_task_access_intervals(
+            {
+                "latitude_deg": city.latitude_deg,
+                "longitude_deg": city.longitude_deg,
+                "altitude_m": 0.0,
+                "required_sensor_type": sensor_type,
+                "required_duration_s": min_duration_s,
+            },
+            satellites,
+            orbit_grid,
+            compatible_satellite_ids=compatible_satellite_ids,
+            min_duration_s=min_duration_s,
+        )
+        if intervals:
+            reachable.append(city)
+    return reachable or cities
 
 
 def _round_down_to_step(seconds: int, step_s: int) -> int:
@@ -592,11 +631,31 @@ def _build_task_entries(
     rng.shuffle(group_order)
     accepted_seeds: list[TaskSeed] = []
     planned_tasks: list[PlannedTask] = []
+    reachable_city_cache: dict[str, list[CityRecord]] = {}
     for source_kind, sensor_type in group_order:
         remaining = group_counts[(source_kind, sensor_type)]
         batch_rounds = 0
+        stall_rounds = 0
+        compatible_ids = compatible_satellite_ids[sensor_type]
+        candidate_cities = cities
+        if (
+            source_kind == "city"
+            and len(compatible_ids) <= CITY_REACHABILITY_PREFILTER_MAX_SATELLITES
+        ):
+            candidate_cities = reachable_city_cache.get(sensor_type)
+            if candidate_cities is None:
+                candidate_cities = _reachable_city_candidates(
+                    cities,
+                    satellites=satellites,
+                    orbit_grid=orbit_grid,
+                    sensor_type=sensor_type,
+                    compatible_satellite_ids=compatible_ids,
+                )
+                reachable_city_cache[sensor_type] = candidate_cities
         while remaining > 0:
             batch_size = max(MIN_CANDIDATE_BATCH, remaining * 2)
+            if source_kind == "city":
+                batch_size = max(1, min(batch_size, len(candidate_cities)))
             candidates = _sample_candidate_seeds(
                 rng,
                 source_kind=source_kind,
@@ -604,6 +663,7 @@ def _build_task_entries(
                 cities=cities,
                 land_geometry=land_geometry,
                 accepted=accepted_seeds,
+                candidate_cities=candidate_cities,
             )
             accepted_this_round = 0
             for candidate in candidates:
@@ -616,7 +676,7 @@ def _build_task_entries(
                     ),
                     satellites,
                     orbit_grid,
-                    compatible_satellite_ids=compatible_satellite_ids[sensor_type],
+                    compatible_satellite_ids=compatible_ids,
                     min_duration_s=required_duration_s,
                 )
                 if not intervals:
@@ -652,12 +712,18 @@ def _build_task_entries(
                 if remaining == 0:
                     break
             batch_rounds += 1
+            max_rounds = _adaptive_retry_budget(remaining, len(compatible_ids))
+            if accepted_this_round == 0:
+                stall_rounds += 1
+            else:
+                stall_rounds = 0
             if remaining == 0:
                 break
-            if accepted_this_round == 0 and batch_rounds >= 12:
+            if stall_rounds >= max_rounds:
                 raise ValueError(
                     f"Unable to find enough accessible {source_kind}/{sensor_type} tasks; "
-                    f"{remaining} still missing"
+                    f"{remaining} still missing after {batch_rounds} rounds "
+                    f"({stall_rounds} consecutive empty rounds, budget={max_rounds})"
                 )
     rng.shuffle(planned_tasks)
     tasks: list[dict[str, Any]] = []
