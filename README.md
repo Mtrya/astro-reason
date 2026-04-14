@@ -42,14 +42,11 @@ astro-reason/
 This project uses `uv` for environment management. To ensure verifier integrity, run:
 
 ```bash
-uv run pytest tests/benchmarks/test_<name>_verifier.py
+uv run pytest
 ```
-
-Run focused tests instead of the full suite unless you specifically need a broader check.
 
 ## Status
 
 Current priorities include
-- refactoring several newer benchmarks
-- reimplementing several existing verifiers, 
-- and writing dataset generators for reproducibility.
+- refining several benchmarks,
+- and implementing solvers in [AstroReason-Solvers](https://github.com/Mtrya/AstroReason-Solvers).
