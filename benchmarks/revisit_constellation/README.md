@@ -217,7 +217,7 @@ Resource accounting simulates battery state at discrete time points:
   - Observation: +`obs_discharge_rate_w`
   - Maneuver: +`maneuver_discharge_rate_w` during slew/settling windows
 
-Resource checks occur at action boundaries, maneuver window boundaries, and 30-second intervals. Battery is bounded by capacity and zero; violations invalidate the solution.
+Resource checks occur at action boundaries, maneuver window boundaries, and 30-second intervals. Battery level is clamped to the capacity upper bound, and only depletion below zero invalidates the solution.
 
 ### Attitude and Maneuver Windows
 
