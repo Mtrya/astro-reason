@@ -1,0 +1,11 @@
+{
+  "actions": [
+    {
+      "end_time": "2025-07-17T04:12:05Z",
+      "satellite_id": "sat_001",
+      "start_time": "2025-07-17T04:12:00Z",
+      "task_id": "task_001",
+      "type": "observation"
+    }
+  ]
+}

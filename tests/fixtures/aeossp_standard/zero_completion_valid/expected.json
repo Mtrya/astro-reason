@@ -1,0 +1,25 @@
+{
+  "action_failures_len": 0,
+  "diagnostics": {
+    "per_satellite_resource_summary": {
+      "sat_001": {
+        "failed": false,
+        "gross_consumption_wh": 9.999999999999998,
+        "total_imaging_time_s": 0.0
+      }
+    },
+    "per_task": {
+      "task_001": {
+        "completed": false,
+        "completed_by_action_index": null
+      }
+    }
+  },
+  "metrics": {
+    "CR": 0.0,
+    "PC": 9.999999999999998,
+    "TAT": null,
+    "WCR": 0.0
+  },
+  "valid": true
+}

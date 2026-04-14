@@ -1,0 +1,15 @@
+mission:
+  case_id: visibility_invalid
+  horizon_start: "2025-07-17T04:10:00Z"
+  horizon_end: "2025-07-17T04:20:00Z"
+  action_time_step_s: 5
+  geometry_sample_step_s: 5
+  resource_sample_step_s: 10
+  propagation:
+    model: sgp4
+    frame_inertial: gcrf
+    frame_fixed: itrf
+    earth_shape: wgs84
+  scoring:
+    ranking_order: [valid, WCR, CR, TAT, PC]
+    reported_metrics: [CR, WCR, TAT, PC]

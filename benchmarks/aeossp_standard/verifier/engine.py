@@ -410,13 +410,14 @@ def _validate_observation_geometry(
     return accepted
 
 
-def _build_maneuver_windows(
+def _validate_slew_and_build_maneuver_windows(
     case: AeosspCase,
     propagation: _PropagationContext,
     actions_by_satellite: dict[str, list[ValidatedAction]],
     failures: list[ActionFailure],
     violations: list[str],
-) -> dict[str, list[ManeuverWindow]]:
+) -> tuple[dict[str, list[ValidatedAction]], dict[str, list[ManeuverWindow]]]:
+    accepted_actions_by_satellite: dict[str, list[ValidatedAction]] = defaultdict(list)
     maneuver_windows: dict[str, list[ManeuverWindow]] = defaultdict(list)
     for satellite_id, actions in actions_by_satellite.items():
         satellite = case.satellites[satellite_id]
@@ -482,7 +483,6 @@ def _build_maneuver_windows(
                     )
                 )
                 violations.append(f"actions[{current.action_index}]: {reason}")
-                previous = current
                 continue
             if required_gap_s > NUMERICAL_EPS:
                 window_start = current.start_time - timedelta(seconds=required_gap_s)
@@ -499,8 +499,9 @@ def _build_maneuver_windows(
                         to_task_id=current.task_id,
                     )
                 )
+            accepted_actions_by_satellite[satellite_id].append(current)
             previous = current
-    return maneuver_windows
+    return accepted_actions_by_satellite, maneuver_windows
 
 
 def _interval_contains(instant: datetime, start: datetime, end: datetime) -> bool:
@@ -823,9 +824,14 @@ def analyze(case: AeosspCase, solution: AeosspSolution) -> SolutionAnalysis:
     for item in validated_actions:
         actions_by_satellite[item.satellite_id].append(item)
 
-    maneuver_windows_by_satellite = _build_maneuver_windows(
+    accepted_actions_by_satellite, maneuver_windows_by_satellite = _validate_slew_and_build_maneuver_windows(
         case, propagation, actions_by_satellite, failures, violations
     )
+    accepted_actions = [
+        item
+        for satellite_id in sorted(accepted_actions_by_satellite)
+        for item in accepted_actions_by_satellite[satellite_id]
+    ]
     maneuver_windows = tuple(
         window
         for satellite_id in sorted(maneuver_windows_by_satellite)
@@ -840,16 +846,16 @@ def analyze(case: AeosspCase, solution: AeosspSolution) -> SolutionAnalysis:
     total_pc_wh, resource_summary, battery_traces = _simulate_battery_and_power(
         case,
         propagation,
-        actions_by_satellite,
+        accepted_actions_by_satellite,
         maneuver_windows_by_satellite,
         failures,
         violations,
     )
 
-    task_outcomes = _compute_task_outcomes(case, validated_actions)
+    task_outcomes = _compute_task_outcomes(case, accepted_actions)
     diagnostics = _build_diagnostics(task_outcomes, failures, maneuver_windows, resource_summary)
-    timeline_events = _build_timeline_events(validated_actions, maneuver_windows, failures)
-    snapshot_candidates = _build_snapshot_candidates(validated_actions, failures, resource_summary)
+    timeline_events = _build_timeline_events(accepted_actions, maneuver_windows, failures)
+    snapshot_candidates = _build_snapshot_candidates(accepted_actions, failures, resource_summary)
 
     if violations:
         result = VerificationResult(
@@ -871,7 +877,7 @@ def analyze(case: AeosspCase, solution: AeosspSolution) -> SolutionAnalysis:
         solution=solution,
         result=result,
         validated_actions=tuple(
-            sorted(validated_actions, key=lambda item: (item.start_time, item.end_time, item.action_index))
+            sorted(accepted_actions, key=lambda item: (item.start_time, item.end_time, item.action_index))
         ),
         action_failures=tuple(failures),
         maneuver_windows=maneuver_windows,

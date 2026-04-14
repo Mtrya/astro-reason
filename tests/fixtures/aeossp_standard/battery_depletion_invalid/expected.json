@@ -1,0 +1,33 @@
+{
+  "action_failures_len": 1,
+  "diagnostics": {
+    "per_satellite_resource_summary": {
+      "sat_001": {
+        "failed": true
+      }
+    },
+    "per_task": {
+      "task_001": {
+        "completed": false
+      }
+    }
+  },
+  "first_action_failure": {
+    "action_index": -1,
+    "reason_substring": "battery depletes below zero",
+    "satellite_id": "sat_001",
+    "stage": "battery",
+    "task_id": "",
+    "time": "2025-07-17T04:10:05Z"
+  },
+  "metrics": {
+    "CR": 0.0,
+    "PC": 0.0,
+    "TAT": null,
+    "WCR": 0.0
+  },
+  "valid": false,
+  "violation_substrings": [
+    "battery depletes below zero"
+  ]
+}

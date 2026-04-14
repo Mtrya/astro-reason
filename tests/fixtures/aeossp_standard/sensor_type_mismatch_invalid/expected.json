@@ -1,0 +1,28 @@
+{
+  "action_failures_len": 1,
+  "diagnostics": {
+    "per_task": {
+      "task_001": {
+        "completed": false
+      }
+    }
+  },
+  "first_action_failure": {
+    "action_index": 0,
+    "reason_substring": "sensor_type does not match",
+    "satellite_id": "sat_001",
+    "stage": "structure",
+    "task_id": "task_001",
+    "time": "2025-07-17T04:12:00Z"
+  },
+  "metrics": {
+    "CR": 0.0,
+    "PC": 0.0,
+    "TAT": null,
+    "WCR": 0.0
+  },
+  "valid": false,
+  "violation_substrings": [
+    "sensor_type does not match"
+  ]
+}

@@ -1,0 +1,31 @@
+{
+  "action_failures_len": 1,
+  "diagnostics": {
+    "per_task": {
+      "task_001": {
+        "completed": true
+      },
+      "task_002": {
+        "completed": false
+      }
+    }
+  },
+  "first_action_failure": {
+    "action_index": 1,
+    "reason_substring": "overlap on the same satellite",
+    "satellite_id": "sat_001",
+    "stage": "slew",
+    "task_id": "task_002",
+    "time": "2025-07-17T04:12:05Z"
+  },
+  "metrics": {
+    "CR": 0.0,
+    "PC": 0.0,
+    "TAT": null,
+    "WCR": 0.0
+  },
+  "valid": false,
+  "violation_substrings": [
+    "overlap on the same satellite"
+  ]
+}
