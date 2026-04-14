@@ -16,6 +16,7 @@ from shapely.geometry import Point, shape
 from shapely.ops import unary_union
 from shapely.prepared import prep
 
+from .geometry import AccessInterval, derive_task_access_intervals, sample_orbit_grid
 from .normalize import CityRecord, TleRecord, load_celestrak_csv, load_world_cities
 
 
@@ -25,6 +26,7 @@ HORIZON_HOURS = 12
 ACTION_TIME_STEP_S = 5
 GEOMETRY_SAMPLE_STEP_S = 5
 RESOURCE_SAMPLE_STEP_S = 10
+TASK_ACCESS_SAMPLE_STEP_S = 30
 
 MIN_SATELLITES_PER_CASE = 20
 MAX_SATELLITES_PER_CASE = 40
@@ -43,6 +45,9 @@ TASK_DURATION_OPTIONS_S = tuple(range(15, 95, 5))
 HOTSPOT_WIDTH_OPTIONS_S = (900, 1200, 1800, 2400, 3600, 5400)
 UNIFORM_WIDTH_OPTIONS_S = (1800, 3600, 5400, 7200)
 HOTSPOT_JITTER_OPTIONS_S = (-900, -600, -300, 0, 300, 600, 900)
+HOTSPOT_WINDOW_SLACK_OPTIONS_S = (300, 600, 900, 1200)
+UNIFORM_WINDOW_SLACK_OPTIONS_S = (900, 1200, 1800, 2400, 3600)
+MIN_CANDIDATE_BATCH = 24
 
 INCLUDE_NAME_TOKENS = (
     "LANDSAT",
@@ -130,6 +135,17 @@ class TaskSeed:
     longitude_deg: float
     altitude_m: float
     source_kind: str
+
+
+@dataclass(frozen=True)
+class PlannedTask:
+    seed: TaskSeed
+    required_sensor_type: str
+    required_duration_s: int
+    weight: float
+    release_time: datetime
+    due_time: datetime
+    access_interval: AccessInterval
 
 
 def _write_yaml(path: Path, payload: dict[str, Any]) -> None:
@@ -437,35 +453,227 @@ def _task_weight_for_source(rng: random.Random, source_kind: str) -> float:
     return rng.choice(BACKGROUND_TASK_WEIGHTS)
 
 
-def _build_task_entries(
+def _group_task_counts(total: int) -> dict[tuple[str, str], int]:
+    flat_counts = _largest_remainder_counts(
+        total,
+        [
+            ("city:visible", CITY_TASK_FRACTION * VISIBLE_TASK_FRACTION),
+            ("city:infrared", CITY_TASK_FRACTION * (1.0 - VISIBLE_TASK_FRACTION)),
+            ("background:visible", (1.0 - CITY_TASK_FRACTION) * VISIBLE_TASK_FRACTION),
+            ("background:infrared", (1.0 - CITY_TASK_FRACTION) * (1.0 - VISIBLE_TASK_FRACTION)),
+        ],
+    )
+    grouped: dict[tuple[str, str], int] = {}
+    for key, value in flat_counts.items():
+        source_kind, sensor_type = key.split(":")
+        grouped[(source_kind, sensor_type)] = value
+    return grouped
+
+
+def _sample_candidate_seeds(
     rng: random.Random,
-    seeds: list[TaskSeed],
+    *,
+    source_kind: str,
+    count: int,
+    cities: list[CityRecord],
+    land_geometry: Any,
+    accepted: list[TaskSeed],
+) -> list[TaskSeed]:
+    if source_kind == "city":
+        return _sample_city_tasks(rng, cities, count, accepted=accepted)
+    return _sample_background_tasks(rng, land_geometry, count, accepted=accepted)
+
+
+def _round_down_to_step(seconds: int, step_s: int) -> int:
+    return (seconds // step_s) * step_s
+
+
+def _round_up_to_step(seconds: int, step_s: int) -> int:
+    return ((seconds + step_s - 1) // step_s) * step_s
+
+
+def _choose_access_interval(
+    rng: random.Random,
+    intervals: list[AccessInterval],
+    *,
+    horizon_start: datetime,
+    hotspot_offsets_s: list[int],
+) -> tuple[AccessInterval, bool]:
+    if not intervals:
+        raise ValueError("Cannot choose an access interval from an empty list")
+    hotspot_mode = rng.random() < 0.70
+    if not hotspot_mode:
+        return rng.choice(intervals), False
+    hotspot_offset_s = rng.choice(hotspot_offsets_s)
+    return min(
+        intervals,
+        key=lambda interval: abs(
+            int((interval.midpoint_time - horizon_start).total_seconds()) - hotspot_offset_s
+        ),
+    ), True
+
+
+def _window_around_access(
+    rng: random.Random,
+    interval: AccessInterval,
+    *,
+    required_duration_s: int,
     horizon_start: datetime,
     horizon_end: datetime,
+    hotspot_mode: bool,
+) -> tuple[datetime, datetime]:
+    horizon_s = int((horizon_end - horizon_start).total_seconds())
+    interval_start_s = int((interval.start_time - horizon_start).total_seconds())
+    interval_end_s = int((interval.end_time - horizon_start).total_seconds())
+    slack_options = (
+        HOTSPOT_WINDOW_SLACK_OPTIONS_S if hotspot_mode else UNIFORM_WINDOW_SLACK_OPTIONS_S
+    )
+    lead_slack_s = rng.choice(slack_options)
+    trail_slack_s = rng.choice(slack_options)
+    start_s = _round_down_to_step(max(0, interval_start_s - lead_slack_s), ACTION_TIME_STEP_S)
+    end_s = _round_up_to_step(min(horizon_s, interval_end_s + trail_slack_s), ACTION_TIME_STEP_S)
+    if end_s - start_s < required_duration_s:
+        end_s = min(horizon_s, start_s + required_duration_s)
+        start_s = max(0, end_s - required_duration_s)
+        start_s = _round_down_to_step(start_s, ACTION_TIME_STEP_S)
+        end_s = _round_up_to_step(end_s, ACTION_TIME_STEP_S)
+    release_time = horizon_start + timedelta(seconds=start_s)
+    due_time = horizon_start + timedelta(seconds=end_s)
+    return release_time, due_time
+
+
+def _provisional_task_like(
+    seed: TaskSeed,
+    *,
+    sensor_type: str,
+    required_duration_s: int,
+) -> dict[str, Any]:
+    return {
+        "latitude_deg": seed.latitude_deg,
+        "longitude_deg": seed.longitude_deg,
+        "altitude_m": seed.altitude_m,
+        "required_sensor_type": sensor_type,
+        "required_duration_s": required_duration_s,
+    }
+
+
+def _build_task_entries(
+    rng: random.Random,
+    *,
+    cities: list[CityRecord],
+    land_geometry: Any,
+    satellites: list[dict[str, Any]],
+    horizon_start: datetime,
+    horizon_end: datetime,
+    task_count: int,
 ) -> list[dict[str, Any]]:
     horizon_s = int((horizon_end - horizon_start).total_seconds())
     hotspot_offsets_s = _sample_hotspot_offsets(rng, horizon_s)
-    sensor_labels = _task_sensor_labels(rng, len(seeds))
+    orbit_grid = sample_orbit_grid(
+        satellites,
+        start_time=horizon_start,
+        end_time=horizon_end,
+        step_s=TASK_ACCESS_SAMPLE_STEP_S,
+    )
+    compatible_satellite_ids = {
+        "visible": {
+            sat["satellite_id"]
+            for sat in satellites
+            if sat["sensor"]["sensor_type"] == "visible"
+        },
+        "infrared": {
+            sat["satellite_id"]
+            for sat in satellites
+            if sat["sensor"]["sensor_type"] == "infrared"
+        },
+    }
+    group_counts = _group_task_counts(task_count)
+    group_order = list(group_counts)
+    rng.shuffle(group_order)
+    accepted_seeds: list[TaskSeed] = []
+    planned_tasks: list[PlannedTask] = []
+    for source_kind, sensor_type in group_order:
+        remaining = group_counts[(source_kind, sensor_type)]
+        batch_rounds = 0
+        while remaining > 0:
+            batch_size = max(MIN_CANDIDATE_BATCH, remaining * 2)
+            candidates = _sample_candidate_seeds(
+                rng,
+                source_kind=source_kind,
+                count=batch_size,
+                cities=cities,
+                land_geometry=land_geometry,
+                accepted=accepted_seeds,
+            )
+            accepted_this_round = 0
+            for candidate in candidates:
+                required_duration_s = rng.choice(TASK_DURATION_OPTIONS_S)
+                intervals = derive_task_access_intervals(
+                    _provisional_task_like(
+                        candidate,
+                        sensor_type=sensor_type,
+                        required_duration_s=required_duration_s,
+                    ),
+                    satellites,
+                    orbit_grid,
+                    compatible_satellite_ids=compatible_satellite_ids[sensor_type],
+                    min_duration_s=required_duration_s,
+                )
+                if not intervals:
+                    continue
+                selected_interval, hotspot_mode = _choose_access_interval(
+                    rng,
+                    intervals,
+                    horizon_start=horizon_start,
+                    hotspot_offsets_s=hotspot_offsets_s,
+                )
+                release_time, due_time = _window_around_access(
+                    rng,
+                    selected_interval,
+                    required_duration_s=required_duration_s,
+                    horizon_start=horizon_start,
+                    horizon_end=horizon_end,
+                    hotspot_mode=hotspot_mode,
+                )
+                planned_tasks.append(
+                    PlannedTask(
+                        seed=candidate,
+                        required_sensor_type=sensor_type,
+                        required_duration_s=required_duration_s,
+                        weight=_task_weight_for_source(rng, source_kind),
+                        release_time=release_time,
+                        due_time=due_time,
+                        access_interval=selected_interval,
+                    )
+                )
+                accepted_seeds.append(candidate)
+                accepted_this_round += 1
+                remaining -= 1
+                if remaining == 0:
+                    break
+            batch_rounds += 1
+            if remaining == 0:
+                break
+            if accepted_this_round == 0 and batch_rounds >= 12:
+                raise ValueError(
+                    f"Unable to find enough accessible {source_kind}/{sensor_type} tasks; "
+                    f"{remaining} still missing"
+                )
+    rng.shuffle(planned_tasks)
     tasks: list[dict[str, Any]] = []
-    for index, seed in enumerate(seeds, start=1):
-        required_duration_s = rng.choice(TASK_DURATION_OPTIONS_S)
-        start_offset_s, end_offset_s = _sample_task_window(rng, hotspot_offsets_s, horizon_s=horizon_s)
-        if end_offset_s - start_offset_s < required_duration_s:
-            end_offset_s = min(horizon_s, start_offset_s + required_duration_s)
-        release_time = horizon_start + timedelta(seconds=start_offset_s)
-        due_time = horizon_start + timedelta(seconds=end_offset_s)
+    for index, plan in enumerate(planned_tasks, start=1):
         tasks.append(
             {
                 "task_id": f"task_{index:04d}",
-                "name": seed.name,
-                "latitude_deg": round(seed.latitude_deg, 6),
-                "longitude_deg": round(seed.longitude_deg, 6),
-                "altitude_m": round(seed.altitude_m, 1),
-                "release_time": _utc_iso(release_time),
-                "due_time": _utc_iso(due_time),
-                "required_duration_s": int(required_duration_s),
-                "required_sensor_type": sensor_labels[index - 1],
-                "weight": _task_weight_for_source(rng, seed.source_kind),
+                "name": plan.seed.name,
+                "latitude_deg": round(plan.seed.latitude_deg, 6),
+                "longitude_deg": round(plan.seed.longitude_deg, 6),
+                "altitude_m": round(plan.seed.altitude_m, 1),
+                "release_time": _utc_iso(plan.release_time),
+                "due_time": _utc_iso(plan.due_time),
+                "required_duration_s": int(plan.required_duration_s),
+                "required_sensor_type": plan.required_sensor_type,
+                "weight": plan.weight,
             }
         )
     return tasks
@@ -538,6 +746,13 @@ def _task_weight_summary(tasks: list[dict[str, Any]]) -> dict[str, float]:
     }
 
 
+def _task_source_mix(tasks: list[dict[str, Any]]) -> dict[str, int]:
+    return {
+        "city": sum(not task["name"].startswith("background_") for task in tasks),
+        "background": sum(task["name"].startswith("background_") for task in tasks),
+    }
+
+
 def generate_dataset(
     *,
     source_dir: Path,
@@ -564,9 +779,6 @@ def generate_dataset(
 
         satellite_count = case_rng.randint(MIN_SATELLITES_PER_CASE, MAX_SATELLITES_PER_CASE)
         task_count = case_rng.randint(MIN_TASKS_PER_CASE, MAX_TASKS_PER_CASE)
-        city_count = int(round(task_count * CITY_TASK_FRACTION))
-        background_count = task_count - city_count
-
         selected_satellites = _select_satellites(case_rng, retained_pool, satellite_count)
         templates = _assign_satellite_templates(case_rng, satellite_count)
         satellite_entries = [
@@ -577,16 +789,15 @@ def generate_dataset(
             )
         ]
 
-        city_tasks = _sample_city_tasks(case_rng, cities, city_count, accepted=[])
-        background_tasks = _sample_background_tasks(
+        task_entries = _build_task_entries(
             case_rng,
-            land_geometry,
-            background_count,
-            accepted=city_tasks,
+            cities=cities,
+            land_geometry=land_geometry,
+            satellites=satellite_entries,
+            horizon_start=horizon_start,
+            horizon_end=horizon_end,
+            task_count=task_count,
         )
-        task_seeds = city_tasks + background_tasks
-        case_rng.shuffle(task_seeds)
-        task_entries = _build_task_entries(case_rng, task_seeds, horizon_start, horizon_end)
         mission_payload = _mission_payload(case_id, horizon_start, horizon_end)
         _ensure_grid_contract(task_entries, mission_payload)
 
@@ -606,6 +817,7 @@ def generate_dataset(
                 "horizon_hours": HORIZON_HOURS,
                 "satellite_sensor_mix": _satellite_sensor_mix(satellite_entries),
                 "task_sensor_mix": _task_sensor_mix(task_entries),
+                "task_source_mix": _task_source_mix(task_entries),
                 "task_weight_summary": _task_weight_summary(task_entries),
                 "norad_catalog_ids": [entry["norad_catalog_id"] for entry in satellite_entries],
             }
