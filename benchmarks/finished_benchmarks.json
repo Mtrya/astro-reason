@@ -53,6 +53,14 @@
         "dataset/cases",
         "dataset/index.json"
       ]
+    },
+    {
+      "name": "aeossp_standard",
+      "repro_ci": true,
+      "generated_paths": [
+        "dataset/cases",
+        "dataset/index.json"
+      ]
     }
   ]
 }

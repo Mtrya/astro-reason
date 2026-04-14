@@ -69,8 +69,8 @@ uv run pytest tests/benchmarks/test_spot5_verify.py
 # SatNet 验证器测试
 uv run pytest tests/benchmarks/test_satnet_verifier.py
 
-# AEOSbench 验证器测试
-uv run pytest tests/benchmarks/test_aeosbench_verifier.py
+# AEOSSP Standard 验证器测试
+uv run pytest tests/benchmarks/test_aeossp_standard_verifier.py
 ```
 
 ## 数据格式
@@ -128,9 +128,9 @@ uv run pytest tests/benchmarks/test_aeosbench_verifier.py
 
 | 基准 | 主要指标 |
 |-----|---------|
+| aeossp_standard | WCR / CR / TAT / PC |
 | stereo_imaging | stereo_coverage（立体覆盖比例） |
 | regional_coverage | coverage_ratio（区域唯一覆盖比例） |
-| aeosbench | completion_rate（任务完成率） |
 | spot5 | profit（总利润） |
 | latency_optimization | latency_min/max/mean（延迟统计） |
 | revisit_constellation | mean/max_revisit_gap_hours（平均/最大重访间隔） |
