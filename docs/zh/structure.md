@@ -5,7 +5,7 @@
 ```
 astro-reason/
 ├── benchmarks/                 # 基准测试模块
-│   ├── aeosbench/             # 敏捷地球观测卫星星座调度
+│   ├── aeossp_standard/       # 标准敏捷地球观测调度
 │   ├── latency_optimization/  # 通信延迟优化
 │   ├── regional_coverage/     # 区域覆盖调度
 │   ├── revisit_constellation/  # 星座重访设计与调度
@@ -55,11 +55,11 @@ dataset/
 ```
 tests/
 ├── benchmarks/                      # 针对验证器的测试
-│   ├── test_aeosbench_verifier.py
+│   ├── test_aeossp_standard_verifier.py
 │   ├── test_satnet_verifier.py
 │   └── test_spot5_verify.py
 └── fixtures/                      # 测试数据
-    ├── aeosbench_gt_bsk2.9.0/    # AEOSbench 参考数据
+    ├── aeossp_standard/           # AEOSSP Standard 语义锁定夹具
     ├── case_0001/                 # 测试案例数据
     ├── satnet_mock_solutions/     # SatNet 参考解决方案
     └── spot5_val_sol/             # SPOT-5 参考解决方案
