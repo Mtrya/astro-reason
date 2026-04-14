@@ -44,12 +44,16 @@
         "visible": 17
       },
       "task_sensor_mix": {
-        "infrared": 64,
-        "visible": 254
+        "infrared": 63,
+        "visible": 255
+      },
+      "task_source_mix": {
+        "background": 127,
+        "city": 191
       },
       "task_weight_summary": {
         "max": 5.0,
-        "mean": 2.968553,
+        "mean": 3.092767,
         "min": 1.0
       }
     },
@@ -108,9 +112,13 @@
         "infrared": 100,
         "visible": 399
       },
+      "task_source_mix": {
+        "background": 200,
+        "city": 299
+      },
       "task_weight_summary": {
         "max": 5.0,
-        "mean": 3.004008,
+        "mean": 2.951904,
         "min": 1.0
       }
     },
@@ -153,12 +161,16 @@
         "visible": 20
       },
       "task_sensor_mix": {
-        "infrared": 71,
-        "visible": 286
+        "infrared": 72,
+        "visible": 285
+      },
+      "task_source_mix": {
+        "background": 143,
+        "city": 214
       },
       "task_weight_summary": {
         "max": 5.0,
-        "mean": 3.004202,
+        "mean": 3.053221,
         "min": 1.0
       }
     },
@@ -198,12 +210,16 @@
         "visible": 18
       },
       "task_sensor_mix": {
-        "infrared": 154,
-        "visible": 618
+        "infrared": 155,
+        "visible": 617
+      },
+      "task_source_mix": {
+        "background": 309,
+        "city": 463
       },
       "task_weight_summary": {
         "max": 5.0,
-        "mean": 2.985751,
+        "mean": 2.995466,
         "min": 1.0
       }
     },
@@ -258,9 +274,13 @@
         "infrared": 100,
         "visible": 400
       },
+      "task_source_mix": {
+        "background": 200,
+        "city": 300
+      },
       "task_weight_summary": {
         "max": 5.0,
-        "mean": 2.983,
+        "mean": 2.956,
         "min": 1.0
       }
     }
