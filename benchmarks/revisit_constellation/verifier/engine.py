@@ -22,7 +22,6 @@ from .models import (
     ObservationRecord,
     Solution,
     Target,
-    GroundStation,
     VerificationResult,
 )
 from .io import load_case, load_solution
@@ -236,19 +235,10 @@ def _validate_action_structure(
                 errors.append(f"{label} observation is missing target_id")
             elif action.target_id not in instance.targets:
                 errors.append(f"{label} references unknown target_id {action.target_id!r}")
-            if action.station_id is not None:
-                errors.append(f"{label} observation must not include station_id")
-        elif action.action_type == "downlink":
-            if not action.station_id:
-                errors.append(f"{label} downlink is missing station_id")
-            elif action.station_id not in instance.ground_stations:
-                errors.append(f"{label} references unknown station_id {action.station_id!r}")
-            if action.target_id is not None:
-                errors.append(f"{label} downlink must not include target_id")
         else:
             errors.append(
                 f"{label} has unsupported action_type {action.action_type!r}; "
-                "expected 'observation' or 'downlink'"
+                "expected 'observation'"
             )
         actions_by_satellite[action.satellite_id].append(action)
 
@@ -322,30 +312,6 @@ def _observation_geometry_ok(
     return True, None
 
 
-def _downlink_geometry_ok(
-    station: GroundStation, state_ecef_m_mps: np.ndarray
-) -> tuple[bool, str | None]:
-    relative_enz = np.asarray(
-        brahe.relative_position_ecef_to_enz(
-            station.ecef_position_m,
-            state_ecef_m_mps[:3],
-            brahe.EllipsoidalConversionType.GEODETIC,
-        ),
-        dtype=float,
-    )
-    azimuth_elevation_range = np.asarray(
-        brahe.position_enz_to_azel(relative_enz, brahe.AngleFormat.DEGREES),
-        dtype=float,
-    )
-    elevation_deg = float(azimuth_elevation_range[1])
-    if elevation_deg < station.min_elevation_deg - NUMERICAL_EPS:
-        return (
-            False,
-            f"elevation {elevation_deg:.3f} deg below station minimum {station.min_elevation_deg:.3f} deg",
-        )
-    return True, None
-
-
 def _validate_action_geometry(
     instance: Instance,
     actions_by_satellite: dict[str, list[Action]],
@@ -394,25 +360,6 @@ def _validate_action_geometry(
                             midpoint=_observation_midpoint(action),
                         )
                     )
-            else:
-                station = instance.ground_stations[action.station_id or ""]
-                if action.duration_sec < station.min_duration_sec - NUMERICAL_EPS:
-                    errors.append(
-                        f"Downlink to station {station.station_id} on {satellite_id} lasts "
-                        f"{action.duration_sec:.3f} sec but requires at least "
-                        f"{station.min_duration_sec:.3f} sec"
-                    )
-                    continue
-                for sample in sample_times:
-                    epoch = _datetime_to_epoch(sample)
-                    state_ecef = np.asarray(propagator.state_ecef(epoch), dtype=float)
-                    ok, reason = _downlink_geometry_ok(station, state_ecef)
-                    if not ok:
-                        errors.append(
-                            f"Downlink to station {station.station_id} on {satellite_id} is infeasible at "
-                            f"{_isoformat_z(sample)}: {reason}"
-                        )
-                        break
 
     return successful_observations
 
@@ -498,7 +445,6 @@ def _simulate_resources(
 ) -> None:
     resource = instance.satellite_model.resource_model
     sensor = instance.satellite_model.sensor
-    terminal = instance.satellite_model.terminal
     attitude = instance.satellite_model.attitude_model
 
     for satellite_id, propagator in propagators.items():
@@ -524,7 +470,6 @@ def _simulate_resources(
             time_points.add(maneuver.end)
 
         battery_wh = resource.initial_battery_wh
-        storage_mb = resource.initial_storage_mb
 
         sorted_points = sorted(time_points)
         for start, end in zip(sorted_points, sorted_points[1:]):
@@ -545,28 +490,15 @@ def _simulate_resources(
                 ),
                 None,
             )
-            active_downlinks = [
-                action
-                for action in actions
-                if action.action_type == "downlink"
-                and _interval_contains(midpoint, action.start, action.end)
-            ]
             active_maneuver = any(
                 _interval_contains(midpoint, maneuver.start, maneuver.end)
                 for maneuver in maneuvers
             )
 
             discharge_w = resource.idle_discharge_rate_w
-            storage_rate_mb_per_s = 0.0
 
             if active_observation is not None:
                 discharge_w += sensor.obs_discharge_rate_w
-                storage_rate_mb_per_s += sensor.obs_store_rate_mb_per_s
-            if active_downlinks:
-                discharge_w += len(active_downlinks) * terminal.downlink_discharge_rate_w
-                storage_rate_mb_per_s -= (
-                    len(active_downlinks) * terminal.downlink_release_rate_mb_per_s
-                )
             if active_maneuver:
                 discharge_w += attitude.maneuver_discharge_rate_w
 
@@ -575,26 +507,14 @@ def _simulate_resources(
             )
 
             battery_wh += ((charge_w - discharge_w) * duration_sec) / 3600.0
-            storage_mb += storage_rate_mb_per_s * duration_sec
 
             if battery_wh < -NUMERICAL_EPS:
                 errors.append(
                     f"Satellite {satellite_id} depletes battery below zero around {_isoformat_z(midpoint)}"
                 )
                 break
-            if storage_mb < -NUMERICAL_EPS:
-                errors.append(
-                    f"Satellite {satellite_id} depletes storage below zero around {_isoformat_z(midpoint)}"
-                )
-                break
-            if storage_mb > resource.storage_capacity_mb + NUMERICAL_EPS:
-                errors.append(
-                    f"Satellite {satellite_id} exceeds storage capacity around {_isoformat_z(midpoint)}"
-                )
-                break
 
             battery_wh = min(resource.battery_capacity_wh, battery_wh)
-            storage_mb = max(0.0, storage_mb)
 
 
 def _compute_metrics(

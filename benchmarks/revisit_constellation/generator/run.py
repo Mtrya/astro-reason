@@ -52,14 +52,13 @@ def main(argv: list[str] | None = None) -> int:
     args = parser.parse_args(argv)
 
     download_dir = args.download_dir or (args.output_dir / "source_data")
-    world_cities_path, ground_stations_path = download_sources(
+    world_cities_path = download_sources(
         download_dir,
         force_download=args.force_download,
     )
 
     generate_dataset(
         world_cities_path=world_cities_path,
-        ground_stations_path=ground_stations_path,
         output_dir=args.output_dir,
         case_count=args.case_count,
         seed=args.seed,

@@ -9,7 +9,6 @@ from .models import (
     RESOURCE_STEP_SEC,
     Action,
     AttitudeModel,
-    GroundStation,
     Instance,
     ManeuverWindow,
     ObservationRecord,
@@ -19,7 +18,6 @@ from .models import (
     SensorModel,
     Solution,
     Target,
-    TerminalModel,
     VerificationResult,
 )
 
@@ -30,7 +28,6 @@ __all__ = [
     "RESOURCE_STEP_SEC",
     "Action",
     "AttitudeModel",
-    "GroundStation",
     "Instance",
     "ManeuverWindow",
     "ObservationRecord",
@@ -40,7 +37,6 @@ __all__ = [
     "SensorModel",
     "Solution",
     "Target",
-    "TerminalModel",
     "VerificationResult",
     "load_case",
     "load_solution",

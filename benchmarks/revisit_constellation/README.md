@@ -45,7 +45,7 @@ Each canonical case contains exactly two machine-readable files:
 
 ### `assets.json`
 
-`assets.json` contains the shared satellite model, satellite-count cap, and ground-station assets for the case.
+`assets.json` contains the shared satellite model and satellite-count cap for the case.
 
 The satellite model includes:
 
@@ -54,15 +54,9 @@ The satellite model includes:
   - `max_off_nadir_angle_deg`
   - `max_range_m`
   - `obs_discharge_rate_w`
-  - `obs_store_rate_mb_per_s`
-- `terminal`
-  - `downlink_release_rate_mb_per_s`
-  - `downlink_discharge_rate_w`
 - `resource_model`
   - `battery_capacity_wh`
-  - `storage_capacity_mb`
   - `initial_battery_wh`
-  - `initial_storage_mb`
   - `idle_discharge_rate_w`
   - `sunlight_charge_rate_w`
 - `attitude_model`
@@ -73,19 +67,9 @@ The satellite model includes:
 - `min_altitude_m`
 - `max_altitude_m`
 
-This benchmark models exactly one downlink terminal per satellite. Downlink actions do not identify a terminal.
-
 The file also includes:
 
 - `max_num_satellites`
-- `ground_stations[]`
-  - `id`
-  - `name`
-  - `latitude_deg`
-  - `longitude_deg`
-  - `altitude_m`
-  - `min_elevation_deg`
-  - `min_duration_sec`
 
 ### `mission.json`
 
@@ -133,7 +117,6 @@ The action list defines the mission schedule for the proposed constellation.
 Supported action types are:
 
 - `observation`
-- `downlink`
 
 Each action includes:
 
@@ -146,10 +129,6 @@ Observation actions also include:
 
 - `target_id`
 
-Downlink actions also include:
-
-- `station_id`
-
 ## Validity Rules
 
 Constraint violations should invalidate a solution immediately. In other words, metrics are only meaningful for solutions that satisfy all hard constraints.
@@ -160,12 +139,10 @@ The verifier is expected to reject a solution if any of the following occur:
 - more satellites than the case permits
 - satellite initial states that violate orbit constraints
 - infeasible observation geometry
-- infeasible downlink geometry
 - power constraint violations
-- storage constraint violations
 - inconsistent action timing
 - overlapping action timing
-- references to unknown satellites, targets, or stations
+- references to unknown satellites or targets
 
 Additional hard-validity checks may be added as the schema becomes more concrete.
 
@@ -226,14 +203,11 @@ Observation geometry is validated at 10-second intervals during actions:
 
 The current sensor model is a nadir-centered pointing cone, not a full imaging footprint model. A target is observable only when its line of sight stays within `max_off_nadir_angle_deg` of nadir.
 
-**Ground station visibility constraints**:
-- Elevation angle above station's minimum
-
 All geometric checks use the instantaneous satellite position propagated to the sample time. The fixed 10-second sampling balances correctness with runtime; brief violations between samples may not be detected.
 
 ### Onboard Resources
 
-Resource accounting simulates battery and storage state at discrete time points:
+Resource accounting simulates battery state at discrete time points:
 
 **Power model**:
 - Sunlight detection via `brahe` eclipse calculation
@@ -241,15 +215,9 @@ Resource accounting simulates battery and storage state at discrete time points:
 - Discharging components:
   - Idle: `idle_discharge_rate_w`
   - Observation: +`obs_discharge_rate_w`
-  - Downlink: +`downlink_discharge_rate_w` while a downlink is active
   - Maneuver: +`maneuver_discharge_rate_w` during slew/settling windows
 
-**Storage model**:
-- Observation fills storage at `obs_store_rate_mb_per_s`
-- Downlink empties storage at `downlink_release_rate_mb_per_s`
-- Overlapping downlinks on one satellite are invalid
-
-Resource checks occur at action boundaries, maneuver window boundaries, and 30-second intervals. Battery and storage are bounded by capacity and zero; violations invalidate the solution.
+Resource checks occur at action boundaries, maneuver window boundaries, and 30-second intervals. Battery is bounded by capacity and zero; violations invalidate the solution.
 
 ### Attitude and Maneuver Windows
 
@@ -320,4 +288,4 @@ The canonical generator entry point is:
 uv run python -m benchmarks.revisit_constellation.generator.run
 ```
 
-Downloaded raw source CSVs are stored under the dataset directory by default at `dataset/source_data/`. The generator downloads the documented Kaggle datasets itself through `kagglehub`, then builds the canonical cases without any manual CSV preparation step.
+Downloaded raw source CSVs are stored under the dataset directory by default at `dataset/source_data/`. The generator downloads the documented Kaggle dataset itself through `kagglehub`, then builds the canonical cases without any manual CSV preparation step.

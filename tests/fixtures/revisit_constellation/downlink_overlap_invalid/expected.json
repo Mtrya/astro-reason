@@ -1,9 +1,0 @@
-{
-  "error_count": 1,
-  "errors_contain": [
-    "overlapping actions"
-  ],
-  "is_valid": false,
-  "metrics": {},
-  "warnings": []
-}

@@ -25,32 +25,16 @@ CITY_COLUMN_ALIASES = {
     "population": ("population", "population_proper", "population_total"),
 }
 
-STATION_COLUMN_ALIASES = {
-    "id": ("id", "station_id", "facility_id"),
-    "name": ("name", "station_name", "facility_name"),
-    "network_name": ("network_name", "network", "operator", "organization"),
-    "latitude_deg": ("latitude_deg", "latitude", "lat"),
-    "longitude_deg": ("longitude_deg", "longitude", "lon", "lng"),
-    "altitude_m": ("altitude_m", "altitude", "elevation_m"),
-}
-
 SATELLITE_MODEL = {
     "model_name": "balanced_leo_eo_bus_v1",
     "sensor": {
         "max_off_nadir_angle_deg": 25.0,
         "max_range_m": 1_000_000.0,
         "obs_discharge_rate_w": 120.0,
-        "obs_store_rate_mb_per_s": 20.0,
-    },
-    "terminal": {
-        "downlink_release_rate_mb_per_s": 40.0,
-        "downlink_discharge_rate_w": 80.0,
     },
     "resource_model": {
         "battery_capacity_wh": 2_000.0,
-        "storage_capacity_mb": 20_000.0,
         "initial_battery_wh": 1_600.0,
-        "initial_storage_mb": 1_000.0,
         "idle_discharge_rate_w": 5.0,
         "sunlight_charge_rate_w": 100.0,
     },
@@ -76,37 +60,24 @@ class CityRecord:
 
 
 @dataclass(frozen=True)
-class StationRecord:
-    station_id: str
-    name: str
-    network_name: str
-    latitude_deg: float
-    longitude_deg: float
-    altitude_m: float
-
-
-@dataclass(frozen=True)
 class CaseSpec:
     case_id: str
     target_count: int
-    station_count: int
     max_num_satellites: int
     revisit_threshold_hours: float
 
 
-def _sample_case_spec(rng: random.Random) -> tuple[int, int, int, float]:
+def _sample_case_spec(rng: random.Random) -> tuple[int, int, float]:
     """Sample case parameters from the per-case RNG (same seeding policy as stereo_imaging)."""
     target_bounds = (12, 24)
-    station_bounds = (3, 6)
     satellite_bounds = (6, 18)
 
     target_count = rng.randint(*target_bounds)
-    station_count = rng.randint(*station_bounds)
     max_num_satellites = rng.randint(*satellite_bounds)
 
     threshold_options = (6.0, 8.0, 10.0, 12.0)
     revisit_threshold_hours = rng.choice(threshold_options)
-    return target_count, station_count, max_num_satellites, revisit_threshold_hours
+    return target_count, max_num_satellites, revisit_threshold_hours
 
 
 def _write_json(path: Path, data: object) -> None:
@@ -158,10 +129,6 @@ def _slugify(value: str) -> str:
 
 def _city_key(city: CityRecord) -> tuple[str, float, float]:
     return (_slugify(city.name), round(city.latitude_deg, 3), round(city.longitude_deg, 3))
-
-
-def _station_key(station: StationRecord) -> tuple[str, float, float]:
-    return (_slugify(station.name), round(station.latitude_deg, 3), round(station.longitude_deg, 3))
 
 
 def _haversine_distance_m(
@@ -294,12 +261,11 @@ def build_case_specs(case_count: int, *, seed: int) -> list[CaseSpec]:
     for case_index in range(case_count):
         # Per-case stream depends only on `seed` and `case_index` (see stereo_imaging `generate_dataset`).
         case_rng = random.Random(seed + case_index * 10_007)
-        tc, sc, ms, thr_h = _sample_case_spec(case_rng)
+        tc, ms, thr_h = _sample_case_spec(case_rng)
         specs.append(
             CaseSpec(
                 case_id=f"case_{case_index + 1:04d}",
                 target_count=tc,
-                station_count=sc,
                 max_num_satellites=ms,
                 revisit_threshold_hours=thr_h,
             )
@@ -347,59 +313,10 @@ def select_targets(cities: list[CityRecord], count: int, *, seed: int) -> list[C
     return sorted(selected, key=lambda city: city.name)
 
 
-def select_stations(
-    stations: list[StationRecord],
-    count: int,
-    *,
-    seed: int,
-) -> list[StationRecord]:
-    if count > len(stations):
-        raise ValueError(
-            f"Requested {count} ground stations, but only {len(stations)} stations are available"
-        )
-
-    start_index = _select_initial_index(len(stations), seed)
-    selected = [stations[start_index]]
-    remaining = [station for index, station in enumerate(stations) if index != start_index]
-
-    while len(selected) < count:
-        best_station: StationRecord | None = None
-        best_distance = -1.0
-        for station in remaining:
-            min_distance = min(
-                _haversine_distance_m(
-                    station.latitude_deg,
-                    station.longitude_deg,
-                    existing.latitude_deg,
-                    existing.longitude_deg,
-                )
-                for existing in selected
-            )
-            if min_distance > best_distance:
-                best_distance = min_distance
-                best_station = station
-        assert best_station is not None
-        selected.append(best_station)
-        remaining.remove(best_station)
-    return sorted(selected, key=lambda station: station.station_id)
-
-
-def build_assets_payload(case_spec: CaseSpec, stations: list[StationRecord]) -> dict:
+def build_assets_payload(case_spec: CaseSpec) -> dict:
     return {
         "satellite_model": SATELLITE_MODEL,
         "max_num_satellites": case_spec.max_num_satellites,
-        "ground_stations": [
-            {
-                "id": station.station_id,
-                "name": station.name,
-                "latitude_deg": station.latitude_deg,
-                "longitude_deg": station.longitude_deg,
-                "altitude_m": station.altitude_m,
-                "min_elevation_deg": 10.0,
-                "min_duration_sec": 120.0,
-            }
-            for station in stations
-        ],
     }
 
 
@@ -450,14 +367,13 @@ This committed dataset is intended to be rebuilt with:
 uv run python -m benchmarks.revisit_constellation.generator.run
 ```
 
-The generator downloads the documented source datasets automatically via
+The generator downloads the documented source dataset automatically via
 `kagglehub`, stores the raw source data under `dataset/source_data/` by
 default, and then rebuilds the canonical cases.
 
-Source datasets:
+Source dataset:
 
 - world cities: `{source["world_cities"]["dataset"]}`
-- ground stations: `{source["ground_stations"]["dataset"]}`
 """
 
 
@@ -473,18 +389,12 @@ def build_index_payload(case_specs: list[CaseSpec], *, seed: int) -> dict:
                 "dataset": "juanmah/world-cities",
                 "page_url": "https://www.kaggle.com/datasets/juanmah/world-cities",
             },
-            "ground_stations": {
-                "kind": "kaggle_dataset",
-                "dataset": "pratiksharm/ground-station-dataset",
-                "page_url": "https://www.kaggle.com/datasets/pratiksharm/ground-station-dataset",
-            },
         },
         "cases": [
             {
                 "case_id": case_spec.case_id,
                 "path": f"cases/{case_spec.case_id}",
                 "target_count": case_spec.target_count,
-                "ground_station_count": case_spec.station_count,
                 "max_num_satellites": case_spec.max_num_satellites,
                 "uniform_revisit_threshold_hours": case_spec.revisit_threshold_hours,
             }
@@ -496,13 +406,11 @@ def build_index_payload(case_specs: list[CaseSpec], *, seed: int) -> dict:
 def generate_dataset(
     *,
     world_cities_path: Path,
-    ground_stations_path: Path,
     output_dir: Path,
     case_count: int,
     seed: int,
 ) -> Path:
     cities = load_city_rows(world_cities_path)
-    stations = load_station_rows(ground_stations_path)
     case_specs = build_case_specs(case_count, seed=seed)
 
     cases_dir = output_dir / "cases"
@@ -514,9 +422,8 @@ def generate_dataset(
     for index, case_spec in enumerate(case_specs):
         case_seed = seed + (index * 10_000)
         case_targets = select_targets(cities, case_spec.target_count, seed=case_seed + 1)
-        case_stations = select_stations(stations, case_spec.station_count, seed=case_seed + 2)
         case_dir = cases_dir / case_spec.case_id
-        _write_json(case_dir / "assets.json", build_assets_payload(case_spec, case_stations))
+        _write_json(case_dir / "assets.json", build_assets_payload(case_spec))
         _write_json(case_dir / "mission.json", build_mission_payload(case_spec, case_targets))
 
         if case_spec.case_id == "case_0001":
