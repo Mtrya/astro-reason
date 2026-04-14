@@ -1,0 +1,21 @@
+tasks:
+  - task_id: task_001
+    name: target_1
+    latitude_deg: -0.9747342498087105
+    longitude_deg: 93.07485256821425
+    altitude_m: 0.0
+    release_time: "2025-07-17T04:12:00Z"
+    due_time: "2025-07-17T04:12:30Z"
+    required_duration_s: 10
+    required_sensor_type: visible
+    weight: 1.0
+  - task_id: task_002
+    name: target_2
+    latitude_deg: -0.9747342498087105
+    longitude_deg: 93.07485256821425
+    altitude_m: 0.0
+    release_time: "2025-07-17T04:12:00Z"
+    due_time: "2025-07-17T04:12:30Z"
+    required_duration_s: 10
+    required_sensor_type: visible
+    weight: 1.0

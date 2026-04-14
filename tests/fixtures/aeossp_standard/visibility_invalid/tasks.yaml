@@ -1,0 +1,11 @@
+tasks:
+  - task_id: task_001
+    name: invisible_target
+    latitude_deg: 0.0
+    longitude_deg: 0.0
+    altitude_m: 0.0
+    release_time: "2025-07-17T04:12:00Z"
+    due_time: "2025-07-17T04:12:30Z"
+    required_duration_s: 5
+    required_sensor_type: visible
+    weight: 2.0
