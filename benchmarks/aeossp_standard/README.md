@@ -223,6 +223,11 @@ Attitude / slew model:
   - `max_slew_velocity_deg_per_s`
   - `max_slew_acceleration_deg_per_s2`
   - `settling_time_s`
+- the public solution visualizer renders a schematic off-nadir curve that:
+  - tracks instantaneous off-nadir during observation
+  - uses the same scalar bang-coast-bang maneuver shape during reserved slew windows
+  - holds the previous observation's terminal pointing between observations
+  - holds nadir before the first reserved maneuver
 
 Power model:
 
@@ -296,6 +301,16 @@ uv run python -m benchmarks.aeossp_standard.visualizer.run solution \
   --case-dir benchmarks/aeossp_standard/dataset/cases/case_0001 \
   --solution-path benchmarks/aeossp_standard/dataset/example_solution.json
 ```
+
+Visualizer artifact interpretation:
+
+- case `access_off_nadir_curves.png` is geometry-only:
+  - it shows representative access/off-nadir demand curves
+  - it is not a nominal attitude strategy plot
+- solution `attitude_curves.png` is schematic but verifier-aligned:
+  - it is derived from verifier-backed observation intervals and maneuver windows
+  - it uses the benchmark's scalar bang-coast-bang slew profile rather than
+    linear angle interpolation
 
 The generator’s no-flag path is canonical and reproduces the benchmark-owned
 dataset outputs under `dataset/cases/` and `dataset/index.json`.

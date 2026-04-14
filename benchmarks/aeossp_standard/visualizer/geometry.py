@@ -193,13 +193,10 @@ def derive_task_access_intervals(
                 continue
             if run_start is not None:
                 run_end = idx - 1
-                interval_duration_s = (run_end - run_start + 1) * orbit_grid.step_s
+                interval_duration_s = (run_end - run_start) * orbit_grid.step_s
                 if interval_duration_s >= required_duration_s:
                     start_time = orbit_grid.sample_times[run_start]
-                    end_time = min(
-                        orbit_grid.end_time,
-                        orbit_grid.sample_times[run_end] + timedelta(seconds=orbit_grid.step_s),
-                    )
+                    end_time = orbit_grid.sample_times[run_end]
                     intervals.append(
                         AccessInterval(
                             satellite_id=satellite_id,
@@ -217,13 +214,10 @@ def derive_task_access_intervals(
                 run_start = None
         if run_start is not None:
             run_end = mask.size - 1
-            interval_duration_s = (run_end - run_start + 1) * orbit_grid.step_s
+            interval_duration_s = (run_end - run_start) * orbit_grid.step_s
             if interval_duration_s >= required_duration_s:
                 start_time = orbit_grid.sample_times[run_start]
-                end_time = min(
-                    orbit_grid.end_time,
-                    orbit_grid.sample_times[run_end] + timedelta(seconds=orbit_grid.step_s),
-                )
+                end_time = orbit_grid.sample_times[run_end]
                 intervals.append(
                     AccessInterval(
                         satellite_id=satellite_id,

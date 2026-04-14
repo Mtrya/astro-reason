@@ -112,19 +112,20 @@ def _is_aligned(seconds: float, step_s: int) -> bool:
 
 
 def _action_sample_times(
+    mission: Mission,
     start_time: datetime,
     end_time: datetime,
-    *,
-    step_s: int,
 ) -> list[datetime]:
     if end_time <= start_time:
         return [start_time]
     points = [start_time]
-    current = start_time
-    delta = timedelta(seconds=step_s)
-    while current + delta < end_time:
-        current = current + delta
-        points.append(current)
+    step_s = mission.geometry_sample_step_s
+    start_offset_s = int(round((start_time - mission.horizon_start).total_seconds()))
+    end_offset_s = int(round((end_time - mission.horizon_start).total_seconds()))
+    next_grid_offset_s = ((start_offset_s // step_s) + 1) * step_s
+    while next_grid_offset_s < end_offset_s:
+        points.append(mission.horizon_start + timedelta(seconds=next_grid_offset_s))
+        next_grid_offset_s += step_s
     if points[-1] != end_time:
         points.append(end_time)
     return points
@@ -374,9 +375,9 @@ def _validate_observation_geometry(
         satellite = case.satellites[item.satellite_id]
         task = case.tasks[item.task_id]
         sample_times = _action_sample_times(
+            case.mission,
             item.start_time,
             item.end_time,
-            step_s=case.mission.geometry_sample_step_s,
         )
         bad_reason: str | None = None
         bad_time: datetime | None = None
