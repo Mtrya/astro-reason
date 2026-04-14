@@ -1,61 +1,5 @@
 {
-  "ground_stations": [
-    {
-      "altitude_m": 0.0,
-      "id": "agritech_startup_ground_station",
-      "latitude_deg": -31.7182047,
-      "longitude_deg": -55.9799911,
-      "min_duration_sec": 120.0,
-      "min_elevation_deg": 10.0,
-      "name": "AgriTech Startup Ground Station"
-    },
-    {
-      "altitude_m": 0.0,
-      "id": "atlas_awarua_new_zealand",
-      "latitude_deg": -46.492307,
-      "longitude_deg": 168.3808456,
-      "min_duration_sec": 120.0,
-      "min_elevation_deg": 10.0,
-      "name": "Atlas Awarua, New Zealand"
-    },
-    {
-      "altitude_m": 0.0,
-      "id": "fukui_university_of_technology_ground_station",
-      "latitude_deg": 36.0689822,
-      "longitude_deg": 136.1959134,
-      "min_duration_sec": 120.0,
-      "min_elevation_deg": 10.0,
-      "name": "Fukui University of Technology Ground Station"
-    },
-    {
-      "altitude_m": 0.0,
-      "id": "goonhilly_ghy_6",
-      "latitude_deg": 50.0481728,
-      "longitude_deg": -5.1810449,
-      "min_duration_sec": 120.0,
-      "min_elevation_deg": 10.0,
-      "name": "Goonhilly GHY-6"
-    },
-    {
-      "altitude_m": 0.0,
-      "id": "hughes_san_diego_earth_station",
-      "latitude_deg": 32.7459359,
-      "longitude_deg": -117.0682658,
-      "min_duration_sec": 120.0,
-      "min_elevation_deg": 10.0,
-      "name": "Hughes San Diego Earth Station"
-    },
-    {
-      "altitude_m": 0.0,
-      "id": "university_of_la_reunion_ground_station",
-      "latitude_deg": -21.115141,
-      "longitude_deg": 55.536384,
-      "min_duration_sec": 120.0,
-      "min_elevation_deg": 10.0,
-      "name": "University of La Reunion ground station"
-    }
-  ],
-  "max_num_satellites": 17,
+  "max_num_satellites": 13,
   "satellite_model": {
     "attitude_model": {
       "maneuver_discharge_rate_w": 90.0,
@@ -70,19 +14,12 @@
       "battery_capacity_wh": 2000.0,
       "idle_discharge_rate_w": 5.0,
       "initial_battery_wh": 1600.0,
-      "initial_storage_mb": 1000.0,
-      "storage_capacity_mb": 20000.0,
       "sunlight_charge_rate_w": 100.0
     },
     "sensor": {
       "max_off_nadir_angle_deg": 25.0,
       "max_range_m": 1000000.0,
-      "obs_discharge_rate_w": 120.0,
-      "obs_store_rate_mb_per_s": 20.0
-    },
-    "terminal": {
-      "downlink_discharge_rate_w": 80.0,
-      "downlink_release_rate_mb_per_s": 40.0
+      "obs_discharge_rate_w": 120.0
     }
   }
 }

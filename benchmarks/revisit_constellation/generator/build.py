@@ -198,61 +198,6 @@ def load_city_rows(csv_path: Path) -> list[CityRecord]:
     return cities
 
 
-def load_station_rows(csv_path: Path) -> list[StationRecord]:
-    with csv_path.open("r", encoding="utf-8", newline="") as handle:
-        reader = csv.DictReader(handle)
-        if reader.fieldnames is None:
-            raise ValueError(f"{csv_path} must contain a CSV header row")
-        id_col = _resolve_optional_column(reader.fieldnames, STATION_COLUMN_ALIASES["id"])
-        name_col = _resolve_column(reader.fieldnames, STATION_COLUMN_ALIASES["name"], "station CSV")
-        network_col = _resolve_optional_column(
-            reader.fieldnames, STATION_COLUMN_ALIASES["network_name"]
-        )
-        lat_col = _resolve_column(
-            reader.fieldnames, STATION_COLUMN_ALIASES["latitude_deg"], "station CSV"
-        )
-        lon_col = _resolve_column(
-            reader.fieldnames, STATION_COLUMN_ALIASES["longitude_deg"], "station CSV"
-        )
-        altitude_col = _resolve_optional_column(
-            reader.fieldnames, STATION_COLUMN_ALIASES["altitude_m"]
-        )
-
-        unique_rows: dict[tuple[str, float, float], StationRecord] = {}
-        for row in reader:
-            try:
-                name = str(row[name_col]).strip()
-                station_id = (
-                    str(row[id_col]).strip() if id_col is not None and row.get(id_col) else _slugify(name)
-                )
-                station = StationRecord(
-                    station_id=station_id,
-                    name=name,
-                    network_name=(
-                        str(row[network_col]).strip()
-                        if network_col is not None and row.get(network_col)
-                        else "unknown"
-                    ),
-                    latitude_deg=_coerce_float(row.get(lat_col)),
-                    longitude_deg=_coerce_float(row.get(lon_col)),
-                    altitude_m=_coerce_float(
-                        row.get(altitude_col) if altitude_col is not None else None,
-                        default=0.0,
-                    ),
-                )
-            except ValueError:
-                continue
-            if not station.station_id or not station.name:
-                continue
-            key = _station_key(station)
-            if key not in unique_rows:
-                unique_rows[key] = station
-    stations = sorted(unique_rows.values(), key=lambda station: station.station_id)
-    if not stations:
-        raise ValueError(f"No usable ground-station rows found in {csv_path}")
-    return stations
-
-
 def build_case_specs(case_count: int, *, seed: int) -> list[CaseSpec]:
     if case_count <= 0:
         raise ValueError("--case-count must be positive")
@@ -340,43 +285,6 @@ def build_mission_payload(case_spec: CaseSpec, targets: list[CityRecord]) -> dic
         ],
     }
 
-
-def build_dataset_readme(index_payload: dict) -> str:
-    source = index_payload["source"]
-    return f"""# Revisit Constellation Dataset
-
-This directory contains the canonical committed dataset for the
-`revisit_constellation` benchmark.
-
-## Layout
-
-- `index.json`
-- `example_solution.json`
-- `cases/<case_id>/assets.json`
-- `cases/<case_id>/mission.json`
-
-Each case directory contains only the two canonical machine-readable files used
-by the verifier. `example_solution.json` is a single minimal runnable solution
-(same schema as a real submission) for verifier smoke tests; these are not baselines.
-
-## Canonical Generation
-
-This committed dataset is intended to be rebuilt with:
-
-```bash
-uv run python -m benchmarks.revisit_constellation.generator.run
-```
-
-The generator downloads the documented source dataset automatically via
-`kagglehub`, stores the raw source data under `dataset/source_data/` by
-default, and then rebuilds the canonical cases.
-
-Source dataset:
-
-- world cities: `{source["world_cities"]["dataset"]}`
-"""
-
-
 def build_index_payload(case_specs: list[CaseSpec], *, seed: int) -> dict:
     return {
         "benchmark": "revisit_constellation",
@@ -434,5 +342,4 @@ def generate_dataset(
     if example_solution is None:
         raise RuntimeError("Expected case_0001 for example_solution.json")
     _write_json(output_dir / "example_solution.json", example_solution)
-    _write_text(output_dir / "README.md", build_dataset_readme(index_payload))
     return output_dir

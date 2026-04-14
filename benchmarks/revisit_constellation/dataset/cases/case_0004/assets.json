@@ -1,52 +1,5 @@
 {
-  "ground_stations": [
-    {
-      "altitude_m": 0.0,
-      "id": "comenius_university_ground_station",
-      "latitude_deg": 48.1485965,
-      "longitude_deg": 17.1077477,
-      "min_duration_sec": 120.0,
-      "min_elevation_deg": 10.0,
-      "name": "Comenius University Ground Station"
-    },
-    {
-      "altitude_m": 0.0,
-      "id": "kerguelen_station",
-      "latitude_deg": -49.3948275,
-      "longitude_deg": 69.3544626,
-      "min_duration_sec": 120.0,
-      "min_elevation_deg": 10.0,
-      "name": "Kerguelen Station"
-    },
-    {
-      "altitude_m": 0.0,
-      "id": "national_institute_for_space_research_inpe_ground_station",
-      "latitude_deg": -15.5954635,
-      "longitude_deg": -56.0925824,
-      "min_duration_sec": 120.0,
-      "min_elevation_deg": 10.0,
-      "name": "National Institute for Space Research (INPE) Ground Station"
-    },
-    {
-      "altitude_m": 0.0,
-      "id": "tahiti_ground_station",
-      "latitude_deg": -17.5129118,
-      "longitude_deg": -149.4233381,
-      "min_duration_sec": 120.0,
-      "min_elevation_deg": 10.0,
-      "name": "Tahiti Ground Station"
-    },
-    {
-      "altitude_m": 0.0,
-      "id": "ventspils_international_radio_astronomy_centre_virac",
-      "latitude_deg": 13.6193864,
-      "longitude_deg": 124.1754442,
-      "min_duration_sec": 120.0,
-      "min_elevation_deg": 10.0,
-      "name": "Ventspils International Radio Astronomy Centre (VIRAC)"
-    }
-  ],
-  "max_num_satellites": 10,
+  "max_num_satellites": 17,
   "satellite_model": {
     "attitude_model": {
       "maneuver_discharge_rate_w": 90.0,
@@ -61,19 +14,12 @@
       "battery_capacity_wh": 2000.0,
       "idle_discharge_rate_w": 5.0,
       "initial_battery_wh": 1600.0,
-      "initial_storage_mb": 1000.0,
-      "storage_capacity_mb": 20000.0,
       "sunlight_charge_rate_w": 100.0
     },
     "sensor": {
       "max_off_nadir_angle_deg": 25.0,
       "max_range_m": 1000000.0,
-      "obs_discharge_rate_w": 120.0,
-      "obs_store_rate_mb_per_s": 20.0
-    },
-    "terminal": {
-      "downlink_discharge_rate_w": 80.0,
-      "downlink_release_rate_mb_per_s": 40.0
+      "obs_discharge_rate_w": 120.0
     }
   }
 }

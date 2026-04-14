@@ -22,11 +22,10 @@ This committed dataset is intended to be rebuilt with:
 uv run python -m benchmarks.revisit_constellation.generator.run
 ```
 
-The generator downloads the documented source datasets automatically via
+The generator downloads the documented source dataset automatically via
 `kagglehub`, stores the raw source data under `dataset/source_data/` by
 default, and then rebuilds the canonical cases.
 
-Source datasets:
+Source dataset:
 
 - world cities: `juanmah/world-cities`
-- ground stations: `pratiksharm/ground-station-dataset`
