@@ -1,43 +1,25 @@
 {
+  "max_num_satellites": 2,
   "satellite_model": {
+    "attitude_model": {
+      "maneuver_discharge_rate_w": 1.0,
+      "max_slew_acceleration_deg_per_sec2": 1.0,
+      "max_slew_velocity_deg_per_sec": 1.0,
+      "settling_time_sec": 1.0
+    },
+    "max_altitude_m": 1000000.0,
+    "min_altitude_m": 100000.0,
     "model_name": "demo_bus",
+    "resource_model": {
+      "battery_capacity_wh": 100000.0,
+      "idle_discharge_rate_w": 1.0,
+      "initial_battery_wh": 50000.0,
+      "sunlight_charge_rate_w": 2.0
+    },
     "sensor": {
       "max_off_nadir_angle_deg": 90.0,
       "max_range_m": 30000000.0,
-      "obs_discharge_rate_w": 10.0,
-      "obs_store_rate_mb_per_s": 0.1
-    },
-    "terminal": {
-      "downlink_release_rate_mb_per_s": 1.0,
-      "downlink_discharge_rate_w": 5.0
-    },
-    "resource_model": {
-      "battery_capacity_wh": 100000.0,
-      "storage_capacity_mb": 1000000.0,
-      "initial_battery_wh": 50000.0,
-      "initial_storage_mb": 0.0,
-      "idle_discharge_rate_w": 1.0,
-      "sunlight_charge_rate_w": 2.0
-    },
-    "attitude_model": {
-      "max_slew_velocity_deg_per_sec": 1.0,
-      "max_slew_acceleration_deg_per_sec2": 1.0,
-      "settling_time_sec": 1.0,
-      "maneuver_discharge_rate_w": 1.0
-    },
-    "min_altitude_m": 100000.0,
-    "max_altitude_m": 1000000.0
-  },
-  "max_num_satellites": 2,
-  "ground_stations": [
-    {
-      "id": "gs1",
-      "name": "GS1",
-      "latitude_deg": 0.0,
-      "longitude_deg": 0.0,
-      "altitude_m": 0.0,
-      "min_elevation_deg": 0.0,
-      "min_duration_sec": 1.0
+      "obs_discharge_rate_w": 10.0
     }
-  ]
+  }
 }

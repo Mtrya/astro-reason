@@ -13,7 +13,6 @@ import numpy as np
 from .models import (
     Action,
     AttitudeModel,
-    GroundStation,
     Instance,
     ResourceModel,
     SatelliteDefinition,
@@ -21,7 +20,6 @@ from .models import (
     SensorModel,
     Solution,
     Target,
-    TerminalModel,
 )
 
 
@@ -82,24 +80,6 @@ def _geodetic_to_ecef(longitude_deg: float, latitude_deg: float, altitude_m: flo
     )
 
 
-def _parse_ground_station(payload: dict[str, Any], index: int) -> GroundStation:
-    context = f"assets.json.ground_stations[{index}]"
-    return GroundStation(
-        station_id=_require_str(payload, "id", context),
-        name=_require_str(payload, "name", context),
-        latitude_deg=_require_float(payload, "latitude_deg", context),
-        longitude_deg=_require_float(payload, "longitude_deg", context),
-        altitude_m=_require_float(payload, "altitude_m", context),
-        min_elevation_deg=_require_float(payload, "min_elevation_deg", context),
-        min_duration_sec=_require_float(payload, "min_duration_sec", context),
-        ecef_position_m=_geodetic_to_ecef(
-            _require_float(payload, "longitude_deg", context),
-            _require_float(payload, "latitude_deg", context),
-            _require_float(payload, "altitude_m", context),
-        ),
-    )
-
-
 def _parse_target(payload: dict[str, Any], index: int) -> Target:
     context = f"mission.json.targets[{index}]"
     return Target(
@@ -125,25 +105,11 @@ def _parse_target(payload: dict[str, Any], index: int) -> Target:
 def _parse_satellite_model(payload: dict[str, Any]) -> SatelliteModel:
     context = "assets.json.satellite_model"
     sensor_payload = _require_mapping(payload.get("sensor"), f"{context}.sensor")
-    terminal_payload = _require_mapping(payload.get("terminal"), f"{context}.terminal")
     resource_payload = _require_mapping(
         payload.get("resource_model"), f"{context}.resource_model"
     )
     attitude_payload = _require_mapping(
         payload.get("attitude_model"), f"{context}.attitude_model"
-    )
-
-    terminal = TerminalModel(
-        downlink_release_rate_mb_per_s=_require_float(
-            terminal_payload,
-            "downlink_release_rate_mb_per_s",
-            f"{context}.terminal",
-        ),
-        downlink_discharge_rate_w=_require_float(
-            terminal_payload,
-            "downlink_discharge_rate_w",
-            f"{context}.terminal",
-        ),
     )
 
     return SatelliteModel(
@@ -158,23 +124,13 @@ def _parse_satellite_model(payload: dict[str, Any]) -> SatelliteModel:
             obs_discharge_rate_w=_require_float(
                 sensor_payload, "obs_discharge_rate_w", f"{context}.sensor"
             ),
-            obs_store_rate_mb_per_s=_require_float(
-                sensor_payload, "obs_store_rate_mb_per_s", f"{context}.sensor"
-            ),
         ),
-        terminal=terminal,
         resource_model=ResourceModel(
             battery_capacity_wh=_require_float(
                 resource_payload, "battery_capacity_wh", f"{context}.resource_model"
             ),
-            storage_capacity_mb=_require_float(
-                resource_payload, "storage_capacity_mb", f"{context}.resource_model"
-            ),
             initial_battery_wh=_require_float(
                 resource_payload, "initial_battery_wh", f"{context}.resource_model"
-            ),
-            initial_storage_mb=_require_float(
-                resource_payload, "initial_storage_mb", f"{context}.resource_model"
             ),
             idle_discharge_rate_w=_require_float(
                 resource_payload, "idle_discharge_rate_w", f"{context}.resource_model"
@@ -230,22 +186,7 @@ def load_case(case_dir: str | Path) -> Instance:
     if max_num_satellites < 0:
         raise ValueError("assets.json.max_num_satellites must be non-negative")
 
-    ground_stations_list = _require_list(
-        assets_payload.get("ground_stations"), "assets.json.ground_stations"
-    )
     targets_list = _require_list(mission_payload.get("targets"), "mission.json.targets")
-
-    ground_stations = {
-        station.station_id: station
-        for station in (
-            _parse_ground_station(
-                _require_mapping(item, f"assets.json.ground_stations[{index}]"), index
-            )
-            for index, item in enumerate(ground_stations_list)
-        )
-    }
-    if len(ground_stations) != len(ground_stations_list):
-        raise ValueError("Ground station IDs must be unique within a case")
 
     targets = {
         target.target_id: target
@@ -274,7 +215,6 @@ def load_case(case_dir: str | Path) -> Instance:
         horizon_end=horizon_end,
         satellite_model=satellite_model,
         max_num_satellites=max_num_satellites,
-        ground_stations=ground_stations,
         targets=targets,
     )
 
@@ -304,12 +244,9 @@ def _parse_action(payload: dict[str, Any], index: int) -> Action:
     start = _parse_iso8601_utc(_require_str(payload, "start", context))
     end = _parse_iso8601_utc(_require_str(payload, "end", context))
     target_id = payload.get("target_id")
-    station_id = payload.get("station_id")
 
     if target_id is not None and not isinstance(target_id, str):
         raise ValueError(f"{context}.target_id must be a string when present")
-    if station_id is not None and not isinstance(station_id, str):
-        raise ValueError(f"{context}.station_id must be a string when present")
 
     return Action(
         action_type=action_type,
@@ -317,7 +254,6 @@ def _parse_action(payload: dict[str, Any], index: int) -> Action:
         start=start,
         end=end,
         target_id=target_id,
-        station_id=station_id,
     )
 
 

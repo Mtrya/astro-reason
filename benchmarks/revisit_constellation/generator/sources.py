@@ -8,20 +8,14 @@ from pathlib import Path
 
 import kagglehub
 
-from .build import CITY_COLUMN_ALIASES, STATION_COLUMN_ALIASES
+from .build import CITY_COLUMN_ALIASES
 
 
 WORLD_CITIES_DATASET = "juanmah/world-cities"
-GROUND_STATIONS_DATASET = "pratiksharm/ground-station-dataset"
 WORLD_CITIES_FILENAME = "world_cities.csv"
-GROUND_STATIONS_FILENAME = "ground_stations.csv"
 WORLD_CITIES_REQUIRED_COLUMNS = {
     key: CITY_COLUMN_ALIASES[key]
     for key in ("name", "country", "latitude_deg", "longitude_deg", "population")
-}
-GROUND_STATIONS_REQUIRED_COLUMNS = {
-    key: STATION_COLUMN_ALIASES[key]
-    for key in ("name", "latitude_deg", "longitude_deg")
 }
 
 
@@ -71,16 +65,11 @@ def download_sources(
     destination_dir: Path,
     *,
     force_download: bool = False,
-) -> tuple[Path, Path]:
+) -> Path:
     destination_dir.mkdir(parents=True, exist_ok=True)
     world_root = _download_dataset(
         WORLD_CITIES_DATASET,
         destination_dir / "world_cities_raw",
-        force_download=force_download,
-    )
-    station_root = _download_dataset(
-        GROUND_STATIONS_DATASET,
-        destination_dir / "ground_stations_raw",
         force_download=force_download,
     )
     final_world_csv = _copy_matching_csv(
@@ -88,9 +77,4 @@ def download_sources(
         alias_groups=WORLD_CITIES_REQUIRED_COLUMNS,
         destination_path=destination_dir / WORLD_CITIES_FILENAME,
     )
-    final_station_csv = _copy_matching_csv(
-        source_root=station_root,
-        alias_groups=GROUND_STATIONS_REQUIRED_COLUMNS,
-        destination_path=destination_dir / GROUND_STATIONS_FILENAME,
-    )
-    return final_world_csv, final_station_csv
+    return final_world_csv

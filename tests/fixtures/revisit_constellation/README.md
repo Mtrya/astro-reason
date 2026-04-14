@@ -15,9 +15,7 @@ pin a small set of representative end-to-end outcomes:
 
 - a valid case with no observations
 - a valid case with one successful observation
-- an invalid overlap case
 - an invalid maneuver-timing case
-- an invalid resource-accounting case
 
 The suite is intentionally aligned with the current fixed-sampling verifier. It
 does not try to specify future event-based geometry behavior.
@@ -34,19 +32,10 @@ return full-horizon revisit gaps.
 Valid solution with one successful observation. This anchors the one-observation
 metric path in a committed fixture.
 
-### `downlink_overlap_invalid/`
-
-Invalid solution with overlapping downlink actions on the same satellite. This
-anchors the single-terminal overlap rule.
-
 ### `maneuver_conflict_invalid/`
 
 Invalid solution with two observations scheduled too closely together for the
 attitude model to slew and settle.
-
-### `storage_underflow_invalid/`
-
-Invalid solution where a downlink depletes storage below zero.
 
 ## Fixture Shape
 

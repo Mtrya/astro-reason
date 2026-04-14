@@ -33,9 +33,7 @@ ZERO_OBSERVATION_FIXTURE_DIR = FIXTURES_DIR / "zero_observation"
 GOLDEN_FIXTURE_NAMES = (
     "zero_observation",
     "single_observation_valid",
-    "downlink_overlap_invalid",
     "maneuver_conflict_invalid",
-    "storage_underflow_invalid",
 )
 MU_EARTH_M3_S2 = 3.986004418e14
 
@@ -73,17 +71,10 @@ def _base_assets() -> dict:
                 "max_off_nadir_angle_deg": 180.0,
                 "max_range_m": 1.0e9,
                 "obs_discharge_rate_w": 5.0,
-                "obs_store_rate_mb_per_s": 1.0,
-            },
-            "terminal": {
-                "downlink_release_rate_mb_per_s": 1.0,
-                "downlink_discharge_rate_w": 5.0,
             },
             "resource_model": {
                 "battery_capacity_wh": 1.0e6,
-                "storage_capacity_mb": 1.0e6,
                 "initial_battery_wh": 1.0e6,
-                "initial_storage_mb": 1.0e3,
                 "idle_discharge_rate_w": 1.0,
                 "sunlight_charge_rate_w": 0.0,
             },
@@ -97,17 +88,6 @@ def _base_assets() -> dict:
             "max_altitude_m": 1000000.0,
         },
         "max_num_satellites": 2,
-        "ground_stations": [
-            {
-                "id": "gs1",
-                "name": "GS1",
-                "latitude_deg": 0.0,
-                "longitude_deg": 0.0,
-                "altitude_m": 0.0,
-                "min_elevation_deg": -90.0,
-                "min_duration_sec": 1.0,
-            }
-        ],
     }
 
 
@@ -347,16 +327,6 @@ def test_load_case_rejects_missing_assets_file(tmp_path: Path) -> None:
         load_case(case_dir)
 
 
-def test_load_case_rejects_duplicate_ground_station_ids(tmp_path: Path) -> None:
-    assets = _base_assets()
-    duplicate_station = deepcopy(assets["ground_stations"][0])
-    assets["ground_stations"].append(duplicate_station)
-    case_dir = _write_case(tmp_path, assets=assets)
-
-    with pytest.raises(ValueError, match="Ground station IDs must be unique"):
-        load_case(case_dir)
-
-
 def test_load_case_rejects_duplicate_target_ids(tmp_path: Path) -> None:
     mission = _base_mission()
     duplicate_target = deepcopy(mission["targets"][0])
@@ -364,15 +334,6 @@ def test_load_case_rejects_duplicate_target_ids(tmp_path: Path) -> None:
     case_dir = _write_case(tmp_path, mission=mission)
 
     with pytest.raises(ValueError, match="Target IDs must be unique"):
-        load_case(case_dir)
-
-
-def test_load_case_rejects_legacy_terminals_list(tmp_path: Path) -> None:
-    assets = _base_assets()
-    assets["satellite_model"]["terminals"] = [assets["satellite_model"].pop("terminal")]
-    case_dir = _write_case(tmp_path, assets=assets)
-
-    with pytest.raises(ValueError, match="assets.json.satellite_model.terminal must be a JSON object"):
         load_case(case_dir)
 
 
@@ -539,16 +500,6 @@ def test_verify_rejects_escape_initial_state_with_allowed_start_altitude(tmp_pat
             },
             "unknown target_id",
         ),
-        (
-            {
-                "action_type": "downlink",
-                "satellite_id": "sat1",
-                "station_id": "missing_station",
-                "start": "2025-01-01T00:00:00Z",
-                "end": "2025-01-01T00:00:10Z",
-            },
-            "unknown station_id",
-        ),
     ],
 )
 def test_verify_rejects_unknown_references(
@@ -676,66 +627,6 @@ def test_verify_rejects_observation_when_sensor_range_too_small(tmp_path: Path) 
     assert any("exceeds sensor max range" in error for error in result.errors)
 
 
-def test_verify_rejects_downlink_when_station_min_elevation_is_impossible(tmp_path: Path) -> None:
-    assets = _base_assets()
-    assets["ground_stations"][0]["min_elevation_deg"] = 90.1
-    case_dir = _write_case(tmp_path, assets=assets)
-    solution_path = _write_solution(
-        tmp_path,
-        _solution_payload(
-            satellites=[_overhead_satellite("2025-01-01T00:00:00Z")],
-            actions=[
-                {
-                    "action_type": "downlink",
-                    "satellite_id": "sat1",
-                    "station_id": "gs1",
-                    "start": "2025-01-01T00:00:00Z",
-                    "end": "2025-01-01T00:00:10Z",
-                }
-            ],
-        ),
-    )
-
-    result = verify_solution(case_dir, solution_path)
-
-    assert not result.is_valid
-    assert any("below station minimum" in error for error in result.errors)
-
-
-def test_verify_rejects_parallel_downlinks_with_single_terminal(tmp_path: Path) -> None:
-    assets = _base_assets()
-    assets["satellite_model"]["terminal"]["downlink_release_rate_mb_per_s"] = 0.1
-    assets["satellite_model"]["resource_model"]["initial_storage_mb"] = 100.0
-    case_dir = _write_case(tmp_path, assets=assets)
-    solution_path = _write_solution(
-        tmp_path,
-        _solution_payload(
-            satellites=[_overhead_satellite("2025-01-01T00:00:00Z")],
-            actions=[
-                {
-                    "action_type": "downlink",
-                    "satellite_id": "sat1",
-                    "station_id": "gs1",
-                    "start": "2025-01-01T00:00:00Z",
-                    "end": "2025-01-01T00:00:10Z",
-                },
-                {
-                    "action_type": "downlink",
-                    "satellite_id": "sat1",
-                    "station_id": "gs1",
-                    "start": "2025-01-01T00:00:00Z",
-                    "end": "2025-01-01T00:00:10Z",
-                },
-            ],
-        ),
-    )
-
-    result = verify_solution(case_dir, solution_path)
-
-    assert not result.is_valid
-    assert any("overlapping actions" in error for error in result.errors)
-
-
 def test_verify_rejects_insufficient_maneuver_gap(tmp_path: Path) -> None:
     mission = _base_mission()
     mission["targets"].append(
@@ -829,86 +720,30 @@ def test_verify_accepts_case_when_sunlight_charge_avoids_depletion(tmp_path: Pat
     assert result.is_valid, result.errors
 
 
-def test_verify_rejects_storage_overflow_during_observation(tmp_path: Path) -> None:
-    assets = _base_assets()
-    assets["satellite_model"]["resource_model"]["storage_capacity_mb"] = 5.0
-    assets["satellite_model"]["resource_model"]["initial_storage_mb"] = 0.0
-    assets["satellite_model"]["sensor"]["obs_store_rate_mb_per_s"] = 10.0
-    case_dir = _write_case(tmp_path, assets=assets)
-    solution_path = _write_solution(
-        tmp_path,
-        _solution_payload(
-            satellites=[_overhead_satellite("2025-01-01T00:00:00Z")],
-            actions=[
-                {
-                    "action_type": "observation",
-                    "satellite_id": "sat1",
-                    "target_id": "t1",
-                    "start": "2025-01-01T00:00:00Z",
-                    "end": "2025-01-01T00:00:10Z",
-                }
-            ],
-        ),
-    )
-
-    result = verify_solution(case_dir, solution_path)
-
-    assert not result.is_valid
-    assert any("exceeds storage capacity" in error for error in result.errors)
-
-
-def test_verify_rejects_storage_underflow_during_downlink(tmp_path: Path) -> None:
-    assets = _base_assets()
-    assets["satellite_model"]["resource_model"]["initial_storage_mb"] = 0.0
-    assets["satellite_model"]["terminal"]["downlink_release_rate_mb_per_s"] = 10.0
-    case_dir = _write_case(tmp_path, assets=assets)
-    solution_path = _write_solution(
-        tmp_path,
-        _solution_payload(
-            satellites=[_overhead_satellite("2025-01-01T00:00:00Z")],
-            actions=[
-                {
-                    "action_type": "downlink",
-                    "satellite_id": "sat1",
-                    "station_id": "gs1",
-                    "start": "2025-01-01T00:00:00Z",
-                    "end": "2025-01-01T00:00:10Z",
-                }
-            ],
-        ),
-    )
-
-    result = verify_solution(case_dir, solution_path)
-
-    assert not result.is_valid
-    assert any("depletes storage below zero" in error for error in result.errors)
-
-
 def test_validate_action_geometry_excludes_exact_action_end_instant(tmp_path: Path) -> None:
     case_dir = _write_case(tmp_path)
     instance = load_case(case_dir)
-    station = instance.ground_stations["gs1"]
+    target = instance.targets["t1"]
 
     class FakePropagator:
         def __init__(self) -> None:
-            self.calls = 0
+            self.state_eci_calls = 0
+            self.state_ecef_calls = 0
+
+        def state_eci(self, _epoch: brahe.Epoch) -> np.ndarray:
+            self.state_eci_calls += 1
+            return np.asarray([brahe.R_EARTH + 500000.0, 0.0, 0.0, 0.0, 0.0, 0.0], dtype=float)
 
         def state_ecef(self, _epoch: brahe.Epoch) -> np.ndarray:
-            self.calls += 1
-            radial_unit = station.ecef_position_m / np.linalg.norm(station.ecef_position_m)
-            altitude_m = brahe.R_EARTH + 500000.0
-            if self.calls == 1:
-                position_m = radial_unit * altitude_m
-            else:
-                position_m = -radial_unit * altitude_m
-            return np.asarray([*position_m, 0.0, 0.0, 0.0], dtype=float)
+            self.state_ecef_calls += 1
+            return np.asarray([brahe.R_EARTH + 500000.0, 0.0, 0.0, 0.0, 0.0, 0.0], dtype=float)
 
     action = Action(
-        action_type="downlink",
+        action_type="observation",
         satellite_id="sat1",
         start=_parse_iso8601_utc("2025-01-01T00:00:00Z"),
         end=_parse_iso8601_utc("2025-01-01T00:00:10Z"),
-        station_id="gs1",
+        target_id="t1",
     )
     errors: list[str] = []
     propagator = FakePropagator()
@@ -921,7 +756,7 @@ def test_validate_action_geometry_excludes_exact_action_end_instant(tmp_path: Pa
     )
 
     assert errors == []
-    assert propagator.calls == 1
+    assert propagator.state_ecef_calls == 1
 
 
 def test_compute_metrics_zero_observations() -> None:

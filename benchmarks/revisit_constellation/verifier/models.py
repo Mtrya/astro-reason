@@ -22,21 +22,12 @@ class SensorModel:
     max_off_nadir_angle_deg: float
     max_range_m: float
     obs_discharge_rate_w: float
-    obs_store_rate_mb_per_s: float
-
-
-@dataclass(frozen=True)
-class TerminalModel:
-    downlink_release_rate_mb_per_s: float
-    downlink_discharge_rate_w: float
 
 
 @dataclass(frozen=True)
 class ResourceModel:
     battery_capacity_wh: float
-    storage_capacity_mb: float
     initial_battery_wh: float
-    initial_storage_mb: float
     idle_discharge_rate_w: float
     sunlight_charge_rate_w: float
 
@@ -53,23 +44,10 @@ class AttitudeModel:
 class SatelliteModel:
     model_name: str
     sensor: SensorModel
-    terminal: TerminalModel
     resource_model: ResourceModel
     attitude_model: AttitudeModel
     min_altitude_m: float
     max_altitude_m: float
-
-
-@dataclass(frozen=True)
-class GroundStation:
-    station_id: str
-    name: str
-    latitude_deg: float
-    longitude_deg: float
-    altitude_m: float
-    min_elevation_deg: float
-    min_duration_sec: float
-    ecef_position_m: np.ndarray = field(repr=False)
 
 
 @dataclass(frozen=True)
@@ -95,7 +73,6 @@ class Instance:
     horizon_end: datetime
     satellite_model: SatelliteModel
     max_num_satellites: int
-    ground_stations: dict[str, GroundStation]
     targets: dict[str, Target]
 
     @property
@@ -116,7 +93,6 @@ class Action:
     start: datetime
     end: datetime
     target_id: str | None = None
-    station_id: str | None = None
 
     @property
     def duration_sec(self) -> float:

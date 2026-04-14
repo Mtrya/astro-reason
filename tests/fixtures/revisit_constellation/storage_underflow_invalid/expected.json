@@ -1,9 +1,0 @@
-{
-  "error_count": 1,
-  "errors_contain": [
-    "depletes storage below zero"
-  ],
-  "is_valid": false,
-  "metrics": {},
-  "warnings": []
-}
