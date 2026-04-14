@@ -53,7 +53,7 @@
       },
       "task_weight_summary": {
         "max": 5.0,
-        "mean": 3.092767,
+        "mean": 3.034591,
         "min": 1.0
       }
     },
@@ -118,7 +118,7 @@
       },
       "task_weight_summary": {
         "max": 5.0,
-        "mean": 2.951904,
+        "mean": 2.958918,
         "min": 1.0
       }
     },
@@ -170,7 +170,7 @@
       },
       "task_weight_summary": {
         "max": 5.0,
-        "mean": 3.053221,
+        "mean": 3.028011,
         "min": 1.0
       }
     },
@@ -219,7 +219,7 @@
       },
       "task_weight_summary": {
         "max": 5.0,
-        "mean": 2.995466,
+        "mean": 3.001943,
         "min": 1.0
       }
     },
@@ -280,7 +280,7 @@
       },
       "task_weight_summary": {
         "max": 5.0,
-        "mean": 2.956,
+        "mean": 2.918,
         "min": 1.0
       }
     }
