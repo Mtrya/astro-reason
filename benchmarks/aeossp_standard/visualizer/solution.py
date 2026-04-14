@@ -586,6 +586,54 @@ def _off_nadir_at_time(
     return _off_nadir_deg(state_ecef[:3], np.asarray(task.target_ecef_m, dtype=float))
 
 
+def _bang_coast_bang_progress(
+    delta_angle_deg: float,
+    elapsed_s: float,
+    *,
+    max_velocity_deg_per_s: float,
+    max_acceleration_deg_per_s2: float,
+) -> float:
+    if delta_angle_deg <= 1.0e-9:
+        return 1.0
+    elapsed_s = max(0.0, elapsed_s)
+    if max_velocity_deg_per_s <= 0.0 or max_acceleration_deg_per_s2 <= 0.0:
+        return 1.0
+    ramp_time_s = max_velocity_deg_per_s / max_acceleration_deg_per_s2
+    triangular_threshold_deg = (
+        max_velocity_deg_per_s * max_velocity_deg_per_s / max_acceleration_deg_per_s2
+    )
+    if delta_angle_deg <= triangular_threshold_deg:
+        peak_time_s = math.sqrt(delta_angle_deg / max_acceleration_deg_per_s2)
+        total_time_s = 2.0 * peak_time_s
+        elapsed_s = min(elapsed_s, total_time_s)
+        if elapsed_s <= peak_time_s:
+            traveled_deg = 0.5 * max_acceleration_deg_per_s2 * elapsed_s * elapsed_s
+        else:
+            remaining_s = total_time_s - elapsed_s
+            traveled_deg = delta_angle_deg - (
+                0.5 * max_acceleration_deg_per_s2 * remaining_s * remaining_s
+            )
+        return max(0.0, min(1.0, traveled_deg / delta_angle_deg))
+
+    ramp_angle_deg = 0.5 * max_acceleration_deg_per_s2 * ramp_time_s * ramp_time_s
+    cruise_angle_deg = delta_angle_deg - (2.0 * ramp_angle_deg)
+    cruise_time_s = cruise_angle_deg / max_velocity_deg_per_s
+    total_time_s = (2.0 * ramp_time_s) + cruise_time_s
+    elapsed_s = min(elapsed_s, total_time_s)
+    if elapsed_s <= ramp_time_s:
+        traveled_deg = 0.5 * max_acceleration_deg_per_s2 * elapsed_s * elapsed_s
+    elif elapsed_s <= ramp_time_s + cruise_time_s:
+        traveled_deg = ramp_angle_deg + (
+            max_velocity_deg_per_s * (elapsed_s - ramp_time_s)
+        )
+    else:
+        remaining_s = total_time_s - elapsed_s
+        traveled_deg = delta_angle_deg - (
+            0.5 * max_acceleration_deg_per_s2 * remaining_s * remaining_s
+        )
+    return max(0.0, min(1.0, traveled_deg / delta_angle_deg))
+
+
 def _derived_attitude_curve(
     analysis: SolutionAnalysis,
     satellite_id: str,
@@ -606,9 +654,25 @@ def _derived_attitude_curve(
         start_time = analysis.case.mission.horizon_start
         end_time = start_time + timedelta(minutes=10)
 
-    actions_by_index = {action.action_index: action for action in actions}
     task_lookup = analysis.case.tasks
-    settling_time_s = analysis.case.satellites[satellite_id].attitude_model.settling_time_s
+    attitude_model = analysis.case.satellites[satellite_id].attitude_model
+    settling_time_s = attitude_model.settling_time_s
+    action_start_angles = {
+        action.action_index: _off_nadir_at_time(
+            propagator,
+            task_lookup[action.task_id],
+            action.start_time,
+        )
+        for action in actions
+    }
+    action_end_angles = {
+        action.action_index: _off_nadir_at_time(
+            propagator,
+            task_lookup[action.task_id],
+            action.end_time,
+        )
+        for action in actions
+    }
 
     instants: list[datetime] = []
     values: list[float] = []
@@ -627,29 +691,30 @@ def _derived_attitude_curve(
                 None,
             )
             if active_window is not None:
-                target_action = actions_by_index.get(active_window.action_index)
-                target_angle = (
-                    _off_nadir_at_time(propagator, task_lookup[target_action.task_id], target_action.start_time)
-                    if target_action is not None
-                    else 0.0
-                )
+                target_angle = action_start_angles.get(active_window.action_index, 0.0)
                 if active_window.from_action_index is None:
                     from_angle = 0.0
                 else:
-                    previous_action = actions_by_index.get(active_window.from_action_index)
-                    from_angle = (
-                        _off_nadir_at_time(propagator, task_lookup[previous_action.task_id], previous_action.end_time)
-                        if previous_action is not None
-                        else 0.0
-                    )
+                    from_angle = action_end_angles.get(active_window.from_action_index, 0.0)
                 slew_only_s = max(0.0, active_window.required_gap_s - settling_time_s)
                 settling_start = active_window.end_time - timedelta(seconds=settling_time_s)
                 if current >= settling_start or slew_only_s <= 1.0e-9:
                     angle_deg = target_angle
                 else:
-                    progress = (current - active_window.start_time).total_seconds() / max(slew_only_s, 1.0e-9)
-                    progress = max(0.0, min(1.0, progress))
+                    progress = _bang_coast_bang_progress(
+                        active_window.slew_angle_deg,
+                        (current - active_window.start_time).total_seconds(),
+                        max_velocity_deg_per_s=attitude_model.max_slew_velocity_deg_per_s,
+                        max_acceleration_deg_per_s2=attitude_model.max_slew_acceleration_deg_per_s2,
+                    )
                     angle_deg = from_angle + ((target_angle - from_angle) * progress)
+            else:
+                prior_actions = [
+                    action for action in actions if action.end_time <= current
+                ]
+                if prior_actions:
+                    last_action = max(prior_actions, key=lambda item: item.end_time)
+                    angle_deg = action_end_angles.get(last_action.action_index, 0.0)
         instants.append(current)
         values.append(angle_deg)
         current += timedelta(seconds=1)
@@ -710,7 +775,10 @@ def _render_attitude_curves_png(
     for ax in flat_axes[len(selected_satellites):]:
         ax.set_axis_off()
 
-    figure.suptitle(f"{analysis.case.mission.case_id} derived attitude curves", fontsize=14)
+    figure.suptitle(
+        f"{analysis.case.mission.case_id} schematic off-nadir attitude curves",
+        fontsize=14,
+    )
     output_path.parent.mkdir(parents=True, exist_ok=True)
     figure.savefig(output_path, dpi=180, bbox_inches="tight")
     plt.close(figure)
@@ -869,6 +937,16 @@ def _build_summary(
             for satellite_id, summary in analysis.per_satellite_resource_summary.items()
         },
         "selected_snapshot_times": [_iso_z(instant) for instant in snapshot_times],
+        "plot_interpretation": {
+            "attitude_curves": (
+                "Schematic off-nadir curve derived from verifier-backed observation "
+                "intervals and maneuver windows. Observation spans track instantaneous "
+                "required off-nadir. Reserved maneuver spans use the benchmark's scalar "
+                "bang-coast-bang slew profile, followed by settling hold at the target "
+                "pointing. Between observations the curve holds the previous observation's "
+                "terminal pointing; before the first reserved maneuver it holds nadir."
+            ),
+        },
         "artifacts": artifact_names,
     }
 

@@ -483,7 +483,7 @@ def _render_access_summary(case: CaseData, access_summary: dict[str, Any], out_p
     plt.close(fig)
 
 
-def _render_pointing_curves(
+def _render_access_off_nadir_curves(
     case: CaseData,
     access_summary: dict[str, Any],
     out_path: Path,
@@ -495,7 +495,7 @@ def _render_pointing_curves(
         ax.text(
             0.5,
             0.5,
-            "No representative access intervals were found.",
+            "No representative access/off-nadir curves were found.",
             ha="center",
             va="center",
             fontsize=12,
@@ -561,11 +561,19 @@ def _render_pointing_curves(
                 "end_time": utc_iso(interval.end_time),
                 "duration_s": interval.duration_s,
                 "max_off_nadir_deg": round(interval.max_off_nadir_deg, 3),
+                "interpretation": (
+                    "Pure geometry plot: instantaneous required off-nadir angle on a fine grid "
+                    "with coarse access support shaded. Not a nominal attitude strategy."
+                ),
             }
         )
     for ax in flat_axes[len(selected) :]:
         ax.set_axis_off()
 
+    fig.suptitle(
+        f"{case.case_id} representative access off-nadir curves",
+        fontsize=14,
+    )
     out_path.parent.mkdir(parents=True, exist_ok=True)
     fig.savefig(out_path, dpi=180, bbox_inches="tight")
     plt.close(fig)
@@ -575,7 +583,7 @@ def _render_pointing_curves(
 def _build_summary(
     case: CaseData,
     access_summary: dict[str, Any],
-    pointing_entries: list[dict[str, Any]],
+    access_curve_entries: list[dict[str, Any]],
 ) -> dict[str, Any]:
     counts = _case_counts(case)
     per_task_counts = list(access_summary["task_access_counts"].values())
@@ -617,7 +625,13 @@ def _build_summary(
                 "mean": round(sum(per_sat_counts) / max(1, len(per_sat_counts)), 6),
             },
         },
-        "representative_pointing_curves": pointing_entries,
+        "representative_access_off_nadir_curves": access_curve_entries,
+        "plot_interpretation": {
+            "access_off_nadir_curves": (
+                "Geometry-only curves showing instantaneous required off-nadir angle for "
+                "representative accesses. These are not nominal attitude profiles."
+            ),
+        },
     }
 
 
@@ -640,7 +654,7 @@ def render_case_bundle(
     overview_path = output_dir / "overview.png"
     task_windows_path = output_dir / "task_windows.png"
     access_summary_path = output_dir / "access_summary.png"
-    pointing_path = output_dir / "pointing_curves.png"
+    access_curve_path = output_dir / "access_off_nadir_curves.png"
     _render_overview(
         case,
         access_summary,
@@ -650,13 +664,13 @@ def render_case_bundle(
     )
     _render_task_windows(case, task_windows_path)
     _render_access_summary(case, access_summary, access_summary_path)
-    pointing_entries = _render_pointing_curves(case, access_summary, pointing_path)
-    manifest = _build_summary(case, access_summary, pointing_entries)
+    access_curve_entries = _render_access_off_nadir_curves(case, access_summary, access_curve_path)
+    manifest = _build_summary(case, access_summary, access_curve_entries)
     manifest["artifacts"] = {
         "overview": str(overview_path),
         "task_windows": str(task_windows_path),
         "access_summary": str(access_summary_path),
-        "pointing_curves": str(pointing_path),
+        "access_off_nadir_curves": str(access_curve_path),
     }
     _serialize_json(manifest, output_dir / "summary.json")
     return manifest
