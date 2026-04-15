@@ -56,7 +56,8 @@ ALL_INSTANCES = [
 
 
 def get_case_dir(instance_name: str) -> Path:
-    return CASES_DIR / instance_name
+    split_name = "multi_orbit" if int(instance_name) > 1000 else "single_orbit"
+    return CASES_DIR / split_name / instance_name
 
 
 class TestParseInstance:

@@ -11,10 +11,11 @@ dataset/
 ├── mission_color_map.json
 ├── example_solution.json
 └── cases/
-    └── W10_2018/
-        ├── problem.json
-        ├── maintenance.csv
-        └── metadata.json
+    └── test/
+        └── W10_2018/
+            ├── problem.json
+            ├── maintenance.csv
+            └── metadata.json
 ```
 
 ## Canonical Cases
@@ -41,6 +42,13 @@ The canonical cases are generated from the aggregate upstream SatNet data:
 - source files: `data/problems.json`, `data/maintenance.csv`,
   `data/mission_color_map.json`
 
-Use [generator.py](../generator.py)
-to regenerate this layout from the upstream source or a local copy of the
-upstream `data/` directory.
+The committed split assignment is recorded in [splits.yaml](../splits.yaml),
+which currently places all five published cases in the `test` split and pairs
+`dataset/example_solution.json` with `test/W10_2018`.
+
+Use [generator.py](../generator.py) to regenerate this layout from the upstream
+source or a local copy of the upstream `data/` directory:
+
+```bash
+uv run python benchmarks/satnet/generator.py benchmarks/satnet/splits.yaml
+```

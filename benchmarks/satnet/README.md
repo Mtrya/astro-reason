@@ -79,7 +79,8 @@ maximize: Σ (track.tracking_off - track.tracking_on) / 3600
 ### Problem Instance Format (`cases/<CASE_ID>/problem.json`)
 
 Each canonical SatNet case is stored in its own directory under
-`benchmarks/satnet/dataset/cases/`. The `problem.json` file in a case
+`benchmarks/satnet/dataset/cases/test/`. The verifier remains split-agnostic
+and accepts a direct case directory path. The `problem.json` file in a case
 directory contains a JSON array of requests for exactly one week/year pair:
 
 ```json
@@ -248,7 +249,7 @@ score = sum((track['TRACKING_OFF'] - track['TRACKING_ON']) / 3600.0 for track in
 
 ```bash
 python benchmarks/satnet/verifier.py \
-    benchmarks/satnet/dataset/cases/W10_2018 \
+    benchmarks/satnet/dataset/cases/test/W10_2018 \
     solution.json \
     --verbose
 ```
@@ -281,10 +282,10 @@ From the original RL implementation (Chien et al., 2021):
 ## File Locations
 
 - **Case manifest**: `benchmarks/satnet/dataset/index.json`
-- **Canonical cases**: `benchmarks/satnet/dataset/cases/W##_YYYY/`
+- **Canonical cases**: `benchmarks/satnet/dataset/cases/test/W##_YYYY/`
 - **Shared metadata**: `benchmarks/satnet/dataset/mission_color_map.json`
 - **Verifier**: `benchmarks/satnet/verifier.py`
-- **Generator**: `benchmarks/satnet/generator.py`
+- **Generator**: `uv run python benchmarks/satnet/generator.py benchmarks/satnet/splits.yaml`
 - **Test fixtures**: `tests/fixtures/satnet_mock_solutions/`
 
 ## Key Technical Concepts

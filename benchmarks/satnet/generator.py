@@ -1,4 +1,4 @@
-"""Regenerate the canonical SatNet case-by-case dataset.
+"""Regenerate the canonical SatNet split-aware dataset.
 
 By default this script downloads the upstream aggregate SatNet data from
 https://github.com/edwinytgoh/satnet/tree/master/data and rewrites it into the
@@ -7,11 +7,13 @@ canonical case layout used by this repository:
     dataset/
       mission_color_map.json
       index.json
-      cases/W10_2018/{problem.json,maintenance.csv,metadata.json}
+      cases/test/W10_2018/{problem.json,maintenance.csv,metadata.json}
       ...
 
-The generator can also consume a local copy of the upstream ``data/``
-directory via ``--source-dir``.
+The generator requires a benchmark-local ``splits.yaml`` that records the
+canonical split assignment and smoke-test pairing. A local copy of the upstream
+aggregate ``data/`` directory may still be supplied via ``--source-dir`` as an
+operational override for maintenance workflows.
 """
 
 from __future__ import annotations
@@ -20,8 +22,11 @@ import argparse
 import csv
 import json
 from pathlib import Path
+import shutil
 from typing import Iterable
 from urllib.request import urlopen
+
+import yaml
 
 
 UPSTREAM_REPOSITORY = "https://github.com/edwinytgoh/satnet"
@@ -45,6 +50,63 @@ def _write_csv(path: Path, rows: Iterable[dict]) -> None:
 def _download_text(url: str) -> str:
     with urlopen(url) as response:  # noqa: S310 - explicit benchmark source URL
         return response.read().decode("utf-8")
+
+
+def _validate_path_segment(value: object, label: str) -> str:
+    if not isinstance(value, str) or not value or "/" in value or "\\" in value:
+        raise ValueError(f"{label} must be a non-empty single path segment")
+    return value
+
+
+def _parse_smoke_case(config: dict) -> tuple[str, str]:
+    smoke_case = config.get("example_smoke_case")
+    if not isinstance(smoke_case, str) or not smoke_case:
+        raise ValueError("splits config must include example_smoke_case")
+    parts = smoke_case.split("/")
+    if len(parts) != 2:
+        raise ValueError("example_smoke_case must be formatted as <split>/<case_id>")
+    return (
+        _validate_path_segment(parts[0], "example_smoke_case split"),
+        _validate_path_segment(parts[1], "example_smoke_case case_id"),
+    )
+
+
+def load_generator_config(path: Path) -> dict:
+    try:
+        payload = yaml.safe_load(path.read_text(encoding="utf-8"))
+    except FileNotFoundError as exc:
+        raise FileNotFoundError(f"missing required splits config: {path}") from exc
+    except (OSError, UnicodeDecodeError, yaml.YAMLError) as exc:
+        raise ValueError(f"failed to load splits config {path}: {exc}") from exc
+
+    if not isinstance(payload, dict):
+        raise ValueError("splits config must be a YAML mapping")
+
+    splits = payload.get("splits")
+    if not isinstance(splits, dict) or not splits:
+        raise ValueError("splits config must contain a non-empty top-level 'splits' mapping")
+
+    for split_name, case_ids in splits.items():
+        _validate_path_segment(split_name, "split name")
+        if not isinstance(case_ids, list) or not case_ids:
+            raise ValueError(f"split {split_name!r} must list at least one case id")
+        for case_id in case_ids:
+            _validate_path_segment(case_id, f"case id in split {split_name!r}")
+
+    smoke_split, smoke_case_id = _parse_smoke_case(payload)
+    if smoke_case_id not in splits.get(smoke_split, []):
+        raise ValueError(
+            f"example_smoke_case {smoke_split}/{smoke_case_id} is not present in the configured split assignments"
+        )
+
+    source = payload.get("source", {})
+    if source and not isinstance(source, dict):
+        raise ValueError("source must be a mapping when present in splits config")
+    upstream_ref = source.get("upstream_ref", "master")
+    if not isinstance(upstream_ref, str) or not upstream_ref:
+        raise ValueError("source.upstream_ref must be a non-empty string")
+
+    return payload
 
 
 def load_upstream_inputs(ref: str) -> tuple[dict, list[dict], dict]:
@@ -101,71 +163,89 @@ def build_case_dataset(
     mission_color_map: dict,
     output_dir: Path,
     provenance: dict,
+    split_assignments: dict[str, list[str]],
+    example_smoke_case: str,
 ) -> None:
-    """Write the canonical SatNet case-by-case dataset."""
+    """Write the canonical SatNet split-aware dataset."""
 
+    smoke_split, smoke_case_id = example_smoke_case.split("/")
     cases_dir = output_dir / "cases"
+    shutil.rmtree(cases_dir, ignore_errors=True)
     index = {
         "benchmark": "satnet",
         "case_id_format": "W##_YYYY",
         "shared_files": ["mission_color_map.json"],
         "source": provenance,
+        "example_smoke_case": example_smoke_case,
         "cases": [],
     }
     example_solution: list | None = None
 
-    for case_id in sorted(problems):
-        week = int(case_id.split("_")[0][1:])
-        year = int(case_id.split("_")[1])
-        requests = [
-            row
-            for row in problems[case_id]
-            if int(row["week"]) == week and int(row["year"]) == year
-        ]
-        case_maintenance = [
-            row
-            for row in maintenance_rows
-            if int(float(row["week"])) == week and int(row["year"]) == year
-        ]
+    for split_name, case_ids in split_assignments.items():
+        for case_id in case_ids:
+            if case_id not in problems:
+                raise KeyError(f"split {split_name!r} references unknown SatNet case {case_id!r}")
 
-        case_dir = cases_dir / case_id
-        _write_json(case_dir / "problem.json", requests)
-        _write_csv(case_dir / "maintenance.csv", case_maintenance)
+            week = int(case_id.split("_")[0][1:])
+            year = int(case_id.split("_")[1])
+            requests = [
+                row
+                for row in problems[case_id]
+                if int(row["week"]) == week and int(row["year"]) == year
+            ]
+            case_maintenance = [
+                row
+                for row in maintenance_rows
+                if int(float(row["week"])) == week and int(row["year"]) == year
+            ]
 
-        metadata = {
-            "case_id": case_id,
-            "week": week,
-            "year": year,
-            "request_count": len(requests),
-            "mission_count": len({int(row["subject"]) for row in requests}),
-            "maintenance_window_count": len(case_maintenance),
-            "total_requested_hours": sum(float(row["duration"]) for row in requests),
-        }
-        _write_json(case_dir / "metadata.json", metadata)
+            case_dir = cases_dir / split_name / case_id
+            _write_json(case_dir / "problem.json", requests)
+            _write_csv(case_dir / "maintenance.csv", case_maintenance)
 
-        if case_id == "W10_2018":
-            example_solution = []
-
-        index["cases"].append(
-            {
+            metadata = {
                 "case_id": case_id,
-                "path": f"cases/{case_id}",
+                "split": split_name,
                 "week": week,
                 "year": year,
                 "request_count": len(requests),
+                "mission_count": len({int(row["subject"]) for row in requests}),
                 "maintenance_window_count": len(case_maintenance),
+                "total_requested_hours": sum(float(row["duration"]) for row in requests),
             }
-        )
+            _write_json(case_dir / "metadata.json", metadata)
+
+            if split_name == smoke_split and case_id == smoke_case_id:
+                example_solution = []
+
+            index["cases"].append(
+                {
+                    "split": split_name,
+                    "case_id": case_id,
+                    "path": f"cases/{split_name}/{case_id}",
+                    "week": week,
+                    "year": year,
+                    "request_count": len(requests),
+                    "maintenance_window_count": len(case_maintenance),
+                }
+            )
 
     _write_json(output_dir / "index.json", index)
     _write_json(output_dir / "mission_color_map.json", mission_color_map)
     if example_solution is None:
-        raise RuntimeError("Expected W10_2018 case for example_solution.json")
+        raise RuntimeError(
+            f"Expected configured smoke case {example_smoke_case} for example_solution.json"
+        )
     _write_json(output_dir / "example_solution.json", example_solution)
 
 
 def main() -> int:  # pragma: no cover - CLI wrapper
     parser = argparse.ArgumentParser(description="Regenerate the SatNet dataset")
+    parser.add_argument(
+        "splits_config",
+        type=Path,
+        help="Path to the benchmark-local splits.yaml describing canonical split assignments",
+    )
     parser.add_argument(
         "--output-dir",
         default=Path(__file__).resolve().parent / "dataset",
@@ -178,15 +258,11 @@ def main() -> int:  # pragma: no cover - CLI wrapper
         help="Optional local copy of the upstream satnet/data directory",
     )
     parser.add_argument(
-        "--upstream-ref",
-        default="master",
-        help="Upstream SatNet git ref to download when --source-dir is not used",
-    )
-    parser.add_argument(
         "--source-description",
         help="Optional provenance note to record when --source-dir is used",
     )
     args = parser.parse_args()
+    config = load_generator_config(args.splits_config)
 
     if args.source_dir is not None:
         problems, maintenance_rows, mission_color_map = load_local_inputs(args.source_dir)
@@ -195,8 +271,9 @@ def main() -> int:  # pragma: no cover - CLI wrapper
             description=args.source_description,
         )
     else:
-        problems, maintenance_rows, mission_color_map = load_upstream_inputs(args.upstream_ref)
-        provenance = build_upstream_provenance(args.upstream_ref)
+        upstream_ref = config.get("source", {}).get("upstream_ref", "master")
+        problems, maintenance_rows, mission_color_map = load_upstream_inputs(upstream_ref)
+        provenance = build_upstream_provenance(upstream_ref)
 
     build_case_dataset(
         problems=problems,
@@ -204,6 +281,8 @@ def main() -> int:  # pragma: no cover - CLI wrapper
         mission_color_map=mission_color_map,
         output_dir=args.output_dir,
         provenance=provenance,
+        split_assignments=config["splits"],
+        example_smoke_case=config["example_smoke_case"],
     )
     print(f"Wrote SatNet dataset to {args.output_dir}")
     return 0

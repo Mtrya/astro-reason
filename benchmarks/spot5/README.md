@@ -27,7 +27,7 @@ The current dataset (`.spot` files) is the DCKP abstraction hosted on [Mendeley 
 In this repository, each published instance is stored as its own benchmark case:
 
 ```text
-benchmarks/spot5/dataset/cases/<case_id>/<case_id>.spot
+benchmarks/spot5/dataset/cases/<split>/<case_id>/<case_id>.spot
 ```
 
 ## Instance File Format (.spot)
@@ -238,6 +238,19 @@ Constraint: `total_weight ≤ 200`
 **14 instances without memory constraint** (capacity = 0)
 **7 instances with memory constraint** (capacity = 200)
 
+## Committed Splits
+
+The finished benchmark keeps three committed splits in
+`benchmarks/spot5/splits.yaml`:
+
+- `single_orbit`: all published instances with numeric id `< 1000`
+- `multi_orbit`: all published instances with numeric id `> 1000`
+- `test`: an overlapping 5-case sample drawn with seed `42`
+
+Overlap is intentional. For example, case `8` appears in both
+`single_orbit` and `test`. The dataset-level smoke example is paired with
+`single_orbit/8`.
+
 ## Known Solutions & Validation
 
 Reference solutions are available in `tests/fixtures/spot5_val_sol/`, obtained from the [DCKP_RSOA repository](https://github.com/Zequn-Wei/DCKP_RSOA).
@@ -266,7 +279,7 @@ The verifier treats these cases as **valid solutions**; the discrepancies appear
 ```bash
 # Verify a solution
 python benchmarks/spot5/verifier.py \
-    benchmarks/spot5/dataset/cases/8 \
+    benchmarks/spot5/dataset/cases/single_orbit/8 \
     tests/fixtures/spot5_val_sol/8.spot_sol.txt
 ```
 
@@ -281,12 +294,12 @@ The verifier checks:
 
 ## File Locations
 
-- **Case directories**: `benchmarks/spot5/dataset/cases/<case_id>/`
-- **Instance files**: `benchmarks/spot5/dataset/cases/<case_id>/<case_id>.spot`
+- **Case directories**: `benchmarks/spot5/dataset/cases/<split>/<case_id>/`
+- **Instance files**: `benchmarks/spot5/dataset/cases/<split>/<case_id>/<case_id>.spot`
 - **Dataset manifest**: `benchmarks/spot5/dataset/index.json`
 - **Solution files**: `tests/fixtures/spot5_val_sol/*.spot_sol.txt`
 - **Verifier**: `benchmarks/spot5/verifier.py`
-- **Generator**: `benchmarks/spot5/generator.py`
+- **Generator**: `uv run python benchmarks/spot5/generator.py benchmarks/spot5/splits.yaml`
 
 ## License & Attribution
 

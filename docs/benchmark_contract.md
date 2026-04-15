@@ -22,6 +22,7 @@ Each finished benchmark must live under `benchmarks/<name>/` and must contain:
 
 - `README.md`
 - `dataset/`
+- `splits.yaml`
 - a generator entrypoint: `generator.py` or `generator/run.py`
 - a verifier entrypoint: `verifier.py` or `verifier/run.py`
 
@@ -50,7 +51,8 @@ The canonical dataset layout for finished benchmarks is:
 dataset/
 ├── example_solution.json  # required, one minimal runnable example (same schema as a real solution)
 ├── cases/
-│   └── <case_id>/
+│   └── <split>/
+│       └── <case_id>/
 ├── index.json      # optional
 └── README.md       # optional
 ```
@@ -58,9 +60,11 @@ dataset/
 Rules:
 
 - `dataset/cases/` is mandatory.
+- The canonical committed layout for finished benchmarks is `dataset/cases/<split>/<case_id>/`.
+- Split names are benchmark-owned path segments validated through `splits.yaml`.
 - Case identifiers are benchmark-specific. CI does not require a `case_####` naming pattern.
 - The dataset root must include `example_solution.json`, `example_solution.yaml`, or `example_solution.yml` so CI can run the public verifier against a real benchmark case automatically. This file must contain a **single** solution object with the same schema as a normal per-case solution file (not a mapping from case IDs to solutions).
-- `index.json` is optional. If present, it is benchmark metadata, not a second source of truth for completion status. It may include optional `example_smoke_case_id` (string): the `dataset/cases/<case_id>` directory to pair with `example_solution.json` in verifier smoke tests. When omitted, CI uses the lexicographically first case directory under `dataset/cases/`.
+- `index.json` is optional. If present, it is benchmark metadata, not a second source of truth for completion status. It may include optional `example_smoke_case` (string): a relative case path such as `test/case_0001` that resolves under `dataset/cases/` for verifier smoke tests. When omitted, CI uses the lexicographically first case directory under `dataset/cases/<split>/`.
 - Generators must not write `dataset/README.md`.
 - Additional tracked dataset files are allowed when they are benchmark-owned public artifacts and are documented in the benchmark README.
 - `dataset/source_data/` may be used as a download/cache directory, but it must stay gitignored and must not be required to exist before running the generator.
@@ -82,14 +86,55 @@ Prefer SI-style keys and values where it improves clarity, but benchmarks may us
 
 Finished benchmark generators must satisfy the following:
 
+- A committed benchmark-local `splits.yaml` is mandatory for finished benchmarks.
 - **Top-level** `generator.py`: runnable as `python benchmarks/<name>/generator.py ...`.
 - **Nested** `generator/run.py`: runnable as `python -m benchmarks.<name>.generator.run ...`.
-- Running without flags produces the default canonical dataset for that benchmark.
-- Reproducing the canonical dataset must not require a manual multi-step setup with many required flags.
-- Extra CLI flags may expand or redirect generation, but the no-flag path is the canonical one.
+- Reproducing the canonical dataset must use an explicit YAML path:
+  - `python benchmarks/<name>/generator.py benchmarks/<name>/splits.yaml`
+  - `python -m benchmarks.<name>.generator.run benchmarks/<name>/splits.yaml`
+- Running without the required YAML path must fail with usage information. Finished benchmarks do not keep a no-argument canonical generation path.
+- The committed `splits.yaml` is benchmark-owned public configuration, not a placeholder. It should expose the intended dataset-construction parameters clearly enough that readers do not need to reverse-engineer generator defaults from Python code.
+- Dataset-construction parameters belong in YAML. Purely operational controls such as `--help`, and benchmark-specific runtime toggles like force-refresh or force-download behavior when justified, may remain optional CLI flags.
 - If source downloads are needed, the generator may cache them under `dataset/source_data/`, but it must also be able to perform a live download when that cache is absent.
 
 Case specifications should be derived algorithmically from parameters (seed, scaling rules, sampling), not from hand-maintained lists of per-case tuples. Hardcoding curated lists such as `base_specs` or `BASE_SPECS` is discouraged; see `stereo_imaging` generator patterns (e.g. sampling driven by seed) for a reference approach.
+
+### `splits.yaml` Schemas
+
+Finished benchmarks must commit a `splits.yaml` with a top-level `splits:` mapping. Two shared shapes are supported:
+
+**Split parameters** for algorithmic generators that build cases per split:
+
+```yaml
+splits:
+  easy:
+    seed: 42
+    case_count: 5
+    max_satellites: 3
+  hard:
+    seed: 142
+    case_count: 5
+    max_satellites: 12
+```
+
+**Split assignments** for fixed-case benchmarks that assign existing case IDs into splits:
+
+```yaml
+splits:
+  test:
+    - case_001
+    - case_002
+  train:
+    - case_003
+    - case_004
+```
+
+Rules:
+
+- Single-split YAML is valid.
+- Use one schema per benchmark `splits:` mapping rather than mixing assignment lists and parameter mappings.
+- Benchmark-owned per-split fields remain benchmark-specific inside the shared outer `splits:` structure.
+- Non-obvious benchmark-owned fields should be documented. Inline YAML comments are preferred when they help explain the parameter meaning or its effect on dataset construction.
 
 ## Verifier Contract
 
@@ -103,7 +148,7 @@ Finished benchmark verifiers must satisfy the following:
 - Any additional CLI options must be optional.
 - Verifiers must be runnable as documented and must be able to load canonical cases without crashing.
 
-The dataset-level `example_solution.json` or `example_solution.yaml` is the preferred verifier smoke-test convention for finished benchmarks. It holds one minimal runnable solution whose schema matches real submissions. Pairing with a case directory uses `example_smoke_case_id` in `index.json` when the smoke case is not the lexicographically first under `dataset/cases/`. These are runnable examples, not baselines.
+The dataset-level `example_solution.json` or `example_solution.yaml` is the preferred verifier smoke-test convention for finished benchmarks. It holds one minimal runnable solution whose schema matches real submissions. Pairing with a case directory uses `example_smoke_case` in `index.json` when the smoke case is not the lexicographically first under `dataset/cases/<split>/`. The field value is a relative path such as `test/case_0001`. These are runnable examples, not baselines.
 
 ### Reference frames (recommendations, not CI-enforced)
 
@@ -122,19 +167,20 @@ For finished benchmarks, CI enforces:
 
 - benchmark presence in `benchmarks/finished_benchmarks.json`
 - required top-level files and directories
-- canonical dataset case layout under `dataset/cases/`
+- canonical dataset case layout under `dataset/cases/<split>/<case_id>/`
+- presence and schema validity of benchmark-local `splits.yaml`
 - example solution for verifier smoke tests at dataset root
 - no tracked `dataset/source_data/`
 - no tracked editor backup artifacts such as files ending in `~`
 - no `sys.path` hacks in benchmark generator/verifier/visualizer code
 - no `from benchmarks.` imports in benchmark generator/verifier/visualizer code
-- generator `--help` and verifier smoke tests using the supported invocation for each entrypoint shape (direct script vs `python -m`)
+- generator `--help`, generator no-arg failure, and verifier smoke tests using the supported invocation for each entrypoint shape (direct script vs `python -m`)
 - passing repository tests
 
 GitHub Actions runs:
 
 - PR/push CI for tests plus contract validation
-- a separate reproducibility workflow for finished benchmarks whose metadata has `"repro_ci": true`
+- a separate reproducibility workflow for finished benchmarks whose metadata has `"repro_ci": true`; it invokes generators with the committed `splits.yaml` path and compares only generator-owned outputs from `generated_paths`
 
 The reproducibility workflow compares only generator-owned dataset outputs from `generated_paths`, because finished benchmarks may also keep documented, hand-written dataset artifacts such as dataset-level notes.
 
