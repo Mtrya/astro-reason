@@ -1,5 +1,5 @@
 ---
-license: various
+license: mit
 language:
   - en
 tags:

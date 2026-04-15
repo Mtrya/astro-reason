@@ -122,7 +122,8 @@ def _upload_dataset_card(repo_id: str, token: str | None, dry_run: bool) -> None
     if dry_run:
         print(f"[readme] dry-run: would upload {card_path} to {repo_id}/README.md")
         return
-    api = HfApi()
+    api = HfApi(token=token)
+    api.create_repo(repo_id, repo_type="dataset", exist_ok=True)
     api.upload_file(
         path_or_fileobj=str(card_path),
         path_in_repo="README.md",
@@ -171,6 +172,8 @@ def main() -> int:
             selected.append({"name": name})
         benchmarks = selected
 
+    _upload_dataset_card(args.repo_id, token, args.dry_run)
+
     for benchmark in benchmarks:
         name = str(benchmark["name"])
         try:
@@ -179,7 +182,6 @@ def main() -> int:
             print(f"Error uploading {name}: {exc}", file=os.sys.stderr)
             return 1
 
-    _upload_dataset_card(args.repo_id, token, args.dry_run)
     print("Done.")
     return 0
 
