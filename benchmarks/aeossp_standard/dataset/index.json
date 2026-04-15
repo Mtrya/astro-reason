@@ -1,13 +1,5 @@
 {
   "benchmark": "aeossp_standard",
-  "canonical_seed": 42,
-  "case_ids": [
-    "case_0001",
-    "case_0002",
-    "case_0003",
-    "case_0004",
-    "case_0005"
-  ],
   "cases": [
     {
       "case_id": "case_0001",
@@ -38,11 +30,12 @@
       ],
       "num_satellites": 21,
       "num_tasks": 318,
-      "path": "cases/case_0001",
+      "path": "cases/test/case_0001",
       "satellite_sensor_mix": {
         "infrared": 4,
         "visible": 17
       },
+      "split": "test",
       "task_sensor_mix": {
         "infrared": 63,
         "visible": 255
@@ -103,11 +96,12 @@
       ],
       "num_satellites": 38,
       "num_tasks": 499,
-      "path": "cases/case_0002",
+      "path": "cases/test/case_0002",
       "satellite_sensor_mix": {
         "infrared": 8,
         "visible": 30
       },
+      "split": "test",
       "task_sensor_mix": {
         "infrared": 100,
         "visible": 399
@@ -155,11 +149,12 @@
       ],
       "num_satellites": 25,
       "num_tasks": 357,
-      "path": "cases/case_0003",
+      "path": "cases/test/case_0003",
       "satellite_sensor_mix": {
         "infrared": 5,
         "visible": 20
       },
+      "split": "test",
       "task_sensor_mix": {
         "infrared": 72,
         "visible": 285
@@ -204,11 +199,12 @@
       ],
       "num_satellites": 22,
       "num_tasks": 772,
-      "path": "cases/case_0004",
+      "path": "cases/test/case_0004",
       "satellite_sensor_mix": {
         "infrared": 4,
         "visible": 18
       },
+      "split": "test",
       "task_sensor_mix": {
         "infrared": 155,
         "visible": 617
@@ -265,11 +261,12 @@
       ],
       "num_satellites": 34,
       "num_tasks": 500,
-      "path": "cases/case_0005",
+      "path": "cases/test/case_0005",
       "satellite_sensor_mix": {
         "infrared": 7,
         "visible": 27
       },
+      "split": "test",
       "task_sensor_mix": {
         "infrared": 100,
         "visible": 400
@@ -285,19 +282,44 @@
       }
     }
   ],
-  "example_smoke_case_id": "case_0001",
-  "sources": {
+  "example_smoke_case": "test/case_0001",
+  "source": {
     "celestrak": {
-      "path": "source_data/celestrak/earth_resources.csv",
+      "kind": "vendored_subset",
+      "snapshot_epoch_utc": "2026-04-14T00:00:00Z",
       "url": "https://celestrak.org/NORAD/elements/gp.php?GROUP=resource&FORMAT=tle"
     },
     "natural_earth_land": {
-      "path": "source_data/natural_earth/ne_110m_land.geojson",
+      "kind": "natural_earth_geojson",
       "url": "https://raw.githubusercontent.com/nvkelso/natural-earth-vector/master/geojson/ne_110m_land.geojson"
     },
+    "runtime_provenance": {
+      "celestrak": {
+        "record_count": 162,
+        "sha256": "4ef31a31ba4bace71c0ad7a3dbf2b1889b6dc4b4ca3b6c99fa556718909a9520",
+        "snapshot_epoch_utc": "2026-04-14T00:00:00Z",
+        "url": "https://celestrak.org/NORAD/elements/gp.php?GROUP=resource&FORMAT=tle",
+        "vendored_snapshot": true
+      },
+      "natural_earth_land": {
+        "sha256": "9e0729ee253ca7d7a5c4ae9395fb1902264c5377c52e224d13dd85010e2835d9",
+        "url": "https://raw.githubusercontent.com/nvkelso/natural-earth-vector/master/geojson/ne_110m_land.geojson"
+      },
+      "world_cities": {
+        "sha256": "47ad17c4b241b0b4097d3a4a6089f967eaaf1769c749ea3f47ea1ad6f456ce6d",
+        "url": "https://download.geonames.org/export/dump/cities15000.zip"
+      }
+    },
     "world_cities": {
-      "path": "source_data/world_cities/world_cities.csv",
+      "kind": "geonames_dump",
       "url": "https://download.geonames.org/export/dump/cities15000.zip"
+    }
+  },
+  "splits": {
+    "test": {
+      "case_count": 5,
+      "case_seed_stride": 1009,
+      "seed": 42
     }
   }
 }

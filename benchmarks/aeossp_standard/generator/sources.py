@@ -18,6 +18,7 @@ from .normalize import parse_tle_text
 CELESTRAK_EARTH_RESOURCES_URL = (
     "https://celestrak.org/NORAD/elements/gp.php?GROUP=resource&FORMAT=tle"
 )
+CELESTRAK_SNAPSHOT_EPOCH_UTC = "2026-04-14T00:00:00Z"
 CELESTRAK_RAW_NAME = "earth_resources_raw.tle"
 CELESTRAK_CSV_NAME = "earth_resources.csv"
 
@@ -101,6 +102,7 @@ def download_celestrak(dest_dir: Path, *, force_download: bool) -> SourceFetchRe
         [raw_path, csv_path],
         {
             "url": CELESTRAK_EARTH_RESOURCES_URL,
+            "snapshot_epoch_utc": CELESTRAK_SNAPSHOT_EPOCH_UTC,
             "record_count": len(rows),
             "sha256": hashlib.sha256(csv_bytes).hexdigest(),
             "vendored_snapshot": True,

@@ -42,13 +42,14 @@ dataset/
 ├── example_solution.json
 ├── index.json
 └── cases/
-    └── <case_id>/
-        ├── mission.yaml
-        ├── satellites.yaml
-        └── tasks.yaml
+    └── <split>/
+        └── <case_id>/
+            ├── mission.yaml
+            ├── satellites.yaml
+            └── tasks.yaml
 ```
 
-`dataset/example_solution.json` is one real solution object with the same schema as normal submissions. `dataset/index.json` records case metadata and the smoke pairing through `example_smoke_case_id`.
+`dataset/example_solution.json` is one real solution object with the same schema as normal submissions. `dataset/index.json` records case metadata and the smoke pairing through split-relative `example_smoke_case`, and the benchmark-owned construction contract lives in `benchmarks/aeossp_standard/splits.yaml`.
 
 ## Case Inputs
 
@@ -263,14 +264,15 @@ Intended ranking order:
 Generator:
 
 ```bash
-uv run python -m benchmarks.aeossp_standard.generator.run
+uv run python -m benchmarks.aeossp_standard.generator.run \
+  benchmarks/aeossp_standard/splits.yaml
 ```
 
 Verifier:
 
 ```bash
 uv run python -m benchmarks.aeossp_standard.verifier.run \
-  benchmarks/aeossp_standard/dataset/cases/case_0001 \
+  benchmarks/aeossp_standard/dataset/cases/test/case_0001 \
   benchmarks/aeossp_standard/dataset/example_solution.json
 ```
 
@@ -278,14 +280,14 @@ Case visualizer:
 
 ```bash
 uv run python -m benchmarks.aeossp_standard.visualizer.run case \
-  --case-dir benchmarks/aeossp_standard/dataset/cases/case_0001
+  --case-dir benchmarks/aeossp_standard/dataset/cases/test/case_0001
 ```
 
 Solution visualizer:
 
 ```bash
 uv run python -m benchmarks.aeossp_standard.visualizer.run solution \
-  --case-dir benchmarks/aeossp_standard/dataset/cases/case_0001 \
+  --case-dir benchmarks/aeossp_standard/dataset/cases/test/case_0001 \
   --solution-path benchmarks/aeossp_standard/dataset/example_solution.json
 ```
 
@@ -298,11 +300,17 @@ Visualizer artifact interpretation:
   - it is derived from verifier-backed observation intervals and maneuver windows
   - it uses the benchmark's scalar bang-coast-bang slew profile rather than linear angle interpolation
 
-The generator’s no-flag path is canonical and reproduces the benchmark-owned dataset outputs under `dataset/cases/` and `dataset/index.json`.
+The canonical generator requires the committed `splits.yaml` path and reproduces the benchmark-owned dataset outputs under `dataset/cases/test/` and `dataset/index.json`.
 
 ## Generator And Canonical Dataset
 
 The generator builds cases from benchmark-owned rules rather than hand-authored case lists.
+
+Current split decision:
+
+- this contract migration keeps one committed split: `test`
+- additional benchmark-owned splits are intentionally deferred to follow-up work so this issue stays a contract cleanup rather than a benchmark redesign
+- candidate follow-up names currently under discussion include `test_easy`, `test_medium`, `test_hard`, `test_medium_horizon_20220414`, and `train`
 
 Current canonical family:
 
@@ -320,6 +328,8 @@ Public source workflow:
 - Natural Earth land polygons
 
 Runtime source data for GeoNames and Natural Earth may be cached under `dataset/source_data/`, but that directory is not tracked and is not required to exist before running the generator. The CelesTrak TLE snapshot used for canonical reproduction is tracked in `generator/cached_tles.py`.
+
+`splits.yaml` carries the benchmark-owned generation parameters for the canonical `test` split, including mission timing, satellite-pool filtering, subsystem templates, and task-sampling controls. The retained operational flags `--download-dir`, `--output-dir`, and `--force-download` only affect where source data is staged or refreshed; they are not alternate canonical dataset contracts.
 
 ## Tests And Fixtures
 
