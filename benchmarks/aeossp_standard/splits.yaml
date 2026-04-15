@@ -1,0 +1,131 @@
+# Canonical aeossp_standard dataset construction for the finished benchmark.
+#
+# This migration intentionally keeps a single committed `test` split.
+# Additional benchmark-owned splits such as test_easy, test_medium, test_hard,
+# test_medium_horizon_20220414, and train are deferred to follow-up benchmark
+# design work rather than being implied here before their semantics are settled.
+
+example_smoke_case: test/case_0001
+
+source:
+  celestrak:
+    kind: vendored_subset
+    url: https://celestrak.org/NORAD/elements/gp.php?GROUP=resource&FORMAT=tle
+    snapshot_epoch_utc: "2026-04-14T00:00:00Z"  # Generator rejects any other label.
+  world_cities:
+    kind: geonames_dump
+    url: https://download.geonames.org/export/dump/cities15000.zip
+  natural_earth_land:
+    kind: natural_earth_geojson
+    url: https://raw.githubusercontent.com/nvkelso/natural-earth-vector/master/geojson/ne_110m_land.geojson
+
+splits:
+  test:
+    seed: 42
+    case_count: 5
+    case_seed_stride: 1009
+
+    mission:
+      case_start_spacing_hours: 2
+      horizon_hours: 12
+      action_time_step_s: 5
+      geometry_sample_step_s: 5
+      resource_sample_step_s: 10
+      task_access_sample_step_s: 30
+
+    satellite_pool:
+      min_altitude_m: 450000.0
+      max_altitude_m: 900000.0
+      min_retained_count: 40
+      include_name_tokens:
+        - LANDSAT
+        - SENTINEL-2
+        - SPOT
+        - PLEIADES
+        - PNEO
+        - DEIMOS
+        - GAOFEN
+        - ZIYUAN
+        - SUPERDOVE
+        - SKYSAT
+        - KANOPUS
+        - FORMOSAT-5
+        - CARTOSAT
+        - RESOURCESAT
+        - THEOS
+        - EROS
+      exclude_name_tokens:
+        - SAR
+        - ICEYE
+        - CAPELLA
+        - RADARSAT
+        - RISAT
+        - RCM
+        - SAOCOM
+        - COSMO
+        - UMBRA
+        - TERRASAR
+        - PAZ
+        - ALOS-2
+        - QPS-SAR
+        - STRIX
+
+    satellites:
+      min_per_case: 20
+      max_per_case: 40
+      template_fractions:
+        infrared_balanced: 0.20
+        visible_agile: 0.32
+        visible_balanced: 0.48
+      templates:
+        visible_agile:
+          sensor_type: visible
+          max_off_nadir_deg: 30.0
+          max_slew_velocity_deg_per_s: 1.8
+          max_slew_acceleration_deg_per_s2: 0.4
+          settling_time_s: 2.0
+          battery_capacity_wh: 1300.0
+          initial_battery_wh: 800.0
+          idle_power_w: 20.0
+          imaging_power_w: 420.0
+          slew_power_w: 360.0
+          sunlit_charge_power_w: 85.0
+        visible_balanced:
+          sensor_type: visible
+          max_off_nadir_deg: 25.0
+          max_slew_velocity_deg_per_s: 1.0
+          max_slew_acceleration_deg_per_s2: 0.25
+          settling_time_s: 3.0
+          battery_capacity_wh: 1600.0
+          initial_battery_wh: 1000.0
+          idle_power_w: 25.0
+          imaging_power_w: 480.0
+          slew_power_w: 280.0
+          sunlit_charge_power_w: 100.0
+        infrared_balanced:
+          sensor_type: infrared
+          max_off_nadir_deg: 20.0
+          max_slew_velocity_deg_per_s: 0.9
+          max_slew_acceleration_deg_per_s2: 0.15
+          settling_time_s: 3.5
+          battery_capacity_wh: 1800.0
+          initial_battery_wh: 1000.0
+          idle_power_w: 30.0
+          imaging_power_w: 680.0
+          slew_power_w: 320.0
+          sunlit_charge_power_w: 115.0
+
+    tasks:
+      min_per_case: 200
+      max_per_case: 800
+      min_target_separation_m: 25000.0
+      city_fraction: 0.60
+      visible_fraction: 0.80
+      city_weight_options: [3.0, 4.0, 5.0]
+      background_weight_options: [1.0, 1.5, 2.0]
+      duration_options_s: [15, 20, 25, 30, 35, 40, 45, 50, 55, 60, 65, 70, 75, 80, 85, 90]
+      hotspot_probability: 0.70
+      hotspot_count: 4
+      hotspot_min_spacing_s: 3600
+      hotspot_window_slack_options_s: [300, 600, 900, 1200]
+      uniform_window_slack_options_s: [900, 1200, 1800, 2400, 3600]
