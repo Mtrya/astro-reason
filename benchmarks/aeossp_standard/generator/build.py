@@ -1018,7 +1018,6 @@ def generate_dataset(
     split_configs: dict[str, dict[str, Any]],
     example_smoke_case: str,
     source_config: dict[str, Any],
-    runtime_source_provenance: dict[str, Any] | None = None,
 ) -> None:
     celestrak_rows = load_celestrak_csv(source_dir / "celestrak" / "earth_resources.csv")
     cities = load_world_cities(source_dir / "world_cities" / "world_cities.csv")
@@ -1125,14 +1124,10 @@ def generate_dataset(
     if example_smoke_case not in generated_case_paths:
         raise ValueError(f"example_smoke_case {example_smoke_case} was not generated")
 
-    source_payload = deepcopy(source_config)
-    if runtime_source_provenance:
-        source_payload["runtime_provenance"] = runtime_source_provenance
-
     index_payload = {
         "benchmark": "aeossp_standard",
         "example_smoke_case": example_smoke_case,
-        "source": source_payload,
+        "source": deepcopy(source_config),
         "splits": {
             split_name: {
                 "seed": _require_int(split_config, "seed", "split"),

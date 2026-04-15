@@ -293,23 +293,6 @@
       "kind": "natural_earth_geojson",
       "url": "https://raw.githubusercontent.com/nvkelso/natural-earth-vector/master/geojson/ne_110m_land.geojson"
     },
-    "runtime_provenance": {
-      "celestrak": {
-        "record_count": 162,
-        "sha256": "4ef31a31ba4bace71c0ad7a3dbf2b1889b6dc4b4ca3b6c99fa556718909a9520",
-        "snapshot_epoch_utc": "2026-04-14T00:00:00Z",
-        "url": "https://celestrak.org/NORAD/elements/gp.php?GROUP=resource&FORMAT=tle",
-        "vendored_snapshot": true
-      },
-      "natural_earth_land": {
-        "sha256": "9e0729ee253ca7d7a5c4ae9395fb1902264c5377c52e224d13dd85010e2835d9",
-        "url": "https://raw.githubusercontent.com/nvkelso/natural-earth-vector/master/geojson/ne_110m_land.geojson"
-      },
-      "world_cities": {
-        "sha256": "47ad17c4b241b0b4097d3a4a6089f967eaaf1769c749ea3f47ea1ad6f456ce6d",
-        "url": "https://download.geonames.org/export/dump/cities15000.zip"
-      }
-    },
     "world_cities": {
       "kind": "geonames_dump",
       "url": "https://download.geonames.org/export/dump/cities15000.zip"

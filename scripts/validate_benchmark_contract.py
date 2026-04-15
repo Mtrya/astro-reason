@@ -132,6 +132,20 @@ def _is_valid_path_segment(value: object) -> bool:
     return isinstance(value, str) and value not in {"", ".", ".."} and "/" not in value and "\\" not in value
 
 
+def _normalize_assignment_case_id(value: object) -> str | None:
+    if isinstance(value, bool):
+        return None
+    if isinstance(value, int):
+        candidate = str(value)
+    elif isinstance(value, str):
+        candidate = value
+    else:
+        return None
+    if not _is_valid_path_segment(candidate):
+        return None
+    return candidate
+
+
 def validate_splits_payload(payload: object, source: Path | str) -> list[str]:
     label = str(source)
     if not isinstance(payload, dict):
@@ -161,17 +175,18 @@ def validate_splits_payload(payload: object, source: Path | str) -> list[str]:
             kind = "assignments"
             seen_case_ids: set[str] = set()
             for case_id in split_value:
-                if not _is_valid_path_segment(case_id):
+                normalized_case_id = _normalize_assignment_case_id(case_id)
+                if normalized_case_id is None:
                     errors.append(
                         f"{label}: split {split_name!r} has invalid case id {case_id!r}; "
                         "case ids must be non-empty single path segments"
                     )
                     continue
-                if case_id in seen_case_ids:
+                if normalized_case_id in seen_case_ids:
                     errors.append(
-                        f"{label}: split {split_name!r} lists case id {case_id!r} more than once"
+                        f"{label}: split {split_name!r} lists case id {normalized_case_id!r} more than once"
                     )
-                seen_case_ids.add(case_id)
+                seen_case_ids.add(normalized_case_id)
         else:
             kind = None
             errors.append(
@@ -203,6 +218,18 @@ def load_splits_config(path: Path) -> dict[str, object]:
     errors = validate_splits_payload(payload, path)
     if errors:
         raise ValueError("; ".join(errors))
+    splits = payload["splits"]
+    if isinstance(splits, dict):
+        normalized_splits: dict[str, object] = {}
+        for split_name, split_value in splits.items():
+            if isinstance(split_value, list):
+                normalized_splits[split_name] = [
+                    _normalize_assignment_case_id(case_id)
+                    for case_id in split_value
+                ]
+            else:
+                normalized_splits[split_name] = split_value
+        payload["splits"] = normalized_splits
     return payload
 
 

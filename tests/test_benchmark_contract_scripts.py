@@ -55,6 +55,21 @@ def test_load_splits_config_accepts_split_assignments_schema(tmp_path: Path) -> 
     assert payload["splits"]["train"] == ["case_003"]
 
 
+def test_load_splits_config_normalizes_integer_assignment_case_ids(tmp_path: Path) -> None:
+    splits_path = tmp_path / "splits.yaml"
+    splits_path.write_text(
+        "splits:\n"
+        "  test:\n"
+        "    - 5\n"
+        "    - 1021\n",
+        encoding="utf-8",
+    )
+
+    payload = load_splits_config(splits_path)
+
+    assert payload["splits"]["test"] == ["5", "1021"]
+
+
 def test_load_splits_config_rejects_mixed_split_schemas(tmp_path: Path) -> None:
     splits_path = tmp_path / "splits.yaml"
     splits_path.write_text(
