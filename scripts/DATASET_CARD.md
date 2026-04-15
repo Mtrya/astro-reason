@@ -15,10 +15,6 @@ dataset_info:
           dtype: string
         - name: content
           dtype: string
-  splits:
-    - name: test
-      num_bytes: 0
-      num_examples: 0
   configs:
     - config_name: aeossp_standard
     - config_name: regional_coverage
@@ -27,8 +23,6 @@ dataset_info:
     - config_name: satnet
     - config_name: spot5
     - config_name: stereo_imaging
-  download_size: 0
-  dataset_size: 0
   license: various
 language:
   - en
@@ -203,7 +197,7 @@ Please cite the appropriate references when using individual benchmarks (see Cit
 If you use this dataset suite in your research, please cite the AstroReason-Bench paper and the original benchmark sources:
 
 ### AstroReason-Bench (suite)
-```
+```bibtex
 @article{wang2026astroreason,
   title={AstroReason-Bench: Evaluating Unified Agentic Planning across Heterogeneous Space Planning Problems},
   author={Wang, Weiyi and Chen, Xinchi and Gong, Jingjing and Huang, Xuanjing and Qiu, Xipeng},

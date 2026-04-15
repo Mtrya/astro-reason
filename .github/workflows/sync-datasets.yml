@@ -28,5 +28,4 @@ jobs:
       - name: Upload benchmark datasets to Hugging Face
         env:
           HF_TOKEN: ${{ secrets.HF_TOKEN }}
-          HF_DATASET_REPO_ID: ${{ secrets.HF_DATASET_REPO_ID }}
-        run: uv run python scripts/upload_benchmark_datasets.py
+        run: uv run python scripts/upload_benchmark_datasets.py --repo-id ${{ secrets.HF_DATASET_REPO_ID }}

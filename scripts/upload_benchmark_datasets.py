@@ -25,9 +25,9 @@ def _load_finished_benchmarks() -> list[dict[str, object]]:
 
 
 def _read_case_files(case_dir: Path) -> list[dict[str, str]]:
-    files: list[dict[str, str]] = []
     if not case_dir.is_dir():
-        return files
+        raise FileNotFoundError(f"case directory not found: {case_dir}")
+    files: list[dict[str, str]] = []
     for file_path in sorted(case_dir.rglob("*")):
         if file_path.is_file() and not file_path.name.startswith("."):
             rel = file_path.relative_to(case_dir).as_posix()
@@ -36,6 +36,8 @@ def _read_case_files(case_dir: Path) -> list[dict[str, str]]:
             except UnicodeDecodeError:
                 # Skip binary files; benchmarks use text-only case data
                 continue
+    if not files:
+        raise ValueError(f"case directory contains no readable text files: {case_dir}")
     return files
 
 
@@ -61,7 +63,21 @@ def _build_benchmark_dataset_dict(benchmark_name: str) -> DatasetDict:
         if not case_id or not case_path:
             continue
 
-        case_dir = dataset_dir / case_path
+        if not isinstance(case_path, str) or os.path.isabs(case_path) or ".." in case_path:
+            print(
+                f"Warning: skipping case {case_id!r} in {benchmark_name} "
+                f"due to invalid path {case_path!r}",
+                file=os.sys.stderr,
+            )
+            continue
+        case_dir = (dataset_dir / case_path).resolve()
+        if not case_dir.is_relative_to(dataset_dir):
+            print(
+                f"Warning: skipping case {case_id!r} in {benchmark_name} "
+                f"because path resolves outside dataset directory",
+                file=os.sys.stderr,
+            )
+            continue
         row = {
             "case_id": str(case_id),
             "split": str(split),
@@ -96,8 +112,7 @@ def _upload_benchmark(
 
 
 def _upload_dataset_card(repo_id: str, token: str | None, dry_run: bool) -> None:
-    card_path = REPO_ROOT / "scripts" / "dataset_card.md"
-    card_path = REPO_ROOT / "scripts" / "dataset_card.md"
+    card_path = REPO_ROOT / "scripts" / "DATASET_CARD.md"
     if not card_path.is_file():
         msg = f"dataset card not found at {card_path}"
         if dry_run:
@@ -124,8 +139,8 @@ def main() -> int:
     )
     parser.add_argument(
         "--repo-id",
-        default=os.environ.get("HF_DATASET_REPO_ID", "AstroReason-Bench/datasets"),
-        help="Target Hugging Face Dataset repository ID (env: HF_DATASET_REPO_ID)",
+        required=True,
+        help="Target Hugging Face Dataset repository ID",
     )
     parser.add_argument(
         "--benchmarks",
