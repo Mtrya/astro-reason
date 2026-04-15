@@ -1,29 +1,5 @@
 ---
-dataset_info:
-  features:
-    - name: case_id
-      dtype: string
-    - name: split
-      dtype: string
-    - name: benchmark
-      dtype: string
-    - name: index_metadata
-      dtype: struct
-    - name: files
-      sequence:
-        - name: path
-          dtype: string
-        - name: content
-          dtype: string
-  configs:
-    - config_name: aeossp_standard
-    - config_name: regional_coverage
-    - config_name: relay_constellation
-    - config_name: revisit_constellation
-    - config_name: satnet
-    - config_name: spot5
-    - config_name: stereo_imaging
-  license: various
+license: various
 language:
   - en
 tags:
