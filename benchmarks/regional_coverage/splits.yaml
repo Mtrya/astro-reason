@@ -1,0 +1,108 @@
+# Canonical regional_coverage dataset construction for the finished benchmark.
+#
+# The generator uses a vendored subset of real CelesTrak TLEs plus the committed
+# region library. The snapshot epoch below is an exact supported label for that
+# cached subset, not a request for arbitrary live CelesTrak data.
+
+example_smoke_case: test/case_0001
+
+source:
+  celestrak:
+    kind: vendored_subset
+    url: https://celestrak.org/NORAD/elements/gp.php?GROUP=resource&FORMAT=tle
+    snapshot_epoch_utc: "2025-07-17T00:00:00Z"  # Generator rejects any other epoch.
+  region_library:
+    path: generator/region_library.geojson
+
+splits:
+  test:
+    seed: 20260408
+    case_count: 5
+    dataset_attempt_stride: 1000003
+    case_attempt_stride: 10007
+
+    schedule:
+      base_horizon_start: "2025-07-17T00:00:00Z"
+      case_start_spacing_hours: 12
+      horizon_hours: 72
+      time_step_s: 10
+      coverage_sample_step_s: 5
+
+    grid:
+      sample_spacing_m: 5000.0
+      sample_count:
+        min: 5000
+        max: 20000
+
+    scoring:
+      max_actions_total: 64
+      revisit_bonus_alpha: 0.0
+
+    regions:
+      count:
+        values: [2, 3, 4]
+        weights: [1, 2, 1]
+      total_area_m2:
+        min: 100000000000.0
+        max: 450000000000.0
+      per_region_area_m2:
+        min: 25000000000.0
+        max: 180000000000.0
+      min_separation_deg: 12.0
+      max_region_reuse: 2
+
+    satellites:
+      count:
+        values: [6, 8, 10, 12]
+        weights: [2, 2, 2, 1]
+      min_unique_satellite_ids: 8
+      mixed_case_min: 2
+      single_class_min: 1
+
+      assignment:
+        single_class_probability: 0.35
+        wide_fraction:
+          min: 0.35
+          max: 0.55
+        min_per_class: 2
+
+      classes:
+        sar_narrow:
+          sensor:
+            min_edge_off_nadir_deg: 18.0
+            max_edge_off_nadir_deg: 34.0
+            cross_track_fov_deg: 2.8
+            min_strip_duration_s: 20
+            max_strip_duration_s: 120
+          agility:
+            max_roll_rate_deg_per_s: 1.2
+            max_roll_acceleration_deg_per_s2: 0.4
+            settling_time_s: 2.0
+          power:
+            battery_capacity_wh: 900
+            initial_battery_wh: 540
+            idle_power_w: 85
+            imaging_power_w: 290
+            slew_power_w: 35
+            sunlit_charge_power_w: 170
+            imaging_duty_limit_s_per_orbit: 900
+
+        sar_wide:
+          sensor:
+            min_edge_off_nadir_deg: 16.0
+            max_edge_off_nadir_deg: 40.0
+            cross_track_fov_deg: 4.8
+            min_strip_duration_s: 20
+            max_strip_duration_s: 180
+          agility:
+            max_roll_rate_deg_per_s: 1.8
+            max_roll_acceleration_deg_per_s2: 0.7
+            settling_time_s: 1.5
+          power:
+            battery_capacity_wh: 1300
+            initial_battery_wh: 780
+            idle_power_w: 105
+            imaging_power_w: 360
+            slew_power_w: 45
+            sunlit_charge_power_w: 230
+            imaging_duty_limit_s_per_orbit: 1200

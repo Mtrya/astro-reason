@@ -9,9 +9,9 @@ from pathlib import Path
 from typing import Any
 
 from .build import (
-    CANONICAL_SEED,
     bilinear_elevation_m,
     generate_dataset,
+    load_generator_config,
     lookup_scene_type,
     lookup_table_metadata,
 )
@@ -54,6 +54,7 @@ def _write_provenance(
     doc: dict[str, Any] = {
         "celestrak": {
             "url": sources_module.CELESTRAK_EARTH_RESOURCES_URL,
+            "snapshot_epoch_utc": sources_module.CELESTRAK_SNAPSHOT_EPOCH_UTC,
             "record_count": cele.extra.get("record_count"),
             "sha256": cele.extra.get("sha256"),
             "vendored_snapshot": cele.extra.get("vendored_snapshot"),
@@ -75,8 +76,13 @@ def main(argv: list[str] | None = None) -> int:
         description=(
             "Stereo imaging v3 generator: stage runtime sources (vendored CelesTrak-format TLEs; "
             "Kaggle world-cities when needed), then emit the canonical dataset "
-            "(dataset/cases/, index.json, example_solution.json)."
+            "(dataset/cases/<split>/, index.json, example_solution.json)."
         )
+    )
+    parser.add_argument(
+        "splits_path",
+        type=Path,
+        help="Path to the benchmark-local splits.yaml describing canonical split generation",
     )
     parser.add_argument(
         "--download-dir",
@@ -85,7 +91,7 @@ def main(argv: list[str] | None = None) -> int:
         help="Where to store runtime source_data (default: <benchmark>/dataset/source_data)",
     )
     parser.add_argument(
-        "--dataset-dir",
+        "--output-dir",
         type=Path,
         default=None,
         help=(
@@ -99,22 +105,16 @@ def main(argv: list[str] | None = None) -> int:
         help="Only fetch and normalize runtime source data; skip canonical dataset emission.",
     )
     parser.add_argument(
-        "--seed",
-        type=int,
-        default=None,
-        help=f"Canonical RNG seed for dataset generation (default: {CANONICAL_SEED})",
-    )
-    parser.add_argument(
         "--force-download",
         action="store_true",
         help="Re-download runtime sources even when cached files exist",
     )
     args = parser.parse_args(argv)
 
+    config = load_generator_config(args.splits_path)
     dest_dir = args.download_dir.resolve()
-    dataset_dir = (args.dataset_dir or DEFAULT_DATASET_DIR).resolve()
+    dataset_dir = (args.output_dir or DEFAULT_DATASET_DIR).resolve()
     repo_root = Path(__file__).resolve().parents[3]
-    seed = CANONICAL_SEED if args.seed is None else args.seed
     lookup_meta = lookup_table_metadata()
 
     if not args.sources_only and (
@@ -152,7 +152,9 @@ def main(argv: list[str] | None = None) -> int:
     generate_dataset(
         source_dir=dest_dir,
         output_dir=dataset_dir,
-        seed=seed,
+        split_configs=config["splits"],
+        example_smoke_case=config["example_smoke_case"],
+        source_config=config["source"],
         git_revision=rev,
     )
     print(f"Canonical v3 dataset written under {dataset_dir / 'cases'}")

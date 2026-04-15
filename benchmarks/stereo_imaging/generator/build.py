@@ -18,105 +18,110 @@ from . import sources as sources_module
 from .lookup_tables import ELEVATION_GRID, LOOKUP_TABLE_VERSION, SCENE_GRID
 from .normalize import load_celestrak_csv, load_world_cities
 
-# -----------------------------------------------------------------------------
-# Canonical release parameters
-# -----------------------------------------------------------------------------
-
-CANONICAL_SEED = 20260406
-DEFAULT_HORIZON_DURATION_S = 172800  # 48 h
-
-NUM_CANONICAL_CASES = 5
-MIN_SATELLITES_PER_CASE = 2
-MAX_SATELLITES_PER_CASE = 4
-MIN_TARGETS_PER_CASE = 24
-MAX_TARGETS_PER_CASE = 48
-
 LOOKUP_GRID_RESOLUTION_DEG = 1.0
 LOOKUP_LAT_MIN = -89
 LOOKUP_LAT_MAX = 90
 LOOKUP_LON_MIN = -179
 LOOKUP_LON_MAX = 180
 
-MIN_URBAN_POPULATION = 100_000
-NON_URBAN_JITTER_DEG = 0.48
 
-SATELLITE_CATALOG: dict[int, dict[str, Any]] = {
-    38755: {
-        "id": "sat_spot_6",
-        "pixel_ifov_deg": 0.00012,
-        "cross_track_pixels": 12000,
-        "max_off_nadir_deg": 30.0,
-        "max_slew_velocity_deg_per_s": 2.35,
-        "max_slew_acceleration_deg_per_s2": 1.15,
-        "settling_time_s": 1.35,
-        "min_obs_duration_s": 2.0,
-        "max_obs_duration_s": 60.0,
-    },
-    40053: {
-        "id": "sat_spot_7",
-        "pixel_ifov_deg": 0.00012,
-        "cross_track_pixels": 12000,
-        "max_off_nadir_deg": 30.0,
-        "max_slew_velocity_deg_per_s": 2.35,
-        "max_slew_acceleration_deg_per_s2": 1.15,
-        "settling_time_s": 1.35,
-        "min_obs_duration_s": 2.0,
-        "max_obs_duration_s": 60.0,
-    },
-    40013: {
-        "id": "sat_deimos_2",
-        "pixel_ifov_deg": 0.00022,
-        "cross_track_pixels": 12000,
-        "max_off_nadir_deg": 30.0,
-        "max_slew_velocity_deg_per_s": 1.95,
-        "max_slew_acceleration_deg_per_s2": 0.95,
-        "settling_time_s": 1.9,
-        "min_obs_duration_s": 2.0,
-        "max_obs_duration_s": 60.0,
-    },
-    40118: {
-        "id": "sat_gaofen_2",
-        "pixel_ifov_deg": 0.000065,
-        "cross_track_pixels": 12000,
-        "max_off_nadir_deg": 25.0,
-        "max_slew_velocity_deg_per_s": 0.55,
-        "max_slew_acceleration_deg_per_s2": 0.065,
-        "settling_time_s": 3.0,
-        "min_obs_duration_s": 2.0,
-        "max_obs_duration_s": 60.0,
-    },
-    41556: {
-        "id": "sat_ziyuan_3_02",
-        "pixel_ifov_deg": 0.00017,
-        "cross_track_pixels": 6000,
-        "max_off_nadir_deg": 25.0,
-        "max_slew_velocity_deg_per_s": 0.78,
-        "max_slew_acceleration_deg_per_s2": 0.08,
-        "settling_time_s": 2.5,
-        "min_obs_duration_s": 2.0,
-        "max_obs_duration_s": 60.0,
-    },
-    38012: {
-        "id": "sat_pleiades_1a",
-        "pixel_ifov_deg": 0.00004,
-        "cross_track_pixels": 20000,
-        "max_off_nadir_deg": 30.0,
-        "max_slew_velocity_deg_per_s": 1.95,
-        "max_slew_acceleration_deg_per_s2": 0.95,
-        "settling_time_s": 1.9,
-        "min_obs_duration_s": 2.0,
-        "max_obs_duration_s": 60.0,
-    },
-}
+def _validate_path_segment(value: object, label: str) -> str:
+    if not isinstance(value, str) or not value or "/" in value or "\\" in value:
+        raise ValueError(f"{label} must be a non-empty single path segment")
+    return value
+
+
+def _require_mapping(mapping: object, label: str) -> dict[str, Any]:
+    if not isinstance(mapping, dict):
+        raise ValueError(f"{label} must be a mapping")
+    return mapping
+
+
+def _require_sequence(values: object, label: str) -> list[Any]:
+    if not isinstance(values, list) or not values:
+        raise ValueError(f"{label} must be a non-empty list")
+    return values
+
+
+def _require_int(mapping: dict[str, Any], key: str, label: str) -> int:
+    value = mapping.get(key)
+    if not isinstance(value, int) or isinstance(value, bool):
+        raise ValueError(f"{label}.{key} must be an integer")
+    return value
+
+
+def _require_float(mapping: dict[str, Any], key: str, label: str) -> float:
+    value = mapping.get(key)
+    if not isinstance(value, (int, float)) or isinstance(value, bool):
+        raise ValueError(f"{label}.{key} must be numeric")
+    return float(value)
+
+
+def load_generator_config(path: Path) -> dict[str, Any]:
+    try:
+        payload = yaml.safe_load(path.read_text(encoding="utf-8"))
+    except FileNotFoundError as exc:
+        raise FileNotFoundError(f"missing required splits config: {path}") from exc
+    except (OSError, UnicodeDecodeError, yaml.YAMLError) as exc:
+        raise ValueError(f"failed to load splits config {path}: {exc}") from exc
+
+    config = _require_mapping(payload, "splits config")
+    source = _require_mapping(config.get("source"), "source")
+    celestrak = _require_mapping(source.get("celestrak"), "source.celestrak")
+    snapshot_epoch_utc = str(celestrak.get("snapshot_epoch_utc"))
+    if snapshot_epoch_utc != sources_module.CELESTRAK_SNAPSHOT_EPOCH_UTC:
+        raise ValueError(
+            "stereo_imaging only supports the cached CelesTrak snapshot epoch "
+            f"{sources_module.CELESTRAK_SNAPSHOT_EPOCH_UTC}; got {snapshot_epoch_utc!r}"
+        )
+
+    splits = _require_mapping(config.get("splits"), "splits")
+    if not splits:
+        raise ValueError("splits config must contain a non-empty top-level 'splits' mapping")
+    for split_name, split_config in splits.items():
+        _validate_path_segment(split_name, "split name")
+        split_payload = _require_mapping(split_config, f"splits.{split_name}")
+        case_count = _require_int(split_payload, "case_count", f"splits.{split_name}")
+        if case_count <= 0:
+            raise ValueError(f"splits.{split_name}.case_count must be positive")
+        _require_int(split_payload, "seed", f"splits.{split_name}")
+
+    smoke_case = config.get("example_smoke_case")
+    if not isinstance(smoke_case, str) or not smoke_case:
+        raise ValueError("splits config must include example_smoke_case")
+    parts = smoke_case.split("/")
+    if len(parts) != 2:
+        raise ValueError("example_smoke_case must be formatted as <split>/<case_id>")
+    smoke_split = _validate_path_segment(parts[0], "example_smoke_case split")
+    smoke_case_id = _validate_path_segment(parts[1], "example_smoke_case case_id")
+    smoke_split_config = _require_mapping(splits.get(smoke_split), f"splits.{smoke_split}")
+    case_count = _require_int(smoke_split_config, "case_count", f"splits.{smoke_split}")
+    try:
+        smoke_case_number = int(smoke_case_id.removeprefix("case_"))
+    except ValueError as exc:
+        raise ValueError("example_smoke_case case_id must look like case_0001") from exc
+    if smoke_case_number < 1 or smoke_case_number > case_count:
+        raise ValueError(f"example_smoke_case {smoke_case} is outside the configured case_count")
+    return config
 
 
 def _sample_case_satellites_and_target_count(
     rng: random.Random,
     pool_norads: list[int],
+    *,
+    split_config: dict[str, Any],
 ) -> tuple[list[int], int]:
     """Deterministic random: satellite count in [2,4], target count in [24,48], distinct NORAD ids."""
-    n_sat = rng.randint(MIN_SATELLITES_PER_CASE, MAX_SATELLITES_PER_CASE)
-    n_targ = rng.randint(MIN_TARGETS_PER_CASE, MAX_TARGETS_PER_CASE)
+    satellites_config = _require_mapping(split_config.get("satellites"), "satellites")
+    targets_config = _require_mapping(split_config.get("targets"), "targets")
+    n_sat = rng.randint(
+        _require_int(satellites_config, "min_per_case", "satellites"),
+        _require_int(satellites_config, "max_per_case", "satellites"),
+    )
+    n_targ = rng.randint(
+        _require_int(targets_config, "min_count", "targets"),
+        _require_int(targets_config, "max_count", "targets"),
+    )
     n_sat = min(n_sat, len(pool_norads))
     pool = pool_norads.copy()
     rng.shuffle(pool)
@@ -140,12 +145,17 @@ def _utc_iso(dt: datetime) -> str:
     return dt.astimezone(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
 
 
-def _horizon_for_case(seed: int, case_index: int) -> tuple[str, str]:
+def _horizon_for_case(seed: int, case_index: int, *, split_config: dict[str, Any]) -> tuple[str, str]:
     """Deterministic mission horizon per case (48 h)."""
-    base = datetime(2026, 6, 1, 0, 0, 0, tzinfo=timezone.utc)
-    offset_hours = (seed % 1000) + case_index * 6
+    mission = _require_mapping(split_config.get("mission"), "mission")
+    base = _parse_iso_utc(str(mission["base_horizon_start"])).astimezone(timezone.utc)
+    offset_hours = (seed % 1000) + case_index * _require_int(
+        mission,
+        "case_start_spacing_hours",
+        "mission",
+    )
     start = base + timedelta(hours=offset_hours)
-    end = start + timedelta(seconds=DEFAULT_HORIZON_DURATION_S)
+    end = start + timedelta(seconds=_require_int(mission, "horizon_duration_s", "mission"))
     return _utc_iso(start), _utc_iso(end)
 
 
@@ -165,34 +175,25 @@ def _passes_feasibility(
     return True
 
 
-def _mission_template(horizon_start: str, horizon_end: str) -> dict[str, Any]:
+def _mission_template(
+    horizon_start: str,
+    horizon_end: str,
+    *,
+    mission_config: dict[str, Any],
+) -> dict[str, Any]:
+    validity_thresholds = _require_mapping(
+        mission_config.get("validity_thresholds"),
+        "mission.validity_thresholds",
+    )
+    quality_model = _require_mapping(mission_config.get("quality_model"), "mission.quality_model")
     return {
         "mission": {
             "horizon_start": horizon_start,
             "horizon_end": horizon_end,
-            "allow_cross_satellite_stereo": False,
-            "allow_cross_date_stereo": False,
-            "validity_thresholds": {
-                "min_overlap_fraction": 0.80,
-                "min_convergence_deg": 5.0,
-                "max_convergence_deg": 45.0,
-                "max_pixel_scale_ratio": 1.5,
-                "min_solar_elevation_deg": 10.0,
-                "near_nadir_anchor_max_off_nadir_deg": 10.0,
-            },
-            "quality_model": {
-                "pair_weights": {
-                    "geometry": 0.50,
-                    "overlap": 0.35,
-                    "resolution": 0.15,
-                },
-                "tri_stereo_bonus_by_scene": {
-                    "urban_structured": 0.12,
-                    "rugged": 0.10,
-                    "vegetated": 0.08,
-                    "open": 0.05,
-                },
-            },
+            "allow_cross_satellite_stereo": bool(mission_config["allow_cross_satellite_stereo"]),
+            "allow_cross_date_stereo": bool(mission_config["allow_cross_date_stereo"]),
+            "validity_thresholds": validity_thresholds,
+            "quality_model": quality_model,
         }
     }
 
@@ -200,8 +201,9 @@ def _mission_template(horizon_start: str, horizon_end: str) -> dict[str, Any]:
 def _build_satellite_dict(
     celestrak_by_norad: dict[int, dict[str, Any]],
     norad_id: int,
+    satellite_catalog: dict[int, dict[str, Any]],
 ) -> dict[str, Any]:
-    cat = SATELLITE_CATALOG[norad_id]
+    cat = satellite_catalog[norad_id]
     row = celestrak_by_norad[norad_id]
     return {
         "id": cat["id"],
@@ -343,9 +345,11 @@ def _sample_urban_targets(
     count: int,
     used: set[tuple[float, float]],
     inclinations_deg: list[float],
+    *,
+    min_urban_population: int,
 ) -> list[dict[str, Any]]:
     """Sample city targets from the reproducible world-cities source."""
-    pool = [c for c in cities if c.get("population", 0) >= MIN_URBAN_POPULATION]
+    pool = [c for c in cities if c.get("population", 0) >= min_urban_population]
     rng.shuffle(pool)
     out: list[dict[str, Any]] = []
     idx = 0
@@ -429,11 +433,12 @@ def _jitter_point_inside_cell(
     cell: tuple[int, int],
     *,
     scene: str,
+    non_urban_jitter_deg: float,
 ) -> tuple[float, float]:
     lat_idx, lon_idx = cell
     for _ in range(10):
-        lat = lat_idx + rng.uniform(-NON_URBAN_JITTER_DEG, NON_URBAN_JITTER_DEG)
-        lon = lon_idx + rng.uniform(-NON_URBAN_JITTER_DEG, NON_URBAN_JITTER_DEG)
+        lat = lat_idx + rng.uniform(-non_urban_jitter_deg, non_urban_jitter_deg)
+        lon = lon_idx + rng.uniform(-non_urban_jitter_deg, non_urban_jitter_deg)
         if lookup_scene_type(lat, lon) != scene:
             continue
         bilinear_elevation_m(lat, lon)
@@ -446,6 +451,8 @@ def _sample_non_urban_targets(
     count: int,
     used: set[tuple[float, float]],
     inclinations_deg: list[float],
+    *,
+    non_urban_jitter_deg: float,
 ) -> list[dict[str, Any]]:
     """Sample non-urban targets from committed lookup-table cells."""
     n_veg, n_rug, n_open = _split_three_way(count)
@@ -466,7 +473,12 @@ def _sample_non_urban_targets(
                 break
             if cell in used_cells:
                 continue
-            lat, lon = _jitter_point_inside_cell(rng, cell, scene=scene)
+            lat, lon = _jitter_point_inside_cell(
+                rng,
+                cell,
+                scene=scene,
+                non_urban_jitter_deg=non_urban_jitter_deg,
+            )
             key = (round(lat, 2), round(lon, 2))
             if key in used:
                 continue
@@ -491,6 +503,9 @@ def _sample_non_urban_targets(
 def _finalize_targets(
     raw: list[dict[str, Any]],
     rng: random.Random,
+    *,
+    aoi_radius_min_m: float,
+    aoi_radius_max_m: float,
 ) -> list[dict[str, Any]]:
     """Add AOI radius and elevation from vendored lookup tables."""
     out: list[dict[str, Any]] = []
@@ -498,7 +513,7 @@ def _finalize_targets(
         lat = float(target["latitude_deg"])
         lon = float(target["longitude_deg"])
         elevation_m = float(bilinear_elevation_m(lat, lon))
-        aoi_radius_m = round(rng.uniform(2500.0, 7500.0), 1)
+        aoi_radius_m = round(rng.uniform(aoi_radius_min_m, aoi_radius_max_m), 1)
         out.append(
             {
                 "id": target["id"],
@@ -556,8 +571,10 @@ def build_example_solution(
 def generate_dataset(
     source_dir: Path,
     output_dir: Path,
-    seed: int = CANONICAL_SEED,
     *,
+    split_configs: dict[str, dict[str, Any]],
+    example_smoke_case: str,
+    source_config: dict[str, Any],
     git_revision: str | None = None,
 ) -> dict[str, Any]:
     """
@@ -582,72 +599,115 @@ def generate_dataset(
         nid = int(row["norad_catalog_id"])
         celestrak_by_norad[nid] = row
 
-    for norad in SATELLITE_CATALOG:
-        if norad not in celestrak_by_norad:
-            raise KeyError(
-                f"Catalog NORAD {norad} not in CelesTrak CSV; "
-                "refresh source data or adjust SATELLITE_CATALOG."
-            )
-
     cities = load_world_cities(cities_path)
 
     provenance: dict[str, Any] = {}
     if prov_path.is_file():
         provenance = json.loads(prov_path.read_text(encoding="utf-8"))
 
-    cases_out: list[BuiltCase] = []
+    cases_out: list[tuple[str, BuiltCase]] = []
     horizon_starts: dict[str, str] = {}
 
     dataset_root = output_dir
     cases_root = dataset_root / "cases"
-    pool_norads = sorted(SATELLITE_CATALOG.keys())
+    smoke_split, smoke_case_id = example_smoke_case.split("/")
+    smoke_found = False
+    selected_norad_catalog_ids: set[int] = set()
 
-    for case_index in range(NUM_CANONICAL_CASES):
-        case_id = f"case_{case_index + 1:04d}"
-        rng = random.Random(seed + case_index * 10007)
-        norad_list, n_targets = _sample_case_satellites_and_target_count(rng, pool_norads)
-        inclinations = [
-            _inclination_deg_from_tle_line2(celestrak_by_norad[n]["tle_line2"]) for n in norad_list
-        ]
+    for split_name, split_config_obj in split_configs.items():
+        split_config = _require_mapping(split_config_obj, f"splits.{split_name}")
+        seed = _require_int(split_config, "seed", f"splits.{split_name}")
+        case_count = _require_int(split_config, "case_count", f"splits.{split_name}")
+        case_seed_stride = _require_int(split_config, "case_seed_stride", f"splits.{split_name}")
+        satellites_config = _require_mapping(split_config.get("satellites"), f"splits.{split_name}.satellites")
+        targets_config = _require_mapping(split_config.get("targets"), f"splits.{split_name}.targets")
+        mission_config = _require_mapping(split_config.get("mission"), f"splits.{split_name}.mission")
+        satellite_catalog = {
+            int(norad): _require_mapping(spec, f"splits.{split_name}.satellites.catalog.{norad}")
+            for norad, spec in _require_mapping(
+                satellites_config.get("catalog"),
+                f"splits.{split_name}.satellites.catalog",
+            ).items()
+        }
+        for norad in satellite_catalog:
+            if norad not in celestrak_by_norad:
+                raise KeyError(
+                    f"Catalog NORAD {norad} not in CelesTrak CSV; "
+                    "refresh source data or update splits.yaml."
+                )
+        pool_norads = sorted(satellite_catalog.keys())
+        selected_norad_catalog_ids.update(pool_norads)
 
-        satellites = [_build_satellite_dict(celestrak_by_norad, n) for n in norad_list]
-        sat_ids = [sat["id"] for sat in satellites]
-
-        n_urban = n_targets // 4
-        used_coords: set[tuple[float, float]] = set()
-
-        urban = _sample_urban_targets(
-            cities,
-            rng,
-            n_urban,
-            used_coords,
-            inclinations,
-        )
-        non_urban = _sample_non_urban_targets(
-            rng,
-            n_targets - n_urban,
-            used_coords,
-            inclinations,
-        )
-        raw_targets = urban + non_urban
-        rng.shuffle(raw_targets)
-        if len(raw_targets) < n_targets:
-            raise RuntimeError(
-                f"Could not sample enough targets for {case_id} (got {len(raw_targets)})."
+        for case_index in range(case_count):
+            case_id = f"case_{case_index + 1:04d}"
+            rng = random.Random(seed + case_index * case_seed_stride)
+            norad_list, n_targets = _sample_case_satellites_and_target_count(
+                rng,
+                pool_norads,
+                split_config=split_config,
             )
-        raw_targets = raw_targets[:n_targets]
-        targets = _finalize_targets(raw_targets, rng)
+            inclinations = [
+                _inclination_deg_from_tle_line2(celestrak_by_norad[n]["tle_line2"]) for n in norad_list
+            ]
 
-        horizon_start, horizon_end = _horizon_for_case(seed, case_index)
-        horizon_starts[case_id] = horizon_start
+            satellites = [
+                _build_satellite_dict(celestrak_by_norad, n, satellite_catalog) for n in norad_list
+            ]
+            sat_ids = [sat["id"] for sat in satellites]
 
-        case_dir = cases_root / case_id
-        _write_yaml(case_dir / "satellites.yaml", satellites)
-        _write_yaml(case_dir / "targets.yaml", targets)
-        _write_yaml(case_dir / "mission.yaml", _mission_template(horizon_start, horizon_end))
+            urban_divisor = _require_int(targets_config, "urban_target_divisor", "targets")
+            n_urban = n_targets // urban_divisor
+            used_coords: set[tuple[float, float]] = set()
 
-        cases_out.append(
-            BuiltCase(
+            urban = _sample_urban_targets(
+                cities,
+                rng,
+                n_urban,
+                used_coords,
+                inclinations,
+                min_urban_population=_require_int(
+                    targets_config,
+                    "min_urban_population",
+                    "targets",
+                ),
+            )
+            non_urban = _sample_non_urban_targets(
+                rng,
+                n_targets - n_urban,
+                used_coords,
+                inclinations,
+                non_urban_jitter_deg=_require_float(
+                    targets_config,
+                    "non_urban_jitter_deg",
+                    "targets",
+                ),
+            )
+            raw_targets = urban + non_urban
+            rng.shuffle(raw_targets)
+            if len(raw_targets) < n_targets:
+                raise RuntimeError(
+                    f"Could not sample enough targets for {case_id} (got {len(raw_targets)})."
+                )
+            raw_targets = raw_targets[:n_targets]
+            targets = _finalize_targets(
+                raw_targets,
+                rng,
+                aoi_radius_min_m=_require_float(targets_config, "aoi_radius_min_m", "targets"),
+                aoi_radius_max_m=_require_float(targets_config, "aoi_radius_max_m", "targets"),
+            )
+
+            horizon_start, horizon_end = _horizon_for_case(seed, case_index, split_config=split_config)
+            horizon_starts[case_id] = horizon_start
+
+            case_dir = cases_root / split_name / case_id
+            _write_yaml(case_dir / "satellites.yaml", satellites)
+            _write_yaml(case_dir / "targets.yaml", targets)
+            _write_yaml(
+                case_dir / "mission.yaml",
+                _mission_template(horizon_start, horizon_end, mission_config=mission_config),
+            )
+
+            built_case = BuiltCase(
                 case_id=case_id,
                 num_satellites=len(satellites),
                 num_targets=len(targets),
@@ -657,9 +717,14 @@ def generate_dataset(
                 horizon_start=horizon_start,
                 horizon_end=horizon_end,
             )
-        )
+            cases_out.append((split_name, built_case))
+            if split_name == smoke_split and case_id == smoke_case_id:
+                smoke_found = True
 
-    example_obj = build_example_solution(cases_out, horizon_starts)
+    if not smoke_found:
+        raise ValueError(f"example_smoke_case {example_smoke_case} was not generated")
+
+    example_obj = build_example_solution([built_case for _split, built_case in cases_out], horizon_starts)
     example_path = dataset_root / "example_solution.json"
     example_path.write_text(
         json.dumps(example_obj, indent=2, sort_keys=True) + "\n",
@@ -669,12 +734,16 @@ def generate_dataset(
     index_doc: dict[str, Any] = {
         "benchmark": "stereo_imaging",
         "spec_version": "v3",
-        "canonical_seed": seed,
-        "horizon_duration_s": DEFAULT_HORIZON_DURATION_S,
-        "source_provenance": _source_provenance_for_index(provenance),
+        "source": {
+            **source_config,
+            "runtime_provenance": _source_provenance_for_index(provenance),
+        },
+        "example_smoke_case": example_smoke_case,
         "cases": [
             {
+                "split": split_name,
                 "case_id": bc.case_id,
+                "path": f"cases/{split_name}/{bc.case_id}",
                 "num_satellites": bc.num_satellites,
                 "num_targets": bc.num_targets,
                 "norad_catalog_ids": bc.norad_catalog_ids,
@@ -682,10 +751,20 @@ def generate_dataset(
                 "horizon_start": bc.horizon_start,
                 "horizon_end": bc.horizon_end,
             }
-            for bc in cases_out
+            for split_name, bc in cases_out
         ],
-        "selected_norad_catalog_ids": sorted(SATELLITE_CATALOG.keys()),
+        "selected_norad_catalog_ids": sorted(selected_norad_catalog_ids),
     }
+    unique_seeds = {
+        _require_int(_require_mapping(split_config, f"splits.{split_name}"), "seed", f"splits.{split_name}")
+        for split_name, split_config in split_configs.items()
+    }
+    if len(unique_seeds) == 1:
+        index_doc["generator_seed"] = next(iter(unique_seeds))
+        index_doc["canonical_seed"] = next(iter(unique_seeds))
+    first_split_name = next(iter(split_configs))
+    first_mission = _require_mapping(split_configs[first_split_name].get("mission"), f"splits.{first_split_name}.mission")
+    index_doc["horizon_duration_s"] = _require_int(first_mission, "horizon_duration_s", "mission")
     (dataset_root / "index.json").write_text(
         json.dumps(index_doc, indent=2, sort_keys=True) + "\n",
         encoding="utf-8",
@@ -695,13 +774,11 @@ def generate_dataset(
 
 
 __all__ = [
-    "CANONICAL_SEED",
-    "NUM_CANONICAL_CASES",
-    "SATELLITE_CATALOG",
     "LOOKUP_TABLE_VERSION",
     "lookup_scene_type",
     "bilinear_elevation_m",
     "lookup_table_metadata",
+    "load_generator_config",
     "generate_dataset",
     "build_example_solution",
 ]

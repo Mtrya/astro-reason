@@ -1,0 +1,124 @@
+# Canonical stereo_imaging dataset construction for the finished benchmark.
+#
+# The generator uses a vendored subset of real CelesTrak Earth-resources TLEs,
+# a vendored terrain/scene lookup table, and runtime-staged world-cities data.
+# The snapshot epoch below is an exact supported label for the cached TLE set.
+
+example_smoke_case: test/case_0001
+
+source:
+  celestrak:
+    kind: vendored_subset
+    url: https://celestrak.org/NORAD/elements/gp.php?GROUP=resource&FORMAT=tle
+    snapshot_epoch_utc: "2026-04-06T00:00:00Z"  # Generator rejects any other epoch.
+  world_cities:
+    kind: kaggle_dataset
+    dataset: juanmah/world-cities
+    page_url: https://www.kaggle.com/datasets/juanmah/world-cities
+  lookup_tables:
+    kind: vendored_lookup_tables
+    module: benchmarks/stereo_imaging/generator/lookup_tables.py
+
+splits:
+  test:
+    seed: 20260406
+    case_count: 5
+    case_seed_stride: 10007
+
+    mission:
+      base_horizon_start: "2026-04-06T00:00:00Z"
+      case_start_spacing_hours: 6
+      horizon_duration_s: 172800
+      allow_cross_satellite_stereo: false
+      allow_cross_date_stereo: false
+      validity_thresholds:
+        min_overlap_fraction: 0.8
+        min_convergence_deg: 5.0
+        max_convergence_deg: 45.0
+        max_pixel_scale_ratio: 1.5
+        min_solar_elevation_deg: 10.0
+        near_nadir_anchor_max_off_nadir_deg: 10.0
+      quality_model:
+        pair_weights:
+          geometry: 0.5
+          overlap: 0.35
+          resolution: 0.15
+        tri_stereo_bonus_by_scene:
+          urban_structured: 0.12
+          rugged: 0.10
+          vegetated: 0.08
+          open: 0.05
+
+    targets:
+      min_count: 24
+      max_count: 48
+      urban_target_divisor: 4
+      min_urban_population: 100000
+      non_urban_jitter_deg: 0.48
+      aoi_radius_min_m: 2500.0
+      aoi_radius_max_m: 7500.0
+
+    satellites:
+      min_per_case: 2
+      max_per_case: 4
+      catalog:
+        "38012":
+          id: sat_pleiades_1a
+          pixel_ifov_deg: 0.00004
+          cross_track_pixels: 20000
+          max_off_nadir_deg: 30.0
+          max_slew_velocity_deg_per_s: 1.95
+          max_slew_acceleration_deg_per_s2: 0.95
+          settling_time_s: 1.9
+          min_obs_duration_s: 2.0
+          max_obs_duration_s: 60.0
+        "38755":
+          id: sat_spot_6
+          pixel_ifov_deg: 0.00012
+          cross_track_pixels: 12000
+          max_off_nadir_deg: 30.0
+          max_slew_velocity_deg_per_s: 2.35
+          max_slew_acceleration_deg_per_s2: 1.15
+          settling_time_s: 1.35
+          min_obs_duration_s: 2.0
+          max_obs_duration_s: 60.0
+        "40013":
+          id: sat_deimos_2
+          pixel_ifov_deg: 0.00022
+          cross_track_pixels: 12000
+          max_off_nadir_deg: 30.0
+          max_slew_velocity_deg_per_s: 1.95
+          max_slew_acceleration_deg_per_s2: 0.95
+          settling_time_s: 1.9
+          min_obs_duration_s: 2.0
+          max_obs_duration_s: 60.0
+        "40053":
+          id: sat_spot_7
+          pixel_ifov_deg: 0.00012
+          cross_track_pixels: 12000
+          max_off_nadir_deg: 30.0
+          max_slew_velocity_deg_per_s: 2.35
+          max_slew_acceleration_deg_per_s2: 1.15
+          settling_time_s: 1.35
+          min_obs_duration_s: 2.0
+          max_obs_duration_s: 60.0
+        "40118":
+          id: sat_gaofen_2
+          pixel_ifov_deg: 0.000065
+          cross_track_pixels: 12000
+          max_off_nadir_deg: 25.0
+          max_slew_velocity_deg_per_s: 0.55
+          max_slew_acceleration_deg_per_s2: 0.065
+          settling_time_s: 3.0
+          min_obs_duration_s: 2.0
+          max_obs_duration_s: 60.0
+        "41556":
+          id: sat_ziyuan_3_02
+          pixel_ifov_deg: 0.00017
+          cross_track_pixels: 6000
+          max_off_nadir_deg: 25.0
+          max_slew_velocity_deg_per_s: 0.78
+          max_slew_acceleration_deg_per_s2: 0.08
+          settling_time_s: 2.5
+          min_obs_duration_s: 2.0
+          max_obs_duration_s: 60.0

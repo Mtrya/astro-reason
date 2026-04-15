@@ -1,6 +1,6 @@
 mission:
-  horizon_start: '2026-06-18T22:00:00Z'
-  horizon_end: '2026-06-20T22:00:00Z'
+  horizon_start: '2026-04-23T22:00:00Z'
+  horizon_end: '2026-04-25T22:00:00Z'
   allow_cross_satellite_stereo: false
   allow_cross_date_stereo: false
   validity_thresholds:
