@@ -12,42 +12,48 @@
     "maintenance_path": "data/maintenance.csv",
     "mission_color_map_path": "data/mission_color_map.json"
   },
+  "example_smoke_case": "test/W10_2018",
   "cases": [
     {
+      "split": "test",
       "case_id": "W10_2018",
-      "path": "cases/W10_2018",
+      "path": "cases/test/W10_2018",
       "week": 10,
       "year": 2018,
       "request_count": 257,
       "maintenance_window_count": 37
     },
     {
+      "split": "test",
       "case_id": "W20_2018",
-      "path": "cases/W20_2018",
+      "path": "cases/test/W20_2018",
       "week": 20,
       "year": 2018,
       "request_count": 294,
       "maintenance_window_count": 31
     },
     {
+      "split": "test",
       "case_id": "W30_2018",
-      "path": "cases/W30_2018",
+      "path": "cases/test/W30_2018",
       "week": 30,
       "year": 2018,
       "request_count": 293,
       "maintenance_window_count": 35
     },
     {
+      "split": "test",
       "case_id": "W40_2018",
-      "path": "cases/W40_2018",
+      "path": "cases/test/W40_2018",
       "week": 40,
       "year": 2018,
       "request_count": 333,
       "maintenance_window_count": 38
     },
     {
+      "split": "test",
       "case_id": "W50_2018",
-      "path": "cases/W50_2018",
+      "path": "cases/test/W50_2018",
       "week": 50,
       "year": 2018,
       "request_count": 275,

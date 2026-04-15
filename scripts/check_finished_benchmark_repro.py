@@ -10,18 +10,15 @@ import subprocess
 import sys
 import tempfile
 
-from validate_benchmark_contract import load_finished_benchmarks
+from validate_benchmark_contract import (
+    generator_entrypoint,
+    load_finished_benchmarks,
+    load_splits_config,
+    python_cmd_for_entrypoint,
+)
 
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
-
-
-def _generator_entrypoint(benchmark_root: Path) -> Path:
-    for relative in ("generator.py", "generator/run.py"):
-        candidate = benchmark_root / relative
-        if candidate.exists():
-            return candidate
-    raise FileNotFoundError(f"No generator entrypoint found for {benchmark_root.name}")
 
 
 def _compare_paths(expected: Path, actual: Path, label: str, errors: list[str]) -> None:
@@ -55,56 +52,53 @@ def _compare_paths(expected: Path, actual: Path, label: str, errors: list[str]) 
         errors.append(f"{label}: generated file differs for {expected.relative_to(REPO_ROOT)}")
 
 
-def _run_generator_top_level(entrypoint: Path, cwd: Path) -> None:
-    subprocess.run(
-        [sys.executable, str(entrypoint)],
-        cwd=cwd,
-        check=True,
-    )
-
-
-def _prepare_nested_generator_package_layout(temp_root: Path, benchmark_name: str) -> None:
-    """Lay out benchmarks.<name>.generator so `python -m` can run (matches contract)."""
-    (temp_root / "benchmarks").mkdir(parents=True)
-    shutil.copy2(REPO_ROOT / "benchmarks" / "__init__.py", temp_root / "benchmarks" / "__init__.py")
-    src_bench = REPO_ROOT / "benchmarks" / benchmark_name
-    dst_bench = temp_root / "benchmarks" / benchmark_name
-    dst_bench.mkdir(parents=True)
-    shutil.copy2(src_bench / "__init__.py", dst_bench / "__init__.py")
+def _copy_benchmark_without_dataset(src: Path, dst: Path) -> None:
     shutil.copytree(
-        src_bench / "generator",
-        dst_bench / "generator",
+        src,
+        dst,
+        ignore=shutil.ignore_patterns("dataset", "__pycache__", "*.pyc"),
         dirs_exist_ok=True,
-        ignore=shutil.ignore_patterns("__pycache__", "*.pyc"),
     )
 
 
-def _run_nested_generator_module(temp_root: Path, benchmark_name: str) -> None:
+def _stage_benchmark_copy(benchmark_root: Path, temp_root: Path) -> tuple[Path, Path]:
+    entrypoint = generator_entrypoint(benchmark_root)
+    if entrypoint is None:
+        raise FileNotFoundError(f"No generator entrypoint found for {benchmark_root.name}")
+
+    if entrypoint.parent.name == "generator" and entrypoint.name == "run.py":
+        benchmarks_pkg = temp_root / "benchmarks"
+        benchmarks_pkg.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(REPO_ROOT / "benchmarks" / "__init__.py", benchmarks_pkg / "__init__.py")
+        temp_benchmark_root = benchmarks_pkg / benchmark_root.name
+    else:
+        temp_benchmark_root = temp_root / benchmark_root.name
+
+    _copy_benchmark_without_dataset(benchmark_root, temp_benchmark_root)
+    temp_entrypoint = temp_benchmark_root / entrypoint.relative_to(benchmark_root)
+    return temp_benchmark_root, temp_entrypoint
+
+
+def _run_generator(
+    benchmark_name: str,
+    benchmark_root: Path,
+    entrypoint: Path,
+    splits_path: Path,
+    temp_root: Path,
+) -> None:
     env = dict(os.environ)
-    env["PYTHONPATH"] = str(temp_root)
+    if entrypoint.parent.name == "generator" and entrypoint.name == "run.py":
+        env["PYTHONPATH"] = str(temp_root)
+        cwd = temp_root
+    else:
+        cwd = benchmark_root
+
     subprocess.run(
-        [sys.executable, "-m", f"benchmarks.{benchmark_name}.generator.run"],
-        cwd=temp_root,
+        python_cmd_for_entrypoint(benchmark_name, entrypoint, benchmark_root, [str(splits_path)]),
+        cwd=cwd,
         env=env,
         check=True,
     )
-
-
-def _copy_generator(benchmark_root: Path, temp_benchmark_root: Path, entrypoint: Path) -> Path:
-    """Copy generator files to temp directory."""
-    temp_entrypoint = temp_benchmark_root / entrypoint.relative_to(benchmark_root)
-    temp_entrypoint.parent.mkdir(parents=True, exist_ok=True)
-    
-    # If entrypoint is in a generator/ directory, copy the whole directory
-    if entrypoint.parent.name == "generator":
-        generator_dir = entrypoint.parent
-        temp_generator_dir = temp_entrypoint.parent
-        shutil.copytree(generator_dir, temp_generator_dir, dirs_exist_ok=True, ignore=shutil.ignore_patterns("__pycache__", "*.pyc"))
-    else:
-        # Single-file generator, just copy the entrypoint
-        shutil.copy2(entrypoint, temp_entrypoint)
-    
-    return temp_entrypoint
 
 
 def check_reproducibility() -> list[str]:
@@ -113,20 +107,36 @@ def check_reproducibility() -> list[str]:
         if not benchmark.repro_ci:
             continue
         benchmark_root = REPO_ROOT / "benchmarks" / benchmark.name
-        entrypoint = _generator_entrypoint(benchmark_root)
+        splits_path = benchmark_root / "splits.yaml"
+        try:
+            load_splits_config(splits_path)
+        except (FileNotFoundError, ValueError) as exc:
+            errors.append(f"{benchmark.name}: {exc}")
+            continue
+
+        entrypoint = generator_entrypoint(benchmark_root)
+        if entrypoint is None:
+            errors.append(f"{benchmark.name}: No generator entrypoint found")
+            continue
         with tempfile.TemporaryDirectory(prefix=f"{benchmark.name}-repro-") as temp_dir_name:
             temp_root = Path(temp_dir_name)
-            nested_run = entrypoint.name == "run.py" and entrypoint.parent.name == "generator"
-            if nested_run:
-                _prepare_nested_generator_package_layout(temp_root, benchmark.name)
-                _run_nested_generator_module(temp_root, benchmark.name)
-                benchmark_out = temp_root / "benchmarks" / benchmark.name
-            else:
-                temp_benchmark_root = temp_root / benchmark.name
-                temp_benchmark_root.mkdir(parents=True)
-                temp_entrypoint = _copy_generator(benchmark_root, temp_benchmark_root, entrypoint)
-                _run_generator_top_level(temp_entrypoint, temp_benchmark_root)
-                benchmark_out = temp_benchmark_root
+            temp_benchmark_root, temp_entrypoint = _stage_benchmark_copy(benchmark_root, temp_root)
+            temp_splits_path = temp_benchmark_root / "splits.yaml"
+            try:
+                _run_generator(
+                    benchmark.name,
+                    temp_benchmark_root,
+                    temp_entrypoint,
+                    temp_splits_path,
+                    temp_root,
+                )
+            except subprocess.CalledProcessError as exc:
+                stderr = exc.stderr.decode("utf-8", errors="replace") if isinstance(exc.stderr, bytes) else (exc.stderr or "")
+                stdout = exc.stdout.decode("utf-8", errors="replace") if isinstance(exc.stdout, bytes) else (exc.stdout or "")
+                detail = stderr.strip() or stdout.strip() or f"exit code {exc.returncode}"
+                errors.append(f"{benchmark.name}: generator failed when run with explicit splits.yaml path: {detail}")
+                continue
+            benchmark_out = temp_benchmark_root
             # Compare generated paths
             for relative_str in benchmark.generated_paths:
                 relative = Path(relative_str)

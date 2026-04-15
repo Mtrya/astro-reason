@@ -25,7 +25,7 @@ from benchmarks.satnet.verifier import (
 
 
 DATASET_DIR = Path("benchmarks/satnet/dataset")
-CASES_DIR = DATASET_DIR / "cases"
+CASES_DIR = DATASET_DIR / "cases" / "test"
 FIXTURES_DIR = Path("tests/fixtures/satnet_mock_solutions")
 GROUND_TRUTH_SUMMARY = FIXTURES_DIR / "ground_truth_summary.json"
 
@@ -313,15 +313,19 @@ def test_build_case_dataset_records_dataset_level_local_provenance(tmp_path: Pat
         mission_color_map=mission_color_map,
         output_dir=tmp_path / "dataset",
         provenance=build_local_provenance(Path("local-satnet-data"), "patched local copy"),
+        split_assignments={"test": ["W10_2018"]},
+        example_smoke_case="test/W10_2018",
     )
 
     index = json.loads((tmp_path / "dataset" / "index.json").read_text())
     metadata = json.loads(
-        (tmp_path / "dataset" / "cases" / "W10_2018" / "metadata.json").read_text()
+        (tmp_path / "dataset" / "cases" / "test" / "W10_2018" / "metadata.json").read_text()
     )
 
     assert index["source"]["kind"] == "local_directory"
     assert index["source"]["source_dir_name"] == "local-satnet-data"
     assert index["source"]["description"] == "patched local copy"
+    assert index["example_smoke_case"] == "test/W10_2018"
+    assert index["cases"][0]["path"] == "cases/test/W10_2018"
     assert "repository" not in index["source"]
     assert "source" not in metadata

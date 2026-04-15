@@ -1,5 +1,6 @@
 {
   "case_id": "W20_2018",
+  "split": "test",
   "week": 20,
   "year": 2018,
   "request_count": 294,

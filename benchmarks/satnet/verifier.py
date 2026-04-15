@@ -2,7 +2,7 @@
 
 This module validates SatNet schedules against the public benchmark dataset in
 ``benchmarks/satnet/dataset``. The canonical dataset is organized as
-case-by-case week/year instances under ``dataset/cases/``.
+case-by-case week/year instances under ``dataset/cases/<split>/``.
 
 Key responsibilities:
 

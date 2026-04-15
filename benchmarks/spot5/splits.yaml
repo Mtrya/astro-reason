@@ -1,0 +1,53 @@
+# Canonical SPOT-5 dataset construction for the finished benchmark.
+#
+# The committed split assignment is explicit because benchmark maintenance
+# depends on understanding both the broad structural families and the smaller
+# overlapping smoke/evaluation subset.
+
+# Pair dataset/example_solution.json with the smallest published single-orbit
+# instance so smoke tests can keep using the compact 8.spot case.
+example_smoke_case: single_orbit/8
+
+# The overlapping test split below was sampled from the published case-id list
+# in lexicographic order using random.Random(42).sample(case_ids, 5).
+test_split_sampling:
+  seed: 42
+  population_order: lexicographic_case_id
+  sample_size: 5
+
+splits:
+  # Published instances with numeric id < 1000.
+  single_orbit:
+    - 5
+    - 8
+    - 11
+    - 28
+    - 29
+    - 42
+    - 54
+    - 404
+    - 408
+    - 412
+    - 503
+    - 505
+    - 507
+    - 509
+
+  # Published instances with numeric id > 1000.
+  multi_orbit:
+    - 1021
+    - 1401
+    - 1403
+    - 1405
+    - 1502
+    - 1504
+    - 1506
+
+  # Overlap is intentional: this small split supports smoke/evaluation flows
+  # without removing the broader single_orbit and multi_orbit families.
+  test:
+    - 8
+    - 1403
+    - 1021
+    - 28
+    - 1506

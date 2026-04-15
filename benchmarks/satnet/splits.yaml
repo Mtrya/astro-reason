@@ -1,0 +1,19 @@
+# Canonical SatNet dataset construction for the finished benchmark.
+#
+# The upstream SatNet release is ingested from the repository ref below, then
+# rewritten into the split-aware dataset layout under dataset/cases/<split>/.
+source:
+  upstream_ref: master  # Current canonical upstream SatNet data ref.
+
+# Pair dataset/example_solution.json with the first published 2018 benchmark case.
+example_smoke_case: test/W10_2018
+
+splits:
+  # SatNet currently exposes one committed evaluation split containing all five
+  # published 2018 week/year cases.
+  test:
+    - W10_2018
+    - W20_2018
+    - W30_2018
+    - W40_2018
+    - W50_2018
