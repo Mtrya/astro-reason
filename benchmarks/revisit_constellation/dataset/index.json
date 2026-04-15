@@ -1,43 +1,48 @@
 {
   "benchmark": "revisit_constellation",
-  "case_dir_layout": "cases/<case_id>",
   "cases": [
     {
       "case_id": "case_0001",
       "max_num_satellites": 7,
-      "path": "cases/case_0001",
+      "path": "cases/test/case_0001",
+      "split": "test",
       "target_count": 22,
       "uniform_revisit_threshold_hours": 6.0
     },
     {
       "case_id": "case_0002",
       "max_num_satellites": 13,
-      "path": "cases/case_0002",
+      "path": "cases/test/case_0002",
+      "split": "test",
       "target_count": 12,
       "uniform_revisit_threshold_hours": 12.0
     },
     {
       "case_id": "case_0003",
       "max_num_satellites": 18,
-      "path": "cases/case_0003",
+      "path": "cases/test/case_0003",
+      "split": "test",
       "target_count": 20,
       "uniform_revisit_threshold_hours": 12.0
     },
     {
       "case_id": "case_0004",
       "max_num_satellites": 17,
-      "path": "cases/case_0004",
+      "path": "cases/test/case_0004",
+      "split": "test",
       "target_count": 20,
       "uniform_revisit_threshold_hours": 10.0
     },
     {
       "case_id": "case_0005",
       "max_num_satellites": 17,
-      "path": "cases/case_0005",
+      "path": "cases/test/case_0005",
+      "split": "test",
       "target_count": 16,
       "uniform_revisit_threshold_hours": 10.0
     }
   ],
+  "example_smoke_case": "test/case_0001",
   "generator_seed": 42,
   "horizon_hours": 48,
   "source": {

@@ -256,7 +256,8 @@ benchmarks/revisit_constellation/
 │   ├── index.json
 │   ├── example_solution.json
 │   └── cases/
-│       └── case_0001/{assets.json,mission.json}
+│       └── <split>/<case_id>/{assets.json,mission.json}
+├── splits.yaml
 ├── generator/
 │   ├── __init__.py
 │   ├── build.py
@@ -280,12 +281,13 @@ tests/benchmarks/
 
 ## Canonical Dataset
 
-The committed dataset lives under `dataset/cases/` and includes dataset-level metadata in `dataset/index.json`. The current canonical dataset contains five cases: `case_0001` through `case_0005`.
+The committed dataset lives under `dataset/cases/<split>/` and includes dataset-level metadata in `dataset/index.json`. The current canonical dataset publishes five `test` cases: `case_0001` through `case_0005`.
 
 The canonical generator entry point is:
 
 ```bash
-uv run python -m benchmarks.revisit_constellation.generator.run
+uv run python -m benchmarks.revisit_constellation.generator.run \
+  benchmarks/revisit_constellation/splits.yaml
 ```
 
-Downloaded raw source CSVs are stored under the dataset directory by default at `dataset/source_data/`. The generator downloads the documented Kaggle dataset itself through `kagglehub`, then builds the canonical cases without any manual CSV preparation step.
+Downloaded raw source CSVs are stored under the dataset directory by default at `dataset/source_data/`. The committed dataset-construction parameters live in `benchmarks/revisit_constellation/splits.yaml`; runtime source-management controls such as `--download-dir` and `--force-download` remain optional CLI overrides around the documented Kaggle download step.

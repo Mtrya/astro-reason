@@ -1,0 +1,63 @@
+# Canonical revisit_constellation dataset construction for the finished benchmark.
+#
+# Dataset-shape controls live under the split entry below. Operational download
+# controls such as --download-dir and --force-download remain CLI concerns.
+
+# Pair the dataset example solution with the first published revisit case.
+example_smoke_case: test/case_0001
+
+source:
+  world_cities:
+    kind: kaggle_dataset
+    dataset: juanmah/world-cities
+    page_url: https://www.kaggle.com/datasets/juanmah/world-cities
+
+splits:
+  test:
+    seed: 42
+    case_count: 5
+    case_spec_seed_stride: 10007
+    target_selection_seed_stride: 10000
+    target_selection_seed_offset: 1
+
+    case_spec:
+      target_count:
+        min: 12
+        max: 24
+      max_num_satellites:
+        min: 6
+        max: 18
+      revisit_threshold_hours_options: [6.0, 8.0, 10.0, 12.0]
+
+    mission:
+      horizon_start: "2025-07-17T12:00:00Z"
+      horizon_end: "2025-07-19T12:00:00Z"
+      min_target_separation_m: 250000.0
+      target_defaults:
+        min_elevation_deg: 20.0
+        max_slant_range_m: 1800000.0
+        min_duration_sec: 30.0
+
+    target_selection:
+      initial_pool:
+        min_size: 10
+        multiplier: 2
+
+    satellite_model:
+      model_name: balanced_leo_eo_bus_v1
+      sensor:
+        max_off_nadir_angle_deg: 25.0
+        max_range_m: 1000000.0
+        obs_discharge_rate_w: 120.0
+      resource_model:
+        battery_capacity_wh: 2000.0
+        initial_battery_wh: 1600.0
+        idle_discharge_rate_w: 5.0
+        sunlight_charge_rate_w: 100.0
+      attitude_model:
+        max_slew_velocity_deg_per_sec: 1.0
+        max_slew_acceleration_deg_per_sec2: 0.45
+        settling_time_sec: 10.0
+        maneuver_discharge_rate_w: 90.0
+      min_altitude_m: 500000.0
+      max_altitude_m: 850000.0

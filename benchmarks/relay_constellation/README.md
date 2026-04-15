@@ -44,13 +44,14 @@ dataset/
 ├── example_solution.json
 ├── index.json
 └── cases/
-    └── <case_id>/
-        ├── manifest.json
-        ├── network.json
-        └── demands.json
+    └── <split>/
+        └── <case_id>/
+            ├── manifest.json
+            ├── network.json
+            └── demands.json
 ```
 
-`dataset/example_solution.json` is one real solution object with the same schema as normal submissions. `dataset/index.json` records case metadata and the smoke pairing through `example_smoke_case_id`.
+`dataset/example_solution.json` is one real solution object with the same schema as normal submissions. `dataset/index.json` records case metadata and the smoke pairing through split-relative `example_smoke_case`, and the committed split construction lives in `benchmarks/relay_constellation/splits.yaml`.
 
 ## Case Inputs
 
@@ -259,22 +260,23 @@ The verifier separates geometry from topology:
 Generator:
 
 ```bash
-uv run python -m benchmarks.relay_constellation.generator.run
+uv run python -m benchmarks.relay_constellation.generator.run \
+  benchmarks/relay_constellation/splits.yaml
 ```
 
 Optional dataset output override:
 
 ```bash
 uv run python -m benchmarks.relay_constellation.generator.run \
-  --dataset-dir /tmp/relay_constellation_dataset \
-  --seed 42
+  benchmarks/relay_constellation/splits.yaml \
+  --output-dir /tmp/relay_constellation_dataset
 ```
 
 Verifier:
 
 ```bash
 uv run python -m benchmarks.relay_constellation.verifier.run \
-  benchmarks/relay_constellation/dataset/cases/case_0005 \
+  benchmarks/relay_constellation/dataset/cases/test/case_0005 \
   benchmarks/relay_constellation/dataset/example_solution.json
 ```
 
@@ -282,17 +284,17 @@ Visualizer:
 
 ```bash
 uv run python -m benchmarks.relay_constellation.visualizer.run overview \
-  --case-dir benchmarks/relay_constellation/dataset/cases/case_0001
+  --case-dir benchmarks/relay_constellation/dataset/cases/test/case_0001
 ```
 
 ```bash
 uv run python -m benchmarks.relay_constellation.visualizer.run connectivity \
-  --case-dir benchmarks/relay_constellation/dataset/cases/case_0001
+  --case-dir benchmarks/relay_constellation/dataset/cases/test/case_0001
 ```
 
 ```bash
 uv run python -m benchmarks.relay_constellation.visualizer.run solution \
-  --case-dir benchmarks/relay_constellation/dataset/cases/case_0005 \
+  --case-dir benchmarks/relay_constellation/dataset/cases/test/case_0005 \
   --solution-path benchmarks/relay_constellation/dataset/example_solution.json
 ```
 
@@ -301,5 +303,5 @@ uv run python -m benchmarks.relay_constellation.visualizer.run solution \
 Run the focused relay benchmark tests with:
 
 ```bash
-uv run pytest tests/benchmarks/test_relay_constellation_verifier.py
+uv run pytest tests/benchmarks/test_relay_constellation_generator.py tests/benchmarks/test_relay_constellation_verifier.py
 ```

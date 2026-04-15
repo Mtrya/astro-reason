@@ -263,7 +263,7 @@ def test_verify_solution_normalizes_optional_float_parse_errors(tmp_path: Path) 
 
 def test_verify_solution_example_smoke_case_reports_nonzero_service() -> None:
     index_payload = json.loads((DATASET_DIR / "index.json").read_text(encoding="utf-8"))
-    case_dir = DATASET_DIR / "cases" / index_payload["example_smoke_case_id"]
+    case_dir = DATASET_DIR / "cases" / Path(index_payload["example_smoke_case"])
     solution_path = DATASET_DIR / "example_solution.json"
 
     result = verify_solution(case_dir, solution_path)

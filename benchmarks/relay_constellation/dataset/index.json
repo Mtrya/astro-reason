@@ -9,7 +9,8 @@
       "num_demanded_windows": 6,
       "num_endpoint_pairs": 3,
       "num_ground_endpoints": 4,
-      "path": "cases/case_0001"
+      "path": "cases/test/case_0001",
+      "split": "test"
     },
     {
       "case_id": "case_0002",
@@ -19,7 +20,8 @@
       "num_demanded_windows": 6,
       "num_endpoint_pairs": 3,
       "num_ground_endpoints": 4,
-      "path": "cases/case_0002"
+      "path": "cases/test/case_0002",
+      "split": "test"
     },
     {
       "case_id": "case_0003",
@@ -29,7 +31,8 @@
       "num_demanded_windows": 7,
       "num_endpoint_pairs": 4,
       "num_ground_endpoints": 5,
-      "path": "cases/case_0003"
+      "path": "cases/test/case_0003",
+      "split": "test"
     },
     {
       "case_id": "case_0004",
@@ -39,7 +42,8 @@
       "num_demanded_windows": 4,
       "num_endpoint_pairs": 2,
       "num_ground_endpoints": 4,
-      "path": "cases/case_0004"
+      "path": "cases/test/case_0004",
+      "split": "test"
     },
     {
       "case_id": "case_0005",
@@ -49,9 +53,10 @@
       "num_demanded_windows": 8,
       "num_endpoint_pairs": 4,
       "num_ground_endpoints": 6,
-      "path": "cases/case_0005"
+      "path": "cases/test/case_0005",
+      "split": "test"
     }
   ],
-  "example_smoke_case_id": "case_0005",
+  "example_smoke_case": "test/case_0005",
   "generator_seed": 42
 }

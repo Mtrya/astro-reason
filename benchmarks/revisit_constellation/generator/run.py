@@ -5,18 +5,21 @@ from __future__ import annotations
 import argparse
 from pathlib import Path
 
-from .build import generate_dataset
+from .build import generate_dataset, load_generator_config
 from .sources import download_sources
 
 
 DEFAULT_OUTPUT_DIR = Path(__file__).resolve().parent.parent / "dataset"
-DEFAULT_CASE_COUNT = 5
-DEFAULT_SEED = 42
 
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(
         description="Generate the canonical revisit_constellation dataset"
+    )
+    parser.add_argument(
+        "splits_path",
+        type=Path,
+        help="Path to the benchmark-local splits.yaml describing canonical split generation",
     )
     parser.add_argument(
         "--download-dir",
@@ -33,24 +36,13 @@ def main(argv: list[str] | None = None) -> int:
         help="Directory where the canonical dataset should be written",
     )
     parser.add_argument(
-        "--case-count",
-        type=int,
-        default=DEFAULT_CASE_COUNT,
-        help="How many cases to generate",
-    )
-    parser.add_argument(
-        "--seed",
-        type=int,
-        default=DEFAULT_SEED,
-        help="Deterministic seed for all sampling",
-    )
-    parser.add_argument(
         "--force-download",
         action="store_true",
         help="Force kagglehub to re-download the source datasets",
     )
     args = parser.parse_args(argv)
 
+    config = load_generator_config(args.splits_path)
     download_dir = args.download_dir or (args.output_dir / "source_data")
     world_cities_path = download_sources(
         download_dir,
@@ -60,8 +52,9 @@ def main(argv: list[str] | None = None) -> int:
     generate_dataset(
         world_cities_path=world_cities_path,
         output_dir=args.output_dir,
-        case_count=args.case_count,
-        seed=args.seed,
+        split_configs=config["splits"],
+        source=config["source"],
+        example_smoke_case=config["example_smoke_case"],
     )
     print(f"Wrote revisit_constellation dataset to {args.output_dir}")
     return 0
