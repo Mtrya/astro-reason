@@ -56,7 +56,7 @@ def _build_benchmark_dataset_dict(benchmark_name: str) -> DatasetDict:
         if not isinstance(case, dict):
             continue
         case_id = case.get("case_id")
-        split = case.get("split", "default")
+        split = case.get("split") or "default"
         case_path = case.get("path")
         if not case_id or not case_path:
             continue
