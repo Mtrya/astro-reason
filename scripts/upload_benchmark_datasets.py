@@ -29,7 +29,7 @@ def _read_case_files(case_dir: Path) -> list[dict[str, str]]:
     if not case_dir.is_dir():
         return files
     for file_path in sorted(case_dir.rglob("*")):
-        if file_path.is_file():
+        if file_path.is_file() and not file_path.name.startswith("."):
             rel = file_path.relative_to(case_dir).as_posix()
             try:
                 files.append({"path": rel, "content": file_path.read_text(encoding="utf-8")})
