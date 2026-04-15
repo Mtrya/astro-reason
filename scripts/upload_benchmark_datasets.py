@@ -97,9 +97,13 @@ def _upload_benchmark(
 
 def _upload_dataset_card(repo_id: str, token: str | None, dry_run: bool) -> None:
     card_path = REPO_ROOT / "scripts" / "dataset_card.md"
+    card_path = REPO_ROOT / "scripts" / "dataset_card.md"
     if not card_path.is_file():
-        print(f"Warning: dataset card not found at {card_path}", file=os.sys.stderr)
-        return
+        msg = f"dataset card not found at {card_path}"
+        if dry_run:
+            print(f"Warning: {msg}", file=os.sys.stderr)
+            return
+        raise FileNotFoundError(msg)
     if dry_run:
         print(f"[readme] dry-run: would upload {card_path} to {repo_id}/README.md")
         return
