@@ -43,14 +43,13 @@ def main(argv: list[str] | None = None) -> int:
     output_dir = args.output_dir.resolve()
     download_dir = (args.download_dir or (output_dir / "source_data")).resolve()
 
-    source_fetch_results = fetch_all_sources(download_dir, force_download=args.force_download)
+    fetch_all_sources(download_dir, force_download=args.force_download)
     generate_dataset(
         source_dir=download_dir,
         output_dir=output_dir,
         split_configs=config["splits"],
         example_smoke_case=config["example_smoke_case"],
         source_config=config["source"],
-        runtime_source_provenance={name: result.extra for name, result in source_fetch_results.items()},
     )
     print(f"Wrote aeossp_standard dataset to {output_dir}")
     return 0
