@@ -6,6 +6,7 @@ readme = "README.md"
 requires-python = ">=3.13"
 dependencies = [
     "brahe>=1.2.0",
+    "datasets>=3.0.0",
     "huggingface-hub>=1.7.2",
     "kagglehub[pandas-datasets]>=1.0.0",
     "matplotlib>=3.10.7",
