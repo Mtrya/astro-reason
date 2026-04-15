@@ -1,0 +1,88 @@
+# Canonical relay_constellation dataset construction for the finished benchmark.
+#
+# This benchmark currently publishes one split, but the split entry is still the
+# reader-facing contract for how the seeded case family is built.
+
+# Pair the committed example solution with the final published relay case.
+example_smoke_case: test/case_0005
+
+splits:
+  test:
+    # Benchmark-wide deterministic seed for the split; each case derives its
+    # own RNG stream from this seed plus the configured stride below.
+    seed: 42
+    case_count: 5
+    case_seed_stride: 10007
+
+    schedule:
+      base_epoch: "2026-01-01T00:00:00Z"
+      case_start_spacing_hours: 12
+      horizon_hours: 96
+      routing_step_s: 60
+      window_start_grid_min: 5
+
+    backbone:
+      total_satellites:
+        values: [6, 8, 10]
+        weights: [1, 3, 1]
+      num_planes:
+        values: [2, 3]
+        weights: [2, 3]
+      altitude_km:
+        values: [8000.0, 10000.0, 12000.0, 14000.0]
+        weights: [1, 2, 2, 1]
+      inclination_deg:
+        values: [45.0, 55.0, 63.0, 75.0]
+        weights: [1, 3, 3, 1]
+      eccentricity:
+        min: 0.0002
+        max: 0.006
+
+    endpoints:
+      count:
+        values: [4, 5, 6]
+        weights: [2, 3, 2]
+      min_separation_deg: 15.0
+      long_pair_min_distance_m: 7000000.0
+      medium_pair_distance_m:
+        min: 2500000.0
+        max: 6500000.0
+
+    demands:
+      pair_count:
+        values: [2, 3, 4, 5]
+        weights: [1, 2, 2, 1]
+      total_windows:
+        values: [5, 6, 7, 8, 9]
+        weights: [1, 2, 3, 2, 1]
+      duration_minutes:
+        values: [30, 45, 60, 75, 90, 120, 150, 180]
+        weights: [1, 1, 2, 3, 3, 3, 1, 1]
+      overlap_anchor_minutes:
+        start: 360
+        stop: 4200
+        step: 5
+      secondary_pair_offset_steps:
+        min: -6
+        max: 6
+      min_repeat_gap_minutes: 180
+      retry_limit: 50
+      endpoint_distance_m:
+        long_min: 7000000.0
+        medium_min: 2500000.0
+        medium_max: 6500000.0
+
+    constraints:
+      max_added_satellites:
+        values: [4, 6, 8]
+        weights: [2, 3, 2]
+      orbit:
+        min_altitude_m: 500000.0
+        max_altitude_m: 1500000.0
+        max_eccentricity: 0.02
+        min_inclination_deg: 20.0
+        max_inclination_deg: 85.0
+      links:
+        max_isl_range_m: 20000000.0
+        max_links_per_satellite: 3
+        max_links_per_endpoint: 1
