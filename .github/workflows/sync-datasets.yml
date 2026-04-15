@@ -7,6 +7,9 @@ on:
 
 jobs:
   sync:
+    concurrency:
+      group: sync-datasets
+      cancel-in-progress: false
     runs-on: ubuntu-latest
 
     steps:
