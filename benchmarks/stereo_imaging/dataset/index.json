@@ -4,8 +4,8 @@
   "cases": [
     {
       "case_id": "case_0001",
-      "horizon_end": "2026-06-19T22:00:00Z",
-      "horizon_start": "2026-06-17T22:00:00Z",
+      "horizon_end": "2026-04-24T22:00:00Z",
+      "horizon_start": "2026-04-22T22:00:00Z",
       "norad_catalog_ids": [
         41556,
         38012,
@@ -13,46 +13,52 @@
       ],
       "num_satellites": 3,
       "num_targets": 46,
+      "path": "cases/test/case_0001",
       "satellite_ids": [
         "sat_ziyuan_3_02",
         "sat_pleiades_1a",
         "sat_gaofen_2"
-      ]
+      ],
+      "split": "test"
     },
     {
       "case_id": "case_0002",
-      "horizon_end": "2026-06-20T04:00:00Z",
-      "horizon_start": "2026-06-18T04:00:00Z",
+      "horizon_end": "2026-04-25T04:00:00Z",
+      "horizon_start": "2026-04-23T04:00:00Z",
       "norad_catalog_ids": [
         41556,
         40013
       ],
       "num_satellites": 2,
       "num_targets": 25,
+      "path": "cases/test/case_0002",
       "satellite_ids": [
         "sat_ziyuan_3_02",
         "sat_deimos_2"
-      ]
+      ],
+      "split": "test"
     },
     {
       "case_id": "case_0003",
-      "horizon_end": "2026-06-20T10:00:00Z",
-      "horizon_start": "2026-06-18T10:00:00Z",
+      "horizon_end": "2026-04-25T10:00:00Z",
+      "horizon_start": "2026-04-23T10:00:00Z",
       "norad_catalog_ids": [
         38755,
         41556
       ],
       "num_satellites": 2,
       "num_targets": 25,
+      "path": "cases/test/case_0003",
       "satellite_ids": [
         "sat_spot_6",
         "sat_ziyuan_3_02"
-      ]
+      ],
+      "split": "test"
     },
     {
       "case_id": "case_0004",
-      "horizon_end": "2026-06-20T16:00:00Z",
-      "horizon_start": "2026-06-18T16:00:00Z",
+      "horizon_end": "2026-04-25T16:00:00Z",
+      "horizon_start": "2026-04-23T16:00:00Z",
       "norad_catalog_ids": [
         38012,
         41556,
@@ -61,29 +67,35 @@
       ],
       "num_satellites": 4,
       "num_targets": 30,
+      "path": "cases/test/case_0004",
       "satellite_ids": [
         "sat_pleiades_1a",
         "sat_ziyuan_3_02",
         "sat_gaofen_2",
         "sat_spot_6"
-      ]
+      ],
+      "split": "test"
     },
     {
       "case_id": "case_0005",
-      "horizon_end": "2026-06-20T22:00:00Z",
-      "horizon_start": "2026-06-18T22:00:00Z",
+      "horizon_end": "2026-04-25T22:00:00Z",
+      "horizon_start": "2026-04-23T22:00:00Z",
       "norad_catalog_ids": [
         40118,
         41556
       ],
       "num_satellites": 2,
       "num_targets": 45,
+      "path": "cases/test/case_0005",
       "satellite_ids": [
         "sat_gaofen_2",
         "sat_ziyuan_3_02"
-      ]
+      ],
+      "split": "test"
     }
   ],
+  "example_smoke_case": "test/case_0001",
+  "generator_seed": 20260406,
   "horizon_duration_s": 172800,
   "selected_norad_catalog_ids": [
     38012,
@@ -93,23 +105,40 @@
     40118,
     41556
   ],
-  "source_provenance": {
+  "source": {
     "celestrak": {
-      "record_count": 6,
-      "sha256": "9e8804012146eb76f295a0cfda80d2749bab690a6467c396fe6fbb9276f1a9f3",
-      "url": "https://celestrak.org/NORAD/elements/gp.php?GROUP=resource&FORMAT=tle",
-      "vendored_snapshot": true
+      "kind": "vendored_subset",
+      "snapshot_epoch_utc": "2026-04-06T00:00:00Z",
+      "url": "https://celestrak.org/NORAD/elements/gp.php?GROUP=resource&FORMAT=tle"
     },
     "lookup_tables": {
-      "elevation_cell_count": 23412,
-      "resolution_deg": 1.0,
-      "scene_cell_count": 23412,
-      "sha256": "0d365c163bb19d7feedf16951f88824907dd37395f7c9cfa30ca5de69eafe5a5",
-      "version": "wc2021-etopo2022-20260406"
+      "kind": "vendored_lookup_tables",
+      "module": "benchmarks/stereo_imaging/generator/lookup_tables.py"
+    },
+    "runtime_provenance": {
+      "celestrak": {
+        "record_count": 6,
+        "sha256": "a49d4ec486f898a1c062eac2bdb82deed4591ebe8ca3c18a4f89615351ab2ac2",
+        "snapshot_epoch_utc": "2026-04-06T00:00:00Z",
+        "url": "https://celestrak.org/NORAD/elements/gp.php?GROUP=resource&FORMAT=tle",
+        "vendored_snapshot": true
+      },
+      "lookup_tables": {
+        "elevation_cell_count": 23412,
+        "resolution_deg": 1.0,
+        "scene_cell_count": 23412,
+        "sha256": "0d365c163bb19d7feedf16951f88824907dd37395f7c9cfa30ca5de69eafe5a5",
+        "version": "wc2021-etopo2022-20260406"
+      },
+      "world_cities": {
+        "kaggle_dataset": "juanmah/world-cities",
+        "sha256": "67a4fed1d7ddd92ad3d7b5befef6e2d1b65f7a54f0764e5cec98e8720c587200"
+      }
     },
     "world_cities": {
-      "kaggle_dataset": "juanmah/world-cities",
-      "sha256": "67a4fed1d7ddd92ad3d7b5befef6e2d1b65f7a54f0764e5cec98e8720c587200"
+      "dataset": "juanmah/world-cities",
+      "kind": "kaggle_dataset",
+      "page_url": "https://www.kaggle.com/datasets/juanmah/world-cities"
     }
   },
   "spec_version": "v3"

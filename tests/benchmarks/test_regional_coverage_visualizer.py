@@ -10,7 +10,7 @@ from benchmarks.regional_coverage.visualizer.run import render_inspection, rende
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 DATASET_DIR = REPO_ROOT / "benchmarks" / "regional_coverage" / "dataset"
-CASE_0001_DIR = DATASET_DIR / "cases" / "case_0001"
+CASE_0001_DIR = DATASET_DIR / "cases" / "test" / "case_0001"
 EXAMPLE_SOLUTION_PATH = DATASET_DIR / "example_solution.json"
 
 

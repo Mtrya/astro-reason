@@ -37,11 +37,12 @@ dataset/
 ├── index.json
 ├── example_solution.json
 └── cases/
-    └── case_0001/
-        ├── manifest.json
-        ├── satellites.yaml
-        ├── regions.geojson
-        └── coverage_grid.json
+    └── <split>/
+        └── case_0001/
+            ├── manifest.json
+            ├── satellites.yaml
+            ├── regions.geojson
+            └── coverage_grid.json
 ```
 
 The current canonical release contains 5 cases. Each case is self-contained.
@@ -55,7 +56,7 @@ The dataset-level `example_solution.json` is a minimal runnable example:
 }
 ```
 
-`dataset/index.json` includes `example_smoke_case_id`, which currently points to `case_0001`.
+`dataset/index.json` includes split-relative `example_smoke_case`, which currently points to `test/case_0001`. The benchmark-owned construction contract lives in `benchmarks/regional_coverage/splits.yaml`.
 
 ## Canonical case family
 
@@ -413,7 +414,7 @@ The primary ranking order is:
 
 ```bash
 uv run python benchmarks/regional_coverage/verifier.py \
-    benchmarks/regional_coverage/dataset/cases/case_0001 \
+    benchmarks/regional_coverage/dataset/cases/test/case_0001 \
     benchmarks/regional_coverage/dataset/example_solution.json
 ```
 
@@ -422,17 +423,21 @@ The verifier exits with code `0` when valid and `1` when invalid.
 ### Generator
 
 ```bash
-# Rebuild the canonical dataset in-place.
-uv run python -m benchmarks.regional_coverage.generator.run
+# Rebuild the canonical dataset in-place from the committed split contract.
+uv run python -m benchmarks.regional_coverage.generator.run \
+    benchmarks/regional_coverage/splits.yaml
 
 # Write the dataset to another directory.
 uv run python -m benchmarks.regional_coverage.generator.run \
-    --dataset-dir /tmp/regional_coverage_dataset
+    benchmarks/regional_coverage/splits.yaml \
+    --output-dir /tmp/regional_coverage_dataset
 ```
 
-Running the generator with no flags rewrites the canonical dataset under `benchmarks/regional_coverage/dataset/`, including:
+The committed `splits.yaml` includes an exact supported CelesTrak snapshot epoch label for the vendored real-TLE subset. The generator rejects any other epoch because this benchmark does not ship alternate cached TLE snapshots.
 
-- `dataset/cases/`
+Running the canonical generator rewrites `benchmarks/regional_coverage/dataset/`, including:
+
+- `dataset/cases/test/`
 - `dataset/index.json`
 - `dataset/example_solution.json`
 
@@ -443,11 +448,11 @@ The visualizer is intended for benchmark inspection and fixture authoring.
 ```bash
 # 2D case overview PNG.
 uv run python -m benchmarks.regional_coverage.visualizer.run overview \
-    benchmarks/regional_coverage/dataset/cases/case_0001
+    benchmarks/regional_coverage/dataset/cases/test/case_0001
 
 # Solution inspection bundle with 3D strip geometry HTML and region-scale PNGs.
 uv run python -m benchmarks.regional_coverage.visualizer.run inspect \
-    benchmarks/regional_coverage/dataset/cases/case_0001 \
+    benchmarks/regional_coverage/dataset/cases/test/case_0001 \
     path/to/solution.json
 ```
 

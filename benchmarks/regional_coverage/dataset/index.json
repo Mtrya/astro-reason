@@ -6,10 +6,11 @@
       "horizon_hours": 72,
       "num_regions": 3,
       "num_satellites": 10,
-      "path": "cases/case_0001",
+      "path": "cases/test/case_0001",
       "satellite_class_ids": [
         "sar_narrow"
       ],
+      "split": "test",
       "total_region_area_m2": 443089508011.2145
     },
     {
@@ -17,11 +18,12 @@
       "horizon_hours": 72,
       "num_regions": 3,
       "num_satellites": 8,
-      "path": "cases/case_0002",
+      "path": "cases/test/case_0002",
       "satellite_class_ids": [
         "sar_narrow",
         "sar_wide"
       ],
+      "split": "test",
       "total_region_area_m2": 380608170064.2286
     },
     {
@@ -29,11 +31,12 @@
       "horizon_hours": 72,
       "num_regions": 3,
       "num_satellites": 6,
-      "path": "cases/case_0003",
+      "path": "cases/test/case_0003",
       "satellite_class_ids": [
         "sar_narrow",
         "sar_wide"
       ],
+      "split": "test",
       "total_region_area_m2": 435958225054.85254
     },
     {
@@ -41,11 +44,12 @@
       "horizon_hours": 72,
       "num_regions": 3,
       "num_satellites": 12,
-      "path": "cases/case_0004",
+      "path": "cases/test/case_0004",
       "satellite_class_ids": [
         "sar_narrow",
         "sar_wide"
       ],
+      "split": "test",
       "total_region_area_m2": 357474494272.17834
     },
     {
@@ -53,15 +57,26 @@
       "horizon_hours": 72,
       "num_regions": 2,
       "num_satellites": 10,
-      "path": "cases/case_0005",
+      "path": "cases/test/case_0005",
       "satellite_class_ids": [
         "sar_narrow",
         "sar_wide"
       ],
+      "split": "test",
       "total_region_area_m2": 275746309631.82245
     }
   ],
-  "example_smoke_case_id": "case_0001",
+  "example_smoke_case": "test/case_0001",
   "generator_seed": 20260408,
+  "source": {
+    "celestrak": {
+      "kind": "vendored_subset",
+      "snapshot_epoch_utc": "2025-07-17T00:00:00Z",
+      "url": "https://celestrak.org/NORAD/elements/gp.php?GROUP=resource&FORMAT=tle"
+    },
+    "region_library": {
+      "path": "generator/region_library.geojson"
+    }
+  },
   "spec_version": "v1"
 }

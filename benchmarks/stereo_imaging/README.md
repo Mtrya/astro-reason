@@ -31,10 +31,11 @@ dataset/
 ├── index.json              # Case inventory and source provenance
 ├── example_solution.json   # Minimal actions for verifier smoke testing
 └── cases/
-    └── case_NNNN/
-        ├── satellites.yaml
-        ├── targets.yaml
-        └── mission.yaml
+    └── <split>/
+        └── case_NNNN/
+            ├── satellites.yaml
+            ├── targets.yaml
+            └── mission.yaml
 ```
 
 Each case is self-contained. The verifier reads one case directory and one solution file.
@@ -285,12 +286,12 @@ A local secant correction for off-nadir projection is applied.
 
 ```bash
 uv run python -m benchmarks.stereo_imaging.verifier.run \
-    benchmarks/stereo_imaging/dataset/cases/case_0001 \
+    benchmarks/stereo_imaging/dataset/cases/test/case_0001 \
     path/to/solution.json
 
 # Compact output (valid flag, metrics, violations only):
 uv run python -m benchmarks.stereo_imaging.verifier.run \
-    benchmarks/stereo_imaging/dataset/cases/case_0001 \
+    benchmarks/stereo_imaging/dataset/cases/test/case_0001 \
     path/to/solution.json \
     --compact
 ```
@@ -300,28 +301,37 @@ The verifier exits with code `0` when valid, `1` when invalid.
 ### Generator
 
 ```bash
-# Re-generate the canonical dataset (Earth-resources TLEs are vendored in-generator; Kaggle may be needed for world-cities):
-uv run python -m benchmarks.stereo_imaging.generator.run
+# Re-generate the canonical dataset from the committed split contract.
+uv run python -m benchmarks.stereo_imaging.generator.run \
+    benchmarks/stereo_imaging/splits.yaml
 
-# Fetch and cache runtime sources only (skip case generation):
-uv run python -m benchmarks.stereo_imaging.generator.run --sources-only
+# Fetch and cache runtime sources only (operational mode; skips dataset emission):
+uv run python -m benchmarks.stereo_imaging.generator.run \
+    benchmarks/stereo_imaging/splits.yaml \
+    --sources-only
 
 # Force re-download of world-cities from Kaggle even when cached:
-uv run python -m benchmarks.stereo_imaging.generator.run --force-download
+uv run python -m benchmarks.stereo_imaging.generator.run \
+    benchmarks/stereo_imaging/splits.yaml \
+    --force-download
 ```
 
-The generator writes cases under `dataset/cases/`, updates `dataset/index.json`, and writes `dataset/example_solution.json` (one per-case-shaped minimal example, aligned with `case_0001` for smoke tests). Runtime sources are staged under `dataset/source_data/` (CelesTrak-format TLE CSV written from the vendored snapshot in `generator/cached_tles.py`).
+The canonical generator writes cases under `dataset/cases/test/`, updates `dataset/index.json`, and writes `dataset/example_solution.json` (aligned with `example_smoke_case: test/case_0001` in `splits.yaml`). Runtime sources are staged under `dataset/source_data/`.
+
+`splits.yaml` carries the benchmark-owned construction parameters plus an exact supported CelesTrak snapshot epoch label for the vendored real-TLE subset. The canonical mission horizon is anchored to that cached snapshot, and the generator rejects any other epoch because this benchmark does not ship alternate cached TLE snapshots.
+
+`--sources-only`, `--download-dir`, and `--force-download` are retained operational modes around source staging; they are not alternate canonical dataset-construction contracts.
 
 ### Visualizer
 
 ```bash
 # Case overview (ground tracks and target scatter map):
 uv run python -m benchmarks.stereo_imaging.visualizer.run overview \
-    benchmarks/stereo_imaging/dataset/cases/case_0001
+    benchmarks/stereo_imaging/dataset/cases/test/case_0001
 
 # Batch ECEF geometry plots for all stereo candidates in a solution:
 uv run python -m benchmarks.stereo_imaging.visualizer.run batch \
-    benchmarks/stereo_imaging/dataset/cases/case_0001 \
+    benchmarks/stereo_imaging/dataset/cases/test/case_0001 \
     path/to/solution.json
 ```
 

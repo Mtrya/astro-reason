@@ -1,10 +1,10 @@
-"""Vendored Earth-resources TLE snapshot for `SATELLITE_CATALOG` NORAD IDs.
+"""Vendored Earth-resources TLE snapshot for the stereo_imaging YAML catalog NORAD IDs.
 
 Frozen from CelesTrak Earth Resources GP (`gp.php?GROUP=resource&FORMAT=tle`).
 The generator writes `dataset/source_data/celestrak/` from this list so dataset
 rebuilds do not depend on live element sets or network fetches for TLEs.
 
-When `SATELLITE_CATALOG` gains satellites, add matching rows here (same CSV
+When `splits.yaml` gains satellites, add matching rows here (same CSV
 schema as `normalize.parse_tle_text` / `sources.download_celestrak` output).
 """
 
