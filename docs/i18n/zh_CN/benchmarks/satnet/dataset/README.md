@@ -39,9 +39,9 @@ dataset/
 - 仓库：`https://github.com/edwinytgoh/satnet`
 - 源文件：`data/problems.json`、`data/maintenance.csv`、`data/mission_color_map.json`
 
-提交的子集分配记录在 [splits.yaml](../splits.yaml) 中，当前将所有五个发布的测试实例放入 `test` 子集，并将 `dataset/example_solution.json` 与 `test/W10_2018` 配对。
+提交的子集分配记录在 [splits.yaml](/benchmarks/satnet/splits.yaml) 中，当前将所有五个发布的测试实例放入 `test` 子集，并将 `dataset/example_solution.json` 与 `test/W10_2018` 配对。
 
-使用 [generator.py](../generator.py) 从上游源或上游 `data/` 目录的本地副本重新生成此布局：
+使用 [generator.py](/benchmarks/satnet/generator.py) 从上游源或上游 `data/` 目录的本地副本重新生成此布局：
 
 ```bash
 uv run python benchmarks/satnet/generator.py benchmarks/satnet/splits.yaml
