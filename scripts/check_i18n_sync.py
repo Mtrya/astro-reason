@@ -67,30 +67,20 @@ def mapped_zh_path(source: Path, repo_root: Path = REPO_ROOT) -> Path:
     """Return the mapped Chinese translation path for a given English source."""
     rel = source.relative_to(repo_root)
     parts = list(rel.parts)
+    base_zh_path = repo_root / "docs" / "i18n" / "zh_CN"
 
-    # README.md -> docs/i18n/zh_CN/README.md
     if parts == ["README.md"]:
-        return repo_root / "docs" / "i18n" / "zh_CN" / "README.md"
+        return base_zh_path / "README.md"
 
-    # docs/** -> docs/i18n/zh_CN/docs/**
-    if parts[0] == "docs":
-        return repo_root / "docs" / "i18n" / "zh_CN" / "docs" / Path(*parts[1:])
+    top_dir = parts[0]
+    if top_dir == "docs":
+        return base_zh_path / "docs" / Path(*parts[1:])
 
-    # benchmarks/** -> docs/i18n/zh_CN/benchmarks/**
-    if parts[0] == "benchmarks":
-        return repo_root / "docs" / "i18n" / "zh_CN" / rel
+    if top_dir == "scripts":
+        return base_zh_path / "scripts" / Path(*parts[1:])
 
-    # tests/fixtures/** -> docs/i18n/zh_CN/tests/fixtures/**
-    if parts[0] == "tests" and len(parts) > 1 and parts[1] == "fixtures":
-        return repo_root / "docs" / "i18n" / "zh_CN" / rel
-
-    # scripts/** -> docs/i18n/zh_CN/scripts/**
-    if parts[0] == "scripts":
-        return repo_root / "docs" / "i18n" / "zh_CN" / "scripts" / Path(*parts[1:])
-
-    # Fallback: keep the relative path under docs/i18n/zh_CN/
-    return repo_root / "docs" / "i18n" / "zh_CN" / rel
-
+    # Default mapping for benchmarks, tests/fixtures, etc.
+    return base_zh_path / rel
 
 @dataclass(frozen=True)
 class SyncProblem:
