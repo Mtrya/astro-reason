@@ -70,7 +70,7 @@
 ### 目标
 
 最大化总通信时长：
-```
+```text
 maximize: Σ (跟踪弧段.tracking_off - 跟踪弧段.tracking_on) / 3600
 ```
 
@@ -154,7 +154,7 @@ maximize: Σ (跟踪弧段.tracking_off - 跟踪弧段.tracking_on) / 3600
 - **TRACK_ID**：必须与请求的 `track_id` 匹配
 
 **时间关系：**
-```
+```text
 START_TIME --[setup_time]--> TRACKING_ON --[actual_comms]--> TRACKING_OFF --[teardown_time]--> END_TIME
 ```
 
@@ -252,7 +252,7 @@ uv run python benchmarks/satnet/verifier.py \
 ```
 
 **输出（verbose）：**
-```
+```text
 Status: VALID
 Score: 234.5678 hours
 Tracks: 145
@@ -262,7 +262,7 @@ U_max: 0.65
 ```
 
 **输出（compact）：**
-```
+```text
 VALID: score=234.5678h, tracks=145
 ```
 
@@ -320,8 +320,7 @@ VPs 是**硬约束**——无论天线可用性如何，你都不能在这些窗
 **数据来源**：源于 NASA/JPL 深空网络运筹学研究
 
 **学术参考文献：**
-1. Chien, S., et al. "Reinforcement Learning for Scheduling Deep Space Network Communications." IEEE Aerospace Conference, 2021. [DOI: 10.1109/AERO50100.2021.9438519](https://ieeexplore.ieee.org/abstract/document/9438519/)
-2. Chien, S., et al. "Learning Satellite Scheduling Policies using Deep Reinforcement Learning." AAAI ML4OR Workshop, 2021. [OpenReview](https://openreview.net/forum?id=buIUxK7F-Bx)
+1. Goh, Edwin, Venkataram, Hamsa Shwetha, Balaji, Bharathan, Wilson, Brian D, and Johnston, Mark D. "SatNet: A benchmark for satellite scheduling optimization." AAAI-22 workshop on Machine Learning for Operations Research (ML4OR), 2021.
 
 **致谢**：本 benchmark 基于 NASA JPL 和多智能体学习社区提供的开源 SatNet 实现和数据集。
 

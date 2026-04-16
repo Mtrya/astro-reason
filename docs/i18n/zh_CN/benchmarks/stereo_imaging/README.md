@@ -36,7 +36,7 @@ dataset/
             ├── satellites.yaml
             ├── targets.yaml
             └── mission.yaml
-```
+```text
 
 每个测试实例自包含。验证器读取一个测试实例目录和一个解文件。
 
@@ -220,13 +220,13 @@ mission:
 
 对于有效立体对：
 
-```
+```text
 Q_pair = 0.50 * Q_geom + 0.35 * Q_overlap + 0.15 * Q_res
 ```
 
 其中：
 
-```
+```text
 Q_overlap = min(1, overlap_fraction / 0.95)
 Q_res     = max(0, 1 - (pixel_scale_ratio - 1) / 0.5)
 ```
@@ -244,7 +244,7 @@ Q_res     = max(0, 1 - (pixel_scale_ratio - 1) / 0.5)
 
 ### 三立体成像质量
 
-```
+```text
 Q_tri = min(1, max(valid_pair_qualities) + beta(scene_type) * R)
 ```
 
@@ -270,7 +270,7 @@ Q_tri = min(1, max(valid_pair_qualities) + beta(scene_type) * R)
 
 **有效像素尺度**：
 
-```
+```text
 effective_pixel_scale_m ≈ slant_range_m * pixel_ifov_deg * (pi / 180)
 ```
 

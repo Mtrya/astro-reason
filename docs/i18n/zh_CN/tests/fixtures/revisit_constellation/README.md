@@ -4,7 +4,7 @@
 
 ## 目的
 
-Fixture 套件补充了 [`tests/benchmarks/test_revisit_constellation_verifier.py`](../../benchmarks/test_revisit_constellation_verifier.py) 中聚焦的单元风格验证器测试。这些 fixtures 通过真实的 `assets.json`、`mission.json` 和 `solution.json` 输入来演练当前的 benchmark 契约。
+Fixture 套件补充了 [`tests/benchmarks/test_revisit_constellation_verifier.py`](/tests/benchmarks/test_revisit_constellation_verifier.py) 中聚焦的单元风格验证器测试。这些 fixtures 通过真实的 `assets.json`、`mission.json` 和 `solution.json` 输入来演练当前的 benchmark 契约。
 
 目标不是穷举覆盖验证器的每个分支。目标是锁定一小部分具有代表性的端到端结果：
 

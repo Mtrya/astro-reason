@@ -34,7 +34,7 @@ benchmarks/spot5/dataset/cases/<split>/<case_id>/<case_id>.spot
 
 ### 整体结构
 
-```
+```text
 <总变量数>
 <变量规格行...>
 <总约束数>
@@ -46,7 +46,7 @@ benchmarks/spot5/dataset/cases/<split>/<case_id>/<case_id>.spot
 
 每个变量代表一个拍照请求：
 
-```
+```text
 <var_id> <利润> <域大小> {<value_id> <recorder_consumption>}* <域大小> [extra_fields...]
 ```
 
@@ -106,7 +106,7 @@ benchmarks/spot5/dataset/cases/<split>/<case_id>/<case_id>.spot
 
 ### 约束规格
 
-```
+```text
 <arity> <var_id_1> ... <var_id_arity> {<forbidden_tuple>}*
 ```
 
@@ -155,7 +155,7 @@ benchmarks/spot5/dataset/cases/<split>/<case_id>/<case_id>.spot
 
 ## 解文件格式（.spot_sol.txt）
 
-```
+```text
 profit = <P>, weight = <W>
 number of candidate photographs = <N>
 number of selected photographs = <S>
@@ -186,7 +186,7 @@ number of selected photographs = <S>
 - 若任一为 0：约束满足
 
 ### 存储容量约束（仅多轨道）
-```
+```text
 total_weight ≤ 200
 ```
 
