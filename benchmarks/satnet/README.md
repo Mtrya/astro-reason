@@ -149,7 +149,7 @@ An array of scheduled tracks:
 **Field Definitions:**
 
 - **RESOURCE**: Antenna ID
-- **SC**: Spacecraft/Mission ID (should match request's `subject`)
+- **SC**: Spacecraft/Mission ID (parsed by the verifier but not validated against the request's `subject`)
 - **START_TIME**: Track start including setup (Unix timestamp)
 - **TRACKING_ON**: Actual transmission start (Unix timestamp)
 - **TRACKING_OFF**: Actual transmission end (Unix timestamp)
@@ -196,6 +196,7 @@ No track's `[START_TIME, END_TIME]` can overlap with any maintenance window on t
 
 ### 5. Minimum Duration Check
 - `(TRACKING_OFF - TRACKING_ON) / 3600 ≥ duration_min`
+- **Special cap**: for requests whose `duration ≥ 8` hours, the verifier silently caps the per-track minimum at **4 hours** (`per_track_min_sec = min(req_min_sec, 14400)`). This means a single track for a long request only needs to provide 4 hours of actual transmission time, not the full `duration_min`.
 
 ### 6. Request Existence
 Each `TRACK_ID` must correspond to a valid request in the problem instance.
@@ -212,9 +213,9 @@ score = sum((track['TRACKING_OFF'] - track['TRACKING_ON']) / 3600.0 for track in
 
 **Note**: Setup and teardown times consume antenna availability but do **not** count toward the score.
 
-**Secondary Metrics** (not computed by verifier, but used in RL baselines):
+**Secondary Metrics** (also computed and reported by the verifier):
 
-- **Requests Satisfied**: Number of unique `track_id`s in solution
+- **Requests Satisfied**: Number of requests whose total allocated duration (summed across all tracks for that `track_id`) is at least `duration_min`
 - **Fairness (U_max)**: Maximum unsatisfied fraction across all requests
   ```
   U_i = (requested_duration - allocated_duration) / requested_duration
@@ -248,7 +249,7 @@ score = sum((track['TRACKING_OFF'] - track['TRACKING_ON']) / 3600.0 for track in
 ### Command Line
 
 ```bash
-python benchmarks/satnet/verifier.py \
+uv run python benchmarks/satnet/verifier.py \
     benchmarks/satnet/dataset/cases/test/W10_2018 \
     solution.json \
     --verbose
@@ -257,9 +258,11 @@ python benchmarks/satnet/verifier.py \
 **Output (verbose):**
 ```
 Status: VALID
-Score: 234.5678 hours
+Score (hours): 234.5678
 Tracks: 145
-Satisfied Requests: 132
+Satisfied requests: 132
+U_rms: 0.32
+U_max: 0.65
 ```
 
 **Output (compact):**
@@ -321,8 +324,7 @@ These times are **physically necessary** and consume antenna availability, but *
 **Data Source**: Derived from NASA/JPL Deep Space Network operations research
 
 **Academic References:**
-1. Chien, S., et al. "Reinforcement Learning for Scheduling Deep Space Network Communications." IEEE Aerospace Conference, 2021. [DOI: 10.1109/AERO50100.2021.9438519](https://ieeexplore.ieee.org/abstract/document/9438519/)
-2. Chien, S., et al. "Learning Satellite Scheduling Policies using Deep Reinforcement Learning." AAAI ML4OR Workshop, 2021. [OpenReview](https://openreview.net/forum?id=buIUxK7F-Bx)
+1. Goh, Edwin, Venkataram, Hamsa Shwetha, Balaji, Bharathan, Wilson, Brian D, and Johnston, Mark D. "SatNet: A benchmark for satellite scheduling optimization." AAAI-22 workshop on Machine Learning for Operations Research (ML4OR), 2021.
 
 **Acknowledgments**: This benchmark is based on the open-source SatNet implementation and dataset provided by NASA JPL and the multi-agent learning community.
 

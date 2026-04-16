@@ -55,7 +55,7 @@ Each variable represents a photograph request:
 - **domain_size**: Number of possible camera assignments (always 3 for SPOT-5)
 - **value_id**, **recorder_consumption**: Pairs defining allowed values
   - Value `1`: HRG front camera
-  - Value `2`: HRS middle camera  
+  - Value `2`: HRG middle camera
   - Value `3`: HRG rear camera
   - Value `13`: HRG front + rear cameras
 - **extra_fields**: Not sure, ignored 
@@ -169,7 +169,7 @@ number of selected photographs = <S>
 - **W**: Total memory used (for multi-orbit instances, see Weight Calculation)
 - **N**: Total number of candidate photographs (variables)
 - **S**: Number of selected photographs (assignments ≠ 0)
-- **assignments**: One per variable, values from `{0, 1, 2, 3}`
+- **assignments**: One per variable, values from `{0, 1, 2, 3, 13}`
 
 ## Constraint Types Validation
 
@@ -213,7 +213,11 @@ For each variable with domain values, the raw `recorder_consumption` values must
 # 0 1000 1 2 451.1500000000069 42510 1
 # Value 1 has recorder_consumption = 451.1500000000069
 
-weight_per_value = [round(recorder_consumption / 451) for recorder_consumption in variable.recorder_consumptions]
+# Build a dict mapping each value_id to its normalized weight
+weight_per_value = {
+    value_id: round(recorder_consumption / 451)
+    for value_id, recorder_consumption in variable.domain_items
+}
 
 total_weight = sum(
     weight_per_value[assignment[i]]
@@ -233,7 +237,7 @@ Constraint: `total_weight ≤ 200`
 | Medium (single-orbit) | 5, 11, 28, 29, 42 | 306-309 | 4308-6273 | 0 |
 | Large (single-orbit) | 503, 505, 507, 509 | 315 | 3983-8122 | 0 |
 | Multi-orbit | 1401, 1403, 1405, 1502, 1504, 1506 | 163-855 | Variable | 200 |
-| Multi-orbit (largest) | 1021 | 21,790 | High density | 200 |
+| Multi-orbit (largest) | 1021 | 1,057 | 20,730 | 200 |
 
 **14 instances without memory constraint** (capacity = 0)
 **7 instances with memory constraint** (capacity = 200)
@@ -277,10 +281,15 @@ The verifier treats these cases as **valid solutions**; the discrepancies appear
 ## Verification Usage
 
 ```bash
-# Verify a solution
-python benchmarks/spot5/verifier.py \
+# Verify a .spot_sol.txt solution
+uv run python benchmarks/spot5/verifier.py \
     benchmarks/spot5/dataset/cases/single_orbit/8 \
     tests/fixtures/spot5_val_sol/8.spot_sol.txt
+
+# Verify a JSON solution (same schema as example_solution.json)
+uv run python benchmarks/spot5/verifier.py \
+    benchmarks/spot5/dataset/cases/single_orbit/8 \
+    benchmarks/spot5/dataset/example_solution.json
 ```
 
 The verifier checks:
@@ -288,15 +297,15 @@ The verifier checks:
 2. All binary constraints satisfied
 3. All ternary constraints satisfied
 4. Memory capacity constraint satisfied (if applicable)
-5. Profit calculation matches
-6. Weight calculation matches
-7. Selected count matches header
+5. Profit and weight calculations are consistent with the assignments (mismatches in the claimed header values produce warnings, not validity failures)
+6. Selected count matches header
 
 ## File Locations
 
 - **Case directories**: `benchmarks/spot5/dataset/cases/<split>/<case_id>/`
 - **Instance files**: `benchmarks/spot5/dataset/cases/<split>/<case_id>/<case_id>.spot`
 - **Dataset manifest**: `benchmarks/spot5/dataset/index.json`
+- **Dataset-level references**: `benchmarks/spot5/dataset/*.md` (additional tracked bibliographic reference files)
 - **Solution files**: `tests/fixtures/spot5_val_sol/*.spot_sol.txt`
 - **Verifier**: `benchmarks/spot5/verifier.py`
 - **Generator**: `uv run python benchmarks/spot5/generator.py benchmarks/spot5/splits.yaml`

@@ -230,6 +230,33 @@ latency_ms = 1000 * total_path_length_m / c
 5. 最小化 `mean_latency_ms`
 6. 最小化 `num_added_satellites`
 
+## 验证器输出格式
+
+验证器 CLI 打印的 JSON 对象具有如下顶层结构：
+
+```json
+{
+  "valid": true,
+  "metrics": {
+    "service_fraction": 0.0,
+    "worst_demand_service_fraction": 0.0,
+    "mean_latency_ms": 0.0,
+    "latency_p95_ms": 0.0,
+    "num_added_satellites": 0,
+    "num_demanded_windows": 0,
+    "num_backbone_satellites": 0,
+    "per_demand": {}
+  },
+  "violations": [],
+  "diagnostics": {}
+}
+```
+
+- `valid`：所有硬约束满足时为 `true`，否则为 `false`
+- `metrics`：指标与排序中记录的评分值
+- `violations`：描述任何硬约束失败的人类可读字符串列表
+- `diagnostics`：用于调试或分析的额外确定性细节
+
 ## 传播与链路模型
 
 验证器使用一个固定的天体力学工具栈：

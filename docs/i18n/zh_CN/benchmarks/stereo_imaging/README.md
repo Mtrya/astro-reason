@@ -120,7 +120,7 @@ mission:
 
 ## 解决方案格式
 
-代理提交一个 JSON 文件。该文件可以是单案例对象或多案例映射：
+代理提交一个 JSON 文件，其中包含单案例对象：
 
 **单案例：**
 ```json
@@ -153,6 +153,7 @@ mission:
 - 同一卫星上的两次观测在时间上重叠
 - 同一卫星上连续观测之间的机动加稳定时间不足
 - 引用了未知的 `satellite_id` 或 `target_id`
+- 观测未完全包含在目标的连续访问区间内（这也间接强制执行了太阳高度角和离轴角限制）
 - 观测中点时刻目标中心的太阳高度角低于 `min_solar_elevation_deg`
 
 ## 验证器输出
@@ -163,12 +164,16 @@ mission:
 {
   "valid": true,
   "metrics": {
+    "valid": true,
     "coverage_ratio": 0.0,
     "normalized_quality": 0.0
   },
   "violations": [],
   "derived_observations": [...],
-  "diagnostics": {...}
+  "diagnostics": {
+    "pair_evaluations": [...],
+    "per_target_best_score": {...}
+  }
 }
 ```
 
@@ -178,9 +183,9 @@ mission:
 
 **`normalized_quality`**：所有目标上最佳每目标立体质量分数的平均值。
 
-**`derived_observations`**：验证器计算的每动作几何，包括卫星 ECEF 状态、光轴角、太阳角、有效像素比例和访问区间 id。
+**`derived_observations`**：验证器计算的每动作几何，包括卫星 ECEF 状态、光轴角、太阳角、太阳方位角、斜距、有效像素比例和 `access_interval_id`。
 
-**`diagnostics`**：每个有效产物的详细信息，包括交会角、B/H 代理、重叠比例、像素比例、平分线高度和不对称性。
+**`diagnostics`**：包含 `pair_evaluations`（每个有效产物的详细信息，包括交会角、B/H 代理、重叠比例、像素比例、平分线高度和不对称性）和 `per_target_best_score`。
 
 ## 立体产物定义
 
@@ -229,7 +234,7 @@ Q_res     = max(0, 1 - (pixel_scale_ratio - 1) / 0.5)
 | `rugged` | 10–20 deg |
 | `open` | 15–25 deg |
 
-在带内 `Q_geom = 1.0`，在带边缘为 `0.5`，带外线性降至 `0.0`。这些是规划启发式，不是通用的摄影测量真理声明。
+在带内和带边缘 `Q_geom = 1.0`，带外线性降至 `0.0`。这些是规划启发式，不是通用的摄影测量真理声明。
 
 ### 三立体质量
 
@@ -265,7 +270,7 @@ effective_pixel_scale_m ≈ slant_range_m * pixel_ifov_deg * (pi / 180)
 
 应用了离轴投影的局部正割修正。
 
-**足迹**： modeled 为局部切平面近似中的推扫条带。每样本处的条带半宽为 `slant_range_m * tan(half_cross_track_fov_deg)`。
+**足迹**： modeled 为局部切平面近似中的推扫条带。每样本处的条带半宽为 `slant_range_m * tan(radians(half_cross_track_fov_deg))`。
 
 **重叠**：通过在圆形 AOI 内进行蒙特卡洛采样估计。
 
@@ -305,6 +310,11 @@ uv run python -m benchmarks.stereo_imaging.verifier.run \
 uv run python -m benchmarks.stereo_imaging.generator.run \
     benchmarks/stereo_imaging/splits.yaml
 
+# 将数据集写入另一个目录。
+uv run python -m benchmarks.stereo_imaging.generator.run \
+    benchmarks/stereo_imaging/splits.yaml \
+    --output-dir /tmp/stereo_imaging_dataset
+
 # 仅获取和缓存运行时源（操作模式；跳过数据集输出）：
 uv run python -m benchmarks.stereo_imaging.generator.run \
     benchmarks/stereo_imaging/splits.yaml \
@@ -340,5 +350,5 @@ uv run python -m benchmarks.stereo_imaging.visualizer.run batch \
 ### 测试
 
 ```bash
-uv run pytest tests/benchmarks/test_stereo_imaging_verifier.py
+uv run pytest tests/benchmarks/test_stereo_imaging_verifier.py tests/benchmarks/test_stereo_imaging_generator.py
 ```

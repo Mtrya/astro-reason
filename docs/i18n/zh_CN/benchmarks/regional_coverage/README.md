@@ -85,7 +85,7 @@ dataset/
   "case_id": "case_0001",
   "benchmark": "regional_coverage",
   "spec_version": "v1",
-  "seed": 20260408,
+  "seed": 20270415,
   "horizon_start": "2025-07-17T00:00:00Z",
   "horizon_end": "2025-07-20T00:00:00Z",
   "time_step_s": 10,
@@ -148,6 +148,8 @@ YAML 序列。每个卫星条目定义：
 ### `regions.geojson`
 
 RFC 7946 GeoJSON 格式的人类可读区域定义。
+
+**注意：** 验证器仅读取每个 Polygon 的第一个线性环（`coordinates[0]`）。内环（孔洞）当前被忽略。
 
 每个要素包含：
 
@@ -320,10 +322,10 @@ t_required_gap = t_slew + settling_time_s
 离散更新：
 
 ```text
-E_next = clamp(E_curr + (P_charge_w - P_load_w) * delta_t_s / 3600, 0, E_max)
+E_next = E_curr + (P_charge_w - P_load_w) * delta_t_s / 3600
 ```
 
-如果电池状态在任何时刻变为负值，则解决方案无效。
+能量被钳位到上限 `E_max`，但负值**不会**被钳位到零。如果电池状态在任何时刻变为负值，则解决方案无效。
 
 ## 覆盖评分
 
@@ -380,8 +382,8 @@ coverage_ratio =
 
 - `coverage_ratio`
 - `covered_weight_m2_equivalent`
-- `num_actions`
-- `total_imaging_time_s`
+- `num_actions` — 统计每个解析出的 `strip_observation` 动作（包括因调度违规而被拒绝的动作）
+- `total_imaging_time_s` — 仅对被接受进调度的动作持续时间求和
 - `total_imaging_energy_wh`
 - `total_slew_angle_deg`
 - `min_battery_wh`

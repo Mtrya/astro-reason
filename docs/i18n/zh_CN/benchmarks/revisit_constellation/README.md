@@ -47,28 +47,24 @@ Space agent 必须返回：
 
 `assets.json` 包含该案例的共享卫星模型和卫星数量上限。
 
-卫星模型包括：
-
-- `model_name`
-- `sensor`
-  - `max_off_nadir_angle_deg`
-  - `max_range_m`
-  - `obs_discharge_rate_w`
-- `resource_model`
-  - `battery_capacity_wh`
-  - `initial_battery_wh`
-  - `idle_discharge_rate_w`
-  - `sunlight_charge_rate_w`
-- `attitude_model`
-  - `max_slew_velocity_deg_per_sec`
-  - `max_slew_acceleration_deg_per_sec2`
-  - `settling_time_sec`
-  - `maneuver_discharge_rate_w`
-- `min_altitude_m`
-- `max_altitude_m`
-
-该文件还包含：
-
+- `satellite_model`
+  - `model_name`
+  - `sensor`
+    - `max_off_nadir_angle_deg`
+    - `max_range_m`
+    - `obs_discharge_rate_w`
+  - `resource_model`
+    - `battery_capacity_wh`
+    - `initial_battery_wh`
+    - `idle_discharge_rate_w`
+    - `sunlight_charge_rate_w`
+  - `attitude_model`
+    - `max_slew_velocity_deg_per_sec`
+    - `max_slew_acceleration_deg_per_sec2`
+    - `settling_time_sec`
+    - `maneuver_discharge_rate_w`
+  - `min_altitude_m`
+  - `max_altitude_m`
 - `max_num_satellites`
 
 ### `mission.json`
@@ -83,7 +79,7 @@ Space agent 必须返回：
   - `latitude_deg`
   - `longitude_deg`
   - `altitude_m`
-- `expected_revisit_period_hours`（以小时为单位的所需重访周期）
+  - `expected_revisit_period_hours`（以小时为单位的所需重访周期）
   - `min_elevation_deg`
   - `max_slant_range_m`
   - `min_duration_sec`
@@ -157,6 +153,7 @@ Space agent 必须返回：
 - `max_revisit_gap_hours`
 - `satellite_count`
 - `threshold_satisfied`
+- `target_gap_summary`：每个目标的细分，包含 `expected_revisit_period_hours`、`max_revisit_gap_hours`、`mean_revisit_gap_hours` 和 `observation_count`
 
 预期排序逻辑为：
 

@@ -208,5 +208,5 @@ for config in configs:
 
 ## 联系方式与链接
 
-- **仓库**: https://github.com/Mtrya/AstroReason-Bench
-- **Issue Tracker**: https://github.com/Mtrya/AstroReason-Bench/issues
+- **仓库**: https://github.com/Mtrya/astro-reason
+- **Issue Tracker**: https://github.com/Mtrya/astro-reason/issues

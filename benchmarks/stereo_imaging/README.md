@@ -120,7 +120,7 @@ mission:
 
 ## Solution format
 
-The agent submits a JSON file. The file may be a single-case object or a multi-case mapping:
+The agent submits a JSON file containing a single-case object:
 
 **Single-case:**
 ```json
@@ -153,6 +153,7 @@ The verifier rejects a solution as invalid if any of the following hold:
 - two observations on the same satellite overlap in time
 - the slew-plus-settle time between consecutive observations on the same satellite is insufficient
 - an unknown `satellite_id` or `target_id` is referenced
+- the observation is not fully contained inside a continuous access interval for the target (this also enforces solar-elevation and off-nadir limits indirectly)
 - the solar elevation at the target center at observation midpoint is below `min_solar_elevation_deg`
 
 ## Verifier outputs
@@ -163,12 +164,16 @@ The verifier returns a JSON report:
 {
   "valid": true,
   "metrics": {
+    "valid": true,
     "coverage_ratio": 0.0,
     "normalized_quality": 0.0
   },
   "violations": [],
   "derived_observations": [...],
-  "diagnostics": {...}
+  "diagnostics": {
+    "pair_evaluations": [...],
+    "per_target_best_score": {...}
+  }
 }
 ```
 
@@ -178,9 +183,9 @@ The verifier returns a JSON report:
 
 **`normalized_quality`**: mean best-per-target stereo quality score across all targets.
 
-**`derived_observations`**: per-action geometry computed by the verifier, including satellite ECEF state, boresight angles, solar angles, effective pixel scale, and access interval id.
+**`derived_observations`**: per-action geometry computed by the verifier, including satellite ECEF state, boresight angles, solar angles, solar azimuth, slant range, effective pixel scale, and `access_interval_id`.
 
-**`diagnostics`**: per-valid-product details including convergence angle, B/H proxy, overlap fraction, pixel scale ratio, bisector elevation, and asymmetry.
+**`diagnostics`**: contains `pair_evaluations` (per-valid-product details including convergence angle, B/H proxy, overlap fraction, pixel scale ratio, bisector elevation, and asymmetry) and `per_target_best_score`.
 
 ## Stereo product definitions
 
@@ -229,7 +234,7 @@ Q_res     = max(0, 1 - (pixel_scale_ratio - 1) / 0.5)
 | `rugged` | 10–20 deg |
 | `open` | 15–25 deg |
 
-`Q_geom = 1.0` inside the band, `0.5` at the band edges, and falls linearly to `0.0` outside. These are planning heuristics, not claims of universal photogrammetric truth.
+`Q_geom = 1.0` inside the band and at the band edges, and falls linearly to `0.0` outside. These are planning heuristics, not claims of universal photogrammetric truth.
 
 ### Tri-stereo quality
 
@@ -265,7 +270,7 @@ effective_pixel_scale_m ≈ slant_range_m * pixel_ifov_deg * (pi / 180)
 
 A local secant correction for off-nadir projection is applied.
 
-**Footprint**: modeled as a pushbroom strip in a local tangent-plane approximation. The strip half-width at each sample is `slant_range_m * tan(half_cross_track_fov_deg)`.
+**Footprint**: modeled as a pushbroom strip in a local tangent-plane approximation. The strip half-width at each sample is `slant_range_m * tan(radians(half_cross_track_fov_deg))`.
 
 **Overlap**: estimated by Monte Carlo sampling within the circular AOI.
 
@@ -305,6 +310,11 @@ The verifier exits with code `0` when valid, `1` when invalid.
 uv run python -m benchmarks.stereo_imaging.generator.run \
     benchmarks/stereo_imaging/splits.yaml
 
+# Write the dataset to another directory.
+uv run python -m benchmarks.stereo_imaging.generator.run \
+    benchmarks/stereo_imaging/splits.yaml \
+    --output-dir /tmp/stereo_imaging_dataset
+
 # Fetch and cache runtime sources only (operational mode; skips dataset emission):
 uv run python -m benchmarks.stereo_imaging.generator.run \
     benchmarks/stereo_imaging/splits.yaml \
@@ -340,5 +350,5 @@ Default outputs go to `benchmarks/stereo_imaging/visualizer/plots/<case_id>/`.
 ### Tests
 
 ```bash
-uv run pytest tests/benchmarks/test_stereo_imaging_verifier.py
+uv run pytest tests/benchmarks/test_stereo_imaging_verifier.py tests/benchmarks/test_stereo_imaging_generator.py
 ```

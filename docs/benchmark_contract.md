@@ -41,7 +41,7 @@ Benchmark entrypoint invocation follows the file layout:
 - **Top-level script** (`generator.py`, `verifier.py`, `visualizer.py`): invoke directly as `python benchmarks/<name>/<entrypoint>.py ...` (from the repository root).
 - **Package entrypoint** (`generator/run.py`, `verifier/run.py`, `visualizer/run.py`): invoke as a module: `python -m benchmarks.<name>.<entrypoint_pkg>.run ...` (from the repository root).
 
-Do not support both invocation styles for the same entrypoint. Do not add bootstrap hacks (`sys.path` surgery, fake runtime packages) solely to make a nested `run.py` work as a direct path script.
+Do not support both invocation styles for the same entrypoint. (This is part of the public contract, but the contract validator currently selects the first matching entrypoint and does not error when both are present.) Do not add bootstrap hacks (`sys.path` surgery, fake runtime packages) solely to make a nested `run.py` work as a direct path script.
 
 ## Dataset Contract
 
@@ -176,11 +176,14 @@ For finished benchmarks, CI enforces:
 - no `from benchmarks.` imports in benchmark generator/verifier/visualizer code
 - generator `--help`, generator no-arg failure, and verifier smoke tests using the supported invocation for each entrypoint shape (direct script vs `python -m`)
 - passing repository tests
+- reproducibility check via `scripts/check_finished_benchmark_repro.py` for benchmarks with `"repro_ci": true`
 
 GitHub Actions runs:
 
-- PR/push CI for tests plus contract validation
-- a separate reproducibility workflow for finished benchmarks whose metadata has `"repro_ci": true`; it invokes generators with the committed `splits.yaml` path and compares only generator-owned outputs from `generated_paths`
+- PR/push CI (`ci.yml`): tests plus contract validation
+- PR/push reproducibility (`benchmark-repro.yml`): generator reproducibility check for benchmarks with `"repro_ci": true`
+- Push i18n sync reminder (`i18n-sync.yml`): non-blocking check that opens a reminder issue when Chinese translations may need updating
+- Release dataset sync (`sync-datasets.yml`): uploads benchmark datasets to Hugging Face on release publication
 
 The reproducibility workflow compares only generator-owned dataset outputs from `generated_paths`, because finished benchmarks may also keep documented, hand-written dataset artifacts such as dataset-level notes.
 

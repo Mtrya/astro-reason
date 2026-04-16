@@ -47,28 +47,24 @@ Each canonical case contains exactly two machine-readable files:
 
 `assets.json` contains the shared satellite model and satellite-count cap for the case.
 
-The satellite model includes:
-
-- `model_name`
-- `sensor`
-  - `max_off_nadir_angle_deg`
-  - `max_range_m`
-  - `obs_discharge_rate_w`
-- `resource_model`
-  - `battery_capacity_wh`
-  - `initial_battery_wh`
-  - `idle_discharge_rate_w`
-  - `sunlight_charge_rate_w`
-- `attitude_model`
-  - `max_slew_velocity_deg_per_sec`
-  - `max_slew_acceleration_deg_per_sec2`
-  - `settling_time_sec`
-  - `maneuver_discharge_rate_w`
-- `min_altitude_m`
-- `max_altitude_m`
-
-The file also includes:
-
+- `satellite_model`
+  - `model_name`
+  - `sensor`
+    - `max_off_nadir_angle_deg`
+    - `max_range_m`
+    - `obs_discharge_rate_w`
+  - `resource_model`
+    - `battery_capacity_wh`
+    - `initial_battery_wh`
+    - `idle_discharge_rate_w`
+    - `sunlight_charge_rate_w`
+  - `attitude_model`
+    - `max_slew_velocity_deg_per_sec`
+    - `max_slew_acceleration_deg_per_sec2`
+    - `settling_time_sec`
+    - `maneuver_discharge_rate_w`
+  - `min_altitude_m`
+  - `max_altitude_m`
 - `max_num_satellites`
 
 ### `mission.json`
@@ -83,7 +79,7 @@ The file also includes:
   - `latitude_deg`
   - `longitude_deg`
   - `altitude_m`
-- `expected_revisit_period_hours` (required revisit cadence as a period in hours)
+  - `expected_revisit_period_hours` (required revisit cadence as a period in hours)
   - `min_elevation_deg`
   - `max_slant_range_m`
   - `min_duration_sec`
@@ -157,6 +153,7 @@ The verifier reports these metrics for valid solutions:
 - `max_revisit_gap_hours`
 - `satellite_count`
 - `threshold_satisfied`
+- `target_gap_summary`: per-target breakdown with `expected_revisit_period_hours`, `max_revisit_gap_hours`, `mean_revisit_gap_hours`, and `observation_count`
 
 The intended ranking logic is:
 

@@ -41,7 +41,7 @@ Benchmark 入口点调用遵循文件布局：
 - **顶层脚本**（`generator.py`、`verifier.py`、`visualizer.py`）：直接从仓库根目录以 `python benchmarks/<name>/<entrypoint>.py ...` 方式调用。
 - **包入口点**（`generator/run.py`、`verifier/run.py`、`visualizer/run.py`）：以模块方式调用：`python -m benchmarks.<name>.<entrypoint_pkg>.run ...`（从仓库根目录执行）。
 
-请勿为同一入口点同时支持两种调用方式。不要为了能让嵌套的 `run.py` 作为直接路径脚本运行而添加引导 hack（如 `sys.path` 手术、伪造运行时包等）。
+请勿为同一入口点同时支持两种调用方式。（这属于公共契约的一部分，但当前契约验证器只会选择第一个匹配的入口点，当两者同时存在时不会报错。）不要为了能让嵌套的 `run.py` 作为直接路径脚本运行而添加引导 hack（如 `sys.path` 手术、伪造运行时包等）。
 
 ## 数据集契约
 
@@ -175,11 +175,14 @@ splits:
 - 生成器/验证器/可视化工具代码中无 `from benchmarks.` 导入
 - 每种入口点形状（直接脚本 vs `python -m`）均能通过生成器 `--help`、生成器无参失败、验证器冒烟测试
 - 通过仓库测试
+- 对 `"repro_ci": true` 的 benchmark 运行 `scripts/check_finished_benchmark_repro.py` 可复现性检查
 
 GitHub Actions 运行：
 
-- PR/push CI：测试 + 契约验证
-- 单独的复现工作流：针对元数据中 `"repro_ci": true` 的已完成 benchmark，用提交的 `splits.yaml` 路径调用生成器，并仅比较 `generated_paths` 中指定的生成器自有输出
+- PR/push CI（`ci.yml`）：测试 + 契约验证
+- PR/push 可复现性检查（`benchmark-repro.yml`）：针对 `"repro_ci": true` 的 benchmark 的生成器可复现性检查
+- Push i18n 同步提醒（`i18n-sync.yml`）：非阻塞检查，当中文译文可能需要更新时自动创建提醒 issue
+- Release 数据集同步（`sync-datasets.yml`）：在 release 发布时上传 benchmark 数据集到 Hugging Face
 
 复现工作流仅比较生成器自有的数据集输出，因为已完成 benchmark 也可能保留有文档说明的手写数据集产物，如数据集级注释。
 

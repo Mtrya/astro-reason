@@ -55,10 +55,10 @@ benchmarks/spot5/dataset/cases/<split>/<case_id>/<case_id>.spot
 - **domain_size**：可能的相机分配数量（SPOT-5 始终为 3）
 - **value_id**、**recorder_consumption**：定义允许值的配对
   - 值 `1`：HRG 前相机
-  - 值 `2`：HRS 中相机
+  - 值 `2`：HRG 中相机
   - 值 `3`：HRG 后相机
   - 值 `13`：HRG 前 + 后相机
-n- **extra_fields**：不确定，忽略
+- **extra_fields**：不确定，忽略
 
 对于 14 个单轨道实例：所有 `recorder_consumption = 0`
 对于 7 个多轨道实例：`recorder_consumption` 表示内存使用量
@@ -169,7 +169,7 @@ number of selected photographs = <S>
 - **W**：总内存使用量（多轨道实例，见权重计算）
 - **N**：候选照片（变量）总数
 - **S**：所选照片数量（assignment ≠ 0）
-- **assignments**：每个变量一个，值为 `{0, 1, 2, 3}`
+- **assignments**：每个变量一个，值为 `{0, 1, 2, 3, 13}`
 
 ## 约束类型验证
 
@@ -213,7 +213,11 @@ profit = sum(variables[i].profit for i in range(n) if assignment[i] != 0)
 # 0 1000 1 2 451.1500000000069 42510 1
 # 值 1 的 recorder_consumption = 451.1500000000069
 
-weight_per_value = [round(recorder_consumption / 451) for recorder_consumption in variable.recorder_consumptions]
+# 构建一个将每个 value_id 映射到其归一化权重的字典
+weight_per_value = {
+    value_id: round(recorder_consumption / 451)
+    for value_id, recorder_consumption in variable.domain_items
+}
 
 total_weight = sum(
     weight_per_value[assignment[i]]
@@ -233,7 +237,7 @@ total_weight = sum(
 | 中型（单轨道） | 5, 11, 28, 29, 42 | 306–309 | 4308–6273 | 0 |
 | 大型（单轨道） | 503, 505, 507, 509 | 315 | 3983–8122 | 0 |
 | 多轨道 | 1401, 1403, 1405, 1502, 1504, 1506 | 163–855 | 可变 | 200 |
-| 多轨道（最大） | 1021 | 21,790 | 高密度 | 200 |
+| 多轨道（最大） | 1021 | 1,057 | 20,730 | 200 |
 
 **14 个实例无存储约束**（capacity = 0）
 **7 个实例有存储约束**（capacity = 200）
@@ -274,10 +278,15 @@ total_weight = sum(
 ## 验证器使用
 
 ```bash
-# 验证一个解决方案
-python benchmarks/spot5/verifier.py \
+# 验证 .spot_sol.txt 解决方案
+uv run python benchmarks/spot5/verifier.py \
     benchmarks/spot5/dataset/cases/single_orbit/8 \
     tests/fixtures/spot5_val_sol/8.spot_sol.txt
+
+# 验证 JSON 解决方案（与 example_solution.json 使用相同 schema）
+uv run python benchmarks/spot5/verifier.py \
+    benchmarks/spot5/dataset/cases/single_orbit/8 \
+    benchmarks/spot5/dataset/example_solution.json
 ```
 
 验证器检查：

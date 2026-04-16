@@ -146,7 +146,7 @@ maximize: Σ (轨道.tracking_off - 轨道.tracking_on) / 3600
 **字段定义：**
 
 - **RESOURCE**：天线 ID
-- **SC**：航天器/任务 ID（应与请求的 `subject` 匹配）
+- **SC**：航天器/任务 ID（验证器会解析该字段，但不会与请求的 `subject` 进行校验）
 - **START_TIME**：包含设置的轨道开始时间（Unix 时间戳）
 - **TRACKING_ON**：实际传输开始（Unix 时间戳）
 - **TRACKING_OFF**：实际传输结束（Unix 时间戳）
@@ -192,6 +192,7 @@ week,year,starttime,endtime,antenna
 
 ### 5. 最小持续时间检查
 - `(TRACKING_OFF - TRACKING_ON) / 3600 ≥ duration_min`
+- **特殊上限**：对于 `duration ≥ 8` 小时的请求，验证器会静默地将单轨最小持续时间上限设为 **4 小时**（`per_track_min_sec = min(req_min_sec, 14400)`）。这意味着单个轨道对长请求只需提供 4 小时的实际传输时间，而非完整的 `duration_min`。
 
 ### 6. 请求存在性
 每个 `TRACK_ID` 必须对应问题实例中的一个有效请求。
@@ -208,9 +209,9 @@ score = sum((track['TRACKING_OFF'] - track['TRACKING_ON']) / 3600.0 for track in
 
 **注意**：设置和拆卸时间消耗天线可用性，但**不计入**分数。
 
-**次要指标**（不由验证器计算，但在 RL 基线中使用）：
+**次要指标**（也由验证器计算并报告）：
 
-- **满足请求数**：解决方案中唯一的 `track_id` 数量
+- **满足请求数**：总分配时长（同一 `track_id` 的所有轨道之和）至少达到 `duration_min` 的请求数量
 - **公平性（U_max）**：所有请求中的最大未满足比例
   ```
   U_i = (requested_duration - allocated_duration) / requested_duration
@@ -244,7 +245,7 @@ score = sum((track['TRACKING_OFF'] - track['TRACKING_ON']) / 3600.0 for track in
 ### 命令行
 
 ```bash
-python benchmarks/satnet/verifier.py \
+uv run python benchmarks/satnet/verifier.py \
     benchmarks/satnet/dataset/cases/test/W10_2018 \
     solution.json \
     --verbose
@@ -256,6 +257,8 @@ Status: VALID
 Score: 234.5678 hours
 Tracks: 145
 Satisfied Requests: 132
+U_rms: 0.32
+U_max: 0.65
 ```
 
 **输出（compact）：**

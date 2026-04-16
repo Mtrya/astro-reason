@@ -87,7 +87,7 @@ Case-level metadata and verifier configuration:
   "case_id": "case_0001",
   "benchmark": "regional_coverage",
   "spec_version": "v1",
-  "seed": 20260408,
+  "seed": 20270415,
   "horizon_start": "2025-07-17T00:00:00Z",
   "horizon_end": "2025-07-20T00:00:00Z",
   "time_step_s": 10,
@@ -150,6 +150,8 @@ The verifier uses:
 ### `regions.geojson`
 
 Human-readable region definitions in RFC 7946 GeoJSON.
+
+**Note:** The verifier reads only the first linear ring (`coordinates[0]`) of each Polygon. Inner rings (holes) are currently ignored.
 
 Each feature contains:
 
@@ -253,6 +255,8 @@ theta_inner_deg >= min_edge_off_nadir_deg
 theta_outer_deg <= max_edge_off_nadir_deg
 ```
 
+The verifier applies a numerical tolerance of `1e-6` degrees around these bounds.
+
 The verifier derives strip geometry by propagating the satellite through the action interval, intersecting the center, inner-edge, and outer-edge rays with the WGS84 ellipsoid, and sweeping those edge hits through time into strip segments.
 
 Ground width is therefore derived from orbit geometry and attitude. The benchmark does not use a fixed stored swath width.
@@ -322,10 +326,10 @@ Current implementation rule:
 Discrete update:
 
 ```text
-E_next = clamp(E_curr + (P_charge_w - P_load_w) * delta_t_s / 3600, 0, E_max)
+E_next = E_curr + (P_charge_w - P_load_w) * delta_t_s / 3600
 ```
 
-A solution is invalid if battery state becomes negative at any time.
+The energy is clamped to the upper bound `E_max`, but negative values are **not** clamped to zero. A solution is invalid if the battery state becomes negative at any time.
 
 ## Coverage scoring
 
@@ -382,8 +386,8 @@ Important metric fields:
 
 - `coverage_ratio`
 - `covered_weight_m2_equivalent`
-- `num_actions`
-- `total_imaging_time_s`
+- `num_actions` — counts every parsed `strip_observation` action (including those rejected for schedule violations)
+- `total_imaging_time_s` — sums durations only for actions accepted into the schedule
 - `total_imaging_energy_wh`
 - `total_slew_angle_deg`
 - `min_battery_wh`
