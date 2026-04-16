@@ -1,0 +1,69 @@
+name: i18n Sync Check
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  check-i18n-sync:
+    runs-on: ubuntu-latest
+    # Non-blocking: failures in this job must not block CI
+    continue-on-error: true
+
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: astral-sh/setup-uv@v7
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version-file: pyproject.toml
+
+      - name: Sync environment
+        run: uv sync
+
+      - name: Check i18n sync
+        id: check
+        run: |
+          uv run python scripts/check_i18n_sync.py --exit-code --format table > i18n_report.md || true
+          if [ -s i18n_report.md ] && ! grep -q "All i18n documentation is in sync." i18n_report.md; then
+            echo "has_problems=true" >> "$GITHUB_OUTPUT"
+            # Escape multi-line output for GitHub Actions
+            {
+              echo 'report<<EOF'
+              cat i18n_report.md
+              echo 'EOF'
+            } >> "$GITHUB_OUTPUT"
+          else
+            echo "has_problems=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Create i18n-sync reminder issue
+        if: steps.check.outputs.has_problems == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPORT: ${{ steps.check.outputs.report }}
+        run: |
+          DATE=$(date +%Y-%m-%d)
+          TITLE="[i18n-sync] 文档变更检测 - ${DATE}"
+
+          # Check whether an open reminder issue already exists today
+          EXISTING=$(gh issue list --repo "${{ github.repository }}" --search "${TITLE}" --state open --json number --jq 'length')
+          if [ "$EXISTING" -gt 0 ]; then
+            echo "An open i18n-sync issue for today already exists. Skipping creation."
+            exit 0
+          fi
+
+          cat <<EOF | gh issue create \
+            --repo "${{ github.repository }}" \
+            --title "${TITLE}" \
+            --body-file - \
+            --label "documentation"
+          以下文件发生变更，可能需要同步中文翻译：
+
+          ${REPORT}
+
+          > 此 Issue 由自动化工作流生成，仅作为同步提醒，不阻塞 CI。
+          EOF
