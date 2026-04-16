@@ -215,7 +215,7 @@
       },
       "task_weight_summary": {
         "max": 5.0,
-        "mean": 3.001943,
+        "mean": 3.012953,
         "min": 1.0
       }
     },
@@ -277,7 +277,7 @@
       },
       "task_weight_summary": {
         "max": 5.0,
-        "mean": 2.918,
+        "mean": 2.914,
         "min": 1.0
       }
     }
