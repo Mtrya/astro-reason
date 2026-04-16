@@ -6,29 +6,30 @@ import csv
 import hashlib
 import json
 from dataclasses import dataclass
-import io
 from pathlib import Path
 import urllib.request
-import zipfile
 
 from . import cached_tles
-from .normalize import parse_tle_text
 
 
 CELESTRAK_EARTH_RESOURCES_URL = (
     "https://celestrak.org/NORAD/elements/gp.php?GROUP=resource&FORMAT=tle"
 )
 CELESTRAK_SNAPSHOT_EPOCH_UTC = "2026-04-14T00:00:00Z"
-CELESTRAK_RAW_NAME = "earth_resources_raw.tle"
 CELESTRAK_CSV_NAME = "earth_resources.csv"
+LEGACY_CELESTRAK_RAW_NAME = "earth_resources_raw.tle"
 
 WORLD_CITIES_URL = "https://download.geonames.org/export/dump/cities15000.zip"
 WORLD_CITIES_FILENAME = "world_cities.csv"
+WORLD_CITIES_SNAPSHOT_NAME = "world_cities_snapshot.csv"
 
 NATURAL_EARTH_LAND_URL = (
     "https://raw.githubusercontent.com/nvkelso/natural-earth-vector/master/geojson/ne_110m_land.geojson"
 )
 NATURAL_EARTH_LAND_FILENAME = "ne_110m_land.geojson"
+
+_GENERATOR_DIR = Path(__file__).resolve().parent
+VENDORED_WORLD_CITIES_PATH = _GENERATOR_DIR / WORLD_CITIES_SNAPSHOT_NAME
 
 
 @dataclass(frozen=True)
@@ -61,45 +62,34 @@ def download_celestrak(dest_dir: Path, *, force_download: bool) -> SourceFetchRe
     del force_download  # Vendored snapshot is always used for reproducibility.
 
     cele_dir = dest_dir / "celestrak"
-    raw_path = cele_dir / CELESTRAK_RAW_NAME
     csv_path = cele_dir / CELESTRAK_CSV_NAME
+    legacy_raw_path = cele_dir / LEGACY_CELESTRAK_RAW_NAME
     csv_path.parent.mkdir(parents=True, exist_ok=True)
+    if legacy_raw_path.exists():
+        legacy_raw_path.unlink()
     rows = list(cached_tles.CACHED_CELESTRAK_ROWS)
-    raw_lines: list[str] = []
-    for row in rows:
-        raw_lines.extend([row["name"], row["tle_line1"], row["tle_line2"]])
-    raw_text = "\n".join(raw_lines) + "\n"
-    records = parse_tle_text(raw_text)
-    if len(records) != len(rows):
-        raise RuntimeError(
-            f"Vendored TLE snapshot parse mismatch: expected {len(rows)} satellites, got {len(records)}"
+    with csv_path.open("w", encoding="utf-8", newline="") as handle:
+        writer = csv.DictWriter(
+            handle,
+            fieldnames=[
+                "name",
+                "norad_catalog_id",
+                "tle_line1",
+                "tle_line2",
+                "epoch_iso",
+                "inclination_deg",
+                "eccentricity",
+                "mean_motion_rev_per_day",
+                "altitude_m",
+            ],
+            lineterminator="\n",
         )
-    raw_bytes = raw_text.encode("utf-8")
-    raw_path.write_bytes(raw_bytes)
-
-    csv_buffer = io.StringIO()
-    writer = csv.DictWriter(
-        csv_buffer,
-        fieldnames=[
-            "name",
-            "norad_catalog_id",
-            "tle_line1",
-            "tle_line2",
-            "epoch_iso",
-            "inclination_deg",
-            "eccentricity",
-            "mean_motion_rev_per_day",
-            "altitude_m",
-        ],
-        lineterminator="\n",
-    )
-    writer.writeheader()
-    writer.writerows(rows)
-    csv_bytes = csv_buffer.getvalue().encode("utf-8")
-    csv_path.write_bytes(csv_bytes)
+        writer.writeheader()
+        writer.writerows(rows)
+    csv_bytes = csv_path.read_bytes()
     return SourceFetchResult(
         "celestrak",
-        [raw_path, csv_path],
+        [csv_path],
         {
             "url": CELESTRAK_EARTH_RESOURCES_URL,
             "snapshot_epoch_utc": CELESTRAK_SNAPSHOT_EPOCH_UTC,
@@ -111,52 +101,24 @@ def download_celestrak(dest_dir: Path, *, force_download: bool) -> SourceFetchRe
 
 
 def download_world_cities(dest_dir: Path, *, force_download: bool) -> SourceFetchResult:
-    cities_dir = dest_dir / "world_cities"
-    final_csv = cities_dir / WORLD_CITIES_FILENAME
-    raw_zip = cities_dir / "cities15000.zip"
+    del force_download  # Vendored snapshot is always used for reproducibility.
 
-    if not force_download and final_csv.is_file():
-        return SourceFetchResult(
-            "world_cities",
-            [final_csv],
-            {
-                "url": WORLD_CITIES_URL,
-                "sha256": _sha256_file(final_csv),
-            },
+    if not VENDORED_WORLD_CITIES_PATH.is_file():
+        raise FileNotFoundError(
+            f"Vendored world-cities snapshot is missing: {VENDORED_WORLD_CITIES_PATH}"
         )
 
+    cities_dir = dest_dir / "world_cities"
+    final_csv = cities_dir / WORLD_CITIES_FILENAME
     cities_dir.mkdir(parents=True, exist_ok=True)
-    _download_bytes(WORLD_CITIES_URL, raw_zip)
-    with zipfile.ZipFile(raw_zip) as archive:
-        member = next((name for name in archive.namelist() if name.endswith(".txt")), None)
-        if member is None:
-            raise FileNotFoundError("Geonames cities archive did not contain a text dump")
-        raw_text = archive.read(member).decode("utf-8")
-
-    output = io.StringIO()
-    writer = csv.writer(output, lineterminator="\n")
-    writer.writerow(["name", "country", "latitude_deg", "longitude_deg", "population"])
-    for line in raw_text.splitlines():
-        if not line.strip():
-            continue
-        fields = line.split("\t")
-        if len(fields) < 15:
-            continue
-        name = fields[1].strip()
-        country_code = fields[8].strip() or "UNK"
-        latitude_deg = fields[4].strip()
-        longitude_deg = fields[5].strip()
-        population = fields[14].strip() or "0"
-        if not name:
-            continue
-        writer.writerow([name, country_code, latitude_deg, longitude_deg, population])
-    final_csv.write_text(output.getvalue(), encoding="utf-8")
+    final_csv.write_bytes(VENDORED_WORLD_CITIES_PATH.read_bytes())
     return SourceFetchResult(
         "world_cities",
         [final_csv],
         {
             "url": WORLD_CITIES_URL,
             "sha256": _sha256_file(final_csv),
+            "vendored_snapshot": True,
         },
     )
 
