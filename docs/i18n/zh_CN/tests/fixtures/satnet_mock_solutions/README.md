@@ -1,33 +1,33 @@
 # SatNet Mock Solution Fixtures
 
-本目录包含 SatNet benchmark 的 5 个解决方案文件及其真实指标。这些文件作为验证 SatNet 验证器实现正确性的“黄金标准”。
+本目录包含 SatNet benchmark 的 5 个解文件及其真实指标。这些文件作为验证 SatNet 验证器实现正确性的“黄金标准”。
 
 ## 来源与方法论
 
-这些解决方案使用 **参考 `satnet` 包**（NASA/JPL 基线）生成，该包定义了问题逻辑和评分机制。
+这些解使用 **参考 `satnet` 包**（NASA/JPL 基线）生成，该包定义了问题逻辑和评分机制。
 
 **源仓库**：[https://github.com/edwinytgoh/satnet.git](https://github.com/edwinytgoh/satnet.git)
 
 ### 生成过程
 1. **环境搭建**：我们为 2018 年数据集中的 5 周（W10、W20、W30、W40、W50）分别实例化了 `satnet.envs.SimpleEnv`。
-2. **代理执行**：我们运行了一个“随机代理” episode。
-3. **调度导出**：我们没有使用 `sim.generate_schedule_json()`（它只导出已满足请求的轨道），而是调用了一个辅助函数 `export_full_schedule(sim)`，来自 `docs/reference_repo/satnet/generate_ground_truth.py`，该函数：
+2. **智能体执行**：我们运行了一个“随机智能体” episode。
+3. **调度导出**：我们没有使用 `sim.generate_schedule_json()`（它只导出已满足请求的跟踪弧段），而是调用了一个辅助函数 `export_full_schedule(sim)`，来自 `docs/reference_repo/satnet/generate_ground_truth.py`，该函数：
    - 重放 `sim.tracks` 中所有已满足请求的原始导出逻辑，并且
-   - 额外导出任何已经计入仿真器内部核算、但留在 `sim._tid_tracks_temp` 中的有效部分拆分轨道。
-   这确保了 JSON 调度完全反映了参考仿真器在计算其指标时使用的所有分配（没有遗漏的“幽灵”轨道）。
+   - 额外导出任何已经计入仿真器内部核算、但留在 `sim._tid_tracks_temp` 中的合法部分拆分跟踪弧段。
+   这确保了 JSON 调度完全反映了参考仿真器在计算其指标时使用的所有分配（没有遗漏的“幽灵”跟踪弧段）。
 4. **指标捕获**：然后我们直接从仿真器状态读取指标：
    - **Score**：成功通信的总小时数（所有导出调度行的 TRACKING_OFF - TRACKING_ON 之和）。
    - **$U_i$（未满足比例）**：来自 `sim.U_i` 的每任务未满足比例，基于 `mission_remaining_duration` 和 `mission_requested_duration`。
    - **$U_{rms}$**：直接来自 `sim.U_rms`。
    - **$U_{max}$**：直接来自 `sim.U_max`。
 
-因为 `export_full_schedule` 导出了所有影响 `sim.U_i` 的轨道，任何从调度 JSON 加问题数据重新推导公平性的验证器都会与这些存储的指标匹配。
+因为 `export_full_schedule` 导出了所有影响 `sim.U_i` 的跟踪弧段，任何从调度 JSON 加问题数据重新推导公平性的验证器都会与这些存储的指标匹配。
 
 ## 文件结构
 
 对于每一周（例如 `W10_2018`），有两个文件：
 
-1. **`W10_2018_solution.json`**：包含已分配轨道列表的调度文件。
+1. **`W10_2018_solution.json`**：包含已分配跟踪弧段列表的调度文件。
    ```json
    [
      {

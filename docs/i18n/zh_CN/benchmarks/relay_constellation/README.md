@@ -10,20 +10,20 @@
 
 `relay_constellation` 是一个面向中继服务的部分星座设计 benchmark。
 
-对于每个案例，space agent 接收：
+对于每个测试实例，太空规划智能体（space agent）接收：
 
-- 固定的 96 小时规划时域
-- 以笛卡尔初始状态表达的不可变 MEO 中继骨干网
-- 固定的地面通信端点
+- 固定的 96 小时规划任务时域
+- 以笛卡尔初始状态表达的不可变 MEO 既有卫星（backbone satellites）
+- 固定的地面端点
 - 端点对之间的通信需求窗口
-- 案例特定的轨道与通信约束
+- 测试实例特定的轨道与通信约束
 
-Space agent 必须返回：
+太空规划智能体必须返回：
 
 - 一组有数量上限的额外中继卫星
 - 激活通信链路的时间受限接触计划
 
-本 benchmark 聚焦于增强，而非从零设计。现有骨干卫星不可变。预期的增强故事是 LEO 优先：求解器添加低轨道中继以改善服务并降低相对于给定 MEO 基线的延迟。
+本 benchmark 聚焦于增强，而非从零设计。现有的既有的卫星不可变。预期的增强故事是 LEO 优先：求解器添加低轨道中继以改善服务并降低相对于给定 MEO 基线的延迟。
 
 不在范围内：
 
@@ -50,15 +50,15 @@ dataset/
             └── demands.json
 ```
 
-`dataset/example_solution.json` 是一个与普通提交 schema 相同的真实解决方案对象。`dataset/index.json` 记录案例元数据以及通过划分相对路径 `example_smoke_case` 配对的冒烟案例，提交的划分构建契约位于 `benchmarks/relay_constellation/splits.yaml`。
+`dataset/example_solution.json` 是一个与普通提交 schema 相同的真实解对象。`dataset/index.json` 记录测试实例元数据以及通过子集相对路径 `example_smoke_case` 配对的冒烟案例，提交的子集构建契约位于 `benchmarks/relay_constellation/splits.yaml`。
 
-## 案例输入
+## 测试实例输入
 
-每个案例目录恰好包含三个机器可读文件。
+每个测试实例目录恰好包含三个机器可读文件。
 
 ### `manifest.json`
 
-`manifest.json` 定义规划时域、传播模型、路由步长和硬案例约束。
+`manifest.json` 定义规划任务时域、传播模型、路由步长和硬测试实例约束。
 
 重要字段：
 
@@ -81,7 +81,7 @@ dataset/
 
 ### `network.json`
 
-`network.json` 包含不可变的中继骨干网和地面端点。
+`network.json` 包含不可变的既有的卫星和地面端点。
 
 - `backbone_satellites[]`
   - `satellite_id`
@@ -98,7 +98,7 @@ dataset/
   - `altitude_m`
   - `min_elevation_deg`
 
-所有卫星状态都被解释为案例 epoch 时刻的 GCRF 笛卡尔状态。
+所有卫星状态都被解释为测试实例 epoch 时刻的 GCRF 笛卡尔状态。
 
 ### `demands.json`
 
@@ -114,7 +114,7 @@ dataset/
 
 每条记录描述一个端点对的所需窗口。
 
-## 解决方案契约
+## 解契约
 
 有效提交是一个 JSON 对象，包含两个顶层数组：
 
@@ -123,7 +123,7 @@ dataset/
 
 ### `added_satellites`
 
-每颗新增卫星使用与骨干网相同的笛卡尔状态约定：
+每颗新增卫星使用与既有卫星相同的笛卡尔状态约定：
 
 - `satellite_id`
 - `x_m`
@@ -133,7 +133,7 @@ dataset/
 - `vy_m_s`
 - `vz_m_s`
 
-验证器在内部推导轨道属性，并拒绝违反案例约束的添加状态。
+验证器在内部推导轨道属性，并拒绝违反测试实例约束的添加状态。
 
 ### `actions`
 
@@ -162,15 +162,15 @@ dataset/
 
 ## 有效性规则
 
-如果任何硬约束被违反，验证器将拒绝该解决方案，包括：
+如果任何硬约束被违反，验证器将拒绝该解，包括：
 
-- 案例或解决方案结构格式错误
+- 测试实例或解结构格式错误
 - 新增卫星 ID 重复或冲突
-- 新增卫星数量超过案例允许上限
+- 新增卫星数量超过测试实例允许上限
 - 新增轨道超出边界或不受约束
 - 引用了未知的端点或卫星
 - 不支持的动作类型
-- 零时长、偏离网格或超出时域的动作
+- 零时长、偏离网格或超出任务时域的动作
 - 同一物理链路上的动作重叠
 - 几何上不可行的地面链路
 - 几何上不可行的星间链路
@@ -181,9 +181,9 @@ dataset/
 
 ## 路由、服务与延迟
 
-在需求窗口内的每个验证器自有采样时刻，如果存在一条从源到目的地的物理可行多跳路径，通过骨干网加求解器添加的卫星，仅使用当前激活的调度链路，则该需求被服务。
+在需求窗口内的每个验证器自有采样时刻，如果存在一条从源到目的地的物理可行多跳路径，通过既有卫星加求解器添加的卫星，仅使用当前激活的调度链路，则该需求被服务。
 
-验证器拥有路由和分配：
+验证器负责路由和分配：
 
 - 它从验证后的动作构建活跃通信图
 - 它在单位容量边使用下进行路由分配
@@ -205,6 +205,8 @@ latency_ms = 1000 * total_path_length_m / c
 
 ## 指标与排序
 
+验证器的评分项包括 service_fraction、延迟分位数及新增卫星数量。
+
 验证器报告：
 
 - `service_fraction`
@@ -223,7 +225,7 @@ latency_ms = 1000 * total_path_length_m / c
 
 预期排序优先级：
 
-1. 有效解决方案优于无效解决方案
+1. 合法解优于非法解
 2. 最大化 `service_fraction`
 3. 最大化 `worst_demand_service_fraction`
 4. 最小化 `latency_p95_ms`
@@ -283,7 +285,7 @@ latency_ms = 1000 * total_path_length_m / c
 
 ## 公共入口点
 
-生成器：
+数据集生成器：
 
 ```bash
 uv run python -m benchmarks.relay_constellation.generator.run \
@@ -306,7 +308,7 @@ uv run python -m benchmarks.relay_constellation.verifier.run \
   benchmarks/relay_constellation/dataset/example_solution.json
 ```
 
-可视化器：
+可视化工具：
 
 ```bash
 uv run python -m benchmarks.relay_constellation.visualizer.run overview \

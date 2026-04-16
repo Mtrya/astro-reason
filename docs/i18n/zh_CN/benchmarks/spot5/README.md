@@ -7,11 +7,11 @@
 SPOT-5 卫星（2002–2015 年运行）搭载三台成像仪器：两台 HRG（高分辨率几何）相机和一台 HRS（高分辨率立体）相机。每日调度问题要求在满足以下约束的同时选择照片以最大化总利润：
 
 - **相机约束**：单幅图像使用一台相机（HRG 前、中或后）；立体图像需要同时使用两台 HRG 相机
-- **非重叠约束**：由于镜面机动时间限制，照片不能冲突
+- **非重叠约束**：由于镜面姿态机动时间限制，照片不能冲突
 - **数据流约束**：瞬时遥测带宽限制禁止某些组合
 - **存储约束**：星载记录容量限制所选图像总数（仅多轨道实例）
 
-这映射为一个具有复杂逻辑约束的析取约束背包问题（DCKP）。
+这可以归结为一个带有复杂逻辑约束的析取约束背包问题（DCKP）。
 
 ## 历史背景与来源
 
@@ -24,7 +24,7 @@ SPOT-5 卫星（2002–2015 年运行）搭载三台成像仪器：两台 HRG（
 
 当前数据集（`.spot` 文件）是托管在 [Mendeley Data](https://data.mendeley.com/datasets/2kbzg9nw3b/1) 上的 DCKP 抽象，采用 **CC BY 4.0** 许可。该许可是宽松的，因为抽象过程创建了一个与 CNES 专有原始遥测数据相分离的派生数据集。
 
-在本仓库中，每个发布的实例都作为独立的 benchmark 案例存储：
+在本仓库中，每个发布的实例都作为独立的 benchmark 测试实例存储：
 
 ```text
 benchmarks/spot5/dataset/cases/<split>/<case_id>/<case_id>.spot
@@ -153,7 +153,7 @@ benchmarks/spot5/dataset/cases/<split>/<case_id>/<case_id>.spot
 
 对于实例 `1401, 1403, 1405, 1502, 1504, 1506, 1021`，文件以表示存储容量约束的单个数字结尾。**重要**：文件中的这个数字在验证器中被忽略。真实容量始终为 **200**。
 
-## 解决方案文件格式（.spot_sol.txt）
+## 解文件格式（.spot_sol.txt）
 
 ```
 profit = <P>, weight = <W>
@@ -173,7 +173,7 @@ number of selected photographs = <S>
 
 ## 约束类型验证
 
-当满足所有约束时，解决方案有效：
+当满足所有约束时，解合法：
 
 ### 二元约束
 对于每个带禁止元组 `F` 的二元约束 `C(i, j)`：
@@ -242,24 +242,24 @@ total_weight = sum(
 **14 个实例无存储约束**（capacity = 0）
 **7 个实例有存储约束**（capacity = 200）
 
-## 已提交划分
+## 已提交子集
 
-已完成 benchmark 在 `benchmarks/spot5/splits.yaml` 中保留了三个提交划分：
+已完成 benchmark 在 `benchmarks/spot5/splits.yaml` 中保留了三个提交子集：
 
 - `single_orbit`：所有数字 ID `< 1000` 的已发布实例
 - `multi_orbit`：所有数字 ID `> 1000` 的已发布实例
-- `test`：以种子 `42` 抽取的 5 个案例重叠样本
+- `test`：以种子 `42` 抽取的 5 个测试实例重叠样本
 
-重叠是故意的。例如，案例 `8` 同时出现在 `single_orbit` 和 `test` 中。数据集级冒烟示例与 `single_orbit/8` 配对。
+重叠是故意的。例如，测试实例 `8` 同时出现在 `single_orbit` 和 `test` 中。数据集级冒烟示例与 `single_orbit/8` 配对。
 
-## 已知解决方案与验证
+## 已知解与验证
 
-参考解决方案位于 `tests/fixtures/spot5_val_sol/` 中，来自 [DCKP_RSOA 仓库](https://github.com/Zequn-Wei/DCKP_RSOA)。
+参考解位于 `tests/fixtures/spot5_val_sol/` 中，来自 [DCKP_RSOA 仓库](https://github.com/Zequn-Wei/DCKP_RSOA)。
 
 验证结果（使用 `verifier.py`）：
 
-- **14 个解决方案**：声称利润/权重与计算利润/权重完全匹配
-- **7 个解决方案**：分配有效，但报告头部值存在微小差异
+- **14 个解**：声称利润/权重与计算利润/权重完全匹配
+- **7 个解**：分配合法，但报告头部值存在微小差异
 
 **头部不匹配**（分配本身正确）：
 
@@ -273,17 +273,17 @@ total_weight = sum(
 | 1021     | 169,240        | 169,243         | +3   | 声称 200, 实际 198 |
 | 1405     | 170,175        | 170,179         | +4   | 声称 200, 实际 198 |
 
-验证器将这些案例视为**有效解决方案**；差异似乎出现在 DCKP-RSOA 算法的利润/权重报告逻辑中，而非解决方案质量本身。
+验证器将这些测试实例视为**合法解**；差异似乎出现在 DCKP-RSOA 算法的利润/权重报告逻辑中，而非解质量本身。
 
 ## 验证器使用
 
 ```bash
-# 验证 .spot_sol.txt 解决方案
+# 验证 .spot_sol.txt 解
 uv run python benchmarks/spot5/verifier.py \
     benchmarks/spot5/dataset/cases/single_orbit/8 \
     tests/fixtures/spot5_val_sol/8.spot_sol.txt
 
-# 验证 JSON 解决方案（与 example_solution.json 使用相同 schema）
+# 验证 JSON 解（与 example_solution.json 使用相同 schema）
 uv run python benchmarks/spot5/verifier.py \
     benchmarks/spot5/dataset/cases/single_orbit/8 \
     benchmarks/spot5/dataset/example_solution.json
@@ -300,10 +300,11 @@ uv run python benchmarks/spot5/verifier.py \
 
 ## 文件位置
 
-- **案例目录**：`benchmarks/spot5/dataset/cases/<split>/<case_id>/`
+- **测试实例目录**：`benchmarks/spot5/dataset/cases/<split>/<case_id>/`
 - **实例文件**：`benchmarks/spot5/dataset/cases/<split>/<case_id>/<case_id>.spot`
 - **数据集清单**：`benchmarks/spot5/dataset/index.json`
-- **解决方案文件**：`tests/fixtures/spot5_val_sol/*.spot_sol.txt`
+- **数据集级参考**：`benchmarks/spot5/dataset/*.md`（额外的追踪参考文献文件）
+- **解文件**：`tests/fixtures/spot5_val_sol/*.spot_sol.txt`
 - **验证器**：`benchmarks/spot5/verifier.py`
 - **生成器**：`uv run python benchmarks/spot5/generator.py benchmarks/spot5/splits.yaml`
 
@@ -314,9 +315,9 @@ uv run python benchmarks/spot5/verifier.py \
 **归属**：
 - 原始问题：CNES（法国航天局）与 ONERA
 - 问题抽象：Vasquez & Hao（2001），Wei & Hao（2021）
-- 参考解决方案：DCKP-RSOA 算法（Wei & Hao，2021）
+- 参考解：DCKP-RSOA 算法（Wei & Hao，2021）
 
-**商业使用**：CC BY 4.0 允许。数据集不是病毒式许可的；与使用 GPL 的解决方案程序不同，Mendeley Data 发布是宽松的。
+**商业使用**：CC BY 4.0 允许。数据集不是病毒式许可的；与使用 GPL 的求解器程序不同，Mendeley Data 发布是宽松的。
 
 ## 参考文献
 

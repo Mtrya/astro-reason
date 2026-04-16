@@ -1,11 +1,11 @@
-These fixtures 锁定独立的 `relay_constellation` 验证器行为。
+这些 fixtures 用于锁定独立的 `relay_constellation` 验证器行为。
 
 原则：
 
-- 保持案例微小且易于理解
+- 保持测试实例微小且易于理解
 - 每个 fixture 优先只覆盖一种行为
 - 仅断言稳定、定义行为的报告字段
-- 使用规范的 benchmark 案例文件：
+- 使用规范的 benchmark 测试实例文件：
   - `manifest.json`
   - `network.json`
   - `demands.json`
@@ -15,7 +15,7 @@ These fixtures 锁定独立的 `relay_constellation` 验证器行为。
 Fixture 集合：
 
 - `full_service_valid`
-  - 一个需求、一颗骨干卫星、完全服务
+  - 一个需求、一颗既有的卫星（backbone satellite）、完全服务
 - `served_time_only_latency_valid`
   - 一个需求、部分服务、延迟仅在被服务样本上计算
 - `ground_visibility_invalid`

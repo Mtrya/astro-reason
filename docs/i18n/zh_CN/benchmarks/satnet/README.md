@@ -4,10 +4,10 @@
 
 ## 问题概述
 
-深空网络是 NASA/JPL 的国际巨型无线电天线阵列，支持行星际航天器任务。调度问题要求在 1 周周期内最大化成功通信轨道的总时长，同时遵守：
+深空网络是 NASA/JPL 的国际巨型无线电天线阵列，支持行星际航天器任务。调度问题要求在 1 周周期内最大化成功通信跟踪弧段的总时长，同时遵守：
 
-- **可见周期（VP）约束**：只有当卫星与地面站有视线时才能通信（由轨道力学决定）
-- **设置/拆卸要求**：每次轨道需要校准时间
+- **可见周期（VP）约束**：只有当航天器与地面站有视线时才能通信（由轨道力学决定）
+- **准备/收尾要求**：每次跟踪弧段需要校准时间
 - **非重叠约束**：天线不能同时处理多个传输
 - **维护计划**：天线有计划停机时间用于维修和升级
 
@@ -38,47 +38,47 @@
 
 ### 约束
 
-1. **可见周期约束**：每个轨道必须完全包含在一个可见周期内
+1. **可见周期约束**：每个跟踪弧段必须完全包含在一个可见周期内
    ```
-   ∀ 轨道: ∃ VP ∈ request.resource_vp_dict[轨道.antenna]:
-       VP.trx_on ≤ 轨道.tracking_on ∧ 轨道.tracking_off ≤ VP.trx_off
-   ```
-
-2. **无重叠约束**：同一天线上的轨道不能重叠
-   ```
-   ∀ 轨道_i, 轨道_j on same antenna (i ≠ j):
-       轨道_i.end_time ≤ 轨道_j.start_time ∨ 轨道_j.end_time ≤ 轨道_i.start_time
+   ∀ 跟踪弧段: ∃ VP ∈ request.resource_vp_dict[跟踪弧段.antenna]:
+       VP.trx_on ≤ 跟踪弧段.tracking_on ∧ 跟踪弧段.tracking_off ≤ VP.trx_off
    ```
 
-3. **设置/拆卸约束**：时间一致性
+2. **无重叠约束**：同一天线上的跟踪弧段不能重叠
    ```
-   轨道.start_time + request.setup_time × 60 = 轨道.tracking_on
-   轨道.tracking_off + request.teardown_time × 60 = 轨道.end_time
+   ∀ 跟踪弧段_i, 跟踪弧段_j on same antenna (i ≠ j):
+       跟踪弧段_i.end_time ≤ 跟踪弧段_j.start_time ∨ 跟踪弧段_j.end_time ≤ 跟踪弧段_i.start_time
+   ```
+
+3. **准备/收尾约束**：时间一致性
+   ```
+   跟踪弧段.start_time + request.setup_time × 60 = 跟踪弧段.tracking_on
+   跟踪弧段.tracking_off + request.teardown_time × 60 = 跟踪弧段.end_time
    ```
 
 4. **维护约束**：不能与天线停机重叠
    ```
-   ∀ 轨道, maintenance on same antenna:
-       轨道.end_time ≤ maintenance.start ∨ maintenance.end ≤ 轨道.start_time
+   ∀ 跟踪弧段, maintenance on same antenna:
+       跟踪弧段.end_time ≤ maintenance.start ∨ maintenance.end ≤ 跟踪弧段.start_time
    ```
 
-5. **最小持续时间约束**：每个轨道必须满足最小持续时间
+5. **最小持续时间约束**：每个跟踪弧段必须满足最小持续时间
    ```
-   (轨道.tracking_off - 轨道.tracking_on) / 3600 ≥ request.duration_min
+   (跟踪弧段.tracking_off - 跟踪弧段.tracking_on) / 3600 ≥ request.duration_min
    ```
 
 ### 目标
 
 最大化总通信时长：
 ```
-maximize: Σ (轨道.tracking_off - 轨道.tracking_on) / 3600
+maximize: Σ (跟踪弧段.tracking_off - 跟踪弧段.tracking_on) / 3600
 ```
 
 ## 数据格式规范
 
 ### 问题实例格式（`cases/<CASE_ID>/problem.json`）
 
-每个规范 SatNet 案例存储在 `benchmarks/satnet/dataset/cases/test/` 下的独立目录中。验证器对划分无感知，直接接受案例目录路径。案例目录中的 `problem.json` 文件包含恰好一周/一年对的请求 JSON 数组：
+每个规范 SatNet 测试实例存储在 `benchmarks/satnet/dataset/cases/test/` 下的独立目录中。验证器对子集无感知，直接接受测试实例目录路径。测试实例目录中的 `problem.json` 文件包含恰好一周/一年对的请求 JSON 数组：
 
 ```json
 [
@@ -121,13 +121,13 @@ maximize: Σ (轨道.tracking_off - 轨道.tracking_on) / 3600
 - **time_window_start/end**：请求有效窗口（Unix 时间戳）
 - **resource_vp_dict**：将天线 ID 映射到可见周期数组
   - **TRX ON/OFF**：传输窗口边界（Unix 时间戳）
-  - **RISE/SET**：卫星升起/落下时间（Unix 时间戳）
+  - **RISE/SET**：航天器升起/落下时间（Unix 时间戳）
 
 **特殊情况 - 组阵（Arraying）**：某些请求可以同时使用多根天线（例如 `"DSS-34_DSS-35"`）。这可以改善遥远航天器的信号强度。
 
-### 解决方案格式（JSON）
+### 解格式（JSON）
 
-一个已调度轨道的数组：
+一个已调度跟踪弧段的数组：
 
 ```json
 [
@@ -147,10 +147,10 @@ maximize: Σ (轨道.tracking_off - 轨道.tracking_on) / 3600
 
 - **RESOURCE**：天线 ID
 - **SC**：航天器/任务 ID（验证器会解析该字段，但不会与请求的 `subject` 进行校验）
-- **START_TIME**：包含设置的轨道开始时间（Unix 时间戳）
+- **START_TIME**：包含准备的跟踪弧段开始时间（Unix 时间戳）
 - **TRACKING_ON**：实际传输开始（Unix 时间戳）
 - **TRACKING_OFF**：实际传输结束（Unix 时间戳）
-- **END_TIME**：包含拆卸的轨道结束时间（Unix 时间戳）
+- **END_TIME**：包含收尾的跟踪弧段结束时间（Unix 时间戳）
 - **TRACK_ID**：必须与请求的 `track_id` 匹配
 
 **时间关系：**
@@ -160,7 +160,7 @@ START_TIME --[setup_time]--> TRACKING_ON --[actual_comms]--> TRACKING_OFF --[tea
 
 ### 维护计划格式（`cases/<CASE_ID>/maintenance.csv`）
 
-每个案例目录还包含一个过滤到同一周/年实例的维护 CSV：
+每个测试实例目录还包含一个过滤到同一周/年实例的维护 CSV：
 
 ```csv
 week,year,starttime,endtime,antenna
@@ -178,21 +178,21 @@ week,year,starttime,endtime,antenna
 验证器（`verifier.py`）检查：
 
 ### 1. 可见周期验证
-每个轨道的 `[TRACKING_ON, TRACKING_OFF]` 区间必须完全包含在该天线-请求对的至少一个可见周期内。
+每个跟踪弧段的 `[TRACKING_ON, TRACKING_OFF]` 区间必须完全包含在该天线-请求对的至少一个可见周期内。
 
 ### 2. 重叠检测
-同一天线上的任意两个轨道不能存在重叠的 `[START_TIME, END_TIME]` 区间（包括设置/拆卸）。
+同一天线上的任意两个跟踪弧段不能存在重叠的 `[START_TIME, END_TIME]` 区间（包括准备/收尾）。
 
-### 3. 设置/拆卸验证
+### 3. 准备/收尾验证
 - `TRACKING_ON = START_TIME + setup_time × 60`
 - `END_TIME = TRACKING_OFF + teardown_time × 60`
 
 ### 4. 维护违规检查
-任意轨道的 `[START_TIME, END_TIME]` 不能与同一天线上的任何维护窗口重叠。
+任意跟踪弧段的 `[START_TIME, END_TIME]` 不能与同一天线上的任何维护窗口重叠。
 
 ### 5. 最小持续时间检查
 - `(TRACKING_OFF - TRACKING_ON) / 3600 ≥ duration_min`
-- **特殊上限**：对于 `duration ≥ 8` 小时的请求，验证器会静默地将单轨最小持续时间上限设为 **4 小时**（`per_track_min_sec = min(req_min_sec, 14400)`）。这意味着单个轨道对长请求只需提供 4 小时的实际传输时间，而非完整的 `duration_min`。
+- **特殊上限**：对于 `duration ≥ 8` 小时的请求，验证器会静默地将单跟踪弧段最小持续时间上限设为 **4 小时**（`per_track_min_sec = min(req_min_sec, 14400)`）。这意味着单个跟踪弧段对长请求只需提供 4 小时的实际传输时间，而非完整的 `duration_min`。
 
 ### 6. 请求存在性
 每个 `TRACK_ID` 必须对应问题实例中的一个有效请求。
@@ -207,11 +207,11 @@ week,year,starttime,endtime,antenna
 score = sum((track['TRACKING_OFF'] - track['TRACKING_ON']) / 3600.0 for track in solution)
 ```
 
-**注意**：设置和拆卸时间消耗天线可用性，但**不计入**分数。
+**注意**：准备和收尾时间消耗天线可用性，但**不计入**分数。
 
 **次要指标**（也由验证器计算并报告）：
 
-- **满足请求数**：总分配时长（同一 `track_id` 的所有轨道之和）至少达到 `duration_min` 的请求数量
+- **满足请求数**：总分配时长（同一 `track_id` 的所有跟踪弧段之和）至少达到 `duration_min` 的请求数量
 - **公平性（U_max）**：所有请求中的最大未满足比例
   ```
   U_i = (requested_duration - allocated_duration) / requested_duration
@@ -235,9 +235,9 @@ score = sum((track['TRACKING_OFF'] - track['TRACKING_ON']) / 3600.0 for track in
 | W50_2018 | 275 | 1292.2h | 29 |
 
 **复杂度因素：**
-- **可见周期碎片化**：某些卫星有很多短 VP，而另一些则很少但很长
+- **可见周期碎片化**：某些航天器有很多短 VP，而另一些则很少但很长
 - **组阵需求**：多天线请求更难调度
-- **设置/拆卸开销**：高开销降低了有效天线利用率
+- **准备/收尾开销**：高开销降低了有效天线利用率
 - **维护密度**：更多停机时间增加了调度难度
 
 ## 验证器使用
@@ -280,8 +280,8 @@ VALID: score=234.5678h, tracks=145
 
 ## 文件位置
 
-- **案例清单**：`benchmarks/satnet/dataset/index.json`
-- **规范案例**：`benchmarks/satnet/dataset/cases/test/W##_YYYY/`
+- **测试实例清单**：`benchmarks/satnet/dataset/index.json`
+- **规范测试实例**：`benchmarks/satnet/dataset/cases/test/W##_YYYY/`
 - **共享元数据**：`benchmarks/satnet/dataset/mission_color_map.json`
 - **验证器**：`benchmarks/satnet/verifier.py`
 - **生成器**：`uv run python benchmarks/satnet/generator.py benchmarks/satnet/splits.yaml`
@@ -291,8 +291,8 @@ VALID: score=234.5678h, tracks=145
 
 ### 可见周期（VPs）
 
-可见周期是卫星与地面站有视线的时间段。它们基于以下因素预计算：
-- **轨道力学**：卫星星历（随时间变化的位置/速度）
+可见周期是航天器与地面站有视线的时间段。它们基于以下因素预计算：
+- **轨道力学**：航天器星历（随时间变化的位置/速度）
 - **地面站位置**：纬度、经度、海拔
 - **仰角**：地平线上最小角度（通常为 10–15°）
 - **大气约束**：无线电频率传播限制
@@ -307,13 +307,13 @@ VPs 是**硬约束**——无论天线可用性如何，你都不能在这些窗
 
 在数据集中，组阵请求以连字符天线 ID 出现（例如 `"DSS-34_DSS-35"`）。组阵中的所有天线必须同时空闲。
 
-### 设置与拆卸
+### 准备与收尾
 
 每次传输前：
-- **设置**：天线转向、接收机调谐、频率锁定获取
-- **拆卸**：系统复位、日志记录、天线重新定位
+- **准备**：天线转向、接收机调谐、频率锁定获取
+- **收尾**：系统复位、日志记录、天线重新定位
 
-这些时间是**物理上必需的**，并消耗天线可用性，但**不计入**目标分数（只有实际传输时间才算）。
+这些时长属于必要的物理开销，会消耗天线可用性，但**不计入**目标分数（只有实际传输时间才算）。
 
 ## 许可与归属
 

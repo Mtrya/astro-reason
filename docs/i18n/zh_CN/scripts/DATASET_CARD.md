@@ -15,11 +15,11 @@ tags:
 
 这是 **AstroReason-Bench** 的规范 Hugging Face 数据集仓库，一个用于评估 AI 代理和算法在航天任务设计与规划问题上的 benchmark 套件。
 
-每个 benchmark 在此数据集中作为一个独立的 **config**（子集）暴露。config 内的划分（split）透明映射到 benchmark 自身的数据集划分（例如 `test`、`single_orbit`、`multi_orbit`）。
+每个 benchmark 在此数据集中作为一个独立的 **config**（子集）暴露。config 内的子集（split）透明映射到 benchmark 自身的数据集子集（例如 `test`、`single_orbit`、`multi_orbit`）。
 
 ## 数据集摘要
 
-| Config | 案例数 | 划分 | 领域 |
+| Config | 测试实例数 | 子集 | 领域 |
 |---|---|---|---|
 | `aeossp_standard` | 5 | `test` | 敏捷地球观测卫星调度 |
 | `regional_coverage` | 5 | `test` | 类 SAR 区域条带观测规划 |
@@ -38,7 +38,7 @@ tags:
   "case_id": "case_0001",
   "split": "test",
   "benchmark": "aeossp_standard",
-  "index_metadata": { ... 来自 index.json 的案例特定元数据 ... },
+  "index_metadata": { ... 来自 index.json 的测试实例特定元数据 ... },
   "files": [
     {"path": "mission.yaml", "content": "..."},
     {"path": "satellites.yaml", "content": "..."},
@@ -47,13 +47,13 @@ tags:
 }
 ```
 
-- **`case_id`**: 该案例在 benchmark 内的唯一标识符。
-- **`split`**: 该案例所属的数据集划分。
+- **`case_id`**: 该测试实例在 benchmark 内的唯一标识符。
+- **`split`**: 该测试实例所属的数据集子集。
 - **`benchmark`**: benchmark 名称。
-- **`index_metadata`**: benchmark 的 `dataset/index.json` 中的案例级条目（例如卫星数量、任务数量、时域、阈值、来源）。
-- **`files`**: 案例目录内所有文本文件的列表。每个条目包含一个 `path`（相对于案例目录）和完整的 UTF-8 `content`。
+- **`index_metadata`**: benchmark 的 `dataset/index.json` 中的测试实例级条目（例如卫星数量、任务数量、任务时域、阈值、来源）。
+- **`files`**: 测试实例目录内所有文本文件的列表。每个条目包含一个 `path`（相对于测试实例目录）和完整的 UTF-8 `content`。
 
-> **注意**：由于不同案例包含不同的文件名，`files` 被存储为统一的对象列表，而不是带有动态键的字典。这确保了跨划分的一致特征。
+> **注意**：由于不同测试实例包含不同的文件名，`files` 被存储为统一的对象列表，而不是带有动态键的字典。这确保了跨子集的一致特征。
 
 ## 快速开始
 
@@ -67,7 +67,7 @@ ds = load_dataset("AstroReason-Bench/datasets", "aeossp_standard")
 print(ds["test"][0]["case_id"])
 ```
 
-### 加载特定案例的文件
+### 加载特定测试实例的文件
 
 ```python
 case = ds["test"][0]
@@ -91,53 +91,53 @@ for config in configs:
 ## Benchmark 描述
 
 ### `aeossp_standard`
-一个面向规划的敏捷地球观测卫星调度 benchmark。每个案例提供由冻结 TLE 定义的固定真实卫星星座、带时间窗口的点成像任务，以及观测几何、电池状态和机动可行性的硬约束。求解器提交一个 `observation` 动作调度表。指标包括完成率（`CR`）、加权完成率（`WCR`）、平均延迟（`TAT`）和功耗（`PC`）。
+一个面向规划的敏捷地球观测卫星调度 benchmark。每个测试实例提供由冻结 TLE 定义的固定真实卫星星座、带时间窗口的点成像任务，以及观测几何、电池状态和姿态机动可行性的硬约束。求解器提交一个 `observation` 动作调度表。指标包括完成率（`CR`）、加权完成率（`WCR`）、平均延迟（`TAT`）和功耗（`PC`）。
 
-**案例文件**: `mission.yaml`, `satellites.yaml`, `tasks.yaml`
+**测试实例文件**: `mission.yaml`, `satellites.yaml`, `tasks.yaml`
 
 ### `regional_coverage`
-一个类 SAR 区域成像 benchmark。求解器必须规划对多边形感兴趣区域的条带观测，以最大化唯一加权覆盖率。案例包含带冻结 TLE 的真实卫星、GeoJSON 区域定义和 benchmark 自有的细网格评分模型。硬约束包括纯滚动条带几何、同一卫星再指向限制、电池可行性以及可选的每区域最小覆盖阈值。
+一个类 SAR 区域成像 benchmark。求解器必须规划对多边形感兴趣区域的条带观测，以最大化唯一加权覆盖率。测试实例包含带冻结 TLE 的真实卫星、GeoJSON 区域定义和 benchmark 自有的细网格评分模型。硬约束包括仅滚转条带几何、同一卫星再指向限制、电池可行性以及可选的每区域最小覆盖阈值。
 
-**案例文件**: `manifest.json`, `satellites.yaml`, `regions.geojson`, `coverage_grid.json`
+**测试实例文件**: `manifest.json`, `satellites.yaml`, `regions.geojson`, `coverage_grid.json`
 
 ### `relay_constellation`
-一个面向中继服务增强的部分星座设计 benchmark。给定不可变的 MEO 中继骨干网和地面端点，求解器添加有限数量的低轨道中继卫星并调度地面链路和星间链路动作。验证器对服务比例、延迟分位数和新增卫星数量进行评分。
+一个面向中继服务增强的部分星座设计 benchmark。给定不可变的 MEO 既有卫星（backbone satellites）和地面端点，求解器添加有限数量的低轨道中继卫星并调度地面链路和星间链路动作。验证器的评分项包括服务比例、延迟分位数及新增卫星数量。
 
-**案例文件**: `manifest.json`, `network.json`, `demands.json`
+**测试实例文件**: `manifest.json`, `network.json`, `demands.json`
 
 ### `revisit_constellation`
-一个聚焦于重访性能的星座设计与调度 benchmark。求解器设计一个卫星星座（初始 GCRF 笛卡尔状态，最多到案例上限）并调度 `observation` 动作，以在 48 小时时域内尽可能缩小目标重访间隔。评分由 `mean_revisit_gap_hours`、`max_revisit_gap_hours` 和 `satellite_count` 驱动。
+一个聚焦于重访性能的星座设计与调度 benchmark。求解器设计一个卫星星座（初始 GCRF 笛卡尔状态，最多到测试实例上限）并调度 `observation` 动作，以在 48 小时任务时域内尽可能缩小目标重访间隔。评分由 `mean_revisit_gap_hours`、`max_revisit_gap_hours` 和 `satellite_count` 驱动。
 
-**案例文件**: `assets.json`, `mission.json`
+**测试实例文件**: `assets.json`, `mission.json`
 
 ### `satnet`
-一个源于 NASA/JPL 深空网络（DSN）操作的强化学习 benchmark。任务是在一周窗口内为行星际航天器调度地面站天线轨道，遵守预计算的可见周期、设置/拆卸时间、维护窗口和非重叠约束。主要指标是总调度通信时长。
+一个源于 NASA/JPL 深空网络（DSN）操作的强化学习 benchmark。任务是在一周窗口内为行星际航天器调度地面站天线跟踪弧段，遵守预计算的可见周期、准备/收尾时间、维护窗口和非重叠约束。主要指标是总调度通信时长。
 
-**案例文件**: `problem.json`, `maintenance.csv`, `metadata.json`
+**测试实例文件**: `problem.json`, `maintenance.csv`, `metadata.json`
 
 ### `spot5`
-一个基于 ROADEF 2003 挑战赛和 CNES SPOT-5 操作的约束优化 benchmark。案例以 DCKP（析取约束背包问题）格式编码。求解器选择照片并分配相机，以在满足二元/三元析取约束和星载存储容量约束（多轨道实例）的同时最大化总利润。
+一个基于 ROADEF 2003 挑战赛和 CNES SPOT-5 操作的约束优化 benchmark。测试实例以 DCKP（析取约束背包问题）格式编码。求解器选择照片并分配相机，以在满足二元/三元析取约束和星载存储容量约束（多轨道实例）的同时最大化总利润。
 
-**案例文件**: `<case_id>.spot`
+**测试实例文件**: `<case_id>.spot`
 
 ### `stereo_imaging`
-一个光学卫星立体成像 benchmark。求解器调度来自真实卫星的定时观测，以获取地面目标的同轨立体或三立体产物。验证器对 `coverage_ratio`（具有有效立体产物的目标比例）和 `normalized_quality`（基于交会角、重叠和像素比例的最佳每目标质量平均值）进行评分。
+一个光学卫星立体成像 benchmark。求解器调度来自真实卫星的定时观测，以获取地面目标的同轨立体或三立体成像产物。验证器对 `coverage_ratio`（具有有效立体产物的目标比例）和 `normalized_quality`（基于交会角、重叠率和像素尺度比的最佳每目标质量平均值）进行评分。
 
-**案例文件**: `satellites.yaml`, `targets.yaml`, `mission.yaml`
+**测试实例文件**: `satellites.yaml`, `targets.yaml`, `mission.yaml`
 
-## 数据划分与划分策略
+## 数据子集与划分策略
 
-- `aeossp_standard`、`regional_coverage`、`relay_constellation`、`revisit_constellation`、`satnet`、`stereo_imaging`：当前暴露单个提交划分 `test`。
-- `spot5`：暴露三个划分：
-  - `single_orbit`：14 个无存储约束的案例。
-  - `multi_orbit`：7 个存储容量为 200 的案例。
-  - `test`：以种子 42 抽取的 5 案例样本（与 `single_orbit` 和 `multi_orbit` 有重叠）。
+- `aeossp_standard`、`regional_coverage`、`relay_constellation`、`revisit_constellation`、`satnet`、`stereo_imaging`：当前暴露单个提交子集 `test`。
+- `spot5`：暴露三个子集：
+  - `single_orbit`：14 个无存储约束的测试实例。
+  - `multi_orbit`：7 个存储容量为 200 的测试实例。
+  - `test`：以种子 42 抽取的 5 测试实例样本（与 `single_orbit` 和 `multi_orbit` 有重叠）。
 
-未来的 benchmark 发布可能会透明地添加额外划分（例如 `train`、`val`），而不会改变 schema。
+未来的 benchmark 发布可能会透明地添加额外子集（例如 `train`、`val`），而不会改变 schema。
 
 ## 数据集创建
 
-所有规范数据集都由 AstroReason-Bench 仓库生成或整理。在有生成器的地方，它们是确定性的，并与提交的 `splits.yaml` 契约绑定。规范案例被提交到仓库中，是评估的事实来源。
+所有规范数据集都由 AstroReason-Bench 仓库生成或整理。在有生成器的地方，它们是确定性的，并与提交的 `splits.yaml` 契约绑定。规范测试实例被提交到仓库中，是评估的事实来源。
 
 ## 源数据
 
@@ -145,7 +145,7 @@ for config in configs:
 |---|---|
 | `aeossp_standard` | CelesTrak TLE 快照；GeoNames 城市；Natural Earth 陆地多边形 |
 | `regional_coverage` | CelesTrak TLE 快照；GeoNames；Natural Earth |
-| `relay_constellation` | 带有确定性种子的合成案例生成器 |
+| `relay_constellation` | 带有确定性种子的合成测试实例生成器 |
 | `revisit_constellation` | Kaggle world-cities 数据集；CelesTrak TLE 快照 |
 | `satnet` | 源于 NASA/JPL 深空网络运筹学研究（Chien 等，2021） |
 | `spot5` | Mendeley Data DCKP 抽象（Wei & Hao，2021），来自 CNES SPOT-5 ROADEF 2003 实例 |
@@ -155,8 +155,8 @@ for config in configs:
 
 - **算法无关**：benchmark 定义问题和验证方式，不偏好特定的求解策略。
 - **独立运行**：每个 config 自包含，不依赖其他 config 的运行时。
-- **不包含解决方案**：本数据集仅包含问题实例（案例）。解决方案、基线和排行榜属于下游仓库。
-- **跳过二进制文件**：上传脚本仅摄取基于文本的案例文件。任何未来的二进制产物将被排除在此 HF 发布之外。
+- **不包含求解器**：本数据集仅包含问题实例（测试实例）。求解器、基线和排行榜属于下游仓库。
+- **跳过二进制文件**：上传脚本仅摄取基于文本的测试实例文件。任何未来的二进制产物将被排除在此 HF 发布之外。
 
 ## 许可信息
 
