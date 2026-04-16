@@ -59,14 +59,8 @@ def discover_source_docs(repo_root: Path = REPO_ROOT) -> list[Path]:
             sources.append(path)
 
     # Remove duplicates and sort for determinism
-    seen: set[Path] = set()
-    unique_sources: list[Path] = []
-    for p in sources:
-        resolved = p.resolve()
-        if resolved not in seen:
-            seen.add(resolved)
-            unique_sources.append(p)
-    return sorted(unique_sources, key=lambda p: str(p.relative_to(repo_root)))
+    unique_sources_map = {p.resolve(): p for p in sources}
+    return sorted(unique_sources_map.values(), key=lambda p: str(p.relative_to(repo_root)))
 
 
 def mapped_zh_path(source: Path, repo_root: Path = REPO_ROOT) -> Path:
