@@ -12,12 +12,6 @@ env.bak/
 venv.bak/
 
 # Project-specific ignores
-.factory/
-.agent/
-.claude/
-.gemini/
-.agents/
-.qwen/
 .vscode/
 .codex
 CLAUDE.md
