@@ -28,7 +28,7 @@ dataset/
 
 共享的、对验证器非关键的 benchmark 元数据保留在数据集范围：
 
-- `index.json`：数据集清单和数据集级来源来源
+- `index.json`：数据集清单和数据集级来源
 - `example_solution.json`：数据集范围的一个最小可运行解（与普通提交的 schema 相同），用于验证器冒烟测试；这些不是基线
 - `mission_color_map.json`：从上游 SatNet 发布继承的任务显示元数据
 
