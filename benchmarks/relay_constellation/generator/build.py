@@ -627,7 +627,7 @@ def _case_manifest(
         "routing_step_s": routing_step_s,
         "scoring": {
             "primary_metric": "service_fraction",
-            "secondary_metric": "latency_p95_ms",
+            "secondary_metric": "worst_demand_service_fraction",
         },
         "seed": seed,
     }

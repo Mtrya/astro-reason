@@ -208,5 +208,5 @@ If you use this dataset suite in your research, please cite the AstroReason-Benc
 
 ## Contact and Links
 
-- **Repository**: https://github.com/Mtrya/AstroReason-Bench
-- **Issue Tracker**: https://github.com/Mtrya/AstroReason-Bench/issues
+- **Repository**: https://github.com/Mtrya/astro-reason
+- **Issue Tracker**: https://github.com/Mtrya/astro-reason/issues

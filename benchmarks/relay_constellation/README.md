@@ -231,6 +231,33 @@ Intended ranking order:
 5. minimize `mean_latency_ms`
 6. minimize `num_added_satellites`
 
+## Verifier Output Format
+
+The verifier CLI prints a JSON object with this top-level structure:
+
+```json
+{
+  "valid": true,
+  "metrics": {
+    "service_fraction": 0.0,
+    "worst_demand_service_fraction": 0.0,
+    "mean_latency_ms": 0.0,
+    "latency_p95_ms": 0.0,
+    "num_added_satellites": 0,
+    "num_demanded_windows": 0,
+    "num_backbone_satellites": 0,
+    "per_demand": {}
+  },
+  "violations": [],
+  "diagnostics": {}
+}
+```
+
+- `valid`: `true` when all hard constraints are satisfied, `false` otherwise
+- `metrics`: the scored values documented in Metrics And Ranking
+- `violations`: list of human-readable strings describing any hard-constraint failures
+- `diagnostics`: additional deterministic details for debugging or analysis
+
 ## Propagation And Link Model
 
 The verifier uses one pinned astrodynamics stack:

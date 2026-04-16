@@ -1098,7 +1098,7 @@ def _compute_metrics(case: CaseData, parsed_actions: list[ParsedAction]) -> dict
     )
     num_actions = sum(1 for action in parsed_actions if action.raw_type == "strip_observation")
     total_imaging_time_s = sum(
-        action.duration_s for action in parsed_actions if action.accepted_for_schedule
+        (action.duration_s for action in parsed_actions if action.accepted_for_schedule), 0.0
     )
 
     return {
