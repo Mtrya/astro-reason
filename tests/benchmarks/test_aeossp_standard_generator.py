@@ -23,7 +23,6 @@ from benchmarks.aeossp_standard.generator.build import load_generator_config
 from benchmarks.aeossp_standard.generator.sources import (
     CELESTRAK_CSV_NAME,
     CELESTRAK_EARTH_RESOURCES_URL,
-    CELESTRAK_RAW_NAME,
     CELESTRAK_SNAPSHOT_EPOCH_UTC,
     NATURAL_EARTH_LAND_FILENAME,
     NATURAL_EARTH_LAND_URL,
@@ -166,11 +165,6 @@ def _write_source_tree(source_dir: Path) -> None:
         )
         writer.writeheader()
         writer.writerows(cached_tles.CACHED_CELESTRAK_ROWS)
-    raw_lines: list[str] = []
-    for row in cached_tles.CACHED_CELESTRAK_ROWS:
-        raw_lines.extend([row["name"], row["tle_line1"], row["tle_line2"]])
-    (celestrak_dir / CELESTRAK_RAW_NAME).write_text("\n".join(raw_lines) + "\n", encoding="utf-8")
-
     cities_dir = source_dir / "world_cities"
     cities_dir.mkdir(parents=True, exist_ok=True)
     (cities_dir / WORLD_CITIES_FILENAME).write_text(
@@ -601,16 +595,33 @@ def test_download_celestrak_uses_vendored_snapshot(tmp_path, monkeypatch) -> Non
         "urlopen",
         lambda *args, **kwargs: (_ for _ in ()).throw(AssertionError("network should not be used")),
     )
+    legacy_raw_path = tmp_path / "celestrak" / "earth_resources_raw.tle"
+    legacy_raw_path.parent.mkdir(parents=True, exist_ok=True)
+    legacy_raw_path.write_text("legacy", encoding="utf-8")
 
     result = sources.download_celestrak(tmp_path, force_download=True)
     csv_path = tmp_path / "celestrak" / "earth_resources.csv"
-    raw_path = tmp_path / "celestrak" / "earth_resources_raw.tle"
 
     assert result.extra["vendored_snapshot"] is True
     assert result.extra["snapshot_epoch_utc"] == CELESTRAK_SNAPSHOT_EPOCH_UTC
     assert result.extra["record_count"] == len(cached_tles.CACHED_CELESTRAK_ROWS)
     assert csv_path.is_file()
-    assert raw_path.is_file()
+    assert not legacy_raw_path.exists()
     assert csv_path.read_text(encoding="utf-8").startswith(
         "name,norad_catalog_id,tle_line1,tle_line2,epoch_iso,inclination_deg,"
     )
+
+
+def test_download_world_cities_uses_vendored_snapshot(tmp_path, monkeypatch) -> None:
+    monkeypatch.setattr(
+        sources.urllib.request,
+        "urlopen",
+        lambda *args, **kwargs: (_ for _ in ()).throw(AssertionError("network should not be used")),
+    )
+
+    result = sources.download_world_cities(tmp_path, force_download=True)
+    csv_path = tmp_path / "world_cities" / WORLD_CITIES_FILENAME
+
+    assert result.extra["vendored_snapshot"] is True
+    assert csv_path.is_file()
+    assert csv_path.read_text(encoding="utf-8").startswith("name,country,latitude_deg,longitude_deg,population\n")

@@ -174,11 +174,11 @@ tasks:
   latitude_deg: 10.48801
   longitude_deg: -66.87919
   altitude_m: 0.0
-  release_time: '2026-04-14T12:28:30Z'
-  due_time: '2026-04-14T12:54:30Z'
-  required_duration_s: 35
+  release_time: '2026-04-14T13:04:30Z'
+  due_time: '2026-04-14T13:30:30Z'
+  required_duration_s: 60
   required_sensor_type: visible
-  weight: 3.0
+  weight: 4.0
 - task_id: task_0019
   name: Jieyang, CN
   latitude_deg: 23.5418
@@ -410,13 +410,13 @@ tasks:
   required_sensor_type: visible
   weight: 3.0
 - task_id: task_0042
-  name: Cape Town, ZA
-  latitude_deg: -33.92584
-  longitude_deg: 18.42322
+  name: Lanzhou, CN
+  latitude_deg: 36.05701
+  longitude_deg: 103.83987
   altitude_m: 0.0
-  release_time: '2026-04-14T21:22:00Z'
-  due_time: '2026-04-14T21:47:30Z'
-  required_duration_s: 30
+  release_time: '2026-04-14T23:07:30Z'
+  due_time: '2026-04-15T00:00:00Z'
+  required_duration_s: 45
   required_sensor_type: infrared
   weight: 3.0
 - task_id: task_0043
@@ -610,23 +610,23 @@ tasks:
   required_sensor_type: visible
   weight: 5.0
 - task_id: task_0062
-  name: Bengaluru, IN
-  latitude_deg: 12.97194
-  longitude_deg: 77.59369
+  name: Zhengzhou, CN
+  latitude_deg: 34.75778
+  longitude_deg: 113.64861
   altitude_m: 0.0
-  release_time: '2026-04-14T16:57:30Z'
-  due_time: '2026-04-14T17:23:00Z'
-  required_duration_s: 25
+  release_time: '2026-04-14T13:33:30Z'
+  due_time: '2026-04-14T14:44:00Z'
+  required_duration_s: 20
   required_sensor_type: infrared
-  weight: 4.0
+  weight: 3.0
 - task_id: task_0063
-  name: Xiamen, CN
-  latitude_deg: 24.47979
-  longitude_deg: 118.08187
+  name: Barranquilla, CO
+  latitude_deg: 10.96854
+  longitude_deg: -74.78132
   altitude_m: 0.0
-  release_time: '2026-04-14T14:05:00Z'
-  due_time: '2026-04-14T14:16:00Z'
-  required_duration_s: 40
+  release_time: '2026-04-14T21:51:00Z'
+  due_time: '2026-04-14T23:51:30Z'
+  required_duration_s: 15
   required_sensor_type: infrared
   weight: 3.0
 - task_id: task_0064
@@ -1974,11 +1974,11 @@ tasks:
   latitude_deg: -23.46278
   longitude_deg: -46.53333
   altitude_m: 0.0
-  release_time: '2026-04-14T12:19:00Z'
-  due_time: '2026-04-14T13:35:00Z'
+  release_time: '2026-04-14T12:39:00Z'
+  due_time: '2026-04-14T14:00:00Z'
   required_duration_s: 15
   required_sensor_type: infrared
-  weight: 4.0
+  weight: 3.0
 - task_id: task_0199
   name: Cairo, EG
   latitude_deg: 30.06263
@@ -3450,12 +3450,12 @@ tasks:
   required_sensor_type: infrared
   weight: 3.0
 - task_id: task_0346
-  name: "M\xE9rida, MX"
-  latitude_deg: 20.967
-  longitude_deg: -89.62318
+  name: Kumasi, GH
+  latitude_deg: 6.68848
+  longitude_deg: -1.62443
   altitude_m: 0.0
-  release_time: '2026-04-14T16:14:30Z'
-  due_time: '2026-04-14T16:35:00Z'
+  release_time: '2026-04-14T22:17:00Z'
+  due_time: '2026-04-14T22:37:30Z'
   required_duration_s: 25
   required_sensor_type: infrared
   weight: 4.0
@@ -3664,7 +3664,7 @@ tasks:
   latitude_deg: 59.93863
   longitude_deg: 30.31413
   altitude_m: 0.0
-  release_time: '2026-04-14T19:14:00Z'
+  release_time: '2026-04-14T19:09:00Z'
   due_time: '2026-04-14T19:35:00Z'
   required_duration_s: 40
   required_sensor_type: infrared
@@ -3760,15 +3760,15 @@ tasks:
   required_sensor_type: visible
   weight: 3.0
 - task_id: task_0377
-  name: Kinshasa, CD
-  latitude_deg: -4.32758
-  longitude_deg: 15.31357
+  name: Delhi, IN
+  latitude_deg: 28.65195
+  longitude_deg: 77.23149
   altitude_m: 0.0
-  release_time: '2026-04-14T20:23:30Z'
-  due_time: '2026-04-14T20:55:00Z'
-  required_duration_s: 85
+  release_time: '2026-04-14T16:51:00Z'
+  due_time: '2026-04-14T17:52:30Z'
+  required_duration_s: 80
   required_sensor_type: visible
-  weight: 5.0
+  weight: 4.0
 - task_id: task_0378
   name: background_0105
   latitude_deg: 47.648351
@@ -4430,15 +4430,15 @@ tasks:
   required_sensor_type: visible
   weight: 2.0
 - task_id: task_0444
-  name: Los Angeles, US
-  latitude_deg: 34.05223
-  longitude_deg: -118.24368
+  name: Kinshasa, CD
+  latitude_deg: -4.32758
+  longitude_deg: 15.31357
   altitude_m: 0.0
-  release_time: '2026-04-14T17:54:30Z'
-  due_time: '2026-04-14T18:55:30Z'
-  required_duration_s: 50
+  release_time: '2026-04-14T20:28:30Z'
+  due_time: '2026-04-14T21:05:00Z'
+  required_duration_s: 90
   required_sensor_type: visible
-  weight: 4.0
+  weight: 3.0
 - task_id: task_0445
   name: background_0171
   latitude_deg: 30.299393
@@ -4804,11 +4804,11 @@ tasks:
   latitude_deg: 43.70643
   longitude_deg: -79.39864
   altitude_m: 0.0
-  release_time: '2026-04-14T14:33:00Z'
-  due_time: '2026-04-14T16:04:00Z'
-  required_duration_s: 45
+  release_time: '2026-04-14T19:27:30Z'
+  due_time: '2026-04-14T20:24:00Z'
+  required_duration_s: 70
   required_sensor_type: visible
-  weight: 4.0
+  weight: 5.0
 - task_id: task_0482
   name: background_0006
   latitude_deg: 64.472404
@@ -4950,13 +4950,13 @@ tasks:
   required_sensor_type: visible
   weight: 3.0
 - task_id: task_0496
-  name: Delhi, IN
-  latitude_deg: 28.65195
-  longitude_deg: 77.23149
+  name: Beijing, CN
+  latitude_deg: 39.9075
+  longitude_deg: 116.39723
   altitude_m: 0.0
-  release_time: '2026-04-14T16:56:00Z'
-  due_time: '2026-04-14T17:42:30Z'
-  required_duration_s: 45
+  release_time: '2026-04-14T18:14:30Z'
+  due_time: '2026-04-14T18:30:30Z'
+  required_duration_s: 20
   required_sensor_type: visible
   weight: 4.0
 - task_id: task_0497
