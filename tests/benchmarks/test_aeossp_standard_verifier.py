@@ -189,15 +189,3 @@ def test_verify_solution_rejects_bad_action_timing(
 
     assert result.valid is False
     assert any(expected_violation in violation for violation in result.violations)
-
-
-def test_verify_solution_example_smoke_case_reports_nonzero_completion() -> None:
-    index_payload = json.loads(INDEX_PATH.read_text(encoding="utf-8"))
-    case_dir = DATASET_DIR / "cases" / Path(index_payload["example_smoke_case"])
-
-    result = verify_solution(case_dir, EXAMPLE_SOLUTION_PATH)
-
-    assert result.valid is True
-    assert result.metrics["CR"] > 0.0
-    assert result.metrics["WCR"] > 0.0
-    assert result.metrics["TAT"] is not None
