@@ -38,6 +38,7 @@ splits:
       max_altitude_m: 900000.0
       min_retained_count: 40
       include_name_tokens:
+        - CAPELLA
         - LANDSAT
         - SENTINEL-2
         - SPOT
@@ -57,7 +58,6 @@ splits:
       exclude_name_tokens:
         - SAR
         - ICEYE
-        - CAPELLA
         - RADARSAT
         - RISAT
         - RCM
@@ -116,8 +116,8 @@ splits:
           sunlit_charge_power_w: 115.0
 
     tasks:
-      min_per_case: 200
-      max_per_case: 800
+      min_per_case: 500
+      max_per_case: 1600
       min_target_separation_m: 25000.0
       city_fraction: 0.60
       visible_fraction: 0.80

@@ -29,7 +29,7 @@
         52912
       ],
       "num_satellites": 21,
-      "num_tasks": 318,
+      "num_tasks": 737,
       "path": "cases/test/case_0001",
       "satellite_sensor_mix": {
         "infrared": 4,
@@ -37,16 +37,16 @@
       },
       "split": "test",
       "task_sensor_mix": {
-        "infrared": 63,
-        "visible": 255
+        "infrared": 147,
+        "visible": 590
       },
       "task_source_mix": {
-        "background": 127,
-        "city": 191
+        "background": 295,
+        "city": 442
       },
       "task_weight_summary": {
         "max": 5.0,
-        "mean": 3.034591,
+        "mean": 2.994573,
         "min": 1.0
       }
     },
@@ -95,7 +95,7 @@
         60989
       ],
       "num_satellites": 38,
-      "num_tasks": 499,
+      "num_tasks": 1099,
       "path": "cases/test/case_0002",
       "satellite_sensor_mix": {
         "infrared": 8,
@@ -103,16 +103,16 @@
       },
       "split": "test",
       "task_sensor_mix": {
-        "infrared": 100,
-        "visible": 399
+        "infrared": 220,
+        "visible": 879
       },
       "task_source_mix": {
-        "background": 200,
-        "city": 299
+        "background": 440,
+        "city": 659
       },
       "task_weight_summary": {
         "max": 5.0,
-        "mean": 2.958918,
+        "mean": 3.00273,
         "min": 1.0
       }
     },
@@ -148,7 +148,7 @@
         49070
       ],
       "num_satellites": 25,
-      "num_tasks": 357,
+      "num_tasks": 815,
       "path": "cases/test/case_0003",
       "satellite_sensor_mix": {
         "infrared": 5,
@@ -156,16 +156,16 @@
       },
       "split": "test",
       "task_sensor_mix": {
-        "infrared": 72,
-        "visible": 285
+        "infrared": 163,
+        "visible": 652
       },
       "task_source_mix": {
-        "background": 143,
-        "city": 214
+        "background": 326,
+        "city": 489
       },
       "task_weight_summary": {
         "max": 5.0,
-        "mean": 3.028011,
+        "mean": 2.957669,
         "min": 1.0
       }
     },
@@ -174,20 +174,19 @@
       "case_seed": 4078,
       "horizon_hours": 12,
       "norad_catalog_ids": [
-        28051,
         28649,
         35681,
         36795,
         38038,
+        38755,
         39150,
         40118,
         40697,
+        41556,
+        41601,
         41727,
         41877,
-        42990,
         43260,
-        43262,
-        43461,
         43484,
         44622,
         44804,
@@ -195,10 +194,11 @@
         48079,
         48268,
         49260,
+        52912,
         57654
       ],
       "num_satellites": 22,
-      "num_tasks": 772,
+      "num_tasks": 1127,
       "path": "cases/test/case_0004",
       "satellite_sensor_mix": {
         "infrared": 4,
@@ -206,16 +206,16 @@
       },
       "split": "test",
       "task_sensor_mix": {
-        "infrared": 155,
-        "visible": 617
+        "infrared": 225,
+        "visible": 902
       },
       "task_source_mix": {
-        "background": 309,
-        "city": 463
+        "background": 451,
+        "city": 676
       },
       "task_weight_summary": {
         "max": 5.0,
-        "mean": 3.012953,
+        "mean": 3.004437,
         "min": 1.0
       }
     },
@@ -260,7 +260,7 @@
         60989
       ],
       "num_satellites": 34,
-      "num_tasks": 500,
+      "num_tasks": 1101,
       "path": "cases/test/case_0005",
       "satellite_sensor_mix": {
         "infrared": 7,
@@ -268,16 +268,16 @@
       },
       "split": "test",
       "task_sensor_mix": {
-        "infrared": 100,
-        "visible": 400
+        "infrared": 220,
+        "visible": 881
       },
       "task_source_mix": {
-        "background": 200,
-        "city": 300
+        "background": 440,
+        "city": 661
       },
       "task_weight_summary": {
         "max": 5.0,
-        "mean": 2.914,
+        "mean": 3.002271,
         "min": 1.0
       }
     }
