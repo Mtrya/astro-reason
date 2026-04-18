@@ -1,52 +1,50 @@
 # AstroReason-Bench
 
-AstroReason-Bench is a benchmark-core repository for evaluating LLM agents on space mission design and planning problems.
+AstroReason-Bench is evolving into a monorepo for space mission design benchmarks and first-party method layers.
 
-This branch is under active development as we expand the suite with more subtasks and decouple benchmarks from solution implementations. To reproduce the results from the current paper, use the `v1` branch, where benchmarks and solutions are still coupled. A separate solutions repository is planned and will be released in the future.
+The benchmark core remains algorithm-agnostic: benchmarks define problems, datasets, and verifiers; methods consume benchmarks and never the reverse.
 
-## Why This Project?
+For historical paper reproduction, use the `v1` branch.
 
-**Aerospace lacks rigorous, standardized, algorithm-agnostic benchmarks.** While AI has ImageNet and GLUE, space mission design still lacks a shared evaluation suite built around well-defined problems and verifiable scoring.
-
-This repository focuses on:
-
-- **Datasets**: Canonical benchmark instances
-- **Verifiers**: Standalone validation and scoring logic
-- **Reproducibility tools**: Optional benchmark-local generators and visualizers
-
-Any approach can be evaluated: LLM agents, metaheuristics, RL systems, or human experts. This repository defines the benchmark; it does **not** ship solution implementations.
-
-## Repository Structure
+## Repository Shape
 
 ```text
 astro-reason/
-├── benchmarks/{name}/
-│   ├── dataset/              # Problem instances
-│   ├── verifier.py           # or verifier/run.py
-│   ├── visualizer.py         # optional, or visualizer/run.py
-│   ├── generator.py          # optional, or generator/run.py
-│   └── README.md             # Problem specification and file formats
-└── tests/
-    └── benchmarks/           # Focused tests for verifiers and benchmark tooling
+├── benchmarks/   # canonical problems, datasets, verifiers, generators
+├── experiments/  # reproducible evaluated runs of methods
+├── solvers/      # traditional solver implementations
+├── runtimes/     # reusable execution substrates for agentic systems
+├── scripts/      # repo-owned orchestration and validation entrypoints
+└── tests/        # focused benchmark and tooling tests
 ```
 
-## Benchmark Design Principles
+## Design Principles
 
-- **Algorithm-agnostic**: Benchmarks define problems and verification, not the method used to solve them.
-- **Standalone**: Each benchmark is self-contained with no dependencies on other benchmarks.
-- **Reproducible**: Optional generators can recreate or extend datasets when appropriate.
-- **Solution-free core**: Solutions and baselines live outside this repository.
+- **Algorithm-agnostic benchmark core**: `benchmarks/` does not encode preferred solving strategies.
+- **One-way contracts**: methods may depend on benchmarks; benchmarks must not depend on method code.
+- **Standalone benchmarks**: each benchmark remains self-contained.
+- **Reproducible method layers**: experiments, solvers, and runtimes should be runnable and inspectable.
+
+## Directory Roles
+
+- `benchmarks/` owns public benchmark definitions and benchmark-side tooling.
+- `experiments/` owns runnable benchmark-facing method configurations and prompts.
+- `solvers/` owns traditional non-agentic solver methods.
+- `runtimes/` owns reusable agent runtime environments, build logic, and shared runtime assets.
 
 ## Environment
 
-This project uses `uv` for environment management. To ensure verifier integrity, run:
+Benchmark-core development uses `uv`:
 
 ```bash
-uv run pytest
+uv run pytest tests/benchmarks
 ```
+
+Method-owned directories may use different tooling when justified, as long as benchmark contracts stay clean.
 
 ## Status
 
-Current priorities include
-- refining several benchmarks,
-- and implementing solvers in [AstroReason-Solvers](https://github.com/Mtrya/AstroReason-Solvers).
+Current work is focused on:
+
+- refining benchmark definitions and verifier contracts
+- migrating the initial solver/harness scaffolding into this repository

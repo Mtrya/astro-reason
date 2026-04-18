@@ -14,11 +14,11 @@ venv.bak/
 # Project-specific ignores
 .vscode/
 .codex
-CLAUDE.md
-AGENTS.md
-GEMINI.md
-QWEN.md
 
+# Benchmark intermediates or outputs
 benchmarks/*/dataset/source_data
 benchmarks/*/visualizer/plots
 benchmarks/*/visualizer/cache
+
+# Experiment outputs
+.runtime
