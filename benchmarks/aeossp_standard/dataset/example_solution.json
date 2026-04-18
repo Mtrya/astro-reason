@@ -1,11 +1,3 @@
 {
-  "actions": [
-    {
-      "type": "observation",
-      "satellite_id": "sat_002",
-      "task_id": "task_0001",
-      "start_time": "2026-04-14T11:56:00Z",
-      "end_time": "2026-04-14T11:57:25Z"
-    }
-  ]
+  "actions": []
 }
