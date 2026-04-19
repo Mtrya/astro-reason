@@ -1,9 +1,0 @@
-name: opencode_default
-benchmark: aeossp_standard
-runtime: base
-required_config_files:
-  - opencode.json
-include_example_solution: false
-include_verifier: true
-timeout_seconds_default: 3600
-task_prompt_file: TASK.md

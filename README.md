@@ -28,7 +28,7 @@ astro-reason/
 ## Directory Roles
 
 - `benchmarks/` owns public benchmark definitions and benchmark-side tooling.
-- `experiments/` owns runnable benchmark-facing method configurations and prompts.
+- `experiments/` owns flat runnable experiment families and shared prompt/config fragments.
 - `solvers/` owns traditional non-agentic solver methods.
 - `runtimes/` owns reusable agent runtime environments, build logic, and shared runtime assets.
 

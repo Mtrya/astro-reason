@@ -1,0 +1,40 @@
+benchmark: aeossp_standard
+runtime: base
+split: test
+case: case_0001
+timeout_seconds_default: 3600
+
+assemble:
+  - source: benchmarks/{benchmark}/dataset/cases/{split}/{case_id}
+    target: workspace/case
+  - source: benchmarks/{benchmark}/verifier
+    target: workspace/verifier
+  - source: experiments/_fragments/prompts/prototype/README.md
+    target: workspace/README.md
+    render: true
+  - source: experiments/_fragments/prompts/prototype/AGENTS.md
+    target: workspace/AGENTS.md
+    render: true
+  - source: experiments/_fragments/prompts/prototype/PROMPT.md
+    target: home/PROMPT.md
+    render: true
+  - source: experiments/_fragments/configs/opencode_default/opencode.json
+    target: xdg_config/opencode/opencode.json
+    missing_ok: false
+    example: experiments/_fragments/configs/opencode_default/opencode.json.example
+
+collect:
+  - source: xdg_data/opencode
+    target: session_logs
+
+resources:
+  cpus: 2
+  memory: 8g
+  shm_size: 1g
+
+interactive_command:
+  - /bin/bash
+  - -i
+
+headless_shell_command: >-
+  opencode run --dangerously-skip-permissions "$(cat ~/PROMPT.md)"

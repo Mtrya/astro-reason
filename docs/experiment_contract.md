@@ -8,12 +8,12 @@ The contract is intentionally minimal. It captures the canonical shape needed fo
 
 `experiments/` owns runnable benchmark-facing configurations.
 
-An experiment defines:
+A runnable experiment family defines:
 
 - which benchmark it targets
 - which method substrate it runs against
 - which benchmark-owned files are copied into the prepared Docker workspace
-- which prompts, adapters, and config files shape the run
+- which prompts and config files shape the run
 
 In the first vertical slice, that substrate is a runtime. Future experiments may also target a reusable solver instead of a runtime.
 
@@ -24,13 +24,13 @@ Experiments consume benchmarks and method layers such as runtimes or solvers. Be
 Each experiment lives under:
 
 ```text
-experiments/<benchmark>/<experiment>/
+experiments/<family>/
 ```
 
 The only stable required artifact for the first slice is an experiment-owned runnable entrypoint:
 
 ```text
-experiments/<benchmark>/<experiment>/
+experiments/<family>/
 └── run.py
 ```
 
@@ -39,47 +39,42 @@ experiments/<benchmark>/<experiment>/
 For runtime-backed agent runs, the recommended structure in the first vertical slice is:
 
 ```text
-experiments/<benchmark>/<experiment>/
-├── experiment.yaml
-├── run.py
-├── adapter.py
-├── workspace/
-└── config/
+experiments/
+├── _fragments/
+│   ├── prompts/
+│   └── configs/
+└── <family>/
+    ├── run.py
+    └── configs/
 ```
 
-## Manifest
+`_fragments/` is a visible shared asset root for reusable prompt and config fragments. It is not a runnable experiment family.
 
-For runtime-backed agent runs, `experiment.yaml` is the recommended manifest file.
+## Family Config
 
-When present in the first slice, it should contain:
+Experiment families may keep one or more runner-owned YAML config files under `configs/`.
 
-- `name`
-- `benchmark`
-- `runtime`
-- `required_config_files`
+In the first slice, those config files commonly describe:
 
-For the first slice, `runtime` is the recommended substrate field for agent runs.
+- the benchmark to run
+- the runtime to use
+- assembly rules that copy prompt/config/case assets into logical target roots
+- collection rules that preserve runtime-owned artifacts after execution
+- optional compute and memory limits for the containerized run
+- timeout defaults
+- headless shell commands and interactive command definitions
 
-An experiment may also declare runtime-specific extras such as additional Python requirements, but those are optional. Shared benchmark-adjacent Python tooling may instead live directly in the runtime image.
-
-Future experiment variants may use a solver-backed contract instead, but that is not standardized by this first document.
-
-Likely optional fields include:
-
-- `include_example_solution`
-- `include_verifier`
-- `timeout_seconds_default`
-- `task_prompt_file`
+The exact YAML shape is still runner-owned and is not yet standardized as a public repository-wide contract.
 
 ## Ownership Boundaries
 
-`run.py` is experiment-owned. It is the canonical runnable entrypoint for the experiment.
+`run.py` is experiment-owned. It is the canonical runnable entrypoint for the family.
 
-`adapter.py` is experiment-owned. In the first slice, it defines the experiment-specific bridge to the selected runtime and agent CLI.
+Family-local `configs/` are experiment-owned. They describe concrete runnable configurations for that family.
 
-`workspace/` contains experiment-authored prompt and helper files. It does not contain benchmark-owned case data or checked-in verifier copies.
+`_fragments/prompts/` contains reusable prompt and helper fragments such as `README.md`, `AGENTS.md`, and `PROMPT.md`. These are assembled into the prepared workspace at run time.
 
-`config/` contains experiment-local config examples and expected config filenames.
+`_fragments/configs/` contains reusable checked-in config examples and may also contain ignored machine-local real config files.
 
 ## Workspace Preparation
 
@@ -99,6 +94,7 @@ For the first slice:
 - module-style execution may also be allowed
 - headless and interactive modes are both in scope
 - official verification uses the benchmark-owned verifier outside the container
+- the exact family config selection logic is runner-owned for now
 
 ## What This Contract Does Not Promise Yet
 
@@ -106,6 +102,6 @@ This document does not yet standardize:
 
 - cross-experiment shared libraries
 - batch orchestration interfaces
-- solver-backed experiment manifests
+- solver-backed experiment configs
 - stable cross-benchmark verifier result schemas
 - non-Docker execution backends

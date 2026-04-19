@@ -31,7 +31,7 @@ astro-reason/
 Directory roles:
 
 - `benchmarks/` owns public benchmark definitions, datasets, verifiers, generators, and optional visualizers.
-- `experiments/` owns runnable benchmark-facing method configurations such as prompts, adapters, workspace templates, and experiment settings.
+- `experiments/` owns flat runnable experiment families, runner-owned configs, and shared prompt/config fragments under `experiments/_fragments/`.
 - `solvers/` owns reusable non-agentic methods and solver-local tooling.
 - `runtimes/` owns reusable agent runtime environments, build logic, installation steps, and shared runtime assets.
 
@@ -74,7 +74,7 @@ Use these ownership boundaries:
 
 Keep the `experiments/` and `runtimes/` boundary explicit:
 
-- `experiments/` owns prompts, adapters, workspace templates, benchmark exposure choices, and run settings
+- `experiments/` owns prompts, family configs, workspace assembly choices, and run settings
 - `runtimes/` owns images, installation/build logic, copied runtime assets, and custom-built agent systems when needed
 
 Prompt and workspace rules for space-agent-facing runs:

@@ -1,0 +1,27 @@
+{
+  "$schema": "https://opencode.ai/config.json",
+  "autoupdate": false,
+  "share": "disabled",
+  "enabled_providers": ["deepseek"],
+  "model": "deepseek/deepseek-reasoner",
+  "small_model": "deepseek/deepseek-chat",
+  "permission": "allow",
+  "provider": {
+    "deepseek": {
+      "npm": "@ai-sdk/openai-compatible",
+      "name": "DeepSeek",
+      "options": {
+        "baseURL": "replace_with_deepseek_base_url",
+        "apiKey": "replace_with_your_api_key"
+      },
+      "models": {
+        "deepseek-reasoner": {
+          "name": "deepseek-reasoner"
+        },
+        "deepseek-chat": {
+          "name": "deepseek-chat"
+        }
+      }
+    }
+  }
+}
