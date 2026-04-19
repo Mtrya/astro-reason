@@ -33,6 +33,8 @@ runtimes/<runtime>/
 └── Dockerfile
 ```
 
+A runtime-owned helper such as `build.py` is recommended when the runtime needs a local build entrypoint.
+
 ## Manifest
 
 `runtime.yaml` must contain:
