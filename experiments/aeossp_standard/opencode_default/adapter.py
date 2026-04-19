@@ -5,8 +5,8 @@ from __future__ import annotations
 
 
 NAME = "opencode"
-CONFIG_TARGET_DIR = "/root/.config/opencode"
-SESSION_LOG_TARGET_DIR = "/root/.local/share/opencode"
+CONFIG_TARGET_DIR = "/tmp/astroreason-xdg-config/opencode"
+SESSION_LOG_TARGET_DIR = "/tmp/astroreason-xdg-data/opencode"
 INTERACTIVE_COMMAND = ("/bin/bash", "-i")
 
 

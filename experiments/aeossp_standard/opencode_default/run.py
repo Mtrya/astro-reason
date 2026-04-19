@@ -1,11 +1,19 @@
 #!/usr/bin/env python3
-"""Resolve the first AstroReason experiment scaffold."""
+"""Run the OpenCode default experiment for one AEOSSP Standard case."""
 
 from __future__ import annotations
 
 import argparse
 import importlib.util
+import json
+import os
+import shlex
+import shutil
+import subprocess
+import sys
+import tempfile
 from dataclasses import dataclass
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
@@ -15,6 +23,11 @@ import yaml
 REPO_ROOT = Path(__file__).resolve().parents[3]
 WORKSPACE_MOUNT = Path("/app/workspace")
 OUTPUT_MOUNT = Path("/app/run/output")
+CONTAINER_HOME = Path("/tmp/astroreason-home")
+CONTAINER_XDG_CONFIG_HOME = Path("/tmp/astroreason-xdg-config")
+CONTAINER_XDG_DATA_HOME = Path("/tmp/astroreason-xdg-data")
+RESULTS_ROOT = REPO_ROOT / "results" / "agent_runs"
+INTERACTIVE_WORKSPACES_ROOT = REPO_ROOT / ".runtime" / "interactive_workspaces"
 
 
 @dataclass(frozen=True)
@@ -42,21 +55,39 @@ class RuntimeManifest:
     runtime_dir: Path
 
 
+@dataclass(frozen=True)
+class VerifierOutcome:
+    status: str
+    result: dict[str, Any]
+
+
 def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
-    parser = argparse.ArgumentParser(description="Resolve one AstroReason experiment scaffold")
+    parser = argparse.ArgumentParser(description="Run one AstroReason experiment case")
     parser.add_argument("--split", default="test", help="Dataset split (default: test)")
     parser.add_argument("--case", required=True, help="Case ID")
     parser.add_argument(
         "--timeout",
         type=int,
-        help="Override the experiment timeout in seconds for a future execution phase",
+        help="Override the experiment timeout in seconds for headless mode",
     )
     parser.add_argument(
         "--interactive",
         action="store_true",
-        help="Resolve the interactive scaffold path instead of the future headless path",
+        help="Prepare the workspace and open an interactive shell instead of running headless",
     )
     return parser.parse_args(argv)
+
+
+def _utc_now() -> datetime:
+    return datetime.now(timezone.utc)
+
+
+def _isoformat(value: datetime) -> str:
+    return value.isoformat()
+
+
+def _duration_seconds(start: datetime, end: datetime) -> float:
+    return round((end - start).total_seconds(), 3)
 
 
 def _load_yaml_mapping(path: Path, kind: str) -> dict[str, Any]:
@@ -213,6 +244,65 @@ def _case_dir(experiment: ExperimentManifest, split: str, case_id: str) -> Path:
     return _benchmark_root(experiment.benchmark) / "dataset" / "cases" / split / case_id
 
 
+def _benchmark_dir(experiment: ExperimentManifest) -> Path:
+    return _benchmark_root(experiment.benchmark)
+
+
+def _experiment_relpath(experiment: ExperimentManifest) -> Path:
+    return experiment.experiment_dir.relative_to(REPO_ROOT)
+
+
+def _output_dir(experiment: ExperimentManifest, split: str, case_id: str) -> Path:
+    return RESULTS_ROOT / _experiment_relpath(experiment) / split / case_id
+
+
+def _interactive_workspace_dir(experiment: ExperimentManifest, split: str, case_id: str) -> Path:
+    return INTERACTIVE_WORKSPACES_ROOT / _experiment_relpath(experiment) / split / case_id
+
+
+def _existing_config_files(config_dir: Path) -> list[Path]:
+    if not config_dir.exists():
+        return []
+
+    files: list[Path] = []
+    for path in config_dir.rglob("*"):
+        if not path.is_file():
+            continue
+        if path.name == ".gitignore" or path.name.endswith(".example"):
+            continue
+        files.append(path)
+    return sorted(files)
+
+
+def _copy_filtered_config(experiment: ExperimentManifest, destination: Path) -> list[str]:
+    config_files = _existing_config_files(experiment.config_dir)
+    if not config_files:
+        raise SystemExit(
+            "No real experiment config files were found. Copy the matching .example file and fill it in."
+        )
+
+    existing_rel_paths = {
+        path.relative_to(experiment.config_dir).as_posix() for path in config_files
+    }
+    missing = [
+        rel_path for rel_path in experiment.required_config_files if rel_path not in existing_rel_paths
+    ]
+    if missing:
+        raise SystemExit(
+            "Missing required experiment config file(s): "
+            + ", ".join(str(experiment.config_dir / rel_path) for rel_path in missing)
+        )
+
+    copied_files: list[str] = []
+    for source in config_files:
+        rel_path = source.relative_to(experiment.config_dir)
+        target = destination / rel_path
+        target.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(source, target)
+        copied_files.append(rel_path.as_posix())
+    return copied_files
+
+
 def _example_solution_path(experiment: ExperimentManifest) -> Path | None:
     dataset_dir = _benchmark_root(experiment.benchmark) / "dataset"
     for candidate in ("example_solution.json", "example_solution.yaml", "example_solution.yml"):
@@ -223,7 +313,7 @@ def _example_solution_path(experiment: ExperimentManifest) -> Path | None:
 
 
 def _verifier_path(experiment: ExperimentManifest) -> Path | None:
-    benchmark_dir = _benchmark_root(experiment.benchmark)
+    benchmark_dir = _benchmark_dir(experiment)
     verifier_dir = benchmark_dir / "verifier"
     verifier_py = benchmark_dir / "verifier.py"
     if verifier_dir.is_dir():
@@ -231,6 +321,189 @@ def _verifier_path(experiment: ExperimentManifest) -> Path | None:
     if verifier_py.exists():
         return verifier_py
     return None
+
+
+def _benchmark_has_verifier(experiment: ExperimentManifest) -> bool:
+    return _verifier_path(experiment) is not None
+
+
+def _template_context(
+    experiment: ExperimentManifest,
+    split: str,
+    case_id: str,
+    example_solution_name: str,
+    verifier_location: str,
+    verifier_command: str,
+) -> dict[str, str]:
+    return {
+        "benchmark": experiment.benchmark,
+        "case_id": case_id,
+        "split": split,
+        "example_solution_name": example_solution_name,
+        "verifier_location": verifier_location,
+        "verifier_command": verifier_command,
+    }
+
+
+def _render_workspace_templates(
+    template_dir: Path,
+    workspace_dir: Path,
+    context: dict[str, str],
+) -> None:
+    for source in sorted(template_dir.rglob("*")):
+        rel_path = source.relative_to(template_dir)
+        destination = workspace_dir / rel_path
+        if source.is_dir():
+            destination.mkdir(parents=True, exist_ok=True)
+            continue
+
+        rendered = source.read_text(encoding="utf-8").format(**context)
+        destination.parent.mkdir(parents=True, exist_ok=True)
+        destination.write_text(rendered, encoding="utf-8")
+
+
+def _copy_verifier_into_workspace(
+    experiment: ExperimentManifest,
+    workspace_dir: Path,
+) -> tuple[str, str]:
+    benchmark_dir = _benchmark_dir(experiment)
+    verifier_py = benchmark_dir / "verifier.py"
+    verifier_dir = benchmark_dir / "verifier"
+    if verifier_dir.exists():
+        shutil.copytree(verifier_dir, workspace_dir / "verifier")
+        return "verifier/", "python -m verifier.run case/ solution.json"
+    if verifier_py.exists():
+        shutil.copy2(verifier_py, workspace_dir / "verifier.py")
+        return "verifier.py", "python verifier.py case/ solution.json"
+    raise SystemExit(f"No verifier found for benchmark {experiment.benchmark}")
+
+
+def _prepare_workspace(
+    experiment: ExperimentManifest,
+    args: argparse.Namespace,
+    workspace_dir: Path,
+) -> None:
+    if workspace_dir.exists():
+        shutil.rmtree(workspace_dir)
+    workspace_dir.mkdir(parents=True, exist_ok=True)
+
+    shutil.copytree(_case_dir(experiment, args.split, args.case), workspace_dir / "case")
+
+    example_solution_name = "No example solution is provided for this benchmark."
+    example_solution = _example_solution_path(experiment)
+    if experiment.include_example_solution and example_solution is not None:
+        example_solution_name = example_solution.name
+        shutil.copy2(example_solution, workspace_dir / example_solution.name)
+
+    verifier_location = "Verifier is not exposed in this experiment."
+    verifier_command = "No verifier helper is available in this workspace."
+    if experiment.include_verifier:
+        verifier_location, verifier_command = _copy_verifier_into_workspace(experiment, workspace_dir)
+
+    _render_workspace_templates(
+        experiment.workspace_dir,
+        workspace_dir,
+        _template_context(
+            experiment,
+            args.split,
+            args.case,
+            example_solution_name,
+            verifier_location,
+            verifier_command,
+        ),
+    )
+
+
+def _prepare_session_log_mount(output_dir: Path) -> Path:
+    session_logs_dir = output_dir / "session_logs"
+    if session_logs_dir.exists():
+        shutil.rmtree(session_logs_dir)
+    session_logs_dir.mkdir(parents=True, exist_ok=True)
+    return session_logs_dir
+
+
+def _build_container_script(
+    experiment: ExperimentManifest,
+    adapter,
+    timeout: int,
+    task_prompt: str,
+    interactive: bool,
+) -> str:
+    venv_dir = "/tmp/astroreason-experiment-venv"
+    lines = [
+        "set -euo pipefail",
+        f"mkdir -p {shlex.quote(str(CONTAINER_HOME))}",
+        f"mkdir -p {shlex.quote(str(CONTAINER_XDG_CONFIG_HOME))}",
+        f"mkdir -p {shlex.quote(str(CONTAINER_XDG_DATA_HOME))}",
+        f"uv venv {shlex.quote(venv_dir)} >/dev/null",
+    ]
+    if experiment.python_packages:
+        package_args = shlex.join(experiment.python_packages)
+        lines.append(
+            f"uv pip install --python {shlex.quote(f'{venv_dir}/bin/python')} {package_args} >/dev/null"
+        )
+    lines.extend(
+        [
+            f"export PATH={shlex.quote(f'{venv_dir}/bin')}:$PATH",
+            f"cd {shlex.quote(str(WORKSPACE_MOUNT))}",
+        ]
+    )
+
+    if interactive:
+        lines.append(f"exec {shlex.join(adapter.INTERACTIVE_COMMAND)}")
+        return "\n".join(lines)
+
+    agent_command = adapter.build_headless_command(task_prompt)
+    lines.append(f"exec timeout --signal=TERM {timeout} {shlex.join(agent_command)}")
+    return "\n".join(lines)
+
+
+def _build_docker_command(
+    experiment: ExperimentManifest,
+    runtime: RuntimeManifest,
+    adapter,
+    args: argparse.Namespace,
+    workspace_dir: Path,
+    config_dir: Path,
+    output_dir: Path,
+    session_logs_dir: Path,
+    timeout: int,
+) -> list[str]:
+    cmd = ["docker", "run", "--rm", "-w", str(WORKSPACE_MOUNT)]
+    cmd.extend(["--user", f"{os.getuid()}:{os.getgid()}"])
+    cmd.extend(["-e", f"HOME={CONTAINER_HOME}"])
+    cmd.extend(["-e", f"XDG_CONFIG_HOME={CONTAINER_XDG_CONFIG_HOME}"])
+    cmd.extend(["-e", f"XDG_DATA_HOME={CONTAINER_XDG_DATA_HOME}"])
+    if args.interactive:
+        cmd.append("-i")
+        if sys.stdin.isatty() and sys.stdout.isatty():
+            cmd.append("-t")
+
+    cmd.extend(
+        [
+            "-v",
+            f"{workspace_dir.resolve()}:{WORKSPACE_MOUNT}",
+            "-v",
+            f"{output_dir.resolve()}:{OUTPUT_MOUNT}",
+            "-v",
+            f"{config_dir.resolve()}:{adapter.CONFIG_TARGET_DIR}",
+            "-v",
+            f"{session_logs_dir.resolve()}:{adapter.SESSION_LOG_TARGET_DIR}",
+        ]
+    )
+
+    task_prompt = (workspace_dir / experiment.task_prompt_file).read_text(encoding="utf-8")
+    shell_script = _build_container_script(
+        experiment,
+        adapter,
+        timeout,
+        task_prompt,
+        args.interactive,
+    )
+
+    cmd.append(runtime.image)
+    cmd.extend(["/bin/bash", "-lc", shell_script])
+    return cmd
 
 
 def _check_required_paths(
@@ -262,47 +535,363 @@ def _check_required_paths(
             f"Experiment requests an example solution, but none was found for benchmark {experiment.benchmark}"
         )
 
-    verifier = _verifier_path(experiment)
-    if experiment.include_verifier and verifier is None:
-        raise SystemExit(
-            f"Experiment requests a verifier, but no verifier was found for benchmark {experiment.benchmark}"
+    if experiment.include_verifier and not _benchmark_has_verifier(experiment):
+        raise SystemExit(f"No verifier found for benchmark {experiment.benchmark}")
+
+    return case_dir, example_solution, _verifier_path(experiment)
+
+
+def _write_text(path: Path, content: str) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(content, encoding="utf-8")
+
+
+def _copy_solution_artifact(workspace_dir: Path, output_dir: Path) -> bool:
+    solution_src = workspace_dir / "solution.json"
+    solution_dst = output_dir / "solution.json"
+    if not solution_src.exists():
+        return False
+    shutil.copy2(solution_src, solution_dst)
+    return True
+
+
+def _run_process(
+    cmd: list[str],
+    *,
+    capture_output: bool,
+    cwd: Path | None = None,
+) -> tuple[int, str, str, bool]:
+    try:
+        result = subprocess.run(
+            cmd,
+            capture_output=capture_output,
+            text=True,
+            encoding="utf-8",
+            errors="replace",
+            check=False,
+            cwd=cwd,
+        )
+    except FileNotFoundError as exc:
+        return 127, "", f"Failed to launch process: {exc}", False
+
+    if capture_output:
+        return result.returncode, result.stdout or "", result.stderr or "", True
+    return result.returncode, "", "", True
+
+
+def _agent_status(agent_exit_code: int, solution_present: bool, launched: bool) -> str:
+    if not launched:
+        return "runner_error"
+    if agent_exit_code == 124:
+        return "timeout"
+    if agent_exit_code != 0:
+        return "agent_failed"
+    if not solution_present:
+        return "no_solution"
+    return "success"
+
+
+def _verifier_command(experiment: ExperimentManifest, case_dir: Path, solution_path: Path) -> list[str]:
+    verifier_path = _verifier_path(experiment)
+    if verifier_path is None:
+        raise SystemExit(f"No verifier found for benchmark {experiment.benchmark}")
+
+    if verifier_path.is_dir():
+        return [
+            "uv",
+            "run",
+            "python",
+            "-m",
+            f"benchmarks.{experiment.benchmark}.verifier.run",
+            str(case_dir),
+            str(solution_path),
+        ]
+    return [
+        "uv",
+        "run",
+        "python",
+        str(verifier_path),
+        str(case_dir),
+        str(solution_path),
+    ]
+
+
+def _run_external_verifier(
+    experiment: ExperimentManifest,
+    case_dir: Path,
+    output_dir: Path,
+    *,
+    solution_present: bool,
+) -> VerifierOutcome:
+    if not solution_present:
+        return VerifierOutcome(
+            status="no_solution",
+            result={"present": False, "status": "no_solution"},
         )
 
-    return case_dir, example_solution, verifier
+    solution_path = output_dir / "solution.json"
+    cmd = _verifier_command(experiment, case_dir, solution_path)
+    exit_code, stdout, stderr, launched = _run_process(
+        cmd,
+        capture_output=True,
+        cwd=REPO_ROOT,
+    )
+    if not launched:
+        return VerifierOutcome(
+            status="error",
+            result={"status": "error", "error": stderr.strip() or "Failed to launch verifier."},
+        )
+
+    try:
+        parsed = json.loads(stdout) if stdout.strip() else {}
+    except json.JSONDecodeError as exc:
+        return VerifierOutcome(
+            status="error",
+            result={
+                "status": "error",
+                "error": f"Verifier output was not valid JSON: {exc}",
+                "exit_code": exit_code,
+            },
+        )
+
+    if not isinstance(parsed, dict):
+        return VerifierOutcome(
+            status="error",
+            result={
+                "status": "error",
+                "error": "Verifier output JSON must be an object.",
+                "exit_code": exit_code,
+            },
+        )
+
+    if exit_code in (0, 1):
+        valid = bool(parsed.get("valid"))
+        return VerifierOutcome(
+            status="valid" if valid else "invalid",
+            result=parsed,
+        )
+
+    return VerifierOutcome(
+        status="error",
+        result={
+            "status": "error",
+            "exit_code": exit_code,
+            "error": stderr.strip() or "Verifier exited unexpectedly.",
+        },
+    )
 
 
-def _print_summary(
+def _overall_status(agent_status: str, verifier_status: str, interactive: bool) -> str:
+    if interactive:
+        if agent_status == "interactive_failed":
+            return "interactive_failed"
+        if agent_status == "interactive_no_solution":
+            return "interactive_no_solution"
+        return "interactive_completed"
+
+    if agent_status != "success":
+        return agent_status
+    if verifier_status == "valid":
+        return "success"
+    if verifier_status == "invalid":
+        return "verifier_invalid"
+    return "verifier_error"
+
+
+def _write_run_metadata(
     experiment: ExperimentManifest,
     runtime: RuntimeManifest,
     adapter,
-    case_dir: Path,
-    example_solution: Path | None,
-    verifier: Path | None,
     args: argparse.Namespace,
+    output_dir: Path,
+    copied_config_files: list[str],
+    start_time: datetime,
+    end_time: datetime,
+    agent_exit_code: int,
+    agent_status: str,
+    verifier_outcome: VerifierOutcome,
+    *,
+    interactive: bool,
 ) -> None:
-    mode = "interactive" if args.interactive else "headless"
-    timeout = args.timeout if args.timeout is not None else experiment.timeout_seconds_default
+    session_log_dir = output_dir / "session_logs"
+    artifacts = {
+        "solution.json": (output_dir / "solution.json").exists(),
+        "agent_stdout.txt": (output_dir / "agent_stdout.txt").exists(),
+        "agent_stderr.txt": (output_dir / "agent_stderr.txt").exists(),
+        "run.json": True,
+        "session_logs": session_log_dir.exists() and any(session_log_dir.iterdir()),
+    }
+    run_data = {
+        "benchmark": experiment.benchmark,
+        "experiment": _experiment_relpath(experiment).as_posix(),
+        "runtime": runtime.name,
+        "case_id": args.case,
+        "split": args.split,
+        "overall_status": _overall_status(agent_status, verifier_outcome.status, interactive),
+        "agent_status": agent_status,
+        "verifier_status": verifier_outcome.status,
+        "start_time": _isoformat(start_time),
+        "end_time": _isoformat(end_time),
+        "duration_seconds": _duration_seconds(start_time, end_time),
+        "container_image": runtime.image,
+        "agent_exit_code": agent_exit_code,
+        "artifacts": artifacts,
+        "session_logs": {
+            "source_path": adapter.SESSION_LOG_TARGET_DIR,
+            "copied_path": "session_logs" if artifacts["session_logs"] else None,
+        },
+        "config_source": {
+            "repo_dir": experiment.config_dir.relative_to(REPO_ROOT).as_posix(),
+            "copied_files": copied_config_files,
+        },
+        "verifier": verifier_outcome.result,
+    }
+    _write_text(output_dir / "run.json", json.dumps(run_data, indent=2, sort_keys=True) + "\n")
 
-    print("Phase 2 scaffold resolved successfully.")
-    print(f"Mode: {mode}")
-    print(f"Experiment: {experiment.experiment_dir}")
-    print(f"Benchmark: {experiment.benchmark}")
-    print(f"Runtime: {runtime.name} ({runtime.image})")
-    print(f"Adapter: {adapter.NAME}")
-    print(f"Case: {case_dir}")
-    print(f"Workspace template: {experiment.workspace_dir}")
-    print(f"Config directory: {experiment.config_dir}")
-    print(f"Required config files: {', '.join(experiment.required_config_files)}")
-    print(f"Python packages: {', '.join(experiment.python_packages)}")
-    print(f"Task prompt file: {experiment.workspace_dir / experiment.task_prompt_file}")
-    print(f"Example solution: {example_solution if example_solution is not None else 'not requested'}")
-    print(f"Verifier: {verifier if verifier is not None else 'not requested'}")
-    print(f"Container workspace mount: {WORKSPACE_MOUNT}")
-    print(f"Container output mount: {OUTPUT_MOUNT}")
-    print(f"Adapter config target: {adapter.CONFIG_TARGET_DIR}")
-    print(f"Adapter session log target: {adapter.SESSION_LOG_TARGET_DIR}")
-    print(f"Timeout seconds: {timeout if timeout is not None else 'unset'}")
-    print("Execution is intentionally deferred to Phase 3.")
+
+def _headless_exit_code(overall_status: str) -> int:
+    return 0 if overall_status == "success" else 1
+
+
+def _print_run_summary(output_dir: Path, overall_status: str) -> None:
+    print(f"Results written to {output_dir}")
+    print(f"Run status: {overall_status}")
+
+
+def _run_interactive(
+    experiment: ExperimentManifest,
+    runtime: RuntimeManifest,
+    adapter,
+    args: argparse.Namespace,
+    case_dir: Path,
+    output_dir: Path,
+) -> int:
+    timeout = args.timeout or experiment.timeout_seconds_default or 1800
+    workspace_dir = _interactive_workspace_dir(experiment, args.split, args.case)
+    if output_dir.exists():
+        shutil.rmtree(output_dir)
+    output_dir.mkdir(parents=True, exist_ok=True)
+
+    print(f"Preparing interactive workspace at {workspace_dir}")
+    with tempfile.TemporaryDirectory(prefix=f"astroreason-{experiment.name}-config-") as config_tmp:
+        config_dir = Path(config_tmp)
+        copied_config_files = _copy_filtered_config(experiment, config_dir)
+        _prepare_workspace(experiment, args, workspace_dir)
+        session_logs_dir = _prepare_session_log_mount(output_dir)
+        cmd = _build_docker_command(
+            experiment,
+            runtime,
+            adapter,
+            args,
+            workspace_dir,
+            config_dir,
+            output_dir,
+            session_logs_dir,
+            timeout,
+        )
+        print(f"Workspace ready at {workspace_dir}")
+        print(f"Loaded config files: {', '.join(copied_config_files)}")
+        start_time = _utc_now()
+        exit_code, _, _, launched = _run_process(cmd, capture_output=False)
+        end_time = _utc_now()
+
+        solution_present = _copy_solution_artifact(workspace_dir, output_dir)
+        if launched:
+            if exit_code != 0:
+                agent_status = "interactive_failed"
+            elif solution_present:
+                agent_status = "interactive_completed"
+            else:
+                agent_status = "interactive_no_solution"
+        else:
+            agent_status = "interactive_failed"
+
+        verifier_outcome = VerifierOutcome(
+            status="manual",
+            result={"status": "manual", "present": solution_present},
+        )
+        _write_run_metadata(
+            experiment,
+            runtime,
+            adapter,
+            args,
+            output_dir,
+            copied_config_files,
+            start_time,
+            end_time,
+            exit_code,
+            agent_status,
+            verifier_outcome,
+            interactive=True,
+        )
+        overall_status = _overall_status(agent_status, verifier_outcome.status, True)
+        _print_run_summary(output_dir, overall_status)
+        return exit_code
+
+
+def _run_headless(
+    experiment: ExperimentManifest,
+    runtime: RuntimeManifest,
+    adapter,
+    args: argparse.Namespace,
+    case_dir: Path,
+    output_dir: Path,
+) -> int:
+    timeout = args.timeout or experiment.timeout_seconds_default or 1800
+    if output_dir.exists():
+        shutil.rmtree(output_dir)
+    output_dir.mkdir(parents=True, exist_ok=True)
+
+    with tempfile.TemporaryDirectory(prefix=f"astroreason-{experiment.name}-workspace-") as workspace_tmp:
+        with tempfile.TemporaryDirectory(prefix=f"astroreason-{experiment.name}-config-") as config_tmp:
+            workspace_dir = Path(workspace_tmp)
+            config_dir = Path(config_tmp)
+            copied_config_files = _copy_filtered_config(experiment, config_dir)
+            _prepare_workspace(experiment, args, workspace_dir)
+            session_logs_dir = _prepare_session_log_mount(output_dir)
+            cmd = _build_docker_command(
+                experiment,
+                runtime,
+                adapter,
+                args,
+                workspace_dir,
+                config_dir,
+                output_dir,
+                session_logs_dir,
+                timeout,
+            )
+
+            start_time = _utc_now()
+            exit_code, stdout, stderr, launched = _run_process(cmd, capture_output=True)
+            end_time = _utc_now()
+
+            _write_text(output_dir / "agent_stdout.txt", stdout)
+            _write_text(output_dir / "agent_stderr.txt", stderr)
+            solution_present = _copy_solution_artifact(workspace_dir, output_dir)
+            agent_status = _agent_status(exit_code, solution_present, launched)
+            verifier_outcome = _run_external_verifier(
+                experiment,
+                case_dir,
+                output_dir,
+                solution_present=solution_present,
+            )
+            _write_run_metadata(
+                experiment,
+                runtime,
+                adapter,
+                args,
+                output_dir,
+                copied_config_files,
+                start_time,
+                end_time,
+                exit_code,
+                agent_status,
+                verifier_outcome,
+                interactive=False,
+            )
+            overall_status = _overall_status(agent_status, verifier_outcome.status, False)
+            _print_run_summary(output_dir, overall_status)
+            return _headless_exit_code(overall_status)
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -311,9 +900,12 @@ def main(argv: list[str] | None = None) -> int:
     experiment = load_experiment(experiment_dir)
     runtime = load_runtime(experiment.runtime)
     adapter = load_adapter(experiment)
-    case_dir, example_solution, verifier = _check_required_paths(experiment, args)
-    _print_summary(experiment, runtime, adapter, case_dir, example_solution, verifier, args)
-    return 0
+    case_dir, _, _ = _check_required_paths(experiment, args)
+    output_dir = _output_dir(experiment, args.split, args.case)
+
+    if args.interactive:
+        return _run_interactive(experiment, runtime, adapter, args, case_dir, output_dir)
+    return _run_headless(experiment, runtime, adapter, args, case_dir, output_dir)
 
 
 if __name__ == "__main__":
