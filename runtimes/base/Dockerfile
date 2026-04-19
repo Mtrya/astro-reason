@@ -22,7 +22,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 RUN mkdir -p /etc/apt/keyrings \
     && curl -fsSL https://deb.nodesource.com/gpgkey/nodesource-repo.gpg.key \
     | gpg --dearmor -o /etc/apt/keyrings/nodesource.gpg \
-    && echo "deb [signed-by=/etc/apt/keyrings/nodesource.gpg] https://deb.nodesource.com/node_20.x nodistro main" \
+    && echo "deb [signed-by=/etc/apt/keyrings/nodesource.gpg] https://deb.nodesource.com/node_24.x nodistro main" \
     > /etc/apt/sources.list.d/nodesource.list \
     && apt-get update \
     && apt-get install -y --no-install-recommends nodejs \
@@ -35,6 +35,19 @@ RUN npm install -g \
     @openai/codex \
     opencode-ai
 
+RUN uv pip install --system \
+    'brahe>=1.3.4' \
+    'datasets>=4.8.4' \
+    'huggingface-hub>=1.10.2' \
+    'kagglehub[pandas-datasets]>=1.0.0' \
+    'matplotlib>=3.10.8' \
+    'numpy>=2.4.4' \
+    'pyproj>=3.7.2' \
+    'pyyaml>=6.0.3' \
+    'pytest>=9.0.3' \
+    'shapely>=2.1.2' \
+    'skyfield>=1.54'
+
 RUN uv tool install --python 3.13 kimi-cli
 
 RUN curl -fsSL https://app.factory.ai/cli | sh
@@ -45,6 +58,7 @@ RUN command -v claude >/dev/null \
     && command -v gemini >/dev/null \
     && command -v jq >/dev/null \
     && command -v kimi >/dev/null \
+    && python -c "import brahe, datasets, huggingface_hub, kagglehub, matplotlib, numpy, pyproj, yaml, pytest, shapely, skyfield" >/dev/null \
     && command -v opencode >/dev/null \
     && command -v pi >/dev/null \
     && command -v rg >/dev/null \

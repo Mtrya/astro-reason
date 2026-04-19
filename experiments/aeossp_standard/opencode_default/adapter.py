@@ -11,4 +11,4 @@ INTERACTIVE_COMMAND = ("/bin/bash", "-i")
 
 
 def build_headless_command(task_prompt: str) -> list[str]:
-    return ["opencode", "run", task_prompt]
+    return ["opencode", "run", "--dangerously-skip-permissions", task_prompt]
