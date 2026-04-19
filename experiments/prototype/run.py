@@ -6,6 +6,7 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import re
 import shlex
 import shutil
 import subprocess
@@ -32,6 +33,7 @@ CONTAINER_GROUP_NAME = "korolev"
 RESULTS_ROOT = REPO_ROOT / "results" / "agent_runs"
 INTERACTIVE_WORKSPACES_ROOT = REPO_ROOT / ".runtime" / "interactive_workspaces"
 PROMPT_FILE_NAME = "PROMPT.md"
+PLACEHOLDER_PATTERN = re.compile(r"\{([A-Za-z_][A-Za-z0-9_]*)\}")
 
 
 @dataclass(frozen=True)
@@ -210,11 +212,23 @@ def _format_template_string(
     *,
     label: str,
     path: Path,
+    strict: bool = True,
 ) -> str:
-    try:
-        return template.format(**replacements)
-    except KeyError as exc:
-        raise SystemExit(f"{label} contains an unknown placeholder {exc} in {path}") from exc
+    missing_keys: set[str] = set()
+
+    def replace(match: re.Match[str]) -> str:
+        key = match.group(1)
+        if key in replacements:
+            return replacements[key]
+        if strict:
+            missing_keys.add(key)
+        return match.group(0)
+
+    rendered = PLACEHOLDER_PATTERN.sub(replace, template)
+    if missing_keys:
+        missing = ", ".join(sorted(missing_keys))
+        raise SystemExit(f"{label} contains unknown placeholder(s) {missing} in {path}")
+    return rendered
 
 
 def _resolve_repo_path(path_value: str) -> Path:
@@ -562,7 +576,13 @@ def _copy_file_or_directory(source: Path, destination: Path, *, render: bool, co
 
     destination.parent.mkdir(parents=True, exist_ok=True)
     if render:
-        rendered = source.read_text(encoding="utf-8").format(**context)
+        rendered = _format_template_string(
+            source.read_text(encoding="utf-8"),
+            context,
+            label=f"Rendered file {source}",
+            path=source,
+            strict=False,
+        )
         destination.write_text(rendered, encoding="utf-8")
         return
     shutil.copy2(source, destination)
@@ -775,6 +795,37 @@ def _run_process(
     return result.returncode, "", "", True
 
 
+def _run_process_to_files(
+    cmd: list[str],
+    *,
+    stdout_path: Path,
+    stderr_path: Path,
+    cwd: Path | None = None,
+) -> tuple[int, str, bool]:
+    stdout_path.parent.mkdir(parents=True, exist_ok=True)
+    stderr_path.parent.mkdir(parents=True, exist_ok=True)
+    try:
+        with stdout_path.open("w", encoding="utf-8") as stdout_handle:
+            with stderr_path.open("w", encoding="utf-8") as stderr_handle:
+                result = subprocess.run(
+                    cmd,
+                    stdout=stdout_handle,
+                    stderr=stderr_handle,
+                    text=True,
+                    encoding="utf-8",
+                    errors="replace",
+                    check=False,
+                    cwd=cwd,
+                )
+    except FileNotFoundError as exc:
+        stderr_path.write_text(f"Failed to launch process: {exc}\n", encoding="utf-8")
+        if not stdout_path.exists():
+            stdout_path.write_text("", encoding="utf-8")
+        return 127, str(exc), False
+
+    return result.returncode, "", True
+
+
 def _collect_artifacts(config: FamilyConfig, roots: MountRoots, output_dir: Path) -> list[dict[str, Any]]:
     records: list[dict[str, Any]] = []
     for spec in config.collect:
@@ -898,8 +949,21 @@ def _run_external_verifier(
             },
         )
 
+    valid = parsed.get("valid")
+    if not isinstance(valid, bool):
+        error = "Verifier output JSON must include a boolean 'valid' field."
+        if stderr.strip():
+            error = f"{error} {stderr.strip()}"
+        return VerifierOutcome(
+            status="error",
+            result={
+                "status": "error",
+                "error": error,
+                "exit_code": exit_code,
+            },
+        )
+
     if exit_code in (0, 1):
-        valid = bool(parsed.get("valid"))
         return VerifierOutcome(
             status="valid" if valid else "invalid",
             result=parsed,
@@ -1102,11 +1166,14 @@ def _run_headless(
             )
 
             start_time = _utc_now()
-            exit_code, stdout, stderr, launched = _run_process(cmd, capture_output=True)
+            exit_code, launch_error, launched = _run_process_to_files(
+                cmd,
+                stdout_path=output_dir / "agent_stdout.txt",
+                stderr_path=output_dir / "agent_stderr.txt",
+            )
             end_time = _utc_now()
-
-            _write_text(output_dir / "agent_stdout.txt", stdout)
-            _write_text(output_dir / "agent_stderr.txt", stderr)
+            if not launched and launch_error:
+                _write_text(output_dir / "agent_stderr.txt", f"Failed to launch process: {launch_error}\n")
             solution_present = _copy_solution_artifact(workspace_dir, output_dir)
             collected_records = _collect_artifacts(config, roots, output_dir)
             agent_status = _agent_status(exit_code, solution_present, launched)
