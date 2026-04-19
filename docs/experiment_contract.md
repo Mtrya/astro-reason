@@ -56,10 +56,11 @@ When present in the first slice, it should contain:
 - `name`
 - `benchmark`
 - `runtime`
-- `python_packages`
 - `required_config_files`
 
-For the first slice, `python_packages` is a flat list and `runtime` is the recommended substrate field for agent runs.
+For the first slice, `runtime` is the recommended substrate field for agent runs.
+
+An experiment may also declare runtime-specific extras such as additional Python requirements, but those are optional. Shared benchmark-adjacent Python tooling may instead live directly in the runtime image.
 
 Future experiment variants may use a solver-backed contract instead, but that is not standardized by this first document.
 

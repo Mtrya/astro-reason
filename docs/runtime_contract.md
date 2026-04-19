@@ -52,6 +52,7 @@ Runtimes own:
 
 - container build definitions
 - installed agent CLIs
+- installed shared Python dependencies
 - runtime-owned installation and setup logic
 - runtime-owned assets needed by multiple runs
 

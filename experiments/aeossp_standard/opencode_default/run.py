@@ -26,6 +26,8 @@ OUTPUT_MOUNT = Path("/app/run/output")
 CONTAINER_HOME = Path("/tmp/astroreason-home")
 CONTAINER_XDG_CONFIG_HOME = Path("/tmp/astroreason-xdg-config")
 CONTAINER_XDG_DATA_HOME = Path("/tmp/astroreason-xdg-data")
+CONTAINER_USER_NAME = "korolev"
+CONTAINER_GROUP_NAME = "korolev"
 RESULTS_ROOT = REPO_ROOT / "results" / "agent_runs"
 INTERACTIVE_WORKSPACES_ROOT = REPO_ROOT / ".runtime" / "interactive_workspaces"
 
@@ -35,7 +37,6 @@ class ExperimentManifest:
     name: str
     benchmark: str
     runtime: str
-    python_packages: tuple[str, ...]
     required_config_files: tuple[str, ...]
     include_example_solution: bool
     include_verifier: bool
@@ -59,6 +60,14 @@ class RuntimeManifest:
 class VerifierOutcome:
     status: str
     result: dict[str, Any]
+
+
+@dataclass(frozen=True)
+class ContainerIdentity:
+    username: str
+    group_name: str
+    passwd_file: Path
+    group_file: Path
 
 
 def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
@@ -160,7 +169,6 @@ def load_experiment(experiment_dir: Path) -> ExperimentManifest:
         name=experiment_name,
         benchmark=benchmark,
         runtime=_require_str(data, "runtime", "Experiment", manifest_path),
-        python_packages=_string_tuple(data, "python_packages", "Experiment", manifest_path),
         required_config_files=_string_tuple(
             data, "required_config_files", "Experiment", manifest_path
         ),
@@ -422,6 +430,43 @@ def _prepare_session_log_mount(output_dir: Path) -> Path:
     return session_logs_dir
 
 
+def _build_container_identity(temp_dir: Path) -> ContainerIdentity:
+    uid = os.getuid()
+    gid = os.getgid()
+    username = CONTAINER_USER_NAME
+    group_name = CONTAINER_GROUP_NAME
+
+    passwd_file = temp_dir / "passwd"
+    group_file = temp_dir / "group"
+
+    passwd_file.write_text(
+        "\n".join(
+            [
+                "root:x:0:0:root:/root:/bin/bash",
+                f"{username}:x:{uid}:{gid}:AstroReason User:{CONTAINER_HOME}:/bin/bash",
+            ]
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    group_file.write_text(
+        "\n".join(
+            [
+                "root:x:0:",
+                f"{group_name}:x:{gid}:",
+            ]
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    return ContainerIdentity(
+        username=username,
+        group_name=group_name,
+        passwd_file=passwd_file,
+        group_file=group_file,
+    )
+
+
 def _build_container_script(
     experiment: ExperimentManifest,
     adapter,
@@ -429,25 +474,13 @@ def _build_container_script(
     task_prompt: str,
     interactive: bool,
 ) -> str:
-    venv_dir = "/tmp/astroreason-experiment-venv"
     lines = [
         "set -euo pipefail",
         f"mkdir -p {shlex.quote(str(CONTAINER_HOME))}",
         f"mkdir -p {shlex.quote(str(CONTAINER_XDG_CONFIG_HOME))}",
         f"mkdir -p {shlex.quote(str(CONTAINER_XDG_DATA_HOME))}",
-        f"uv venv {shlex.quote(venv_dir)} >/dev/null",
+        f"cd {shlex.quote(str(WORKSPACE_MOUNT))}",
     ]
-    if experiment.python_packages:
-        package_args = shlex.join(experiment.python_packages)
-        lines.append(
-            f"uv pip install --python {shlex.quote(f'{venv_dir}/bin/python')} {package_args} >/dev/null"
-        )
-    lines.extend(
-        [
-            f"export PATH={shlex.quote(f'{venv_dir}/bin')}:$PATH",
-            f"cd {shlex.quote(str(WORKSPACE_MOUNT))}",
-        ]
-    )
 
     if interactive:
         lines.append(f"exec {shlex.join(adapter.INTERACTIVE_COMMAND)}")
@@ -467,11 +500,14 @@ def _build_docker_command(
     config_dir: Path,
     output_dir: Path,
     session_logs_dir: Path,
+    container_identity: ContainerIdentity,
     timeout: int,
 ) -> list[str]:
     cmd = ["docker", "run", "--rm", "-w", str(WORKSPACE_MOUNT)]
     cmd.extend(["--user", f"{os.getuid()}:{os.getgid()}"])
     cmd.extend(["-e", f"HOME={CONTAINER_HOME}"])
+    cmd.extend(["-e", f"USER={container_identity.username}"])
+    cmd.extend(["-e", f"LOGNAME={container_identity.username}"])
     cmd.extend(["-e", f"XDG_CONFIG_HOME={CONTAINER_XDG_CONFIG_HOME}"])
     cmd.extend(["-e", f"XDG_DATA_HOME={CONTAINER_XDG_DATA_HOME}"])
     if args.interactive:
@@ -489,6 +525,10 @@ def _build_docker_command(
             f"{config_dir.resolve()}:{adapter.CONFIG_TARGET_DIR}",
             "-v",
             f"{session_logs_dir.resolve()}:{adapter.SESSION_LOG_TARGET_DIR}",
+            "-v",
+            f"{container_identity.passwd_file.resolve()}:/etc/passwd:ro",
+            "-v",
+            f"{container_identity.group_file.resolve()}:/etc/group:ro",
         ]
     )
 
@@ -775,6 +815,7 @@ def _run_interactive(
     print(f"Preparing interactive workspace at {workspace_dir}")
     with tempfile.TemporaryDirectory(prefix=f"astroreason-{experiment.name}-config-") as config_tmp:
         config_dir = Path(config_tmp)
+        container_identity = _build_container_identity(config_dir)
         copied_config_files = _copy_filtered_config(experiment, config_dir)
         _prepare_workspace(experiment, args, workspace_dir)
         session_logs_dir = _prepare_session_log_mount(output_dir)
@@ -787,6 +828,7 @@ def _run_interactive(
             config_dir,
             output_dir,
             session_logs_dir,
+            container_identity,
             timeout,
         )
         print(f"Workspace ready at {workspace_dir}")
@@ -846,6 +888,7 @@ def _run_headless(
         with tempfile.TemporaryDirectory(prefix=f"astroreason-{experiment.name}-config-") as config_tmp:
             workspace_dir = Path(workspace_tmp)
             config_dir = Path(config_tmp)
+            container_identity = _build_container_identity(config_dir)
             copied_config_files = _copy_filtered_config(experiment, config_dir)
             _prepare_workspace(experiment, args, workspace_dir)
             session_logs_dir = _prepare_session_log_mount(output_dir)
@@ -858,6 +901,7 @@ def _run_headless(
                 config_dir,
                 output_dir,
                 session_logs_dir,
+                container_identity,
                 timeout,
             )
 
