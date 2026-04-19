@@ -1,0 +1,4 @@
+name: base
+image: astroreason-base:latest
+dockerfile: Dockerfile
+build_context: .

@@ -1,0 +1,77 @@
+{
+  "$schema": "https://opencode.ai/config.json",
+
+  // OpenCode docs say config supports both JSON and JSONC formats.
+  // Copy this file to opencode.json, then replace the placeholder values below.
+
+  "autoupdate": false,
+  "share": "disabled",
+  "enabled_providers": ["astroreason"],
+
+  // Full model IDs use the format provider_id/model_id.
+  "model": "astroreason/REPLACE_MODEL_SLUG",
+  "small_model": "astroreason/REPLACE_MODEL_SLUG",
+
+  "provider": {
+    // Minimal custom OpenAI-compatible provider for the experiment.
+    "astroreason": {
+      // For /v1/chat/completions-compatible endpoints.
+      // If your provider only supports /v1/responses, use "@ai-sdk/openai" instead.
+      "npm": "@ai-sdk/openai-compatible",
+      "name": "AstroReason Provider",
+      "options": {
+        "baseURL": "REPLACE_BASE_URL",
+        "apiKey": "REPLACE_API_KEY"
+      },
+      "models": {
+        "REPLACE_MODEL_SLUG": {
+          "name": "REPLACE_MODEL_SLUG"
+
+          // Optional: declare model limits when OpenCode cannot infer them.
+          // "limit": {
+          //   "context": 200000,
+          //   "output": 65536
+          // },
+
+          // Optional: define variants to switch reasoning style quickly.
+          // "variants": {
+          //   "fast": {
+          //     "reasoningEffort": "low",
+          //     "textVerbosity": "low"
+          //   },
+          //   "thinking": {
+          //     "reasoningEffort": "high",
+          //     "textVerbosity": "low",
+          //     "reasoningSummary": "auto"
+          //   }
+          // }
+        }
+      }
+    }
+
+    // Example: configure Anthropic's built-in provider directly.
+    // Uncomment this block if you want to use Anthropic instead of a custom provider.
+    //
+    // "anthropic": {
+    //   "options": {
+    //     "baseURL": "https://api.anthropic.com/v1",
+    //     "apiKey": "REPLACE_ANTHROPIC_API_KEY"
+    //
+    //     // Optional provider-level transport tuning:
+    //     // "timeout": 600000,
+    //     // "chunkTimeout": 30000,
+    //     // "setCacheKey": true
+    //   },
+    //   "models": {
+    //     "claude-sonnet-4-5-20250929": {
+    //       "options": {
+    //         "thinking": {
+    //           "type": "enabled",
+    //           "budgetTokens": 16000
+    //         }
+    //       }
+    //     }
+    //   }
+    // }
+  }
+}
