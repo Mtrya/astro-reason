@@ -1,3 +1,3 @@
-Solve the prepared `regional_coverage` case in `case/`.
+Please solve the prepared regional strip-coverage case using the files in `case/`.
 
-Read the workspace files carefully, write a valid `solution.json`, and avoid depending on any repository files outside the prepared workspace.
+Write `solution.json` at the workspace root. Prioritize a valid schedule that covers as much weighted regional area as possible.

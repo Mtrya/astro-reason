@@ -1,3 +1,3 @@
-Solve the prepared `revisit_constellation` case in `case/`.
+Please solve the prepared revisit-driven constellation planning case using the files in `case/`.
 
-Read the workspace files carefully, write a valid `solution.json`, and avoid depending on any repository files outside the prepared workspace.
+Write `solution.json` at the workspace root. Produce a feasible constellation and observation schedule, then push the revisit gaps down as far as you can.

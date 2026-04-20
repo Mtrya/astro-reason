@@ -1,3 +1,3 @@
-Solve the prepared `relay_constellation` case in `case/`.
+Please solve the prepared relay-network augmentation case using the files in `case/`.
 
-Read the workspace files carefully, write a valid `solution.json`, and avoid depending on any repository files outside the prepared workspace.
+Write `solution.json` at the workspace root. Build a feasible augmentation and link plan first, then push service up and latency down.
