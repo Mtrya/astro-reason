@@ -1,20 +1,29 @@
-# Placeholder scaffold profile for Claude Code.
-# Phase 4 is expected to replace the TODO fields with real command/config details.
-
 harness: claude_code
 runtime: base
 
 config:
-  real_file: experiments/_fragments/configs/claude_code/config.local.yaml
-  # TODO: add the tracked example config once the Claude Code schema is settled.
+  target: home/.claude/settings.json
+  real_file: experiments/_fragments/configs/claude_code/settings.json
+  example_file: experiments/_fragments/configs/claude_code/settings.json.example
 
 commands:
-  # TODO: replace with the canonical Claude Code headless invocation.
-  headless_shell_command: "__TODO__"
+  headless_shell_command: >-
+    claude -p --dangerously-skip-permissions
+    --output-format text
+    "$(cat ~/PROMPT.md)"
   interactive_command:
-    - /bin/bash
-    - -i
+    - claude
+    - --dangerously-skip-permissions
 
 artifacts:
-  # TODO: replace with the actual Claude Code session-log location.
-  collect: []
+  collect:
+    - source: home/.claude/projects
+      target: session_logs/projects
+    - source: home/.claude/tasks
+      target: session_logs/tasks
+    - source: home/.claude/history.jsonl
+      target: session_logs/history.jsonl
+
+notes:
+  - Claude Code stores additional per-session state under home/.claude/session-env and home/.claude/sessions; collect more later if a run needs deeper replay artifacts.
+  - Provider and auth details should stay in the real settings file or environment rather than in tracked configs.

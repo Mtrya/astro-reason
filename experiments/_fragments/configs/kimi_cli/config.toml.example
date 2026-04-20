@@ -1,0 +1,15 @@
+default_model = "kimi-code/kimi-for-coding"
+default_thinking = true
+default_yolo = false
+default_plan_mode = false
+
+[models."kimi-code/kimi-for-coding"]
+provider = "managed:kimi-code"
+model = "kimi-for-coding"
+max_context_size = 262144
+capabilities = ["video_in", "thinking", "image_in"]
+
+[providers."managed:kimi-code"]
+type = "kimi"
+base_url = "https://api.kimi.com/coding/v1"
+api_key = "replace_with_your_api_key"

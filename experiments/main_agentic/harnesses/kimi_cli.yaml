@@ -1,20 +1,28 @@
-# Placeholder scaffold profile for Kimi CLI.
-# Phase 4 is expected to replace the TODO fields with real command/config details.
-
 harness: kimi_cli
 runtime: base
 
 config:
-  real_file: experiments/_fragments/configs/kimi_cli/config.local.yaml
-  # TODO: add the tracked example config once the Kimi CLI schema is settled.
+  target: home/.kimi/config.toml
+  real_file: experiments/_fragments/configs/kimi_cli/config.toml
+  example_file: experiments/_fragments/configs/kimi_cli/config.toml.example
 
 commands:
-  # TODO: replace with the canonical Kimi CLI headless invocation.
-  headless_shell_command: "__TODO__"
+  headless_shell_command: >-
+    kimi --print -p "$(cat ~/PROMPT.md)"
   interactive_command:
-    - /bin/bash
-    - -i
+    - kimi
 
 artifacts:
-  # TODO: replace with the actual Kimi CLI session-log location.
-  collect: []
+  collect:
+    - source: home/.kimi/sessions
+      target: session_logs/sessions
+    - source: home/.kimi/user-history
+      target: session_logs/user_history
+    - source: home/.kimi/logs
+      target: session_logs/logs
+    - source: home/.kimi/kimi.json
+      target: session_logs/kimi.json
+
+notes:
+  - Kimi print mode is the canonical non-interactive path and implicitly enables auto-approval.
+  - Kimi also keeps credential material under home/.kimi/credentials; do not collect that by default.

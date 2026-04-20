@@ -1,0 +1,12 @@
+{
+  "model": "claude-sonnet-4-5",
+  "includeCoAuthoredBy": false,
+  "env": {
+    "ANTHROPIC_AUTH_TOKEN": "replace_with_your_api_key_or_gateway_token",
+    "ANTHROPIC_BASE_URL": "https://replace_with_your_gateway_base_url"
+  },
+  "permissions": {
+    "allow": [],
+    "deny": []
+  }
+}

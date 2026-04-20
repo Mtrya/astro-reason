@@ -1,20 +1,31 @@
-# Placeholder scaffold profile for Codex.
-# Phase 4 is expected to replace the TODO fields with real command/config details.
-
 harness: codex
 runtime: base
 
 config:
-  real_file: experiments/_fragments/configs/codex/config.local.yaml
-  # TODO: add the tracked example config once the Codex schema is settled.
+  target: home/.codex/config.toml
+  real_file: experiments/_fragments/configs/codex/config.toml
+  example_file: experiments/_fragments/configs/codex/config.toml.example
 
 commands:
-  # TODO: replace with the canonical Codex headless invocation.
-  headless_shell_command: "__TODO__"
+  headless_shell_command: >-
+    codex exec --dangerously-bypass-approvals-and-sandbox
+    --skip-git-repo-check
+    --cd /app/workspace
+    "$(cat ~/PROMPT.md)"
   interactive_command:
-    - /bin/bash
-    - -i
+    - codex
 
 artifacts:
-  # TODO: replace with the actual Codex session-log location.
-  collect: []
+  collect:
+    - source: home/.codex/sessions
+      target: session_logs/sessions
+    - source: home/.codex/session_index.jsonl
+      target: session_logs/session_index.jsonl
+    - source: home/.codex/history.jsonl
+      target: session_logs/history.jsonl
+    - source: home/.codex/log
+      target: session_logs/log
+
+notes:
+  - Codex keeps additional state in sqlite files under home/.codex; keep those out of default collected artifacts unless a follow-up phase needs lower-level debugging.
+  - The dangerous bypass flag is intentional here because the outer Docker runtime is the actual sandbox boundary for this family.
