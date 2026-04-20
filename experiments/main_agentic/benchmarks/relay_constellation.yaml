@@ -13,5 +13,24 @@ workspace:
 
 aggregation:
   verifier_kind: module_directory
-  # TODO: define the benchmark-specific primary score extraction once the first
-  # end-to-end matrix run artifacts are available.
+  score_metrics:
+    - name: service_fraction
+      path: metrics.service_fraction
+      direction: maximize
+      role: primary
+    - name: worst_demand_service_fraction
+      path: metrics.worst_demand_service_fraction
+      direction: maximize
+      role: secondary
+    - name: latency_p95_ms
+      path: metrics.latency_p95_ms
+      direction: minimize
+      role: secondary
+    - name: mean_latency_ms
+      path: metrics.mean_latency_ms
+      direction: minimize
+      role: secondary
+    - name: num_added_satellites
+      path: metrics.num_added_satellites
+      direction: minimize
+      role: secondary

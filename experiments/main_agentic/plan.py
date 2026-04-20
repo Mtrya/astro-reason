@@ -108,7 +108,23 @@ class BenchmarkProfile:
     prompt_fragment: Path
     assemble: tuple[AssembleTemplate, ...]
     verifier_kind: str
+    score_metrics: tuple["MetricSpec", ...]
+    flag_metrics: tuple["FlagMetricSpec", ...]
     profile_path: Path
+
+
+@dataclass(frozen=True)
+class MetricSpec:
+    name: str
+    path: str
+    direction: str
+    role: str
+
+
+@dataclass(frozen=True)
+class FlagMetricSpec:
+    name: str
+    path: str
 
 
 @dataclass(frozen=True)
@@ -357,6 +373,61 @@ def _parse_assemble_templates(items: Any, config_path: Path) -> tuple[AssembleTe
     return tuple(specs)
 
 
+def _parse_metric_specs(items: Any, profile_path: Path) -> tuple[MetricSpec, ...]:
+    if not isinstance(items, list):
+        raise SystemExit(f"Aggregation field 'score_metrics' must be a list: {profile_path}")
+
+    specs: list[MetricSpec] = []
+    roles_seen: set[str] = set()
+    for index, item in enumerate(items):
+        if not isinstance(item, dict):
+            raise SystemExit(f"Aggregation score metric #{index} must be a mapping: {profile_path}")
+        direction = _require_str(item, "direction", "Aggregation score metric", profile_path)
+        if direction not in {"maximize", "minimize"}:
+            raise SystemExit(
+                f"Aggregation score metric #{index} field 'direction' must be maximize or minimize: {profile_path}"
+            )
+        role = _require_str(item, "role", "Aggregation score metric", profile_path)
+        if role not in {"primary", "secondary"}:
+            raise SystemExit(
+                f"Aggregation score metric #{index} field 'role' must be primary or secondary: {profile_path}"
+            )
+        roles_seen.add(role)
+        specs.append(
+            MetricSpec(
+                name=_require_str(item, "name", "Aggregation score metric", profile_path),
+                path=_require_str(item, "path", "Aggregation score metric", profile_path),
+                direction=direction,
+                role=role,
+            )
+        )
+
+    if items and "primary" not in roles_seen:
+        raise SystemExit(
+            f"Aggregation score_metrics must include one primary metric: {profile_path}"
+        )
+    return tuple(specs)
+
+
+def _parse_flag_metric_specs(items: Any, profile_path: Path) -> tuple[FlagMetricSpec, ...]:
+    if items is None:
+        return ()
+    if not isinstance(items, list):
+        raise SystemExit(f"Aggregation field 'flag_metrics' must be a list: {profile_path}")
+
+    specs: list[FlagMetricSpec] = []
+    for index, item in enumerate(items):
+        if not isinstance(item, dict):
+            raise SystemExit(f"Aggregation flag metric #{index} must be a mapping: {profile_path}")
+        specs.append(
+            FlagMetricSpec(
+                name=_require_str(item, "name", "Aggregation flag metric", profile_path),
+                path=_require_str(item, "path", "Aggregation flag metric", profile_path),
+            )
+        )
+    return tuple(specs)
+
+
 def load_batch_config(config_path: Path) -> BatchConfig:
     data = _load_yaml_mapping(config_path, "Family config")
     mode = _require_str(data, "mode", "Family config", config_path)
@@ -485,6 +556,8 @@ def load_benchmark_profile(name: str) -> BenchmarkProfile:
         prompt_fragment=prompt_fragment,
         assemble=_parse_assemble_templates(workspace.get("assemble"), profile_path),
         verifier_kind=_require_str(aggregation, "verifier_kind", "Aggregation config", profile_path),
+        score_metrics=_parse_metric_specs(aggregation.get("score_metrics", []), profile_path),
+        flag_metrics=_parse_flag_metric_specs(aggregation.get("flag_metrics"), profile_path),
         profile_path=profile_path.resolve(),
     )
 

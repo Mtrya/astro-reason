@@ -13,5 +13,12 @@ workspace:
 
 aggregation:
   verifier_kind: module_directory
-  # TODO: define the benchmark-specific primary score extraction once the first
-  # end-to-end matrix run artifacts are available.
+  score_metrics:
+    - name: coverage_ratio
+      path: metrics.coverage_ratio
+      direction: maximize
+      role: primary
+    - name: normalized_quality
+      path: metrics.normalized_quality
+      direction: maximize
+      role: secondary
