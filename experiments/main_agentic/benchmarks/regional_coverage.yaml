@@ -13,5 +13,24 @@ workspace:
 
 aggregation:
   verifier_kind: single_file
-  # TODO: define the benchmark-specific primary score extraction once the first
-  # end-to-end matrix run artifacts are available.
+  score_metrics:
+    - name: coverage_ratio
+      path: metrics.coverage_ratio
+      direction: maximize
+      role: primary
+    - name: covered_weight_m2_equivalent
+      path: metrics.covered_weight_m2_equivalent
+      direction: maximize
+      role: secondary
+    - name: total_imaging_energy_wh
+      path: metrics.total_imaging_energy_wh
+      direction: minimize
+      role: secondary
+    - name: total_slew_angle_deg
+      path: metrics.total_slew_angle_deg
+      direction: minimize
+      role: secondary
+    - name: num_actions
+      path: metrics.num_actions
+      direction: minimize
+      role: secondary

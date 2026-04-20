@@ -13,5 +13,16 @@ workspace:
 
 aggregation:
   verifier_kind: single_file
-  # TODO: define the benchmark-specific primary score extraction once the first
-  # end-to-end matrix run artifacts are available.
+  score_metrics:
+    - name: computed_profit
+      path: metrics.computed_profit
+      direction: maximize
+      role: primary
+    - name: computed_weight
+      path: metrics.computed_weight
+      direction: minimize
+      role: secondary
+    - name: computed_selected
+      path: metrics.computed_selected
+      direction: maximize
+      role: secondary

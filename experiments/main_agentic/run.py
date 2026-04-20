@@ -19,6 +19,7 @@ from pathlib import Path
 from typing import Any
 
 if __package__ in (None, ""):
+    sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
     sys.path.insert(0, str(Path(__file__).resolve().parent))
     import plan as family_plan  # type: ignore[no-redef]
 else:
@@ -706,6 +707,83 @@ def _verifier_command(benchmark: str, case_dir: Path, solution_path: Path) -> li
     ]
 
 
+def _normalized_verifier_valid(parsed: dict[str, Any]) -> bool | None:
+    valid = parsed.get("valid")
+    if isinstance(valid, bool):
+        return valid
+    is_valid = parsed.get("is_valid")
+    if isinstance(is_valid, bool):
+        return is_valid
+    return None
+
+
+def _normalize_cli_verifier_payload(benchmark: str, parsed: dict[str, Any]) -> dict[str, Any]:
+    normalized = dict(parsed)
+    valid = _normalized_verifier_valid(normalized)
+    if isinstance(valid, bool):
+        normalized["valid"] = valid
+    return normalized
+
+
+def _run_satnet_verifier_api(case_dir: Path, solution_path: Path) -> VerifierOutcome:
+    try:
+        from benchmarks.satnet.verifier import verify_case
+
+        result = verify_case(case_dir, solution_path)
+    except Exception as exc:
+        return VerifierOutcome(
+            status="error",
+            result={"status": "error", "error": f"Failed to run SatNet verifier: {exc}"},
+        )
+
+    payload = {
+        "valid": bool(result.is_valid),
+        "metrics": {
+            "score_hours": float(result.score),
+            "n_tracks": int(result.n_tracks),
+            "n_satisfied_requests": int(result.n_satisfied_requests),
+            "u_rms": float(result.u_rms),
+            "u_max": float(result.u_max),
+        },
+        "diagnostics": {
+            "per_mission_u_i": dict(result.per_mission_u_i),
+        },
+        "errors": list(result.errors),
+        "warnings": list(result.warnings),
+    }
+    return VerifierOutcome(
+        status="valid" if result.is_valid else "invalid",
+        result=payload,
+    )
+
+
+def _run_spot5_verifier_api(case_dir: Path, solution_path: Path) -> VerifierOutcome:
+    try:
+        from benchmarks.spot5.verifier import verify_files
+
+        result = verify_files(case_dir, solution_path)
+    except Exception as exc:
+        return VerifierOutcome(
+            status="error",
+            result={"status": "error", "error": f"Failed to run SPOT-5 verifier: {exc}"},
+        )
+
+    payload = {
+        "valid": bool(result.is_valid),
+        "metrics": {
+            "computed_profit": int(result.computed_profit),
+            "computed_weight": int(result.computed_weight),
+            "computed_selected": int(result.computed_selected),
+        },
+        "errors": list(result.errors),
+        "warnings": list(result.warnings),
+    }
+    return VerifierOutcome(
+        status="valid" if result.is_valid else "invalid",
+        result=payload,
+    )
+
+
 def _run_external_verifier(
     benchmark: str,
     case_dir: Path,
@@ -720,6 +798,11 @@ def _run_external_verifier(
         )
 
     solution_path = output_dir / "solution.json"
+    if benchmark == "satnet":
+        return _run_satnet_verifier_api(case_dir, solution_path)
+    if benchmark == "spot5":
+        return _run_spot5_verifier_api(case_dir, solution_path)
+
     cmd = _verifier_command(benchmark, case_dir, solution_path)
     exit_code, stdout, stderr, launched = _run_process(
         cmd,
@@ -754,6 +837,7 @@ def _run_external_verifier(
             },
         )
 
+    parsed = _normalize_cli_verifier_payload(benchmark, parsed)
     valid = parsed.get("valid")
     if not isinstance(valid, bool):
         error = "Verifier output JSON must include a boolean 'valid' field."
