@@ -339,8 +339,7 @@ def clean_mkdown_syntax(content: str) -> str:
                 continue
             if indent <= special_base_indent:
                 in_special = False
-                result.append(line)
-                i += 1
+                continue
                 continue
 
             if special_dedent is None:
