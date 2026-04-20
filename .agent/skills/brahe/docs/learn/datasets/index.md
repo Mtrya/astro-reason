@@ -1,0 +1,71 @@
+# Datasets
+
+The datasets module in Brahe provides easy access to common static data sources used in astrodynamics, space mission analysis, and research. This includes planetary ephemeris kernels and locations of ground stations.
+
+**Satellite Ephemeris Data**
+For satellite ephemeris API clients (CelesTrak, Space-Track), see [Ephemeris Data Sources](../ephemeris/index.md).
+
+## Overview
+
+Working with satellite and planetary data typically requires gathering information from multiple sources:
+
+- **Planetary ephemeris** (DE kernels) for high-precision solar system body positions
+- **Groundstation locations** for computing contact opportunities
+
+Brahe's datasets module centralizes access to these data sources, handling the details of fetching, parsing, and caching so you can focus on analysis rather than data wrangling.
+
+## Available Data Sources
+
+### [NAIF](naif.md)
+
+[NASA JPL's NAIF archive](https://naif.jpl.nasa.gov/) provides high-precision planetary ephemeris kernels. The brahe interface supports:
+
+- **DE kernel downloads**: Fetch Development Ephemeris binary files (SPK format)
+- **Automatic caching**: Downloaded kernels are cached permanently
+- **Multiple versions**: Support for DE430, DE440, DE442 and variants
+
+**Best for**: High-precision planetary ephemeris, interplanetary mission analysis
+
+### [GCAT Satellite Catalogs](gcat.md)
+
+[Jonathan McDowell's GCAT](https://planet4589.org/space/gcat/) provides comprehensive metadata for all cataloged artificial space objects. The brahe interface supports:
+
+- **SATCAT**: Physical, orbital, and administrative properties for all cataloged objects
+- **PSATCAT**: Payload-specific mission metadata and UN registry information
+- **Automatic caching**: File-based caching with configurable 24-hour TTL
+- **Search and filtering**: Name search, type/status/owner filters, orbital range filters
+
+**Best for**: Satellite catalog research, constellation analysis, historical studies
+
+### [Groundstations](groundstations.md)
+
+Embedded GeoJSON data for commercial groundstation networks. Includes 6 major providers:
+
+- **Atlas Space Operations**
+- **Amazon Web Services Ground Station**
+- **Kongsberg Satellite Services (KSAT)**
+- **Leaf Space**
+- **Swedish Space Corporation (SSC)**
+- **Viasat**
+
+**Best for**: Contact opportunity analysis, network planning, coverage studies
+
+## Data Philosophy
+
+Brahe's datasets module aims to:
+
+- **Reduce friction**: Provide easy access to commonly needed data
+- **No surprises**: Data sources are clearly documented with known limitations
+- **Offline capable**: Prefer embedded data when feasible
+- **Respect providers**: Follow best practices and rate limiting
+- **Stay current**: Update data sources as the ecosystem evolves
+
+---
+
+## See Also
+
+- [Ephemeris Data Sources](../ephemeris/index.md) - CelesTrak and Space-Track API clients
+- [NAIF Ephemeris Kernels](naif.md) - Planetary ephemeris data
+- [GCAT Satellite Catalogs](gcat.md) - GCAT SATCAT and PSATCAT catalogs
+- [Groundstation Datasets](groundstations.md) - Ground facility locations
+- [Datasets API Reference](../../library_api/datasets/index.md) - Complete function documentation
