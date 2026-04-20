@@ -1,20 +1,29 @@
 #!/usr/bin/env python3
-"""Generate the Brahe skill from upstream docs and examples.
+"""Generate the Brahe skill from upstream docs and reachable source files.
 
-Reads from vendor/brahe/ (or clones upstream) and writes processed
-artifacts to .agent/skills/brahe/.
+Reads from vendor/brahe/ (or clones upstream) and writes a docs-preserving
+skill tree to .agent/skills/brahe/.
 """
 
 from __future__ import annotations
 
 import argparse
-import os
 import re
 import shutil
 import subprocess
 import sys
 import tempfile
+from collections import deque
 from pathlib import Path
+
+
+SNIPPET_PATTERN = re.compile(r"^(?P<indent>\s*)--8<--\s+['\"](?P<spec>.+?)['\"]\s*$", re.MULTILINE)
+MARKDOWN_LINK_PATTERN = re.compile(
+    r"(?P<prefix>!?)\[(?P<text>[^\]]+)\]\((?P<target>[^)\s]+)(?P<title>\s+[^)]*)?\)"
+)
+TAB_HEADER_PATTERN = re.compile(r'^===\s+["\'](?P<name>.+?)["\']\s*$')
+SPECIAL_BLOCK_PATTERN = re.compile(r'^(?P<marker>!!!|\?\?\?)\s+(?P<kind>\w+)?\s*(?:"?(?P<title>.+?)"?)?\s*$')
+PROTECTED_OUTPUT_DIRS = {Path("/").resolve(), Path.home().resolve(), Path.cwd().resolve()}
 
 
 def main() -> int:
@@ -33,8 +42,7 @@ def main() -> int:
 
     output = Path(args.output).resolve()
 
-    temp_dir = None
-    source = None
+    temp_dir: tempfile.TemporaryDirectory[str] | None = None
     try:
         if args.source is None:
             temp_dir = tempfile.TemporaryDirectory(prefix="brahe-skill-source-")
@@ -42,7 +50,10 @@ def main() -> int:
             print("Cloning Brahe from GitHub ...")
             subprocess.run(
                 [
-                    "git", "clone", "--depth", "1",
+                    "git",
+                    "clone",
+                    "--depth",
+                    "1",
                     "https://github.com/duncaneddy/brahe.git",
                     str(source),
                 ],
@@ -55,42 +66,18 @@ def main() -> int:
                 print(f"Source directory does not exist: {source}", file=sys.stderr)
                 return 1
 
-        # Safety guard for output deletion
         if output.exists():
-            resolved_out = output.resolve()
-            dangerous = {Path("/").resolve(), Path.home().resolve(), Path.cwd().resolve()}
-            if resolved_out in dangerous:
+            if output in PROTECTED_OUTPUT_DIRS:
                 print(f"Refusing to delete protected directory: {output}", file=sys.stderr)
                 return 1
             shutil.rmtree(output)
         output.mkdir(parents=True)
 
-        # Create subdirectories
-        (output / "scripts").mkdir()
-        (output / "references").mkdir()
-        (output / "assets" / "figures").mkdir(parents=True)
-        (output / "assets" / "docs_assets").mkdir(parents=True)
-
-        # 1. Process docs/learn/ markdown files
         docs_learn = source / "docs" / "learn"
         if docs_learn.exists():
-            process_docs_learn(docs_learn, output / "references", source)
+            process_docs_learn(docs_learn, output, source)
 
-        # 2. Copy examples/ Python files
-        examples_dir = source / "examples"
-        if examples_dir.exists():
-            process_examples(examples_dir, output / "scripts")
-
-        # 3. Copy assets and figures
-        docs_figures = source / "docs" / "figures"
-        docs_assets = source / "docs" / "assets"
-        if docs_figures.exists():
-            copy_tree(docs_figures, output / "assets" / "figures")
-        if docs_assets.exists():
-            copy_tree(docs_assets, output / "assets" / "docs_assets")
-
-        # 4. Generate SKILL.md
-        generate_skill_index(output, source)
+        generate_skill_index(output)
 
     finally:
         if temp_dir is not None:
@@ -100,89 +87,122 @@ def main() -> int:
     return 0
 
 
-def process_docs_learn(src_dir: Path, out_dir: Path, repo_root: Path) -> None:
-    """Copy and transform docs/learn/ markdown files."""
-    for src_file in sorted(src_dir.rglob("*.md")):
-        rel = src_file.relative_to(src_dir)
-        out_file = out_dir / rel
-        out_file.parent.mkdir(parents=True, exist_ok=True)
+def process_docs_learn(src_dir: Path, out_root: Path, repo_root: Path) -> None:
+    """Process docs/learn and copy all reachable source files under original paths."""
+    markdown_files, copied_files = collect_reachable_files(src_dir, repo_root)
 
-        content = src_file.read_text(encoding="utf-8")
-        content = resolve_snippets(content, repo_root)
-        content = filter_tabs(content)
-        content = rewrite_relative_links(content)
-        content = clean_mkdown_syntax(content)
-        content = normalize_fenced_code_blocks(content)
-        content = remove_orphan_output_headers(content)
+    for src_file in markdown_files:
+        write_processed_markdown(src_file, out_root, repo_root)
 
-        out_file.write_text(content, encoding="utf-8")
+    for src_file in copied_files:
+        copy_repo_file(src_file, out_root, repo_root)
+
+
+def collect_reachable_files(seed_dir: Path, repo_root: Path) -> tuple[list[Path], list[Path]]:
+    """Return markdown docs to process plus non-markdown files to copy."""
+    docs_root = repo_root / "docs"
+    plots_learn_root = repo_root / "plots" / "learn"
+
+    markdown_files: set[Path] = set()
+    copied_files: set[Path] = set()
+    queue: deque[Path] = deque(sorted(seed_dir.rglob("*.md")))
+
+    while queue:
+        doc_path = queue.popleft()
+        if doc_path in markdown_files or not doc_path.exists():
+            continue
+
+        markdown_files.add(doc_path)
+        for dependency in discover_markdown_dependencies(doc_path.read_text(encoding="utf-8"), doc_path, repo_root):
+            if dependency.suffix == ".md" and dependency.is_relative_to(docs_root):
+                queue.append(dependency)
+            else:
+                copied_files.add(dependency)
+
+    if any(path.is_relative_to(plots_learn_root) for path in copied_files):
+        brahe_theme = repo_root / "plots" / "brahe_theme.py"
+        if brahe_theme.exists():
+            copied_files.add(brahe_theme)
+
+    return sorted(markdown_files), sorted(copied_files)
+
+
+def discover_markdown_dependencies(content: str, doc_path: Path, repo_root: Path) -> set[Path]:
+    """Find reachable local files referenced by a markdown document."""
+    dependencies: set[Path] = set()
+
+    for match in SNIPPET_PATTERN.finditer(content):
+        target_path, _, _ = parse_snippet_spec(match.group("spec"))
+        dependency = resolve_repo_relative_path(repo_root, target_path)
+        if dependency.exists():
+            dependencies.add(dependency)
+
+    for match in MARKDOWN_LINK_PATTERN.finditer(content):
+        target = match.group("target")
+        if is_external_target(target):
+            continue
+
+        path_text = split_link_suffix(target)
+        if not path_text:
+            continue
+
+        dependency = (doc_path.parent / path_text).resolve()
+        if dependency.exists():
+            dependencies.add(dependency)
+
+    return dependencies
+
+
+def write_processed_markdown(src_file: Path, out_root: Path, repo_root: Path) -> None:
+    """Write one processed markdown file under its original repository-relative path."""
+    out_file = out_root / src_file.relative_to(repo_root)
+    out_file.parent.mkdir(parents=True, exist_ok=True)
+
+    content = src_file.read_text(encoding="utf-8")
+    content = resolve_snippets(content, repo_root)
+    content = filter_tabs(content)
+    content = clean_mkdown_syntax(content)
+    content = normalize_fenced_code_blocks(content)
+    content = remove_leading_blank_lines_in_fences(content)
+    content = remove_orphan_output_headers(content)
+
+    out_file.write_text(content, encoding="utf-8")
+
+
+def copy_repo_file(src_file: Path, out_root: Path, repo_root: Path) -> None:
+    """Copy one repository file under its original repository-relative path."""
+    out_file = out_root / src_file.relative_to(repo_root)
+    out_file.parent.mkdir(parents=True, exist_ok=True)
+    shutil.copy2(src_file, out_file)
 
 
 def resolve_snippets(content: str, repo_root: Path) -> str:
-    """Replace --8<-- includes with inlined file contents.
-
-    Handles lines like:
-        --8<-- "./examples/foo.py:8"
-        --8<-- "./examples/foo.py:8:20"
-    even when indented inside fenced code blocks.
-    """
-    pattern = re.compile(r"^(\s*)--8<--\s+['\"](.+?)['\"]\s*$", re.MULTILINE)
+    """Replace --8<-- includes with inlined file contents."""
 
     def replacer(match: re.Match) -> str:
-        indent = match.group(1)
-        spec = match.group(2)
-        parts = spec.split(":")
-        file_path = parts[0]
-        start_line = int(parts[1]) if len(parts) > 1 and parts[1].isdigit() else None
-        end_line = int(parts[2]) if len(parts) > 2 and parts[2].isdigit() else None
+        indent = match.group("indent")
+        file_path, start_line, end_line = parse_snippet_spec(match.group("spec"))
+        target = resolve_repo_relative_path(repo_root, file_path)
 
-        # Skip build-artifact output files that only exist after mkdocs build
-        normalized = file_path.lstrip("./")
-        if normalized.startswith("docs/outputs/"):
-            return ""
-
-        target = repo_root / file_path
         if not target.exists():
             return f"{indent}# [Included file not found: {file_path}]"
 
         lines = target.read_text(encoding="utf-8").splitlines()
         if start_line is not None:
-            start_idx = start_line - 1
-            end_idx = end_line if end_line is not None else len(lines)
-            lines = lines[start_idx:end_idx]
+            lines = lines[start_line - 1:end_line]
 
-        if lines:
-            non_empty = [line for line in lines if line.strip()]
-            if non_empty:
-                min_indent = min((len(line) - len(line.lstrip())) for line in non_empty)
-                stripped = [line[min_indent:] for line in lines]
-            else:
-                stripped = lines
-            indented = [indent + line for line in stripped]
-            return "\n".join(indented)
-        return ""
+        return "\n".join(f"{indent}{line}" for line in dedent_lines(lines))
 
-    return pattern.sub(replacer, content)
+    return SNIPPET_PATTERN.sub(replacer, content)
 
 
 def filter_tabs(content: str) -> str:
-    """Remove pymdownx.tabbed Rust blocks, keep Python blocks.
-
-    pymdownx.tabbed uses:
-    === "Python"
-        content...
-    === "Rust"
-        content...
-
-    We keep Python content and drop Rust content entirely. Content inside kept
-    tabs is dedented so fenced code blocks and prose render correctly.
-    """
+    """Remove pymdownx.tabbed Rust blocks while keeping Python content."""
     lines = content.splitlines()
     result: list[str] = []
-    skip_until_dedent = False
-    in_python_tab = False
-    tab_base_indent = 0
-    python_tab_dedent: int | None = None
+    skipped_tab_indent: int | None = None
+    kept_tab_indent: int | None = None
+    kept_tab_dedent: int | None = None
 
     i = 0
     while i < len(lines):
@@ -190,53 +210,49 @@ def filter_tabs(content: str) -> str:
         stripped = line.lstrip()
         indent = len(line) - len(stripped)
 
-        tab_match = re.match(r'^(===)\s+["\'](.+?)["\']\s*$', stripped)
+        tab_match = TAB_HEADER_PATTERN.match(stripped)
         if tab_match:
-            tab_name = tab_match.group(2)
+            tab_name = tab_match.group("name")
             if tab_name == "Rust":
-                skip_until_dedent = True
-                in_python_tab = False
-                tab_base_indent = indent
+                skipped_tab_indent = indent
+                kept_tab_indent = None
+                kept_tab_dedent = None
                 i += 1
                 continue
-            elif tab_name == "Python":
-                in_python_tab = True
-                skip_until_dedent = False
-                tab_base_indent = indent
-                python_tab_dedent = None
-                i += 1
-                continue
-            else:
-                skip_until_dedent = False
-                in_python_tab = False
-                result.append(line)
+            if tab_name == "Python":
+                kept_tab_indent = indent
+                skipped_tab_indent = None
+                kept_tab_dedent = None
                 i += 1
                 continue
 
-        if skip_until_dedent:
-            if stripped and indent <= tab_base_indent:
-                skip_until_dedent = False
-                continue
+            skipped_tab_indent = None
+            kept_tab_indent = None
+            kept_tab_dedent = None
+            result.append(line)
+            i += 1
             continue
 
-        if in_python_tab:
-            if stripped and indent <= tab_base_indent:
-                in_python_tab = False
+        if skipped_tab_indent is not None:
+            if not stripped or indent > skipped_tab_indent:
+                i += 1
                 continue
-                continue
+            skipped_tab_indent = None
 
+        if kept_tab_indent is not None:
             if not stripped:
                 result.append("")
                 i += 1
                 continue
+            if indent > kept_tab_indent:
+                if kept_tab_dedent is None:
+                    kept_tab_dedent = indent
+                result.append(strip_common_indent(line, kept_tab_dedent))
+                i += 1
+                continue
 
-            if python_tab_dedent is None:
-                python_tab_dedent = indent
-
-            dedented = line[python_tab_dedent:] if indent >= python_tab_dedent else line.lstrip()
-            result.append(dedented)
-            i += 1
-            continue
+            kept_tab_indent = None
+            kept_tab_dedent = None
 
         result.append(line)
         i += 1
@@ -244,42 +260,13 @@ def filter_tabs(content: str) -> str:
     return "\n".join(result)
 
 
-def rewrite_relative_links(content: str) -> str:
-    """Rewrite relative markdown links to point to Brahe's published docs."""
-    base_url = "https://duncaneddy.github.io/brahe/latest"
-
-    def replacer(match: re.Match) -> str:
-        text = match.group(1)
-        link = match.group(2)
-        if link.startswith("http") or link.startswith("#"):
-            return match.group(0)
-
-        # Normalize relative path
-        link_clean = link
-        for prefix in ("../../", "../", "./"):
-            if link_clean.startswith(prefix):
-                link_clean = link_clean[len(prefix):]
-        link_clean = link_clean.replace(".md", "")
-        return f"[{text}]({base_url}/{link_clean})"
-
-    return re.sub(r"\[([^\]]+)\]\(([^)]+)\)", replacer, content)
-
-
 def clean_mkdown_syntax(content: str) -> str:
-    """Remove or simplify mkdocs-material specific syntax.
-
-    - !!! admonitions -> bold header + dedented content
-    - ??? collapsible blocks -> bold header + dedented content
-    - HTML divs for plotly embeds -> removed
-    - HTML figure tags -> removed
-    - HTML center-table div tags -> removed, content kept
-    """
+    """Remove or simplify mkdocs-material specific syntax."""
     lines = content.splitlines()
     result: list[str] = []
     plotly_depth = 0
     in_center_table = False
-    in_special = False
-    special_base_indent = 0
+    special_base_indent: int | None = None
     special_dedent: int | None = None
 
     i = 0
@@ -288,13 +275,12 @@ def clean_mkdown_syntax(content: str) -> str:
         stripped = line.lstrip()
         indent = len(line) - len(stripped)
 
-        # HTML divs and figures
         if stripped.startswith("<div"):
             if 'class="plotly-embed"' in stripped:
                 plotly_depth += 1
                 i += 1
                 continue
-            elif 'class="center-table"' in stripped:
+            if 'class="center-table"' in stripped:
                 in_center_table = True
                 i += 1
                 continue
@@ -303,7 +289,7 @@ def clean_mkdown_syntax(content: str) -> str:
                 plotly_depth -= 1
                 i += 1
                 continue
-            elif in_center_table:
+            if in_center_table:
                 in_center_table = False
                 i += 1
                 continue
@@ -321,34 +307,29 @@ def clean_mkdown_syntax(content: str) -> str:
             i += 1
             continue
 
-        # Admonitions and details
-        special_match = re.match(r"^(!!!|\?\?\?)\s+(\w+)?\s*(\"?(.+?)\"?)?\s*$", stripped)
+        special_match = SPECIAL_BLOCK_PATTERN.match(stripped)
         if special_match:
-            in_special = True
             special_base_indent = indent
             special_dedent = None
-            title = special_match.group(4) or special_match.group(2) or "Note"
+            title = special_match.group("title") or special_match.group("kind") or "Note"
             result.append(f"**{title}**")
             i += 1
             continue
 
-        if in_special:
+        if special_base_indent is not None:
             if not stripped:
                 result.append("")
                 i += 1
                 continue
-            if indent <= special_base_indent:
-                in_special = False
-                continue
+            if indent > special_base_indent:
+                if special_dedent is None:
+                    special_dedent = indent
+                result.append(strip_common_indent(line, special_dedent))
+                i += 1
                 continue
 
-            if special_dedent is None:
-                special_dedent = indent
-
-            dedented = line[special_dedent:] if indent >= special_dedent else line.lstrip()
-            result.append(dedented)
-            i += 1
-            continue
+            special_base_indent = None
+            special_dedent = None
 
         result.append(line)
         i += 1
@@ -357,11 +338,7 @@ def clean_mkdown_syntax(content: str) -> str:
 
 
 def normalize_fenced_code_blocks(content: str) -> str:
-    """Dedent indented fenced code blocks so the fence starts at column 0.
-
-    After filter_tabs removes === "Python" headers, code blocks often retain
-    their original indentation (e.g., 4 spaces). This function normalizes them.
-    """
+    """Dedent indented fenced code blocks so the fence starts at column 0."""
     lines = content.splitlines()
     result: list[str] = []
     in_fence = False
@@ -373,58 +350,81 @@ def normalize_fenced_code_blocks(content: str) -> str:
         indent = len(line) - len(stripped)
 
         if not in_fence:
-            # Detect fence opener: optional indent, then ``` or ~~~, optional info
-            m = re.match(r"^(\s*)(`{3,}|~{3,})\s*(\S*).*", stripped)
-            if m:
+            fence_match = re.match(r"(`{3,}|~{3,})(?:\s+(\S+))?", stripped)
+            if fence_match:
                 in_fence = True
                 fence_indent = indent
-                fence_char = m.group(2)
-                info = m.group(3)
-                if info:
-                    result.append(f"{fence_char}{info}")
-                else:
-                    result.append(fence_char)
+                fence_char = fence_match.group(1)
+                info = fence_match.group(2) or ""
+                result.append(f"{fence_char}{info}" if info else fence_char)
                 continue
             result.append(line)
-        else:
-            # Check for fence closer
-            if stripped.startswith(fence_char) and len(stripped) >= len(fence_char):
-                # Make sure it's actually a closer, not just a line with backticks
-                remainder = stripped[len(fence_char):]
-                if not remainder or remainder.strip() == "":
-                    in_fence = False
-                    result.append(fence_char)
-                    continue
-            # Dedent content line by fence_indent, but not below 0
-            if line.strip():
-                dedented = line[fence_indent:] if indent >= fence_indent else line.lstrip()
-            else:
-                dedented = ""
-            result.append(dedented)
+            continue
+
+        if stripped.startswith(fence_char):
+            remainder = stripped[len(fence_char):]
+            if not remainder or remainder.strip() == "":
+                in_fence = False
+                result.append(fence_char)
+                continue
+
+        result.append(line[fence_indent:] if line.strip() and indent >= fence_indent else line.lstrip())
+
+    return "\n".join(result)
+
+
+def remove_leading_blank_lines_in_fences(content: str) -> str:
+    """Remove blank lines immediately after a fenced code opener."""
+    lines = content.splitlines()
+    result: list[str] = []
+    in_fence = False
+    strip_leading_blank = False
+    fence_char = ""
+
+    for line in lines:
+        stripped = line.lstrip()
+
+        if not in_fence:
+            fence_match = re.match(r"(`{3,}|~{3,})(?:\s+(\S+))?", stripped)
+            if fence_match:
+                in_fence = True
+                strip_leading_blank = True
+                fence_char = fence_match.group(1)
+            result.append(line)
+            continue
+
+        if stripped.startswith(fence_char):
+            remainder = stripped[len(fence_char):]
+            if not remainder or remainder.strip() == "":
+                in_fence = False
+                strip_leading_blank = False
+                fence_char = ""
+                result.append(line)
+                continue
+
+        if strip_leading_blank and not stripped:
+            continue
+
+        strip_leading_blank = False
+        result.append(line)
 
     return "\n".join(result)
 
 
 def remove_orphan_output_headers(content: str) -> str:
-    """Remove **Output** headers that are followed only by empty code blocks.
-
-    This happens when docs/outputs/ includes were skipped and only a bare
-    ```\n# [Included file not found: ...]\n``` remains, or an empty block.
-    """
+    """Remove **Output** headers that are followed only by empty code blocks."""
     lines = content.splitlines()
     result: list[str] = []
     i = 0
+
     while i < len(lines):
         line = lines[i]
         if line == "**Output**":
-            # Peek ahead: if the next non-empty lines form a trivial code block,
-            # skip the header and the block.
             j = i + 1
-            # Skip blank lines
             while j < len(lines) and not lines[j].strip():
                 j += 1
+
             if j < len(lines) and lines[j].startswith("```"):
-                # Found a code block after **Output**
                 k = j + 1
                 block_content: list[str] = []
                 while k < len(lines):
@@ -432,61 +432,72 @@ def remove_orphan_output_headers(content: str) -> str:
                         break
                     block_content.append(lines[k])
                     k += 1
-                # Decide if the block is trivial
-                non_empty = [l for l in block_content if l.strip()]
+
+                non_empty = [entry for entry in block_content if entry.strip()]
                 is_trivial = (
                     len(non_empty) == 0
                     or (len(non_empty) == 1 and non_empty[0].startswith("# [Included file not found"))
                 )
                 if is_trivial:
-                    # Skip past the closing fence
                     i = k + 1
                     continue
+
         result.append(line)
         i += 1
 
     return "\n".join(result)
 
 
-def process_examples(src_dir: Path, out_dir: Path) -> None:
-    """Copy Python example files, filtering out CI-only and ignored files."""
-    for src_file in sorted(src_dir.rglob("*.py")):
-        rel = src_file.relative_to(src_dir)
-        out_file = out_dir / rel
-
-        # Skip CI-only and ignored examples
-        content = src_file.read_text(encoding="utf-8")
-        if '# FLAGS = ["CI-ONLY"]' in content or '# FLAGS = ["IGNORE"]' in content:
-            continue
-
-        out_file.parent.mkdir(parents=True, exist_ok=True)
-        out_file.write_text(content, encoding="utf-8")
-
-
-def copy_tree(src: Path, dst: Path) -> None:
-    """Copy a directory tree."""
-    if not src.exists():
-        return
-    if dst.exists():
-        shutil.rmtree(dst)
-    shutil.copytree(src, dst)
-
-
-def generate_skill_index(output_dir: Path, source_dir: Path) -> None:
-    """Copy the static SKILL.md into the generated skill.
-
-    The canonical SKILL.md lives at scripts/BRAHE_SKILL.md so it can be reviewed
-    and updated independently of the generator code.
-    """
+def generate_skill_index(output_dir: Path) -> None:
+    """Copy the static SKILL.md into the generated skill."""
     skill_path = output_dir / "SKILL.md"
-    script_dir = Path(__file__).parent.resolve()
-    static_skill = script_dir / "BRAHE_SKILL.md"
+    static_skill = Path(__file__).parent.resolve() / "BRAHE_SKILL.md"
 
     if not static_skill.exists():
-        print(f"Static SKILL.md not found: {static_skill}", file=sys.stderr)
-        return
+        raise FileNotFoundError(f"Static SKILL.md not found: {static_skill}")
 
     shutil.copy2(static_skill, skill_path)
+
+
+def parse_snippet_spec(spec: str) -> tuple[str, int | None, int | None]:
+    """Parse a mkdocs include spec into a file path and optional line slice."""
+    file_path, *line_parts = spec.split(":")
+    start_line = int(line_parts[0]) if len(line_parts) >= 1 and line_parts[0].isdigit() else None
+    end_line = int(line_parts[1]) if len(line_parts) >= 2 and line_parts[1].isdigit() else None
+    return file_path, start_line, end_line
+
+
+def dedent_lines(lines: list[str]) -> list[str]:
+    """Remove the common indentation from a block of lines."""
+    non_empty = [line for line in lines if line.strip()]
+    if not non_empty:
+        return lines
+
+    min_indent = min(len(line) - len(line.lstrip()) for line in non_empty)
+    return [strip_common_indent(line, min_indent) for line in lines]
+
+
+def strip_common_indent(line: str, indent: int) -> str:
+    """Strip a known indentation width without producing negative slices."""
+    line_indent = len(line) - len(line.lstrip())
+    if line_indent < indent:
+        return line.lstrip()
+    return line[indent:]
+
+
+def resolve_repo_relative_path(repo_root: Path, raw_path: str) -> Path:
+    """Resolve a repo-root-relative file reference used in mkdocs includes."""
+    return (repo_root / raw_path.strip()).resolve()
+
+
+def is_external_target(target: str) -> bool:
+    """Return whether a markdown target points outside the local docs tree."""
+    return target.startswith(("#", "/")) or re.match(r"^[a-zA-Z][a-zA-Z0-9+.-]*:", target) is not None
+
+
+def split_link_suffix(target: str) -> str:
+    """Return the path portion of a markdown target, without query or fragment."""
+    return re.split(r"[?#]", target, maxsplit=1)[0]
 
 
 if __name__ == "__main__":

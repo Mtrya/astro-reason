@@ -62,24 +62,25 @@ print(f"Number of passes in next 24 hours: {len(passes)}")
 
 See more examples and documents on how to use brahe:
 
-| Topic | Reference | Key Scripts |
-|-------|-----------|-------------|
-| **Time & EOP** | [references/time/index.md](references/time/index.md), [references/eop/index.md](references/eop/index.md) | `scripts/time/`, `scripts/eop/` |
-| **Coordinates** | [references/coordinates/index.md](references/coordinates/index.md) | `scripts/coordinates/` |
-| **Orbits** | [references/orbits/index.md](references/orbits/index.md) | `scripts/orbits/` |
-| **Propagation** | [references/orbit_propagation/index.md](references/orbit_propagation/index.md), [references/orbit_propagation/numerical_propagation/index.md](references/orbit_propagation/numerical_propagation/index.md) | `scripts/orbit_propagation/`, `scripts/numerical_propagation/` |
-| **Dynamics** | [references/orbital_dynamics/index.md](references/orbital_dynamics/index.md) | `scripts/orbit_dynamics/` |
-| **Space Weather** | [references/space_weather/index.md](references/space_weather/index.md) | `scripts/space_weather/` |
-| **Trajectories** | [references/trajectories/index.md](references/trajectories/index.md) | `scripts/trajectories/` |
-| **Access** | [references/access_computation/index.md](references/access_computation/index.md) | `scripts/access/` |
-| **Datasets** | [references/datasets/index.md](references/datasets/index.md) | `scripts/datasets/` |
-| **Plots** | [references/plots/index.md](references/plots/index.md) | `scripts/plots/` |
-| **Attitude** | [references/attitude_representations/index.md](references/attitude_representations/index.md) | `scripts/attitude/` |
-| **Relative Motion** | [references/relative_motion/index.md](references/relative_motion/index.md) | `scripts/relative_motion/` |
+| Topic | Reference |
+|-------|-----------|
+| **Time & EOP** | [docs/learn/time/index.md](docs/learn/time/index.md), [docs/learn/eop/index.md](docs/learn/eop/index.md) |
+| **Coordinates** | [docs/learn/coordinates/index.md](docs/learn/coordinates/index.md) |
+| **Orbits** | [docs/learn/orbits/index.md](docs/learn/orbits/index.md) |
+| **Propagation** | [docs/learn/orbit_propagation/index.md](docs/learn/orbit_propagation/index.md), [docs/learn/orbit_propagation/numerical_propagation/index.md](docs/learn/orbit_propagation/numerical_propagation/index.md) |
+| **Dynamics** | [docs/learn/orbital_dynamics/index.md](docs/learn/orbital_dynamics/index.md) |
+| **Space Weather** | [docs/learn/space_weather/index.md](docs/learn/space_weather/index.md) |
+| **Trajectories** | [docs/learn/trajectories/index.md](docs/learn/trajectories/index.md) |
+| **Access** | [docs/learn/access_computation/index.md](docs/learn/access_computation/index.md) |
+| **Datasets** | [docs/learn/datasets/index.md](docs/learn/datasets/index.md) |
+| **Plots** | [docs/learn/plots/index.md](docs/learn/plots/index.md) |
+| **Attitude** | [docs/learn/attitude_representations/index.md](docs/learn/attitude_representations/index.md) |
+| **Relative Motion** | [docs/learn/relative_motion/index.md](docs/learn/relative_motion/index.md) |
 
 ## Common Patterns
 
-See `references/index.md` for the full user guide overview.
+See `docs/learn/index.md` for the full user guide overview.
+Linked example guides stay under `docs/examples/`, API docs under `docs/library_api/`, and runnable helpers under `examples/` and `plots/learn/`.
 
 ## Official Documentation
 
