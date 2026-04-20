@@ -190,7 +190,7 @@ def filter_tabs(content: str) -> str:
         stripped = line.lstrip()
         indent = len(line) - len(stripped)
 
-        tab_match = re.match(r'^(===)\s+["\'\'](.+?)["\'\']\s*$', stripped)
+        tab_match = re.match(r'^(===)\s+["\'](.+?)["\']\s*$', stripped)
         if tab_match:
             tab_name = tab_match.group(2)
             if tab_name == "Rust":
