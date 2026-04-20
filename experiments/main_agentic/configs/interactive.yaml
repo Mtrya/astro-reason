@@ -1,0 +1,22 @@
+# Runner-owned family config for interactive debugging.
+# This schema is provisional in Phase 0 and should not be treated as a public
+# cross-family contract yet.
+
+name: main_agentic_interactive
+mode: interactive
+
+benchmark: aeossp_standard
+harnesses:
+  - claude_code
+  - codex
+  - gemini_cli
+  - kimi_cli
+  - opencode
+split: test
+case: case_0001
+timeout_seconds: 3600
+
+resources:
+  cpus: 2
+  memory: 8g
+  shm_size: 1g
