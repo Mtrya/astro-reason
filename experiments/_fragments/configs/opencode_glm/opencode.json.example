@@ -1,0 +1,27 @@
+{
+  "$schema": "https://opencode.ai/config.json",
+  "autoupdate": false,
+  "share": "disabled",
+  "enabled_providers": ["glm"],
+  "model": "glm/replace_with_glm_model_id",
+  "small_model": "glm/replace_with_glm_small_model_id",
+  "permission": "allow",
+  "provider": {
+    "glm": {
+      "npm": "@ai-sdk/openai-compatible",
+      "name": "GLM",
+      "options": {
+        "baseURL": "replace_with_glm_base_url",
+        "apiKey": "replace_with_glm_api_key"
+      },
+      "models": {
+        "replace_with_glm_model_id": {
+          "name": "replace_with_glm_model_id"
+        },
+        "replace_with_glm_small_model_id": {
+          "name": "replace_with_glm_small_model_id"
+        }
+      }
+    }
+  }
+}

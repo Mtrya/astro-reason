@@ -1,10 +1,10 @@
-harness: opencode
+harness: opencode_nex
 runtime: base
 
 config:
   target: xdg_config/opencode/opencode.json
-  real_file: experiments/_fragments/configs/opencode_default/opencode.json
-  example_file: experiments/_fragments/configs/opencode_default/opencode.json.example
+  real_file: experiments/_fragments/configs/opencode_nex/opencode.json
+  example_file: experiments/_fragments/configs/opencode_nex/opencode.json.example
 
 commands:
   headless_shell_command: >-
@@ -18,4 +18,4 @@ artifacts:
       target: session_logs
 
 notes:
-  - OpenCode is the cleanest current reference harness because it respects XDG paths cleanly inside the prepared runtime.
+  - OpenCode Nex uses the shared OpenCode runtime path with a Nex-flavored local config.

@@ -61,7 +61,6 @@ class ResourceLimits:
 
 @dataclass(frozen=True)
 class BatchSettings:
-    batch_size: int
     max_concurrency: int
     max_retries: int
     skip_completed: bool
@@ -169,6 +168,7 @@ class BatchPlan:
     config: BatchConfig
     selected_benchmarks: tuple[str, ...]
     selected_harnesses: tuple[str, ...]
+    effective_split: str
     items: tuple[RunItem, ...]
     unavailable_configs: tuple[tuple[str, Path], ...]
 
@@ -180,8 +180,32 @@ class InteractivePlan:
     harnesses: tuple[HarnessProfile, ...]
     runtime_name: str
     interactive_identity: str
+    effective_split: str
+    effective_case_id: str
     results_root: Path
     unavailable_configs: tuple[tuple[str, Path], ...]
+
+
+@dataclass(frozen=True)
+class BatchSelectionOptions:
+    rerun_statuses: tuple[str, ...]
+    no_skip_completed: bool
+
+
+@dataclass(frozen=True)
+class BatchPreviewItem:
+    item: RunItem
+    artifact_state: str
+    existing_overall_status: str | None
+    action: str
+    reason: str
+
+
+@dataclass(frozen=True)
+class BatchPreview:
+    plan: BatchPlan
+    selection: BatchSelectionOptions
+    items: tuple[BatchPreviewItem, ...]
 
 
 def family_relpath() -> Path:
@@ -213,6 +237,27 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         action="append",
         default=[],
         help="Limit planning to a harness name. May be repeated.",
+    )
+    parser.add_argument(
+        "--split",
+        help="Override the configured split for this planning pass.",
+    )
+    parser.add_argument(
+        "--case",
+        action="append",
+        default=[],
+        help="Limit planning to an exact case id. May be repeated.",
+    )
+    parser.add_argument(
+        "--rerun-status",
+        action="append",
+        default=[],
+        help="Preview only runs whose current stored status matches this value. May be repeated.",
+    )
+    parser.add_argument(
+        "--no-skip-completed",
+        action="store_true",
+        help="Preview all selected runs as executable, regardless of existing run.json status.",
     )
     parser.add_argument(
         "--dry-run",
@@ -446,11 +491,8 @@ def load_batch_config(config_path: Path) -> BatchConfig:
     if not isinstance(results, dict):
         raise SystemExit(f"Family config field 'results' must be a mapping: {config_path}")
 
-    batch_size = _optional_int(batch, "batch_size", None, "Batch config", config_path)
     max_concurrency = _optional_int(batch, "max_concurrency", None, "Batch config", config_path)
     max_retries = _optional_int(batch, "max_retries", None, "Batch config", config_path)
-    if batch_size is None or batch_size <= 0:
-        raise SystemExit(f"Batch config field 'batch_size' must be a positive integer: {config_path}")
     if max_concurrency is None or max_concurrency <= 0:
         raise SystemExit(
             f"Batch config field 'max_concurrency' must be a positive integer: {config_path}"
@@ -479,7 +521,6 @@ def load_batch_config(config_path: Path) -> BatchConfig:
         )
         or 3600,
         batch=BatchSettings(
-            batch_size=batch_size,
             max_concurrency=max_concurrency,
             max_retries=max_retries,
             skip_completed=_optional_bool(
@@ -745,14 +786,149 @@ def _collect_missing_configs(harnesses: tuple[HarnessProfile, ...]) -> tuple[tup
     return tuple(missing)
 
 
+def _unique_requested_cases(case_filters: tuple[str, ...]) -> tuple[str, ...]:
+    seen: set[str] = set()
+    selected: list[str] = []
+    for case_id in case_filters:
+        if case_id not in seen:
+            selected.append(case_id)
+            seen.add(case_id)
+    return tuple(selected)
+
+
+def _select_case_ids(
+    case_ids: tuple[str, ...],
+    *,
+    benchmark: str,
+    split: str,
+    case_filters: tuple[str, ...],
+) -> tuple[str, ...]:
+    if not case_filters:
+        return case_ids
+
+    requested = set(case_filters)
+    selected = tuple(case_id for case_id in case_ids if case_id in requested)
+    if selected:
+        return selected
+
+    requested_text = ", ".join(case_filters)
+    raise SystemExit(
+        f"No matching cases for benchmark '{benchmark}' on split '{split}'. "
+        f"Requested case id(s): {requested_text}"
+    )
+
+
+def _validate_rerun_statuses(statuses: tuple[str, ...]) -> tuple[str, ...]:
+    allowed = {
+        "success",
+        "runner_error",
+        "timeout",
+        "agent_failed",
+        "no_solution",
+        "verifier_invalid",
+        "verifier_error",
+        "missing_artifact",
+        "malformed_artifact",
+    }
+    unknown = sorted(status for status in statuses if status not in allowed)
+    if unknown:
+        raise SystemExit(
+            "Unknown rerun status(es): "
+            + ", ".join(unknown)
+            + ". Allowed values: "
+            + ", ".join(sorted(allowed))
+        )
+    return statuses
+
+
+def _read_existing_overall_status(item: RunItem) -> tuple[str, str | None]:
+    run_json_path = run_output_dir(item) / "run.json"
+    if not run_json_path.exists():
+        return "missing_artifact", None
+
+    try:
+        data = yaml.safe_load(run_json_path.read_text(encoding="utf-8"))
+    except Exception:
+        return "malformed_artifact", None
+
+    if not isinstance(data, dict):
+        return "malformed_artifact", None
+    status = data.get("overall_status")
+    if not isinstance(status, str) or not status:
+        return "malformed_artifact", None
+    return "present", status
+
+
+def build_batch_preview(
+    plan: BatchPlan,
+    *,
+    rerun_statuses: tuple[str, ...] = (),
+    no_skip_completed: bool = False,
+) -> BatchPreview:
+    rerun_statuses = _validate_rerun_statuses(rerun_statuses)
+    selection = BatchSelectionOptions(
+        rerun_statuses=rerun_statuses,
+        no_skip_completed=no_skip_completed,
+    )
+
+    items: list[BatchPreviewItem] = []
+    for item in plan.items:
+        artifact_state, existing_status = _read_existing_overall_status(item)
+        if rerun_statuses:
+            candidate_status = existing_status if artifact_state == "present" else artifact_state
+            if candidate_status in rerun_statuses:
+                action = "run"
+                reason = "rerun_status_match"
+            else:
+                action = "skip"
+                reason = "status_filter_mismatch"
+        elif no_skip_completed:
+            action = "run"
+            reason = "forced_by_no_skip"
+        elif artifact_state == "missing_artifact":
+            action = "run"
+            reason = "missing_artifact"
+        elif artifact_state == "malformed_artifact":
+            action = "run"
+            reason = "malformed_artifact"
+        elif existing_status in plan.config.batch.retry_statuses:
+            action = "run"
+            reason = "retryable_status"
+        elif plan.config.batch.skip_completed:
+            action = "skip"
+            reason = "existing_terminal_status"
+        else:
+            action = "run"
+            reason = "forced_by_no_skip"
+
+        items.append(
+            BatchPreviewItem(
+                item=item,
+                artifact_state=artifact_state,
+                existing_overall_status=existing_status,
+                action=action,
+                reason=reason,
+            )
+        )
+
+    return BatchPreview(plan=plan, selection=selection, items=tuple(items))
+
+
+def runnable_preview_items(preview: BatchPreview) -> tuple[BatchPreviewItem, ...]:
+    return tuple(item for item in preview.items if item.action == "run")
+
+
 def build_batch_plan(
     *,
     config_path: Path,
     benchmark_filters: tuple[str, ...] = (),
     harness_filters: tuple[str, ...] = (),
+    split_override: str | None = None,
+    case_filters: tuple[str, ...] = (),
     require_real_configs: bool = False,
 ) -> BatchPlan:
     config = load_batch_config(config_path.resolve())
+    effective_split = split_override or config.split
     selected_benchmarks = _select_names(
         config.benchmarks,
         benchmark_filters,
@@ -783,7 +959,12 @@ def build_batch_plan(
 
     items: list[RunItem] = []
     for benchmark in selected_benchmarks:
-        case_ids = _enumerate_case_ids(benchmark, config.split)
+        case_ids = _select_case_ids(
+            _enumerate_case_ids(benchmark, effective_split),
+            benchmark=benchmark,
+            split=effective_split,
+            case_filters=_unique_requested_cases(case_filters),
+        )
         benchmark_profile = benchmark_profiles[benchmark]
         for harness in selected_harnesses:
             harness_profile = harness_profiles[harness]
@@ -794,7 +975,7 @@ def build_batch_plan(
                         config_path=config.config_path,
                         benchmark=benchmark,
                         harness=harness,
-                        split=config.split,
+                        split=effective_split,
                         case_id=case_id,
                         timeout_seconds=config.timeout_seconds,
                         resources=config.resources,
@@ -808,6 +989,7 @@ def build_batch_plan(
         config=config,
         selected_benchmarks=selected_benchmarks,
         selected_harnesses=selected_harnesses,
+        effective_split=effective_split,
         items=tuple(items),
         unavailable_configs=unavailable,
     )
@@ -818,6 +1000,8 @@ def build_interactive_plan(
     config_path: Path,
     benchmark_filters: tuple[str, ...] = (),
     harness_filters: tuple[str, ...] = (),
+    split_override: str | None = None,
+    case_filters: tuple[str, ...] = (),
     require_real_configs: bool = False,
 ) -> InteractivePlan:
     config = load_interactive_config(config_path.resolve())
@@ -853,21 +1037,27 @@ def build_interactive_plan(
 
     runtime_name = next(iter(runtimes))
     interactive_identity = harnesses[0].harness if len(harnesses) == 1 else "all_harnesses"
+    effective_split = split_override or config.split
+    requested_cases = _unique_requested_cases(case_filters)
+    if len(requested_cases) > 1:
+        raise SystemExit(
+            "Interactive planning requires exactly one effective case. "
+            f"Requested multiple case ids: {', '.join(requested_cases)}"
+        )
+    effective_case_id = requested_cases[0] if requested_cases else config.case_id
+    case_dir = REPO_ROOT / "benchmarks" / config.benchmark / "dataset" / "cases" / effective_split / effective_case_id
+    if not case_dir.is_dir():
+        raise SystemExit(f"Case directory does not exist: {case_dir}")
     return InteractivePlan(
         config=config,
         benchmark_profile=benchmark_profile,
         harnesses=harnesses,
         runtime_name=runtime_name,
         interactive_identity=interactive_identity,
+        effective_split=effective_split,
+        effective_case_id=effective_case_id,
         results_root=REPO_ROOT / "results" / "agent_runs" / family_relpath(),
         unavailable_configs=unavailable,
-    )
-
-
-def batch_chunks(plan: BatchPlan) -> tuple[tuple[RunItem, ...], ...]:
-    size = plan.config.batch.batch_size
-    return tuple(
-        tuple(plan.items[index : index + size]) for index in range(0, len(plan.items), size)
     )
 
 
@@ -889,8 +1079,8 @@ def interactive_workspace_dir(plan: InteractivePlan) -> Path:
         / plan.config.config_path.stem
         / plan.config.benchmark
         / plan.interactive_identity
-        / plan.config.split
-        / plan.config.case_id
+        / plan.effective_split
+        / plan.effective_case_id
     )
 
 
@@ -900,28 +1090,56 @@ def interactive_output_dir(plan: InteractivePlan) -> Path:
         / plan.config.config_path.stem
         / plan.config.benchmark
         / plan.interactive_identity
-        / plan.config.split
-        / plan.config.case_id
+        / plan.effective_split
+        / plan.effective_case_id
     )
 
 
-def describe_batch_plan(plan: BatchPlan) -> str:
-    chunks = batch_chunks(plan)
+def _count_strings(values: tuple[str, ...] | list[str]) -> dict[str, int]:
+    counts: dict[str, int] = {}
+    for value in values:
+        counts[value] = counts.get(value, 0) + 1
+    return dict(sorted(counts.items()))
+
+
+def describe_batch_preview(preview: BatchPreview, *, include_items: bool = True) -> str:
+    plan = preview.plan
+    runnable_items = runnable_preview_items(preview)
     benchmark_case_counts = {
-        benchmark: len(_enumerate_case_ids(benchmark, plan.config.split))
+        benchmark: len(
+            {preview_item.item.case_id for preview_item in preview.items if preview_item.item.benchmark == benchmark}
+        )
         for benchmark in plan.selected_benchmarks
     }
+    runnable_count = sum(1 for item in preview.items if item.action == "run")
+    skipped_count = len(preview.items) - runnable_count
+    reason_counts = _count_strings([item.reason for item in preview.items])
+    artifact_counts = _count_strings([item.artifact_state for item in preview.items])
+    existing_status_counts = _count_strings(
+        [item.existing_overall_status for item in preview.items if item.existing_overall_status is not None]
+    )
     lines = [
         f"Config: {plan.config.config_path}",
         "Mode: batch",
         f"Benchmarks: {', '.join(plan.selected_benchmarks)}",
         f"Harnesses: {', '.join(plan.selected_harnesses)}",
-        f"Split: {plan.config.split}",
+        f"Split: {plan.effective_split}",
+        "Selection mode: "
+        + (
+            "force all selected runs"
+            if preview.selection.no_skip_completed
+            else (
+                "rerun matching statuses: " + ", ".join(preview.selection.rerun_statuses)
+                if preview.selection.rerun_statuses
+                else "default artifact-first resume"
+            )
+        ),
         f"Cases per benchmark: "
         + ", ".join(f"{benchmark}={benchmark_case_counts[benchmark]}" for benchmark in plan.selected_benchmarks),
-        f"Total concrete runs: {len(plan.items)}",
-        f"Chunk size: {plan.config.batch.batch_size}",
-        f"Chunk count: {len(chunks)}",
+        f"Total candidate runs: {len(preview.items)}",
+        f"Runs to execute: {runnable_count}",
+        f"Runs to skip: {skipped_count}",
+        f"Runnable queue length: {len(runnable_items)}",
         f"Max concurrency: {plan.config.batch.max_concurrency}",
         f"Max retries: {plan.config.batch.max_retries}",
     ]
@@ -931,11 +1149,28 @@ def describe_batch_plan(plan: BatchPlan) -> str:
             lines.append(f"  - {harness}: {path}")
     else:
         lines.append("Unavailable harness configs: none")
-    lines.append("Concrete runs:")
-    for item in plan.items:
+    lines.append(
+        "Artifact states: "
+        + ", ".join(f"{key}={value}" for key, value in artifact_counts.items())
+    )
+    if existing_status_counts:
         lines.append(
-            f"  - {item.benchmark} / {item.harness} / {item.split} / {item.case_id} -> {run_output_dir(item)}"
+            "Existing statuses: "
+            + ", ".join(f"{key}={value}" for key, value in existing_status_counts.items())
         )
+    else:
+        lines.append("Existing statuses: none")
+    lines.append("Selection reasons: " + ", ".join(f"{key}={value}" for key, value in reason_counts.items()))
+    if include_items:
+        lines.append("Concrete runs:")
+        for preview_item in preview.items:
+            item = preview_item.item
+            status_text = preview_item.existing_overall_status or preview_item.artifact_state
+            lines.append(
+                f"  - {preview_item.action.upper()} [{preview_item.reason}] "
+                f"{item.benchmark} / {item.harness} / {item.split} / {item.case_id} "
+                f"(current={status_text}) -> {run_output_dir(item)}"
+            )
     return "\n".join(lines)
 
 
@@ -946,8 +1181,8 @@ def describe_interactive_plan(plan: InteractivePlan) -> str:
         f"Benchmark: {plan.config.benchmark}",
         f"Harnesses: {', '.join(harness.harness for harness in plan.harnesses)}",
         f"Runtime: {plan.runtime_name}",
-        f"Split: {plan.config.split}",
-        f"Case: {plan.config.case_id}",
+        f"Split: {plan.effective_split}",
+        f"Case: {plan.effective_case_id}",
         f"Interactive identity: {plan.interactive_identity}",
         f"Workspace path: {interactive_workspace_dir(plan)}",
         f"Result path: {interactive_output_dir(plan)}",
@@ -963,16 +1198,25 @@ def describe_interactive_plan(plan: InteractivePlan) -> str:
 
 def main(argv: list[str] | None = None) -> int:
     args = parse_args(argv)
+    if args.rerun_status and args.no_skip_completed:
+        raise SystemExit("--rerun-status and --no-skip-completed cannot be used together.")
     default_config = DEFAULT_INTERACTIVE_CONFIG if args.interactive else DEFAULT_BATCH_CONFIG
     config_path = (args.config or default_config).resolve()
     benchmark_filters = tuple(args.benchmark)
     harness_filters = tuple(args.harness)
+    case_filters = tuple(args.case)
 
     if args.interactive:
+        if args.rerun_status or args.no_skip_completed:
+            raise SystemExit(
+                "--rerun-status and --no-skip-completed are batch-only controls and cannot be used with --interactive."
+            )
         plan = build_interactive_plan(
             config_path=config_path,
             benchmark_filters=benchmark_filters,
             harness_filters=harness_filters,
+            split_override=args.split,
+            case_filters=case_filters,
             require_real_configs=False,
         )
         print(describe_interactive_plan(plan))
@@ -982,9 +1226,16 @@ def main(argv: list[str] | None = None) -> int:
         config_path=config_path,
         benchmark_filters=benchmark_filters,
         harness_filters=harness_filters,
+        split_override=args.split,
+        case_filters=case_filters,
         require_real_configs=False,
     )
-    print(describe_batch_plan(plan))
+    preview = build_batch_preview(
+        plan,
+        rerun_statuses=tuple(args.rerun_status),
+        no_skip_completed=args.no_skip_completed,
+    )
+    print(describe_batch_preview(preview))
     return 0
 
 

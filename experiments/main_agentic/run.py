@@ -93,6 +93,32 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         help="Limit execution to a harness name. May be repeated.",
     )
     parser.add_argument(
+        "--split",
+        help="Override the configured split for this execution pass.",
+    )
+    parser.add_argument(
+        "--case",
+        action="append",
+        default=[],
+        help="Limit execution to an exact case id. May be repeated.",
+    )
+    parser.add_argument(
+        "--rerun-status",
+        action="append",
+        default=[],
+        help="Execute only runs whose current stored status matches this value. May be repeated.",
+    )
+    parser.add_argument(
+        "--no-skip-completed",
+        action="store_true",
+        help="Execute all selected runs regardless of existing run.json status.",
+    )
+    parser.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="Preview the effective selection and exit without executing anything.",
+    )
+    parser.add_argument(
         "--timeout",
         type=int,
         help="Override the configured timeout in seconds.",
@@ -959,18 +985,27 @@ def _print_run_summary(output_dir: Path, overall_status: str) -> None:
     print(f"Run status: {overall_status}")
 
 
-def _check_existing_overall_status(output_dir: Path) -> str | None:
-    run_json_path = output_dir / "run.json"
-    if not run_json_path.exists():
-        return None
-    try:
-        data = json.loads(run_json_path.read_text(encoding="utf-8"))
-    except Exception:
-        return None
-    if not isinstance(data, dict):
-        return None
-    status = data.get("overall_status")
-    return status if isinstance(status, str) and status else None
+def _print_batch_preview(preview: family_plan.BatchPreview) -> None:
+    print(family_plan.describe_batch_preview(preview, include_items=False))
+
+
+def _print_progress_line(
+    *,
+    index: int,
+    total: int,
+    preview_item: family_plan.BatchPreviewItem,
+    result: RunExecutionResult,
+    executed_count: int,
+    skipped_count: int,
+    status_counts: dict[str, int],
+) -> None:
+    item = preview_item.item
+    counts_text = ", ".join(f"{status}={count}" for status, count in sorted(status_counts.items()))
+    action = "skipped" if result.skipped else "executed"
+    print(
+        f"[{index}/{total}] {item.benchmark}/{item.harness}/{item.case_id} "
+        f"-> {result.overall_status} ({action}; executed={executed_count}, skipped={skipped_count}; {counts_text})"
+    )
 
 
 def _run_headless_once(
@@ -1067,22 +1102,19 @@ def _run_headless_once(
 
 
 def _execute_run_item(
-    item: family_plan.RunItem,
+    preview_item: family_plan.BatchPreviewItem,
     *,
     batch_settings: family_plan.BatchSettings,
     timeout_override: int | None,
 ) -> RunExecutionResult:
+    item = preview_item.item
     output_dir = family_plan.run_output_dir(item)
-    existing_status = (
-        _check_existing_overall_status(output_dir) if batch_settings.skip_completed else None
-    )
-    if existing_status is not None and existing_status not in batch_settings.retry_statuses:
-        print(f"Skipping {item.benchmark}/{item.harness}/{item.case_id}: existing status {existing_status}")
+    if preview_item.action == "skip":
         return RunExecutionResult(
-            overall_status=existing_status,
+            overall_status=preview_item.existing_overall_status or preview_item.artifact_state,
             skipped=True,
             output_dir=output_dir,
-            exit_code=0 if existing_status == "success" else 1,
+            exit_code=0 if preview_item.existing_overall_status == "success" else 1,
         )
 
     last_result: RunExecutionResult | None = None
@@ -1108,51 +1140,110 @@ def _execute_run_item(
 
 def _run_batch(
     args: argparse.Namespace,
-    plan: family_plan.BatchPlan,
+    preview: family_plan.BatchPreview,
 ) -> int:
-    chunks = family_plan.batch_chunks(plan)
+    runnable_items = family_plan.runnable_preview_items(preview)
     results: list[RunExecutionResult] = []
+    total_items = len(preview.items)
+    completed = 0
+    executed_count = 0
+    skipped_count = 0
+    status_counts: dict[str, int] = {}
+    batch_start = _utc_now()
+    max_workers = min(preview.plan.config.batch.max_concurrency, len(runnable_items))
+    print(
+        f"Starting batch worker pool "
+        f"(runnable={len(runnable_items)}, max_concurrency={max_workers or 0})"
+    )
 
-    for chunk_index, chunk in enumerate(chunks, start=1):
-        print(f"Executing chunk {chunk_index}/{len(chunks)} ({len(chunk)} runs)")
-        max_workers = min(plan.config.batch.max_concurrency, len(chunk))
-        if max_workers <= 1:
-            for item in chunk:
-                results.append(
-                    _execute_run_item(
-                        item,
-                        batch_settings=plan.config.batch,
-                        timeout_override=args.timeout,
-                    )
-                )
-            continue
-
+    if max_workers <= 1:
+        for preview_item in runnable_items:
+            result = _execute_run_item(
+                preview_item,
+                batch_settings=preview.plan.config.batch,
+                timeout_override=args.timeout,
+            )
+            results.append(result)
+            completed += 1
+            if result.skipped:
+                skipped_count += 1
+            else:
+                executed_count += 1
+            status_counts[result.overall_status] = status_counts.get(result.overall_status, 0) + 1
+            _print_progress_line(
+                index=completed,
+                total=total_items,
+                preview_item=preview_item,
+                result=result,
+                executed_count=executed_count,
+                skipped_count=skipped_count,
+                status_counts=status_counts,
+            )
+    else:
         with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as executor:
             future_map = {
                 executor.submit(
                     _execute_run_item,
-                    item,
-                    batch_settings=plan.config.batch,
+                    preview_item,
+                    batch_settings=preview.plan.config.batch,
                     timeout_override=args.timeout,
-                ): item
-                for item in chunk
+                ): preview_item
+                for preview_item in runnable_items
             }
             for future in concurrent.futures.as_completed(future_map):
-                results.append(future.result())
+                preview_item = future_map[future]
+                result = future.result()
+                results.append(result)
+                completed += 1
+                if result.skipped:
+                    skipped_count += 1
+                else:
+                    executed_count += 1
+                status_counts[result.overall_status] = status_counts.get(result.overall_status, 0) + 1
+                _print_progress_line(
+                    index=completed,
+                    total=total_items,
+                    preview_item=preview_item,
+                    result=result,
+                    executed_count=executed_count,
+                    skipped_count=skipped_count,
+                    status_counts=status_counts,
+                )
 
-    status_counts: dict[str, int] = {}
-    skipped_count = 0
+    for preview_item in preview.items:
+        if preview_item.action != "skip":
+            continue
+        result = RunExecutionResult(
+            overall_status=preview_item.existing_overall_status or preview_item.artifact_state,
+            skipped=True,
+            output_dir=family_plan.run_output_dir(preview_item.item),
+            exit_code=0 if preview_item.existing_overall_status == "success" else 1,
+        )
+        results.append(result)
+        completed += 1
+        skipped_count += 1
+        status_counts[result.overall_status] = status_counts.get(result.overall_status, 0) + 1
+        _print_progress_line(
+            index=completed,
+            total=total_items,
+            preview_item=preview_item,
+            result=result,
+            executed_count=executed_count,
+            skipped_count=skipped_count,
+            status_counts=status_counts,
+        )
+
     exit_code = 0
     for result in results:
-        status_counts[result.overall_status] = status_counts.get(result.overall_status, 0) + 1
-        if result.skipped:
-            skipped_count += 1
-        if result.overall_status != "success":
+        if not result.skipped and result.overall_status != "success":
             exit_code = 1
 
+    batch_end = _utc_now()
     print("Batch summary:")
     print(f"  Total runs considered: {len(results)}")
-    print(f"  Skipped existing results: {skipped_count}")
+    print(f"  Executed runs: {executed_count}")
+    print(f"  Skipped runs: {skipped_count}")
+    print(f"  Wall-clock seconds: {_duration_seconds(batch_start, batch_end)}")
     for status in sorted(status_counts):
         print(f"  {status}: {status_counts[status]}")
     return exit_code
@@ -1163,7 +1254,7 @@ def _run_interactive(
     plan: family_plan.InteractivePlan,
 ) -> int:
     runtime = family_plan.load_runtime(plan.runtime_name)
-    case_dir = _case_dir(plan.config.benchmark, plan.config.split, plan.config.case_id)
+    case_dir = _case_dir(plan.config.benchmark, plan.effective_split, plan.effective_case_id)
     if not case_dir.exists():
         raise SystemExit(f"Case directory does not exist: {case_dir}")
 
@@ -1191,8 +1282,8 @@ def _run_interactive(
             assemble_specs,
             roots,
             benchmark=plan.config.benchmark,
-            split=plan.config.split,
-            case_id=plan.config.case_id,
+            split=plan.effective_split,
+            case_id=plan.effective_case_id,
         )
         cmd = _build_docker_command(
             runtime=runtime,
@@ -1232,8 +1323,8 @@ def _run_interactive(
             selected_harnesses=tuple(harness.harness for harness in plan.harnesses),
             runtime=runtime,
             output_dir=output_dir,
-            split=plan.config.split,
-            case_id=plan.config.case_id,
+            split=plan.effective_split,
+            case_id=plan.effective_case_id,
             assembled_records=assembled_records,
             collected_records=collected_records,
             start_time=start_time,
@@ -1251,29 +1342,56 @@ def _run_interactive(
 
 def main(argv: list[str] | None = None) -> int:
     args = parse_args(argv)
+    if args.rerun_status and args.no_skip_completed:
+        raise SystemExit("--rerun-status and --no-skip-completed cannot be used together.")
     default_config = (
         family_plan.DEFAULT_INTERACTIVE_CONFIG if args.interactive else family_plan.DEFAULT_BATCH_CONFIG
     )
     config_path = (args.config or default_config).resolve()
     benchmark_filters = tuple(args.benchmark)
     harness_filters = tuple(args.harness)
+    case_filters = tuple(args.case)
 
     if args.interactive:
+        if args.rerun_status or args.no_skip_completed:
+            raise SystemExit(
+                "--rerun-status and --no-skip-completed are batch-only controls and cannot be used with --interactive."
+            )
         plan = family_plan.build_interactive_plan(
             config_path=config_path,
             benchmark_filters=benchmark_filters,
             harness_filters=harness_filters,
-            require_real_configs=True,
+            split_override=args.split,
+            case_filters=case_filters,
+            require_real_configs=not args.dry_run,
         )
+        if args.dry_run:
+            print(family_plan.describe_interactive_plan(plan))
+            return 0
         return _run_interactive(args, plan)
 
     plan = family_plan.build_batch_plan(
         config_path=config_path,
         benchmark_filters=benchmark_filters,
         harness_filters=harness_filters,
-        require_real_configs=True,
+        split_override=args.split,
+        case_filters=case_filters,
+        require_real_configs=False,
     )
-    return _run_batch(args, plan)
+    preview = family_plan.build_batch_preview(
+        plan,
+        rerun_statuses=tuple(args.rerun_status),
+        no_skip_completed=args.no_skip_completed,
+    )
+    _print_batch_preview(preview)
+    if args.dry_run:
+        return 0
+    if plan.unavailable_configs:
+        lines = ["Missing required harness config files:"]
+        for harness, path in plan.unavailable_configs:
+            lines.append(f"- {harness}: {path}")
+        raise SystemExit("\n".join(lines))
+    return _run_batch(args, preview)
 
 
 if __name__ == "__main__":

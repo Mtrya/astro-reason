@@ -1,0 +1,21 @@
+harness: opencode_glm
+runtime: base
+
+config:
+  target: xdg_config/opencode/opencode.json
+  real_file: experiments/_fragments/configs/opencode_glm/opencode.json
+  example_file: experiments/_fragments/configs/opencode_glm/opencode.json.example
+
+commands:
+  headless_shell_command: >-
+    opencode run --dangerously-skip-permissions "$(cat ~/PROMPT.md)"
+  interactive_command:
+    - opencode
+
+artifacts:
+  collect:
+    - source: xdg_data/opencode
+      target: session_logs
+
+notes:
+  - OpenCode GLM uses the shared OpenCode runtime path with a GLM-flavored local config.
