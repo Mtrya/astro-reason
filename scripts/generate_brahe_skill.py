@@ -216,8 +216,7 @@ def filter_tabs(content: str) -> str:
         if skip_until_dedent:
             if stripped and indent <= tab_base_indent:
                 skip_until_dedent = False
-                result.append(line)
-            i += 1
+                continue
             continue
 
         if in_python_tab:
