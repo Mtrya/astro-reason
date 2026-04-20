@@ -1,0 +1,17 @@
+benchmark: satnet
+
+prompts:
+  readme: experiments/_fragments/prompts/satnet/README.default.md
+  prompt: experiments/_fragments/prompts/satnet/PROMPT.default.md
+
+workspace:
+  assemble:
+    - source: benchmarks/{benchmark}/dataset/cases/{split}/{case_id}
+      target: workspace/case
+    - source: benchmarks/{benchmark}/verifier.py
+      target: workspace/verifier.py
+
+aggregation:
+  verifier_kind: single_file
+  # TODO: define the benchmark-specific primary score extraction once the first
+  # end-to-end matrix run artifacts are available.

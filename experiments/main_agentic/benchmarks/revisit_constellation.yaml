@@ -1,0 +1,17 @@
+benchmark: revisit_constellation
+
+prompts:
+  readme: experiments/_fragments/prompts/revisit_constellation/README.default.md
+  prompt: experiments/_fragments/prompts/revisit_constellation/PROMPT.default.md
+
+workspace:
+  assemble:
+    - source: benchmarks/{benchmark}/dataset/cases/{split}/{case_id}
+      target: workspace/case
+    - source: benchmarks/{benchmark}/verifier
+      target: workspace/verifier
+
+aggregation:
+  verifier_kind: module_directory
+  # TODO: define the benchmark-specific primary score extraction once the first
+  # end-to-end matrix run artifacts are available.

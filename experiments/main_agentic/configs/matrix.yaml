@@ -1,0 +1,45 @@
+# Runner-owned family config for the canonical batch matrix.
+# This schema is provisional in Phase 0 and should not be treated as a public
+# cross-family contract yet.
+
+name: main_agentic_matrix
+mode: batch
+
+benchmarks:
+  - aeossp_standard
+  - regional_coverage
+  - relay_constellation
+  - revisit_constellation
+  - satnet
+  - spot5
+  - stereo_imaging
+
+harnesses:
+  - claude_code
+  - codex
+  - gemini_cli
+  - kimi_cli
+  - opencode
+
+defaults:
+  split: test
+  timeout_seconds: 3600
+
+batch:
+  batch_size: 4
+  max_concurrency: 1
+  max_retries: 1
+  skip_completed: true
+  retry_statuses:
+    - runner_error
+    - timeout
+    - agent_failed
+
+resources:
+  cpus: 2
+  memory: 8g
+  shm_size: 1g
+
+results:
+  root: results/agent_runs/experiments/main_agentic
+  aggregate_dir: summaries

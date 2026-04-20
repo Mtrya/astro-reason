@@ -1,0 +1,20 @@
+# Placeholder scaffold profile for Codex.
+# Phase 4 is expected to replace the TODO fields with real command/config details.
+
+harness: codex
+runtime: base
+
+config:
+  real_file: experiments/_fragments/configs/codex/config.local.yaml
+  # TODO: add the tracked example config once the Codex schema is settled.
+
+commands:
+  # TODO: replace with the canonical Codex headless invocation.
+  headless_shell_command: "__TODO__"
+  interactive_command:
+    - /bin/bash
+    - -i
+
+artifacts:
+  # TODO: replace with the actual Codex session-log location.
+  collect: []
