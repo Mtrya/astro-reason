@@ -7,6 +7,7 @@ on:
 
 jobs:
   check-i18n-sync:
+    if: false # Temporarily disable this job until experiments, solvers and runtimes stablize
     runs-on: ubuntu-latest
     # Non-blocking: failures in this job must not block CI
     continue-on-error: true
