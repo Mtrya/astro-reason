@@ -22,12 +22,6 @@ INTERACTIVE_WORKSPACES_ROOT = REPO_ROOT / ".runtime" / "interactive_workspaces"
 
 
 @dataclass(frozen=True)
-class LogicalPath:
-    root: str
-    relative: Path
-
-
-@dataclass(frozen=True)
 class AssembleTemplate:
     source_template: str
     target_template: str
@@ -39,7 +33,7 @@ class AssembleTemplate:
 @dataclass(frozen=True)
 class AssembleSpec:
     source: Path
-    target: LogicalPath
+    target: Path
     render: bool
     missing_ok: bool
     example: Path | None
@@ -47,7 +41,7 @@ class AssembleSpec:
 
 @dataclass(frozen=True)
 class CollectSpec:
-    source: LogicalPath
+    source: Path
     target: Path
     missing_ok: bool
 
@@ -103,9 +97,8 @@ class InteractiveConfig:
 @dataclass(frozen=True)
 class BenchmarkProfile:
     benchmark: str
-    readme_fragment: Path
-    prompt_fragment: Path
     assemble: tuple[AssembleTemplate, ...]
+    collect: tuple[CollectSpec, ...]
     verifier_kind: str
     score_metrics: tuple["MetricSpec", ...]
     flag_metrics: tuple["FlagMetricSpec", ...]
@@ -130,12 +123,10 @@ class FlagMetricSpec:
 class HarnessProfile:
     harness: str
     runtime: str
-    config_target: LogicalPath
-    real_file: Path
-    example_file: Path | None
+    assemble: tuple[AssembleTemplate, ...]
     headless_shell_command: str
-    interactive_command: tuple[str, ...]
     collect: tuple[CollectSpec, ...]
+    forward_env_keys: tuple[str, ...]
     profile_path: Path
 
 
@@ -339,20 +330,30 @@ def _resolve_repo_path(path_value: str) -> Path:
     return (REPO_ROOT / candidate).resolve()
 
 
-def _parse_logical_path(path_value: str, *, label: str, path: Path) -> LogicalPath:
+def _parse_container_path(path_value: str, *, label: str, path: Path) -> Path:
     pure = PurePosixPath(path_value)
     if pure.is_absolute():
-        raise SystemExit(f"{label} must use a logical root, not an absolute path: {path}")
-    if not pure.parts:
-        raise SystemExit(f"{label} must be non-empty: {path}")
+        return Path(pure.as_posix())
+    raise SystemExit(f"{label} must be an absolute container path: {path}")
 
-    root = pure.parts[0]
-    if root not in {"workspace", "xdg_config", "xdg_data", "home", "output"}:
+
+def _parse_collect_target(path_value: str, *, label: str, path: Path) -> Path:
+    pure = PurePosixPath(path_value)
+    if pure.is_absolute() or not pure.parts:
         raise SystemExit(
-            f"{label} must start with one of workspace/, xdg_config/, xdg_data/, home/, output/: {path}"
+            f"{label} must start with results_root/, repo/, benchmark(s)/, or experiments/: {path}"
         )
-    relative = Path(*pure.parts[1:]) if len(pure.parts) > 1 else Path()
-    return LogicalPath(root=root, relative=relative)
+    if pure.parts[0] not in {
+        "results_root",
+        "repo",
+        "benchmark",
+        "benchmarks",
+        "experiments",
+    }:
+        raise SystemExit(
+            f"{label} must start with results_root/, repo/, benchmark(s)/, or experiments/: {path}"
+        )
+    return Path(*pure.parts)
 
 
 def _load_resource_limits(data: dict[str, Any], config_path: Path) -> ResourceLimits:
@@ -376,17 +377,18 @@ def _parse_collect_specs(items: Any, config_path: Path) -> tuple[CollectSpec, ..
             raise SystemExit(f"Collect spec #{index} must be a mapping: {config_path}")
         source_value = _require_str(item, "source", "Collect spec", config_path)
         target_value = _require_str(item, "target", "Collect spec", config_path)
-        target = Path(PurePosixPath(target_value))
-        if target.is_absolute():
-            raise SystemExit(f"Collect spec #{index} target must be relative: {config_path}")
         specs.append(
             CollectSpec(
-                source=_parse_logical_path(
+                source=_parse_container_path(
                     source_value,
                     label=f"Collect spec #{index} source",
                     path=config_path,
                 ),
-                target=target,
+                target=_parse_collect_target(
+                    target_value,
+                    label=f"Collect spec #{index} target",
+                    path=config_path,
+                ),
                 missing_ok=_optional_bool(item, "missing_ok", True, "Collect spec", config_path),
             )
         )
@@ -570,32 +572,14 @@ def load_benchmark_profile(name: str) -> BenchmarkProfile:
             f"Benchmark profile name mismatch: expected '{name}', found '{benchmark}' in {profile_path}"
         )
 
-    prompts = data.get("prompts")
-    if not isinstance(prompts, dict):
-        raise SystemExit(f"Benchmark profile field 'prompts' must be a mapping: {profile_path}")
-    workspace = data.get("workspace")
-    if not isinstance(workspace, dict):
-        raise SystemExit(f"Benchmark profile field 'workspace' must be a mapping: {profile_path}")
     aggregation = data.get("aggregation")
     if not isinstance(aggregation, dict):
         raise SystemExit(f"Benchmark profile field 'aggregation' must be a mapping: {profile_path}")
 
-    readme_fragment = _resolve_repo_path(
-        _require_str(prompts, "readme", "Benchmark prompts", profile_path)
-    )
-    prompt_fragment = _resolve_repo_path(
-        _require_str(prompts, "prompt", "Benchmark prompts", profile_path)
-    )
-    if not readme_fragment.exists():
-        raise SystemExit(f"Benchmark README fragment does not exist: {readme_fragment}")
-    if not prompt_fragment.exists():
-        raise SystemExit(f"Benchmark PROMPT fragment does not exist: {prompt_fragment}")
-
     return BenchmarkProfile(
         benchmark=benchmark,
-        readme_fragment=readme_fragment,
-        prompt_fragment=prompt_fragment,
-        assemble=_parse_assemble_templates(workspace.get("assemble"), profile_path),
+        assemble=_parse_assemble_templates(data.get("assemble"), profile_path),
+        collect=_parse_collect_specs(data.get("collect", []), profile_path),
         verifier_kind=_require_str(aggregation, "verifier_kind", "Aggregation config", profile_path),
         score_metrics=_parse_metric_specs(aggregation.get("score_metrics", []), profile_path),
         flag_metrics=_parse_flag_metric_specs(aggregation.get("flag_metrics"), profile_path),
@@ -612,43 +596,26 @@ def load_harness_profile(name: str) -> HarnessProfile:
             f"Harness profile name mismatch: expected '{name}', found '{harness}' in {profile_path}"
         )
 
-    config = data.get("config")
-    if not isinstance(config, dict):
-        raise SystemExit(f"Harness profile field 'config' must be a mapping: {profile_path}")
     commands = data.get("commands")
     if not isinstance(commands, dict):
         raise SystemExit(f"Harness profile field 'commands' must be a mapping: {profile_path}")
-    artifacts = data.get("artifacts")
-    if not isinstance(artifacts, dict):
-        raise SystemExit(f"Harness profile field 'artifacts' must be a mapping: {profile_path}")
-
-    real_file = _resolve_repo_path(_require_str(config, "real_file", "Harness config", profile_path))
-    example_value = config.get("example_file")
-    if example_value is not None and (not isinstance(example_value, str) or not example_value):
+    forward_env_keys = data.get("forward_env_keys", [])
+    if not isinstance(forward_env_keys, list) or not all(
+        isinstance(item, str) and item for item in forward_env_keys
+    ):
         raise SystemExit(
-            f"Harness config field 'example_file' must be a non-empty string when present: {profile_path}"
+            f"Harness profile field 'forward_env_keys' must be a list of non-empty strings: {profile_path}"
         )
-    example_file = _resolve_repo_path(example_value) if isinstance(example_value, str) else None
-    if example_file is not None and not example_file.exists():
-        raise SystemExit(f"Harness example config does not exist: {example_file}")
 
     return HarnessProfile(
         harness=harness,
         runtime=_require_str(data, "runtime", "Harness profile", profile_path),
-        config_target=_parse_logical_path(
-            _require_str(config, "target", "Harness config", profile_path),
-            label="Harness config target",
-            path=profile_path,
-        ),
-        real_file=real_file,
-        example_file=example_file,
+        assemble=_parse_assemble_templates(data.get("assemble"), profile_path),
         headless_shell_command=_require_str(
             commands, "headless_shell_command", "Harness commands", profile_path
         ),
-        interactive_command=_string_tuple(
-            commands, "interactive_command", "Harness commands", profile_path
-        ),
-        collect=_parse_collect_specs(artifacts.get("collect", []), profile_path),
+        collect=_parse_collect_specs(data.get("collect", []), profile_path),
+        forward_env_keys=tuple(forward_env_keys),
         profile_path=profile_path.resolve(),
     )
 
@@ -730,7 +697,7 @@ def materialize_assemble_templates(
         specs.append(
             AssembleSpec(
                 source=_resolve_repo_path(source_value),
-                target=_parse_logical_path(
+                target=_parse_container_path(
                     target_value,
                     label=f"Assemble spec #{index} target",
                     path=owner_path,
@@ -781,8 +748,16 @@ def _enumerate_case_ids(benchmark: str, split: str) -> tuple[str, ...]:
 def _collect_missing_configs(harnesses: tuple[HarnessProfile, ...]) -> tuple[tuple[str, Path], ...]:
     missing: list[tuple[str, Path]] = []
     for harness in harnesses:
-        if not harness.real_file.exists():
-            missing.append((harness.harness, harness.real_file))
+        for spec in materialize_assemble_templates(
+            harness.assemble,
+            {},
+            owner_path=harness.profile_path,
+        ):
+            if spec.missing_ok:
+                continue
+            if spec.source.exists():
+                continue
+            missing.append((harness.harness, spec.source))
     return tuple(missing)
 
 

@@ -1,3 +1,4 @@
 *
-!*.example
 !.gitignore
+!.kimi.example/
+!.kimi.example/**

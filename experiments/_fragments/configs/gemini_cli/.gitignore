@@ -1,3 +1,4 @@
 *
-!*.example
 !.gitignore
+!.gemini.example/
+!.gemini.example/**

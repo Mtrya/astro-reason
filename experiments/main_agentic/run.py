@@ -28,9 +28,9 @@ else:
 
 WORKSPACE_MOUNT = Path("/app/workspace")
 OUTPUT_MOUNT = Path("/app/run/output")
-CONTAINER_HOME = Path("/tmp/astroreason-home")
-CONTAINER_XDG_CONFIG_HOME = Path("/tmp/astroreason-xdg-config")
-CONTAINER_XDG_DATA_HOME = Path("/tmp/astroreason-xdg-data")
+CONTAINER_HOME = Path("/home/korolev")
+CONTAINER_XDG_CONFIG_HOME = CONTAINER_HOME / ".config"
+CONTAINER_XDG_DATA_HOME = CONTAINER_HOME / ".local" / "share"
 CONTAINER_USER_NAME = "korolev"
 CONTAINER_GROUP_NAME = "korolev"
 PROMPT_FILE_NAME = "PROMPT.md"
@@ -40,8 +40,6 @@ PLACEHOLDER_PATTERN = re.compile(r"\{([A-Za-z_][A-Za-z0-9_]*)\}")
 @dataclass(frozen=True)
 class MountRoots:
     workspace: Path
-    xdg_config: Path
-    xdg_data: Path
     home: Path
     output: Path
 
@@ -138,30 +136,38 @@ def _duration_seconds(start: datetime, end: datetime) -> float:
     return round((end - start).total_seconds(), 3)
 
 
-def _logical_target_host_path(target: family_plan.LogicalPath, roots: MountRoots) -> Path:
-    root_map = {
-        "workspace": roots.workspace,
-        "xdg_config": roots.xdg_config,
-        "xdg_data": roots.xdg_data,
-        "home": roots.home,
-        "output": roots.output,
-    }
-    return root_map[target.root] / target.relative
+def _container_path_to_host_path(container_path: Path, roots: MountRoots) -> Path:
+    for prefix, host_root in (
+        (WORKSPACE_MOUNT, roots.workspace),
+        (CONTAINER_HOME, roots.home),
+        (OUTPUT_MOUNT, roots.output),
+    ):
+        try:
+            relative = container_path.relative_to(prefix)
+        except ValueError:
+            continue
+        return host_root / relative
+    raise SystemExit(f"Container path is outside mounted roots: {container_path}")
 
 
-def _logical_target_container_path(target: family_plan.LogicalPath) -> Path:
-    root_map = {
-        "workspace": WORKSPACE_MOUNT,
-        "xdg_config": CONTAINER_XDG_CONFIG_HOME,
-        "xdg_data": CONTAINER_XDG_DATA_HOME,
-        "home": CONTAINER_HOME,
-        "output": OUTPUT_MOUNT,
-    }
-    return root_map[target.root] / target.relative
-
-
-def _logical_source_host_path(source: family_plan.LogicalPath, roots: MountRoots) -> Path:
-    return _logical_target_host_path(source, roots)
+def _collect_target_host_path(target: Path, output_dir: Path) -> Path:
+    if not target.parts:
+        raise SystemExit(
+            f"Collect target must start with results_root/, repo/, benchmark(s)/, or experiments/: {target}"
+        )
+    root = target.parts[0]
+    relative = Path(*target.parts[1:]) if len(target.parts) > 1 else Path()
+    if root == "results_root":
+        return output_dir / relative
+    if root == "repo":
+        return family_plan.REPO_ROOT / relative
+    if root == "benchmark":
+        return family_plan.REPO_ROOT / "benchmarks" / relative
+    if root in {"experiments", "benchmarks"}:
+        return family_plan.REPO_ROOT / target
+    raise SystemExit(
+        f"Collect target must start with results_root/, repo/, benchmark(s)/, or experiments/: {target}"
+    )
 
 
 def _relative_display(path: Path) -> str:
@@ -252,14 +258,10 @@ def _build_container_identity(temp_dir: Path) -> ContainerIdentity:
 def _prepare_mount_roots(workspace_dir: Path, runtime_state_dir: Path, output_dir: Path) -> MountRoots:
     roots = MountRoots(
         workspace=workspace_dir,
-        xdg_config=runtime_state_dir / "xdg_config",
-        xdg_data=runtime_state_dir / "xdg_data",
         home=runtime_state_dir / "home",
         output=output_dir,
     )
     roots.workspace.mkdir(parents=True, exist_ok=True)
-    roots.xdg_config.mkdir(parents=True, exist_ok=True)
-    roots.xdg_data.mkdir(parents=True, exist_ok=True)
     roots.home.mkdir(parents=True, exist_ok=True)
     roots.output.mkdir(parents=True, exist_ok=True)
     return roots
@@ -300,9 +302,14 @@ def _workspace_example_solution_name(
         return "No example solution is provided for this workspace."
 
     for spec in assemble_specs:
-        if spec.source == example_solution and spec.target.root == "workspace":
-            target_name = spec.target.relative.name or example_solution.name
-            return target_name
+        if spec.source != example_solution:
+            continue
+        try:
+            relative = spec.target.relative_to(WORKSPACE_MOUNT)
+        except ValueError:
+            continue
+        target_name = relative.name or example_solution.name
+        return target_name
     return "No example solution is provided for this workspace."
 
 
@@ -322,10 +329,13 @@ def _workspace_verifier_info(
         )
 
     for spec in assemble_specs:
-        if spec.source != verifier or spec.target.root != "workspace":
+        if spec.source != verifier:
+            continue
+        try:
+            relative = spec.target.relative_to(WORKSPACE_MOUNT)
+        except ValueError:
             continue
 
-        relative = spec.target.relative
         location = relative.as_posix() + ("/" if verifier.is_dir() else "")
         if verifier.is_dir():
             module_name = _workspace_module_name(relative)
@@ -357,45 +367,6 @@ def _template_context(
     }
 
 
-def _prompt_assemble_specs(
-    benchmark: str,
-    benchmark_profile: family_plan.BenchmarkProfile,
-) -> tuple[family_plan.AssembleSpec, ...]:
-    return (
-        family_plan.AssembleSpec(
-            source=benchmark_profile.readme_fragment,
-            target=family_plan.LogicalPath(root="workspace", relative=Path("README.md")),
-            render=True,
-            missing_ok=False,
-            example=None,
-        ),
-        family_plan.AssembleSpec(
-            source=family_plan.SHARED_AGENTS_FRAGMENT,
-            target=family_plan.LogicalPath(root="workspace", relative=Path("AGENTS.md")),
-            render=True,
-            missing_ok=False,
-            example=None,
-        ),
-        family_plan.AssembleSpec(
-            source=benchmark_profile.prompt_fragment,
-            target=family_plan.LogicalPath(root="home", relative=Path(PROMPT_FILE_NAME)),
-            render=True,
-            missing_ok=False,
-            example=None,
-        ),
-    )
-
-
-def _harness_config_assemble_spec(harness: family_plan.HarnessProfile) -> family_plan.AssembleSpec:
-    return family_plan.AssembleSpec(
-        source=harness.real_file,
-        target=harness.config_target,
-        render=False,
-        missing_ok=False,
-        example=harness.example_file,
-    )
-
-
 def _materialized_benchmark_assemble_specs(item: family_plan.RunItem) -> tuple[family_plan.AssembleSpec, ...]:
     replacements = {
         "benchmark": item.benchmark,
@@ -414,8 +385,20 @@ def _materialized_benchmark_assemble_specs(item: family_plan.RunItem) -> tuple[f
 def _assemble_specs_for_batch_item(item: family_plan.RunItem) -> tuple[family_plan.AssembleSpec, ...]:
     return (
         _materialized_benchmark_assemble_specs(item)
-        + _prompt_assemble_specs(item.benchmark, item.benchmark_profile)
-        + (_harness_config_assemble_spec(item.harness_profile),)
+        + (
+            family_plan.AssembleSpec(
+                source=family_plan.SHARED_AGENTS_FRAGMENT,
+                target=WORKSPACE_MOUNT / "AGENTS.md",
+                render=True,
+                missing_ok=False,
+                example=None,
+            ),
+        )
+        + family_plan.materialize_assemble_templates(
+            item.harness_profile.assemble,
+            {},
+            owner_path=item.harness_profile.profile_path,
+        )
     )
 
 
@@ -424,8 +407,8 @@ def _assemble_specs_for_interactive(
 ) -> tuple[family_plan.AssembleSpec, ...]:
     replacements = {
         "benchmark": plan.config.benchmark,
-        "split": plan.config.split,
-        "case_id": plan.config.case_id,
+        "split": plan.effective_split,
+        "case_id": plan.effective_case_id,
         "family": family_plan.FAMILY_DIR.name,
         "config_name": plan.config.config_path.stem,
     }
@@ -436,9 +419,27 @@ def _assemble_specs_for_interactive(
             owner_path=plan.benchmark_profile.profile_path,
         )
     )
-    specs.extend(_prompt_assemble_specs(plan.config.benchmark, plan.benchmark_profile))
+    specs.append(
+        family_plan.AssembleSpec(
+            source=family_plan.SHARED_AGENTS_FRAGMENT,
+            target=WORKSPACE_MOUNT / "AGENTS.md",
+            render=True,
+            missing_ok=False,
+            example=None,
+        )
+    )
+    seen_targets: set[str] = {str(WORKSPACE_MOUNT / "AGENTS.md")}
     for harness in plan.harnesses:
-        specs.append(_harness_config_assemble_spec(harness))
+        for assemble_spec in family_plan.materialize_assemble_templates(
+            harness.assemble,
+            {},
+            owner_path=harness.profile_path,
+        ):
+            target_key = assemble_spec.target.as_posix()
+            if target_key in seen_targets:
+                continue
+            seen_targets.add(target_key)
+            specs.append(assemble_spec)
     return tuple(specs)
 
 
@@ -446,17 +447,20 @@ def _namespace_collect_target(target: Path, harness_name: str) -> Path:
     parts = target.parts
     if not parts:
         return Path(harness_name)
+    if parts[0] == "results_root" and len(parts) > 1:
+        return Path(parts[0]) / parts[1] / harness_name / Path(*parts[2:])
     if len(parts) == 1:
         return Path(parts[0]) / harness_name
     return Path(parts[0]) / harness_name / Path(*parts[1:])
 
 
 def _collect_specs_for_harnesses(
+    benchmark_collect: tuple[family_plan.CollectSpec, ...],
     harnesses: tuple[family_plan.HarnessProfile, ...],
     *,
     namespace: bool,
 ) -> tuple[family_plan.CollectSpec, ...]:
-    specs: list[family_plan.CollectSpec] = []
+    specs: list[family_plan.CollectSpec] = list(benchmark_collect)
     for harness in harnesses:
         for spec in harness.collect:
             target = _namespace_collect_target(spec.target, harness.harness) if namespace else spec.target
@@ -488,7 +492,7 @@ def _assemble_workspace(
                 records.append(
                     {
                         "source": _relative_display(spec.source),
-                        "target": _logical_target_container_path(spec.target).as_posix(),
+                        "target": spec.target.as_posix(),
                         "present": False,
                         "rendered": spec.render,
                     }
@@ -497,12 +501,12 @@ def _assemble_workspace(
             example_note = f" Copy the example file {spec.example} and fill it in." if spec.example else ""
             raise SystemExit(f"Required assemble source does not exist: {spec.source}.{example_note}")
 
-        destination = _logical_target_host_path(spec.target, roots)
+        destination = _container_path_to_host_path(spec.target, roots)
         _copy_file_or_directory(spec.source, destination, render=spec.render, context=context)
         records.append(
             {
                 "source": _relative_display(spec.source),
-                "target": _logical_target_container_path(spec.target).as_posix(),
+                "target": spec.target.as_posix(),
                 "present": True,
                 "rendered": spec.render,
             }
@@ -518,13 +522,13 @@ def _collect_artifacts(
 ) -> list[dict[str, Any]]:
     records: list[dict[str, Any]] = []
     for spec in collect_specs:
-        source = _logical_source_host_path(spec.source, roots)
-        destination = output_dir / spec.target
+        source = _container_path_to_host_path(spec.source, roots)
+        destination = _collect_target_host_path(spec.target, output_dir)
         if not source.exists():
             if spec.missing_ok:
                 records.append(
                     {
-                        "source": _logical_target_container_path(spec.source).as_posix(),
+                        "source": spec.source.as_posix(),
                         "target": spec.target.as_posix(),
                         "present": False,
                     }
@@ -545,7 +549,7 @@ def _collect_artifacts(
 
         records.append(
             {
-                "source": _logical_target_container_path(spec.source).as_posix(),
+                "source": spec.source.as_posix(),
                 "target": spec.target.as_posix(),
                 "present": True,
             }
@@ -583,6 +587,7 @@ def _build_docker_command(
     roots: MountRoots,
     container_identity: ContainerIdentity,
     resources: family_plan.ResourceLimits,
+    forward_env_keys: tuple[str, ...],
     timeout_seconds: int,
     headless_shell_command: str | None,
     interactive: bool,
@@ -594,6 +599,10 @@ def _build_docker_command(
     cmd.extend(["-e", f"LOGNAME={container_identity.username}"])
     cmd.extend(["-e", f"XDG_CONFIG_HOME={CONTAINER_XDG_CONFIG_HOME}"])
     cmd.extend(["-e", f"XDG_DATA_HOME={CONTAINER_XDG_DATA_HOME}"])
+    for env_key in forward_env_keys:
+        env_value = os.environ.get(env_key)
+        if env_value is not None:
+            cmd.extend(["-e", f"{env_key}={env_value}"])
     if resources.cpus is not None:
         cmd.extend(["--cpus", resources.cpus])
     if resources.memory is not None:
@@ -611,10 +620,6 @@ def _build_docker_command(
             f"{roots.workspace.resolve()}:{WORKSPACE_MOUNT}",
             "-v",
             f"{roots.output.resolve()}:{OUTPUT_MOUNT}",
-            "-v",
-            f"{roots.xdg_config.resolve()}:{CONTAINER_XDG_CONFIG_HOME}",
-            "-v",
-            f"{roots.xdg_data.resolve()}:{CONTAINER_XDG_DATA_HOME}",
             "-v",
             f"{roots.home.resolve()}:{CONTAINER_HOME}",
             "-v",
@@ -1043,6 +1048,7 @@ def _run_headless_once(
                 roots=roots,
                 container_identity=container_identity,
                 resources=item.resources,
+                forward_env_keys=item.harness_profile.forward_env_keys,
                 timeout_seconds=timeout_seconds,
                 headless_shell_command=item.harness_profile.headless_shell_command,
                 interactive=False,
@@ -1060,7 +1066,11 @@ def _run_headless_once(
 
             solution_present = _copy_solution_artifact(workspace_dir, output_dir)
             collected_records = _collect_artifacts(
-                _collect_specs_for_harnesses((item.harness_profile,), namespace=False),
+                _collect_specs_for_harnesses(
+                    item.benchmark_profile.collect,
+                    (item.harness_profile,),
+                    namespace=False,
+                ),
                 roots,
                 output_dir,
             )
@@ -1260,6 +1270,7 @@ def _run_interactive(
 
     assemble_specs = _assemble_specs_for_interactive(plan)
     collect_specs = _collect_specs_for_harnesses(
+        plan.benchmark_profile.collect,
         plan.harnesses,
         namespace=len(plan.harnesses) > 1,
     )
@@ -1290,6 +1301,13 @@ def _run_interactive(
             roots=roots,
             container_identity=container_identity,
             resources=plan.config.resources,
+            forward_env_keys=tuple(
+                dict.fromkeys(
+                    key
+                    for harness in plan.harnesses
+                    for key in harness.forward_env_keys
+                )
+            ),
             timeout_seconds=timeout_seconds,
             headless_shell_command=None,
             interactive=True,

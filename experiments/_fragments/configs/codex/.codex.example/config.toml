@@ -5,7 +5,7 @@ model_reasoning_effort = "high"
 [model_providers.gateway]
 name = "OpenAI-compatible gateway"
 base_url = "https://replace_with_your_base_url/v1"
-env_key = "OPENAI_API_KEY"
+env_key = "AR_OPENAI_API_KEY"
 wire_api = "responses"
 
 [projects."/app/workspace"]

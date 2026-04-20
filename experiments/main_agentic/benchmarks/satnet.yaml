@@ -1,15 +1,18 @@
 benchmark: satnet
 
-prompts:
-  readme: experiments/_fragments/prompts/satnet/README.default.md
-  prompt: experiments/_fragments/prompts/satnet/PROMPT.default.md
+assemble:
+  - source: experiments/_fragments/prompts/satnet/README.default.md
+    target: /app/workspace/README.md
+    render: true
+  - source: benchmarks/{benchmark}/dataset/cases/{split}/{case_id}
+    target: /app/workspace/case
+  - source: benchmarks/{benchmark}/verifier.py
+    target: /app/workspace/verifier.py
+  - source: experiments/_fragments/prompts/satnet/PROMPT.default.md
+    target: /home/korolev/PROMPT.md
+    render: true
 
-workspace:
-  assemble:
-    - source: benchmarks/{benchmark}/dataset/cases/{split}/{case_id}
-      target: workspace/case
-    - source: benchmarks/{benchmark}/verifier.py
-      target: workspace/verifier.py
+collect: []
 
 aggregation:
   verifier_kind: single_file

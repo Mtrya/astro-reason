@@ -1,29 +1,29 @@
 harness: gemini_cli
 runtime: base
 
-config:
-  target: home/.gemini/settings.json
-  real_file: experiments/_fragments/configs/gemini_cli/settings.json
-  example_file: experiments/_fragments/configs/gemini_cli/settings.json.example
+assemble:
+  - source: experiments/_fragments/configs/gemini_cli/.gemini
+    target: /home/korolev/.gemini
+    example: experiments/_fragments/configs/gemini_cli/.gemini.example
 
 commands:
   headless_shell_command: >-
     gemini -p "$(cat ~/PROMPT.md)" --output-format json --yolo
-  interactive_command:
-    - gemini
 
-artifacts:
-  collect:
-    - source: home/.gemini/antigravity/conversations
-      target: session_logs/conversations
-    - source: home/.gemini/tmp
-      target: session_logs/tmp
-    - source: home/.gemini/history
-      target: session_logs/history
-    - source: home/.gemini/state.json
-      target: session_logs/state.json
+collect:
+  - source: /home/korolev/.gemini/antigravity/conversations
+    target: results_root/session_logs/conversations
+  - source: /home/korolev/.gemini/tmp
+    target: results_root/session_logs/tmp
+  - source: /home/korolev/.gemini/history
+    target: results_root/session_logs/history
+  - source: /home/korolev/.gemini/state.json
+    target: results_root/session_logs/state.json
+
+forward_env_keys: []
 
 notes:
-  - Gemini CLI spreads state across home/.gemini/tmp, home/.gemini/history, and home/.gemini/antigravity; this profile collects the most run-relevant parts without copying the browser-profile cache.
+  - Gemini CLI uses a repo-local .gemini directory tree under experiments/_fragments/configs/gemini_cli/ and copies it into home/.gemini inside the container.
+  - Gemini CLI spreads state across /home/korolev/.gemini/tmp, /home/korolev/.gemini/history, and /home/korolev/.gemini/antigravity; this profile collects the most run-relevant parts without copying the browser-profile cache.
   - Headless Gemini runs should pass --yolo explicitly; unlike Kimi print mode, Gemini headless mode does not imply blanket approval by default.
   - Gemini auth usually lives in environment variables or cached Google login state rather than in settings.json. If OAuth is used, the runner will likely need to mount more than settings.json.

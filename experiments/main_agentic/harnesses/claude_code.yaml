@@ -1,29 +1,27 @@
 harness: claude_code
 runtime: base
 
-config:
-  target: home/.claude/settings.json
-  real_file: experiments/_fragments/configs/claude_code/settings.json
-  example_file: experiments/_fragments/configs/claude_code/settings.json.example
+assemble:
+  - source: experiments/_fragments/configs/claude_code/.claude
+    target: /home/korolev/.claude
+    example: experiments/_fragments/configs/claude_code/.claude.example
 
 commands:
   headless_shell_command: >-
     claude -p --dangerously-skip-permissions
     --output-format text
     "$(cat ~/PROMPT.md)"
-  interactive_command:
-    - claude
-    - --dangerously-skip-permissions
 
-artifacts:
-  collect:
-    - source: home/.claude/projects
-      target: session_logs/projects
-    - source: home/.claude/tasks
-      target: session_logs/tasks
-    - source: home/.claude/history.jsonl
-      target: session_logs/history.jsonl
+collect:
+  - source: /home/korolev/.claude/projects
+    target: results_root/session_logs/projects
+  - source: /home/korolev/.claude/tasks
+    target: results_root/session_logs/tasks
+  - source: /home/korolev/.claude/history.jsonl
+    target: results_root/session_logs/history.jsonl
+
+forward_env_keys: []
 
 notes:
-  - Claude Code stores additional per-session state under home/.claude/session-env and home/.claude/sessions; collect more later if a run needs deeper replay artifacts.
+  - Claude Code stores additional per-session state under /home/korolev/.claude/session-env and /home/korolev/.claude/sessions; collect more later if a run needs deeper replay artifacts.
   - Provider and auth details should stay in the real settings file or environment rather than in tracked configs.
