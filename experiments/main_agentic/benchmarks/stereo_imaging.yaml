@@ -1,15 +1,18 @@
 benchmark: stereo_imaging
 
-prompts:
-  readme: experiments/_fragments/prompts/stereo_imaging/README.default.md
-  prompt: experiments/_fragments/prompts/stereo_imaging/PROMPT.default.md
+assemble:
+  - source: experiments/_fragments/prompts/stereo_imaging/README.default.md
+    target: /app/workspace/README.md
+    render: true
+  - source: benchmarks/{benchmark}/dataset/cases/{split}/{case_id}
+    target: /app/workspace/case
+  - source: benchmarks/{benchmark}/verifier
+    target: /app/workspace/verifier
+  - source: experiments/_fragments/prompts/stereo_imaging/PROMPT.default.md
+    target: /home/korolev/PROMPT.md
+    render: true
 
-workspace:
-  assemble:
-    - source: benchmarks/{benchmark}/dataset/cases/{split}/{case_id}
-      target: workspace/case
-    - source: benchmarks/{benchmark}/verifier
-      target: workspace/verifier
+collect: []
 
 aggregation:
   verifier_kind: module_directory

@@ -1,3 +1,4 @@
 *
-!*.example
 !.gitignore
+!.codex.example/
+!.codex.example/**

@@ -1,10 +1,10 @@
 harness: codex
 runtime: base
 
-config:
-  target: home/.codex/config.toml
-  real_file: experiments/_fragments/configs/codex/config.toml
-  example_file: experiments/_fragments/configs/codex/config.toml.example
+assemble:
+  - source: experiments/_fragments/configs/codex/.codex
+    target: /home/korolev/.codex
+    example: experiments/_fragments/configs/codex/.codex.example
 
 commands:
   headless_shell_command: >-
@@ -12,20 +12,20 @@ commands:
     --skip-git-repo-check
     --cd /app/workspace
     "$(cat ~/PROMPT.md)"
-  interactive_command:
-    - codex
 
-artifacts:
-  collect:
-    - source: home/.codex/sessions
-      target: session_logs/sessions
-    - source: home/.codex/session_index.jsonl
-      target: session_logs/session_index.jsonl
-    - source: home/.codex/history.jsonl
-      target: session_logs/history.jsonl
-    - source: home/.codex/log
-      target: session_logs/log
+collect:
+  - source: /home/korolev/.codex/sessions
+    target: results_root/session_logs/sessions
+  - source: /home/korolev/.codex/session_index.jsonl
+    target: results_root/session_logs/session_index.jsonl
+  - source: /home/korolev/.codex/history.jsonl
+    target: results_root/session_logs/history.jsonl
+  - source: /home/korolev/.codex/log
+    target: results_root/session_logs/log
+
+forward_env_keys:
+  - AR_OPENAI_API_KEY
 
 notes:
-  - Codex keeps additional state in sqlite files under home/.codex; keep those out of default collected artifacts unless a follow-up phase needs lower-level debugging.
+  - Codex keeps additional state in sqlite files under /home/korolev/.codex; keep those out of default collected artifacts unless a follow-up phase needs lower-level debugging.
   - The dangerous bypass flag is intentional here because the outer Docker runtime is the actual sandbox boundary for this family.
