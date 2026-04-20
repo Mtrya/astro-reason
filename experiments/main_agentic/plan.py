@@ -941,9 +941,9 @@ def build_batch_plan(
             case_filters=_unique_requested_cases(case_filters),
         )
         benchmark_profile = benchmark_profiles[benchmark]
-        for harness in selected_harnesses:
-            harness_profile = harness_profiles[harness]
-            for case_id in case_ids:
+        for case_id in case_ids:
+            for harness in selected_harnesses:
+                harness_profile = harness_profiles[harness]
                 items.append(
                     RunItem(
                         config_name=config.config_path.stem,

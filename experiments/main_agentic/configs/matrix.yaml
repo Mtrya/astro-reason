@@ -27,7 +27,7 @@ defaults:
   timeout_seconds: 3600
 
 batch:
-  max_concurrency: 1
+  max_concurrency: 6
   max_retries: 1
   skip_completed: true
   retry_statuses:
@@ -36,9 +36,9 @@ batch:
     - agent_failed
 
 resources:
-  cpus: 2
-  memory: 8g
-  shm_size: 1g
+  cpus: 8
+  memory: 32g
+  shm_size: 16g
 
 results:
   root: results/agent_runs/experiments/main_agentic
