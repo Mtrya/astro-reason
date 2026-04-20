@@ -19,14 +19,14 @@ harnesses:
   - codex
   - gemini_cli
   - kimi_cli
-  - opencode
+  - opencode_glm
+  - opencode_nex
 
 defaults:
   split: test
   timeout_seconds: 3600
 
 batch:
-  batch_size: 4
   max_concurrency: 1
   max_retries: 1
   skip_completed: true
