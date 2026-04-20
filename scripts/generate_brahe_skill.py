@@ -113,7 +113,15 @@ def collect_reachable_files(seed_dir: Path, repo_root: Path) -> tuple[list[Path]
             continue
 
         markdown_files.add(doc_path)
-        for dependency in discover_markdown_dependencies(doc_path.read_text(encoding="utf-8"), doc_path, repo_root):
+        content = doc_path.read_text(encoding="utf-8")
+
+        for dependency in discover_snippet_dependencies(content, repo_root):
+            if dependency.suffix == ".md" and dependency.is_relative_to(docs_root):
+                queue.append(dependency)
+            elif not is_redundant_inlined_dependency(dependency, repo_root):
+                copied_files.add(dependency)
+
+        for dependency in discover_link_dependencies(content, doc_path):
             if dependency.suffix == ".md" and dependency.is_relative_to(docs_root):
                 queue.append(dependency)
             else:
@@ -127,8 +135,8 @@ def collect_reachable_files(seed_dir: Path, repo_root: Path) -> tuple[list[Path]
     return sorted(markdown_files), sorted(copied_files)
 
 
-def discover_markdown_dependencies(content: str, doc_path: Path, repo_root: Path) -> set[Path]:
-    """Find reachable local files referenced by a markdown document."""
+def discover_snippet_dependencies(content: str, repo_root: Path) -> set[Path]:
+    """Find local files referenced through mkdocs snippet includes."""
     dependencies: set[Path] = set()
 
     for match in SNIPPET_PATTERN.finditer(content):
@@ -136,6 +144,13 @@ def discover_markdown_dependencies(content: str, doc_path: Path, repo_root: Path
         dependency = resolve_repo_relative_path(repo_root, target_path)
         if dependency.exists():
             dependencies.add(dependency)
+
+    return dependencies
+
+
+def discover_link_dependencies(content: str, doc_path: Path) -> set[Path]:
+    """Find reachable local files referenced by markdown links."""
+    dependencies: set[Path] = set()
 
     for match in MARKDOWN_LINK_PATTERN.finditer(content):
         target = match.group("target")
@@ -151,6 +166,11 @@ def discover_markdown_dependencies(content: str, doc_path: Path, repo_root: Path
             dependencies.add(dependency)
 
     return dependencies
+
+
+def is_redundant_inlined_dependency(path: Path, repo_root: Path) -> bool:
+    """Return whether a snippet dependency is redundant after inlining."""
+    return path.is_relative_to(repo_root / "examples") or path.is_relative_to(repo_root / "plots")
 
 
 def write_processed_markdown(src_file: Path, out_root: Path, repo_root: Path) -> None:
