@@ -384,7 +384,7 @@ def normalize_fenced_code_blocks(content: str) -> str:
                 fence_char = m.group(2)
                 info = m.group(3)
                 if info:
-                    result.append(f"{fence_char} {info}")
+                    result.append(f"{fence_char}{info}")
                 else:
                     result.append(fence_char)
                 continue
