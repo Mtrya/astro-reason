@@ -1,11 +1,6 @@
 ---
 name: brahe
-description: |
-  Python astrodynamics and satellite dynamics with Brahe. Use for orbital propagation,
-  coordinate transformations, access computation, attitude representations, trajectories,
-  space weather, datasets, and visualization. Triggered by brahe, orbital mechanics,
-  satellite propagation, astrodynamics, TLE, SGP4, Keplerian orbits, ground track,
-  or access windows.
+description: Python astrodynamics and satellite dynamics with Brahe. Use for orbital propagation, coordinate transformations, access computation, attitude representations, trajectories, space weather, datasets, and visualization. Triggered by brahe, orbital mechanics, satellite propagation, astrodynamics, TLE, SGP4, Keplerian orbits, ground track, or access windows.
 ---
 
 # Brahe Skill
