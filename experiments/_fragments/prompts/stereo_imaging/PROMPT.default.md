@@ -1,3 +1,3 @@
-Solve the prepared `stereo_imaging` case in `case/`.
+Please solve the prepared stereo-imaging case using the files in `case/`.
 
-Read the workspace files carefully, write a valid `solution.json`, and avoid depending on any repository files outside the prepared workspace.
+Write `solution.json` at the workspace root. Prioritize valid stereo coverage first, then improve product quality where you can.

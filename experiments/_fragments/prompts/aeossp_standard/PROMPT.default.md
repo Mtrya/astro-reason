@@ -1,3 +1,3 @@
-Solve the prepared `aeossp_standard` case in `case/`.
+Please solve the prepared Earth-observation scheduling case using the files in `case/`.
 
-Read the workspace files carefully, write a valid `solution.json`, and avoid depending on any repository files outside the prepared workspace.
+Write `solution.json` at the workspace root. Focus first on a valid observation schedule, then push coverage toward higher-value tasks.

@@ -1,3 +1,3 @@
-Solve the prepared `satnet` case in `case/`.
+Please solve the prepared deep-space communication scheduling case using the files in `case/`.
 
-Read the workspace files carefully, write a valid `solution.json`, and avoid depending on any repository files outside the prepared workspace.
+Write `solution.json` at the workspace root as a JSON array of scheduled tracks. Prioritize valid communication time first, then satisfy as many requests as you can.
