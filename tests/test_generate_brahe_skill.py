@@ -11,7 +11,7 @@ from scripts.generate_brahe_skill import (
 )
 
 
-def test_process_docs_learn_preserves_docs_tree_and_copies_reachable_docs(tmp_path: Path) -> None:
+def test_process_docs_learn_preserves_docs_tree_and_skips_redundant_inlined_example_sources(tmp_path: Path) -> None:
     repo_root = tmp_path / "repo"
     docs_learn = repo_root / "docs" / "learn"
     source_file = docs_learn / "access_computation" / "index.md"
@@ -59,10 +59,10 @@ def test_process_docs_learn_preserves_docs_tree_and_copies_reachable_docs(tmp_pa
     assert (out_root / "docs" / "examples" / "ground_contacts.md").exists()
     assert (out_root / "docs" / "library_api" / "access" / "index.md").exists()
     assert (out_root / "docs" / "figures" / "coverage.png").exists()
-    assert (out_root / "examples" / "access" / "demo.py").exists()
+    assert not (out_root / "examples" / "access" / "demo.py").exists()
 
 
-def test_process_docs_learn_copies_plot_helpers_and_theme_when_referenced(tmp_path: Path) -> None:
+def test_process_docs_learn_skips_redundant_inlined_plot_helpers_and_theme(tmp_path: Path) -> None:
     repo_root = tmp_path / "repo"
     docs_learn = repo_root / "docs" / "learn"
     source_file = docs_learn / "plots" / "index.md"
@@ -77,6 +77,30 @@ def test_process_docs_learn_copies_plot_helpers_and_theme_when_referenced(tmp_pa
         ),
         encoding="utf-8",
     )
+
+    plot_script = repo_root / "plots" / "learn" / "plots" / "example_plot.py"
+    plot_script.parent.mkdir(parents=True)
+    plot_script.write_text("from brahe_theme import save_themed_html\n", encoding="utf-8")
+
+    theme_file = repo_root / "plots" / "brahe_theme.py"
+    theme_file.write_text("THEME = 'ok'\n", encoding="utf-8")
+
+    out_root = tmp_path / "out"
+    process_docs_learn(docs_learn, out_root, repo_root)
+
+    rendered = (out_root / "docs" / "learn" / "plots" / "index.md").read_text(encoding="utf-8")
+
+    assert "from brahe_theme import save_themed_html" in rendered
+    assert not (out_root / "plots" / "learn" / "plots" / "example_plot.py").exists()
+    assert not (out_root / "plots" / "brahe_theme.py").exists()
+
+
+def test_process_docs_learn_copies_linked_plot_helpers_and_theme(tmp_path: Path) -> None:
+    repo_root = tmp_path / "repo"
+    docs_learn = repo_root / "docs" / "learn"
+    source_file = docs_learn / "plots" / "index.md"
+    source_file.parent.mkdir(parents=True)
+    source_file.write_text("[Plot helper](../../../plots/learn/plots/example_plot.py)\n", encoding="utf-8")
 
     plot_script = repo_root / "plots" / "learn" / "plots" / "example_plot.py"
     plot_script.parent.mkdir(parents=True)
