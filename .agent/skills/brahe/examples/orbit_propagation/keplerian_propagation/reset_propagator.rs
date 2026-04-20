@@ -1,0 +1,26 @@
+//! Reset KeplerianPropagator to initial conditions
+
+#[allow(unused_imports)]
+use brahe as bh;
+use bh::traits::{SStatePropagator, Trajectory};
+use nalgebra as na;
+
+fn main() {
+    bh::initialize_eop().unwrap();
+
+    let epoch = bh::Epoch::from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, bh::TimeSystem::UTC);
+    let elements = na::SVector::<f64, 6>::new(bh::R_EARTH + 500e3, 0.001, 97.8, 15.0, 30.0, 45.0);
+    let mut prop = bh::KeplerianPropagator::from_keplerian(
+        epoch, elements, bh::AngleFormat::Degrees, 60.0
+    );
+
+    // Propagate forward
+    prop.propagate_steps(100);
+    println!("After propagation: {} states", prop.trajectory.len());
+
+    // Reset to initial conditions
+    prop.reset();
+    println!("After reset: {} states", prop.trajectory.len());
+    println!("Current epoch: {}", prop.current_epoch());
+}
+

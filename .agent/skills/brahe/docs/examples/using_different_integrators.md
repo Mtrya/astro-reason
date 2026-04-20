@@ -1,0 +1,4317 @@
+# Comparing Integrator Performance
+
+In this example, we'll compare the performance of different numerical integrators (RK4, RKF45, DP54, and RKN1210) by propagating a satellite orbit over 7 days and analyzing their accuracy and efficiency. We'll measure integration quality by tracking how well each method conserves orbital energy and angular momentum—quantities that should remain constant in two-body orbital dynamics.
+
+---
+
+## Setup
+
+First, we import the necessary libraries:
+
+```python
+#!/usr/bin/env python
+# /// script
+# dependencies = ["brahe", "numpy", "plotly"]
+# ///
+"""
+Compares different numerical integrators on two-body orbital dynamics.
+
+This example demonstrates how to use RK4, RKF45, DP54, and RKN1210 integrators
+to propagate a satellite orbit over 7 days and compare their accuracy and efficiency.
+Angular momentum conservation is used as a measure of integration quality.
+"""
+
+# --8<-- [start:all]
+# --8<-- [start:preamble]
+import pathlib
+import os
+import sys
+import brahe as bh
+import numpy as np
+import plotly.graph_objects as go
+# --8<-- [end:preamble]
+
+bh.initialize_eop()
+
+# Configuration for output files
+SCRIPT_NAME = pathlib.Path(__file__).stem
+OUTDIR = pathlib.Path(os.getenv("BRAHE_FIGURE_OUTPUT_DIR", "./docs/figures/"))
+os.makedirs(OUTDIR, exist_ok=True)
+
+# ============================================================================
+# SETUP: Define the problem
+# ============================================================================
+
+
+# Define dynamics function for two-body orbital mechanics
+# State vector: [x, y, z, vx, vy, vz] in meters and meters/second
+# --8<-- [start:setup]
+def dynamics(t, state):
+    """Two-body gravitational dynamics: acceleration = -mu/r^3 * r"""
+    r = state[0:3]  # Position vector (m)
+    v = state[3:6]  # Velocity vector (m/s)
+
+    r_mag = np.linalg.norm(r)  # Distance from Earth center (m)
+    a = -bh.GM_EARTH / (r_mag**3) * r  # Gravitational acceleration (m/s^2)
+
+    return np.concatenate([v, a])  # Return [velocity, acceleration]
+
+
+# --8<-- [end:setup]
+
+
+# --8<-- [start:helpers]
+def calculate_specific_energy(state):
+    """Calculate specific orbital energy: E = v^2/2 - mu/r (J/kg)"""
+    r_mag = np.linalg.norm(state[0:3])
+    v_mag = np.linalg.norm(state[3:6])
+    return 0.5 * v_mag**2 - bh.GM_EARTH / r_mag
+
+
+def calculate_angular_momentum(state):
+    """Calculate specific angular momentum: h = r × v (m^2/s)"""
+    r = state[0:3]
+    v = state[3:6]
+    return np.cross(r, v)
+
+
+# --8<-- [end:helpers]
+
+
+# ============================================================================
+# INITIAL CONDITIONS: LEO satellite orbit
+# ============================================================================
+
+# --8<-- [start:ics]
+# Define orbital elements
+a = bh.R_EARTH + 500e3  # Semi-major axis: 500 km altitude (m)
+e = 0.001  # Eccentricity: nearly circular
+i = 97.8  # Inclination: sun-synchronous (degrees)
+raan = 0.0  # Right ascension of ascending node (degrees)
+argp = 0.0  # Argument of periapsis (degrees)
+M = 0.0  # Mean anomaly (degrees)
+
+# Convert orbital elements to Cartesian state vector
+oe = np.array([a, e, i, raan, argp, M])
+state0 = bh.state_koe_to_eci(oe, bh.AngleFormat.DEGREES)
+
+# Calculate reference values
+orbital_period = bh.orbital_period(a)
+initial_energy = calculate_specific_energy(state0)
+initial_h = calculate_angular_momentum(state0)
+h_magnitude_initial = np.linalg.norm(initial_h)
+
+# Set integration time to 7 days
+t_end = 7 * 24 * 3600.0  # 7 days in seconds
+n_orbits = t_end / orbital_period
+# --8<-- [end:ics]
+
+# Print problem setup
+print("=" * 70)
+print("COMPARING INTEGRATORS ON TWO-BODY ORBITAL DYNAMICS")
+print("=" * 70)
+print(f"Orbit altitude: {(a - bh.R_EARTH) / 1e3:.1f} km")
+print(f"Inclination: {i:.1f}°")
+print(f"Orbital period: {orbital_period / 60:.2f} minutes")
+print(f"Initial energy: {initial_energy:.6e} J/kg")
+print(f"Initial |h|: {h_magnitude_initial:.6e} m²/s")
+print(f"Integration duration: 7 days ({n_orbits:.1f} orbits)")
+print("=" * 70)
+print()
+
+# Store results for comparison
+results = []
+
+
+# ============================================================================
+# INTEGRATOR 1: RK4 (Fixed-step)
+# ============================================================================
+
+print("1. RK4 - Fourth-order Runge-Kutta (Fixed-step)")
+print("-" * 70)
+
+# --8<-- [start:brk]
+dt = 10.0  # 10 second steps
+config_rk4 = bh.IntegratorConfig.fixed_step(step_size=dt)
+integrator_rk4 = bh.RK4Integrator(6, dynamics, config=config_rk4)
+
+# Storage for trajectory analysis
+times_rk4 = []
+h_errors_rk4 = []
+
+t = 0.0
+state = state0.copy()
+steps = 0
+while t < t_end:
+    state = integrator_rk4.step(t, state, dt)
+    t += dt
+    steps += 1
+
+    # Store data every 10 steps for plotting
+    if steps % 10 == 0:
+        h = calculate_angular_momentum(state)
+        h_error = abs(np.linalg.norm(h) - h_magnitude_initial)
+        times_rk4.append(t / 86400.0)  # Convert to days
+        h_errors_rk4.append(h_error)
+
+# Final results
+r_mag = np.linalg.norm(state[0:3])
+final_energy = calculate_specific_energy(state)
+energy_error = abs(final_energy - initial_energy)
+h_final = calculate_angular_momentum(state)
+h_error_final = abs(np.linalg.norm(h_final) - h_magnitude_initial)
+# --8<-- [end:brk]
+
+print(f"Configuration: Fixed step size = {dt} seconds")
+print(f"Steps taken: {steps}")
+print(f"Final altitude: {(r_mag - bh.R_EARTH) / 1e3:.3f} km")
+print(f"Energy error: {energy_error:.3e} J/kg")
+print(f"Angular momentum error: {h_error_final:.3e} m²/s")
+print()
+
+results.append(
+    {
+        "integrator": "RK4",
+        "type": "Fixed-step",
+        "steps": steps,
+        "energy_error": energy_error,
+        "h_error": h_error_final,
+        "times": times_rk4,
+        "h_errors": h_errors_rk4,
+    }
+)
+
+
+# ============================================================================
+# INTEGRATOR 2: RKF45 (Adaptive)
+# ============================================================================
+
+print("2. RKF45 - Runge-Kutta-Fehlberg (Adaptive)")
+print("-" * 70)
+
+# --8<-- [start:rkf]
+abs_tol = 1e-10
+rel_tol = 1e-9
+config_adaptive = bh.IntegratorConfig.adaptive(abs_tol=abs_tol, rel_tol=rel_tol)
+integrator_rkf45 = bh.RKF45Integrator(6, dynamics, config=config_adaptive)
+
+times_rkf45 = []
+h_errors_rkf45 = []
+
+t = 0.0
+state = state0.copy()
+dt_current = 10.0
+steps = 0
+sample_count = 0
+while t < t_end:
+    result = integrator_rkf45.step(t, state, min(dt_current, t_end - t))
+    t += result.dt_used
+    state = result.state
+    dt_current = result.dt_next
+    steps += 1
+
+    # Sample at approximately same rate as RK4
+    sample_count += 1
+    if sample_count % 10 == 0:
+        h = calculate_angular_momentum(state)
+        h_error = abs(np.linalg.norm(h) - h_magnitude_initial)
+        times_rkf45.append(t / 86400.0)  # Convert to days
+        h_errors_rkf45.append(h_error)
+
+r_mag = np.linalg.norm(state[0:3])
+final_energy = calculate_specific_energy(state)
+energy_error = abs(final_energy - initial_energy)
+h_final = calculate_angular_momentum(state)
+h_error_final = abs(np.linalg.norm(h_final) - h_magnitude_initial)
+# --8<-- [end:rkf]
+
+print(f"Configuration: abs_tol={abs_tol}, rel_tol={rel_tol}")
+print(f"Steps taken: {steps}")
+print(f"Final altitude: {(r_mag - bh.R_EARTH) / 1e3:.3f} km")
+print(f"Energy error: {energy_error:.3e} J/kg")
+print(f"Angular momentum error: {h_error_final:.3e} m²/s")
+print()
+
+results.append(
+    {
+        "integrator": "RKF45",
+        "type": "Adaptive",
+        "steps": steps,
+        "energy_error": energy_error,
+        "h_error": h_error_final,
+        "times": times_rkf45,
+        "h_errors": h_errors_rkf45,
+    }
+)
+
+
+# ============================================================================
+# INTEGRATOR 3: DP54 (Adaptive)
+# ============================================================================
+
+print("3. DP54 - Dormand-Prince 5(4) (Adaptive)")
+print("-" * 70)
+
+# --8<-- [start:dp]
+integrator_dp54 = bh.DP54Integrator(6, dynamics, config=config_adaptive)
+
+times_dp54 = []
+h_errors_dp54 = []
+
+t = 0.0
+state = state0.copy()
+dt_current = 10.0
+steps = 0
+sample_count = 0
+while t < t_end:
+    result = integrator_dp54.step(t, state, min(dt_current, t_end - t))
+    t += result.dt_used
+    state = result.state
+    dt_current = result.dt_next
+    steps += 1
+
+    sample_count += 1
+    if sample_count % 10 == 0:
+        h = calculate_angular_momentum(state)
+        h_error = abs(np.linalg.norm(h) - h_magnitude_initial)
+        times_dp54.append(t / 86400.0)  # Convert to days
+        h_errors_dp54.append(h_error)
+
+r_mag = np.linalg.norm(state[0:3])
+final_energy = calculate_specific_energy(state)
+energy_error = abs(final_energy - initial_energy)
+h_final = calculate_angular_momentum(state)
+h_error_final = abs(np.linalg.norm(h_final) - h_magnitude_initial)
+# --8<-- [end:dp]
+
+print(f"Configuration: abs_tol={abs_tol}, rel_tol={rel_tol}")
+print(f"Steps taken: {steps}")
+print(f"Final altitude: {(r_mag - bh.R_EARTH) / 1e3:.3f} km")
+print(f"Energy error: {energy_error:.3e} J/kg")
+print(f"Angular momentum error: {h_error_final:.3e} m²/s")
+print()
+
+results.append(
+    {
+        "integrator": "DP54",
+        "type": "Adaptive",
+        "steps": steps,
+        "energy_error": energy_error,
+        "h_error": h_error_final,
+        "times": times_dp54,
+        "h_errors": h_errors_dp54,
+    }
+)
+
+
+# ============================================================================
+# INTEGRATOR 4: RKN1210 (High-precision adaptive)
+# ============================================================================
+
+print("4. RKN1210 - Runge-Kutta-Nyström 12(10) (High-precision)")
+print("-" * 70)
+
+# --8<-- [start:rkn]
+abs_tol_hp = 1e-12
+rel_tol_hp = 1e-11
+config_high_precision = bh.IntegratorConfig.adaptive(
+    abs_tol=abs_tol_hp, rel_tol=rel_tol_hp
+)
+integrator_rkn1210 = bh.RKN1210Integrator(6, dynamics, config=config_high_precision)
+
+times_rkn1210 = []
+h_errors_rkn1210 = []
+
+t = 0.0
+state = state0.copy()
+dt_current = 10.0
+steps = 0
+sample_count = 0
+while t < t_end:
+    result = integrator_rkn1210.step(t, state, min(dt_current, t_end - t))
+    t += result.dt_used
+    state = result.state
+    dt_current = result.dt_next
+    steps += 1
+
+    sample_count += 1
+    if sample_count % 10 == 0:
+        h = calculate_angular_momentum(state)
+        h_error = abs(np.linalg.norm(h) - h_magnitude_initial)
+        times_rkn1210.append(t / 86400.0)  # Convert to days
+        h_errors_rkn1210.append(h_error)
+
+r_mag = np.linalg.norm(state[0:3])
+final_energy = calculate_specific_energy(state)
+energy_error = abs(final_energy - initial_energy)
+h_final = calculate_angular_momentum(state)
+h_error_final = abs(np.linalg.norm(h_final) - h_magnitude_initial)
+# --8<-- [end:rkn]
+
+print(f"Configuration: abs_tol={abs_tol_hp}, rel_tol={rel_tol_hp}")
+print(f"Steps taken: {steps}")
+print(f"Final altitude: {(r_mag - bh.R_EARTH) / 1e3:.3f} km")
+print(f"Energy error: {energy_error:.3e} J/kg")
+print(f"Angular momentum error: {h_error_final:.3e} m²/s")
+print()
+
+results.append(
+    {
+        "integrator": "RKN1210",
+        "type": "High-precision",
+        "steps": steps,
+        "energy_error": energy_error,
+        "h_error": h_error_final,
+        "times": times_rkn1210,
+        "h_errors": h_errors_rkn1210,
+    }
+)
+
+
+# ============================================================================
+# COMPARISON SUMMARY
+# ============================================================================
+
+print("=" * 70)
+print("COMPARISON SUMMARY (7 days / {:.1f} orbits)".format(n_orbits))
+print("=" * 70)
+print()
+print(
+    f"{'Integrator':<12} {'Type':<15} {'Steps':<8} {'Energy Error':<15} {'|h| Error':<15}"
+)
+print("-" * 70)
+for r in results:
+    print(
+        f"{r['integrator']:<12} {r['type']:<15} {r['steps']:<8} "
+        f"{r['energy_error']:<15.3e} {r['h_error']:<15.3e}"
+    )
+print()
+print("Key Observations:")
+print("• RK4 requires many steps with accumulated drift in conserved quantities")
+print("• RKF45 and DP54 adapt step size but show energy/momentum drift")
+print("• RKN1210 maintains best conservation with far fewer steps")
+print("• Angular momentum conservation indicates integration quality")
+print("=" * 70)
+
+
+# ============================================================================
+# VISUALIZATION: Angular Momentum Conservation
+# ============================================================================
+
+print("\nGenerating angular momentum conservation plot...")
+
+# Create plotly figure
+fig = go.Figure()
+
+# Add traces for each integrator
+fig.add_trace(
+    go.Scatter(
+        x=results[0]["times"],
+        y=results[0]["h_errors"],
+        mode="lines",
+        name="RK4 (Fixed-step)",
+        line=dict(color="steelblue", width=2),
+        hovertemplate="Day: %{x:.2f}<br>|Δh|: %{y:.3e} m²/s<extra></extra>",
+    )
+)
+
+fig.add_trace(
+    go.Scatter(
+        x=results[1]["times"],
+        y=results[1]["h_errors"],
+        mode="lines",
+        name="RKF45 (Adaptive)",
+        line=dict(color="coral", width=2),
+        hovertemplate="Day: %{x:.2f}<br>|Δh|: %{y:.3e} m²/s<extra></extra>",
+    )
+)
+
+fig.add_trace(
+    go.Scatter(
+        x=results[2]["times"],
+        y=results[2]["h_errors"],
+        mode="lines",
+        name="DP54 (Adaptive)",
+        line=dict(color="green", width=2),
+        hovertemplate="Day: %{x:.2f}<br>|Δh|: %{y:.3e} m²/s<extra></extra>",
+    )
+)
+
+fig.add_trace(
+    go.Scatter(
+        x=results[3]["times"],
+        y=results[3]["h_errors"],
+        mode="lines",
+        name="RKN1210 (High-precision)",
+        line=dict(color="grey", width=2),
+        hovertemplate="Day: %{x:.2f}<br>|Δh|: %{y:.3e} m²/s<extra></extra>",
+    )
+)
+
+# Configure axes
+axis_config = {
+    "title_font": {"size": 11},
+    "tickfont": {"size": 10},
+}
+
+fig.update_xaxes(title_text="Time (days)", **axis_config)
+fig.update_yaxes(
+    title_text="Angular Momentum Error |Δh| (m²/s)", type="log", **axis_config
+)
+
+fig.update_layout(
+    title="Angular Momentum Conservation Over 7 Days",
+    showlegend=True,
+    legend=dict(yanchor="top", y=0.99, xanchor="left", x=0.01, font=dict(size=10)),
+)
+
+print("Comparison complete!")
+# --8<-- [end:all]
+
+sys.path.insert(0, str(pathlib.Path(__file__).parent.parent.parent / "plots"))
+from brahe_theme import save_themed_html  # noqa: E402
+
+light_path, dark_path = save_themed_html(
+    fig, OUTDIR / f"{SCRIPT_NAME}_angular_momentum"
+)
+print(f"\n✓ Generated {light_path}")
+print(f"✓ Generated {dark_path}")
+```
+
+Then define the two-body gravitational dynamics function:
+
+```python
+#!/usr/bin/env python
+# /// script
+# dependencies = ["brahe", "numpy", "plotly"]
+# ///
+"""
+Compares different numerical integrators on two-body orbital dynamics.
+
+This example demonstrates how to use RK4, RKF45, DP54, and RKN1210 integrators
+to propagate a satellite orbit over 7 days and compare their accuracy and efficiency.
+Angular momentum conservation is used as a measure of integration quality.
+"""
+
+# --8<-- [start:all]
+# --8<-- [start:preamble]
+import pathlib
+import os
+import sys
+import brahe as bh
+import numpy as np
+import plotly.graph_objects as go
+# --8<-- [end:preamble]
+
+bh.initialize_eop()
+
+# Configuration for output files
+SCRIPT_NAME = pathlib.Path(__file__).stem
+OUTDIR = pathlib.Path(os.getenv("BRAHE_FIGURE_OUTPUT_DIR", "./docs/figures/"))
+os.makedirs(OUTDIR, exist_ok=True)
+
+# ============================================================================
+# SETUP: Define the problem
+# ============================================================================
+
+
+# Define dynamics function for two-body orbital mechanics
+# State vector: [x, y, z, vx, vy, vz] in meters and meters/second
+# --8<-- [start:setup]
+def dynamics(t, state):
+    """Two-body gravitational dynamics: acceleration = -mu/r^3 * r"""
+    r = state[0:3]  # Position vector (m)
+    v = state[3:6]  # Velocity vector (m/s)
+
+    r_mag = np.linalg.norm(r)  # Distance from Earth center (m)
+    a = -bh.GM_EARTH / (r_mag**3) * r  # Gravitational acceleration (m/s^2)
+
+    return np.concatenate([v, a])  # Return [velocity, acceleration]
+
+
+# --8<-- [end:setup]
+
+
+# --8<-- [start:helpers]
+def calculate_specific_energy(state):
+    """Calculate specific orbital energy: E = v^2/2 - mu/r (J/kg)"""
+    r_mag = np.linalg.norm(state[0:3])
+    v_mag = np.linalg.norm(state[3:6])
+    return 0.5 * v_mag**2 - bh.GM_EARTH / r_mag
+
+
+def calculate_angular_momentum(state):
+    """Calculate specific angular momentum: h = r × v (m^2/s)"""
+    r = state[0:3]
+    v = state[3:6]
+    return np.cross(r, v)
+
+
+# --8<-- [end:helpers]
+
+
+# ============================================================================
+# INITIAL CONDITIONS: LEO satellite orbit
+# ============================================================================
+
+# --8<-- [start:ics]
+# Define orbital elements
+a = bh.R_EARTH + 500e3  # Semi-major axis: 500 km altitude (m)
+e = 0.001  # Eccentricity: nearly circular
+i = 97.8  # Inclination: sun-synchronous (degrees)
+raan = 0.0  # Right ascension of ascending node (degrees)
+argp = 0.0  # Argument of periapsis (degrees)
+M = 0.0  # Mean anomaly (degrees)
+
+# Convert orbital elements to Cartesian state vector
+oe = np.array([a, e, i, raan, argp, M])
+state0 = bh.state_koe_to_eci(oe, bh.AngleFormat.DEGREES)
+
+# Calculate reference values
+orbital_period = bh.orbital_period(a)
+initial_energy = calculate_specific_energy(state0)
+initial_h = calculate_angular_momentum(state0)
+h_magnitude_initial = np.linalg.norm(initial_h)
+
+# Set integration time to 7 days
+t_end = 7 * 24 * 3600.0  # 7 days in seconds
+n_orbits = t_end / orbital_period
+# --8<-- [end:ics]
+
+# Print problem setup
+print("=" * 70)
+print("COMPARING INTEGRATORS ON TWO-BODY ORBITAL DYNAMICS")
+print("=" * 70)
+print(f"Orbit altitude: {(a - bh.R_EARTH) / 1e3:.1f} km")
+print(f"Inclination: {i:.1f}°")
+print(f"Orbital period: {orbital_period / 60:.2f} minutes")
+print(f"Initial energy: {initial_energy:.6e} J/kg")
+print(f"Initial |h|: {h_magnitude_initial:.6e} m²/s")
+print(f"Integration duration: 7 days ({n_orbits:.1f} orbits)")
+print("=" * 70)
+print()
+
+# Store results for comparison
+results = []
+
+
+# ============================================================================
+# INTEGRATOR 1: RK4 (Fixed-step)
+# ============================================================================
+
+print("1. RK4 - Fourth-order Runge-Kutta (Fixed-step)")
+print("-" * 70)
+
+# --8<-- [start:brk]
+dt = 10.0  # 10 second steps
+config_rk4 = bh.IntegratorConfig.fixed_step(step_size=dt)
+integrator_rk4 = bh.RK4Integrator(6, dynamics, config=config_rk4)
+
+# Storage for trajectory analysis
+times_rk4 = []
+h_errors_rk4 = []
+
+t = 0.0
+state = state0.copy()
+steps = 0
+while t < t_end:
+    state = integrator_rk4.step(t, state, dt)
+    t += dt
+    steps += 1
+
+    # Store data every 10 steps for plotting
+    if steps % 10 == 0:
+        h = calculate_angular_momentum(state)
+        h_error = abs(np.linalg.norm(h) - h_magnitude_initial)
+        times_rk4.append(t / 86400.0)  # Convert to days
+        h_errors_rk4.append(h_error)
+
+# Final results
+r_mag = np.linalg.norm(state[0:3])
+final_energy = calculate_specific_energy(state)
+energy_error = abs(final_energy - initial_energy)
+h_final = calculate_angular_momentum(state)
+h_error_final = abs(np.linalg.norm(h_final) - h_magnitude_initial)
+# --8<-- [end:brk]
+
+print(f"Configuration: Fixed step size = {dt} seconds")
+print(f"Steps taken: {steps}")
+print(f"Final altitude: {(r_mag - bh.R_EARTH) / 1e3:.3f} km")
+print(f"Energy error: {energy_error:.3e} J/kg")
+print(f"Angular momentum error: {h_error_final:.3e} m²/s")
+print()
+
+results.append(
+    {
+        "integrator": "RK4",
+        "type": "Fixed-step",
+        "steps": steps,
+        "energy_error": energy_error,
+        "h_error": h_error_final,
+        "times": times_rk4,
+        "h_errors": h_errors_rk4,
+    }
+)
+
+
+# ============================================================================
+# INTEGRATOR 2: RKF45 (Adaptive)
+# ============================================================================
+
+print("2. RKF45 - Runge-Kutta-Fehlberg (Adaptive)")
+print("-" * 70)
+
+# --8<-- [start:rkf]
+abs_tol = 1e-10
+rel_tol = 1e-9
+config_adaptive = bh.IntegratorConfig.adaptive(abs_tol=abs_tol, rel_tol=rel_tol)
+integrator_rkf45 = bh.RKF45Integrator(6, dynamics, config=config_adaptive)
+
+times_rkf45 = []
+h_errors_rkf45 = []
+
+t = 0.0
+state = state0.copy()
+dt_current = 10.0
+steps = 0
+sample_count = 0
+while t < t_end:
+    result = integrator_rkf45.step(t, state, min(dt_current, t_end - t))
+    t += result.dt_used
+    state = result.state
+    dt_current = result.dt_next
+    steps += 1
+
+    # Sample at approximately same rate as RK4
+    sample_count += 1
+    if sample_count % 10 == 0:
+        h = calculate_angular_momentum(state)
+        h_error = abs(np.linalg.norm(h) - h_magnitude_initial)
+        times_rkf45.append(t / 86400.0)  # Convert to days
+        h_errors_rkf45.append(h_error)
+
+r_mag = np.linalg.norm(state[0:3])
+final_energy = calculate_specific_energy(state)
+energy_error = abs(final_energy - initial_energy)
+h_final = calculate_angular_momentum(state)
+h_error_final = abs(np.linalg.norm(h_final) - h_magnitude_initial)
+# --8<-- [end:rkf]
+
+print(f"Configuration: abs_tol={abs_tol}, rel_tol={rel_tol}")
+print(f"Steps taken: {steps}")
+print(f"Final altitude: {(r_mag - bh.R_EARTH) / 1e3:.3f} km")
+print(f"Energy error: {energy_error:.3e} J/kg")
+print(f"Angular momentum error: {h_error_final:.3e} m²/s")
+print()
+
+results.append(
+    {
+        "integrator": "RKF45",
+        "type": "Adaptive",
+        "steps": steps,
+        "energy_error": energy_error,
+        "h_error": h_error_final,
+        "times": times_rkf45,
+        "h_errors": h_errors_rkf45,
+    }
+)
+
+
+# ============================================================================
+# INTEGRATOR 3: DP54 (Adaptive)
+# ============================================================================
+
+print("3. DP54 - Dormand-Prince 5(4) (Adaptive)")
+print("-" * 70)
+
+# --8<-- [start:dp]
+integrator_dp54 = bh.DP54Integrator(6, dynamics, config=config_adaptive)
+
+times_dp54 = []
+h_errors_dp54 = []
+
+t = 0.0
+state = state0.copy()
+dt_current = 10.0
+steps = 0
+sample_count = 0
+while t < t_end:
+    result = integrator_dp54.step(t, state, min(dt_current, t_end - t))
+    t += result.dt_used
+    state = result.state
+    dt_current = result.dt_next
+    steps += 1
+
+    sample_count += 1
+    if sample_count % 10 == 0:
+        h = calculate_angular_momentum(state)
+        h_error = abs(np.linalg.norm(h) - h_magnitude_initial)
+        times_dp54.append(t / 86400.0)  # Convert to days
+        h_errors_dp54.append(h_error)
+
+r_mag = np.linalg.norm(state[0:3])
+final_energy = calculate_specific_energy(state)
+energy_error = abs(final_energy - initial_energy)
+h_final = calculate_angular_momentum(state)
+h_error_final = abs(np.linalg.norm(h_final) - h_magnitude_initial)
+# --8<-- [end:dp]
+
+print(f"Configuration: abs_tol={abs_tol}, rel_tol={rel_tol}")
+print(f"Steps taken: {steps}")
+print(f"Final altitude: {(r_mag - bh.R_EARTH) / 1e3:.3f} km")
+print(f"Energy error: {energy_error:.3e} J/kg")
+print(f"Angular momentum error: {h_error_final:.3e} m²/s")
+print()
+
+results.append(
+    {
+        "integrator": "DP54",
+        "type": "Adaptive",
+        "steps": steps,
+        "energy_error": energy_error,
+        "h_error": h_error_final,
+        "times": times_dp54,
+        "h_errors": h_errors_dp54,
+    }
+)
+
+
+# ============================================================================
+# INTEGRATOR 4: RKN1210 (High-precision adaptive)
+# ============================================================================
+
+print("4. RKN1210 - Runge-Kutta-Nyström 12(10) (High-precision)")
+print("-" * 70)
+
+# --8<-- [start:rkn]
+abs_tol_hp = 1e-12
+rel_tol_hp = 1e-11
+config_high_precision = bh.IntegratorConfig.adaptive(
+    abs_tol=abs_tol_hp, rel_tol=rel_tol_hp
+)
+integrator_rkn1210 = bh.RKN1210Integrator(6, dynamics, config=config_high_precision)
+
+times_rkn1210 = []
+h_errors_rkn1210 = []
+
+t = 0.0
+state = state0.copy()
+dt_current = 10.0
+steps = 0
+sample_count = 0
+while t < t_end:
+    result = integrator_rkn1210.step(t, state, min(dt_current, t_end - t))
+    t += result.dt_used
+    state = result.state
+    dt_current = result.dt_next
+    steps += 1
+
+    sample_count += 1
+    if sample_count % 10 == 0:
+        h = calculate_angular_momentum(state)
+        h_error = abs(np.linalg.norm(h) - h_magnitude_initial)
+        times_rkn1210.append(t / 86400.0)  # Convert to days
+        h_errors_rkn1210.append(h_error)
+
+r_mag = np.linalg.norm(state[0:3])
+final_energy = calculate_specific_energy(state)
+energy_error = abs(final_energy - initial_energy)
+h_final = calculate_angular_momentum(state)
+h_error_final = abs(np.linalg.norm(h_final) - h_magnitude_initial)
+# --8<-- [end:rkn]
+
+print(f"Configuration: abs_tol={abs_tol_hp}, rel_tol={rel_tol_hp}")
+print(f"Steps taken: {steps}")
+print(f"Final altitude: {(r_mag - bh.R_EARTH) / 1e3:.3f} km")
+print(f"Energy error: {energy_error:.3e} J/kg")
+print(f"Angular momentum error: {h_error_final:.3e} m²/s")
+print()
+
+results.append(
+    {
+        "integrator": "RKN1210",
+        "type": "High-precision",
+        "steps": steps,
+        "energy_error": energy_error,
+        "h_error": h_error_final,
+        "times": times_rkn1210,
+        "h_errors": h_errors_rkn1210,
+    }
+)
+
+
+# ============================================================================
+# COMPARISON SUMMARY
+# ============================================================================
+
+print("=" * 70)
+print("COMPARISON SUMMARY (7 days / {:.1f} orbits)".format(n_orbits))
+print("=" * 70)
+print()
+print(
+    f"{'Integrator':<12} {'Type':<15} {'Steps':<8} {'Energy Error':<15} {'|h| Error':<15}"
+)
+print("-" * 70)
+for r in results:
+    print(
+        f"{r['integrator']:<12} {r['type']:<15} {r['steps']:<8} "
+        f"{r['energy_error']:<15.3e} {r['h_error']:<15.3e}"
+    )
+print()
+print("Key Observations:")
+print("• RK4 requires many steps with accumulated drift in conserved quantities")
+print("• RKF45 and DP54 adapt step size but show energy/momentum drift")
+print("• RKN1210 maintains best conservation with far fewer steps")
+print("• Angular momentum conservation indicates integration quality")
+print("=" * 70)
+
+
+# ============================================================================
+# VISUALIZATION: Angular Momentum Conservation
+# ============================================================================
+
+print("\nGenerating angular momentum conservation plot...")
+
+# Create plotly figure
+fig = go.Figure()
+
+# Add traces for each integrator
+fig.add_trace(
+    go.Scatter(
+        x=results[0]["times"],
+        y=results[0]["h_errors"],
+        mode="lines",
+        name="RK4 (Fixed-step)",
+        line=dict(color="steelblue", width=2),
+        hovertemplate="Day: %{x:.2f}<br>|Δh|: %{y:.3e} m²/s<extra></extra>",
+    )
+)
+
+fig.add_trace(
+    go.Scatter(
+        x=results[1]["times"],
+        y=results[1]["h_errors"],
+        mode="lines",
+        name="RKF45 (Adaptive)",
+        line=dict(color="coral", width=2),
+        hovertemplate="Day: %{x:.2f}<br>|Δh|: %{y:.3e} m²/s<extra></extra>",
+    )
+)
+
+fig.add_trace(
+    go.Scatter(
+        x=results[2]["times"],
+        y=results[2]["h_errors"],
+        mode="lines",
+        name="DP54 (Adaptive)",
+        line=dict(color="green", width=2),
+        hovertemplate="Day: %{x:.2f}<br>|Δh|: %{y:.3e} m²/s<extra></extra>",
+    )
+)
+
+fig.add_trace(
+    go.Scatter(
+        x=results[3]["times"],
+        y=results[3]["h_errors"],
+        mode="lines",
+        name="RKN1210 (High-precision)",
+        line=dict(color="grey", width=2),
+        hovertemplate="Day: %{x:.2f}<br>|Δh|: %{y:.3e} m²/s<extra></extra>",
+    )
+)
+
+# Configure axes
+axis_config = {
+    "title_font": {"size": 11},
+    "tickfont": {"size": 10},
+}
+
+fig.update_xaxes(title_text="Time (days)", **axis_config)
+fig.update_yaxes(
+    title_text="Angular Momentum Error |Δh| (m²/s)", type="log", **axis_config
+)
+
+fig.update_layout(
+    title="Angular Momentum Conservation Over 7 Days",
+    showlegend=True,
+    legend=dict(yanchor="top", y=0.99, xanchor="left", x=0.01, font=dict(size=10)),
+)
+
+print("Comparison complete!")
+# --8<-- [end:all]
+
+sys.path.insert(0, str(pathlib.Path(__file__).parent.parent.parent / "plots"))
+from brahe_theme import save_themed_html  # noqa: E402
+
+light_path, dark_path = save_themed_html(
+    fig, OUTDIR / f"{SCRIPT_NAME}_angular_momentum"
+)
+print(f"\n✓ Generated {light_path}")
+print(f"✓ Generated {dark_path}")
+```
+
+We also need helper functions to calculate orbital energy and angular momentum:
+
+```python
+#!/usr/bin/env python
+# /// script
+# dependencies = ["brahe", "numpy", "plotly"]
+# ///
+"""
+Compares different numerical integrators on two-body orbital dynamics.
+
+This example demonstrates how to use RK4, RKF45, DP54, and RKN1210 integrators
+to propagate a satellite orbit over 7 days and compare their accuracy and efficiency.
+Angular momentum conservation is used as a measure of integration quality.
+"""
+
+# --8<-- [start:all]
+# --8<-- [start:preamble]
+import pathlib
+import os
+import sys
+import brahe as bh
+import numpy as np
+import plotly.graph_objects as go
+# --8<-- [end:preamble]
+
+bh.initialize_eop()
+
+# Configuration for output files
+SCRIPT_NAME = pathlib.Path(__file__).stem
+OUTDIR = pathlib.Path(os.getenv("BRAHE_FIGURE_OUTPUT_DIR", "./docs/figures/"))
+os.makedirs(OUTDIR, exist_ok=True)
+
+# ============================================================================
+# SETUP: Define the problem
+# ============================================================================
+
+
+# Define dynamics function for two-body orbital mechanics
+# State vector: [x, y, z, vx, vy, vz] in meters and meters/second
+# --8<-- [start:setup]
+def dynamics(t, state):
+    """Two-body gravitational dynamics: acceleration = -mu/r^3 * r"""
+    r = state[0:3]  # Position vector (m)
+    v = state[3:6]  # Velocity vector (m/s)
+
+    r_mag = np.linalg.norm(r)  # Distance from Earth center (m)
+    a = -bh.GM_EARTH / (r_mag**3) * r  # Gravitational acceleration (m/s^2)
+
+    return np.concatenate([v, a])  # Return [velocity, acceleration]
+
+
+# --8<-- [end:setup]
+
+
+# --8<-- [start:helpers]
+def calculate_specific_energy(state):
+    """Calculate specific orbital energy: E = v^2/2 - mu/r (J/kg)"""
+    r_mag = np.linalg.norm(state[0:3])
+    v_mag = np.linalg.norm(state[3:6])
+    return 0.5 * v_mag**2 - bh.GM_EARTH / r_mag
+
+
+def calculate_angular_momentum(state):
+    """Calculate specific angular momentum: h = r × v (m^2/s)"""
+    r = state[0:3]
+    v = state[3:6]
+    return np.cross(r, v)
+
+
+# --8<-- [end:helpers]
+
+
+# ============================================================================
+# INITIAL CONDITIONS: LEO satellite orbit
+# ============================================================================
+
+# --8<-- [start:ics]
+# Define orbital elements
+a = bh.R_EARTH + 500e3  # Semi-major axis: 500 km altitude (m)
+e = 0.001  # Eccentricity: nearly circular
+i = 97.8  # Inclination: sun-synchronous (degrees)
+raan = 0.0  # Right ascension of ascending node (degrees)
+argp = 0.0  # Argument of periapsis (degrees)
+M = 0.0  # Mean anomaly (degrees)
+
+# Convert orbital elements to Cartesian state vector
+oe = np.array([a, e, i, raan, argp, M])
+state0 = bh.state_koe_to_eci(oe, bh.AngleFormat.DEGREES)
+
+# Calculate reference values
+orbital_period = bh.orbital_period(a)
+initial_energy = calculate_specific_energy(state0)
+initial_h = calculate_angular_momentum(state0)
+h_magnitude_initial = np.linalg.norm(initial_h)
+
+# Set integration time to 7 days
+t_end = 7 * 24 * 3600.0  # 7 days in seconds
+n_orbits = t_end / orbital_period
+# --8<-- [end:ics]
+
+# Print problem setup
+print("=" * 70)
+print("COMPARING INTEGRATORS ON TWO-BODY ORBITAL DYNAMICS")
+print("=" * 70)
+print(f"Orbit altitude: {(a - bh.R_EARTH) / 1e3:.1f} km")
+print(f"Inclination: {i:.1f}°")
+print(f"Orbital period: {orbital_period / 60:.2f} minutes")
+print(f"Initial energy: {initial_energy:.6e} J/kg")
+print(f"Initial |h|: {h_magnitude_initial:.6e} m²/s")
+print(f"Integration duration: 7 days ({n_orbits:.1f} orbits)")
+print("=" * 70)
+print()
+
+# Store results for comparison
+results = []
+
+
+# ============================================================================
+# INTEGRATOR 1: RK4 (Fixed-step)
+# ============================================================================
+
+print("1. RK4 - Fourth-order Runge-Kutta (Fixed-step)")
+print("-" * 70)
+
+# --8<-- [start:brk]
+dt = 10.0  # 10 second steps
+config_rk4 = bh.IntegratorConfig.fixed_step(step_size=dt)
+integrator_rk4 = bh.RK4Integrator(6, dynamics, config=config_rk4)
+
+# Storage for trajectory analysis
+times_rk4 = []
+h_errors_rk4 = []
+
+t = 0.0
+state = state0.copy()
+steps = 0
+while t < t_end:
+    state = integrator_rk4.step(t, state, dt)
+    t += dt
+    steps += 1
+
+    # Store data every 10 steps for plotting
+    if steps % 10 == 0:
+        h = calculate_angular_momentum(state)
+        h_error = abs(np.linalg.norm(h) - h_magnitude_initial)
+        times_rk4.append(t / 86400.0)  # Convert to days
+        h_errors_rk4.append(h_error)
+
+# Final results
+r_mag = np.linalg.norm(state[0:3])
+final_energy = calculate_specific_energy(state)
+energy_error = abs(final_energy - initial_energy)
+h_final = calculate_angular_momentum(state)
+h_error_final = abs(np.linalg.norm(h_final) - h_magnitude_initial)
+# --8<-- [end:brk]
+
+print(f"Configuration: Fixed step size = {dt} seconds")
+print(f"Steps taken: {steps}")
+print(f"Final altitude: {(r_mag - bh.R_EARTH) / 1e3:.3f} km")
+print(f"Energy error: {energy_error:.3e} J/kg")
+print(f"Angular momentum error: {h_error_final:.3e} m²/s")
+print()
+
+results.append(
+    {
+        "integrator": "RK4",
+        "type": "Fixed-step",
+        "steps": steps,
+        "energy_error": energy_error,
+        "h_error": h_error_final,
+        "times": times_rk4,
+        "h_errors": h_errors_rk4,
+    }
+)
+
+
+# ============================================================================
+# INTEGRATOR 2: RKF45 (Adaptive)
+# ============================================================================
+
+print("2. RKF45 - Runge-Kutta-Fehlberg (Adaptive)")
+print("-" * 70)
+
+# --8<-- [start:rkf]
+abs_tol = 1e-10
+rel_tol = 1e-9
+config_adaptive = bh.IntegratorConfig.adaptive(abs_tol=abs_tol, rel_tol=rel_tol)
+integrator_rkf45 = bh.RKF45Integrator(6, dynamics, config=config_adaptive)
+
+times_rkf45 = []
+h_errors_rkf45 = []
+
+t = 0.0
+state = state0.copy()
+dt_current = 10.0
+steps = 0
+sample_count = 0
+while t < t_end:
+    result = integrator_rkf45.step(t, state, min(dt_current, t_end - t))
+    t += result.dt_used
+    state = result.state
+    dt_current = result.dt_next
+    steps += 1
+
+    # Sample at approximately same rate as RK4
+    sample_count += 1
+    if sample_count % 10 == 0:
+        h = calculate_angular_momentum(state)
+        h_error = abs(np.linalg.norm(h) - h_magnitude_initial)
+        times_rkf45.append(t / 86400.0)  # Convert to days
+        h_errors_rkf45.append(h_error)
+
+r_mag = np.linalg.norm(state[0:3])
+final_energy = calculate_specific_energy(state)
+energy_error = abs(final_energy - initial_energy)
+h_final = calculate_angular_momentum(state)
+h_error_final = abs(np.linalg.norm(h_final) - h_magnitude_initial)
+# --8<-- [end:rkf]
+
+print(f"Configuration: abs_tol={abs_tol}, rel_tol={rel_tol}")
+print(f"Steps taken: {steps}")
+print(f"Final altitude: {(r_mag - bh.R_EARTH) / 1e3:.3f} km")
+print(f"Energy error: {energy_error:.3e} J/kg")
+print(f"Angular momentum error: {h_error_final:.3e} m²/s")
+print()
+
+results.append(
+    {
+        "integrator": "RKF45",
+        "type": "Adaptive",
+        "steps": steps,
+        "energy_error": energy_error,
+        "h_error": h_error_final,
+        "times": times_rkf45,
+        "h_errors": h_errors_rkf45,
+    }
+)
+
+
+# ============================================================================
+# INTEGRATOR 3: DP54 (Adaptive)
+# ============================================================================
+
+print("3. DP54 - Dormand-Prince 5(4) (Adaptive)")
+print("-" * 70)
+
+# --8<-- [start:dp]
+integrator_dp54 = bh.DP54Integrator(6, dynamics, config=config_adaptive)
+
+times_dp54 = []
+h_errors_dp54 = []
+
+t = 0.0
+state = state0.copy()
+dt_current = 10.0
+steps = 0
+sample_count = 0
+while t < t_end:
+    result = integrator_dp54.step(t, state, min(dt_current, t_end - t))
+    t += result.dt_used
+    state = result.state
+    dt_current = result.dt_next
+    steps += 1
+
+    sample_count += 1
+    if sample_count % 10 == 0:
+        h = calculate_angular_momentum(state)
+        h_error = abs(np.linalg.norm(h) - h_magnitude_initial)
+        times_dp54.append(t / 86400.0)  # Convert to days
+        h_errors_dp54.append(h_error)
+
+r_mag = np.linalg.norm(state[0:3])
+final_energy = calculate_specific_energy(state)
+energy_error = abs(final_energy - initial_energy)
+h_final = calculate_angular_momentum(state)
+h_error_final = abs(np.linalg.norm(h_final) - h_magnitude_initial)
+# --8<-- [end:dp]
+
+print(f"Configuration: abs_tol={abs_tol}, rel_tol={rel_tol}")
+print(f"Steps taken: {steps}")
+print(f"Final altitude: {(r_mag - bh.R_EARTH) / 1e3:.3f} km")
+print(f"Energy error: {energy_error:.3e} J/kg")
+print(f"Angular momentum error: {h_error_final:.3e} m²/s")
+print()
+
+results.append(
+    {
+        "integrator": "DP54",
+        "type": "Adaptive",
+        "steps": steps,
+        "energy_error": energy_error,
+        "h_error": h_error_final,
+        "times": times_dp54,
+        "h_errors": h_errors_dp54,
+    }
+)
+
+
+# ============================================================================
+# INTEGRATOR 4: RKN1210 (High-precision adaptive)
+# ============================================================================
+
+print("4. RKN1210 - Runge-Kutta-Nyström 12(10) (High-precision)")
+print("-" * 70)
+
+# --8<-- [start:rkn]
+abs_tol_hp = 1e-12
+rel_tol_hp = 1e-11
+config_high_precision = bh.IntegratorConfig.adaptive(
+    abs_tol=abs_tol_hp, rel_tol=rel_tol_hp
+)
+integrator_rkn1210 = bh.RKN1210Integrator(6, dynamics, config=config_high_precision)
+
+times_rkn1210 = []
+h_errors_rkn1210 = []
+
+t = 0.0
+state = state0.copy()
+dt_current = 10.0
+steps = 0
+sample_count = 0
+while t < t_end:
+    result = integrator_rkn1210.step(t, state, min(dt_current, t_end - t))
+    t += result.dt_used
+    state = result.state
+    dt_current = result.dt_next
+    steps += 1
+
+    sample_count += 1
+    if sample_count % 10 == 0:
+        h = calculate_angular_momentum(state)
+        h_error = abs(np.linalg.norm(h) - h_magnitude_initial)
+        times_rkn1210.append(t / 86400.0)  # Convert to days
+        h_errors_rkn1210.append(h_error)
+
+r_mag = np.linalg.norm(state[0:3])
+final_energy = calculate_specific_energy(state)
+energy_error = abs(final_energy - initial_energy)
+h_final = calculate_angular_momentum(state)
+h_error_final = abs(np.linalg.norm(h_final) - h_magnitude_initial)
+# --8<-- [end:rkn]
+
+print(f"Configuration: abs_tol={abs_tol_hp}, rel_tol={rel_tol_hp}")
+print(f"Steps taken: {steps}")
+print(f"Final altitude: {(r_mag - bh.R_EARTH) / 1e3:.3f} km")
+print(f"Energy error: {energy_error:.3e} J/kg")
+print(f"Angular momentum error: {h_error_final:.3e} m²/s")
+print()
+
+results.append(
+    {
+        "integrator": "RKN1210",
+        "type": "High-precision",
+        "steps": steps,
+        "energy_error": energy_error,
+        "h_error": h_error_final,
+        "times": times_rkn1210,
+        "h_errors": h_errors_rkn1210,
+    }
+)
+
+
+# ============================================================================
+# COMPARISON SUMMARY
+# ============================================================================
+
+print("=" * 70)
+print("COMPARISON SUMMARY (7 days / {:.1f} orbits)".format(n_orbits))
+print("=" * 70)
+print()
+print(
+    f"{'Integrator':<12} {'Type':<15} {'Steps':<8} {'Energy Error':<15} {'|h| Error':<15}"
+)
+print("-" * 70)
+for r in results:
+    print(
+        f"{r['integrator']:<12} {r['type']:<15} {r['steps']:<8} "
+        f"{r['energy_error']:<15.3e} {r['h_error']:<15.3e}"
+    )
+print()
+print("Key Observations:")
+print("• RK4 requires many steps with accumulated drift in conserved quantities")
+print("• RKF45 and DP54 adapt step size but show energy/momentum drift")
+print("• RKN1210 maintains best conservation with far fewer steps")
+print("• Angular momentum conservation indicates integration quality")
+print("=" * 70)
+
+
+# ============================================================================
+# VISUALIZATION: Angular Momentum Conservation
+# ============================================================================
+
+print("\nGenerating angular momentum conservation plot...")
+
+# Create plotly figure
+fig = go.Figure()
+
+# Add traces for each integrator
+fig.add_trace(
+    go.Scatter(
+        x=results[0]["times"],
+        y=results[0]["h_errors"],
+        mode="lines",
+        name="RK4 (Fixed-step)",
+        line=dict(color="steelblue", width=2),
+        hovertemplate="Day: %{x:.2f}<br>|Δh|: %{y:.3e} m²/s<extra></extra>",
+    )
+)
+
+fig.add_trace(
+    go.Scatter(
+        x=results[1]["times"],
+        y=results[1]["h_errors"],
+        mode="lines",
+        name="RKF45 (Adaptive)",
+        line=dict(color="coral", width=2),
+        hovertemplate="Day: %{x:.2f}<br>|Δh|: %{y:.3e} m²/s<extra></extra>",
+    )
+)
+
+fig.add_trace(
+    go.Scatter(
+        x=results[2]["times"],
+        y=results[2]["h_errors"],
+        mode="lines",
+        name="DP54 (Adaptive)",
+        line=dict(color="green", width=2),
+        hovertemplate="Day: %{x:.2f}<br>|Δh|: %{y:.3e} m²/s<extra></extra>",
+    )
+)
+
+fig.add_trace(
+    go.Scatter(
+        x=results[3]["times"],
+        y=results[3]["h_errors"],
+        mode="lines",
+        name="RKN1210 (High-precision)",
+        line=dict(color="grey", width=2),
+        hovertemplate="Day: %{x:.2f}<br>|Δh|: %{y:.3e} m²/s<extra></extra>",
+    )
+)
+
+# Configure axes
+axis_config = {
+    "title_font": {"size": 11},
+    "tickfont": {"size": 10},
+}
+
+fig.update_xaxes(title_text="Time (days)", **axis_config)
+fig.update_yaxes(
+    title_text="Angular Momentum Error |Δh| (m²/s)", type="log", **axis_config
+)
+
+fig.update_layout(
+    title="Angular Momentum Conservation Over 7 Days",
+    showlegend=True,
+    legend=dict(yanchor="top", y=0.99, xanchor="left", x=0.01, font=dict(size=10)),
+)
+
+print("Comparison complete!")
+# --8<-- [end:all]
+
+sys.path.insert(0, str(pathlib.Path(__file__).parent.parent.parent / "plots"))
+from brahe_theme import save_themed_html  # noqa: E402
+
+light_path, dark_path = save_themed_html(
+    fig, OUTDIR / f"{SCRIPT_NAME}_angular_momentum"
+)
+print(f"\n✓ Generated {light_path}")
+print(f"✓ Generated {dark_path}")
+```
+
+## Initial Conditions
+
+We set up a sun-synchronous LEO satellite orbit at 500 km altitude and calculate reference values for comparison:
+
+```python
+#!/usr/bin/env python
+# /// script
+# dependencies = ["brahe", "numpy", "plotly"]
+# ///
+"""
+Compares different numerical integrators on two-body orbital dynamics.
+
+This example demonstrates how to use RK4, RKF45, DP54, and RKN1210 integrators
+to propagate a satellite orbit over 7 days and compare their accuracy and efficiency.
+Angular momentum conservation is used as a measure of integration quality.
+"""
+
+# --8<-- [start:all]
+# --8<-- [start:preamble]
+import pathlib
+import os
+import sys
+import brahe as bh
+import numpy as np
+import plotly.graph_objects as go
+# --8<-- [end:preamble]
+
+bh.initialize_eop()
+
+# Configuration for output files
+SCRIPT_NAME = pathlib.Path(__file__).stem
+OUTDIR = pathlib.Path(os.getenv("BRAHE_FIGURE_OUTPUT_DIR", "./docs/figures/"))
+os.makedirs(OUTDIR, exist_ok=True)
+
+# ============================================================================
+# SETUP: Define the problem
+# ============================================================================
+
+
+# Define dynamics function for two-body orbital mechanics
+# State vector: [x, y, z, vx, vy, vz] in meters and meters/second
+# --8<-- [start:setup]
+def dynamics(t, state):
+    """Two-body gravitational dynamics: acceleration = -mu/r^3 * r"""
+    r = state[0:3]  # Position vector (m)
+    v = state[3:6]  # Velocity vector (m/s)
+
+    r_mag = np.linalg.norm(r)  # Distance from Earth center (m)
+    a = -bh.GM_EARTH / (r_mag**3) * r  # Gravitational acceleration (m/s^2)
+
+    return np.concatenate([v, a])  # Return [velocity, acceleration]
+
+
+# --8<-- [end:setup]
+
+
+# --8<-- [start:helpers]
+def calculate_specific_energy(state):
+    """Calculate specific orbital energy: E = v^2/2 - mu/r (J/kg)"""
+    r_mag = np.linalg.norm(state[0:3])
+    v_mag = np.linalg.norm(state[3:6])
+    return 0.5 * v_mag**2 - bh.GM_EARTH / r_mag
+
+
+def calculate_angular_momentum(state):
+    """Calculate specific angular momentum: h = r × v (m^2/s)"""
+    r = state[0:3]
+    v = state[3:6]
+    return np.cross(r, v)
+
+
+# --8<-- [end:helpers]
+
+
+# ============================================================================
+# INITIAL CONDITIONS: LEO satellite orbit
+# ============================================================================
+
+# --8<-- [start:ics]
+# Define orbital elements
+a = bh.R_EARTH + 500e3  # Semi-major axis: 500 km altitude (m)
+e = 0.001  # Eccentricity: nearly circular
+i = 97.8  # Inclination: sun-synchronous (degrees)
+raan = 0.0  # Right ascension of ascending node (degrees)
+argp = 0.0  # Argument of periapsis (degrees)
+M = 0.0  # Mean anomaly (degrees)
+
+# Convert orbital elements to Cartesian state vector
+oe = np.array([a, e, i, raan, argp, M])
+state0 = bh.state_koe_to_eci(oe, bh.AngleFormat.DEGREES)
+
+# Calculate reference values
+orbital_period = bh.orbital_period(a)
+initial_energy = calculate_specific_energy(state0)
+initial_h = calculate_angular_momentum(state0)
+h_magnitude_initial = np.linalg.norm(initial_h)
+
+# Set integration time to 7 days
+t_end = 7 * 24 * 3600.0  # 7 days in seconds
+n_orbits = t_end / orbital_period
+# --8<-- [end:ics]
+
+# Print problem setup
+print("=" * 70)
+print("COMPARING INTEGRATORS ON TWO-BODY ORBITAL DYNAMICS")
+print("=" * 70)
+print(f"Orbit altitude: {(a - bh.R_EARTH) / 1e3:.1f} km")
+print(f"Inclination: {i:.1f}°")
+print(f"Orbital period: {orbital_period / 60:.2f} minutes")
+print(f"Initial energy: {initial_energy:.6e} J/kg")
+print(f"Initial |h|: {h_magnitude_initial:.6e} m²/s")
+print(f"Integration duration: 7 days ({n_orbits:.1f} orbits)")
+print("=" * 70)
+print()
+
+# Store results for comparison
+results = []
+
+
+# ============================================================================
+# INTEGRATOR 1: RK4 (Fixed-step)
+# ============================================================================
+
+print("1. RK4 - Fourth-order Runge-Kutta (Fixed-step)")
+print("-" * 70)
+
+# --8<-- [start:brk]
+dt = 10.0  # 10 second steps
+config_rk4 = bh.IntegratorConfig.fixed_step(step_size=dt)
+integrator_rk4 = bh.RK4Integrator(6, dynamics, config=config_rk4)
+
+# Storage for trajectory analysis
+times_rk4 = []
+h_errors_rk4 = []
+
+t = 0.0
+state = state0.copy()
+steps = 0
+while t < t_end:
+    state = integrator_rk4.step(t, state, dt)
+    t += dt
+    steps += 1
+
+    # Store data every 10 steps for plotting
+    if steps % 10 == 0:
+        h = calculate_angular_momentum(state)
+        h_error = abs(np.linalg.norm(h) - h_magnitude_initial)
+        times_rk4.append(t / 86400.0)  # Convert to days
+        h_errors_rk4.append(h_error)
+
+# Final results
+r_mag = np.linalg.norm(state[0:3])
+final_energy = calculate_specific_energy(state)
+energy_error = abs(final_energy - initial_energy)
+h_final = calculate_angular_momentum(state)
+h_error_final = abs(np.linalg.norm(h_final) - h_magnitude_initial)
+# --8<-- [end:brk]
+
+print(f"Configuration: Fixed step size = {dt} seconds")
+print(f"Steps taken: {steps}")
+print(f"Final altitude: {(r_mag - bh.R_EARTH) / 1e3:.3f} km")
+print(f"Energy error: {energy_error:.3e} J/kg")
+print(f"Angular momentum error: {h_error_final:.3e} m²/s")
+print()
+
+results.append(
+    {
+        "integrator": "RK4",
+        "type": "Fixed-step",
+        "steps": steps,
+        "energy_error": energy_error,
+        "h_error": h_error_final,
+        "times": times_rk4,
+        "h_errors": h_errors_rk4,
+    }
+)
+
+
+# ============================================================================
+# INTEGRATOR 2: RKF45 (Adaptive)
+# ============================================================================
+
+print("2. RKF45 - Runge-Kutta-Fehlberg (Adaptive)")
+print("-" * 70)
+
+# --8<-- [start:rkf]
+abs_tol = 1e-10
+rel_tol = 1e-9
+config_adaptive = bh.IntegratorConfig.adaptive(abs_tol=abs_tol, rel_tol=rel_tol)
+integrator_rkf45 = bh.RKF45Integrator(6, dynamics, config=config_adaptive)
+
+times_rkf45 = []
+h_errors_rkf45 = []
+
+t = 0.0
+state = state0.copy()
+dt_current = 10.0
+steps = 0
+sample_count = 0
+while t < t_end:
+    result = integrator_rkf45.step(t, state, min(dt_current, t_end - t))
+    t += result.dt_used
+    state = result.state
+    dt_current = result.dt_next
+    steps += 1
+
+    # Sample at approximately same rate as RK4
+    sample_count += 1
+    if sample_count % 10 == 0:
+        h = calculate_angular_momentum(state)
+        h_error = abs(np.linalg.norm(h) - h_magnitude_initial)
+        times_rkf45.append(t / 86400.0)  # Convert to days
+        h_errors_rkf45.append(h_error)
+
+r_mag = np.linalg.norm(state[0:3])
+final_energy = calculate_specific_energy(state)
+energy_error = abs(final_energy - initial_energy)
+h_final = calculate_angular_momentum(state)
+h_error_final = abs(np.linalg.norm(h_final) - h_magnitude_initial)
+# --8<-- [end:rkf]
+
+print(f"Configuration: abs_tol={abs_tol}, rel_tol={rel_tol}")
+print(f"Steps taken: {steps}")
+print(f"Final altitude: {(r_mag - bh.R_EARTH) / 1e3:.3f} km")
+print(f"Energy error: {energy_error:.3e} J/kg")
+print(f"Angular momentum error: {h_error_final:.3e} m²/s")
+print()
+
+results.append(
+    {
+        "integrator": "RKF45",
+        "type": "Adaptive",
+        "steps": steps,
+        "energy_error": energy_error,
+        "h_error": h_error_final,
+        "times": times_rkf45,
+        "h_errors": h_errors_rkf45,
+    }
+)
+
+
+# ============================================================================
+# INTEGRATOR 3: DP54 (Adaptive)
+# ============================================================================
+
+print("3. DP54 - Dormand-Prince 5(4) (Adaptive)")
+print("-" * 70)
+
+# --8<-- [start:dp]
+integrator_dp54 = bh.DP54Integrator(6, dynamics, config=config_adaptive)
+
+times_dp54 = []
+h_errors_dp54 = []
+
+t = 0.0
+state = state0.copy()
+dt_current = 10.0
+steps = 0
+sample_count = 0
+while t < t_end:
+    result = integrator_dp54.step(t, state, min(dt_current, t_end - t))
+    t += result.dt_used
+    state = result.state
+    dt_current = result.dt_next
+    steps += 1
+
+    sample_count += 1
+    if sample_count % 10 == 0:
+        h = calculate_angular_momentum(state)
+        h_error = abs(np.linalg.norm(h) - h_magnitude_initial)
+        times_dp54.append(t / 86400.0)  # Convert to days
+        h_errors_dp54.append(h_error)
+
+r_mag = np.linalg.norm(state[0:3])
+final_energy = calculate_specific_energy(state)
+energy_error = abs(final_energy - initial_energy)
+h_final = calculate_angular_momentum(state)
+h_error_final = abs(np.linalg.norm(h_final) - h_magnitude_initial)
+# --8<-- [end:dp]
+
+print(f"Configuration: abs_tol={abs_tol}, rel_tol={rel_tol}")
+print(f"Steps taken: {steps}")
+print(f"Final altitude: {(r_mag - bh.R_EARTH) / 1e3:.3f} km")
+print(f"Energy error: {energy_error:.3e} J/kg")
+print(f"Angular momentum error: {h_error_final:.3e} m²/s")
+print()
+
+results.append(
+    {
+        "integrator": "DP54",
+        "type": "Adaptive",
+        "steps": steps,
+        "energy_error": energy_error,
+        "h_error": h_error_final,
+        "times": times_dp54,
+        "h_errors": h_errors_dp54,
+    }
+)
+
+
+# ============================================================================
+# INTEGRATOR 4: RKN1210 (High-precision adaptive)
+# ============================================================================
+
+print("4. RKN1210 - Runge-Kutta-Nyström 12(10) (High-precision)")
+print("-" * 70)
+
+# --8<-- [start:rkn]
+abs_tol_hp = 1e-12
+rel_tol_hp = 1e-11
+config_high_precision = bh.IntegratorConfig.adaptive(
+    abs_tol=abs_tol_hp, rel_tol=rel_tol_hp
+)
+integrator_rkn1210 = bh.RKN1210Integrator(6, dynamics, config=config_high_precision)
+
+times_rkn1210 = []
+h_errors_rkn1210 = []
+
+t = 0.0
+state = state0.copy()
+dt_current = 10.0
+steps = 0
+sample_count = 0
+while t < t_end:
+    result = integrator_rkn1210.step(t, state, min(dt_current, t_end - t))
+    t += result.dt_used
+    state = result.state
+    dt_current = result.dt_next
+    steps += 1
+
+    sample_count += 1
+    if sample_count % 10 == 0:
+        h = calculate_angular_momentum(state)
+        h_error = abs(np.linalg.norm(h) - h_magnitude_initial)
+        times_rkn1210.append(t / 86400.0)  # Convert to days
+        h_errors_rkn1210.append(h_error)
+
+r_mag = np.linalg.norm(state[0:3])
+final_energy = calculate_specific_energy(state)
+energy_error = abs(final_energy - initial_energy)
+h_final = calculate_angular_momentum(state)
+h_error_final = abs(np.linalg.norm(h_final) - h_magnitude_initial)
+# --8<-- [end:rkn]
+
+print(f"Configuration: abs_tol={abs_tol_hp}, rel_tol={rel_tol_hp}")
+print(f"Steps taken: {steps}")
+print(f"Final altitude: {(r_mag - bh.R_EARTH) / 1e3:.3f} km")
+print(f"Energy error: {energy_error:.3e} J/kg")
+print(f"Angular momentum error: {h_error_final:.3e} m²/s")
+print()
+
+results.append(
+    {
+        "integrator": "RKN1210",
+        "type": "High-precision",
+        "steps": steps,
+        "energy_error": energy_error,
+        "h_error": h_error_final,
+        "times": times_rkn1210,
+        "h_errors": h_errors_rkn1210,
+    }
+)
+
+
+# ============================================================================
+# COMPARISON SUMMARY
+# ============================================================================
+
+print("=" * 70)
+print("COMPARISON SUMMARY (7 days / {:.1f} orbits)".format(n_orbits))
+print("=" * 70)
+print()
+print(
+    f"{'Integrator':<12} {'Type':<15} {'Steps':<8} {'Energy Error':<15} {'|h| Error':<15}"
+)
+print("-" * 70)
+for r in results:
+    print(
+        f"{r['integrator']:<12} {r['type']:<15} {r['steps']:<8} "
+        f"{r['energy_error']:<15.3e} {r['h_error']:<15.3e}"
+    )
+print()
+print("Key Observations:")
+print("• RK4 requires many steps with accumulated drift in conserved quantities")
+print("• RKF45 and DP54 adapt step size but show energy/momentum drift")
+print("• RKN1210 maintains best conservation with far fewer steps")
+print("• Angular momentum conservation indicates integration quality")
+print("=" * 70)
+
+
+# ============================================================================
+# VISUALIZATION: Angular Momentum Conservation
+# ============================================================================
+
+print("\nGenerating angular momentum conservation plot...")
+
+# Create plotly figure
+fig = go.Figure()
+
+# Add traces for each integrator
+fig.add_trace(
+    go.Scatter(
+        x=results[0]["times"],
+        y=results[0]["h_errors"],
+        mode="lines",
+        name="RK4 (Fixed-step)",
+        line=dict(color="steelblue", width=2),
+        hovertemplate="Day: %{x:.2f}<br>|Δh|: %{y:.3e} m²/s<extra></extra>",
+    )
+)
+
+fig.add_trace(
+    go.Scatter(
+        x=results[1]["times"],
+        y=results[1]["h_errors"],
+        mode="lines",
+        name="RKF45 (Adaptive)",
+        line=dict(color="coral", width=2),
+        hovertemplate="Day: %{x:.2f}<br>|Δh|: %{y:.3e} m²/s<extra></extra>",
+    )
+)
+
+fig.add_trace(
+    go.Scatter(
+        x=results[2]["times"],
+        y=results[2]["h_errors"],
+        mode="lines",
+        name="DP54 (Adaptive)",
+        line=dict(color="green", width=2),
+        hovertemplate="Day: %{x:.2f}<br>|Δh|: %{y:.3e} m²/s<extra></extra>",
+    )
+)
+
+fig.add_trace(
+    go.Scatter(
+        x=results[3]["times"],
+        y=results[3]["h_errors"],
+        mode="lines",
+        name="RKN1210 (High-precision)",
+        line=dict(color="grey", width=2),
+        hovertemplate="Day: %{x:.2f}<br>|Δh|: %{y:.3e} m²/s<extra></extra>",
+    )
+)
+
+# Configure axes
+axis_config = {
+    "title_font": {"size": 11},
+    "tickfont": {"size": 10},
+}
+
+fig.update_xaxes(title_text="Time (days)", **axis_config)
+fig.update_yaxes(
+    title_text="Angular Momentum Error |Δh| (m²/s)", type="log", **axis_config
+)
+
+fig.update_layout(
+    title="Angular Momentum Conservation Over 7 Days",
+    showlegend=True,
+    legend=dict(yanchor="top", y=0.99, xanchor="left", x=0.01, font=dict(size=10)),
+)
+
+print("Comparison complete!")
+# --8<-- [end:all]
+
+sys.path.insert(0, str(pathlib.Path(__file__).parent.parent.parent / "plots"))
+from brahe_theme import save_themed_html  # noqa: E402
+
+light_path, dark_path = save_themed_html(
+    fig, OUTDIR / f"{SCRIPT_NAME}_angular_momentum"
+)
+print(f"\n✓ Generated {light_path}")
+print(f"✓ Generated {dark_path}")
+```
+
+This gives us a baseline: the orbital period (~95 minutes) and the initial conserved quantities (energy and angular momentum magnitude). Over 7 days, the satellite will complete approximately 106.5 orbits.
+
+## Running Each Integrator
+
+Now we'll propagate the orbit using each of the four integrators, tracking the angular momentum error at regular intervals.
+
+### RK4 - Fixed-Step Integrator
+
+RK4 uses a fixed time step throughout the integration. We'll use 10-second steps:
+
+```python
+#!/usr/bin/env python
+# /// script
+# dependencies = ["brahe", "numpy", "plotly"]
+# ///
+"""
+Compares different numerical integrators on two-body orbital dynamics.
+
+This example demonstrates how to use RK4, RKF45, DP54, and RKN1210 integrators
+to propagate a satellite orbit over 7 days and compare their accuracy and efficiency.
+Angular momentum conservation is used as a measure of integration quality.
+"""
+
+# --8<-- [start:all]
+# --8<-- [start:preamble]
+import pathlib
+import os
+import sys
+import brahe as bh
+import numpy as np
+import plotly.graph_objects as go
+# --8<-- [end:preamble]
+
+bh.initialize_eop()
+
+# Configuration for output files
+SCRIPT_NAME = pathlib.Path(__file__).stem
+OUTDIR = pathlib.Path(os.getenv("BRAHE_FIGURE_OUTPUT_DIR", "./docs/figures/"))
+os.makedirs(OUTDIR, exist_ok=True)
+
+# ============================================================================
+# SETUP: Define the problem
+# ============================================================================
+
+
+# Define dynamics function for two-body orbital mechanics
+# State vector: [x, y, z, vx, vy, vz] in meters and meters/second
+# --8<-- [start:setup]
+def dynamics(t, state):
+    """Two-body gravitational dynamics: acceleration = -mu/r^3 * r"""
+    r = state[0:3]  # Position vector (m)
+    v = state[3:6]  # Velocity vector (m/s)
+
+    r_mag = np.linalg.norm(r)  # Distance from Earth center (m)
+    a = -bh.GM_EARTH / (r_mag**3) * r  # Gravitational acceleration (m/s^2)
+
+    return np.concatenate([v, a])  # Return [velocity, acceleration]
+
+
+# --8<-- [end:setup]
+
+
+# --8<-- [start:helpers]
+def calculate_specific_energy(state):
+    """Calculate specific orbital energy: E = v^2/2 - mu/r (J/kg)"""
+    r_mag = np.linalg.norm(state[0:3])
+    v_mag = np.linalg.norm(state[3:6])
+    return 0.5 * v_mag**2 - bh.GM_EARTH / r_mag
+
+
+def calculate_angular_momentum(state):
+    """Calculate specific angular momentum: h = r × v (m^2/s)"""
+    r = state[0:3]
+    v = state[3:6]
+    return np.cross(r, v)
+
+
+# --8<-- [end:helpers]
+
+
+# ============================================================================
+# INITIAL CONDITIONS: LEO satellite orbit
+# ============================================================================
+
+# --8<-- [start:ics]
+# Define orbital elements
+a = bh.R_EARTH + 500e3  # Semi-major axis: 500 km altitude (m)
+e = 0.001  # Eccentricity: nearly circular
+i = 97.8  # Inclination: sun-synchronous (degrees)
+raan = 0.0  # Right ascension of ascending node (degrees)
+argp = 0.0  # Argument of periapsis (degrees)
+M = 0.0  # Mean anomaly (degrees)
+
+# Convert orbital elements to Cartesian state vector
+oe = np.array([a, e, i, raan, argp, M])
+state0 = bh.state_koe_to_eci(oe, bh.AngleFormat.DEGREES)
+
+# Calculate reference values
+orbital_period = bh.orbital_period(a)
+initial_energy = calculate_specific_energy(state0)
+initial_h = calculate_angular_momentum(state0)
+h_magnitude_initial = np.linalg.norm(initial_h)
+
+# Set integration time to 7 days
+t_end = 7 * 24 * 3600.0  # 7 days in seconds
+n_orbits = t_end / orbital_period
+# --8<-- [end:ics]
+
+# Print problem setup
+print("=" * 70)
+print("COMPARING INTEGRATORS ON TWO-BODY ORBITAL DYNAMICS")
+print("=" * 70)
+print(f"Orbit altitude: {(a - bh.R_EARTH) / 1e3:.1f} km")
+print(f"Inclination: {i:.1f}°")
+print(f"Orbital period: {orbital_period / 60:.2f} minutes")
+print(f"Initial energy: {initial_energy:.6e} J/kg")
+print(f"Initial |h|: {h_magnitude_initial:.6e} m²/s")
+print(f"Integration duration: 7 days ({n_orbits:.1f} orbits)")
+print("=" * 70)
+print()
+
+# Store results for comparison
+results = []
+
+
+# ============================================================================
+# INTEGRATOR 1: RK4 (Fixed-step)
+# ============================================================================
+
+print("1. RK4 - Fourth-order Runge-Kutta (Fixed-step)")
+print("-" * 70)
+
+# --8<-- [start:brk]
+dt = 10.0  # 10 second steps
+config_rk4 = bh.IntegratorConfig.fixed_step(step_size=dt)
+integrator_rk4 = bh.RK4Integrator(6, dynamics, config=config_rk4)
+
+# Storage for trajectory analysis
+times_rk4 = []
+h_errors_rk4 = []
+
+t = 0.0
+state = state0.copy()
+steps = 0
+while t < t_end:
+    state = integrator_rk4.step(t, state, dt)
+    t += dt
+    steps += 1
+
+    # Store data every 10 steps for plotting
+    if steps % 10 == 0:
+        h = calculate_angular_momentum(state)
+        h_error = abs(np.linalg.norm(h) - h_magnitude_initial)
+        times_rk4.append(t / 86400.0)  # Convert to days
+        h_errors_rk4.append(h_error)
+
+# Final results
+r_mag = np.linalg.norm(state[0:3])
+final_energy = calculate_specific_energy(state)
+energy_error = abs(final_energy - initial_energy)
+h_final = calculate_angular_momentum(state)
+h_error_final = abs(np.linalg.norm(h_final) - h_magnitude_initial)
+# --8<-- [end:brk]
+
+print(f"Configuration: Fixed step size = {dt} seconds")
+print(f"Steps taken: {steps}")
+print(f"Final altitude: {(r_mag - bh.R_EARTH) / 1e3:.3f} km")
+print(f"Energy error: {energy_error:.3e} J/kg")
+print(f"Angular momentum error: {h_error_final:.3e} m²/s")
+print()
+
+results.append(
+    {
+        "integrator": "RK4",
+        "type": "Fixed-step",
+        "steps": steps,
+        "energy_error": energy_error,
+        "h_error": h_error_final,
+        "times": times_rk4,
+        "h_errors": h_errors_rk4,
+    }
+)
+
+
+# ============================================================================
+# INTEGRATOR 2: RKF45 (Adaptive)
+# ============================================================================
+
+print("2. RKF45 - Runge-Kutta-Fehlberg (Adaptive)")
+print("-" * 70)
+
+# --8<-- [start:rkf]
+abs_tol = 1e-10
+rel_tol = 1e-9
+config_adaptive = bh.IntegratorConfig.adaptive(abs_tol=abs_tol, rel_tol=rel_tol)
+integrator_rkf45 = bh.RKF45Integrator(6, dynamics, config=config_adaptive)
+
+times_rkf45 = []
+h_errors_rkf45 = []
+
+t = 0.0
+state = state0.copy()
+dt_current = 10.0
+steps = 0
+sample_count = 0
+while t < t_end:
+    result = integrator_rkf45.step(t, state, min(dt_current, t_end - t))
+    t += result.dt_used
+    state = result.state
+    dt_current = result.dt_next
+    steps += 1
+
+    # Sample at approximately same rate as RK4
+    sample_count += 1
+    if sample_count % 10 == 0:
+        h = calculate_angular_momentum(state)
+        h_error = abs(np.linalg.norm(h) - h_magnitude_initial)
+        times_rkf45.append(t / 86400.0)  # Convert to days
+        h_errors_rkf45.append(h_error)
+
+r_mag = np.linalg.norm(state[0:3])
+final_energy = calculate_specific_energy(state)
+energy_error = abs(final_energy - initial_energy)
+h_final = calculate_angular_momentum(state)
+h_error_final = abs(np.linalg.norm(h_final) - h_magnitude_initial)
+# --8<-- [end:rkf]
+
+print(f"Configuration: abs_tol={abs_tol}, rel_tol={rel_tol}")
+print(f"Steps taken: {steps}")
+print(f"Final altitude: {(r_mag - bh.R_EARTH) / 1e3:.3f} km")
+print(f"Energy error: {energy_error:.3e} J/kg")
+print(f"Angular momentum error: {h_error_final:.3e} m²/s")
+print()
+
+results.append(
+    {
+        "integrator": "RKF45",
+        "type": "Adaptive",
+        "steps": steps,
+        "energy_error": energy_error,
+        "h_error": h_error_final,
+        "times": times_rkf45,
+        "h_errors": h_errors_rkf45,
+    }
+)
+
+
+# ============================================================================
+# INTEGRATOR 3: DP54 (Adaptive)
+# ============================================================================
+
+print("3. DP54 - Dormand-Prince 5(4) (Adaptive)")
+print("-" * 70)
+
+# --8<-- [start:dp]
+integrator_dp54 = bh.DP54Integrator(6, dynamics, config=config_adaptive)
+
+times_dp54 = []
+h_errors_dp54 = []
+
+t = 0.0
+state = state0.copy()
+dt_current = 10.0
+steps = 0
+sample_count = 0
+while t < t_end:
+    result = integrator_dp54.step(t, state, min(dt_current, t_end - t))
+    t += result.dt_used
+    state = result.state
+    dt_current = result.dt_next
+    steps += 1
+
+    sample_count += 1
+    if sample_count % 10 == 0:
+        h = calculate_angular_momentum(state)
+        h_error = abs(np.linalg.norm(h) - h_magnitude_initial)
+        times_dp54.append(t / 86400.0)  # Convert to days
+        h_errors_dp54.append(h_error)
+
+r_mag = np.linalg.norm(state[0:3])
+final_energy = calculate_specific_energy(state)
+energy_error = abs(final_energy - initial_energy)
+h_final = calculate_angular_momentum(state)
+h_error_final = abs(np.linalg.norm(h_final) - h_magnitude_initial)
+# --8<-- [end:dp]
+
+print(f"Configuration: abs_tol={abs_tol}, rel_tol={rel_tol}")
+print(f"Steps taken: {steps}")
+print(f"Final altitude: {(r_mag - bh.R_EARTH) / 1e3:.3f} km")
+print(f"Energy error: {energy_error:.3e} J/kg")
+print(f"Angular momentum error: {h_error_final:.3e} m²/s")
+print()
+
+results.append(
+    {
+        "integrator": "DP54",
+        "type": "Adaptive",
+        "steps": steps,
+        "energy_error": energy_error,
+        "h_error": h_error_final,
+        "times": times_dp54,
+        "h_errors": h_errors_dp54,
+    }
+)
+
+
+# ============================================================================
+# INTEGRATOR 4: RKN1210 (High-precision adaptive)
+# ============================================================================
+
+print("4. RKN1210 - Runge-Kutta-Nyström 12(10) (High-precision)")
+print("-" * 70)
+
+# --8<-- [start:rkn]
+abs_tol_hp = 1e-12
+rel_tol_hp = 1e-11
+config_high_precision = bh.IntegratorConfig.adaptive(
+    abs_tol=abs_tol_hp, rel_tol=rel_tol_hp
+)
+integrator_rkn1210 = bh.RKN1210Integrator(6, dynamics, config=config_high_precision)
+
+times_rkn1210 = []
+h_errors_rkn1210 = []
+
+t = 0.0
+state = state0.copy()
+dt_current = 10.0
+steps = 0
+sample_count = 0
+while t < t_end:
+    result = integrator_rkn1210.step(t, state, min(dt_current, t_end - t))
+    t += result.dt_used
+    state = result.state
+    dt_current = result.dt_next
+    steps += 1
+
+    sample_count += 1
+    if sample_count % 10 == 0:
+        h = calculate_angular_momentum(state)
+        h_error = abs(np.linalg.norm(h) - h_magnitude_initial)
+        times_rkn1210.append(t / 86400.0)  # Convert to days
+        h_errors_rkn1210.append(h_error)
+
+r_mag = np.linalg.norm(state[0:3])
+final_energy = calculate_specific_energy(state)
+energy_error = abs(final_energy - initial_energy)
+h_final = calculate_angular_momentum(state)
+h_error_final = abs(np.linalg.norm(h_final) - h_magnitude_initial)
+# --8<-- [end:rkn]
+
+print(f"Configuration: abs_tol={abs_tol_hp}, rel_tol={rel_tol_hp}")
+print(f"Steps taken: {steps}")
+print(f"Final altitude: {(r_mag - bh.R_EARTH) / 1e3:.3f} km")
+print(f"Energy error: {energy_error:.3e} J/kg")
+print(f"Angular momentum error: {h_error_final:.3e} m²/s")
+print()
+
+results.append(
+    {
+        "integrator": "RKN1210",
+        "type": "High-precision",
+        "steps": steps,
+        "energy_error": energy_error,
+        "h_error": h_error_final,
+        "times": times_rkn1210,
+        "h_errors": h_errors_rkn1210,
+    }
+)
+
+
+# ============================================================================
+# COMPARISON SUMMARY
+# ============================================================================
+
+print("=" * 70)
+print("COMPARISON SUMMARY (7 days / {:.1f} orbits)".format(n_orbits))
+print("=" * 70)
+print()
+print(
+    f"{'Integrator':<12} {'Type':<15} {'Steps':<8} {'Energy Error':<15} {'|h| Error':<15}"
+)
+print("-" * 70)
+for r in results:
+    print(
+        f"{r['integrator']:<12} {r['type']:<15} {r['steps']:<8} "
+        f"{r['energy_error']:<15.3e} {r['h_error']:<15.3e}"
+    )
+print()
+print("Key Observations:")
+print("• RK4 requires many steps with accumulated drift in conserved quantities")
+print("• RKF45 and DP54 adapt step size but show energy/momentum drift")
+print("• RKN1210 maintains best conservation with far fewer steps")
+print("• Angular momentum conservation indicates integration quality")
+print("=" * 70)
+
+
+# ============================================================================
+# VISUALIZATION: Angular Momentum Conservation
+# ============================================================================
+
+print("\nGenerating angular momentum conservation plot...")
+
+# Create plotly figure
+fig = go.Figure()
+
+# Add traces for each integrator
+fig.add_trace(
+    go.Scatter(
+        x=results[0]["times"],
+        y=results[0]["h_errors"],
+        mode="lines",
+        name="RK4 (Fixed-step)",
+        line=dict(color="steelblue", width=2),
+        hovertemplate="Day: %{x:.2f}<br>|Δh|: %{y:.3e} m²/s<extra></extra>",
+    )
+)
+
+fig.add_trace(
+    go.Scatter(
+        x=results[1]["times"],
+        y=results[1]["h_errors"],
+        mode="lines",
+        name="RKF45 (Adaptive)",
+        line=dict(color="coral", width=2),
+        hovertemplate="Day: %{x:.2f}<br>|Δh|: %{y:.3e} m²/s<extra></extra>",
+    )
+)
+
+fig.add_trace(
+    go.Scatter(
+        x=results[2]["times"],
+        y=results[2]["h_errors"],
+        mode="lines",
+        name="DP54 (Adaptive)",
+        line=dict(color="green", width=2),
+        hovertemplate="Day: %{x:.2f}<br>|Δh|: %{y:.3e} m²/s<extra></extra>",
+    )
+)
+
+fig.add_trace(
+    go.Scatter(
+        x=results[3]["times"],
+        y=results[3]["h_errors"],
+        mode="lines",
+        name="RKN1210 (High-precision)",
+        line=dict(color="grey", width=2),
+        hovertemplate="Day: %{x:.2f}<br>|Δh|: %{y:.3e} m²/s<extra></extra>",
+    )
+)
+
+# Configure axes
+axis_config = {
+    "title_font": {"size": 11},
+    "tickfont": {"size": 10},
+}
+
+fig.update_xaxes(title_text="Time (days)", **axis_config)
+fig.update_yaxes(
+    title_text="Angular Momentum Error |Δh| (m²/s)", type="log", **axis_config
+)
+
+fig.update_layout(
+    title="Angular Momentum Conservation Over 7 Days",
+    showlegend=True,
+    legend=dict(yanchor="top", y=0.99, xanchor="left", x=0.01, font=dict(size=10)),
+)
+
+print("Comparison complete!")
+# --8<-- [end:all]
+
+sys.path.insert(0, str(pathlib.Path(__file__).parent.parent.parent / "plots"))
+from brahe_theme import save_themed_html  # noqa: E402
+
+light_path, dark_path = save_themed_html(
+    fig, OUTDIR / f"{SCRIPT_NAME}_angular_momentum"
+)
+print(f"\n✓ Generated {light_path}")
+print(f"✓ Generated {dark_path}")
+```
+
+With a fixed 10-second step size, RK4 takes **60,480 steps** over 7 days. While this is reliable and predictable, it doesn't adapt to the problem dynamics.
+
+### RKF45 - Adaptive Integrator
+
+RKF45 (Runge-Kutta-Fehlberg) automatically adjusts its step size based on local error estimates:
+
+```python
+#!/usr/bin/env python
+# /// script
+# dependencies = ["brahe", "numpy", "plotly"]
+# ///
+"""
+Compares different numerical integrators on two-body orbital dynamics.
+
+This example demonstrates how to use RK4, RKF45, DP54, and RKN1210 integrators
+to propagate a satellite orbit over 7 days and compare their accuracy and efficiency.
+Angular momentum conservation is used as a measure of integration quality.
+"""
+
+# --8<-- [start:all]
+# --8<-- [start:preamble]
+import pathlib
+import os
+import sys
+import brahe as bh
+import numpy as np
+import plotly.graph_objects as go
+# --8<-- [end:preamble]
+
+bh.initialize_eop()
+
+# Configuration for output files
+SCRIPT_NAME = pathlib.Path(__file__).stem
+OUTDIR = pathlib.Path(os.getenv("BRAHE_FIGURE_OUTPUT_DIR", "./docs/figures/"))
+os.makedirs(OUTDIR, exist_ok=True)
+
+# ============================================================================
+# SETUP: Define the problem
+# ============================================================================
+
+
+# Define dynamics function for two-body orbital mechanics
+# State vector: [x, y, z, vx, vy, vz] in meters and meters/second
+# --8<-- [start:setup]
+def dynamics(t, state):
+    """Two-body gravitational dynamics: acceleration = -mu/r^3 * r"""
+    r = state[0:3]  # Position vector (m)
+    v = state[3:6]  # Velocity vector (m/s)
+
+    r_mag = np.linalg.norm(r)  # Distance from Earth center (m)
+    a = -bh.GM_EARTH / (r_mag**3) * r  # Gravitational acceleration (m/s^2)
+
+    return np.concatenate([v, a])  # Return [velocity, acceleration]
+
+
+# --8<-- [end:setup]
+
+
+# --8<-- [start:helpers]
+def calculate_specific_energy(state):
+    """Calculate specific orbital energy: E = v^2/2 - mu/r (J/kg)"""
+    r_mag = np.linalg.norm(state[0:3])
+    v_mag = np.linalg.norm(state[3:6])
+    return 0.5 * v_mag**2 - bh.GM_EARTH / r_mag
+
+
+def calculate_angular_momentum(state):
+    """Calculate specific angular momentum: h = r × v (m^2/s)"""
+    r = state[0:3]
+    v = state[3:6]
+    return np.cross(r, v)
+
+
+# --8<-- [end:helpers]
+
+
+# ============================================================================
+# INITIAL CONDITIONS: LEO satellite orbit
+# ============================================================================
+
+# --8<-- [start:ics]
+# Define orbital elements
+a = bh.R_EARTH + 500e3  # Semi-major axis: 500 km altitude (m)
+e = 0.001  # Eccentricity: nearly circular
+i = 97.8  # Inclination: sun-synchronous (degrees)
+raan = 0.0  # Right ascension of ascending node (degrees)
+argp = 0.0  # Argument of periapsis (degrees)
+M = 0.0  # Mean anomaly (degrees)
+
+# Convert orbital elements to Cartesian state vector
+oe = np.array([a, e, i, raan, argp, M])
+state0 = bh.state_koe_to_eci(oe, bh.AngleFormat.DEGREES)
+
+# Calculate reference values
+orbital_period = bh.orbital_period(a)
+initial_energy = calculate_specific_energy(state0)
+initial_h = calculate_angular_momentum(state0)
+h_magnitude_initial = np.linalg.norm(initial_h)
+
+# Set integration time to 7 days
+t_end = 7 * 24 * 3600.0  # 7 days in seconds
+n_orbits = t_end / orbital_period
+# --8<-- [end:ics]
+
+# Print problem setup
+print("=" * 70)
+print("COMPARING INTEGRATORS ON TWO-BODY ORBITAL DYNAMICS")
+print("=" * 70)
+print(f"Orbit altitude: {(a - bh.R_EARTH) / 1e3:.1f} km")
+print(f"Inclination: {i:.1f}°")
+print(f"Orbital period: {orbital_period / 60:.2f} minutes")
+print(f"Initial energy: {initial_energy:.6e} J/kg")
+print(f"Initial |h|: {h_magnitude_initial:.6e} m²/s")
+print(f"Integration duration: 7 days ({n_orbits:.1f} orbits)")
+print("=" * 70)
+print()
+
+# Store results for comparison
+results = []
+
+
+# ============================================================================
+# INTEGRATOR 1: RK4 (Fixed-step)
+# ============================================================================
+
+print("1. RK4 - Fourth-order Runge-Kutta (Fixed-step)")
+print("-" * 70)
+
+# --8<-- [start:brk]
+dt = 10.0  # 10 second steps
+config_rk4 = bh.IntegratorConfig.fixed_step(step_size=dt)
+integrator_rk4 = bh.RK4Integrator(6, dynamics, config=config_rk4)
+
+# Storage for trajectory analysis
+times_rk4 = []
+h_errors_rk4 = []
+
+t = 0.0
+state = state0.copy()
+steps = 0
+while t < t_end:
+    state = integrator_rk4.step(t, state, dt)
+    t += dt
+    steps += 1
+
+    # Store data every 10 steps for plotting
+    if steps % 10 == 0:
+        h = calculate_angular_momentum(state)
+        h_error = abs(np.linalg.norm(h) - h_magnitude_initial)
+        times_rk4.append(t / 86400.0)  # Convert to days
+        h_errors_rk4.append(h_error)
+
+# Final results
+r_mag = np.linalg.norm(state[0:3])
+final_energy = calculate_specific_energy(state)
+energy_error = abs(final_energy - initial_energy)
+h_final = calculate_angular_momentum(state)
+h_error_final = abs(np.linalg.norm(h_final) - h_magnitude_initial)
+# --8<-- [end:brk]
+
+print(f"Configuration: Fixed step size = {dt} seconds")
+print(f"Steps taken: {steps}")
+print(f"Final altitude: {(r_mag - bh.R_EARTH) / 1e3:.3f} km")
+print(f"Energy error: {energy_error:.3e} J/kg")
+print(f"Angular momentum error: {h_error_final:.3e} m²/s")
+print()
+
+results.append(
+    {
+        "integrator": "RK4",
+        "type": "Fixed-step",
+        "steps": steps,
+        "energy_error": energy_error,
+        "h_error": h_error_final,
+        "times": times_rk4,
+        "h_errors": h_errors_rk4,
+    }
+)
+
+
+# ============================================================================
+# INTEGRATOR 2: RKF45 (Adaptive)
+# ============================================================================
+
+print("2. RKF45 - Runge-Kutta-Fehlberg (Adaptive)")
+print("-" * 70)
+
+# --8<-- [start:rkf]
+abs_tol = 1e-10
+rel_tol = 1e-9
+config_adaptive = bh.IntegratorConfig.adaptive(abs_tol=abs_tol, rel_tol=rel_tol)
+integrator_rkf45 = bh.RKF45Integrator(6, dynamics, config=config_adaptive)
+
+times_rkf45 = []
+h_errors_rkf45 = []
+
+t = 0.0
+state = state0.copy()
+dt_current = 10.0
+steps = 0
+sample_count = 0
+while t < t_end:
+    result = integrator_rkf45.step(t, state, min(dt_current, t_end - t))
+    t += result.dt_used
+    state = result.state
+    dt_current = result.dt_next
+    steps += 1
+
+    # Sample at approximately same rate as RK4
+    sample_count += 1
+    if sample_count % 10 == 0:
+        h = calculate_angular_momentum(state)
+        h_error = abs(np.linalg.norm(h) - h_magnitude_initial)
+        times_rkf45.append(t / 86400.0)  # Convert to days
+        h_errors_rkf45.append(h_error)
+
+r_mag = np.linalg.norm(state[0:3])
+final_energy = calculate_specific_energy(state)
+energy_error = abs(final_energy - initial_energy)
+h_final = calculate_angular_momentum(state)
+h_error_final = abs(np.linalg.norm(h_final) - h_magnitude_initial)
+# --8<-- [end:rkf]
+
+print(f"Configuration: abs_tol={abs_tol}, rel_tol={rel_tol}")
+print(f"Steps taken: {steps}")
+print(f"Final altitude: {(r_mag - bh.R_EARTH) / 1e3:.3f} km")
+print(f"Energy error: {energy_error:.3e} J/kg")
+print(f"Angular momentum error: {h_error_final:.3e} m²/s")
+print()
+
+results.append(
+    {
+        "integrator": "RKF45",
+        "type": "Adaptive",
+        "steps": steps,
+        "energy_error": energy_error,
+        "h_error": h_error_final,
+        "times": times_rkf45,
+        "h_errors": h_errors_rkf45,
+    }
+)
+
+
+# ============================================================================
+# INTEGRATOR 3: DP54 (Adaptive)
+# ============================================================================
+
+print("3. DP54 - Dormand-Prince 5(4) (Adaptive)")
+print("-" * 70)
+
+# --8<-- [start:dp]
+integrator_dp54 = bh.DP54Integrator(6, dynamics, config=config_adaptive)
+
+times_dp54 = []
+h_errors_dp54 = []
+
+t = 0.0
+state = state0.copy()
+dt_current = 10.0
+steps = 0
+sample_count = 0
+while t < t_end:
+    result = integrator_dp54.step(t, state, min(dt_current, t_end - t))
+    t += result.dt_used
+    state = result.state
+    dt_current = result.dt_next
+    steps += 1
+
+    sample_count += 1
+    if sample_count % 10 == 0:
+        h = calculate_angular_momentum(state)
+        h_error = abs(np.linalg.norm(h) - h_magnitude_initial)
+        times_dp54.append(t / 86400.0)  # Convert to days
+        h_errors_dp54.append(h_error)
+
+r_mag = np.linalg.norm(state[0:3])
+final_energy = calculate_specific_energy(state)
+energy_error = abs(final_energy - initial_energy)
+h_final = calculate_angular_momentum(state)
+h_error_final = abs(np.linalg.norm(h_final) - h_magnitude_initial)
+# --8<-- [end:dp]
+
+print(f"Configuration: abs_tol={abs_tol}, rel_tol={rel_tol}")
+print(f"Steps taken: {steps}")
+print(f"Final altitude: {(r_mag - bh.R_EARTH) / 1e3:.3f} km")
+print(f"Energy error: {energy_error:.3e} J/kg")
+print(f"Angular momentum error: {h_error_final:.3e} m²/s")
+print()
+
+results.append(
+    {
+        "integrator": "DP54",
+        "type": "Adaptive",
+        "steps": steps,
+        "energy_error": energy_error,
+        "h_error": h_error_final,
+        "times": times_dp54,
+        "h_errors": h_errors_dp54,
+    }
+)
+
+
+# ============================================================================
+# INTEGRATOR 4: RKN1210 (High-precision adaptive)
+# ============================================================================
+
+print("4. RKN1210 - Runge-Kutta-Nyström 12(10) (High-precision)")
+print("-" * 70)
+
+# --8<-- [start:rkn]
+abs_tol_hp = 1e-12
+rel_tol_hp = 1e-11
+config_high_precision = bh.IntegratorConfig.adaptive(
+    abs_tol=abs_tol_hp, rel_tol=rel_tol_hp
+)
+integrator_rkn1210 = bh.RKN1210Integrator(6, dynamics, config=config_high_precision)
+
+times_rkn1210 = []
+h_errors_rkn1210 = []
+
+t = 0.0
+state = state0.copy()
+dt_current = 10.0
+steps = 0
+sample_count = 0
+while t < t_end:
+    result = integrator_rkn1210.step(t, state, min(dt_current, t_end - t))
+    t += result.dt_used
+    state = result.state
+    dt_current = result.dt_next
+    steps += 1
+
+    sample_count += 1
+    if sample_count % 10 == 0:
+        h = calculate_angular_momentum(state)
+        h_error = abs(np.linalg.norm(h) - h_magnitude_initial)
+        times_rkn1210.append(t / 86400.0)  # Convert to days
+        h_errors_rkn1210.append(h_error)
+
+r_mag = np.linalg.norm(state[0:3])
+final_energy = calculate_specific_energy(state)
+energy_error = abs(final_energy - initial_energy)
+h_final = calculate_angular_momentum(state)
+h_error_final = abs(np.linalg.norm(h_final) - h_magnitude_initial)
+# --8<-- [end:rkn]
+
+print(f"Configuration: abs_tol={abs_tol_hp}, rel_tol={rel_tol_hp}")
+print(f"Steps taken: {steps}")
+print(f"Final altitude: {(r_mag - bh.R_EARTH) / 1e3:.3f} km")
+print(f"Energy error: {energy_error:.3e} J/kg")
+print(f"Angular momentum error: {h_error_final:.3e} m²/s")
+print()
+
+results.append(
+    {
+        "integrator": "RKN1210",
+        "type": "High-precision",
+        "steps": steps,
+        "energy_error": energy_error,
+        "h_error": h_error_final,
+        "times": times_rkn1210,
+        "h_errors": h_errors_rkn1210,
+    }
+)
+
+
+# ============================================================================
+# COMPARISON SUMMARY
+# ============================================================================
+
+print("=" * 70)
+print("COMPARISON SUMMARY (7 days / {:.1f} orbits)".format(n_orbits))
+print("=" * 70)
+print()
+print(
+    f"{'Integrator':<12} {'Type':<15} {'Steps':<8} {'Energy Error':<15} {'|h| Error':<15}"
+)
+print("-" * 70)
+for r in results:
+    print(
+        f"{r['integrator']:<12} {r['type']:<15} {r['steps']:<8} "
+        f"{r['energy_error']:<15.3e} {r['h_error']:<15.3e}"
+    )
+print()
+print("Key Observations:")
+print("• RK4 requires many steps with accumulated drift in conserved quantities")
+print("• RKF45 and DP54 adapt step size but show energy/momentum drift")
+print("• RKN1210 maintains best conservation with far fewer steps")
+print("• Angular momentum conservation indicates integration quality")
+print("=" * 70)
+
+
+# ============================================================================
+# VISUALIZATION: Angular Momentum Conservation
+# ============================================================================
+
+print("\nGenerating angular momentum conservation plot...")
+
+# Create plotly figure
+fig = go.Figure()
+
+# Add traces for each integrator
+fig.add_trace(
+    go.Scatter(
+        x=results[0]["times"],
+        y=results[0]["h_errors"],
+        mode="lines",
+        name="RK4 (Fixed-step)",
+        line=dict(color="steelblue", width=2),
+        hovertemplate="Day: %{x:.2f}<br>|Δh|: %{y:.3e} m²/s<extra></extra>",
+    )
+)
+
+fig.add_trace(
+    go.Scatter(
+        x=results[1]["times"],
+        y=results[1]["h_errors"],
+        mode="lines",
+        name="RKF45 (Adaptive)",
+        line=dict(color="coral", width=2),
+        hovertemplate="Day: %{x:.2f}<br>|Δh|: %{y:.3e} m²/s<extra></extra>",
+    )
+)
+
+fig.add_trace(
+    go.Scatter(
+        x=results[2]["times"],
+        y=results[2]["h_errors"],
+        mode="lines",
+        name="DP54 (Adaptive)",
+        line=dict(color="green", width=2),
+        hovertemplate="Day: %{x:.2f}<br>|Δh|: %{y:.3e} m²/s<extra></extra>",
+    )
+)
+
+fig.add_trace(
+    go.Scatter(
+        x=results[3]["times"],
+        y=results[3]["h_errors"],
+        mode="lines",
+        name="RKN1210 (High-precision)",
+        line=dict(color="grey", width=2),
+        hovertemplate="Day: %{x:.2f}<br>|Δh|: %{y:.3e} m²/s<extra></extra>",
+    )
+)
+
+# Configure axes
+axis_config = {
+    "title_font": {"size": 11},
+    "tickfont": {"size": 10},
+}
+
+fig.update_xaxes(title_text="Time (days)", **axis_config)
+fig.update_yaxes(
+    title_text="Angular Momentum Error |Δh| (m²/s)", type="log", **axis_config
+)
+
+fig.update_layout(
+    title="Angular Momentum Conservation Over 7 Days",
+    showlegend=True,
+    legend=dict(yanchor="top", y=0.99, xanchor="left", x=0.01, font=dict(size=10)),
+)
+
+print("Comparison complete!")
+# --8<-- [end:all]
+
+sys.path.insert(0, str(pathlib.Path(__file__).parent.parent.parent / "plots"))
+from brahe_theme import save_themed_html  # noqa: E402
+
+light_path, dark_path = save_themed_html(
+    fig, OUTDIR / f"{SCRIPT_NAME}_angular_momentum"
+)
+print(f"\n✓ Generated {light_path}")
+print(f"✓ Generated {dark_path}")
+```
+
+RKF45 completes the same 7-day propagation in only **15,687 steps** by taking larger steps when the error is small and smaller steps when more accuracy is needed.
+
+### DP54 - Dormand-Prince Integrator
+
+DP54 is another adaptive method, often more efficient than RKF45:
+
+```python
+#!/usr/bin/env python
+# /// script
+# dependencies = ["brahe", "numpy", "plotly"]
+# ///
+"""
+Compares different numerical integrators on two-body orbital dynamics.
+
+This example demonstrates how to use RK4, RKF45, DP54, and RKN1210 integrators
+to propagate a satellite orbit over 7 days and compare their accuracy and efficiency.
+Angular momentum conservation is used as a measure of integration quality.
+"""
+
+# --8<-- [start:all]
+# --8<-- [start:preamble]
+import pathlib
+import os
+import sys
+import brahe as bh
+import numpy as np
+import plotly.graph_objects as go
+# --8<-- [end:preamble]
+
+bh.initialize_eop()
+
+# Configuration for output files
+SCRIPT_NAME = pathlib.Path(__file__).stem
+OUTDIR = pathlib.Path(os.getenv("BRAHE_FIGURE_OUTPUT_DIR", "./docs/figures/"))
+os.makedirs(OUTDIR, exist_ok=True)
+
+# ============================================================================
+# SETUP: Define the problem
+# ============================================================================
+
+
+# Define dynamics function for two-body orbital mechanics
+# State vector: [x, y, z, vx, vy, vz] in meters and meters/second
+# --8<-- [start:setup]
+def dynamics(t, state):
+    """Two-body gravitational dynamics: acceleration = -mu/r^3 * r"""
+    r = state[0:3]  # Position vector (m)
+    v = state[3:6]  # Velocity vector (m/s)
+
+    r_mag = np.linalg.norm(r)  # Distance from Earth center (m)
+    a = -bh.GM_EARTH / (r_mag**3) * r  # Gravitational acceleration (m/s^2)
+
+    return np.concatenate([v, a])  # Return [velocity, acceleration]
+
+
+# --8<-- [end:setup]
+
+
+# --8<-- [start:helpers]
+def calculate_specific_energy(state):
+    """Calculate specific orbital energy: E = v^2/2 - mu/r (J/kg)"""
+    r_mag = np.linalg.norm(state[0:3])
+    v_mag = np.linalg.norm(state[3:6])
+    return 0.5 * v_mag**2 - bh.GM_EARTH / r_mag
+
+
+def calculate_angular_momentum(state):
+    """Calculate specific angular momentum: h = r × v (m^2/s)"""
+    r = state[0:3]
+    v = state[3:6]
+    return np.cross(r, v)
+
+
+# --8<-- [end:helpers]
+
+
+# ============================================================================
+# INITIAL CONDITIONS: LEO satellite orbit
+# ============================================================================
+
+# --8<-- [start:ics]
+# Define orbital elements
+a = bh.R_EARTH + 500e3  # Semi-major axis: 500 km altitude (m)
+e = 0.001  # Eccentricity: nearly circular
+i = 97.8  # Inclination: sun-synchronous (degrees)
+raan = 0.0  # Right ascension of ascending node (degrees)
+argp = 0.0  # Argument of periapsis (degrees)
+M = 0.0  # Mean anomaly (degrees)
+
+# Convert orbital elements to Cartesian state vector
+oe = np.array([a, e, i, raan, argp, M])
+state0 = bh.state_koe_to_eci(oe, bh.AngleFormat.DEGREES)
+
+# Calculate reference values
+orbital_period = bh.orbital_period(a)
+initial_energy = calculate_specific_energy(state0)
+initial_h = calculate_angular_momentum(state0)
+h_magnitude_initial = np.linalg.norm(initial_h)
+
+# Set integration time to 7 days
+t_end = 7 * 24 * 3600.0  # 7 days in seconds
+n_orbits = t_end / orbital_period
+# --8<-- [end:ics]
+
+# Print problem setup
+print("=" * 70)
+print("COMPARING INTEGRATORS ON TWO-BODY ORBITAL DYNAMICS")
+print("=" * 70)
+print(f"Orbit altitude: {(a - bh.R_EARTH) / 1e3:.1f} km")
+print(f"Inclination: {i:.1f}°")
+print(f"Orbital period: {orbital_period / 60:.2f} minutes")
+print(f"Initial energy: {initial_energy:.6e} J/kg")
+print(f"Initial |h|: {h_magnitude_initial:.6e} m²/s")
+print(f"Integration duration: 7 days ({n_orbits:.1f} orbits)")
+print("=" * 70)
+print()
+
+# Store results for comparison
+results = []
+
+
+# ============================================================================
+# INTEGRATOR 1: RK4 (Fixed-step)
+# ============================================================================
+
+print("1. RK4 - Fourth-order Runge-Kutta (Fixed-step)")
+print("-" * 70)
+
+# --8<-- [start:brk]
+dt = 10.0  # 10 second steps
+config_rk4 = bh.IntegratorConfig.fixed_step(step_size=dt)
+integrator_rk4 = bh.RK4Integrator(6, dynamics, config=config_rk4)
+
+# Storage for trajectory analysis
+times_rk4 = []
+h_errors_rk4 = []
+
+t = 0.0
+state = state0.copy()
+steps = 0
+while t < t_end:
+    state = integrator_rk4.step(t, state, dt)
+    t += dt
+    steps += 1
+
+    # Store data every 10 steps for plotting
+    if steps % 10 == 0:
+        h = calculate_angular_momentum(state)
+        h_error = abs(np.linalg.norm(h) - h_magnitude_initial)
+        times_rk4.append(t / 86400.0)  # Convert to days
+        h_errors_rk4.append(h_error)
+
+# Final results
+r_mag = np.linalg.norm(state[0:3])
+final_energy = calculate_specific_energy(state)
+energy_error = abs(final_energy - initial_energy)
+h_final = calculate_angular_momentum(state)
+h_error_final = abs(np.linalg.norm(h_final) - h_magnitude_initial)
+# --8<-- [end:brk]
+
+print(f"Configuration: Fixed step size = {dt} seconds")
+print(f"Steps taken: {steps}")
+print(f"Final altitude: {(r_mag - bh.R_EARTH) / 1e3:.3f} km")
+print(f"Energy error: {energy_error:.3e} J/kg")
+print(f"Angular momentum error: {h_error_final:.3e} m²/s")
+print()
+
+results.append(
+    {
+        "integrator": "RK4",
+        "type": "Fixed-step",
+        "steps": steps,
+        "energy_error": energy_error,
+        "h_error": h_error_final,
+        "times": times_rk4,
+        "h_errors": h_errors_rk4,
+    }
+)
+
+
+# ============================================================================
+# INTEGRATOR 2: RKF45 (Adaptive)
+# ============================================================================
+
+print("2. RKF45 - Runge-Kutta-Fehlberg (Adaptive)")
+print("-" * 70)
+
+# --8<-- [start:rkf]
+abs_tol = 1e-10
+rel_tol = 1e-9
+config_adaptive = bh.IntegratorConfig.adaptive(abs_tol=abs_tol, rel_tol=rel_tol)
+integrator_rkf45 = bh.RKF45Integrator(6, dynamics, config=config_adaptive)
+
+times_rkf45 = []
+h_errors_rkf45 = []
+
+t = 0.0
+state = state0.copy()
+dt_current = 10.0
+steps = 0
+sample_count = 0
+while t < t_end:
+    result = integrator_rkf45.step(t, state, min(dt_current, t_end - t))
+    t += result.dt_used
+    state = result.state
+    dt_current = result.dt_next
+    steps += 1
+
+    # Sample at approximately same rate as RK4
+    sample_count += 1
+    if sample_count % 10 == 0:
+        h = calculate_angular_momentum(state)
+        h_error = abs(np.linalg.norm(h) - h_magnitude_initial)
+        times_rkf45.append(t / 86400.0)  # Convert to days
+        h_errors_rkf45.append(h_error)
+
+r_mag = np.linalg.norm(state[0:3])
+final_energy = calculate_specific_energy(state)
+energy_error = abs(final_energy - initial_energy)
+h_final = calculate_angular_momentum(state)
+h_error_final = abs(np.linalg.norm(h_final) - h_magnitude_initial)
+# --8<-- [end:rkf]
+
+print(f"Configuration: abs_tol={abs_tol}, rel_tol={rel_tol}")
+print(f"Steps taken: {steps}")
+print(f"Final altitude: {(r_mag - bh.R_EARTH) / 1e3:.3f} km")
+print(f"Energy error: {energy_error:.3e} J/kg")
+print(f"Angular momentum error: {h_error_final:.3e} m²/s")
+print()
+
+results.append(
+    {
+        "integrator": "RKF45",
+        "type": "Adaptive",
+        "steps": steps,
+        "energy_error": energy_error,
+        "h_error": h_error_final,
+        "times": times_rkf45,
+        "h_errors": h_errors_rkf45,
+    }
+)
+
+
+# ============================================================================
+# INTEGRATOR 3: DP54 (Adaptive)
+# ============================================================================
+
+print("3. DP54 - Dormand-Prince 5(4) (Adaptive)")
+print("-" * 70)
+
+# --8<-- [start:dp]
+integrator_dp54 = bh.DP54Integrator(6, dynamics, config=config_adaptive)
+
+times_dp54 = []
+h_errors_dp54 = []
+
+t = 0.0
+state = state0.copy()
+dt_current = 10.0
+steps = 0
+sample_count = 0
+while t < t_end:
+    result = integrator_dp54.step(t, state, min(dt_current, t_end - t))
+    t += result.dt_used
+    state = result.state
+    dt_current = result.dt_next
+    steps += 1
+
+    sample_count += 1
+    if sample_count % 10 == 0:
+        h = calculate_angular_momentum(state)
+        h_error = abs(np.linalg.norm(h) - h_magnitude_initial)
+        times_dp54.append(t / 86400.0)  # Convert to days
+        h_errors_dp54.append(h_error)
+
+r_mag = np.linalg.norm(state[0:3])
+final_energy = calculate_specific_energy(state)
+energy_error = abs(final_energy - initial_energy)
+h_final = calculate_angular_momentum(state)
+h_error_final = abs(np.linalg.norm(h_final) - h_magnitude_initial)
+# --8<-- [end:dp]
+
+print(f"Configuration: abs_tol={abs_tol}, rel_tol={rel_tol}")
+print(f"Steps taken: {steps}")
+print(f"Final altitude: {(r_mag - bh.R_EARTH) / 1e3:.3f} km")
+print(f"Energy error: {energy_error:.3e} J/kg")
+print(f"Angular momentum error: {h_error_final:.3e} m²/s")
+print()
+
+results.append(
+    {
+        "integrator": "DP54",
+        "type": "Adaptive",
+        "steps": steps,
+        "energy_error": energy_error,
+        "h_error": h_error_final,
+        "times": times_dp54,
+        "h_errors": h_errors_dp54,
+    }
+)
+
+
+# ============================================================================
+# INTEGRATOR 4: RKN1210 (High-precision adaptive)
+# ============================================================================
+
+print("4. RKN1210 - Runge-Kutta-Nyström 12(10) (High-precision)")
+print("-" * 70)
+
+# --8<-- [start:rkn]
+abs_tol_hp = 1e-12
+rel_tol_hp = 1e-11
+config_high_precision = bh.IntegratorConfig.adaptive(
+    abs_tol=abs_tol_hp, rel_tol=rel_tol_hp
+)
+integrator_rkn1210 = bh.RKN1210Integrator(6, dynamics, config=config_high_precision)
+
+times_rkn1210 = []
+h_errors_rkn1210 = []
+
+t = 0.0
+state = state0.copy()
+dt_current = 10.0
+steps = 0
+sample_count = 0
+while t < t_end:
+    result = integrator_rkn1210.step(t, state, min(dt_current, t_end - t))
+    t += result.dt_used
+    state = result.state
+    dt_current = result.dt_next
+    steps += 1
+
+    sample_count += 1
+    if sample_count % 10 == 0:
+        h = calculate_angular_momentum(state)
+        h_error = abs(np.linalg.norm(h) - h_magnitude_initial)
+        times_rkn1210.append(t / 86400.0)  # Convert to days
+        h_errors_rkn1210.append(h_error)
+
+r_mag = np.linalg.norm(state[0:3])
+final_energy = calculate_specific_energy(state)
+energy_error = abs(final_energy - initial_energy)
+h_final = calculate_angular_momentum(state)
+h_error_final = abs(np.linalg.norm(h_final) - h_magnitude_initial)
+# --8<-- [end:rkn]
+
+print(f"Configuration: abs_tol={abs_tol_hp}, rel_tol={rel_tol_hp}")
+print(f"Steps taken: {steps}")
+print(f"Final altitude: {(r_mag - bh.R_EARTH) / 1e3:.3f} km")
+print(f"Energy error: {energy_error:.3e} J/kg")
+print(f"Angular momentum error: {h_error_final:.3e} m²/s")
+print()
+
+results.append(
+    {
+        "integrator": "RKN1210",
+        "type": "High-precision",
+        "steps": steps,
+        "energy_error": energy_error,
+        "h_error": h_error_final,
+        "times": times_rkn1210,
+        "h_errors": h_errors_rkn1210,
+    }
+)
+
+
+# ============================================================================
+# COMPARISON SUMMARY
+# ============================================================================
+
+print("=" * 70)
+print("COMPARISON SUMMARY (7 days / {:.1f} orbits)".format(n_orbits))
+print("=" * 70)
+print()
+print(
+    f"{'Integrator':<12} {'Type':<15} {'Steps':<8} {'Energy Error':<15} {'|h| Error':<15}"
+)
+print("-" * 70)
+for r in results:
+    print(
+        f"{r['integrator']:<12} {r['type']:<15} {r['steps']:<8} "
+        f"{r['energy_error']:<15.3e} {r['h_error']:<15.3e}"
+    )
+print()
+print("Key Observations:")
+print("• RK4 requires many steps with accumulated drift in conserved quantities")
+print("• RKF45 and DP54 adapt step size but show energy/momentum drift")
+print("• RKN1210 maintains best conservation with far fewer steps")
+print("• Angular momentum conservation indicates integration quality")
+print("=" * 70)
+
+
+# ============================================================================
+# VISUALIZATION: Angular Momentum Conservation
+# ============================================================================
+
+print("\nGenerating angular momentum conservation plot...")
+
+# Create plotly figure
+fig = go.Figure()
+
+# Add traces for each integrator
+fig.add_trace(
+    go.Scatter(
+        x=results[0]["times"],
+        y=results[0]["h_errors"],
+        mode="lines",
+        name="RK4 (Fixed-step)",
+        line=dict(color="steelblue", width=2),
+        hovertemplate="Day: %{x:.2f}<br>|Δh|: %{y:.3e} m²/s<extra></extra>",
+    )
+)
+
+fig.add_trace(
+    go.Scatter(
+        x=results[1]["times"],
+        y=results[1]["h_errors"],
+        mode="lines",
+        name="RKF45 (Adaptive)",
+        line=dict(color="coral", width=2),
+        hovertemplate="Day: %{x:.2f}<br>|Δh|: %{y:.3e} m²/s<extra></extra>",
+    )
+)
+
+fig.add_trace(
+    go.Scatter(
+        x=results[2]["times"],
+        y=results[2]["h_errors"],
+        mode="lines",
+        name="DP54 (Adaptive)",
+        line=dict(color="green", width=2),
+        hovertemplate="Day: %{x:.2f}<br>|Δh|: %{y:.3e} m²/s<extra></extra>",
+    )
+)
+
+fig.add_trace(
+    go.Scatter(
+        x=results[3]["times"],
+        y=results[3]["h_errors"],
+        mode="lines",
+        name="RKN1210 (High-precision)",
+        line=dict(color="grey", width=2),
+        hovertemplate="Day: %{x:.2f}<br>|Δh|: %{y:.3e} m²/s<extra></extra>",
+    )
+)
+
+# Configure axes
+axis_config = {
+    "title_font": {"size": 11},
+    "tickfont": {"size": 10},
+}
+
+fig.update_xaxes(title_text="Time (days)", **axis_config)
+fig.update_yaxes(
+    title_text="Angular Momentum Error |Δh| (m²/s)", type="log", **axis_config
+)
+
+fig.update_layout(
+    title="Angular Momentum Conservation Over 7 Days",
+    showlegend=True,
+    legend=dict(yanchor="top", y=0.99, xanchor="left", x=0.01, font=dict(size=10)),
+)
+
+print("Comparison complete!")
+# --8<-- [end:all]
+
+sys.path.insert(0, str(pathlib.Path(__file__).parent.parent.parent / "plots"))
+from brahe_theme import save_themed_html  # noqa: E402
+
+light_path, dark_path = save_themed_html(
+    fig, OUTDIR / f"{SCRIPT_NAME}_angular_momentum"
+)
+print(f"\n✓ Generated {light_path}")
+print(f"✓ Generated {dark_path}")
+```
+
+DP54 is slightly more efficient, requiring **14,264 steps** with the same tolerance settings.
+
+### RKN1210 - High-Precision Integrator
+
+RKN1210 is a high-order Runge-Kutta-Nyström method designed for second-order differential equations. We configure it with tighter tolerances:
+
+```python
+#!/usr/bin/env python
+# /// script
+# dependencies = ["brahe", "numpy", "plotly"]
+# ///
+"""
+Compares different numerical integrators on two-body orbital dynamics.
+
+This example demonstrates how to use RK4, RKF45, DP54, and RKN1210 integrators
+to propagate a satellite orbit over 7 days and compare their accuracy and efficiency.
+Angular momentum conservation is used as a measure of integration quality.
+"""
+
+# --8<-- [start:all]
+# --8<-- [start:preamble]
+import pathlib
+import os
+import sys
+import brahe as bh
+import numpy as np
+import plotly.graph_objects as go
+# --8<-- [end:preamble]
+
+bh.initialize_eop()
+
+# Configuration for output files
+SCRIPT_NAME = pathlib.Path(__file__).stem
+OUTDIR = pathlib.Path(os.getenv("BRAHE_FIGURE_OUTPUT_DIR", "./docs/figures/"))
+os.makedirs(OUTDIR, exist_ok=True)
+
+# ============================================================================
+# SETUP: Define the problem
+# ============================================================================
+
+
+# Define dynamics function for two-body orbital mechanics
+# State vector: [x, y, z, vx, vy, vz] in meters and meters/second
+# --8<-- [start:setup]
+def dynamics(t, state):
+    """Two-body gravitational dynamics: acceleration = -mu/r^3 * r"""
+    r = state[0:3]  # Position vector (m)
+    v = state[3:6]  # Velocity vector (m/s)
+
+    r_mag = np.linalg.norm(r)  # Distance from Earth center (m)
+    a = -bh.GM_EARTH / (r_mag**3) * r  # Gravitational acceleration (m/s^2)
+
+    return np.concatenate([v, a])  # Return [velocity, acceleration]
+
+
+# --8<-- [end:setup]
+
+
+# --8<-- [start:helpers]
+def calculate_specific_energy(state):
+    """Calculate specific orbital energy: E = v^2/2 - mu/r (J/kg)"""
+    r_mag = np.linalg.norm(state[0:3])
+    v_mag = np.linalg.norm(state[3:6])
+    return 0.5 * v_mag**2 - bh.GM_EARTH / r_mag
+
+
+def calculate_angular_momentum(state):
+    """Calculate specific angular momentum: h = r × v (m^2/s)"""
+    r = state[0:3]
+    v = state[3:6]
+    return np.cross(r, v)
+
+
+# --8<-- [end:helpers]
+
+
+# ============================================================================
+# INITIAL CONDITIONS: LEO satellite orbit
+# ============================================================================
+
+# --8<-- [start:ics]
+# Define orbital elements
+a = bh.R_EARTH + 500e3  # Semi-major axis: 500 km altitude (m)
+e = 0.001  # Eccentricity: nearly circular
+i = 97.8  # Inclination: sun-synchronous (degrees)
+raan = 0.0  # Right ascension of ascending node (degrees)
+argp = 0.0  # Argument of periapsis (degrees)
+M = 0.0  # Mean anomaly (degrees)
+
+# Convert orbital elements to Cartesian state vector
+oe = np.array([a, e, i, raan, argp, M])
+state0 = bh.state_koe_to_eci(oe, bh.AngleFormat.DEGREES)
+
+# Calculate reference values
+orbital_period = bh.orbital_period(a)
+initial_energy = calculate_specific_energy(state0)
+initial_h = calculate_angular_momentum(state0)
+h_magnitude_initial = np.linalg.norm(initial_h)
+
+# Set integration time to 7 days
+t_end = 7 * 24 * 3600.0  # 7 days in seconds
+n_orbits = t_end / orbital_period
+# --8<-- [end:ics]
+
+# Print problem setup
+print("=" * 70)
+print("COMPARING INTEGRATORS ON TWO-BODY ORBITAL DYNAMICS")
+print("=" * 70)
+print(f"Orbit altitude: {(a - bh.R_EARTH) / 1e3:.1f} km")
+print(f"Inclination: {i:.1f}°")
+print(f"Orbital period: {orbital_period / 60:.2f} minutes")
+print(f"Initial energy: {initial_energy:.6e} J/kg")
+print(f"Initial |h|: {h_magnitude_initial:.6e} m²/s")
+print(f"Integration duration: 7 days ({n_orbits:.1f} orbits)")
+print("=" * 70)
+print()
+
+# Store results for comparison
+results = []
+
+
+# ============================================================================
+# INTEGRATOR 1: RK4 (Fixed-step)
+# ============================================================================
+
+print("1. RK4 - Fourth-order Runge-Kutta (Fixed-step)")
+print("-" * 70)
+
+# --8<-- [start:brk]
+dt = 10.0  # 10 second steps
+config_rk4 = bh.IntegratorConfig.fixed_step(step_size=dt)
+integrator_rk4 = bh.RK4Integrator(6, dynamics, config=config_rk4)
+
+# Storage for trajectory analysis
+times_rk4 = []
+h_errors_rk4 = []
+
+t = 0.0
+state = state0.copy()
+steps = 0
+while t < t_end:
+    state = integrator_rk4.step(t, state, dt)
+    t += dt
+    steps += 1
+
+    # Store data every 10 steps for plotting
+    if steps % 10 == 0:
+        h = calculate_angular_momentum(state)
+        h_error = abs(np.linalg.norm(h) - h_magnitude_initial)
+        times_rk4.append(t / 86400.0)  # Convert to days
+        h_errors_rk4.append(h_error)
+
+# Final results
+r_mag = np.linalg.norm(state[0:3])
+final_energy = calculate_specific_energy(state)
+energy_error = abs(final_energy - initial_energy)
+h_final = calculate_angular_momentum(state)
+h_error_final = abs(np.linalg.norm(h_final) - h_magnitude_initial)
+# --8<-- [end:brk]
+
+print(f"Configuration: Fixed step size = {dt} seconds")
+print(f"Steps taken: {steps}")
+print(f"Final altitude: {(r_mag - bh.R_EARTH) / 1e3:.3f} km")
+print(f"Energy error: {energy_error:.3e} J/kg")
+print(f"Angular momentum error: {h_error_final:.3e} m²/s")
+print()
+
+results.append(
+    {
+        "integrator": "RK4",
+        "type": "Fixed-step",
+        "steps": steps,
+        "energy_error": energy_error,
+        "h_error": h_error_final,
+        "times": times_rk4,
+        "h_errors": h_errors_rk4,
+    }
+)
+
+
+# ============================================================================
+# INTEGRATOR 2: RKF45 (Adaptive)
+# ============================================================================
+
+print("2. RKF45 - Runge-Kutta-Fehlberg (Adaptive)")
+print("-" * 70)
+
+# --8<-- [start:rkf]
+abs_tol = 1e-10
+rel_tol = 1e-9
+config_adaptive = bh.IntegratorConfig.adaptive(abs_tol=abs_tol, rel_tol=rel_tol)
+integrator_rkf45 = bh.RKF45Integrator(6, dynamics, config=config_adaptive)
+
+times_rkf45 = []
+h_errors_rkf45 = []
+
+t = 0.0
+state = state0.copy()
+dt_current = 10.0
+steps = 0
+sample_count = 0
+while t < t_end:
+    result = integrator_rkf45.step(t, state, min(dt_current, t_end - t))
+    t += result.dt_used
+    state = result.state
+    dt_current = result.dt_next
+    steps += 1
+
+    # Sample at approximately same rate as RK4
+    sample_count += 1
+    if sample_count % 10 == 0:
+        h = calculate_angular_momentum(state)
+        h_error = abs(np.linalg.norm(h) - h_magnitude_initial)
+        times_rkf45.append(t / 86400.0)  # Convert to days
+        h_errors_rkf45.append(h_error)
+
+r_mag = np.linalg.norm(state[0:3])
+final_energy = calculate_specific_energy(state)
+energy_error = abs(final_energy - initial_energy)
+h_final = calculate_angular_momentum(state)
+h_error_final = abs(np.linalg.norm(h_final) - h_magnitude_initial)
+# --8<-- [end:rkf]
+
+print(f"Configuration: abs_tol={abs_tol}, rel_tol={rel_tol}")
+print(f"Steps taken: {steps}")
+print(f"Final altitude: {(r_mag - bh.R_EARTH) / 1e3:.3f} km")
+print(f"Energy error: {energy_error:.3e} J/kg")
+print(f"Angular momentum error: {h_error_final:.3e} m²/s")
+print()
+
+results.append(
+    {
+        "integrator": "RKF45",
+        "type": "Adaptive",
+        "steps": steps,
+        "energy_error": energy_error,
+        "h_error": h_error_final,
+        "times": times_rkf45,
+        "h_errors": h_errors_rkf45,
+    }
+)
+
+
+# ============================================================================
+# INTEGRATOR 3: DP54 (Adaptive)
+# ============================================================================
+
+print("3. DP54 - Dormand-Prince 5(4) (Adaptive)")
+print("-" * 70)
+
+# --8<-- [start:dp]
+integrator_dp54 = bh.DP54Integrator(6, dynamics, config=config_adaptive)
+
+times_dp54 = []
+h_errors_dp54 = []
+
+t = 0.0
+state = state0.copy()
+dt_current = 10.0
+steps = 0
+sample_count = 0
+while t < t_end:
+    result = integrator_dp54.step(t, state, min(dt_current, t_end - t))
+    t += result.dt_used
+    state = result.state
+    dt_current = result.dt_next
+    steps += 1
+
+    sample_count += 1
+    if sample_count % 10 == 0:
+        h = calculate_angular_momentum(state)
+        h_error = abs(np.linalg.norm(h) - h_magnitude_initial)
+        times_dp54.append(t / 86400.0)  # Convert to days
+        h_errors_dp54.append(h_error)
+
+r_mag = np.linalg.norm(state[0:3])
+final_energy = calculate_specific_energy(state)
+energy_error = abs(final_energy - initial_energy)
+h_final = calculate_angular_momentum(state)
+h_error_final = abs(np.linalg.norm(h_final) - h_magnitude_initial)
+# --8<-- [end:dp]
+
+print(f"Configuration: abs_tol={abs_tol}, rel_tol={rel_tol}")
+print(f"Steps taken: {steps}")
+print(f"Final altitude: {(r_mag - bh.R_EARTH) / 1e3:.3f} km")
+print(f"Energy error: {energy_error:.3e} J/kg")
+print(f"Angular momentum error: {h_error_final:.3e} m²/s")
+print()
+
+results.append(
+    {
+        "integrator": "DP54",
+        "type": "Adaptive",
+        "steps": steps,
+        "energy_error": energy_error,
+        "h_error": h_error_final,
+        "times": times_dp54,
+        "h_errors": h_errors_dp54,
+    }
+)
+
+
+# ============================================================================
+# INTEGRATOR 4: RKN1210 (High-precision adaptive)
+# ============================================================================
+
+print("4. RKN1210 - Runge-Kutta-Nyström 12(10) (High-precision)")
+print("-" * 70)
+
+# --8<-- [start:rkn]
+abs_tol_hp = 1e-12
+rel_tol_hp = 1e-11
+config_high_precision = bh.IntegratorConfig.adaptive(
+    abs_tol=abs_tol_hp, rel_tol=rel_tol_hp
+)
+integrator_rkn1210 = bh.RKN1210Integrator(6, dynamics, config=config_high_precision)
+
+times_rkn1210 = []
+h_errors_rkn1210 = []
+
+t = 0.0
+state = state0.copy()
+dt_current = 10.0
+steps = 0
+sample_count = 0
+while t < t_end:
+    result = integrator_rkn1210.step(t, state, min(dt_current, t_end - t))
+    t += result.dt_used
+    state = result.state
+    dt_current = result.dt_next
+    steps += 1
+
+    sample_count += 1
+    if sample_count % 10 == 0:
+        h = calculate_angular_momentum(state)
+        h_error = abs(np.linalg.norm(h) - h_magnitude_initial)
+        times_rkn1210.append(t / 86400.0)  # Convert to days
+        h_errors_rkn1210.append(h_error)
+
+r_mag = np.linalg.norm(state[0:3])
+final_energy = calculate_specific_energy(state)
+energy_error = abs(final_energy - initial_energy)
+h_final = calculate_angular_momentum(state)
+h_error_final = abs(np.linalg.norm(h_final) - h_magnitude_initial)
+# --8<-- [end:rkn]
+
+print(f"Configuration: abs_tol={abs_tol_hp}, rel_tol={rel_tol_hp}")
+print(f"Steps taken: {steps}")
+print(f"Final altitude: {(r_mag - bh.R_EARTH) / 1e3:.3f} km")
+print(f"Energy error: {energy_error:.3e} J/kg")
+print(f"Angular momentum error: {h_error_final:.3e} m²/s")
+print()
+
+results.append(
+    {
+        "integrator": "RKN1210",
+        "type": "High-precision",
+        "steps": steps,
+        "energy_error": energy_error,
+        "h_error": h_error_final,
+        "times": times_rkn1210,
+        "h_errors": h_errors_rkn1210,
+    }
+)
+
+
+# ============================================================================
+# COMPARISON SUMMARY
+# ============================================================================
+
+print("=" * 70)
+print("COMPARISON SUMMARY (7 days / {:.1f} orbits)".format(n_orbits))
+print("=" * 70)
+print()
+print(
+    f"{'Integrator':<12} {'Type':<15} {'Steps':<8} {'Energy Error':<15} {'|h| Error':<15}"
+)
+print("-" * 70)
+for r in results:
+    print(
+        f"{r['integrator']:<12} {r['type']:<15} {r['steps']:<8} "
+        f"{r['energy_error']:<15.3e} {r['h_error']:<15.3e}"
+    )
+print()
+print("Key Observations:")
+print("• RK4 requires many steps with accumulated drift in conserved quantities")
+print("• RKF45 and DP54 adapt step size but show energy/momentum drift")
+print("• RKN1210 maintains best conservation with far fewer steps")
+print("• Angular momentum conservation indicates integration quality")
+print("=" * 70)
+
+
+# ============================================================================
+# VISUALIZATION: Angular Momentum Conservation
+# ============================================================================
+
+print("\nGenerating angular momentum conservation plot...")
+
+# Create plotly figure
+fig = go.Figure()
+
+# Add traces for each integrator
+fig.add_trace(
+    go.Scatter(
+        x=results[0]["times"],
+        y=results[0]["h_errors"],
+        mode="lines",
+        name="RK4 (Fixed-step)",
+        line=dict(color="steelblue", width=2),
+        hovertemplate="Day: %{x:.2f}<br>|Δh|: %{y:.3e} m²/s<extra></extra>",
+    )
+)
+
+fig.add_trace(
+    go.Scatter(
+        x=results[1]["times"],
+        y=results[1]["h_errors"],
+        mode="lines",
+        name="RKF45 (Adaptive)",
+        line=dict(color="coral", width=2),
+        hovertemplate="Day: %{x:.2f}<br>|Δh|: %{y:.3e} m²/s<extra></extra>",
+    )
+)
+
+fig.add_trace(
+    go.Scatter(
+        x=results[2]["times"],
+        y=results[2]["h_errors"],
+        mode="lines",
+        name="DP54 (Adaptive)",
+        line=dict(color="green", width=2),
+        hovertemplate="Day: %{x:.2f}<br>|Δh|: %{y:.3e} m²/s<extra></extra>",
+    )
+)
+
+fig.add_trace(
+    go.Scatter(
+        x=results[3]["times"],
+        y=results[3]["h_errors"],
+        mode="lines",
+        name="RKN1210 (High-precision)",
+        line=dict(color="grey", width=2),
+        hovertemplate="Day: %{x:.2f}<br>|Δh|: %{y:.3e} m²/s<extra></extra>",
+    )
+)
+
+# Configure axes
+axis_config = {
+    "title_font": {"size": 11},
+    "tickfont": {"size": 10},
+}
+
+fig.update_xaxes(title_text="Time (days)", **axis_config)
+fig.update_yaxes(
+    title_text="Angular Momentum Error |Δh| (m²/s)", type="log", **axis_config
+)
+
+fig.update_layout(
+    title="Angular Momentum Conservation Over 7 Days",
+    showlegend=True,
+    legend=dict(yanchor="top", y=0.99, xanchor="left", x=0.01, font=dict(size=10)),
+)
+
+print("Comparison complete!")
+# --8<-- [end:all]
+
+sys.path.insert(0, str(pathlib.Path(__file__).parent.parent.parent / "plots"))
+from brahe_theme import save_themed_html  # noqa: E402
+
+light_path, dark_path = save_themed_html(
+    fig, OUTDIR / f"{SCRIPT_NAME}_angular_momentum"
+)
+print(f"\n✓ Generated {light_path}")
+print(f"✓ Generated {dark_path}")
+```
+
+RKN1210 achieves much higher accuracy with only **945 steps**-over 50× fewer than RK4!
+
+## Comparison Summary
+
+Here's the summary table showing each integrator's performance:
+
+**Output:**
+```
+======================================================================
+COMPARISON SUMMARY (7 days / 106.5 orbits)
+======================================================================
+
+Integrator   Type            Steps    Energy Error    |h| Error
+----------------------------------------------------------------------
+RK4          Fixed-step      60480    8.951e-02       8.085e+01      
+RKF45        Adaptive        15687    1.665e+01       1.504e+04      
+DP54         Adaptive        14268    3.319e+00       2.999e+03      
+RKN1210      High-precision  945      4.869e-05       4.404e-02  
+```
+
+Key observations:
+
+- **RK4** requires many steps (60,480) with moderate accumulated error
+- **RKF45** and **DP54** reduce steps by ~4× but show more energy/momentum drift
+- **RKN1210** achieves the best accuracy with far fewer steps (~64× fewer than RK4)
+
+The energy and angular momentum errors reveal an important pattern: adaptive low-order methods (RKF45, DP54) can accumulate more error over long integrations despite taking fewer steps, while the high-order RKN1210 maintains excellent conservation properties.
+
+## Angular Momentum Conservation
+
+To visualize how each integrator performs over time, we plot the angular momentum magnitude error:
+
+
+
+## Full Code Example
+
+```
+#!/usr/bin/env python
+# /// script
+# dependencies = ["brahe", "numpy", "plotly"]
+# ///
+"""
+Compares different numerical integrators on two-body orbital dynamics.
+
+This example demonstrates how to use RK4, RKF45, DP54, and RKN1210 integrators
+to propagate a satellite orbit over 7 days and compare their accuracy and efficiency.
+Angular momentum conservation is used as a measure of integration quality.
+"""
+
+# --8<-- [start:all]
+# --8<-- [start:preamble]
+import pathlib
+import os
+import sys
+import brahe as bh
+import numpy as np
+import plotly.graph_objects as go
+# --8<-- [end:preamble]
+
+bh.initialize_eop()
+
+# Configuration for output files
+SCRIPT_NAME = pathlib.Path(__file__).stem
+OUTDIR = pathlib.Path(os.getenv("BRAHE_FIGURE_OUTPUT_DIR", "./docs/figures/"))
+os.makedirs(OUTDIR, exist_ok=True)
+
+# ============================================================================
+# SETUP: Define the problem
+# ============================================================================
+
+
+# Define dynamics function for two-body orbital mechanics
+# State vector: [x, y, z, vx, vy, vz] in meters and meters/second
+# --8<-- [start:setup]
+def dynamics(t, state):
+    """Two-body gravitational dynamics: acceleration = -mu/r^3 * r"""
+    r = state[0:3]  # Position vector (m)
+    v = state[3:6]  # Velocity vector (m/s)
+
+    r_mag = np.linalg.norm(r)  # Distance from Earth center (m)
+    a = -bh.GM_EARTH / (r_mag**3) * r  # Gravitational acceleration (m/s^2)
+
+    return np.concatenate([v, a])  # Return [velocity, acceleration]
+
+
+# --8<-- [end:setup]
+
+
+# --8<-- [start:helpers]
+def calculate_specific_energy(state):
+    """Calculate specific orbital energy: E = v^2/2 - mu/r (J/kg)"""
+    r_mag = np.linalg.norm(state[0:3])
+    v_mag = np.linalg.norm(state[3:6])
+    return 0.5 * v_mag**2 - bh.GM_EARTH / r_mag
+
+
+def calculate_angular_momentum(state):
+    """Calculate specific angular momentum: h = r × v (m^2/s)"""
+    r = state[0:3]
+    v = state[3:6]
+    return np.cross(r, v)
+
+
+# --8<-- [end:helpers]
+
+
+# ============================================================================
+# INITIAL CONDITIONS: LEO satellite orbit
+# ============================================================================
+
+# --8<-- [start:ics]
+# Define orbital elements
+a = bh.R_EARTH + 500e3  # Semi-major axis: 500 km altitude (m)
+e = 0.001  # Eccentricity: nearly circular
+i = 97.8  # Inclination: sun-synchronous (degrees)
+raan = 0.0  # Right ascension of ascending node (degrees)
+argp = 0.0  # Argument of periapsis (degrees)
+M = 0.0  # Mean anomaly (degrees)
+
+# Convert orbital elements to Cartesian state vector
+oe = np.array([a, e, i, raan, argp, M])
+state0 = bh.state_koe_to_eci(oe, bh.AngleFormat.DEGREES)
+
+# Calculate reference values
+orbital_period = bh.orbital_period(a)
+initial_energy = calculate_specific_energy(state0)
+initial_h = calculate_angular_momentum(state0)
+h_magnitude_initial = np.linalg.norm(initial_h)
+
+# Set integration time to 7 days
+t_end = 7 * 24 * 3600.0  # 7 days in seconds
+n_orbits = t_end / orbital_period
+# --8<-- [end:ics]
+
+# Print problem setup
+print("=" * 70)
+print("COMPARING INTEGRATORS ON TWO-BODY ORBITAL DYNAMICS")
+print("=" * 70)
+print(f"Orbit altitude: {(a - bh.R_EARTH) / 1e3:.1f} km")
+print(f"Inclination: {i:.1f}°")
+print(f"Orbital period: {orbital_period / 60:.2f} minutes")
+print(f"Initial energy: {initial_energy:.6e} J/kg")
+print(f"Initial |h|: {h_magnitude_initial:.6e} m²/s")
+print(f"Integration duration: 7 days ({n_orbits:.1f} orbits)")
+print("=" * 70)
+print()
+
+# Store results for comparison
+results = []
+
+
+# ============================================================================
+# INTEGRATOR 1: RK4 (Fixed-step)
+# ============================================================================
+
+print("1. RK4 - Fourth-order Runge-Kutta (Fixed-step)")
+print("-" * 70)
+
+# --8<-- [start:brk]
+dt = 10.0  # 10 second steps
+config_rk4 = bh.IntegratorConfig.fixed_step(step_size=dt)
+integrator_rk4 = bh.RK4Integrator(6, dynamics, config=config_rk4)
+
+# Storage for trajectory analysis
+times_rk4 = []
+h_errors_rk4 = []
+
+t = 0.0
+state = state0.copy()
+steps = 0
+while t < t_end:
+    state = integrator_rk4.step(t, state, dt)
+    t += dt
+    steps += 1
+
+    # Store data every 10 steps for plotting
+    if steps % 10 == 0:
+        h = calculate_angular_momentum(state)
+        h_error = abs(np.linalg.norm(h) - h_magnitude_initial)
+        times_rk4.append(t / 86400.0)  # Convert to days
+        h_errors_rk4.append(h_error)
+
+# Final results
+r_mag = np.linalg.norm(state[0:3])
+final_energy = calculate_specific_energy(state)
+energy_error = abs(final_energy - initial_energy)
+h_final = calculate_angular_momentum(state)
+h_error_final = abs(np.linalg.norm(h_final) - h_magnitude_initial)
+# --8<-- [end:brk]
+
+print(f"Configuration: Fixed step size = {dt} seconds")
+print(f"Steps taken: {steps}")
+print(f"Final altitude: {(r_mag - bh.R_EARTH) / 1e3:.3f} km")
+print(f"Energy error: {energy_error:.3e} J/kg")
+print(f"Angular momentum error: {h_error_final:.3e} m²/s")
+print()
+
+results.append(
+    {
+        "integrator": "RK4",
+        "type": "Fixed-step",
+        "steps": steps,
+        "energy_error": energy_error,
+        "h_error": h_error_final,
+        "times": times_rk4,
+        "h_errors": h_errors_rk4,
+    }
+)
+
+
+# ============================================================================
+# INTEGRATOR 2: RKF45 (Adaptive)
+# ============================================================================
+
+print("2. RKF45 - Runge-Kutta-Fehlberg (Adaptive)")
+print("-" * 70)
+
+# --8<-- [start:rkf]
+abs_tol = 1e-10
+rel_tol = 1e-9
+config_adaptive = bh.IntegratorConfig.adaptive(abs_tol=abs_tol, rel_tol=rel_tol)
+integrator_rkf45 = bh.RKF45Integrator(6, dynamics, config=config_adaptive)
+
+times_rkf45 = []
+h_errors_rkf45 = []
+
+t = 0.0
+state = state0.copy()
+dt_current = 10.0
+steps = 0
+sample_count = 0
+while t < t_end:
+    result = integrator_rkf45.step(t, state, min(dt_current, t_end - t))
+    t += result.dt_used
+    state = result.state
+    dt_current = result.dt_next
+    steps += 1
+
+    # Sample at approximately same rate as RK4
+    sample_count += 1
+    if sample_count % 10 == 0:
+        h = calculate_angular_momentum(state)
+        h_error = abs(np.linalg.norm(h) - h_magnitude_initial)
+        times_rkf45.append(t / 86400.0)  # Convert to days
+        h_errors_rkf45.append(h_error)
+
+r_mag = np.linalg.norm(state[0:3])
+final_energy = calculate_specific_energy(state)
+energy_error = abs(final_energy - initial_energy)
+h_final = calculate_angular_momentum(state)
+h_error_final = abs(np.linalg.norm(h_final) - h_magnitude_initial)
+# --8<-- [end:rkf]
+
+print(f"Configuration: abs_tol={abs_tol}, rel_tol={rel_tol}")
+print(f"Steps taken: {steps}")
+print(f"Final altitude: {(r_mag - bh.R_EARTH) / 1e3:.3f} km")
+print(f"Energy error: {energy_error:.3e} J/kg")
+print(f"Angular momentum error: {h_error_final:.3e} m²/s")
+print()
+
+results.append(
+    {
+        "integrator": "RKF45",
+        "type": "Adaptive",
+        "steps": steps,
+        "energy_error": energy_error,
+        "h_error": h_error_final,
+        "times": times_rkf45,
+        "h_errors": h_errors_rkf45,
+    }
+)
+
+
+# ============================================================================
+# INTEGRATOR 3: DP54 (Adaptive)
+# ============================================================================
+
+print("3. DP54 - Dormand-Prince 5(4) (Adaptive)")
+print("-" * 70)
+
+# --8<-- [start:dp]
+integrator_dp54 = bh.DP54Integrator(6, dynamics, config=config_adaptive)
+
+times_dp54 = []
+h_errors_dp54 = []
+
+t = 0.0
+state = state0.copy()
+dt_current = 10.0
+steps = 0
+sample_count = 0
+while t < t_end:
+    result = integrator_dp54.step(t, state, min(dt_current, t_end - t))
+    t += result.dt_used
+    state = result.state
+    dt_current = result.dt_next
+    steps += 1
+
+    sample_count += 1
+    if sample_count % 10 == 0:
+        h = calculate_angular_momentum(state)
+        h_error = abs(np.linalg.norm(h) - h_magnitude_initial)
+        times_dp54.append(t / 86400.0)  # Convert to days
+        h_errors_dp54.append(h_error)
+
+r_mag = np.linalg.norm(state[0:3])
+final_energy = calculate_specific_energy(state)
+energy_error = abs(final_energy - initial_energy)
+h_final = calculate_angular_momentum(state)
+h_error_final = abs(np.linalg.norm(h_final) - h_magnitude_initial)
+# --8<-- [end:dp]
+
+print(f"Configuration: abs_tol={abs_tol}, rel_tol={rel_tol}")
+print(f"Steps taken: {steps}")
+print(f"Final altitude: {(r_mag - bh.R_EARTH) / 1e3:.3f} km")
+print(f"Energy error: {energy_error:.3e} J/kg")
+print(f"Angular momentum error: {h_error_final:.3e} m²/s")
+print()
+
+results.append(
+    {
+        "integrator": "DP54",
+        "type": "Adaptive",
+        "steps": steps,
+        "energy_error": energy_error,
+        "h_error": h_error_final,
+        "times": times_dp54,
+        "h_errors": h_errors_dp54,
+    }
+)
+
+
+# ============================================================================
+# INTEGRATOR 4: RKN1210 (High-precision adaptive)
+# ============================================================================
+
+print("4. RKN1210 - Runge-Kutta-Nyström 12(10) (High-precision)")
+print("-" * 70)
+
+# --8<-- [start:rkn]
+abs_tol_hp = 1e-12
+rel_tol_hp = 1e-11
+config_high_precision = bh.IntegratorConfig.adaptive(
+    abs_tol=abs_tol_hp, rel_tol=rel_tol_hp
+)
+integrator_rkn1210 = bh.RKN1210Integrator(6, dynamics, config=config_high_precision)
+
+times_rkn1210 = []
+h_errors_rkn1210 = []
+
+t = 0.0
+state = state0.copy()
+dt_current = 10.0
+steps = 0
+sample_count = 0
+while t < t_end:
+    result = integrator_rkn1210.step(t, state, min(dt_current, t_end - t))
+    t += result.dt_used
+    state = result.state
+    dt_current = result.dt_next
+    steps += 1
+
+    sample_count += 1
+    if sample_count % 10 == 0:
+        h = calculate_angular_momentum(state)
+        h_error = abs(np.linalg.norm(h) - h_magnitude_initial)
+        times_rkn1210.append(t / 86400.0)  # Convert to days
+        h_errors_rkn1210.append(h_error)
+
+r_mag = np.linalg.norm(state[0:3])
+final_energy = calculate_specific_energy(state)
+energy_error = abs(final_energy - initial_energy)
+h_final = calculate_angular_momentum(state)
+h_error_final = abs(np.linalg.norm(h_final) - h_magnitude_initial)
+# --8<-- [end:rkn]
+
+print(f"Configuration: abs_tol={abs_tol_hp}, rel_tol={rel_tol_hp}")
+print(f"Steps taken: {steps}")
+print(f"Final altitude: {(r_mag - bh.R_EARTH) / 1e3:.3f} km")
+print(f"Energy error: {energy_error:.3e} J/kg")
+print(f"Angular momentum error: {h_error_final:.3e} m²/s")
+print()
+
+results.append(
+    {
+        "integrator": "RKN1210",
+        "type": "High-precision",
+        "steps": steps,
+        "energy_error": energy_error,
+        "h_error": h_error_final,
+        "times": times_rkn1210,
+        "h_errors": h_errors_rkn1210,
+    }
+)
+
+
+# ============================================================================
+# COMPARISON SUMMARY
+# ============================================================================
+
+print("=" * 70)
+print("COMPARISON SUMMARY (7 days / {:.1f} orbits)".format(n_orbits))
+print("=" * 70)
+print()
+print(
+    f"{'Integrator':<12} {'Type':<15} {'Steps':<8} {'Energy Error':<15} {'|h| Error':<15}"
+)
+print("-" * 70)
+for r in results:
+    print(
+        f"{r['integrator']:<12} {r['type']:<15} {r['steps']:<8} "
+        f"{r['energy_error']:<15.3e} {r['h_error']:<15.3e}"
+    )
+print()
+print("Key Observations:")
+print("• RK4 requires many steps with accumulated drift in conserved quantities")
+print("• RKF45 and DP54 adapt step size but show energy/momentum drift")
+print("• RKN1210 maintains best conservation with far fewer steps")
+print("• Angular momentum conservation indicates integration quality")
+print("=" * 70)
+
+
+# ============================================================================
+# VISUALIZATION: Angular Momentum Conservation
+# ============================================================================
+
+print("\nGenerating angular momentum conservation plot...")
+
+# Create plotly figure
+fig = go.Figure()
+
+# Add traces for each integrator
+fig.add_trace(
+    go.Scatter(
+        x=results[0]["times"],
+        y=results[0]["h_errors"],
+        mode="lines",
+        name="RK4 (Fixed-step)",
+        line=dict(color="steelblue", width=2),
+        hovertemplate="Day: %{x:.2f}<br>|Δh|: %{y:.3e} m²/s<extra></extra>",
+    )
+)
+
+fig.add_trace(
+    go.Scatter(
+        x=results[1]["times"],
+        y=results[1]["h_errors"],
+        mode="lines",
+        name="RKF45 (Adaptive)",
+        line=dict(color="coral", width=2),
+        hovertemplate="Day: %{x:.2f}<br>|Δh|: %{y:.3e} m²/s<extra></extra>",
+    )
+)
+
+fig.add_trace(
+    go.Scatter(
+        x=results[2]["times"],
+        y=results[2]["h_errors"],
+        mode="lines",
+        name="DP54 (Adaptive)",
+        line=dict(color="green", width=2),
+        hovertemplate="Day: %{x:.2f}<br>|Δh|: %{y:.3e} m²/s<extra></extra>",
+    )
+)
+
+fig.add_trace(
+    go.Scatter(
+        x=results[3]["times"],
+        y=results[3]["h_errors"],
+        mode="lines",
+        name="RKN1210 (High-precision)",
+        line=dict(color="grey", width=2),
+        hovertemplate="Day: %{x:.2f}<br>|Δh|: %{y:.3e} m²/s<extra></extra>",
+    )
+)
+
+# Configure axes
+axis_config = {
+    "title_font": {"size": 11},
+    "tickfont": {"size": 10},
+}
+
+fig.update_xaxes(title_text="Time (days)", **axis_config)
+fig.update_yaxes(
+    title_text="Angular Momentum Error |Δh| (m²/s)", type="log", **axis_config
+)
+
+fig.update_layout(
+    title="Angular Momentum Conservation Over 7 Days",
+    showlegend=True,
+    legend=dict(yanchor="top", y=0.99, xanchor="left", x=0.01, font=dict(size=10)),
+)
+
+print("Comparison complete!")
+# --8<-- [end:all]
+
+sys.path.insert(0, str(pathlib.Path(__file__).parent.parent.parent / "plots"))
+from brahe_theme import save_themed_html  # noqa: E402
+
+light_path, dark_path = save_themed_html(
+    fig, OUTDIR / f"{SCRIPT_NAME}_angular_momentum"
+)
+print(f"\n✓ Generated {light_path}")
+print(f"✓ Generated {dark_path}")
+```
+
+## See Also
+
+- [Numerical Integration](../learn/integrators/index.md) - Understanding how integrators work
+- [Integrator API Reference](../library_api/integrators/index.md) - Complete API documentation
+- [Orbit Propagation Examples](../examples/index.md) - More orbital mechanics examples
