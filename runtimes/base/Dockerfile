@@ -2,7 +2,10 @@
 FROM ghcr.io/astral-sh/uv:python3.13-bookworm
 
 ENV DEBIAN_FRONTEND=noninteractive
-ENV PATH="/root/.local/bin:/root/.factory/bin:/usr/local/bin:${PATH}"
+ENV UV_TOOL_BIN_DIR=/usr/local/bin
+ENV UV_TOOL_DIR=/usr/local/lib/uv/tools
+ENV FACTORY_INSTALL_HOME=/usr/local/share/factory-home
+ENV PATH="${FACTORY_INSTALL_HOME}/.factory/bin:/usr/local/bin:${PATH}"
 ENV DISABLE_AUTOUPDATER=1
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
@@ -50,19 +53,11 @@ RUN uv pip install --system \
 
 RUN uv tool install --python 3.13 kimi-cli
 
-RUN curl -fsSL https://app.factory.ai/cli | sh
-
-RUN command -v claude >/dev/null \
-    && command -v codex >/dev/null \
-    && command -v droid >/dev/null \
-    && command -v gemini >/dev/null \
-    && command -v jq >/dev/null \
-    && command -v kimi >/dev/null \
-    && python -c "import brahe, datasets, huggingface_hub, kagglehub, matplotlib, numpy, pyproj, yaml, pytest, shapely, skyfield" >/dev/null \
-    && command -v opencode >/dev/null \
-    && command -v pi >/dev/null \
-    && command -v rg >/dev/null \
-    && command -v tree >/dev/null
+RUN set -eux; \
+    for cmd in claude codex gemini jq kimi opencode pi rg tree; do \
+        command -v "$cmd"; \
+    done; \
+    python -c "import brahe, datasets, huggingface_hub, kagglehub, matplotlib, numpy, pyproj, yaml, pytest, shapely, skyfield" >/dev/null
 
 WORKDIR /app/workspace
 
