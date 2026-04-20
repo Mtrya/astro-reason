@@ -1,0 +1,13 @@
+{
+  "general": {
+    "previewFeatures": false
+  },
+  "model": {
+    "name": "auto"
+  },
+  "security": {
+    "auth": {
+      "selectedType": "gemini-api-key"
+    }
+  }
+}

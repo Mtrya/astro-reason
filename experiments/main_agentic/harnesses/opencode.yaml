@@ -1,11 +1,8 @@
-# Partial working reference profile for OpenCode.
-# This is the only harness profile that currently has a concrete config and
-# command story, but it is still family-owned and may evolve in later phases.
-
 harness: opencode
 runtime: base
 
 config:
+  target: xdg_config/opencode/opencode.json
   real_file: experiments/_fragments/configs/opencode_default/opencode.json
   example_file: experiments/_fragments/configs/opencode_default/opencode.json.example
 
@@ -13,10 +10,12 @@ commands:
   headless_shell_command: >-
     opencode run --dangerously-skip-permissions "$(cat ~/PROMPT.md)"
   interactive_command:
-    - /bin/bash
-    - -i
+    - opencode
 
 artifacts:
   collect:
     - source: xdg_data/opencode
       target: session_logs
+
+notes:
+  - OpenCode is the cleanest current reference harness because it respects XDG paths cleanly inside the prepared runtime.
