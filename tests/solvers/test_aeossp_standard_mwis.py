@@ -395,6 +395,22 @@ def test_mwis_config_allows_non_default_selection_policy() -> None:
     assert config.selection_policy == "weight_degree_end"
 
 
+def test_mwis_config_parses_phase_5_search_knobs() -> None:
+    config = MwisConfig.from_mapping(
+        {
+            "time_limit_s": 1.5,
+            "max_local_passes": 3,
+            "population_size": 2,
+            "recombination_rounds": 5,
+        }
+    )
+
+    assert config.time_limit_s == 1.5
+    assert config.max_local_passes == 3
+    assert config.population_size == 2
+    assert config.recombination_rounds == 5
+
+
 def test_independent_set_validation_rejects_adjacent_selected_candidates() -> None:
     adjacency = {
         "a": {"b"},
@@ -411,6 +427,150 @@ def test_candidates_decode_to_sorted_observation_actions() -> None:
         _candidate("sat_b|task_b|30", satellite_id="sat_b", task_id="task_b", start_offset_s=30, end_offset_s=40),
         _candidate("sat_a|task_a|10", satellite_id="sat_a", task_id="task_a", start_offset_s=10, end_offset_s=20),
     ]
+
+    assert candidates_to_actions(candidates) == [
+        {
+            "type": "observation",
+            "satellite_id": "sat_a",
+            "task_id": "task_a",
+            "start_time": "2026-04-14T04:00:10Z",
+            "end_time": "2026-04-14T04:00:20Z",
+        },
+        {
+            "type": "observation",
+            "satellite_id": "sat_b",
+            "task_id": "task_b",
+            "start_time": "2026-04-14T04:00:30Z",
+            "end_time": "2026-04-14T04:00:40Z",
+        },
+    ]
+
+
+def test_local_improvement_applies_weighted_two_swap(monkeypatch) -> None:
+    candidates = [
+        _candidate("blocker", task_id="task_blocker", weight=5.0, start_offset_s=5, end_offset_s=15),
+        _candidate("left", task_id="task_left", weight=4.0, start_offset_s=20, end_offset_s=30),
+        _candidate("right", task_id="task_right", weight=4.0, start_offset_s=35, end_offset_s=45),
+    ]
+    adjacency = {
+        "blocker": {"left", "right"},
+        "left": {"blocker"},
+        "right": {"blocker"},
+    }
+    graph = type(
+        "ManualGraph",
+        (),
+        {
+            "adjacency": adjacency,
+            "stats": None,
+        },
+    )()
+
+    def fake_greedy(component, candidate_by_id, adjacency_map, *, policy, reverse=False):
+        return {"blocker"}
+
+    monkeypatch.setattr("mwis.solve_greedy_component", fake_greedy)
+    selected, stats = select_weighted_independent_set(
+        candidates,
+        graph,
+        MwisConfig(
+            max_exact_component_size=0,
+            max_local_passes=4,
+            population_size=1,
+            recombination_rounds=0,
+        ),
+    )
+
+    assert [candidate.candidate_id for candidate in selected] == ["left", "right"]
+    assert stats.local_improvement_count >= 1
+    assert stats.successful_two_swap_count == 1
+    assert stats.independent_set_valid
+
+
+def test_recombination_can_improve_incumbent_without_local_search(monkeypatch) -> None:
+    candidates = [
+        _candidate("l1", task_id="task_l1", weight=2.0, start_offset_s=10, end_offset_s=20),
+        _candidate("l2", task_id="task_l2", weight=2.0, start_offset_s=15, end_offset_s=25),
+        _candidate("r1", task_id="task_r1", weight=2.0, start_offset_s=30, end_offset_s=40),
+        _candidate("r2", task_id="task_r2", weight=2.0, start_offset_s=35, end_offset_s=45),
+    ]
+    adjacency = {
+        "l1": {"l2"},
+        "l2": {"l1", "r2"},
+        "r1": {"r2"},
+        "r2": {"l2", "r1"},
+    }
+    graph = type(
+        "ManualGraph",
+        (),
+        {
+            "adjacency": adjacency,
+            "stats": None,
+        },
+    )()
+
+    def fake_greedy(component, candidate_by_id, adjacency_map, *, policy, reverse=False):
+        if reverse:
+            return {"l2"}
+        if policy == "weight_end_degree":
+            return {"l1", "r2"}
+        return {"l2", "r1"}
+
+    monkeypatch.setattr("mwis.solve_greedy_component", fake_greedy)
+
+    selected, stats = select_weighted_independent_set(
+        candidates,
+        graph,
+        MwisConfig(
+            max_exact_component_size=0,
+            max_local_passes=0,
+            population_size=3,
+            recombination_rounds=2,
+        ),
+    )
+
+    assert [candidate.candidate_id for candidate in selected] == ["l1", "r1"]
+    assert stats.recombination_attempt_count >= 1
+    assert stats.recombination_win_count >= 1
+    assert stats.incumbent_source == "recombination"
+
+
+def test_time_budget_returns_valid_baseline_incumbent() -> None:
+    candidates = [
+        _candidate("early", task_id="task_early", weight=5.0, start_offset_s=10, end_offset_s=20),
+        _candidate("late", task_id="task_late", weight=5.0, start_offset_s=20, end_offset_s=30),
+        _candidate("free", task_id="task_free", weight=1.0, start_offset_s=35, end_offset_s=45),
+    ]
+    adjacency = {
+        "early": {"late"},
+        "late": {"early"},
+        "free": set(),
+    }
+    graph = type(
+        "ManualGraph",
+        (),
+        {
+            "adjacency": adjacency,
+            "stats": None,
+        },
+    )()
+
+    selected, stats = select_weighted_independent_set(
+        candidates,
+        graph,
+        MwisConfig(
+            max_exact_component_size=0,
+            time_limit_s=0.0,
+            max_local_passes=4,
+            population_size=2,
+            recombination_rounds=2,
+        ),
+    )
+
+    assert [candidate.candidate_id for candidate in selected] == ["early", "free"]
+    assert stats.time_limit_hit
+    assert stats.search_stop_reason == "time_limit"
+    assert stats.independent_set_valid
 
 
 def test_local_validation_rejects_duplicate_tasks(monkeypatch) -> None:
@@ -587,20 +747,3 @@ def json_dumps(payload: dict) -> str:
     import json
 
     return json.dumps(payload)
-
-    assert candidates_to_actions(candidates) == [
-        {
-            "type": "observation",
-            "satellite_id": "sat_a",
-            "task_id": "task_a",
-            "start_time": "2026-04-14T04:00:10Z",
-            "end_time": "2026-04-14T04:00:20Z",
-        },
-        {
-            "type": "observation",
-            "satellite_id": "sat_b",
-            "task_id": "task_b",
-            "start_time": "2026-04-14T04:00:30Z",
-            "end_time": "2026-04-14T04:00:40Z",
-        },
-    ]

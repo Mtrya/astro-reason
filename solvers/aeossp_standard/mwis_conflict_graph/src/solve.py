@@ -31,8 +31,8 @@ def _build_status(
     timing_seconds: dict[str, float],
 ) -> dict:
     return {
-        "status": "phase_4_tuned_solution_generated",
-        "phase": 4,
+        "status": "phase_5_reproduction_solution_generated",
+        "phase": 5,
         "case_dir": str(case_dir),
         "config_dir": str(config_dir) if config_dir is not None else None,
         "solution": str(solution_path),
@@ -47,6 +47,22 @@ def _build_status(
         "repair_config": repair_config.as_status_dict(),
         "local_validation": repair_result.as_status_dict(),
         "timing_seconds": timing_seconds,
+        "reproduction_summary": {
+            "best_local_valid": repair_result.final_report.valid,
+            "candidate_count": candidate_summary.candidate_count,
+            "selected_action_count_before_repair": mwis_stats.selected_candidate_count,
+            "selected_action_count_after_repair": len(repair_result.candidates),
+            "repair_iteration_count": len(repair_result.removals),
+            "selection_policy": mwis_stats.selection_policy,
+            "incumbent_source": mwis_stats.incumbent_source,
+            "local_improvement_count": mwis_stats.local_improvement_count,
+            "successful_two_swap_count": mwis_stats.successful_two_swap_count,
+            "recombination_attempt_count": mwis_stats.recombination_attempt_count,
+            "recombination_win_count": mwis_stats.recombination_win_count,
+            "search_stop_reason": mwis_stats.search_stop_reason,
+            "time_limit_hit": mwis_stats.time_limit_hit,
+            "runtime_seconds": timing_seconds["total"],
+        },
         "tuning_summary": {
             "best_local_valid": repair_result.final_report.valid,
             "candidate_count": candidate_summary.candidate_count,
@@ -55,6 +71,20 @@ def _build_status(
             "repair_iteration_count": len(repair_result.removals),
             "selection_policy": mwis_stats.selection_policy,
             "runtime_seconds": timing_seconds["total"],
+        },
+        "paper_fidelity": {
+            "reproduced_behavior": [
+                "sparse infeasibility graph over candidate observations",
+                "exact solving on tiny components",
+                "bounded local improvement with insertions and 2-swaps",
+                "deterministic recombination over a bounded population",
+                "optional incumbent refinement time budget",
+            ],
+            "approximated_behavior": [
+                "no external ReduMIS binary or kernelization rules",
+                "weighted benchmark objective instead of pure collect count",
+                "solver-local battery validation and repair remains outside graph edges",
+            ],
         },
     }
 
@@ -125,6 +155,13 @@ def _write_debug_artifacts(
             "solver": mwis_stats.as_dict(),
             "local_validation": repair_result.as_status_dict(),
             "timing_seconds": timing_seconds,
+        },
+    )
+    write_json(
+        solution_dir / "debug" / "component_search.json",
+        {
+            "case_id": case.mission.case_id,
+            "component_search": mwis_stats.component_search_debug(),
         },
     )
     write_json(
@@ -237,7 +274,7 @@ def main(argv: list[str] | None = None) -> int:
             solution_dir / "status.json",
             {
                 "status": "error",
-                "phase": 4,
+                "phase": 5,
                 "case_dir": str(case_dir),
                 "config_dir": str(config_dir) if config_dir is not None else None,
                 "error": str(exc),
@@ -247,12 +284,13 @@ def main(argv: list[str] | None = None) -> int:
         return 2
 
     print(
-        f"phase_4_tuned_solution_generated: {case.mission.case_id} "
+        f"phase_5_reproduction_solution_generated: {case.mission.case_id} "
         f"candidates={candidate_summary.candidate_count} "
         f"selected={mwis_stats.selected_candidate_count} "
         f"after_repair={len(repair_result.candidates)} "
         f"local_valid={repair_result.final_report.valid} "
-        f"policy={mwis_stats.selection_policy} -> {solution_path}"
+        f"policy={mwis_stats.selection_policy} "
+        f"source={mwis_stats.incumbent_source} -> {solution_path}"
     )
     return 0
 
