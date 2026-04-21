@@ -16,6 +16,14 @@
       "evidence_type": "transitional_literature",
       "runnable": false,
       "ci_smoke": false
+    },
+    {
+      "benchmark": "aeossp_standard",
+      "solver": "mwis_conflict_graph",
+      "path": "solvers/aeossp_standard/mwis_conflict_graph",
+      "evidence_type": "reproduced_solver",
+      "runnable": true,
+      "ci_smoke": true
     }
   ]
 }
