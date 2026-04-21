@@ -34,17 +34,12 @@ astro-reason/
 
 ## Environment
 
-Benchmark-core development uses `uv`:
-
-```bash
-uv run pytest tests/benchmarks
-```
-
-Method-owned directories may use different tooling when justified, as long as benchmark contracts stay clean.
+Benchmark-core development uses `uv`. Method-owned directories may use different tooling when justified, as long as benchmark contracts stay clean.
 
 ## Status
 
 Current work is focused on:
 
 - refining benchmark definitions and verifier contracts
-- migrating the initial solver/harness scaffolding into this repository
+- developing traditional solvers as baselines
+- implementing and running agentic experiments
