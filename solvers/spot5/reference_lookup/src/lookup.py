@@ -44,6 +44,17 @@ def _write_status(solution_dir: Path, payload: dict) -> None:
     )
 
 
+def _load_manifest() -> dict:
+    manifest = json.loads(MANIFEST_PATH.read_text(encoding="utf-8"))
+    if manifest.get("version") != 1:
+        raise ValueError(f"Unsupported manifest version: {manifest.get('version')}")
+    if manifest.get("hash_algorithm") != "sha256":
+        raise ValueError(f"Unsupported hash algorithm: {manifest.get('hash_algorithm')}")
+    if not isinstance(manifest.get("solutions"), dict):
+        raise ValueError("Manifest field 'solutions' must be an object")
+    return manifest
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description="Lookup a known SPOT5 reference solution")
     parser.add_argument("--case-dir", required=True)
@@ -57,7 +68,7 @@ def main() -> int:
 
     try:
         spot_file = _find_spot_file(case_dir)
-        manifest = json.loads(MANIFEST_PATH.read_text(encoding="utf-8"))
+        manifest = _load_manifest()
         digest = _sha256(spot_file)
     except Exception as exc:
         _write_status(

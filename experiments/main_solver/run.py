@@ -3,6 +3,7 @@ from __future__ import annotations
 import argparse
 import json
 import re
+import shutil
 import subprocess
 import time
 from dataclasses import dataclass
@@ -114,6 +115,10 @@ def _run_command(
     }
 
 
+def _script_command(solver_path: Path, script_path: Path) -> str:
+    return f"./{script_path.relative_to(solver_path).as_posix()}"
+
+
 def _run_setup(
     solver: dict[str, Any],
     *,
@@ -128,7 +133,7 @@ def _run_setup(
     setup_script = solver_path / solver.get("setup_script", "setup.sh")
     log_dir = results_root / "_setup" / solver_id
     result = _run_command(
-        [f"./{setup_script.name}"],
+        [_script_command(solver_path, setup_script)],
         cwd=solver_path,
         stdout_path=log_dir / "setup.stdout.log",
         stderr_path=log_dir / "setup.stderr.log",
@@ -142,7 +147,7 @@ def _format_command(command: list[str], values: dict[str, str]) -> list[str]:
 
 
 def _parse_spot5_verifier(stdout: str, returncode: int) -> dict[str, Any]:
-    match = re.search(r"^(VALID|INVALID): profit=(\d+), weight=(\d+)", stdout.strip())
+    match = re.search(r"(VALID|INVALID): profit=(\d+), weight=(\d+)", stdout)
     if match is None:
         return {
             "status": "error",
@@ -201,6 +206,16 @@ def _write_json(path: Path, payload: dict[str, Any]) -> None:
     path.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n", encoding="utf-8")
 
 
+def _read_solver_status(path: Path) -> dict[str, Any]:
+    try:
+        status = json.loads(path.read_text(encoding="utf-8"))
+    except json.JSONDecodeError as exc:
+        return {"status": "malformed_status", "error": str(exc)}
+    if not isinstance(status, dict):
+        return {"status": "malformed_status", "error": "status.json must contain an object"}
+    return status
+
+
 def _run_runnable_job(
     job: Job,
     *,
@@ -211,8 +226,11 @@ def _run_runnable_job(
     config_dir = result_dir / "config"
     solution_dir = result_dir / "solution"
     log_dir = result_dir / "logs"
+    if result_dir.exists():
+        shutil.rmtree(result_dir)
     config_dir.mkdir(parents=True, exist_ok=True)
     solution_dir.mkdir(parents=True, exist_ok=True)
+    log_dir.mkdir(parents=True, exist_ok=True)
 
     setup = _run_setup(job.solver, results_root=results_root, setup_cache=setup_cache)
     payload: dict[str, Any] = {
@@ -234,7 +252,7 @@ def _run_runnable_job(
     solve_script = solver_path / job.solver.get("solve_script", "solve.sh")
     solve = _run_command(
         [
-            f"./{solve_script.name}",
+            _script_command(solver_path, solve_script),
             str((REPO_ROOT / job.case["case_dir"]).resolve()),
             str(config_dir.resolve()),
             str(solution_dir.resolve()),
@@ -249,7 +267,10 @@ def _run_runnable_job(
         payload["status"] = "solver_error"
         status_path = solution_dir / "status.json"
         if status_path.exists():
-            payload["solver_status"] = json.loads(status_path.read_text(encoding="utf-8"))
+            solver_status = _read_solver_status(status_path)
+            payload["solver_status"] = solver_status
+            if solver_status.get("status") == "unsupported_case":
+                payload["status"] = "unsupported_case"
         _write_json(result_dir / "run.json", payload)
         return payload
 

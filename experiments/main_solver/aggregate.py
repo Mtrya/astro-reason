@@ -11,11 +11,23 @@ REPO_ROOT = Path(__file__).resolve().parents[2]
 DEFAULT_RESULTS_ROOT = REPO_ROOT / "results" / "main_solver"
 
 
-def _read_run_json(path: Path) -> dict[str, Any] | None:
+def _read_run_json(path: Path) -> dict[str, Any]:
+    raw_text = path.read_text(encoding="utf-8")
     try:
-        return json.loads(path.read_text(encoding="utf-8"))
-    except json.JSONDecodeError:
-        return None
+        payload = json.loads(raw_text)
+    except json.JSONDecodeError as exc:
+        return {
+            "status": "malformed_artifact",
+            "parse_error": str(exc),
+            "raw_text": raw_text,
+        }
+    if not isinstance(payload, dict):
+        return {
+            "status": "malformed_artifact",
+            "parse_error": "run.json must contain an object",
+            "raw_text": raw_text,
+        }
+    return payload
 
 
 def _metric(payload: dict[str, Any], key: str) -> Any:
@@ -30,8 +42,6 @@ def _rows(results_root: Path) -> list[dict[str, Any]]:
     rows: list[dict[str, Any]] = []
     for run_path in sorted(results_root.glob("*/*/*/run.json")):
         payload = _read_run_json(run_path)
-        if payload is None:
-            continue
         rows.append(
             {
                 "benchmark": payload.get("benchmark"),
@@ -48,6 +58,8 @@ def _rows(results_root: Path) -> list[dict[str, Any]]:
                 "n_satisfied_requests": _metric(payload, "n_satisfied_requests"),
                 "u_rms": _metric(payload, "u_rms"),
                 "u_max": _metric(payload, "u_max"),
+                "parse_error": payload.get("parse_error"),
+                "raw_text": payload.get("raw_text"),
                 "run_json": str(run_path),
             }
         )
@@ -71,6 +83,8 @@ def _write_csv(path: Path, rows: list[dict[str, Any]]) -> None:
         "n_satisfied_requests",
         "u_rms",
         "u_max",
+        "parse_error",
+        "raw_text",
         "run_json",
     ]
     with path.open("w", encoding="utf-8", newline="") as file_obj:
@@ -85,6 +99,7 @@ def main() -> int:
     args = parser.parse_args()
 
     results_root = Path(args.results_root)
+    results_root.mkdir(parents=True, exist_ok=True)
     rows = _rows(results_root)
     summary = {
         "results_root": str(results_root),
