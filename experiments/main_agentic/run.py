@@ -35,6 +35,13 @@ CONTAINER_USER_NAME = "korolev"
 CONTAINER_GROUP_NAME = "korolev"
 PROMPT_FILE_NAME = "PROMPT.md"
 PLACEHOLDER_PATTERN = re.compile(r"\{([A-Za-z_][A-Za-z0-9_]*)\}")
+SATNET_COMPACT_PATTERN = re.compile(
+    r"(VALID|INVALID):\s+score=([+-]?(?:\d+(?:\.\d*)?|\.\d+))h,\s+tracks=(\d+)"
+)
+SPOT5_COMPACT_PATTERN = re.compile(
+    r"(VALID|INVALID):\s+profit=(\d+),\s+weight=(\d+)"
+)
+STATUS_PATTERN = re.compile(r"^Status:\s+(VALID|INVALID)\s*$", re.MULTILINE)
 
 
 @dataclass(frozen=True)
@@ -733,7 +740,7 @@ def _verifier_command(benchmark: str, case_dir: Path, solution_path: Path) -> li
             str(case_dir),
             str(solution_path),
         ]
-    return [
+    cmd = [
         "uv",
         "run",
         "python",
@@ -741,6 +748,9 @@ def _verifier_command(benchmark: str, case_dir: Path, solution_path: Path) -> li
         str(case_dir),
         str(solution_path),
     ]
+    if benchmark in {"satnet", "spot5"}:
+        cmd.append("--verbose")
+    return cmd
 
 
 def _normalized_verifier_valid(parsed: dict[str, Any]) -> bool | None:
@@ -761,63 +771,119 @@ def _normalize_cli_verifier_payload(benchmark: str, parsed: dict[str, Any]) -> d
     return normalized
 
 
-def _run_satnet_verifier_api(case_dir: Path, solution_path: Path) -> VerifierOutcome:
-    try:
-        from benchmarks.satnet.verifier import verify_case
+def _float_line(label: str, text: str) -> float | None:
+    match = re.search(rf"^{re.escape(label)}:\s+([+-]?(?:\d+(?:\.\d*)?|\.\d+))\s*$", text, re.MULTILINE)
+    return float(match.group(1)) if match else None
 
-        result = verify_case(case_dir, solution_path)
-    except Exception as exc:
-        return VerifierOutcome(
-            status="error",
-            result={"status": "error", "error": f"Failed to run SatNet verifier: {exc}"},
-        )
 
-    payload = {
-        "valid": bool(result.is_valid),
-        "metrics": {
-            "score_hours": float(result.score),
-            "n_tracks": int(result.n_tracks),
-            "n_satisfied_requests": int(result.n_satisfied_requests),
-            "u_rms": float(result.u_rms),
-            "u_max": float(result.u_max),
-        },
-        "diagnostics": {
-            "per_mission_u_i": dict(result.per_mission_u_i),
-        },
-        "errors": list(result.errors),
-        "warnings": list(result.warnings),
-    }
-    return VerifierOutcome(
-        status="valid" if result.is_valid else "invalid",
-        result=payload,
+def _int_line(label: str, text: str) -> int | None:
+    match = re.search(rf"^{re.escape(label)}:\s+(\d+)\s*$", text, re.MULTILINE)
+    return int(match.group(1)) if match else None
+
+
+def _status_valid(text: str) -> bool | None:
+    match = STATUS_PATTERN.search(text)
+    if match:
+        return match.group(1) == "VALID"
+    return None
+
+
+def _cli_section_items(text: str, section: str) -> list[str]:
+    pattern = re.compile(
+        rf"^{re.escape(section)}:\s*$((?:\n\s+- .*)*)",
+        re.MULTILINE,
     )
+    match = pattern.search(text)
+    if not match:
+        return []
+    items: list[str] = []
+    for line in match.group(1).splitlines():
+        stripped = line.strip()
+        if stripped.startswith("- "):
+            items.append(stripped[2:])
+    return items
 
 
-def _run_spot5_verifier_api(case_dir: Path, solution_path: Path) -> VerifierOutcome:
-    try:
-        from benchmarks.spot5.verifier import verify_files
+def _parse_satnet_cli_payload(stdout: str, exit_code: int) -> dict[str, Any]:
+    valid = _status_valid(stdout)
+    score_hours = _float_line("Score (hours)", stdout)
+    n_tracks = _int_line("Tracks", stdout)
+    n_satisfied_requests = _int_line("Satisfied requests", stdout)
+    u_rms = _float_line("U_rms", stdout)
+    u_max = _float_line("U_max", stdout)
 
-        result = verify_files(case_dir, solution_path)
-    except Exception as exc:
-        return VerifierOutcome(
-            status="error",
-            result={"status": "error", "error": f"Failed to run SPOT-5 verifier: {exc}"},
-        )
+    if valid is None:
+        compact_match = SATNET_COMPACT_PATTERN.search(stdout)
+        if compact_match is not None:
+            valid = compact_match.group(1) == "VALID"
+            score_hours = float(compact_match.group(2))
+            n_tracks = int(compact_match.group(3))
 
+    if valid is None or score_hours is None or n_tracks is None:
+        return {
+            "status": "error",
+            "error": "SatNet verifier output did not match expected CLI schema.",
+            "exit_code": exit_code,
+        }
     payload = {
-        "valid": bool(result.is_valid),
+        "valid": valid,
         "metrics": {
-            "computed_profit": int(result.computed_profit),
-            "computed_weight": int(result.computed_weight),
-            "computed_selected": int(result.computed_selected),
+            "score_hours": score_hours,
+            "n_tracks": n_tracks,
+            "n_satisfied_requests": n_satisfied_requests,
+            "u_rms": u_rms,
+            "u_max": u_max,
         },
-        "errors": list(result.errors),
-        "warnings": list(result.warnings),
+        "diagnostics": {},
+        "errors": _cli_section_items(stdout, "Errors"),
+        "warnings": _cli_section_items(stdout, "Warnings"),
     }
-    return VerifierOutcome(
-        status="valid" if result.is_valid else "invalid",
-        result=payload,
-    )
+    return payload
+
+
+def _parse_spot5_cli_payload(stdout: str, exit_code: int) -> dict[str, Any]:
+    valid = _status_valid(stdout)
+    computed_profit = _int_line("Computed Profit", stdout)
+    computed_weight = _int_line("Computed Weight", stdout)
+    computed_selected = _int_line("Selected Photos", stdout)
+
+    if valid is None:
+        compact_match = SPOT5_COMPACT_PATTERN.search(stdout)
+        if compact_match is not None:
+            valid = compact_match.group(1) == "VALID"
+            computed_profit = int(compact_match.group(2))
+            computed_weight = int(compact_match.group(3))
+
+    if valid is None or computed_profit is None or computed_weight is None:
+        return {
+            "status": "error",
+            "error": "SPOT-5 verifier output did not match expected CLI schema.",
+            "exit_code": exit_code,
+        }
+    payload = {
+        "valid": valid,
+        "metrics": {
+            "computed_profit": computed_profit,
+            "computed_weight": computed_weight,
+            "computed_selected": computed_selected,
+        },
+        "diagnostics": {},
+        "errors": _cli_section_items(stdout, "Errors"),
+        "warnings": _cli_section_items(stdout, "Warnings"),
+    }
+    return payload
+
+
+def _parse_compact_cli_verifier_payload(
+    benchmark: str,
+    stdout: str,
+    exit_code: int,
+) -> dict[str, Any] | None:
+    if benchmark == "satnet":
+        return _parse_satnet_cli_payload(stdout, exit_code)
+    if benchmark == "spot5":
+        return _parse_spot5_cli_payload(stdout, exit_code)
+    return None
 
 
 def _run_external_verifier(
@@ -834,11 +900,6 @@ def _run_external_verifier(
         )
 
     solution_path = output_dir / "solution.json"
-    if benchmark == "satnet":
-        return _run_satnet_verifier_api(case_dir, solution_path)
-    if benchmark == "spot5":
-        return _run_spot5_verifier_api(case_dir, solution_path)
-
     cmd = _verifier_command(benchmark, case_dir, solution_path)
     exit_code, stdout, stderr, launched = _run_process(
         cmd,
@@ -849,6 +910,22 @@ def _run_external_verifier(
         return VerifierOutcome(
             status="error",
             result={"status": "error", "error": stderr.strip() or "Failed to launch verifier."},
+        )
+
+    compact_payload = _parse_compact_cli_verifier_payload(benchmark, stdout, exit_code)
+    if compact_payload is not None:
+        valid = compact_payload.get("valid")
+        if isinstance(valid, bool) and exit_code in (0, 1):
+            return VerifierOutcome(
+                status="valid" if valid else "invalid",
+                result=compact_payload,
+            )
+        return VerifierOutcome(
+            status="error",
+            result={
+                **compact_payload,
+                "stderr": stderr.strip(),
+            },
         )
 
     try:

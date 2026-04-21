@@ -167,6 +167,9 @@ Interactive workspaces live under:
 
 Every concrete run writes one `run.json`. Aggregation reads `run.json` artifacts, not raw session logs.
 
+External verification is performed through benchmark-owned verifier executable entrypoints. `main_agentic` does not import benchmark-internal verifier APIs.
+Most verifiers emit JSON; SatNet and SPOT5 currently emit text CLI reports, so the runner parses their verbose output into the same `run.json` verifier section used by aggregation.
+
 ## Aggregation
 
 Summarize completed batch artifacts:
