@@ -1,0 +1,5 @@
+results_root: results/main_solver
+
+solvers:
+  - spot5_reference_lookup
+  - satnet_literature_transition

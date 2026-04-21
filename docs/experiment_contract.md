@@ -50,6 +50,26 @@ experiments/
 
 `_fragments/` is a visible shared asset root for reusable prompt and config fragments. It is not a runnable experiment family.
 
+## Recommended Solver-Run Shape
+
+For solver-backed runs, the recommended structure is:
+
+```text
+experiments/
+└── <family>/
+    ├── run.py
+    ├── aggregate.py
+    ├── solvers/
+    └── config.yaml
+```
+
+Solver-backed experiments should treat solver directories as method
+implementations behind the `setup.sh` / `solve.sh` contract. The experiment
+owns case selection, solver selection, verification, result layout, and
+aggregation. Since traditional solvers are benchmark-specific, solver-backed
+experiment profiles may be solver-centered instead of using separate benchmark
+and method axes.
+
 ## Family Config
 
 Experiment families may keep one or more runner-owned YAML config files under `configs/`.
@@ -102,6 +122,5 @@ This document does not yet standardize:
 
 - cross-experiment shared libraries
 - batch orchestration interfaces
-- solver-backed experiment configs
 - stable cross-benchmark verifier result schemas
 - non-Docker execution backends
