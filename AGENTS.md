@@ -39,7 +39,7 @@ Directory roles:
 
 1. Keep the benchmark core algorithm-agnostic.
 2. Keep every benchmark standalone.
-3. Preserve one-way contracts: methods may depend on benchmarks, never the reverse.
+3. Keep top-level modules standalone; prefer executable and file contracts across module boundaries.
 4. Preserve reproducibility for both benchmarks and method layers.
 5. Keep public repository content understandable to external readers.
 
@@ -70,7 +70,7 @@ Use these ownership boundaries:
 - experiments decide what benchmark-facing run is performed
 - solvers own reusable traditional method implementations
 - runtimes own reusable execution environments for agentic systems
-- benchmarks must not import from any of them
+- benchmarks, experiments, solvers, and runtimes should not import internal code from one another
 
 Keep the `experiments/` and `runtimes/` boundary explicit:
 
@@ -96,7 +96,7 @@ Detailed shapes, entrypoints, and CLI contracts for experiments and methods shou
 ## What Not To Do
 
 1. Do not create runtime dependencies between benchmarks.
-2. Do not add imports from `experiments/`, `solvers/`, or `runtimes/` into `benchmarks/`; method layers may consume benchmark APIs and verifiers.
+2. Do not import internal functions, classes, or modules across `benchmarks/`, `experiments/`, `solvers/`, and `runtimes/`; consume benchmark verifiers as executables.
 3. Do not casually edit committed datasets by hand when a generator should own the change.
 4. Do not leak benchmark or harness internals into space-agent prompts.
 5. Do not install packages system-wide for repository work.

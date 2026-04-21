@@ -1,0 +1,28 @@
+id: spot5_reference_lookup
+benchmark: spot5
+solver: reference_lookup
+solver_path: solvers/spot5/reference_lookup
+evidence_type: fixture_backed_lookup
+runnable: true
+setup_script: setup.sh
+solve_script: solve.sh
+solution_filename: solution.spot_sol.txt
+cases:
+  - id: test/8
+    case_dir: benchmarks/spot5/dataset/cases/test/8
+  - id: test/28
+    case_dir: benchmarks/spot5/dataset/cases/test/28
+  - id: test/1021
+    case_dir: benchmarks/spot5/dataset/cases/test/1021
+  - id: test/1403
+    case_dir: benchmarks/spot5/dataset/cases/test/1403
+  - id: test/1506
+    case_dir: benchmarks/spot5/dataset/cases/test/1506
+verifier:
+  command:
+    - uv
+    - run
+    - python
+    - benchmarks/spot5/verifier.py
+    - "{case_dir}"
+    - "{solution_path}"
