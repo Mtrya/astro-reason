@@ -446,7 +446,6 @@ def main(argv: list[str] | None = None) -> int:
     summaries_root = (
         plan.config.results.root / plan.config.config_path.stem / plan.config.results.aggregate_dir
     )
-    benchmark_rows: list[dict[str, Any]] = []
     benchmark_harness_rows: list[dict[str, Any]] = []
     benchmark_json_summaries: dict[str, Any] = {}
 

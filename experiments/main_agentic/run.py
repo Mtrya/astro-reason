@@ -121,6 +121,11 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         type=int,
         help="Override the configured timeout in seconds.",
     )
+    parser.add_argument(
+        "--max-concurrency",
+        type=int,
+        help="Override matrix.yaml batch.max_concurrency for this batch execution.",
+    )
     return parser.parse_args(argv)
 
 
@@ -1371,9 +1376,9 @@ def main(argv: list[str] | None = None) -> int:
     case_filters = tuple(args.case)
 
     if args.interactive:
-        if args.rerun_status or args.no_skip_completed:
+        if args.rerun_status or args.no_skip_completed or args.max_concurrency is not None:
             raise SystemExit(
-                "--rerun-status and --no-skip-completed are batch-only controls and cannot be used with --interactive."
+                "--rerun-status, --no-skip-completed, and --max-concurrency are batch-only controls and cannot be used with --interactive."
             )
         plan = family_plan.build_interactive_plan(
             config_path=config_path,
@@ -1394,6 +1399,7 @@ def main(argv: list[str] | None = None) -> int:
         harness_filters=harness_filters,
         split_override=args.split,
         case_filters=case_filters,
+        max_concurrency_override=args.max_concurrency,
         require_real_configs=False,
     )
     preview = family_plan.build_batch_preview(

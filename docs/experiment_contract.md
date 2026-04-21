@@ -58,11 +58,11 @@ In the first slice, those config files commonly describe:
 
 - the benchmark to run
 - the runtime to use
-- assembly rules that copy prompt/config/case assets into logical target roots
+- assembly rules that copy prompt/config/case assets into prepared container paths
 - collection rules that preserve runtime-owned artifacts after execution
 - optional compute and memory limits for the containerized run
 - timeout defaults
-- headless shell commands and interactive command definitions
+- headless shell commands
 
 The exact YAML shape is still runner-owned and is not yet standardized as a public repository-wide contract.
 

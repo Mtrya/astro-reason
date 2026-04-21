@@ -4,7 +4,7 @@
 from __future__ import annotations
 
 import argparse
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from pathlib import Path, PurePosixPath
 from typing import Any
 
@@ -238,6 +238,11 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         action="append",
         default=[],
         help="Limit planning to an exact case id. May be repeated.",
+    )
+    parser.add_argument(
+        "--max-concurrency",
+        type=int,
+        help="Override matrix.yaml batch.max_concurrency for this planning pass.",
     )
     parser.add_argument(
         "--rerun-status",
@@ -900,9 +905,17 @@ def build_batch_plan(
     harness_filters: tuple[str, ...] = (),
     split_override: str | None = None,
     case_filters: tuple[str, ...] = (),
+    max_concurrency_override: int | None = None,
     require_real_configs: bool = False,
 ) -> BatchPlan:
     config = load_batch_config(config_path.resolve())
+    if max_concurrency_override is not None:
+        if max_concurrency_override <= 0:
+            raise SystemExit("--max-concurrency must be a positive integer.")
+        config = replace(
+            config,
+            batch=replace(config.batch, max_concurrency=max_concurrency_override),
+        )
     effective_split = split_override or config.split
     selected_benchmarks = _select_names(
         config.benchmarks,
@@ -1182,9 +1195,9 @@ def main(argv: list[str] | None = None) -> int:
     case_filters = tuple(args.case)
 
     if args.interactive:
-        if args.rerun_status or args.no_skip_completed:
+        if args.rerun_status or args.no_skip_completed or args.max_concurrency is not None:
             raise SystemExit(
-                "--rerun-status and --no-skip-completed are batch-only controls and cannot be used with --interactive."
+                "--rerun-status, --no-skip-completed, and --max-concurrency are batch-only controls and cannot be used with --interactive."
             )
         plan = build_interactive_plan(
             config_path=config_path,
@@ -1203,6 +1216,7 @@ def main(argv: list[str] | None = None) -> int:
         harness_filters=harness_filters,
         split_override=args.split,
         case_filters=case_filters,
+        max_concurrency_override=args.max_concurrency,
         require_real_configs=False,
     )
     preview = build_batch_preview(
