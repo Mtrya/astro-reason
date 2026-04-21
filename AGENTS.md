@@ -96,7 +96,7 @@ Detailed shapes, entrypoints, and CLI contracts for experiments and methods shou
 ## What Not To Do
 
 1. Do not create runtime dependencies between benchmarks.
-2. Do not add imports from `benchmarks/` into `experiments/`, `solvers/`, or `runtimes/` in the reverse direction.
+2. Do not add imports from `experiments/`, `solvers/`, or `runtimes/` into `benchmarks/`; method layers may consume benchmark APIs and verifiers.
 3. Do not casually edit committed datasets by hand when a generator should own the change.
 4. Do not leak benchmark or harness internals into space-agent prompts.
 5. Do not install packages system-wide for repository work.
