@@ -65,7 +65,7 @@ def _read_run_json(path: Path) -> dict[str, Any] | None:
         return None
     try:
         data = json.loads(path.read_text(encoding="utf-8"))
-    except Exception:
+    except json.JSONDecodeError:
         return None
     return data if isinstance(data, dict) else None
 
