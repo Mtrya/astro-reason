@@ -788,6 +788,22 @@ def _status_valid(text: str) -> bool | None:
     return None
 
 
+def _cli_section_items(text: str, section: str) -> list[str]:
+    pattern = re.compile(
+        rf"^{re.escape(section)}:\s*$((?:\n\s+- .*)*)",
+        re.MULTILINE,
+    )
+    match = pattern.search(text)
+    if not match:
+        return []
+    items: list[str] = []
+    for line in match.group(1).splitlines():
+        stripped = line.strip()
+        if stripped.startswith("- "):
+            items.append(stripped[2:])
+    return items
+
+
 def _parse_satnet_cli_payload(stdout: str, exit_code: int) -> dict[str, Any]:
     valid = _status_valid(stdout)
     score_hours = _float_line("Score (hours)", stdout)
@@ -819,8 +835,8 @@ def _parse_satnet_cli_payload(stdout: str, exit_code: int) -> dict[str, Any]:
             "u_max": u_max,
         },
         "diagnostics": {},
-        "errors": [],
-        "warnings": [],
+        "errors": _cli_section_items(stdout, "Errors"),
+        "warnings": _cli_section_items(stdout, "Warnings"),
     }
     return payload
 
@@ -851,8 +867,9 @@ def _parse_spot5_cli_payload(stdout: str, exit_code: int) -> dict[str, Any]:
             "computed_weight": computed_weight,
             "computed_selected": computed_selected,
         },
-        "errors": [],
-        "warnings": [],
+        "diagnostics": {},
+        "errors": _cli_section_items(stdout, "Errors"),
+        "warnings": _cli_section_items(stdout, "Warnings"),
     }
     return payload
 
