@@ -165,6 +165,63 @@ def _parse_spot5_verifier(stdout: str, returncode: int) -> dict[str, Any]:
     }
 
 
+def _parse_json_verifier(stdout: str, returncode: int) -> dict[str, Any]:
+    stripped = stdout.strip()
+    if not stripped:
+        return {
+            "status": "error",
+            "valid": None,
+            "returncode": returncode,
+            "parse_error": "JSON verifier produced no stdout",
+        }
+    try:
+        payload = json.loads(stripped)
+    except json.JSONDecodeError:
+        start = stripped.find("{")
+        end = stripped.rfind("}")
+        if start < 0 or end <= start:
+            return {
+                "status": "error",
+                "valid": None,
+                "returncode": returncode,
+                "parse_error": "JSON verifier stdout did not contain a JSON object",
+            }
+        try:
+            payload = json.loads(stripped[start : end + 1])
+        except json.JSONDecodeError as exc:
+            return {
+                "status": "error",
+                "valid": None,
+                "returncode": returncode,
+                "parse_error": f"JSON verifier stdout could not be parsed: {exc}",
+            }
+    if not isinstance(payload, dict):
+        return {
+            "status": "error",
+            "valid": None,
+            "returncode": returncode,
+            "parse_error": "JSON verifier stdout must be an object",
+        }
+    valid = payload.get("valid")
+    if not isinstance(valid, bool):
+        return {
+            "status": "error",
+            "valid": None,
+            "returncode": returncode,
+            "parse_error": "JSON verifier report must contain boolean key 'valid'",
+            "report": payload,
+        }
+    return {
+        "status": "valid" if valid else "invalid",
+        "valid": valid,
+        "returncode": returncode,
+        "metrics": payload.get("metrics", {}),
+        "violations": payload.get("violations", []),
+        "diagnostics": payload.get("diagnostics", {}),
+        "report": payload,
+    }
+
+
 def _verify_solution(job: Job, solution_path: Path, *, log_dir: Path) -> dict[str, Any]:
     case_dir = REPO_ROOT / job.case["case_dir"]
     verifier_config = job.solver.get("verifier")
@@ -187,6 +244,8 @@ def _verify_solution(job: Job, solution_path: Path, *, log_dir: Path) -> dict[st
     stdout = (log_dir / "verifier.stdout.log").read_text(encoding="utf-8")
     if job.benchmark_id == "spot5":
         parsed = _parse_spot5_verifier(stdout, run["returncode"])
+    elif job.benchmark_id == "aeossp_standard":
+        parsed = _parse_json_verifier(stdout, run["returncode"])
     else:
         parsed = {
             "status": "error",
@@ -262,15 +321,15 @@ def _run_runnable_job(
         stderr_path=log_dir / "solve.stderr.log",
     )
     payload["solve"] = solve
+    status_path = solution_dir / "status.json"
+    if status_path.exists():
+        payload["solver_status"] = _read_solver_status(status_path)
 
     if solve["returncode"] != 0:
         payload["status"] = "solver_error"
-        status_path = solution_dir / "status.json"
-        if status_path.exists():
-            solver_status = _read_solver_status(status_path)
-            payload["solver_status"] = solver_status
-            if solver_status.get("status") == "unsupported_case":
-                payload["status"] = "unsupported_case"
+        solver_status = payload.get("solver_status")
+        if isinstance(solver_status, dict) and solver_status.get("status") == "unsupported_case":
+            payload["status"] = "unsupported_case"
         _write_json(result_dir / "run.json", payload)
         return payload
 

@@ -9,9 +9,10 @@ import numpy as np
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 SOLVER_DIR = REPO_ROOT / "solvers" / "aeossp_standard" / "mwis_conflict_graph" / "src"
+sys.path.insert(0, str(REPO_ROOT))
 sys.path.insert(0, str(SOLVER_DIR))
 
-from candidates import CandidateConfig, generate_candidates, start_offsets_for_task  # noqa: E402
+from candidates import CandidateConfig, CandidateSummary, generate_candidates, start_offsets_for_task  # noqa: E402
 from case_io import (  # noqa: E402
     AeosspCase,
     AttitudeModel,
@@ -35,8 +36,18 @@ from mwis import (  # noqa: E402
 )
 from solution_io import candidates_to_actions  # noqa: E402
 from transition import TransitionVectorCache, transition_gap_conflict  # noqa: E402
+from validation import (  # noqa: E402
+    RepairConfig,
+    ValidationIssue,
+    ValidationReport,
+    battery_issues,
+    choose_repair_removal,
+    repair_candidates,
+    validate_candidates,
+)
 
 from candidates import Candidate  # noqa: E402
+from experiments.main_solver.run import _parse_json_verifier  # noqa: E402
 
 
 def _mission() -> Mission:
@@ -220,6 +231,29 @@ def test_generate_candidates_filters_sensor_and_keeps_stable_ids(monkeypatch) ->
     assert summary.skipped_sensor_mismatch == 6
 
 
+def test_candidate_summary_debug_dict_reports_zero_candidate_tasks() -> None:
+    case = AeosspCase(
+        case_dir=Path("."),
+        mission=_mission(),
+        satellites={"sat_a": _satellite("sat_a", "visible")},
+        tasks={
+            "task_a": _task("task_a", "visible"),
+            "task_b": _task("task_b", "infrared"),
+        },
+    )
+    summary = CandidateSummary(
+        candidate_count=2,
+        per_satellite_candidate_counts={"sat_a": 2},
+        per_task_candidate_counts={"task_a": 2, "task_b": 0},
+    )
+
+    debug_summary = summary.as_debug_dict(case)
+
+    assert debug_summary["zero_candidate_task_count"] == 1
+    assert debug_summary["zero_candidate_task_counts_by_sensor"] == {"infrared": 1}
+    assert debug_summary["zero_candidate_task_ids"] == ["task_b"]
+
+
 def test_conflict_graph_adds_duplicate_task_edges_across_satellites(monkeypatch) -> None:
     candidates = [
         _candidate("sat_a|task_a|10", satellite_id="sat_a", task_id="task_a"),
@@ -311,7 +345,12 @@ def test_exact_tiny_component_prefers_higher_total_weight() -> None:
         "c": {"a"},
     }
 
-    assert solve_exact_component(["a", "b", "c"], candidate_by_id, adjacency) == {"b", "c"}
+    assert solve_exact_component(
+        ["a", "b", "c"],
+        candidate_by_id,
+        adjacency,
+        policy="weight_end_degree",
+    ) == {"b", "c"}
 
 
 def test_greedy_selection_is_deterministic_when_exact_disabled() -> None:
@@ -344,6 +383,18 @@ def test_greedy_selection_is_deterministic_when_exact_disabled() -> None:
     assert stats.independent_set_valid
 
 
+def test_mwis_config_allows_non_default_selection_policy() -> None:
+    config = MwisConfig.from_mapping(
+        {
+            "max_exact_component_size": 0,
+            "selection_policy": "weight_degree_end",
+        }
+    )
+
+    assert config.max_exact_component_size == 0
+    assert config.selection_policy == "weight_degree_end"
+
+
 def test_independent_set_validation_rejects_adjacent_selected_candidates() -> None:
     adjacency = {
         "a": {"b"},
@@ -360,6 +411,182 @@ def test_candidates_decode_to_sorted_observation_actions() -> None:
         _candidate("sat_b|task_b|30", satellite_id="sat_b", task_id="task_b", start_offset_s=30, end_offset_s=40),
         _candidate("sat_a|task_a|10", satellite_id="sat_a", task_id="task_a", start_offset_s=10, end_offset_s=20),
     ]
+
+
+def test_local_validation_rejects_duplicate_tasks(monkeypatch) -> None:
+    candidates = [
+        _candidate("sat_a|task_a|10", satellite_id="sat_a", task_id="task_a"),
+        _candidate("sat_b|task_a|15", satellite_id="sat_b", task_id="task_a", start_offset_s=15, end_offset_s=25),
+    ]
+
+    class DummyPropagation:
+        def __init__(self, *args, **kwargs):
+            pass
+
+    monkeypatch.setattr("validation.PropagationContext", DummyPropagation)
+    monkeypatch.setattr("validation.schedule_issues", lambda *args, **kwargs: [])
+    monkeypatch.setattr("validation.battery_issues", lambda *args, **kwargs: ([], {}))
+
+    report = validate_candidates(_case_for_candidates(candidates), candidates)
+
+    assert not report.valid
+    assert [issue.reason for issue in report.issues] == ["duplicate_task"]
+
+
+def test_local_validation_rejects_overlap(monkeypatch) -> None:
+    candidates = [
+        _candidate("sat_a|task_a|10", task_id="task_a", start_offset_s=10, end_offset_s=25),
+        _candidate("sat_a|task_b|20", task_id="task_b", start_offset_s=20, end_offset_s=30),
+    ]
+
+    class DummyPropagation:
+        def __init__(self, *args, **kwargs):
+            pass
+
+    monkeypatch.setattr("validation.PropagationContext", DummyPropagation)
+    monkeypatch.setattr("validation._initial_slew_required_s", lambda *args, **kwargs: 0.0)
+    monkeypatch.setattr("validation.battery_issues", lambda *args, **kwargs: ([], {}))
+
+    report = validate_candidates(_case_for_candidates(candidates), candidates)
+
+    assert not report.valid
+    assert "overlap" in {issue.reason for issue in report.issues}
+
+
+def test_local_validation_rejects_transition_gap(monkeypatch) -> None:
+    candidates = [
+        _candidate("sat_a|task_a|10", task_id="task_a", start_offset_s=10, end_offset_s=20),
+        _candidate("sat_a|task_b|21", task_id="task_b", start_offset_s=21, end_offset_s=30),
+    ]
+
+    class DummyPropagation:
+        def __init__(self, *args, **kwargs):
+            pass
+
+    class FakeTransition:
+        feasible = False
+        available_gap_s = 1.0
+        required_gap_s = 9.0
+
+    monkeypatch.setattr("validation.PropagationContext", DummyPropagation)
+    monkeypatch.setattr("validation._initial_slew_required_s", lambda *args, **kwargs: 0.0)
+    monkeypatch.setattr("validation.transition_result", lambda *args, **kwargs: FakeTransition())
+    monkeypatch.setattr("validation.battery_issues", lambda *args, **kwargs: ([], {}))
+
+    report = validate_candidates(_case_for_candidates(candidates), candidates)
+
+    assert not report.valid
+    assert "transition_gap" in {issue.reason for issue in report.issues}
+
+
+def test_local_battery_approximation_reports_depletion(monkeypatch) -> None:
+    candidate = _candidate("sat_a|task_a|10", task_id="task_a", start_offset_s=10, end_offset_s=20)
+    case = _case_for_candidates([candidate])
+    satellite = case.satellites["sat_a"]
+    case.satellites["sat_a"] = Satellite(
+        satellite_id=satellite.satellite_id,
+        norad_catalog_id=satellite.norad_catalog_id,
+        tle_line1=satellite.tle_line1,
+        tle_line2=satellite.tle_line2,
+        sensor_type=satellite.sensor_type,
+        attitude_model=satellite.attitude_model,
+        resource_model=ResourceModel(
+            battery_capacity_wh=1.0,
+            initial_battery_wh=0.01,
+            idle_power_w=100.0,
+            imaging_power_w=0.0,
+            slew_power_w=0.0,
+            sunlit_charge_power_w=0.0,
+        ),
+    )
+
+    monkeypatch.setattr("validation._initial_slew_required_s", lambda *args, **kwargs: 0.0)
+    monkeypatch.setattr("validation.is_sunlit", lambda *args, **kwargs: False)
+
+    issues, traces = battery_issues(case, [candidate], propagation=object())
+
+    assert "battery_depletion" in {issue.reason for issue in issues}
+    assert traces["sat_a"].min_battery_wh < 0.0
+
+
+def test_repair_selection_removes_lowest_priority_implicated_candidate() -> None:
+    low = _candidate("low", task_id="task_low", weight=1.0)
+    high = _candidate("high", task_id="task_high", weight=5.0)
+    report = ValidationReport(
+        valid=False,
+        issue_count=1,
+        issues=[
+            ValidationIssue(
+                reason="transition_gap",
+                message="bad transition",
+                candidate_ids=("high", "low"),
+            )
+        ],
+    )
+
+    removal, reason = choose_repair_removal(report, [high, low])
+
+    assert removal == low
+    assert reason == "transition_gap"
+
+
+def test_bounded_repair_terminates(monkeypatch) -> None:
+    candidates = [
+        _candidate("a", task_id="task_a", weight=1.0),
+        _candidate("b", task_id="task_b", weight=1.0),
+    ]
+    invalid_report = ValidationReport(
+        valid=False,
+        issue_count=1,
+        issues=[
+            ValidationIssue(
+                reason="transition_gap",
+                message="bad transition",
+                candidate_ids=("a", "b"),
+            )
+        ],
+    )
+
+    monkeypatch.setattr("validation.validate_candidates", lambda *args, **kwargs: invalid_report)
+
+    result = repair_candidates(
+        _case_for_candidates(candidates),
+        candidates,
+        config=RepairConfig(max_repair_iterations=1),
+    )
+
+    assert len(result.reports) == 2
+    assert len(result.removals) == 1
+    assert result.terminated_reason == "max_iterations"
+
+
+def test_parse_json_verifier_records_aeossp_report() -> None:
+    payload = {
+        "valid": True,
+        "metrics": {"CR": 0.5},
+        "violations": [],
+        "diagnostics": {"note": "ok"},
+    }
+
+    parsed = _parse_json_verifier(json_dumps(payload), 0)
+
+    assert parsed["status"] == "valid"
+    assert parsed["valid"] is True
+    assert parsed["metrics"] == {"CR": 0.5}
+    assert parsed["diagnostics"] == {"note": "ok"}
+
+
+def test_parse_json_verifier_rejects_missing_valid() -> None:
+    parsed = _parse_json_verifier("{}", 1)
+
+    assert parsed["status"] == "error"
+    assert parsed["valid"] is None
+
+
+def json_dumps(payload: dict) -> str:
+    import json
+
+    return json.dumps(payload)
 
     assert candidates_to_actions(candidates) == [
         {

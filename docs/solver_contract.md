@@ -17,10 +17,16 @@ Examples may eventually include:
 - reproducible classical pipelines
 - solver-local evaluation helpers
 
-Solvers consume benchmarks. Benchmarks must not depend on solvers.
+Solvers consume benchmark case files and produce benchmark-shaped solution
+files. Benchmarks must not depend on solvers.
 
-Solvers should treat benchmark verifiers as executable contracts. They should
-not import benchmark-internal functions, classes, or modules.
+Solvers must be standalone method implementations. They should not import
+benchmark-internal functions, classes, or modules, and they should not call
+benchmark verifiers or other benchmark executables. A solver that needs
+preflight checks should implement those checks in solver-local code.
+
+Experiments own official solver-vs-benchmark orchestration. They may run solver
+entrypoints and benchmark verifier entrypoints through CLI/file contracts.
 
 ## Directory Shape
 
@@ -52,6 +58,12 @@ Runnable solvers expose two shell entrypoints:
 
 `setup.sh` prepares solver-local dependencies. It may be a no-op.
 
+The default expectation is that repository Python solvers run under the project
+environment, such as the project `uv` environment. Solvers may still use their
+own environments, package managers, compiled binaries, or other languages such
+as Rust, Julia, C++, or MiniZinc. Those choices should stay solver-local and be
+hidden behind `setup.sh` and `solve.sh`.
+
 `solve.sh` receives:
 
 - `case_dir`: required benchmark case directory
@@ -62,8 +74,8 @@ Experiments should usually pass both optional arguments explicitly. The solver
 should write its primary solution artifact into `solution_dir` and exit nonzero
 for unsupported cases or execution failures.
 
-Solver code may be Python, shell, C++, Julia, MiniZinc, or anything else. The
-shell entrypoints are the boundary.
+Solver code may be Python, shell, C++, Julia, MiniZinc, Rust, or anything else.
+The shell entrypoints are the boundary.
 
 ## Evidence Types
 
@@ -83,7 +95,7 @@ Solvers may own:
 
 - reusable solver implementations
 - solver-local dependencies and environment files
-- scripts for running solver outputs against benchmark verifiers
+- solver-local validation and debug helpers
 - solver-owned assets needed by the method, with provenance documented
 
 Solvers must not become a shared dependency layer for:
@@ -92,11 +104,19 @@ Solvers must not become a shared dependency layer for:
 - `experiments/`
 - `runtimes/`
 
+Solvers must also not depend on those layers at runtime. Reading documented case
+files is allowed; importing or executing benchmark, experiment, runtime, or
+other solver internals is not.
+
 ## Standalone Principle
 
-Solver code should stay standalone unless a concrete need proves otherwise.
+Solver code should stay standalone. If similar behavior is needed in another
+solver, repeat the small amount of code or define a public file format instead
+of importing another solver's internals.
 
-If shared code is needed later, it should remain layer-local rather than introducing a repository-wide shared abstraction that weakens the benchmark and method boundaries.
+If shared code is needed later, it should remain layer-local rather than
+introducing a repository-wide shared abstraction that weakens the benchmark and
+method boundaries.
 
 ## What This Contract Does Not Promise Yet
 

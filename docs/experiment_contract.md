@@ -17,7 +17,12 @@ A runnable experiment family defines:
 
 In the first vertical slice, that substrate is a runtime. Future experiments may also target a reusable solver instead of a runtime.
 
-Experiments consume benchmarks and method layers such as runtimes or solvers. Benchmarks, runtimes, and solvers must not depend on experiments.
+Experiments consume benchmarks and method layers such as runtimes or solvers.
+Benchmarks, runtimes, and solvers must not depend on experiments.
+
+Experiments are the only layer that should orchestrate across `benchmarks/`,
+`solvers/`, and `runtimes/`. They should use CLI/file contracts, not source
+imports, when invoking those layers.
 
 ## Required Entry Point
 
@@ -65,7 +70,7 @@ experiments/
 
 Solver-backed experiments should treat solver directories as method
 implementations behind the `setup.sh` / `solve.sh` contract. The experiment
-owns case selection, solver selection, verification, result layout, and
+owns case selection, solver selection, verifier execution, result layout, and
 aggregation. Since traditional solvers are benchmark-specific, solver-backed
 experiment profiles may be solver-centered instead of using separate benchmark
 and method axes.
@@ -113,7 +118,7 @@ For the first slice:
 - direct-path execution like `python experiments/.../run.py` is the natural style
 - module-style execution may also be allowed
 - headless and interactive modes are both in scope
-- official verification uses the benchmark-owned verifier outside the container
+- official verification is experiment-owned and may invoke the benchmark-owned verifier through its public CLI
 - the exact family config selection logic is runner-owned for now
 
 ## What This Contract Does Not Promise Yet

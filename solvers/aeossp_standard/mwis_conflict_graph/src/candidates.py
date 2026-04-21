@@ -70,6 +70,29 @@ class CandidateSummary:
             "skipped_cap": self.skipped_cap,
         }
 
+    def as_debug_dict(self, case: AeosspCase) -> dict[str, Any]:
+        zero_candidate_task_ids = sorted(
+            task.task_id
+            for task in case.tasks.values()
+            if self.per_task_candidate_counts.get(task.task_id, 0) == 0
+        )
+        zero_candidate_task_counts_by_sensor: dict[str, int] = {}
+        for task_id in zero_candidate_task_ids:
+            sensor_type = case.tasks[task_id].required_sensor_type
+            zero_candidate_task_counts_by_sensor[sensor_type] = (
+                zero_candidate_task_counts_by_sensor.get(sensor_type, 0) + 1
+            )
+        return {
+            **self.as_dict(),
+            "task_count": len(case.tasks),
+            "satellite_count": len(case.satellites),
+            "zero_candidate_task_count": len(zero_candidate_task_ids),
+            "zero_candidate_task_counts_by_sensor": dict(
+                sorted(zero_candidate_task_counts_by_sensor.items())
+            ),
+            "zero_candidate_task_ids": zero_candidate_task_ids,
+        }
+
 
 def _optional_positive_int(value: Any) -> int | None:
     if value is None:
