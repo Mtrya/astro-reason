@@ -1,0 +1,42 @@
+evidence_type: transitional_literature
+benchmark: satnet
+solver: literature_transition
+runnable: false
+provenance:
+  source_repository: https://github.com/edwinytgoh/satnet
+  fixture_directory: tests/fixtures/satnet_mock_solutions
+  note: >
+    Metrics were generated from the reference SatNet package and tracked
+    verifier fixtures. This is a transitional baseline, not a reproduced solver
+    run from this repository.
+cases:
+  - case_id: W10_2018
+    score: 780.0316666666666
+    n_tracks: 207
+    n_satisfied_requests: 198
+    u_rms: 0.3147500923574413
+    u_max: 0.7335224586288416
+  - case_id: W20_2018
+    score: 892.7113888888889
+    n_tracks: 223
+    n_satisfied_requests: 217
+    u_rms: 0.35252814823750594
+    u_max: 0.7933110119047619
+  - case_id: W30_2018
+    score: 881.8925
+    n_tracks: 220
+    n_satisfied_requests: 208
+    u_rms: 0.3766248814877487
+    u_max: 0.7975272817460317
+  - case_id: W40_2018
+    score: 832.565
+    n_tracks: 204
+    n_satisfied_requests: 192
+    u_rms: 0.5029549891064765
+    u_max: 1.0
+  - case_id: W50_2018
+    score: 751.9711111111111
+    n_tracks: 203
+    n_satisfied_requests: 191
+    u_rms: 0.4236655683040435
+    u_max: 0.9622641509433962

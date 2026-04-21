@@ -1,0 +1,21 @@
+{
+  "version": 1,
+  "solvers": [
+    {
+      "benchmark": "spot5",
+      "solver": "reference_lookup",
+      "path": "solvers/spot5/reference_lookup",
+      "evidence_type": "fixture_backed_lookup",
+      "runnable": true,
+      "ci_smoke": true
+    },
+    {
+      "benchmark": "satnet",
+      "solver": "literature_transition",
+      "path": "solvers/satnet/literature_transition",
+      "evidence_type": "transitional_literature",
+      "runnable": false,
+      "ci_smoke": false
+    }
+  ]
+}

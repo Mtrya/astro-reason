@@ -1,0 +1,158 @@
+{
+  "hash_algorithm": "sha256",
+  "solutions": {
+    "00f60399f150f3c8a59865dda00688e10fba70b8039aeed1fd6550b10d26a87a": {
+      "case_id": "54",
+      "known_paths": [
+        "single_orbit/54"
+      ],
+      "solution_file": "54.spot_sol.txt"
+    },
+    "0ba42183eab721027c041babefa19abf49685e926598f801c03c701ebd3f9499": {
+      "case_id": "5",
+      "known_paths": [
+        "single_orbit/5"
+      ],
+      "solution_file": "5.spot_sol.txt"
+    },
+    "10f6ae77f6ac2d83af5f585b89f4ab2d80d3de6e43c1f3e18ebcca71c02b7d8a": {
+      "case_id": "8",
+      "known_paths": [
+        "single_orbit/8",
+        "test/8"
+      ],
+      "solution_file": "8.spot_sol.txt"
+    },
+    "1151b97991da1cc6da00d1aaeae219f1d86eeced19d92a6ced571a4286b7d940": {
+      "case_id": "1401",
+      "known_paths": [
+        "multi_orbit/1401"
+      ],
+      "solution_file": "1401.spot_sol.txt"
+    },
+    "25ceaf491a30bdc61d504ac689c9b530c6c673de03da18112809b46896e710ea": {
+      "case_id": "1504",
+      "known_paths": [
+        "multi_orbit/1504"
+      ],
+      "solution_file": "1504.spot_sol.txt"
+    },
+    "3f2be45b557c15bd4b670ad5d7985695f14ddce56d7ba6d707b374dbc5c6f29c": {
+      "case_id": "507",
+      "known_paths": [
+        "single_orbit/507"
+      ],
+      "solution_file": "507.spot_sol.txt"
+    },
+    "42ecd229ed03bc726eaf877fc57b749fb58c8355544db243c20f3acf6d47ee97": {
+      "case_id": "1405",
+      "known_paths": [
+        "multi_orbit/1405"
+      ],
+      "solution_file": "1405.spot_sol.txt"
+    },
+    "49ba1ae5f0af3b95e371dd5e5eeebee3ec8f64723e5d38009bd2dba70d8edd9a": {
+      "case_id": "505",
+      "known_paths": [
+        "single_orbit/505"
+      ],
+      "solution_file": "505.spot_sol.txt"
+    },
+    "5ecd05e7d8c35936b5dac771eb5be46cf61e6dcb69a1c7a0baf8c8d62f40b5ae": {
+      "case_id": "11",
+      "known_paths": [
+        "single_orbit/11"
+      ],
+      "solution_file": "11.spot_sol.txt"
+    },
+    "67a8609a1b2ca25ee9349c99fbaeb74b4e75ed263b7e7a4b1ac2a8fc3774b7bf": {
+      "case_id": "1506",
+      "known_paths": [
+        "multi_orbit/1506",
+        "test/1506"
+      ],
+      "solution_file": "1506.spot_sol.txt"
+    },
+    "747f13cfcda3a217b7255162ef17f0680ccf0eb871fd1eda8c84178d49d03f77": {
+      "case_id": "42",
+      "known_paths": [
+        "single_orbit/42"
+      ],
+      "solution_file": "42.spot_sol.txt"
+    },
+    "7a2a78e9d83664bec7f9a26affe7fbd382312a7e012c645c89010ef0d36c4e15": {
+      "case_id": "28",
+      "known_paths": [
+        "single_orbit/28",
+        "test/28"
+      ],
+      "solution_file": "28.spot_sol.txt"
+    },
+    "7d364cd262016ad449327cf4c0517e12b00e2b5dc6a0b560ba938c866bba5eaf": {
+      "case_id": "408",
+      "known_paths": [
+        "single_orbit/408"
+      ],
+      "solution_file": "408.spot_sol.txt"
+    },
+    "8f5274a9736495b0b5607024d42115bb2b4fea36c6d11d68bf97cdbf64516497": {
+      "case_id": "1021",
+      "known_paths": [
+        "multi_orbit/1021",
+        "test/1021"
+      ],
+      "solution_file": "1021.spot_sol.txt"
+    },
+    "9aa0af75ee93f113e86bea82e45ce08508478e355af8f417784bbeaaecd84c35": {
+      "case_id": "1502",
+      "known_paths": [
+        "multi_orbit/1502"
+      ],
+      "solution_file": "1502.spot_sol.txt"
+    },
+    "a0cb6ffc2d864cf4ac1714a8fe4916f1ad2e5a154ef7284c860949f600172fd0": {
+      "case_id": "503",
+      "known_paths": [
+        "single_orbit/503"
+      ],
+      "solution_file": "503.spot_sol.txt"
+    },
+    "af0e4abbadfce21abd17dc5e66ae976f588c481be163782840e7f919733a0613": {
+      "case_id": "509",
+      "known_paths": [
+        "single_orbit/509"
+      ],
+      "solution_file": "509.spot_sol.txt"
+    },
+    "b99c52d7dfe747b4cbf706d5471f6c36738639c15dd5b1758a4a1ac1986e0d12": {
+      "case_id": "412",
+      "known_paths": [
+        "single_orbit/412"
+      ],
+      "solution_file": "412.spot_sol.txt"
+    },
+    "cdf3dbe56861b57ee3a4741a9ba77fefc555f0e0f560a48d0b989cb4502b9609": {
+      "case_id": "29",
+      "known_paths": [
+        "single_orbit/29"
+      ],
+      "solution_file": "29.spot_sol.txt"
+    },
+    "e36eb6be01762668eea24fff337f37744d506c336ae2655b70d4ec9ffdca663e": {
+      "case_id": "1403",
+      "known_paths": [
+        "multi_orbit/1403",
+        "test/1403"
+      ],
+      "solution_file": "1403.spot_sol.txt"
+    },
+    "e4f17ad7b9ccf22a13286a527dda6658511f630de255fc2d6face0b7dd83ab2c": {
+      "case_id": "404",
+      "known_paths": [
+        "single_orbit/404"
+      ],
+      "solution_file": "404.spot_sol.txt"
+    }
+  },
+  "version": 1
+}
