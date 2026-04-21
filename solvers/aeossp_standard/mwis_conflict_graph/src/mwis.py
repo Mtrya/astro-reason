@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import asdict, dataclass
+from typing import Any
 
 from candidates import Candidate
 from graph import ConflictGraph, connected_components
@@ -11,6 +12,23 @@ from graph import ConflictGraph, connected_components
 @dataclass(frozen=True, slots=True)
 class MwisConfig:
     max_exact_component_size: int = 20
+    selection_policy: str = "weight_degree_end"
+
+    @classmethod
+    def from_mapping(cls, payload: dict[str, Any] | None) -> "MwisConfig":
+        payload = payload or {}
+        selection_policy = str(payload.get("selection_policy", "weight_degree_end"))
+        if selection_policy not in {"weight_end_degree", "weight_degree_end"}:
+            raise ValueError(
+                "selection_policy must be one of: weight_end_degree, weight_degree_end"
+            )
+        return cls(
+            max_exact_component_size=max(0, int(payload.get("max_exact_component_size", 20))),
+            selection_policy=selection_policy,
+        )
+
+    def as_dict(self) -> dict[str, Any]:
+        return asdict(self)
 
 
 @dataclass(slots=True)
@@ -20,13 +38,19 @@ class MwisStats:
     exact_component_count: int
     greedy_component_count: int
     independent_set_valid: bool
+    selection_policy: str
+    max_exact_component_size: int
 
     def as_dict(self) -> dict:
         return asdict(self)
 
 
-def greedy_priority(candidate: Candidate, degree: int) -> tuple:
-    return (-candidate.task_weight, candidate.end_offset_s, degree, candidate.candidate_id)
+def greedy_priority(candidate: Candidate, degree: int, *, policy: str) -> tuple:
+    if policy == "weight_end_degree":
+        return (-candidate.task_weight, candidate.end_offset_s, degree, candidate.candidate_id)
+    if policy == "weight_degree_end":
+        return (-candidate.task_weight, degree, candidate.end_offset_s, candidate.candidate_id)
+    raise ValueError(f"unsupported selection policy: {policy}")
 
 
 def validate_independent_set(
@@ -66,12 +90,15 @@ def solve_exact_component(
     component: list[str],
     candidate_by_id: dict[str, Candidate],
     adjacency: dict[str, set[str]],
+    *,
+    policy: str,
 ) -> set[str]:
     ordered = sorted(
         component,
         key=lambda candidate_id: greedy_priority(
             candidate_by_id[candidate_id],
             len(adjacency[candidate_id]),
+            policy=policy,
         ),
     )
     suffix_weight: list[float] = [0.0] * (len(ordered) + 1)
@@ -108,11 +135,17 @@ def solve_greedy_component(
     component: list[str],
     candidate_by_id: dict[str, Candidate],
     adjacency: dict[str, set[str]],
+    *,
+    policy: str,
 ) -> set[str]:
     selected: set[str] = set()
     for candidate_id in sorted(
         component,
-        key=lambda item: greedy_priority(candidate_by_id[item], len(adjacency[item])),
+        key=lambda item: greedy_priority(
+            candidate_by_id[item],
+            len(adjacency[item]),
+            policy=policy,
+        ),
     ):
         if not adjacency[candidate_id] & selected:
             selected.add(candidate_id)
@@ -136,6 +169,7 @@ def select_weighted_independent_set(
                 component,
                 candidate_by_id,
                 graph.adjacency,
+                policy=config.selection_policy,
             )
             exact_components += 1
         else:
@@ -143,6 +177,7 @@ def select_weighted_independent_set(
                 component,
                 candidate_by_id,
                 graph.adjacency,
+                policy=config.selection_policy,
             )
             greedy_components += 1
         selected_ids.update(component_selected)
@@ -158,5 +193,7 @@ def select_weighted_independent_set(
         exact_component_count=exact_components,
         greedy_component_count=greedy_components,
         independent_set_valid=valid,
+        selection_policy=config.selection_policy,
+        max_exact_component_size=config.max_exact_component_size,
     )
     return selected, stats

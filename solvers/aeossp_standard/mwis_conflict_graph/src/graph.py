@@ -28,6 +28,7 @@ class GraphStats:
     transition_edge_count: int = 0
     component_count: int = 0
     largest_component_size: int = 0
+    component_size_histogram: dict[str, int] = field(default_factory=dict)
 
     def as_dict(self) -> dict:
         return asdict(self)
@@ -167,6 +168,10 @@ def build_conflict_graph(case: AeosspCase, candidates: list[Candidate]) -> Confl
     _build_same_satellite_temporal_edges(case, stable_candidates, adjacency, reason_edges)
 
     components = connected_components(adjacency)
+    component_size_histogram: dict[str, int] = {}
+    for component in components:
+        key = str(len(component))
+        component_size_histogram[key] = component_size_histogram.get(key, 0) + 1
     stats = GraphStats(
         vertex_count=len(stable_candidates),
         edge_count=sum(len(neighbors) for neighbors in adjacency.values()) // 2,
@@ -175,5 +180,6 @@ def build_conflict_graph(case: AeosspCase, candidates: list[Candidate]) -> Confl
         transition_edge_count=len(reason_edges["transition"]),
         component_count=len(components),
         largest_component_size=max((len(component) for component in components), default=0),
+        component_size_histogram=dict(sorted(component_size_histogram.items(), key=lambda item: int(item[0]))),
     )
     return ConflictGraph(adjacency=adjacency, stats=stats, reason_edges=reason_edges)

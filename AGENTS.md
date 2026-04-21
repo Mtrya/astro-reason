@@ -39,7 +39,7 @@ Directory roles:
 
 1. Keep the benchmark core algorithm-agnostic.
 2. Keep every benchmark standalone.
-3. Keep top-level modules standalone; prefer executable and file contracts across module boundaries.
+3. Keep top-level modules standalone; do not create runtime dependencies across `benchmarks/`, `solvers/`, or `runtimes/`.
 4. Preserve reproducibility for both benchmarks and method layers.
 5. Keep public repository content understandable to external readers.
 
@@ -70,7 +70,9 @@ Use these ownership boundaries:
 - experiments decide what benchmark-facing run is performed
 - solvers own reusable traditional method implementations
 - runtimes own reusable execution environments for agentic systems
-- benchmarks, experiments, solvers, and runtimes should not import internal code from one another
+- benchmarks, solvers, and runtimes must each be standalone and must not import or execute one another
+- experiments consume benchmarks, solvers, and runtimes through CLI/file contracts rather than source imports
+- solvers should implement any needed self-checks inside solver-local code instead of calling benchmark verifiers
 
 Keep the `experiments/` and `runtimes/` boundary explicit:
 
@@ -96,10 +98,11 @@ Detailed shapes, entrypoints, and CLI contracts for experiments and methods shou
 ## What Not To Do
 
 1. Do not create runtime dependencies between benchmarks.
-2. Do not import internal functions, classes, or modules across `benchmarks/`, `experiments/`, `solvers/`, and `runtimes/`; consume benchmark verifiers as executables.
-3. Do not casually edit committed datasets by hand when a generator should own the change.
-4. Do not leak benchmark or harness internals into space-agent prompts.
-5. Do not install packages system-wide for repository work.
+2. Do not import internal functions, classes, or modules across `benchmarks/`, `experiments/`, `solvers/`, and `runtimes/`.
+3. Do not make `benchmarks/`, `solvers/`, or `runtimes/` call one another through CLI or executable entrypoints. Cross-layer orchestration belongs in `experiments/`.
+4. Do not casually edit committed datasets by hand when a generator should own the change.
+5. Do not leak benchmark or harness internals into space-agent prompts.
+6. Do not install packages system-wide for repository work.
 
 ## Quick Pointers
 
