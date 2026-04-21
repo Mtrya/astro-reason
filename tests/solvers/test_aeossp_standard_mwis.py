@@ -26,6 +26,17 @@ from geometry import (  # noqa: E402
     action_sample_times,
     initial_slew_feasible_from_vectors,
 )
+from graph import build_conflict_graph, connected_components  # noqa: E402
+from mwis import (  # noqa: E402
+    MwisConfig,
+    select_weighted_independent_set,
+    solve_exact_component,
+    validate_independent_set,
+)
+from solution_io import candidates_to_actions  # noqa: E402
+from transition import TransitionVectorCache, transition_gap_conflict  # noqa: E402
+
+from candidates import Candidate  # noqa: E402
 
 
 def _mission() -> Mission:
@@ -77,6 +88,46 @@ def _task(task_id: str = "task_a", sensor_type: str = "visible") -> Task:
         required_sensor_type=sensor_type,
         weight=3.0,
         target_ecef_m=(1.0, 0.0, 0.0),
+    )
+
+
+def _candidate(
+    candidate_id: str,
+    *,
+    satellite_id: str = "sat_a",
+    task_id: str = "task_a",
+    start_offset_s: int = 10,
+    end_offset_s: int = 20,
+    weight: float = 1.0,
+) -> Candidate:
+    mission = _mission()
+    return Candidate(
+        candidate_id=candidate_id,
+        satellite_id=satellite_id,
+        task_id=task_id,
+        start_offset_s=start_offset_s,
+        end_offset_s=end_offset_s,
+        start_time=iso_z(mission.horizon_start + timedelta(seconds=start_offset_s)),
+        end_time=iso_z(mission.horizon_start + timedelta(seconds=end_offset_s)),
+        task_weight=weight,
+        duration_s=end_offset_s - start_offset_s,
+    )
+
+
+def _case_for_candidates(candidates: list[Candidate]) -> AeosspCase:
+    satellites = {
+        candidate.satellite_id: _satellite(candidate.satellite_id, "visible")
+        for candidate in candidates
+    }
+    tasks = {
+        candidate.task_id: _task(candidate.task_id, "visible")
+        for candidate in candidates
+    }
+    return AeosspCase(
+        case_dir=Path("."),
+        mission=_mission(),
+        satellites=satellites,
+        tasks=tasks,
     )
 
 
@@ -167,3 +218,162 @@ def test_generate_candidates_filters_sensor_and_keeps_stable_ids(monkeypatch) ->
     assert len(candidate_ids) == len(set(candidate_ids))
     assert summary.candidate_count == 6
     assert summary.skipped_sensor_mismatch == 6
+
+
+def test_conflict_graph_adds_duplicate_task_edges_across_satellites(monkeypatch) -> None:
+    candidates = [
+        _candidate("sat_a|task_a|10", satellite_id="sat_a", task_id="task_a"),
+        _candidate("sat_b|task_a|15", satellite_id="sat_b", task_id="task_a", start_offset_s=15, end_offset_s=25),
+    ]
+
+    class DummyPropagation:
+        def __init__(self, *args, **kwargs):
+            pass
+
+    monkeypatch.setattr("graph.PropagationContext", DummyPropagation)
+    graph = build_conflict_graph(_case_for_candidates(candidates), candidates)
+
+    assert graph.has_edge("sat_a|task_a|10", "sat_b|task_a|15")
+    assert graph.stats.duplicate_task_edge_count == 1
+
+
+def test_conflict_graph_adds_same_satellite_overlap_edges(monkeypatch) -> None:
+    candidates = [
+        _candidate("sat_a|task_a|10", task_id="task_a", start_offset_s=10, end_offset_s=25),
+        _candidate("sat_a|task_b|20", task_id="task_b", start_offset_s=20, end_offset_s=30),
+    ]
+
+    class DummyPropagation:
+        def __init__(self, *args, **kwargs):
+            pass
+
+    monkeypatch.setattr("graph.PropagationContext", DummyPropagation)
+    graph = build_conflict_graph(_case_for_candidates(candidates), candidates)
+
+    assert graph.has_edge("sat_a|task_a|10", "sat_a|task_b|20")
+    assert graph.stats.overlap_edge_count == 1
+
+
+def test_transition_gap_conflict_is_order_independent(monkeypatch) -> None:
+    candidate_a = _candidate("sat_a|task_a|10", task_id="task_a", start_offset_s=10, end_offset_s=20)
+    candidate_b = _candidate("sat_a|task_b|21", task_id="task_b", start_offset_s=21, end_offset_s=30)
+    case = _case_for_candidates([candidate_a, candidate_b])
+
+    def fake_target_vector(task, propagation, satellite_id, instant):
+        if task.task_id == "task_a":
+            return np.array([1.0, 0.0, 0.0])
+        return np.array([0.0, 1.0, 0.0])
+
+    monkeypatch.setattr("transition.target_vector_eci", fake_target_vector)
+    vector_cache = TransitionVectorCache(case, propagation=object())
+
+    assert transition_gap_conflict(candidate_a, candidate_b, case=case, vector_cache=vector_cache)
+    assert transition_gap_conflict(candidate_b, candidate_a, case=case, vector_cache=vector_cache)
+
+
+def test_conflict_graph_omits_transition_edge_with_sufficient_gap(monkeypatch) -> None:
+    candidates = [
+        _candidate("sat_a|task_a|10", task_id="task_a", start_offset_s=10, end_offset_s=20),
+        _candidate("sat_a|task_b|250", task_id="task_b", start_offset_s=250, end_offset_s=260),
+    ]
+
+    class DummyPropagation:
+        def __init__(self, *args, **kwargs):
+            pass
+
+    monkeypatch.setattr("graph.PropagationContext", DummyPropagation)
+    graph = build_conflict_graph(_case_for_candidates(candidates), candidates)
+
+    assert not graph.has_edge("sat_a|task_a|10", "sat_a|task_b|250")
+    assert graph.stats.transition_edge_count == 0
+
+
+def test_connected_components_are_stable() -> None:
+    adjacency = {
+        "a": {"b"},
+        "b": {"a"},
+        "c": set(),
+    }
+
+    assert connected_components(adjacency) == [["c"], ["a", "b"]]
+
+
+def test_exact_tiny_component_prefers_higher_total_weight() -> None:
+    candidates = [
+        _candidate("a", task_id="task_a", weight=6.0),
+        _candidate("b", task_id="task_b", weight=4.0),
+        _candidate("c", task_id="task_c", weight=4.0),
+    ]
+    candidate_by_id = {candidate.candidate_id: candidate for candidate in candidates}
+    adjacency = {
+        "a": {"b", "c"},
+        "b": {"a"},
+        "c": {"a"},
+    }
+
+    assert solve_exact_component(["a", "b", "c"], candidate_by_id, adjacency) == {"b", "c"}
+
+
+def test_greedy_selection_is_deterministic_when_exact_disabled() -> None:
+    candidates = [
+        _candidate("late", task_id="task_late", start_offset_s=20, end_offset_s=30, weight=5.0),
+        _candidate("early", task_id="task_early", start_offset_s=10, end_offset_s=20, weight=5.0),
+        _candidate("low", task_id="task_low", start_offset_s=5, end_offset_s=10, weight=1.0),
+    ]
+    adjacency = {
+        "late": {"early"},
+        "early": {"late"},
+        "low": set(),
+    }
+    graph = type(
+        "ManualGraph",
+        (),
+        {
+            "adjacency": adjacency,
+            "stats": None,
+        },
+    )()
+
+    selected, stats = select_weighted_independent_set(
+        candidates,
+        graph,
+        MwisConfig(max_exact_component_size=0),
+    )
+
+    assert [candidate.candidate_id for candidate in selected] == ["low", "early"]
+    assert stats.independent_set_valid
+
+
+def test_independent_set_validation_rejects_adjacent_selected_candidates() -> None:
+    adjacency = {
+        "a": {"b"},
+        "b": {"a"},
+        "c": set(),
+    }
+
+    assert not validate_independent_set({"a", "b"}, adjacency)
+    assert validate_independent_set({"a", "c"}, adjacency)
+
+
+def test_candidates_decode_to_sorted_observation_actions() -> None:
+    candidates = [
+        _candidate("sat_b|task_b|30", satellite_id="sat_b", task_id="task_b", start_offset_s=30, end_offset_s=40),
+        _candidate("sat_a|task_a|10", satellite_id="sat_a", task_id="task_a", start_offset_s=10, end_offset_s=20),
+    ]
+
+    assert candidates_to_actions(candidates) == [
+        {
+            "type": "observation",
+            "satellite_id": "sat_a",
+            "task_id": "task_a",
+            "start_time": "2026-04-14T04:00:10Z",
+            "end_time": "2026-04-14T04:00:20Z",
+        },
+        {
+            "type": "observation",
+            "satellite_id": "sat_b",
+            "task_id": "task_b",
+            "start_time": "2026-04-14T04:00:30Z",
+            "end_time": "2026-04-14T04:00:40Z",
+        },
+    ]
