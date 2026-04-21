@@ -1,12 +1,30 @@
 # Main Agentic
 
-`main_agentic` is the canonical experiment family for running the current benchmark x harness matrix across the finished benchmark set.
+`main_agentic` is the canonical experiment family for running the current finished benchmark set across agentic harnesses.
 
-The family has three entrypoints:
+The tracked family shape is about benchmarks, harnesses, prompts, execution, and aggregation. Exact model names, provider accounts, and gateway endpoints belong in ignored local harness config directories under `experiments/_fragments/configs/`.
 
-- `run.py`: execute the matrix or an interactive workspace
-- `plan.py`: preview the effective selection and skip/rerun decisions
-- `aggregate.py`: summarize completed batch artifacts
+## Layout
+
+```text
+experiments/main_agentic/
+├── run.py              # execute batch runs or prepare an interactive workspace
+├── plan.py             # preview matrix expansion and skip/rerun decisions
+├── aggregate.py        # summarize completed batch artifacts
+├── configs/
+│   ├── matrix.yaml      # canonical batch matrix
+│   └── interactive.yaml # local interactive debugging defaults
+├── benchmarks/         # benchmark assembly and aggregation profiles
+└── harnesses/          # harness assembly, command, env, and collection profiles
+```
+
+Reusable prompt and config assets live outside the family:
+
+```text
+experiments/_fragments/
+├── prompts/<benchmark>/
+└── configs/<harness>/
+```
 
 ## Batch Runs
 
@@ -34,6 +52,15 @@ uv run python experiments/main_agentic/run.py \
 ```
 
 `--benchmark`, `--harness`, and `--case` may be repeated.
+
+Override the configured batch concurrency for one invocation:
+
+```bash
+uv run python experiments/main_agentic/run.py --max-concurrency 2
+uv run python experiments/main_agentic/plan.py --max-concurrency 2
+```
+
+`--max-concurrency` is batch-only. The run queue is case-major within each benchmark, so concurrent workers are less likely to start several jobs from the same harness at once.
 
 ## Resume And Rerun Controls
 
@@ -85,6 +112,61 @@ uv run python experiments/main_agentic/run.py \
 
 Use `--dry-run` with `--interactive` to preview the workspace and output paths without starting the container.
 
+When multiple harnesses assemble files to the same container target in interactive mode, the first selected harness wins. This keeps all-harness debugging usable for harnesses that share one config path.
+
+## Assembly Model
+
+Each concrete run is assembled from benchmark and harness profiles.
+
+Benchmark profiles own:
+
+- case and verifier workspace assembly
+- benchmark-facing `README.md` and `PROMPT.md` fragments
+- benchmark-native aggregation metadata
+
+Harness profiles own:
+
+- runtime choice
+- local harness config assembly
+- headless shell command
+- collected session/log artifacts
+- explicit environment-variable allowlists
+
+`assemble` sources are repo-relative paths. `assemble` targets are absolute container paths.
+
+`collect` sources are absolute container paths. `collect` targets may start with:
+
+- `results_root/`
+- `repo/`
+- `benchmark/` or `benchmarks/`
+- `experiments/`
+
+## Prompt Shape
+
+Benchmark-facing prompt fragments should feel like a real engineering handoff, not an evaluation package.
+
+- `README.md` is the substantive problem brief. It may be comprehensive and should explain the problem model, expected solution artifact, available files, and useful local verifier helper when present.
+- `PROMPT.md` is the thin tasking note. It should be concise, direct, and operational.
+- shared `AGENTS.md` is the benchmark-neutral working-style layer. It should stay minimal and avoid benchmark, harness, Docker, or matrix-specific content.
+
+Prompt fragments should avoid words like `benchmark`, `split`, `leaderboard`, and testing/interview framing when addressing the space agent.
+
+## Results
+
+Batch run artifacts live under:
+
+```text
+results/agent_runs/experiments/main_agentic/<config>/<benchmark>/<harness>/<split>/<case>/
+```
+
+Interactive workspaces live under:
+
+```text
+.runtime/interactive_workspaces/experiments/main_agentic/<config>/<benchmark>/<harness>/<split>/<case>/
+```
+
+Every concrete run writes one `run.json`. Aggregation reads `run.json` artifacts, not raw session logs.
+
 ## Aggregation
 
 Summarize completed batch artifacts:
@@ -99,8 +181,10 @@ This writes matrix-level and benchmark-level summaries under:
 results/agent_runs/experiments/main_agentic/matrix/summaries/
 ```
 
+No cross-benchmark universal score is invented; metric summaries stay benchmark-native.
+
 ## Current Limits
 
-- Phase 7 adds console-based live progress, not a separate persisted batch-status file.
 - Case filtering is exact-match only; no glob, prefix, or range selection is supported.
 - Interactive aggregation is not supported.
+- The YAML schemas are family-owned runner configs, not public cross-family contracts yet.
