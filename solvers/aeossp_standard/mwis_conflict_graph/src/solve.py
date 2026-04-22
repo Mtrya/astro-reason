@@ -5,6 +5,7 @@ from __future__ import annotations
 import argparse
 import sys
 import time
+import traceback
 from pathlib import Path
 
 from candidates import CandidateConfig, generate_candidates
@@ -269,6 +270,7 @@ def main(argv: list[str] | None = None) -> int:
                 selected_candidates=selected_candidates,
             )
     except Exception as exc:
+        traceback_text = traceback.format_exc()
         solution_dir.mkdir(parents=True, exist_ok=True)
         write_json(
             solution_dir / "status.json",
@@ -278,9 +280,10 @@ def main(argv: list[str] | None = None) -> int:
                 "case_dir": str(case_dir),
                 "config_dir": str(config_dir) if config_dir is not None else None,
                 "error": str(exc),
+                "traceback": traceback_text,
             },
         )
-        print(f"error: {exc}", file=sys.stderr)
+        print(traceback_text, file=sys.stderr, end="")
         return 2
 
     print(

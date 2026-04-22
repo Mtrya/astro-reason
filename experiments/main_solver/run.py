@@ -176,25 +176,13 @@ def _parse_json_verifier(stdout: str, returncode: int) -> dict[str, Any]:
         }
     try:
         payload = json.loads(stripped)
-    except json.JSONDecodeError:
-        start = stripped.find("{")
-        end = stripped.rfind("}")
-        if start < 0 or end <= start:
-            return {
-                "status": "error",
-                "valid": None,
-                "returncode": returncode,
-                "parse_error": "JSON verifier stdout did not contain a JSON object",
-            }
-        try:
-            payload = json.loads(stripped[start : end + 1])
-        except json.JSONDecodeError as exc:
-            return {
-                "status": "error",
-                "valid": None,
-                "returncode": returncode,
-                "parse_error": f"JSON verifier stdout could not be parsed: {exc}",
-            }
+    except json.JSONDecodeError as exc:
+        return {
+            "status": "error",
+            "valid": None,
+            "returncode": returncode,
+            "parse_error": f"JSON verifier stdout could not be parsed: {exc}",
+        }
     if not isinstance(payload, dict):
         return {
             "status": "error",
@@ -290,6 +278,7 @@ def _run_runnable_job(
     config_dir.mkdir(parents=True, exist_ok=True)
     solution_dir.mkdir(parents=True, exist_ok=True)
     log_dir.mkdir(parents=True, exist_ok=True)
+    (config_dir / "config.yaml").write_text("{}\n", encoding="utf-8")
 
     setup = _run_setup(job.solver, results_root=results_root, setup_cache=setup_cache)
     payload: dict[str, Any] = {

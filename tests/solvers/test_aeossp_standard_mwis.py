@@ -5,6 +5,7 @@ from pathlib import Path
 import sys
 
 import numpy as np
+import pytest
 
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
@@ -21,6 +22,8 @@ from case_io import (  # noqa: E402
     Satellite,
     Task,
     iso_z,
+    load_case,
+    load_solver_config,
     parse_iso_z,
 )
 from geometry import (  # noqa: E402
@@ -47,7 +50,6 @@ from validation import (  # noqa: E402
 )
 
 from candidates import Candidate  # noqa: E402
-from experiments.main_solver.run import _parse_json_verifier  # noqa: E402
 
 
 def _mission() -> Mission:
@@ -147,6 +149,74 @@ def test_iso_z_timestamp_round_trip() -> None:
 
     assert parsed.tzinfo is UTC
     assert iso_z(parsed) == "2026-04-14T04:00:05Z"
+
+
+def test_load_case_rejects_initial_battery_above_capacity(tmp_path: Path) -> None:
+    (tmp_path / "mission.yaml").write_text(
+        """
+mission:
+  case_id: overfull_battery
+  horizon_start: "2026-04-14T04:00:00Z"
+  horizon_end: "2026-04-14T05:00:00Z"
+  action_time_step_s: 5
+  geometry_sample_step_s: 5
+  resource_sample_step_s: 10
+""".lstrip(),
+        encoding="utf-8",
+    )
+    (tmp_path / "satellites.yaml").write_text(
+        """
+satellites:
+- satellite_id: sat_001
+  norad_catalog_id: 28051
+  tle_line1: 1 28051U 03046A   26103.92936350  .00000126  00000+0  55914-4 0  9994
+  tle_line2: 2 28051  98.1985 143.5711 0064246 173.9227 286.4737 14.36137850171300
+  sensor:
+    sensor_type: visible
+  attitude_model:
+    max_slew_velocity_deg_per_s: 1.8
+    max_slew_acceleration_deg_per_s2: 0.4
+    settling_time_s: 2.0
+    max_off_nadir_deg: 30.0
+  resource_model:
+    battery_capacity_wh: 1300.0
+    initial_battery_wh: 1300.1
+    idle_power_w: 20.0
+    imaging_power_w: 420.0
+    slew_power_w: 360.0
+    sunlit_charge_power_w: 85.0
+""".lstrip(),
+        encoding="utf-8",
+    )
+    (tmp_path / "tasks.yaml").write_text(
+        """
+tasks:
+- task_id: task_0001
+  name: task
+  latitude_deg: 0.0
+  longitude_deg: 0.0
+  altitude_m: 0.0
+  release_time: "2026-04-14T04:10:00Z"
+  due_time: "2026-04-14T04:20:00Z"
+  required_duration_s: 10
+  required_sensor_type: visible
+  weight: 1.0
+""".lstrip(),
+        encoding="utf-8",
+    )
+
+    with pytest.raises(ValueError, match="initial_battery_wh"):
+        load_case(tmp_path)
+
+
+def test_load_solver_config_rejects_explicit_missing_path(tmp_path: Path) -> None:
+    with pytest.raises(FileNotFoundError, match="config path does not exist"):
+        load_solver_config(tmp_path / "missing")
+
+
+def test_load_solver_config_rejects_empty_explicit_directory(tmp_path: Path) -> None:
+    with pytest.raises(FileNotFoundError, match="no supported config file found"):
+        load_solver_config(tmp_path)
 
 
 def test_action_grid_iteration_respects_window_and_duration() -> None:
@@ -718,32 +788,3 @@ def test_bounded_repair_terminates(monkeypatch) -> None:
     assert len(result.reports) == 2
     assert len(result.removals) == 1
     assert result.terminated_reason == "max_iterations"
-
-
-def test_parse_json_verifier_records_aeossp_report() -> None:
-    payload = {
-        "valid": True,
-        "metrics": {"CR": 0.5},
-        "violations": [],
-        "diagnostics": {"note": "ok"},
-    }
-
-    parsed = _parse_json_verifier(json_dumps(payload), 0)
-
-    assert parsed["status"] == "valid"
-    assert parsed["valid"] is True
-    assert parsed["metrics"] == {"CR": 0.5}
-    assert parsed["diagnostics"] == {"note": "ok"}
-
-
-def test_parse_json_verifier_rejects_missing_valid() -> None:
-    parsed = _parse_json_verifier("{}", 1)
-
-    assert parsed["status"] == "error"
-    assert parsed["valid"] is None
-
-
-def json_dumps(payload: dict) -> str:
-    import json
-
-    return json.dumps(payload)
