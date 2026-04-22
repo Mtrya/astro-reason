@@ -23,7 +23,7 @@
       "path": "cases/test/case_0003",
       "split": "test",
       "target_count": 20,
-      "uniform_revisit_threshold_hours": 12.0
+      "uniform_revisit_threshold_hours": 8.0
     },
     {
       "case_id": "case_0004",
@@ -31,7 +31,7 @@
       "path": "cases/test/case_0004",
       "split": "test",
       "target_count": 20,
-      "uniform_revisit_threshold_hours": 10.0
+      "uniform_revisit_threshold_hours": 8.0
     },
     {
       "case_id": "case_0005",
@@ -39,7 +39,7 @@
       "path": "cases/test/case_0005",
       "split": "test",
       "target_count": 16,
-      "uniform_revisit_threshold_hours": 10.0
+      "uniform_revisit_threshold_hours": 8.0
     }
   ],
   "example_smoke_case": "test/case_0001",

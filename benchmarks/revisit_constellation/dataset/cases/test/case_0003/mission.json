@@ -4,7 +4,7 @@
   "targets": [
     {
       "altitude_m": 0.0,
-      "expected_revisit_period_hours": 12.0,
+      "expected_revisit_period_hours": 8.0,
       "id": "target_001",
       "latitude_deg": -25.0667,
       "longitude_deg": -130.0833,
@@ -15,7 +15,7 @@
     },
     {
       "altitude_m": 0.0,
-      "expected_revisit_period_hours": 12.0,
+      "expected_revisit_period_hours": 8.0,
       "id": "target_002",
       "latitude_deg": 28.8828,
       "longitude_deg": 51.2756,
@@ -26,7 +26,7 @@
     },
     {
       "altitude_m": 0.0,
-      "expected_revisit_period_hours": 12.0,
+      "expected_revisit_period_hours": 8.0,
       "id": "target_003",
       "latitude_deg": 5.0333,
       "longitude_deg": 21.2167,
@@ -37,7 +37,7 @@
     },
     {
       "altitude_m": 0.0,
-      "expected_revisit_period_hours": 12.0,
+      "expected_revisit_period_hours": 8.0,
       "id": "target_004",
       "latitude_deg": 36.0361,
       "longitude_deg": 6.5708,
@@ -48,7 +48,7 @@
     },
     {
       "altitude_m": 0.0,
-      "expected_revisit_period_hours": 12.0,
+      "expected_revisit_period_hours": 8.0,
       "id": "target_005",
       "latitude_deg": -34.5828,
       "longitude_deg": 19.3522,
@@ -59,7 +59,7 @@
     },
     {
       "altitude_m": 0.0,
-      "expected_revisit_period_hours": 12.0,
+      "expected_revisit_period_hours": 8.0,
       "id": "target_006",
       "latitude_deg": 55.1708,
       "longitude_deg": -118.7947,
@@ -70,7 +70,7 @@
     },
     {
       "altitude_m": 0.0,
-      "expected_revisit_period_hours": 12.0,
+      "expected_revisit_period_hours": 8.0,
       "id": "target_007",
       "latitude_deg": -54.2806,
       "longitude_deg": -36.508,
@@ -81,7 +81,7 @@
     },
     {
       "altitude_m": 0.0,
-      "expected_revisit_period_hours": 12.0,
+      "expected_revisit_period_hours": 8.0,
       "id": "target_008",
       "latitude_deg": 23.13,
       "longitude_deg": 113.26,
@@ -92,7 +92,7 @@
     },
     {
       "altitude_m": 0.0,
-      "expected_revisit_period_hours": 12.0,
+      "expected_revisit_period_hours": 8.0,
       "id": "target_009",
       "latitude_deg": 19.5828,
       "longitude_deg": -154.9695,
@@ -103,7 +103,7 @@
     },
     {
       "altitude_m": 0.0,
-      "expected_revisit_period_hours": 12.0,
+      "expected_revisit_period_hours": 8.0,
       "id": "target_010",
       "latitude_deg": -0.6094,
       "longitude_deg": 73.0899,
@@ -114,7 +114,7 @@
     },
     {
       "altitude_m": 0.0,
-      "expected_revisit_period_hours": 12.0,
+      "expected_revisit_period_hours": 8.0,
       "id": "target_011",
       "latitude_deg": 7.0833,
       "longitude_deg": 171.3833,
@@ -125,7 +125,7 @@
     },
     {
       "altitude_m": 0.0,
-      "expected_revisit_period_hours": 12.0,
+      "expected_revisit_period_hours": 8.0,
       "id": "target_012",
       "latitude_deg": 21.3144,
       "longitude_deg": -76.9378,
@@ -136,7 +136,7 @@
     },
     {
       "altitude_m": 0.0,
-      "expected_revisit_period_hours": 12.0,
+      "expected_revisit_period_hours": 8.0,
       "id": "target_013",
       "latitude_deg": 63.9167,
       "longitude_deg": 38.0833,
@@ -147,7 +147,7 @@
     },
     {
       "altitude_m": 0.0,
-      "expected_revisit_period_hours": 12.0,
+      "expected_revisit_period_hours": 8.0,
       "id": "target_014",
       "latitude_deg": 53.0167,
       "longitude_deg": 158.65,
@@ -158,7 +158,7 @@
     },
     {
       "altitude_m": 0.0,
-      "expected_revisit_period_hours": 12.0,
+      "expected_revisit_period_hours": 8.0,
       "id": "target_015",
       "latitude_deg": 17.202,
       "longitude_deg": -25.093,
@@ -169,7 +169,7 @@
     },
     {
       "altitude_m": 0.0,
-      "expected_revisit_period_hours": 12.0,
+      "expected_revisit_period_hours": 8.0,
       "id": "target_016",
       "latitude_deg": 60.7222,
       "longitude_deg": -46.0403,
@@ -180,7 +180,7 @@
     },
     {
       "altitude_m": 0.0,
-      "expected_revisit_period_hours": 12.0,
+      "expected_revisit_period_hours": 8.0,
       "id": "target_017",
       "latitude_deg": -23.4167,
       "longitude_deg": -66.4833,
@@ -191,7 +191,7 @@
     },
     {
       "altitude_m": 0.0,
-      "expected_revisit_period_hours": 12.0,
+      "expected_revisit_period_hours": 8.0,
       "id": "target_018",
       "latitude_deg": -43.9514,
       "longitude_deg": -176.5611,
@@ -202,7 +202,7 @@
     },
     {
       "altitude_m": 0.0,
-      "expected_revisit_period_hours": 12.0,
+      "expected_revisit_period_hours": 8.0,
       "id": "target_019",
       "latitude_deg": -4.0975,
       "longitude_deg": 138.9511,
@@ -213,7 +213,7 @@
     },
     {
       "altitude_m": 0.0,
-      "expected_revisit_period_hours": 12.0,
+      "expected_revisit_period_hours": 8.0,
       "id": "target_020",
       "latitude_deg": -31.55,
       "longitude_deg": 115.634,
