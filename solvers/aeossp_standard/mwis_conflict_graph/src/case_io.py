@@ -268,6 +268,11 @@ def load_case(case_dir: str | Path) -> AeosspCase:
             resource.battery_capacity_wh,
             field_name=f"{context}.resource_model.battery_capacity_wh",
         )
+        if resource.initial_battery_wh > resource.battery_capacity_wh + NUMERICAL_EPS:
+            raise ValueError(
+                f"{context}.resource_model.initial_battery_wh must be <= "
+                "resource_model.battery_capacity_wh"
+            )
         satellites[sat_id] = Satellite(
             satellite_id=sat_id,
             norad_catalog_id=_require_int(sat_raw, "norad_catalog_id", context),
@@ -347,7 +352,7 @@ def load_solver_config(config_dir: str | Path | None) -> dict[str, Any]:
         return {}
     path = Path(config_dir)
     if not path.exists():
-        return {}
+        raise FileNotFoundError(f"config path does not exist: {path}")
     if path.is_file():
         candidates = [path]
     else:
@@ -367,8 +372,9 @@ def load_solver_config(config_dir: str | Path | None) -> dict[str, Any]:
         else:
             payload = yaml.safe_load(candidate.read_text(encoding="utf-8"))
         if payload is None:
-            return {}
+            raise ValueError(f"{candidate} is empty")
         if not isinstance(payload, dict):
             raise ValueError(f"{candidate} must contain a mapping/object")
         return payload
-    return {}
+    attempted = ", ".join(str(candidate) for candidate in candidates)
+    raise FileNotFoundError(f"no supported config file found under {path}; tried: {attempted}")

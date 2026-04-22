@@ -2,7 +2,22 @@
 
 This solver is a runnable reproduced solver for `aeossp_standard`.
 
-It follows the method family described by Duncan Eddy and Mykel J.Kochenderfer in "A Maximum Independent Set Method for Scheduling Earth Observing Satellite Constellations", adapted to the benchmark's public case and solution contract.
+It follows the method family described by Duncan Eddy and Mykel J. Kochenderfer in "A Maximum Independent Set Method for Scheduling Earth Observing Satellite Constellations", adapted to the benchmark's public case and solution contract.
+
+## Citation
+
+```bibtex
+@article{eddy2021maximum,
+  title={A maximum independent set method for scheduling earth-observing satellite constellations},
+  author={Eddy, Duncan and Kochenderfer, Mykel J},
+  journal={Journal of Spacecraft and Rockets},
+  volume={58},
+  number={5},
+  pages={1416--1429},
+  year={2021},
+  publisher={American Institute of Aeronautics and Astronautics}
+}
+```
 
 The solver is standalone. It reads benchmark case files and writes a benchmark
 solution JSON, but it does not import or execute benchmark, experiment, runtime, or other solver internals.
