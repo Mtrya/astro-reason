@@ -325,36 +325,19 @@ def _workspace_example_solution_name(
     return "No example solution is provided for this workspace."
 
 
-def _workspace_module_name(relative: Path) -> str:
-    return ".".join(part for part in relative.parts if part)
-
-
 def _workspace_verifier_info(
-    benchmark: str,
     assemble_specs: tuple[family_plan.AssembleSpec, ...],
 ) -> tuple[str, str]:
-    verifier = _verifier_repo_path(benchmark)
-    if verifier is None:
-        return (
-            "Verifier is not exposed in this workspace.",
-            "No verifier helper is available in this workspace.",
-        )
-
     for spec in assemble_specs:
-        if spec.source != verifier:
-            continue
         try:
             relative = spec.target.relative_to(WORKSPACE_MOUNT)
         except ValueError:
             continue
-
-        location = relative.as_posix() + ("/" if verifier.is_dir() else "")
-        if verifier.is_dir():
-            module_name = _workspace_module_name(relative)
-            command = f"python -m {module_name}.run case/ solution.json"
-        else:
-            command = f"python {relative.as_posix()} case/ solution.json"
-        return location, command
+        relative_text = relative.as_posix()
+        if relative_text == "verifier":
+            return relative_text, f"./{relative_text} case/ solution.json"
+        if relative_text == "verifier.py":
+            return relative_text, f"python {relative_text} case/ solution.json"
 
     return (
         "Verifier is not exposed in this workspace.",
@@ -368,7 +351,7 @@ def _template_context(
     case_id: str,
     assemble_specs: tuple[family_plan.AssembleSpec, ...],
 ) -> dict[str, str]:
-    verifier_location, verifier_command = _workspace_verifier_info(benchmark, assemble_specs)
+    verifier_location, verifier_command = _workspace_verifier_info(assemble_specs)
     return {
         "benchmark": benchmark,
         "split": split,
@@ -510,6 +493,13 @@ def _assemble_workspace(
                     }
                 )
                 continue
+            opaque_benchmark = family_plan.opaque_verifier_benchmark(spec.source)
+            if opaque_benchmark is not None:
+                rebuild_command = family_plan.opaque_verifier_rebuild_command((opaque_benchmark,))
+                raise SystemExit(
+                    "Required opaque verifier artifact does not exist: "
+                    f"{spec.source}. Rebuild it with: {rebuild_command}"
+                )
             example_note = f" Copy the example file {spec.example} and fill it in." if spec.example else ""
             raise SystemExit(f"Required assemble source does not exist: {spec.source}.{example_note}")
 
@@ -1494,6 +1484,7 @@ def main(argv: list[str] | None = None) -> int:
         for harness, path in plan.unavailable_configs:
             lines.append(f"- {harness}: {path}")
         raise SystemExit("\n".join(lines))
+    family_plan.raise_if_unusable_opaque_verifiers(plan.opaque_verifier_artifacts)
     return _run_batch(args, preview)
 
 
