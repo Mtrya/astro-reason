@@ -78,6 +78,7 @@ def _write_splits_yaml(path: Path, *, snapshot_epoch_utc: str = CELESTRAK_SNAPSH
                     "max_count": 4,
                     "urban_target_divisor": 2,
                     "min_urban_population": 1000,
+                    "max_abs_latitude_deg": 70.0,
                     "non_urban_jitter_deg": 0.2,
                     "aoi_radius_min_m": 2500.0,
                     "aoi_radius_max_m": 2500.0,
@@ -157,6 +158,7 @@ def _write_source_tree(source_dir: Path) -> None:
                 "Nairobi,Kenya,-1.2864,36.8172,4397000",
                 "Santiago,Chile,-33.4489,-70.6693,5614000",
                 "Ottawa,Canada,45.4215,-75.6972,994837",
+                "Longyearbyen,Norway,78.2232,15.6267,2368",
             ]
         )
         + "\n",
@@ -283,3 +285,10 @@ def test_main_builds_split_aware_dataset(monkeypatch: pytest.MonkeyPatch, tmp_pa
     assert index["example_smoke_case"] == "test/case_0001"
     assert index["cases"][0]["split"] == "test"
     assert index["cases"][0]["path"] == "cases/test/case_0001"
+    targets = yaml.safe_load(
+        (output_dir / "cases" / "test" / "case_0001" / "targets.yaml").read_text(
+            encoding="utf-8"
+        )
+    )
+    assert targets
+    assert all(abs(float(target["latitude_deg"])) < 70.0 for target in targets)

@@ -163,9 +163,13 @@ def _passes_feasibility(
     lat: float,
     lon: float,
     inclinations_deg: list[float],
+    *,
+    max_abs_latitude_deg: float | None = None,
 ) -> bool:
     """Lightweight conservative filter: latitude within inclination band and non-polar."""
     del lon
+    if max_abs_latitude_deg is not None and abs(lat) >= max_abs_latitude_deg:
+        return False
     if abs(lat) > 85.0:
         return False
     max_inc = max(inclinations_deg) if inclinations_deg else 98.0
@@ -347,6 +351,7 @@ def _sample_urban_targets(
     inclinations_deg: list[float],
     *,
     min_urban_population: int,
+    max_abs_latitude_deg: float | None,
 ) -> list[dict[str, Any]]:
     """Sample city targets from the reproducible world-cities source."""
     pool = [c for c in cities if c.get("population", 0) >= min_urban_population]
@@ -362,7 +367,12 @@ def _sample_urban_targets(
         key = (round(lat, 2), round(lon, 2))
         if key in used:
             continue
-        if not _passes_feasibility(lat, lon, inclinations_deg):
+        if not _passes_feasibility(
+            lat,
+            lon,
+            inclinations_deg,
+            max_abs_latitude_deg=max_abs_latitude_deg,
+        ):
             continue
         try:
             bilinear_elevation_m(lat, lon)
@@ -392,7 +402,11 @@ def _split_three_way(n: int) -> tuple[int, int, int]:
     )
 
 
-def _candidate_cells_by_scene(inclinations_deg: list[float]) -> dict[str, list[tuple[int, int]]]:
+def _candidate_cells_by_scene(
+    inclinations_deg: list[float],
+    *,
+    max_abs_latitude_deg: float | None,
+) -> dict[str, list[tuple[int, int]]]:
     candidates: dict[str, list[tuple[int, int]]] = {
         "vegetated": [],
         "rugged": [],
@@ -402,7 +416,12 @@ def _candidate_cells_by_scene(inclinations_deg: list[float]) -> dict[str, list[t
         if scene not in candidates:
             continue
         lat_idx, lon_idx = cell
-        if not _passes_feasibility(float(lat_idx), float(lon_idx), inclinations_deg):
+        if not _passes_feasibility(
+            float(lat_idx),
+            float(lon_idx),
+            inclinations_deg,
+            max_abs_latitude_deg=max_abs_latitude_deg,
+        ):
             continue
         candidates[scene].append(cell)
     return candidates
@@ -453,6 +472,7 @@ def _sample_non_urban_targets(
     inclinations_deg: list[float],
     *,
     non_urban_jitter_deg: float,
+    max_abs_latitude_deg: float | None,
 ) -> list[dict[str, Any]]:
     """Sample non-urban targets from committed lookup-table cells."""
     n_veg, n_rug, n_open = _split_three_way(count)
@@ -461,7 +481,10 @@ def _sample_non_urban_targets(
         "rugged": n_rug,
         "open": n_open,
     }
-    candidates = _candidate_cells_by_scene(inclinations_deg)
+    candidates = _candidate_cells_by_scene(
+        inclinations_deg,
+        max_abs_latitude_deg=max_abs_latitude_deg,
+    )
     for scene, cells in candidates.items():
         candidates[scene] = _weighted_cell_order(cells, rng)
 
@@ -479,6 +502,8 @@ def _sample_non_urban_targets(
                 scene=scene,
                 non_urban_jitter_deg=non_urban_jitter_deg,
             )
+            if max_abs_latitude_deg is not None and abs(lat) >= max_abs_latitude_deg:
+                continue
             key = (round(lat, 2), round(lon, 2))
             if key in used:
                 continue
@@ -658,6 +683,11 @@ def generate_dataset(
             urban_divisor = _require_int(targets_config, "urban_target_divisor", "targets")
             n_urban = n_targets // urban_divisor
             used_coords: set[tuple[float, float]] = set()
+            max_abs_latitude_deg = (
+                _require_float(targets_config, "max_abs_latitude_deg", "targets")
+                if "max_abs_latitude_deg" in targets_config
+                else None
+            )
 
             urban = _sample_urban_targets(
                 cities,
@@ -670,6 +700,7 @@ def generate_dataset(
                     "min_urban_population",
                     "targets",
                 ),
+                max_abs_latitude_deg=max_abs_latitude_deg,
             )
             non_urban = _sample_non_urban_targets(
                 rng,
@@ -681,6 +712,7 @@ def generate_dataset(
                     "non_urban_jitter_deg",
                     "targets",
                 ),
+                max_abs_latitude_deg=max_abs_latitude_deg,
             )
             raw_targets = urban + non_urban
             rng.shuffle(raw_targets)

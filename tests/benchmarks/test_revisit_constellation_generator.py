@@ -21,6 +21,7 @@ def _write_world_cities_csv(path: Path) -> None:
                 "Delta,Dland,-30.0,-120.0,700000",
                 "Echo,Eland,45.0,45.0,600000",
                 "Foxtrot,Fland,-45.0,135.0,500000",
+                "Polar,Poland,78.0,15.0,2000000",
             ]
         )
         + "\n",
@@ -61,6 +62,7 @@ def _write_splits_yaml(path: Path) -> None:
                     },
                 },
                 "target_selection": {
+                    "max_abs_latitude_deg": 70.0,
                     "initial_pool": {"min_size": 3, "multiplier": 1}
                 },
                 "satellite_model": {
@@ -143,3 +145,10 @@ def test_main_builds_dataset_from_yaml_and_keeps_download_controls_operational(
     assert len(index["cases"]) == 2
     assert all(case["split"] == "test" for case in index["cases"])
     assert all(case["path"].startswith("cases/test/") for case in index["cases"])
+    targets = json.loads(
+        (output_dir / "cases" / "test" / "case_0001" / "mission.json").read_text(
+            encoding="utf-8"
+        )
+    )["targets"]
+    assert targets
+    assert all(abs(float(target["latitude_deg"])) < 70.0 for target in targets)

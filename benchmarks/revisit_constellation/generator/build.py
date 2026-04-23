@@ -143,15 +143,18 @@ def _sample_case_spec(
         _require_int(target_bounds, "min", "case_spec.target_count"),
         _require_int(target_bounds, "max", "case_spec.target_count"),
     )
-    max_num_satellites = rng.randint(
-        _require_int(satellite_bounds, "min", "case_spec.max_num_satellites"),
-        _require_int(satellite_bounds, "max", "case_spec.max_num_satellites"),
-    )
-
     threshold_options = tuple(
         float(value) for value in _require_list(case_spec_config, "revisit_threshold_hours_options", "case_spec")
     )
     revisit_threshold_hours = rng.choice(threshold_options)
+    satellite_max = _require_int(satellite_bounds, "max", "case_spec.max_num_satellites")
+    if revisit_threshold_hours == 6.0:
+        max_num_satellites = satellite_max
+    else:
+        max_num_satellites = rng.randint(
+            _require_int(satellite_bounds, "min", "case_spec.max_num_satellites"),
+            satellite_max,
+        )
     return target_count, max_num_satellites, revisit_threshold_hours
 
 
@@ -312,7 +315,10 @@ def select_targets(
     min_target_separation_m: float,
     initial_pool_min_size: int,
     initial_pool_multiplier: int,
+    max_abs_latitude_deg: float | None = None,
 ) -> list[CityRecord]:
+    if max_abs_latitude_deg is not None:
+        cities = [city for city in cities if abs(city.latitude_deg) < max_abs_latitude_deg]
     if count > len(cities):
         raise ValueError(f"Requested {count} targets, but only {len(cities)} cities are available")
 
@@ -507,6 +513,11 @@ def generate_dataset(
                     initial_pool,
                     "multiplier",
                     f"splits.{split_name}.target_selection.initial_pool",
+                ),
+                max_abs_latitude_deg=(
+                    _require_float(target_selection, "max_abs_latitude_deg", f"splits.{split_name}.target_selection")
+                    if "max_abs_latitude_deg" in target_selection
+                    else None
                 ),
             )
             case_dir = cases_dir / split_name / case_spec.case_id

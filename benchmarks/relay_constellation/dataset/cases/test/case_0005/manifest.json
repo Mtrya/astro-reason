@@ -2,7 +2,7 @@
   "benchmark": "relay_constellation",
   "case_id": "case_0005",
   "constraints": {
-    "max_added_satellites": 6,
+    "max_added_satellites": 10,
     "max_altitude_m": 1500000.0,
     "max_eccentricity": 0.02,
     "max_inclination_deg": 85.0,
@@ -25,5 +25,5 @@
     "primary_metric": "service_fraction",
     "secondary_metric": "worst_demand_service_fraction"
   },
-  "seed": 40070
+  "seed": 42054
 }

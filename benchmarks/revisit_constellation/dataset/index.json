@@ -3,26 +3,26 @@
   "cases": [
     {
       "case_id": "case_0001",
-      "max_num_satellites": 7,
+      "max_num_satellites": 18,
       "path": "cases/test/case_0001",
       "split": "test",
-      "target_count": 22,
-      "uniform_revisit_threshold_hours": 6.0
+      "target_count": 23,
+      "uniform_revisit_threshold_hours": 8.0
     },
     {
       "case_id": "case_0002",
-      "max_num_satellites": 13,
+      "max_num_satellites": 16,
       "path": "cases/test/case_0002",
       "split": "test",
-      "target_count": 12,
-      "uniform_revisit_threshold_hours": 12.0
+      "target_count": 20,
+      "uniform_revisit_threshold_hours": 8.0
     },
     {
       "case_id": "case_0003",
-      "max_num_satellites": 18,
+      "max_num_satellites": 12,
       "path": "cases/test/case_0003",
       "split": "test",
-      "target_count": 20,
+      "target_count": 24,
       "uniform_revisit_threshold_hours": 8.0
     },
     {
@@ -31,19 +31,19 @@
       "path": "cases/test/case_0004",
       "split": "test",
       "target_count": 20,
-      "uniform_revisit_threshold_hours": 8.0
+      "uniform_revisit_threshold_hours": 12.0
     },
     {
       "case_id": "case_0005",
       "max_num_satellites": 17,
       "path": "cases/test/case_0005",
       "split": "test",
-      "target_count": 16,
-      "uniform_revisit_threshold_hours": 8.0
+      "target_count": 19,
+      "uniform_revisit_threshold_hours": 12.0
     }
   ],
   "example_smoke_case": "test/case_0001",
-  "generator_seed": 42,
+  "generator_seed": 84,
   "horizon_hours": 48,
   "source": {
     "world_cities": {
