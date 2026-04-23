@@ -10,6 +10,14 @@
 | EXTENSION | Logic present in the implementation that does not appear in the reference. |
 | MISSING | Step or formula described in the reference that is absent from the implementation and is material to correctness. |
 
+## Correctness Status Definitions
+
+| Status | Meaning |
+|--------|---------|
+| PASS | No `DEVIATION` or `MISSING` items that impact correctness. |
+| NEEDS_REVIEW | `DEVIATION` or `MISSING` items exist but their impact is ambiguous or requires human judgment. |
+| FAIL | Clear `DEVIATION` or `MISSING` items that invalidate the algorithmic correctness or violate the benchmark contract. |
+
 ## Performance Assessment
 
 Evaluate whether the solver's configuration is fair for the method it claims to implement.
