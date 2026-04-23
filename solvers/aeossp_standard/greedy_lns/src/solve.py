@@ -32,8 +32,7 @@ def _build_status(
     timing_seconds: dict[str, float],
 ) -> dict:
     return {
-        "status": "phase_5_tuned_solution_generated",
-        "phase": 5,
+        "status": "solution_generated",
         "case_dir": str(case_dir),
         "config_dir": str(config_dir) if config_dir is not None else None,
         "solution": str(solution_path),
@@ -223,7 +222,6 @@ def main(argv: list[str] | None = None) -> int:
             solution_dir / "status.json",
             {
                 "status": "error",
-                "phase": 5,
                 "case_dir": str(case_dir),
                 "config_dir": str(config_dir) if config_dir is not None else None,
                 "error": str(exc),
@@ -234,7 +232,7 @@ def main(argv: list[str] | None = None) -> int:
         return 2
 
     print(
-        f"phase_5_tuned_solution_generated: {case.mission.case_id} "
+        f"solution_generated: {case.mission.case_id} "
         f"candidates={candidate_summary.candidate_count} "
         f"inserted={insertion_result.stats.candidates_inserted} "
         f"ls_accepted={local_search_result.stats.moves_accepted} "
