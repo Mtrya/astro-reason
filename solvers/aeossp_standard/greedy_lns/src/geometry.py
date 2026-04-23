@@ -8,7 +8,7 @@ import math
 import brahe
 import numpy as np
 
-from case_io import Mission, NUMERICAL_EPS, Satellite, Task
+from .case_io import Mission, NUMERICAL_EPS, Satellite, Task
 
 
 _BRAHE_READY = False

@@ -8,16 +8,16 @@ from typing import Any
 
 import brahe
 
-from candidates import Candidate
-from case_io import AeosspCase, NUMERICAL_EPS, Satellite, _is_aligned, iso_z
-from geometry import (
+from .candidates import Candidate
+from .case_io import AeosspCase, NUMERICAL_EPS, Satellite, _is_aligned, iso_z
+from .geometry import (
     PropagationContext,
     angle_between_deg,
     datetime_to_epoch,
     required_slew_settle_s,
     target_vector_eci,
 )
-from transition import TransitionVectorCache, transition_result
+from .transition import TransitionVectorCache, transition_result
 
 
 @dataclass(frozen=True, slots=True)
