@@ -38,6 +38,15 @@ from transition import TransitionVectorCache, transition_gap_conflict, transitio
 from candidates import Candidate  # noqa: E402
 from insertion import greedy_insertion, InsertionConfig, InsertionResult  # noqa: E402
 from validation import RepairConfig, ValidationIssue, repair_schedule  # noqa: E402
+from components import Component, build_component_index  # noqa: E402
+from local_search import (  # noqa: E402
+    LocalSearchConfig,
+    LocalSearchResult,
+    _marginal_profit,
+    _recompute_component,
+    _by_satellite,
+    local_search,
+)
 
 
 def _mission() -> Mission:
@@ -517,3 +526,147 @@ def test_repair_passes_when_valid(monkeypatch) -> None:
     assert len(result.candidates) == 1
     assert result.terminated_reason == "valid"
     assert len(result.removals) == 0
+
+
+def test_component_graph_overlap_edge(monkeypatch) -> None:
+    a = _candidate("a", satellite_id="sat_a", task_id="task_a", start_offset_s=10, end_offset_s=25)
+    b = _candidate("b", satellite_id="sat_a", task_id="task_b", start_offset_s=20, end_offset_s=30)
+    case = _case_for_candidates([a, b])
+
+    monkeypatch.setattr("components.PropagationContext", lambda *args, **kwargs: None)
+    monkeypatch.setattr("components.transition_gap_conflict", lambda *args, **kwargs: False)
+
+    index = build_component_index(case, [a, b])
+    assert index.stats.component_count == 1
+    assert index.components[0].size == 2
+
+
+def test_component_graph_no_edge_for_temporal_separation(monkeypatch) -> None:
+    a = _candidate("a", satellite_id="sat_a", task_id="task_a", start_offset_s=10, end_offset_s=20)
+    b = _candidate("b", satellite_id="sat_a", task_id="task_b", start_offset_s=100, end_offset_s=110)
+    case = _case_for_candidates([a, b])
+
+    monkeypatch.setattr("components.PropagationContext", lambda *args, **kwargs: None)
+    monkeypatch.setattr("components.transition_gap_conflict", lambda *args, **kwargs: False)
+
+    index = build_component_index(case, [a, b])
+    assert index.stats.component_count == 2
+    assert index.stats.singleton_count == 2
+
+
+def test_component_graph_edge_for_insufficient_transition(monkeypatch) -> None:
+    a = _candidate("a", satellite_id="sat_a", task_id="task_a", start_offset_s=10, end_offset_s=20)
+    b = _candidate("b", satellite_id="sat_a", task_id="task_b", start_offset_s=22, end_offset_s=32)
+    case = _case_for_candidates([a, b])
+
+    monkeypatch.setattr("components.PropagationContext", lambda *args, **kwargs: None)
+    monkeypatch.setattr("components.transition_gap_conflict", lambda *args, **kwargs: True)
+
+    index = build_component_index(case, [a, b])
+    assert index.stats.component_count == 1
+    assert index.components[0].size == 2
+
+
+def test_component_extraction_is_deterministic(monkeypatch) -> None:
+    a = _candidate("a", satellite_id="sat_a", task_id="task_a", start_offset_s=10, end_offset_s=20)
+    b = _candidate("b", satellite_id="sat_a", task_id="task_b", start_offset_s=22, end_offset_s=32)
+    c = _candidate("c", satellite_id="sat_a", task_id="task_c", start_offset_s=40, end_offset_s=50)
+    case = _case_for_candidates([a, b, c])
+
+    monkeypatch.setattr("components.PropagationContext", lambda *args, **kwargs: None)
+    monkeypatch.setattr("components.transition_gap_conflict", lambda *args, **kwargs: True)
+
+    index1 = build_component_index(case, [a, b, c])
+    index2 = build_component_index(case, [a, b, c])
+    assert [c.component_id for c in index1.components] == [c.component_id for c in index2.components]
+
+
+def test_marginal_profit_free_task() -> None:
+    a = _candidate("a", satellite_id="sat_a", task_id="task_a", weight=5.0)
+    scheduled = {a.task_id: a}
+    free = _candidate("b", satellite_id="sat_a", task_id="task_b", weight=3.0)
+    assert _marginal_profit(free, scheduled) == 3.0
+
+
+def test_marginal_profit_external_alternative() -> None:
+    a = _candidate("a", satellite_id="sat_a", task_id="task_x", weight=5.0)
+    b = _candidate("b", satellite_id="sat_b", task_id="task_x", weight=3.0)
+    scheduled = {a.task_id: a}
+    assert _marginal_profit(b, scheduled) == 3.0 - 5.0
+
+
+def test_marginal_profit_internal_alternative() -> None:
+    a = _candidate("a", satellite_id="sat_a", task_id="task_x", weight=5.0)
+    b = _candidate("b", satellite_id="sat_a", task_id="task_x", weight=3.0)
+    scheduled = {}
+    assert _marginal_profit(b, scheduled) == 3.0
+
+
+def test_local_search_accepted_improving_move(monkeypatch) -> None:
+    low = _candidate("low", satellite_id="sat_a", task_id="task_x", start_offset_s=10, end_offset_s=20, weight=1.0)
+    high = _candidate("high", satellite_id="sat_a", task_id="task_x", start_offset_s=10, end_offset_s=20, weight=5.0)
+    case = _case_for_candidates([low, high])
+
+    monkeypatch.setattr("local_search.build_component_index", lambda case, candidates: type("Idx", (), {
+        "components": [
+            type("Comp", (), {
+                "satellite_id": "sat_a",
+                "component_id": "sat_a::root",
+                "candidates": (low, high),
+                "size": 2,
+            })()
+        ],
+        "stats": type("Stats", (), {"component_count": 1, "largest_component_size": 2})(),
+    })())
+    monkeypatch.setattr("local_search.PropagationContext", lambda *args, **kwargs: None)
+    monkeypatch.setattr("local_search.TransitionVectorCache", lambda *args, **kwargs: None)
+    monkeypatch.setattr("local_search.transition_result", lambda *args, **kwargs: type("R", (), {"feasible": True})())
+    monkeypatch.setattr("local_search.initial_slew_feasible", lambda **kwargs: True)
+
+    greedy_solution = [low]
+    result = local_search(case, [low, high], greedy_solution, config=LocalSearchConfig(max_local_search_iterations=10))
+    assert result.stats.moves_accepted >= 1
+    assert result.stats.final_objective == 5.0
+
+
+def test_local_search_rejected_non_improving_move(monkeypatch) -> None:
+    a = _candidate("a", satellite_id="sat_a", task_id="task_a", start_offset_s=10, end_offset_s=20, weight=5.0)
+    case = _case_for_candidates([a])
+
+    monkeypatch.setattr("local_search.build_component_index", lambda case, candidates: type("Idx", (), {
+        "components": [
+            type("Comp", (), {
+                "satellite_id": "sat_a",
+                "component_id": "sat_a::root",
+                "candidates": (a,),
+                "size": 1,
+            })()
+        ],
+        "stats": type("Stats", (), {"component_count": 1, "largest_component_size": 1})(),
+    })())
+    monkeypatch.setattr("local_search.PropagationContext", lambda *args, **kwargs: None)
+    monkeypatch.setattr("local_search.TransitionVectorCache", lambda *args, **kwargs: None)
+    monkeypatch.setattr("local_search.transition_result", lambda *args, **kwargs: type("R", (), {"feasible": True})())
+    monkeypatch.setattr("local_search.initial_slew_feasible", lambda **kwargs: True)
+
+    greedy_solution = [a]
+    result = local_search(case, [a], greedy_solution, config=LocalSearchConfig(max_local_search_iterations=10))
+    assert result.stats.moves_accepted == 0
+    assert result.stats.final_objective == 5.0
+
+
+def test_local_search_restart_determinism(monkeypatch) -> None:
+    a = _candidate("a", satellite_id="sat_a", task_id="task_a", start_offset_s=10, end_offset_s=20, weight=5.0)
+    case = _case_for_candidates([a])
+
+    monkeypatch.setattr("local_search.build_component_index", lambda case, candidates: type("Idx", (), {
+        "components": [],
+        "stats": type("Stats", (), {"component_count": 0, "largest_component_size": 0})(),
+    })())
+    monkeypatch.setattr("local_search.PropagationContext", lambda *args, **kwargs: None)
+
+    greedy_solution = [a]
+    result1 = local_search(case, [a], greedy_solution, config=LocalSearchConfig(restart_count=2, random_seed=42))
+    result2 = local_search(case, [a], greedy_solution, config=LocalSearchConfig(restart_count=2, random_seed=42))
+    assert result1.stats.stop_reason == result2.stats.stop_reason
+    assert result1.stats.final_objective == result2.stats.final_objective

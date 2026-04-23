@@ -12,6 +12,7 @@ from pathlib import Path
 from candidates import CandidateConfig, generate_candidates
 from case_io import load_case, load_solver_config
 from insertion import InsertionConfig, greedy_insertion
+from local_search import LocalSearchConfig, local_search
 from solution_io import write_json, write_solution
 from validation import RepairConfig, repair_schedule
 
@@ -25,12 +26,13 @@ def _build_status(
     candidate_config: CandidateConfig,
     candidate_summary,
     insertion_result,
+    local_search_result,
     repair_result,
     timing_seconds: dict[str, float],
 ) -> dict:
     return {
-        "status": "phase_2_greedy_insertion_solution_generated",
-        "phase": 2,
+        "status": "phase_3_local_search_solution_generated",
+        "phase": 3,
         "case_dir": str(case_dir),
         "config_dir": str(config_dir) if config_dir is not None else None,
         "solution": str(solution_path),
@@ -41,6 +43,7 @@ def _build_status(
         "utility_policy": "weight_over_duration",
         **candidate_summary.as_debug_dict(case),
         "insertion": insertion_result.as_dict(),
+        "local_search": local_search_result.as_dict(),
         "repair": repair_result.as_status_dict(),
         "timing_seconds": timing_seconds,
     }
@@ -54,6 +57,7 @@ def _write_debug_artifacts(
     candidate_summary,
     candidates,
     insertion_result,
+    local_search_result,
     repair_result,
     timing_seconds: dict[str, float],
 ) -> None:
@@ -75,6 +79,14 @@ def _write_debug_artifacts(
             "case_id": case.mission.case_id,
             "insertion": insertion_result.as_dict(),
             "selected_candidates": [candidate.as_dict() for candidate in insertion_result.selected],
+        },
+    )
+    write_json(
+        solution_dir / "debug" / "local_search_stats.json",
+        {
+            "case_id": case.mission.case_id,
+            "local_search": local_search_result.as_dict(),
+            "post_local_search_candidates": [candidate.as_dict() for candidate in local_search_result.candidates],
         },
     )
     write_json(
@@ -106,6 +118,7 @@ def main(argv: list[str] | None = None) -> int:
         config_payload = load_solver_config(config_dir)
         candidate_config = CandidateConfig.from_mapping(config_payload)
         insertion_config = InsertionConfig.from_mapping(config_payload)
+        local_search_config = LocalSearchConfig.from_mapping(config_payload)
         repair_config = RepairConfig.from_mapping(config_payload)
         case = load_case(case_dir)
         candidate_start = time.perf_counter()
@@ -114,14 +127,20 @@ def main(argv: list[str] | None = None) -> int:
         insertion_start = time.perf_counter()
         insertion_result = greedy_insertion(case, candidates, insertion_config)
         insertion_end = time.perf_counter()
+        local_search_start = time.perf_counter()
+        local_search_result = local_search(
+            case, candidates, insertion_result.selected, config=local_search_config
+        )
+        local_search_end = time.perf_counter()
         repair_start = time.perf_counter()
-        repair_result = repair_schedule(case, insertion_result.selected, config=repair_config)
+        repair_result = repair_schedule(case, local_search_result.candidates, config=repair_config)
         repair_end = time.perf_counter()
         solution_path = write_solution(solution_dir, repair_result.candidates)
         total_end = time.perf_counter()
         timing_seconds = {
             "candidate_generation": candidate_end - candidate_start,
             "insertion": insertion_end - insertion_start,
+            "local_search": local_search_end - local_search_start,
             "repair": repair_end - repair_start,
             "total": total_end - total_start,
         }
@@ -133,6 +152,7 @@ def main(argv: list[str] | None = None) -> int:
             candidate_config=candidate_config,
             candidate_summary=candidate_summary,
             insertion_result=insertion_result,
+            local_search_result=local_search_result,
             repair_result=repair_result,
             timing_seconds=timing_seconds,
         )
@@ -145,6 +165,7 @@ def main(argv: list[str] | None = None) -> int:
                 candidate_summary=candidate_summary,
                 candidates=candidates,
                 insertion_result=insertion_result,
+                local_search_result=local_search_result,
                 repair_result=repair_result,
                 timing_seconds=timing_seconds,
             )
@@ -155,7 +176,7 @@ def main(argv: list[str] | None = None) -> int:
             solution_dir / "status.json",
             {
                 "status": "error",
-                "phase": 2,
+                "phase": 3,
                 "case_dir": str(case_dir),
                 "config_dir": str(config_dir) if config_dir is not None else None,
                 "error": str(exc),
@@ -166,9 +187,11 @@ def main(argv: list[str] | None = None) -> int:
         return 2
 
     print(
-        f"phase_2_greedy_insertion_solution_generated: {case.mission.case_id} "
+        f"phase_3_local_search_solution_generated: {case.mission.case_id} "
         f"candidates={candidate_summary.candidate_count} "
         f"inserted={insertion_result.stats.candidates_inserted} "
+        f"ls_accepted={local_search_result.stats.moves_accepted} "
+        f"ls_stop={local_search_result.stats.stop_reason} "
         f"after_repair={len(repair_result.candidates)} "
         f"local_valid={repair_result.final_report.valid} "
         f"repair_removals={len(repair_result.removals)} -> {solution_path}"
