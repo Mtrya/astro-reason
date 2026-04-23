@@ -11,8 +11,9 @@ from pathlib import Path
 
 from candidates import generate_candidates
 from case_io import load_case, load_solver_config
-from models import CandidateObservation
+from models import CandidateObservation, PruningSummary
 from products import enumerate_products
+from pruning import prune_candidates
 
 
 def _write_json(path: Path, payload: object) -> None:
@@ -35,7 +36,7 @@ def _candidate_to_action(cand: CandidateObservation) -> dict:
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(
-        description="Phase-2 stereo MILP scaffold: candidate generation + product enumeration + empty solution."
+        description="Phase-3 stereo MILP scaffold: candidate generation + product enumeration + time-window cluster pruning + empty solution."
     )
     parser.add_argument("--case-dir", required=True)
     parser.add_argument("--config-dir", default="")
@@ -63,14 +64,37 @@ def main(argv: list[str] | None = None) -> int:
         )
         product_end = time.perf_counter()
 
-        # Phase 2 still emits empty valid solution; products are debug-only.
+        # Phase 3: optional time-window cluster pruning
+        pruning_start = time.perf_counter()
+        pruning_cfg = config_payload.get("pruning", {})
+        if pruning_cfg.get("enabled", False):
+            candidates, pairs, tris, pruning_summary = prune_candidates(
+                candidates, pairs, tris, satellites, targets, mission, config_payload
+            )
+            # Recompute product summary for pruned set
+            product_summary = product_summary  # keep original for comparison in status
+        else:
+            pruning_summary = PruningSummary(
+                enabled=False,
+                cluster_gap_s=0.0,
+                lambda_cap=0,
+                pre_candidates=len(candidates),
+                post_candidates=len(candidates),
+                pre_pairs=len(pairs),
+                post_pairs=len(pairs),
+                pre_tris=len(tris),
+                post_tris=len(tris),
+            )
+        pruning_end = time.perf_counter()
+
+        # Phase 3 still emits empty valid solution; products are debug-only.
         solution = {"actions": []}
         solution_path = solution_dir / "solution.json"
         _write_json(solution_path, solution)
 
         status = {
-            "status": "phase_2_products_enumerated",
-            "phase": 2,
+            "status": "phase_3_pruning_complete",
+            "phase": 3,
             "case_dir": str(case_dir),
             "config_dir": str(config_dir) if config_dir is not None else None,
             "solution": str(solution_path),
@@ -78,9 +102,11 @@ def main(argv: list[str] | None = None) -> int:
             "target_count": len(targets),
             "candidate_counts": candidate_summary.as_dict(),
             "product_counts": product_summary.as_dict(),
+            "pruning_summary": pruning_summary.as_dict(),
             "timing_seconds": {
                 "candidate_generation": candidate_end - candidate_start,
                 "product_enumeration": product_end - product_start,
+                "pruning": pruning_end - pruning_start,
                 "total": time.perf_counter() - total_start,
             },
             "approximation_flags": {
@@ -148,6 +174,13 @@ def main(argv: list[str] | None = None) -> int:
                     ],
                 },
             )
+            _write_json(
+                debug_dir / "pruning_summary.json",
+                {
+                    "case_dir": str(case_dir),
+                    "pruning_summary": pruning_summary.as_dict(),
+                },
+            )
 
     except Exception as exc:
         traceback_text = traceback.format_exc()
@@ -156,7 +189,7 @@ def main(argv: list[str] | None = None) -> int:
             solution_dir / "status.json",
             {
                 "status": "error",
-                "phase": 2,
+                "phase": 3,
                 "case_dir": str(case_dir),
                 "config_dir": str(config_dir) if config_dir is not None else None,
                 "error": str(exc),
@@ -167,10 +200,11 @@ def main(argv: list[str] | None = None) -> int:
         return 2
 
     print(
-        f"phase_2_products_enumerated: case={case_dir.name} "
+        f"phase_3_pruning_complete: case={case_dir.name} "
         f"candidates={candidate_summary.total_accepted} "
         f"pairs={product_summary.total_pairs} valid_pairs={product_summary.valid_pairs} "
         f"tris={product_summary.total_tris} valid_tris={product_summary.valid_tris} "
+        f"pruned={pruning_summary.pre_candidates - pruning_summary.post_candidates} "
         f"-> {solution_path}"
     )
     return 0

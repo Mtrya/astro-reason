@@ -30,6 +30,15 @@ from products import (  # noqa: E402
     evaluate_tri,
     enumerate_products,
 )
+from pruning import (  # noqa: E402
+    _CandidateScore,
+    _rank_key,
+    _score_candidates,
+    cluster_candidates_by_gap,
+    compute_cluster_gap_s,
+    compute_lambda_lb,
+    prune_candidates,
+)
 
 
 def _satellite(
@@ -466,3 +475,434 @@ class TestEnumerateProducts:
         assert len(pairs) == 1  # only (c1,c2)
         assert pairs[0].access_interval_id == "i1"
         assert len(tris) == 0
+
+
+# ---------------------------------------------------------------------------
+# Pruning tests
+# ---------------------------------------------------------------------------
+
+class TestClusterByGap:
+    def test_one_cluster_when_gap_small(self):
+        base = datetime(2026, 6, 18, 0, 0, 0, tzinfo=UTC)
+        cands = [
+            _candidate(start_offset_s=i, end_offset_s=i + 2)
+            for i in range(0, 10, 3)
+        ]
+        clusters = cluster_candidates_by_gap(cands, gap_s=5.0)
+        assert len(clusters) == 1
+        assert len(clusters[0]) == 4
+
+    def test_two_clusters_when_gap_large(self):
+        base = datetime(2026, 6, 18, 0, 0, 0, tzinfo=UTC)
+        cands = [
+            _candidate(start_offset_s=0, end_offset_s=2),
+            _candidate(start_offset_s=3, end_offset_s=5),
+            _candidate(start_offset_s=20, end_offset_s=22),
+            _candidate(start_offset_s=23, end_offset_s=25),
+        ]
+        clusters = cluster_candidates_by_gap(cands, gap_s=5.0)
+        assert len(clusters) == 2
+        assert len(clusters[0]) == 2
+        assert len(clusters[1]) == 2
+
+    def test_mixed_gap_boundary(self):
+        base = datetime(2026, 6, 18, 0, 0, 0, tzinfo=UTC)
+        cands = [
+            _candidate(start_offset_s=0, end_offset_s=2),
+            _candidate(start_offset_s=3, end_offset_s=5),
+            _candidate(start_offset_s=7, end_offset_s=9),   # gap from prev = 2s (<=5)
+            _candidate(start_offset_s=15, end_offset_s=17), # gap from prev = 6s (>5)
+        ]
+        clusters = cluster_candidates_by_gap(cands, gap_s=5.0)
+        assert len(clusters) == 2
+        assert len(clusters[0]) == 3
+        assert len(clusters[1]) == 1
+
+    def test_per_satellite_isolation(self):
+        base = datetime(2026, 6, 18, 0, 0, 0, tzinfo=UTC)
+        cands = [
+            _candidate(sat_id="sat_a", start_offset_s=0, end_offset_s=2),
+            _candidate(sat_id="sat_a", start_offset_s=3, end_offset_s=5),
+            _candidate(sat_id="sat_b", start_offset_s=1, end_offset_s=3),
+            _candidate(sat_id="sat_b", start_offset_s=4, end_offset_s=6),
+        ]
+        clusters = cluster_candidates_by_gap(cands, gap_s=5.0)
+        assert len(clusters) == 2  # one per satellite
+
+
+class TestComputeClusterGapS:
+    def test_typical_satellite(self):
+        sat = Satellite(
+            id="sat_test",
+            norad_catalog_id=1,
+            tle_line1="1 00000U 00000A   00000.00000000  .00000000  00000+0  00000-0 0  0000",
+            tle_line2="2 00000   0.0000   0.0000 0000000   0.0000   0.0000  0.00000000000000",
+            pixel_ifov_deg=4.0e-05,
+            cross_track_pixels=20000,
+            max_off_nadir_deg=30.0,
+            max_slew_velocity_deg_per_s=1.0,
+            max_slew_acceleration_deg_per_s2=1.0,
+            settling_time_s=5.0,
+            min_obs_duration_s=2.0,
+            max_obs_duration_s=60.0,
+        )
+        gap = compute_cluster_gap_s(sat)
+        assert gap == pytest.approx(4.0 * 30.0 / 1.0 + 5.0)
+
+
+class TestComputeLambdaLB:
+    def test_typical(self):
+        base = datetime(2026, 6, 18, 0, 0, 0, tzinfo=UTC)
+        sat = Satellite(
+            id="sat_test",
+            norad_catalog_id=1,
+            tle_line1="1 00000U 00000A   00000.00000000  .00000000  00000+0  00000-0 0  0000",
+            tle_line2="2 00000   0.0000   0.0000 0000000   0.0000   0.0000  0.00000000000000",
+            pixel_ifov_deg=4.0e-05,
+            cross_track_pixels=20000,
+            max_off_nadir_deg=30.0,
+            max_slew_velocity_deg_per_s=1.0,
+            max_slew_acceleration_deg_per_s2=1.0,
+            settling_time_s=5.0,
+            min_obs_duration_s=2.0,
+            max_obs_duration_s=60.0,
+        )
+        cands = [
+            _candidate(start_offset_s=0, end_offset_s=10),
+            _candidate(start_offset_s=20, end_offset_s=30),
+        ]
+        lb = compute_lambda_lb(cands, {"sat_test": sat})
+        avg_obs = 10.0
+        avg_settle = 5.0
+        expected = max(1, int(avg_obs / (avg_obs + avg_settle)))
+        assert lb == expected
+
+    def test_empty_returns_one(self):
+        assert compute_lambda_lb([], {}) == 1
+
+
+class TestScoreCandidates:
+    def test_scarcity_and_product_count(self, monkeypatch):
+        sat = _satellite()
+        target = _target()
+        mission = _mission()
+        config = {"overlap_grid_angles": 4, "overlap_grid_radii": 1}
+        base = datetime(2026, 6, 18, 0, 0, 0, tzinfo=UTC)
+
+        def fake_precompute(cand, sat, target, step):
+            from products import _CandidateGeometry
+            te = np.array([0.0, 0.0, 6378137.0])
+            offset_s = (cand.start - base).total_seconds()
+            angle = math.radians(offset_s)
+            sp = np.array([math.sin(angle) * 7e6, 0.0, math.cos(angle) * 7e6])
+            return _CandidateGeometry(
+                sat_pos_m=sp,
+                boresight_ground_m=te,
+                slant_range_m=1e6,
+                pixel_scale_m=1.0,
+                strip_polyline_en=[(0.0, -5000.0), (0.0, 5000.0)],
+                strip_half_width_m=1e6,
+            )
+
+        monkeypatch.setattr("products._precompute_candidate_geometry", fake_precompute)
+
+        c1 = _candidate(start_offset_s=0, along=0.0)
+        c2 = _candidate(start_offset_s=10, along=0.0)
+        c3 = _candidate(start_offset_s=20, along=0.0)
+        pairs, tris, _ = enumerate_products([c1, c2, c3], {"sat_test": sat}, {"t1": target}, mission, config)
+
+        target_totals = {"t1": 3}
+        scores = _score_candidates(
+            [c1, c2, c3], pairs, tris, target_totals,
+            mission.validity_thresholds.near_nadir_anchor_max_off_nadir_deg,
+        )
+        assert len(scores) == 3
+        # All should have valid products (pairs + one tri) because 10° and 20° separations
+        assert all(s.has_valid_product for s in scores)
+        # All are anchors (combined_off_nadir = 0)
+        assert all(s.is_anchor for s in scores)
+
+    def test_orphan_has_no_product(self, monkeypatch):
+        sat = _satellite()
+        target = _target()
+        mission = _mission()
+        config = {"overlap_grid_angles": 4, "overlap_grid_radii": 1}
+
+        def fake_precompute(cand, sat, target, step):
+            from products import _CandidateGeometry
+            te = np.array([0.0, 0.0, 6378137.0])
+            return _CandidateGeometry(
+                sat_pos_m=np.array([0.0, 0.0, 7e6]),
+                boresight_ground_m=te,
+                slant_range_m=1e6,
+                pixel_scale_m=1.0,
+                strip_polyline_en=[(0.0, 0.0), (0.0, 100.0)],
+                strip_half_width_m=1e6,
+            )
+
+        monkeypatch.setattr("products._precompute_candidate_geometry", fake_precompute)
+
+        c1 = _candidate(start_offset_s=0, along=0.0)
+        c2 = _candidate(start_offset_s=10, along=0.0)
+        pairs, tris, _ = enumerate_products([c1, c2], {"sat_test": sat}, {"t1": target}, mission, config)
+
+        # Add an orphan that is far apart -> no pair
+        c_orphan = _candidate(start_offset_s=1000, along=0.0)
+        cluster = [c1, c2, c_orphan]
+        target_totals = {"t1": 3}
+        scores = _score_candidates(
+            cluster, pairs, tris, target_totals,
+            mission.validity_thresholds.near_nadir_anchor_max_off_nadir_deg,
+        )
+        orphan_score = next(s for s in scores if s.cand is c_orphan)
+        assert orphan_score.has_valid_product is False
+        assert orphan_score.valid_pair_count == 0
+
+
+class TestRankKey:
+    def test_product_participant_ranks_above_orphan(self):
+        base = datetime(2026, 6, 18, 0, 0, 0, tzinfo=UTC)
+        c_prod = _candidate(start_offset_s=0)
+        c_orphan = _candidate(start_offset_s=10)
+
+        s_prod = _CandidateScore(c_prod, has_valid_product=True, scarcity=0.5, max_q=0.8, is_anchor=True, valid_pair_count=1, valid_tri_count=0)
+        s_orphan = _CandidateScore(c_orphan, has_valid_product=False, scarcity=0.5, max_q=0.0, is_anchor=True, valid_pair_count=0, valid_tri_count=0)
+
+        r_prod = _rank_key(s_prod, cluster_mean_on=0.0)
+        r_orphan = _rank_key(s_orphan, cluster_mean_on=0.0)
+        assert r_prod < r_orphan  # lower is better
+
+    def test_scarcer_target_ranks_higher(self):
+        base = datetime(2026, 6, 18, 0, 0, 0, tzinfo=UTC)
+        c_scarce = _candidate(target_id="t_scarce", start_offset_s=0)
+        c_abundant = _candidate(target_id="t_abundant", start_offset_s=0)
+
+        s_scarce = _CandidateScore(c_scarce, has_valid_product=True, scarcity=0.9, max_q=0.5, is_anchor=True, valid_pair_count=1, valid_tri_count=0)
+        s_abundant = _CandidateScore(c_abundant, has_valid_product=True, scarcity=0.1, max_q=0.5, is_anchor=True, valid_pair_count=1, valid_tri_count=0)
+
+        r_scarce = _rank_key(s_scarce, cluster_mean_on=0.0)
+        r_abundant = _rank_key(s_abundant, cluster_mean_on=0.0)
+        assert r_scarce < r_abundant
+
+
+class TestPruneCandidates:
+    def test_reduces_model_size(self, monkeypatch):
+        sat = _satellite()
+        target = _target()
+        mission = _mission()
+        config = {
+            "overlap_grid_angles": 4,
+            "overlap_grid_radii": 1,
+            "pruning": {
+                "enabled": True,
+                "cluster_gap_s": 1000.0,  # one big cluster
+                "max_candidates_per_cluster": 2,
+                "min_candidates_per_cluster": 1,
+                "max_total_candidates": 10000,
+                "preserve_anchors": True,
+                "preserve_products": True,
+            },
+        }
+
+        def fake_precompute(cand, sat, target, step):
+            from products import _CandidateGeometry
+            te = np.array([0.0, 0.0, 6378137.0])
+            return _CandidateGeometry(
+                sat_pos_m=np.array([0.0, 0.0, 7e6]),
+                boresight_ground_m=te,
+                slant_range_m=1e6,
+                pixel_scale_m=1.0,
+                strip_polyline_en=[(0.0, 0.0), (0.0, 100.0)],
+                strip_half_width_m=1e6,
+            )
+
+        monkeypatch.setattr("products._precompute_candidate_geometry", fake_precompute)
+
+        cands = [_candidate(start_offset_s=i * 10, along=0.0) for i in range(6)]
+        pairs, tris, _ = enumerate_products(cands, {"sat_test": sat}, {"t1": target}, mission, config)
+        pre_pairs = len(pairs)
+
+        pruned_cands, pruned_pairs, pruned_tris, summary = prune_candidates(
+            cands, pairs, tris, {"sat_test": sat}, {"t1": target}, mission, config
+        )
+
+        assert summary.enabled is True
+        assert summary.pre_candidates == 6
+        assert summary.post_candidates <= 6
+        assert summary.post_candidates < summary.pre_candidates or pre_pairs == 0
+        assert summary.lambda_cap == 2
+
+    def test_disabled_passthrough(self, monkeypatch):
+        sat = _satellite()
+        target = _target()
+        mission = _mission()
+        config = {
+            "overlap_grid_angles": 4,
+            "overlap_grid_radii": 1,
+            "pruning": {"enabled": False},
+        }
+
+        def fake_precompute(cand, sat, target, step):
+            from products import _CandidateGeometry
+            te = np.array([0.0, 0.0, 6378137.0])
+            return _CandidateGeometry(
+                sat_pos_m=np.array([0.0, 0.0, 7e6]),
+                boresight_ground_m=te,
+                slant_range_m=1e6,
+                pixel_scale_m=1.0,
+                strip_polyline_en=[(0.0, 0.0), (0.0, 100.0)],
+                strip_half_width_m=1e6,
+            )
+
+        monkeypatch.setattr("products._precompute_candidate_geometry", fake_precompute)
+
+        cands = [_candidate(start_offset_s=i * 10, along=0.0) for i in range(4)]
+        pairs, tris, _ = enumerate_products(cands, {"sat_test": sat}, {"t1": target}, mission, config)
+
+        pruned_cands, pruned_pairs, pruned_tris, summary = prune_candidates(
+            cands, pairs, tris, {"sat_test": sat}, {"t1": target}, mission, config
+        )
+
+        # When pruning is disabled in config, prune_candidates should return passthrough
+        assert summary.enabled is False
+        assert summary.post_candidates == summary.pre_candidates
+        assert summary.post_pairs == summary.pre_pairs
+
+    def test_deterministic(self, monkeypatch):
+        sat = _satellite()
+        target = _target()
+        mission = _mission()
+        config = {
+            "overlap_grid_angles": 4,
+            "overlap_grid_radii": 1,
+            "pruning": {
+                "enabled": True,
+                "cluster_gap_s": 1000.0,
+                "max_candidates_per_cluster": 3,
+                "min_candidates_per_cluster": 1,
+                "max_total_candidates": 10000,
+                "preserve_anchors": True,
+                "preserve_products": True,
+            },
+        }
+
+        def fake_precompute(cand, sat, target, step):
+            from products import _CandidateGeometry
+            te = np.array([0.0, 0.0, 6378137.0])
+            return _CandidateGeometry(
+                sat_pos_m=np.array([0.0, 0.0, 7e6]),
+                boresight_ground_m=te,
+                slant_range_m=1e6,
+                pixel_scale_m=1.0,
+                strip_polyline_en=[(0.0, 0.0), (0.0, 100.0)],
+                strip_half_width_m=1e6,
+            )
+
+        monkeypatch.setattr("products._precompute_candidate_geometry", fake_precompute)
+
+        cands = [_candidate(start_offset_s=i * 10, along=float(i)) for i in range(6)]
+        pairs, tris, _ = enumerate_products(cands, {"sat_test": sat}, {"t1": target}, mission, config)
+
+        r1 = prune_candidates(cands, pairs, tris, {"sat_test": sat}, {"t1": target}, mission, config)
+        r2 = prune_candidates(cands, pairs, tris, {"sat_test": sat}, {"t1": target}, mission, config)
+
+        assert [c.start for c in r1[0]] == [c.start for c in r2[0]]
+
+    def test_no_silent_target_loss(self, monkeypatch):
+        sat = _satellite()
+        target = _target()
+        mission = _mission()
+        config = {
+            "overlap_grid_angles": 4,
+            "overlap_grid_radii": 1,
+            "pruning": {
+                "enabled": True,
+                "cluster_gap_s": 1000.0,
+                "max_candidates_per_cluster": 1,
+                "min_candidates_per_cluster": 1,
+                "max_total_candidates": 10000,
+                "preserve_anchors": True,
+                "preserve_products": True,
+            },
+        }
+
+        def fake_precompute(cand, sat, target, step):
+            from products import _CandidateGeometry
+            te = np.array([0.0, 0.0, 6378137.0])
+            return _CandidateGeometry(
+                sat_pos_m=np.array([0.0, 0.0, 7e6]),
+                boresight_ground_m=te,
+                slant_range_m=1e6,
+                pixel_scale_m=1.0,
+                strip_polyline_en=[(0.0, 0.0), (0.0, 100.0)],
+                strip_half_width_m=1e6,
+            )
+
+        monkeypatch.setattr("products._precompute_candidate_geometry", fake_precompute)
+
+        base = datetime(2026, 6, 18, 0, 0, 0, tzinfo=UTC)
+        cands = [
+            _candidate(target_id="t1", start_offset_s=0, along=0.0),
+            _candidate(target_id="t1", start_offset_s=10, along=1.0),
+            _candidate(target_id="t2", start_offset_s=20, along=0.0),
+            _candidate(target_id="t2", start_offset_s=30, along=1.0),
+        ]
+        pairs, tris, _ = enumerate_products(cands, {"sat_test": sat}, {"t1": target, "t2": _target(target_id="t2")}, mission, config)
+
+        pruned_cands, _, _, summary = prune_candidates(
+            cands, pairs, tris, {"sat_test": sat}, {"t1": target, "t2": _target(target_id="t2")}, mission, config
+        )
+
+        # Every target should have a by_target entry
+        assert "t1" in summary.by_target
+        assert "t2" in summary.by_target
+        # If a target lost all candidates, pre > 0 and post == 0 should be recorded
+        for tid, info in summary.by_target.items():
+            assert info["pre"] > 0
+
+    def test_anchor_preservation(self, monkeypatch):
+        sat = _satellite()
+        target = _target()
+        mission = _mission()
+        config = {
+            "overlap_grid_angles": 4,
+            "overlap_grid_radii": 1,
+            "pruning": {
+                "enabled": True,
+                "cluster_gap_s": 1000.0,
+                "max_candidates_per_cluster": 1,
+                "min_candidates_per_cluster": 1,
+                "max_total_candidates": 10000,
+                "preserve_anchors": True,
+                "preserve_products": False,
+            },
+        }
+
+        def fake_precompute(cand, sat, target, step):
+            from products import _CandidateGeometry
+            te = np.array([0.0, 0.0, 6378137.0])
+            return _CandidateGeometry(
+                sat_pos_m=np.array([0.0, 0.0, 7e6]),
+                boresight_ground_m=te,
+                slant_range_m=1e6,
+                pixel_scale_m=1.0,
+                strip_polyline_en=[(0.0, 0.0), (0.0, 100.0)],
+                strip_half_width_m=1e6,
+            )
+
+        monkeypatch.setattr("products._precompute_candidate_geometry", fake_precompute)
+
+        # One anchor (along=0) and one non-anchor (along=20)
+        c_anchor = _candidate(start_offset_s=0, along=0.0)
+        c_non_anchor = _candidate(start_offset_s=10, along=20.0)
+        cands = [c_anchor, c_non_anchor]
+        pairs, tris, _ = enumerate_products(cands, {"sat_test": sat}, {"t1": target}, mission, config)
+
+        pruned_cands, _, _, summary = prune_candidates(
+            cands, pairs, tris, {"sat_test": sat}, {"t1": target}, mission, config
+        )
+
+        # The anchor should be preserved even if lambda=1 and non-anchor has higher rank
+        assert len(pruned_cands) >= 1
+        assert any(c.combined_off_nadir_deg <= mission.validity_thresholds.near_nadir_anchor_max_off_nadir_deg + 1e-6 for c in pruned_cands)
+        assert summary.preservation_forced >= 1

@@ -229,3 +229,37 @@ class ProductSummary:
             "by_target": dict(self.by_target),
             "approximation_flags": dict(self.approximation_flags),
         }
+
+
+@dataclass
+class PruningSummary:
+    enabled: bool
+    cluster_gap_s: float
+    lambda_cap: int
+    pre_candidates: int = 0
+    post_candidates: int = 0
+    pre_pairs: int = 0
+    post_pairs: int = 0
+    pre_tris: int = 0
+    post_tris: int = 0
+    by_target: dict[str, dict[str, Any]] = field(default_factory=dict)
+    by_cluster: list[dict[str, Any]] = field(default_factory=list)
+    preservation_forced: int = 0
+    rejected_by_capacity: int = 0
+
+    def as_dict(self) -> dict[str, Any]:
+        return {
+            "enabled": self.enabled,
+            "cluster_gap_s": self.cluster_gap_s,
+            "lambda_cap": self.lambda_cap,
+            "pre_candidates": self.pre_candidates,
+            "post_candidates": self.post_candidates,
+            "pre_pairs": self.pre_pairs,
+            "post_pairs": self.post_pairs,
+            "pre_tris": self.pre_tris,
+            "post_tris": self.post_tris,
+            "by_target": dict(self.by_target),
+            "by_cluster": list(self.by_cluster),
+            "preservation_forced": self.preservation_forced,
+            "rejected_by_capacity": self.rejected_by_capacity,
+        }
