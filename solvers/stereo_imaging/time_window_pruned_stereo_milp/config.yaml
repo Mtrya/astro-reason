@@ -37,5 +37,15 @@ pruning:
   preserve_anchors: true
   preserve_products: true
 
+# Phase 4: Optimization backend and fallback
+optimization:
+  backend: auto        # auto | ortools | pulp | greedy
+  time_limit_s: 300
+  coverage_weight: 1000.0   # big-M lexicographic weight
+  fallback_on_timeout: true
+  # Greedy fallback knobs
+  greedy_coverage_augment: true
+  greedy_max_repair_iterations: 10
+
 # Emit debug artifacts (candidate_summary.json, product_summary.json, pruning_summary.json, etc.)
 debug: true

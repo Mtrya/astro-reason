@@ -263,3 +263,41 @@ class PruningSummary:
             "preservation_forced": self.preservation_forced,
             "rejected_by_capacity": self.rejected_by_capacity,
         }
+
+
+@dataclass
+class SolveSummary:
+    backend_used: str
+    fallback_reason: str | None
+    n_obs_vars: int = 0
+    n_pair_vars: int = 0
+    n_tri_vars: int = 0
+    n_conflict_constraints: int = 0
+    n_coverage_constraints: int = 0
+    selected_observations: int = 0
+    selected_pairs: int = 0
+    selected_tris: int = 0
+    covered_targets: int = 0
+    objective_coverage: int = 0
+    objective_quality: float = 0.0
+    solve_time_s: float = 0.0
+    timeout_reached: bool = False
+
+    def as_dict(self) -> dict[str, Any]:
+        return {
+            "backend_used": self.backend_used,
+            "fallback_reason": self.fallback_reason,
+            "n_obs_vars": self.n_obs_vars,
+            "n_pair_vars": self.n_pair_vars,
+            "n_tri_vars": self.n_tri_vars,
+            "n_conflict_constraints": self.n_conflict_constraints,
+            "n_coverage_constraints": self.n_coverage_constraints,
+            "selected_observations": self.selected_observations,
+            "selected_pairs": self.selected_pairs,
+            "selected_tris": self.selected_tris,
+            "covered_targets": self.covered_targets,
+            "objective_coverage": self.objective_coverage,
+            "objective_quality": self.objective_quality,
+            "solve_time_s": self.solve_time_s,
+            "timeout_reached": self.timeout_reached,
+        }

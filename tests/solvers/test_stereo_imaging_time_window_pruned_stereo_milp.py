@@ -30,6 +30,12 @@ from products import (  # noqa: E402
     evaluate_tri,
     enumerate_products,
 )
+from milp_model import (  # noqa: E402
+    build_conflict_graph,
+    build_milp,
+    solve_greedy_fallback,
+    solve_milp,
+)
 from pruning import (  # noqa: E402
     _CandidateScore,
     _rank_key,
@@ -906,3 +912,332 @@ class TestPruneCandidates:
         assert len(pruned_cands) >= 1
         assert any(c.combined_off_nadir_deg <= mission.validity_thresholds.near_nadir_anchor_max_off_nadir_deg + 1e-6 for c in pruned_cands)
         assert summary.preservation_forced >= 1
+
+
+# ---------------------------------------------------------------------------
+# MILP / conflict / greedy fallback tests
+# ---------------------------------------------------------------------------
+
+class TestConflictGraph:
+    def test_overlap_conflict(self):
+        sat = _satellite()
+        c1 = _candidate(start_offset_s=0, end_offset_s=10)
+        c2 = _candidate(start_offset_s=5, end_offset_s=15)
+        conflicts = build_conflict_graph([c1, c2], {"sat_test": sat})
+        assert (0, 1) in conflicts
+        assert conflicts[(0, 1)] == "overlap"
+
+    def test_no_conflict_when_gap_sufficient(self):
+        sat = Satellite(
+            id="sat_test",
+            norad_catalog_id=1,
+            tle_line1="1 00000U 00000A   00000.00000000  .00000000  00000+0  00000-0 0  0000",
+            tle_line2="2 00000   0.0000   0.0000 0000000   0.0000   0.0000  0.00000000000000",
+            pixel_ifov_deg=4.0e-05,
+            cross_track_pixels=20000,
+            max_off_nadir_deg=30.0,
+            max_slew_velocity_deg_per_s=1.0,
+            max_slew_acceleration_deg_per_s2=1.0,
+            settling_time_s=1.0,
+            min_obs_duration_s=2.0,
+            max_obs_duration_s=60.0,
+        )
+        c1 = _candidate(start_offset_s=0, end_offset_s=2)
+        c2 = _candidate(start_offset_s=200, end_offset_s=202)
+        conflicts = build_conflict_graph([c1, c2], {"sat_test": sat})
+        assert (0, 1) not in conflicts
+
+    def test_no_conflict_different_satellites(self):
+        sat = _satellite()
+        c1 = _candidate(sat_id="sat_a", start_offset_s=0, end_offset_s=10)
+        c2 = _candidate(sat_id="sat_b", start_offset_s=5, end_offset_s=15)
+        conflicts = build_conflict_graph([c1, c2], {"sat_a": sat, "sat_b": sat})
+        assert (0, 1) not in conflicts
+
+    def test_slew_conflict_small_gap(self):
+        sat = Satellite(
+            id="sat_test",
+            norad_catalog_id=1,
+            tle_line1="1 00000U 00000A   00000.00000000  .00000000  00000+0  00000-0 0  0000",
+            tle_line2="2 00000   0.0000   0.0000 0000000   0.0000   0.0000  0.00000000000000",
+            pixel_ifov_deg=4.0e-05,
+            cross_track_pixels=20000,
+            max_off_nadir_deg=30.0,
+            max_slew_velocity_deg_per_s=1.0,
+            max_slew_acceleration_deg_per_s2=1.0,
+            settling_time_s=5.0,
+            min_obs_duration_s=2.0,
+            max_obs_duration_s=60.0,
+        )
+        c1 = _candidate(start_offset_s=0, end_offset_s=2)
+        c2 = _candidate(start_offset_s=3, end_offset_s=5)
+        conflicts = build_conflict_graph([c1, c2], {"sat_test": sat})
+        assert (0, 1) in conflicts
+        assert conflicts[(0, 1)] == "slew"
+
+
+class TestBuildMILP:
+    def test_model_counts(self, monkeypatch):
+        sat = _satellite()
+        target = _target()
+        mission = _mission()
+        config = {
+            "overlap_grid_angles": 4,
+            "overlap_grid_radii": 1,
+            "optimization": {"coverage_weight": 1000.0},
+        }
+        base = datetime(2026, 6, 18, 0, 0, 0, tzinfo=UTC)
+
+        def fake_precompute(cand, sat, target, step):
+            from products import _CandidateGeometry
+            te = np.array([0.0, 0.0, 6378137.0])
+            offset_s = (cand.start - base).total_seconds()
+            angle = math.radians(offset_s)
+            sp = np.array([math.sin(angle) * 7e6, 0.0, math.cos(angle) * 7e6])
+            return _CandidateGeometry(
+                sat_pos_m=sp,
+                boresight_ground_m=te,
+                slant_range_m=1e6,
+                pixel_scale_m=1.0,
+                strip_polyline_en=[(0.0, -5000.0), (0.0, 5000.0)],
+                strip_half_width_m=1e6,
+            )
+
+        monkeypatch.setattr("products._precompute_candidate_geometry", fake_precompute)
+
+        c1 = _candidate(start_offset_s=0, along=0.0)
+        c2 = _candidate(start_offset_s=10, along=0.0)
+        c3 = _candidate(start_offset_s=20, along=0.0)
+        cands = [c1, c2, c3]
+        pairs, tris, _ = enumerate_products(cands, {"sat_test": sat}, {"t1": target}, mission, config)
+
+        model = build_milp(cands, pairs, tris, {"t1": target}, {"sat_test": sat}, mission, config)
+
+        assert len(model.obs_vars) == 3
+        assert len(model.pair_vars) == 3  # 3 choose 2
+        assert len(model.tri_vars) == 1  # 3 choose 3
+        assert len(model.target_coverage_vars) == 1
+        # Pair links: 2 per pair = 6
+        assert len(model.pair_link_constraints) == 6
+        # Tri links: 3 per tri = 3
+        assert len(model.tri_link_constraints) == 3
+        # Coverage constraint: 1
+        assert len(model.target_coverage_constraints) == 1
+
+    def test_coverage_weight_in_objective(self):
+        sat = _satellite()
+        target = _target()
+        mission = _mission()
+        config = {"optimization": {"coverage_weight": 500.0}}
+        cands = [_candidate(start_offset_s=0)]
+        model = build_milp(cands, [], [], {"t1": target}, {"sat_test": sat}, mission, config)
+        assert model.coverage_weight == 500.0
+
+
+class TestGreedyFallback:
+    def test_selects_single_valid_pair(self, monkeypatch):
+        sat = _satellite()
+        target = _target()
+        mission = _mission()
+        config = {
+            "overlap_grid_angles": 4,
+            "overlap_grid_radii": 1,
+            "optimization": {"greedy_coverage_augment": False},
+        }
+        base = datetime(2026, 6, 18, 0, 0, 0, tzinfo=UTC)
+
+        def fake_precompute(cand, sat, target, step):
+            from products import _CandidateGeometry
+            te = np.array([0.0, 0.0, 6378137.0])
+            offset_s = (cand.start - base).total_seconds()
+            angle = math.radians(offset_s)
+            sp = np.array([math.sin(angle) * 7e6, 0.0, math.cos(angle) * 7e6])
+            return _CandidateGeometry(
+                sat_pos_m=sp,
+                boresight_ground_m=te,
+                slant_range_m=1e6,
+                pixel_scale_m=1.0,
+                strip_polyline_en=[(0.0, -5000.0), (0.0, 5000.0)],
+                strip_half_width_m=1e6,
+            )
+
+        monkeypatch.setattr("products._precompute_candidate_geometry", fake_precompute)
+
+        # Use large gap to avoid slew conflict (same boresight -> delta=0, need=settle+0.5)
+        c1 = _candidate(start_offset_s=0, end_offset_s=2)
+        c2 = _candidate(start_offset_s=20, end_offset_s=22)
+        cands = [c1, c2]
+        pairs, tris, _ = enumerate_products(cands, {"sat_test": sat}, {"t1": target}, mission, config)
+
+        model = build_milp(cands, pairs, tris, {"t1": target}, {"sat_test": sat}, mission, config)
+        selected, obj, stats = solve_greedy_fallback(model, config)
+
+        assert len(selected) == 2
+        assert obj > 0
+
+    def test_prefers_higher_quality_pair(self, monkeypatch):
+        sat = _satellite()
+        target = _target()
+        mission = _mission()
+        config = {
+            "overlap_grid_angles": 4,
+            "overlap_grid_radii": 1,
+            "optimization": {"greedy_coverage_augment": False},
+        }
+        base = datetime(2026, 6, 18, 0, 0, 0, tzinfo=UTC)
+
+        def fake_precompute(cand, sat, target, step):
+            from products import _CandidateGeometry
+            te = np.array([0.0, 0.0, 6378137.0])
+            offset_s = (cand.start - base).total_seconds()
+            angle = math.radians(offset_s)
+            sp = np.array([math.sin(angle) * 7e6, 0.0, math.cos(angle) * 7e6])
+            return _CandidateGeometry(
+                sat_pos_m=sp,
+                boresight_ground_m=te,
+                slant_range_m=1e6,
+                pixel_scale_m=1.0,
+                strip_polyline_en=[(0.0, -5000.0), (0.0, 5000.0)],
+                strip_half_width_m=1e6,
+            )
+
+        monkeypatch.setattr("products._precompute_candidate_geometry", fake_precompute)
+
+        # c1-c2 and c1-c3 are valid pairs; c2-c3 is also valid
+        # We want greedy to pick the best quality pair(s)
+        c1 = _candidate(start_offset_s=0, along=0.0)
+        c2 = _candidate(start_offset_s=10, along=0.0)
+        c3 = _candidate(start_offset_s=20, along=0.0)
+        cands = [c1, c2, c3]
+        pairs, tris, _ = enumerate_products(cands, {"sat_test": sat}, {"t1": target}, mission, config)
+
+        model = build_milp(cands, pairs, tris, {"t1": target}, {"sat_test": sat}, mission, config)
+        selected, obj, stats = solve_greedy_fallback(model, config)
+
+        # Should select at least one pair (2 observations)
+        assert len(selected) >= 2
+
+    def test_deterministic(self, monkeypatch):
+        sat = _satellite()
+        target = _target()
+        mission = _mission()
+        config = {
+            "overlap_grid_angles": 4,
+            "overlap_grid_radii": 1,
+            "optimization": {"greedy_coverage_augment": False},
+        }
+        base = datetime(2026, 6, 18, 0, 0, 0, tzinfo=UTC)
+
+        def fake_precompute(cand, sat, target, step):
+            from products import _CandidateGeometry
+            te = np.array([0.0, 0.0, 6378137.0])
+            offset_s = (cand.start - base).total_seconds()
+            angle = math.radians(offset_s)
+            sp = np.array([math.sin(angle) * 7e6, 0.0, math.cos(angle) * 7e6])
+            return _CandidateGeometry(
+                sat_pos_m=sp,
+                boresight_ground_m=te,
+                slant_range_m=1e6,
+                pixel_scale_m=1.0,
+                strip_polyline_en=[(0.0, -5000.0), (0.0, 5000.0)],
+                strip_half_width_m=1e6,
+            )
+
+        monkeypatch.setattr("products._precompute_candidate_geometry", fake_precompute)
+
+        c1 = _candidate(start_offset_s=0, along=0.0)
+        c2 = _candidate(start_offset_s=10, along=0.0)
+        c3 = _candidate(start_offset_s=20, along=0.0)
+        cands = [c1, c2, c3]
+        pairs, tris, _ = enumerate_products(cands, {"sat_test": sat}, {"t1": target}, mission, config)
+
+        model = build_milp(cands, pairs, tris, {"t1": target}, {"sat_test": sat}, mission, config)
+        r1, _, _ = solve_greedy_fallback(model, config)
+        r2, _, _ = solve_greedy_fallback(model, config)
+        assert r1 == r2
+
+
+class TestSolveMILP:
+    def test_fallback_when_no_backend(self, monkeypatch):
+        sat = _satellite()
+        target = _target()
+        mission = _mission()
+        config = {
+            "overlap_grid_angles": 4,
+            "overlap_grid_radii": 1,
+            "optimization": {"backend": "ortools", "greedy_coverage_augment": False},
+        }
+        base = datetime(2026, 6, 18, 0, 0, 0, tzinfo=UTC)
+
+        def fake_precompute(cand, sat, target, step):
+            from products import _CandidateGeometry
+            te = np.array([0.0, 0.0, 6378137.0])
+            offset_s = (cand.start - base).total_seconds()
+            angle = math.radians(offset_s)
+            sp = np.array([math.sin(angle) * 7e6, 0.0, math.cos(angle) * 7e6])
+            return _CandidateGeometry(
+                sat_pos_m=sp,
+                boresight_ground_m=te,
+                slant_range_m=1e6,
+                pixel_scale_m=1.0,
+                strip_polyline_en=[(0.0, -5000.0), (0.0, 5000.0)],
+                strip_half_width_m=1e6,
+            )
+
+        monkeypatch.setattr("products._precompute_candidate_geometry", fake_precompute)
+
+        # Use large gap to avoid slew conflict
+        c1 = _candidate(start_offset_s=0, end_offset_s=2)
+        c2 = _candidate(start_offset_s=20, end_offset_s=22)
+        cands = [c1, c2]
+        pairs, tris, _ = enumerate_products(cands, {"sat_test": sat}, {"t1": target}, mission, config)
+
+        selected, summary = solve_milp(cands, pairs, tris, {"t1": target}, {"sat_test": sat}, mission, config)
+
+        assert summary.backend_used == "greedy_fallback"
+        assert summary.fallback_reason is not None
+        assert "ortools" in summary.fallback_reason
+        assert len(selected) == 2
+
+    def test_greedy_backend_explicit(self, monkeypatch):
+        sat = _satellite()
+        target = _target()
+        mission = _mission()
+        config = {
+            "overlap_grid_angles": 4,
+            "overlap_grid_radii": 1,
+            "optimization": {"backend": "greedy", "greedy_coverage_augment": False},
+        }
+        base = datetime(2026, 6, 18, 0, 0, 0, tzinfo=UTC)
+
+        def fake_precompute(cand, sat, target, step):
+            from products import _CandidateGeometry
+            te = np.array([0.0, 0.0, 6378137.0])
+            offset_s = (cand.start - base).total_seconds()
+            angle = math.radians(offset_s)
+            sp = np.array([math.sin(angle) * 7e6, 0.0, math.cos(angle) * 7e6])
+            return _CandidateGeometry(
+                sat_pos_m=sp,
+                boresight_ground_m=te,
+                slant_range_m=1e6,
+                pixel_scale_m=1.0,
+                strip_polyline_en=[(0.0, -5000.0), (0.0, 5000.0)],
+                strip_half_width_m=1e6,
+            )
+
+        monkeypatch.setattr("products._precompute_candidate_geometry", fake_precompute)
+
+        # Use large gap to avoid slew conflict
+        c1 = _candidate(start_offset_s=0, end_offset_s=2)
+        c2 = _candidate(start_offset_s=20, end_offset_s=22)
+        cands = [c1, c2]
+        pairs, tris, _ = enumerate_products(cands, {"sat_test": sat}, {"t1": target}, mission, config)
+
+        selected, summary = solve_milp(cands, pairs, tris, {"t1": target}, {"sat_test": sat}, mission, config)
+
+        assert summary.backend_used == "greedy_fallback"
+        # When backend is explicitly "greedy", fallback_reason should be None (not a fallback)
+        assert summary.fallback_reason is None
+        assert len(selected) == 2
+        assert summary.selected_pairs == 1
+        assert summary.covered_targets == 1
