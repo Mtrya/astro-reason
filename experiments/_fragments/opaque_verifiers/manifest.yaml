@@ -1,0 +1,77 @@
+benchmarks:
+  aeossp_standard:
+    entry_type: module
+    entry: benchmarks.aeossp_standard.verifier.run
+    source_roots:
+      - benchmarks/aeossp_standard/verifier
+    artifact: experiments/_fragments/opaque_verifiers/artifacts/aeossp_standard/verifier
+    smoke_case: benchmarks/aeossp_standard/dataset/cases/test/case_0001
+    smoke_solution: benchmarks/aeossp_standard/dataset/example_solution.json
+    hidden_imports: []
+    data_paths: []
+
+  regional_coverage:
+    entry_type: script
+    entry: benchmarks/regional_coverage/verifier.py
+    source_roots:
+      - benchmarks/regional_coverage/verifier.py
+    artifact: experiments/_fragments/opaque_verifiers/artifacts/regional_coverage/verifier
+    smoke_case: benchmarks/regional_coverage/dataset/cases/test/case_0001
+    smoke_solution: benchmarks/regional_coverage/dataset/example_solution.json
+    hidden_imports: []
+    data_paths: []
+
+  relay_constellation:
+    entry_type: module
+    entry: benchmarks.relay_constellation.verifier.run
+    source_roots:
+      - benchmarks/relay_constellation/verifier
+    artifact: experiments/_fragments/opaque_verifiers/artifacts/relay_constellation/verifier
+    smoke_case: benchmarks/relay_constellation/dataset/cases/test/case_0005
+    smoke_solution: benchmarks/relay_constellation/dataset/example_solution.json
+    hidden_imports: []
+    data_paths: []
+
+  revisit_constellation:
+    entry_type: module
+    entry: benchmarks.revisit_constellation.verifier.run
+    source_roots:
+      - benchmarks/revisit_constellation/verifier
+    artifact: experiments/_fragments/opaque_verifiers/artifacts/revisit_constellation/verifier
+    smoke_case: benchmarks/revisit_constellation/dataset/cases/test/case_0001
+    smoke_solution: benchmarks/revisit_constellation/dataset/example_solution.json
+    hidden_imports: []
+    data_paths: []
+
+  satnet:
+    entry_type: script
+    entry: benchmarks/satnet/verifier.py
+    source_roots:
+      - benchmarks/satnet/verifier.py
+    artifact: experiments/_fragments/opaque_verifiers/artifacts/satnet/verifier
+    smoke_case: benchmarks/satnet/dataset/cases/test/W10_2018
+    smoke_solution: benchmarks/satnet/dataset/example_solution.json
+    hidden_imports: []
+    data_paths: []
+
+  spot5:
+    entry_type: script
+    entry: benchmarks/spot5/verifier.py
+    source_roots:
+      - benchmarks/spot5/verifier.py
+    artifact: experiments/_fragments/opaque_verifiers/artifacts/spot5/verifier
+    smoke_case: benchmarks/spot5/dataset/cases/single_orbit/8
+    smoke_solution: benchmarks/spot5/dataset/example_solution.json
+    hidden_imports: []
+    data_paths: []
+
+  stereo_imaging:
+    entry_type: module
+    entry: benchmarks.stereo_imaging.verifier.run
+    source_roots:
+      - benchmarks/stereo_imaging/verifier
+    artifact: experiments/_fragments/opaque_verifiers/artifacts/stereo_imaging/verifier
+    smoke_case: benchmarks/stereo_imaging/dataset/cases/test/case_0001
+    smoke_solution: benchmarks/stereo_imaging/dataset/example_solution.json
+    hidden_imports: []
+    data_paths: []
