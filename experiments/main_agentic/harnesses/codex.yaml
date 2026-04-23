@@ -5,6 +5,8 @@ assemble:
   - source: experiments/_fragments/configs/codex/.codex
     target: /home/korolev/.codex
     example: experiments/_fragments/configs/codex/.codex.example
+  - source: .agents/skills/brahe
+    target: /home/korolev/.codex/skills/brahe
 
 commands:
   headless_shell_command: >-
@@ -29,3 +31,4 @@ forward_env_keys:
 notes:
   - Codex keeps additional state in sqlite files under /home/korolev/.codex; keep those out of default collected artifacts unless a follow-up phase needs lower-level debugging.
   - The dangerous bypass flag is intentional here because the outer Docker runtime is the actual sandbox boundary for this family.
+  - The Brahe skill is assembled into /home/korolev/.codex/skills/brahe for native skill discovery.

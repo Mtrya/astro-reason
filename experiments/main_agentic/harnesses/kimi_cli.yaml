@@ -5,6 +5,8 @@ assemble:
   - source: experiments/_fragments/configs/kimi_cli/.kimi
     target: /home/korolev/.kimi
     example: experiments/_fragments/configs/kimi_cli/.kimi.example
+  - source: .agents/skills/brahe
+    target: /home/korolev/.kimi/skills/brahe
 
 commands:
   headless_shell_command: >-
@@ -25,3 +27,4 @@ forward_env_keys: []
 notes:
   - Kimi print mode is the canonical non-interactive path and implicitly enables auto-approval.
   - Kimi also keeps credential material under /home/korolev/.kimi/credentials; do not collect that by default.
+  - The Brahe skill is assembled into /home/korolev/.kimi/skills/brahe for native skill discovery.
