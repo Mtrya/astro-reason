@@ -10,6 +10,7 @@ from pathlib import Path
 
 from candidates import CandidateConfig, generate_candidates
 from case_io import load_case, load_solver_config
+from local_search import LocalSearchConfig, run_local_search
 from products import ProductConfig, build_product_library
 from seed import SeedConfig, build_greedy_seed
 from sequence import create_empty_state, insert_product, remove_product
@@ -34,10 +35,12 @@ def _build_status(
     sequence_sanity: dict,
     timing_seconds: dict[str, float],
     seed_result,
+    local_search_result=None,
+    local_search_config=None,
 ) -> dict:
     return {
-        "status": "phase_3_greedy_seed",
-        "phase": 3,
+        "status": "phase_4_local_search",
+        "phase": 4,
         "case_dir": str(case_dir),
         "config_dir": str(config_dir) if config_dir is not None else None,
         "solution": str(solution_path),
@@ -46,10 +49,12 @@ def _build_status(
         "candidate_config": candidate_config.as_status_dict(),
         "product_config": product_config.as_status_dict(),
         "seed_config": seed_result.config.as_status_dict() if seed_result else None,
+        "local_search_config": local_search_config.as_status_dict() if local_search_config is not None else None,
         "candidate_summary": candidate_summary.as_dict(),
         "product_summary": product_library.summary.as_dict(),
         "sequence_sanity": sequence_sanity,
         "seed_summary": seed_result.as_dict() if seed_result else None,
+        "local_search_summary": local_search_result.as_dict() if local_search_result else None,
         "timing_seconds": timing_seconds,
         "reproduction_summary": {
             "candidate_count": candidate_summary.candidate_count,
@@ -60,6 +65,8 @@ def _build_status(
             "zero_product_target_count": len(product_library.summary.zero_product_target_ids),
             "seed_accepted": seed_result.accepted_count if seed_result else 0,
             "seed_covered_targets": seed_result.covered_target_count if seed_result else 0,
+            "local_search_passes": local_search_result.passes_completed if local_search_result else 0,
+            "local_search_accepted": local_search_result.moves_accepted if local_search_result else 0,
             "runtime_seconds": timing_seconds["total"],
         },
     }
@@ -110,6 +117,7 @@ def main(argv: list[str] | None = None) -> int:
         candidate_config = CandidateConfig.from_mapping(config_payload)
         product_config = ProductConfig.from_mapping(config_payload)
         seed_config = SeedConfig.from_mapping(config_payload)
+        local_search_config = LocalSearchConfig.from_mapping(config_payload)
 
         case = load_case(case_dir)
         case_id = case.case_dir.name
@@ -130,10 +138,25 @@ def main(argv: list[str] | None = None) -> int:
         seed_result = build_greedy_seed(product_library, case, seed_config)
         seed_end = time.perf_counter()
 
-        if seed_config.seed_only:
-            solution_path = write_solution_from_state(solution_dir, seed_result.state)
+        local_search_result = None
+        if not seed_config.seed_only:
+            ls_start = time.perf_counter()
+            local_search_result = run_local_search(
+                seed_result.state,
+                seed_result.accepted_products,
+                product_library,
+                case,
+                local_search_config,
+            )
+            ls_end = time.perf_counter()
+            solution_path = write_solution_from_state(
+                solution_dir, local_search_result.best_state.sequence_state
+            )
+            timing_local_search = ls_end - ls_start
         else:
-            solution_path = write_solution(solution_dir)
+            solution_path = write_solution_from_state(solution_dir, seed_result.state)
+            timing_local_search = 0.0
+
         total_end = time.perf_counter()
 
         timing_seconds = {
@@ -141,6 +164,7 @@ def main(argv: list[str] | None = None) -> int:
             "product_library": product_end - product_start,
             "sequence_sanity": sanity_end - sanity_start,
             "seed": seed_end - seed_start,
+            "local_search": timing_local_search,
             "total": total_end - total_start,
         }
 
@@ -156,10 +180,12 @@ def main(argv: list[str] | None = None) -> int:
             sequence_sanity=sequence_sanity,
             timing_seconds=timing_seconds,
             seed_result=seed_result,
+            local_search_result=local_search_result,
+            local_search_config=local_search_config,
         )
         write_json(solution_dir / "status.json", status)
 
-        if candidate_config.debug or seed_config.seed_only:
+        if candidate_config.debug or seed_config.seed_only or local_search_result is not None:
             write_debug_artifacts(
                 solution_dir,
                 case_id=case_id,
@@ -167,8 +193,9 @@ def main(argv: list[str] | None = None) -> int:
                 candidate_summary=candidate_summary,
                 product_library=product_library,
                 timing_seconds=timing_seconds,
-                sequence_state=seed_result.state,
+                sequence_state=local_search_result.best_state.sequence_state if local_search_result else seed_result.state,
                 seed_result=seed_result,
+                local_search_result=local_search_result,
             )
     except Exception as exc:
         traceback_text = traceback.format_exc()
@@ -177,7 +204,7 @@ def main(argv: list[str] | None = None) -> int:
             solution_dir / "status.json",
             {
                 "status": "error",
-                "phase": 3,
+                "phase": 4,
                 "case_dir": str(case_dir),
                 "config_dir": str(config_dir) if config_dir is not None else None,
                 "error": str(exc),
@@ -187,18 +214,36 @@ def main(argv: list[str] | None = None) -> int:
         print(traceback_text, file=sys.stderr, end="")
         return 2
 
-    print(
-        f"phase_3_greedy_seed: {case_id} "
-        f"candidates={candidate_summary.candidate_count} "
-        f"products={product_library.summary.total_products} "
-        f"feasible={product_library.summary.feasible_products} "
-        f"pairs={product_library.summary.pair_products} "
-        f"tris={product_library.summary.tri_products} "
-        f"zero_product_targets={len(product_library.summary.zero_product_target_ids)} "
-        f"seed_accepted={seed_result.accepted_count} "
-        f"seed_covered={seed_result.covered_target_count} "
-        f"-> {solution_path}"
-    )
+    if local_search_result is not None:
+        print(
+            f"phase_4_local_search: {case_id} "
+            f"candidates={candidate_summary.candidate_count} "
+            f"products={product_library.summary.total_products} "
+            f"feasible={product_library.summary.feasible_products} "
+            f"pairs={product_library.summary.pair_products} "
+            f"tris={product_library.summary.tri_products} "
+            f"zero_product_targets={len(product_library.summary.zero_product_target_ids)} "
+            f"seed_accepted={seed_result.accepted_count} "
+            f"seed_covered={seed_result.covered_target_count} "
+            f"ls_passes={local_search_result.passes_completed} "
+            f"ls_accepted={local_search_result.moves_accepted} "
+            f"ls_best={local_search_result.best_objective} "
+            f"-> {solution_path}"
+        )
+    else:
+        print(
+            f"phase_4_local_search: {case_id} "
+            f"candidates={candidate_summary.candidate_count} "
+            f"products={product_library.summary.total_products} "
+            f"feasible={product_library.summary.feasible_products} "
+            f"pairs={product_library.summary.pair_products} "
+            f"tris={product_library.summary.tri_products} "
+            f"zero_product_targets={len(product_library.summary.zero_product_target_ids)} "
+            f"seed_accepted={seed_result.accepted_count} "
+            f"seed_covered={seed_result.covered_target_count} "
+            f"seed_only=true "
+            f"-> {solution_path}"
+        )
     return 0
 
 

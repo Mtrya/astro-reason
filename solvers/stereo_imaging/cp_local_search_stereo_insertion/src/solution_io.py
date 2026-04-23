@@ -58,6 +58,7 @@ def write_debug_artifacts(
     timing_seconds: dict[str, float],
     sequence_state: SequenceState | None = None,
     seed_result: Any | None = None,
+    local_search_result: Any | None = None,
 ) -> None:
     debug_dir = solution_dir / "debug"
     write_json(
@@ -105,4 +106,9 @@ def write_debug_artifacts(
                 "case_id": case_id,
                 "seed": seed_result.as_dict(),
             },
+        )
+    if local_search_result is not None:
+        write_json(
+            debug_dir / "local_search_log.json",
+            [r.as_dict() for r in local_search_result.log],
         )
