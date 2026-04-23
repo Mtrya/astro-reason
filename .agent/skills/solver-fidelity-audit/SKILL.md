@@ -11,6 +11,7 @@ Audit a solver implementation against its original paper, accounting for benchma
 
 Require from user:
 - Path to solver implementation (file or directory)
+- Solver name (e.g., "LightGBM")
 - Paper reference (PDF path, URL, arXiv ID, DOI, or local file)
 - Benchmark name (to locate benchmark contract)
 
