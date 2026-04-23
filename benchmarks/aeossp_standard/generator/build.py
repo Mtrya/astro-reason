@@ -22,7 +22,7 @@ from .normalize import CityRecord, TleRecord, load_celestrak_csv, load_world_cit
 from . import sources as sources_module
 
 MIN_CANDIDATE_BATCH = 24
-CITY_REACHABILITY_PREFILTER_MAX_SATELLITES = 4
+CITY_REACHABILITY_PREFILTER_MAX_SATELLITES = 8
 
 def _validate_path_segment(value: object, label: str) -> str:
     if not isinstance(value, str) or not value or "/" in value or "\\" in value:
@@ -94,6 +94,58 @@ def _parse_smoke_case(config: dict[str, Any]) -> tuple[str, str]:
     )
 
 
+def _require_supported_celestrak_snapshot_epoch(value: object, label: str) -> str:
+    if not isinstance(value, str) or not value:
+        raise ValueError(f"{label} must be a non-empty string")
+    supported = sources_module.supported_celestrak_snapshot_epochs()
+    if value not in supported:
+        raise ValueError(
+            "aeossp_standard only supports cached CelesTrak snapshot epochs "
+            f"{', '.join(supported)}; got {value!r}"
+        )
+    return value
+
+
+def _default_celestrak_snapshot_epoch(source_config: dict[str, Any]) -> str:
+    celestrak = _require_mapping(source_config.get("celestrak"), "source.celestrak")
+    return _require_supported_celestrak_snapshot_epoch(
+        celestrak.get("snapshot_epoch_utc"),
+        "source.celestrak.snapshot_epoch_utc",
+    )
+
+
+def _split_celestrak_snapshot_epoch(
+    split_config: dict[str, Any],
+    *,
+    source_config: dict[str, Any],
+    label: str,
+) -> str:
+    source_override = split_config.get("source")
+    if source_override is None:
+        return _default_celestrak_snapshot_epoch(source_config)
+    split_source = _require_mapping(source_override, f"{label}.source")
+    celestrak = _require_mapping(split_source.get("celestrak"), f"{label}.source.celestrak")
+    return _require_supported_celestrak_snapshot_epoch(
+        celestrak.get("snapshot_epoch_utc"),
+        f"{label}.source.celestrak.snapshot_epoch_utc",
+    )
+
+
+def celestrak_snapshot_epochs_for_config(config: dict[str, Any]) -> tuple[str, ...]:
+    source_config = _require_mapping(config.get("source"), "source")
+    epochs = [_default_celestrak_snapshot_epoch(source_config)]
+    for split_name, split_config in _require_mapping(config.get("splits"), "splits").items():
+        split_payload = _require_mapping(split_config, f"splits.{split_name}")
+        epochs.append(
+            _split_celestrak_snapshot_epoch(
+                split_payload,
+                source_config=source_config,
+                label=f"splits.{split_name}",
+            )
+        )
+    return tuple(dict.fromkeys(epochs))
+
+
 def load_generator_config(path: Path) -> dict[str, Any]:
     try:
         payload = yaml.safe_load(path.read_text(encoding="utf-8"))
@@ -104,15 +156,10 @@ def load_generator_config(path: Path) -> dict[str, Any]:
 
     config = _require_mapping(payload, "splits config")
     source = _require_mapping(config.get("source"), "source")
-    celestrak = _require_mapping(source.get("celestrak"), "source.celestrak")
+    _require_mapping(source.get("celestrak"), "source.celestrak")
     _require_mapping(source.get("world_cities"), "source.world_cities")
     _require_mapping(source.get("natural_earth_land"), "source.natural_earth_land")
-    snapshot_epoch_utc = str(celestrak.get("snapshot_epoch_utc"))
-    if snapshot_epoch_utc != sources_module.CELESTRAK_SNAPSHOT_EPOCH_UTC:
-        raise ValueError(
-            "aeossp_standard only supports the cached CelesTrak snapshot epoch "
-            f"{sources_module.CELESTRAK_SNAPSHOT_EPOCH_UTC}; got {snapshot_epoch_utc!r}"
-        )
+    _default_celestrak_snapshot_epoch(source)
 
     splits = _require_mapping(config.get("splits"), "splits")
     if not splits:
@@ -121,6 +168,11 @@ def load_generator_config(path: Path) -> dict[str, Any]:
     for split_name, split_config in splits.items():
         _validate_path_segment(split_name, "split name")
         split_payload = _require_mapping(split_config, f"splits.{split_name}")
+        _split_celestrak_snapshot_epoch(
+            split_payload,
+            source_config=source,
+            label=f"splits.{split_name}",
+        )
         case_count = _require_int(split_payload, "case_count", f"splits.{split_name}")
         if case_count <= 0:
             raise ValueError(f"splits.{split_name}.case_count must be positive")
@@ -1019,9 +1071,9 @@ def generate_dataset(
     example_smoke_case: str,
     source_config: dict[str, Any],
 ) -> None:
-    celestrak_rows = load_celestrak_csv(source_dir / "celestrak" / "earth_resources.csv")
     cities = load_world_cities(source_dir / "world_cities" / "world_cities.csv")
     land_geometry = _load_land_geometry(source_dir / "natural_earth" / "ne_110m_land.geojson")
+    celestrak_rows_by_epoch: dict[str, list[TleRecord]] = {}
 
     cases_dir = output_dir / "cases"
     cases_dir.mkdir(parents=True, exist_ok=True)
@@ -1037,6 +1089,17 @@ def generate_dataset(
         case_seed_stride = _require_int(split_config, "case_seed_stride", "split")
         case_start_spacing_hours = _require_int(mission_config, "case_start_spacing_hours", "mission")
         horizon_hours = _require_int(mission_config, "horizon_hours", "mission")
+        celestrak_snapshot_epoch_utc = _split_celestrak_snapshot_epoch(
+            split_config,
+            source_config=source_config,
+            label=f"splits.{split_name}",
+        )
+        celestrak_rows = celestrak_rows_by_epoch.get(celestrak_snapshot_epoch_utc)
+        if celestrak_rows is None:
+            celestrak_rows = load_celestrak_csv(
+                sources_module.celestrak_csv_path(source_dir, celestrak_snapshot_epoch_utc)
+            )
+            celestrak_rows_by_epoch[celestrak_snapshot_epoch_utc] = celestrak_rows
         split_dir = cases_dir / split_name
         split_dir.mkdir(parents=True, exist_ok=True)
 
@@ -1113,6 +1176,7 @@ def generate_dataset(
                     "num_satellites": len(satellite_entries),
                     "num_tasks": len(task_entries),
                     "horizon_hours": horizon_hours,
+                    "celestrak_snapshot_epoch_utc": celestrak_snapshot_epoch_utc,
                     "satellite_sensor_mix": _satellite_sensor_mix(satellite_entries),
                     "task_sensor_mix": _task_sensor_mix(task_entries),
                     "task_source_mix": _task_source_mix(task_entries),
@@ -1133,6 +1197,11 @@ def generate_dataset(
                 "seed": _require_int(split_config, "seed", "split"),
                 "case_count": _require_int(split_config, "case_count", "split"),
                 "case_seed_stride": _require_int(split_config, "case_seed_stride", "split"),
+                "celestrak_snapshot_epoch_utc": _split_celestrak_snapshot_epoch(
+                    split_config,
+                    source_config=source_config,
+                    label=f"splits.{split_name}",
+                ),
             }
             for split_name, split_config in split_configs.items()
         },

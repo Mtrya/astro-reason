@@ -272,7 +272,7 @@ Verifier:
 
 ```bash
 uv run python -m benchmarks.aeossp_standard.verifier.run \
-  benchmarks/aeossp_standard/dataset/cases/test/case_0001 \
+  benchmarks/aeossp_standard/dataset/cases/test_medium/case_0001 \
   benchmarks/aeossp_standard/dataset/example_solution.json
 ```
 
@@ -280,14 +280,14 @@ Case visualizer:
 
 ```bash
 uv run python -m benchmarks.aeossp_standard.visualizer.run case \
-  --case-dir benchmarks/aeossp_standard/dataset/cases/test/case_0001
+  --case-dir benchmarks/aeossp_standard/dataset/cases/test_medium/case_0001
 ```
 
 Solution visualizer:
 
 ```bash
 uv run python -m benchmarks.aeossp_standard.visualizer.run solution \
-  --case-dir benchmarks/aeossp_standard/dataset/cases/test/case_0001 \
+  --case-dir benchmarks/aeossp_standard/dataset/cases/test_medium/case_0001 \
   --solution-path benchmarks/aeossp_standard/dataset/example_solution.json
 ```
 
@@ -300,7 +300,7 @@ Visualizer artifact interpretation:
   - it is derived from verifier-backed observation intervals and maneuver windows
   - it uses the benchmark's scalar bang-coast-bang slew profile rather than linear angle interpolation
 
-The canonical generator requires the committed `splits.yaml` path and reproduces the benchmark-owned dataset outputs under `dataset/cases/test/` and `dataset/index.json`.
+The canonical generator requires the committed `splits.yaml` path and reproduces the benchmark-owned dataset outputs under `dataset/cases/` and `dataset/index.json`.
 
 ## Generator And Canonical Dataset
 
@@ -308,28 +308,28 @@ The generator builds cases from benchmark-owned rules rather than hand-authored 
 
 Current split decision:
 
-- this contract migration keeps one committed split: `test`
-- additional benchmark-owned splits are intentionally deferred to follow-up work so this issue stays a contract cleanup rather than a benchmark redesign
-- candidate follow-up names currently under discussion include `test_easy`, `test_medium`, `test_hard`, `test_medium_horizon_20220414`, and `train`
+- `test_medium` is the primary medium-difficulty evaluation split
+- `test_medium_horizon_2022` keeps the same medium controls and uses the vendored 2022 historical TLE cache so the mission horizons move to April 2022
+- future benchmark-owned split families such as `test_easy`, `test_hard`, and `train` remain out of scope for this step
 
-Current canonical family:
+Current canonical medium family:
 
 - 5 canonical cases
-- 20 to 40 satellites per case
-- 200 to 800 tasks per case
+- 20 to 28 satellites per case
+- 1600 to 2000 tasks per case
 - mixed visible / infrared task requirements
 - mixed city / land-background target sources
 - task windows derived from real access opportunities
 
 Public source workflow:
 
-- vendored CelesTrak Earth-resources TLE snapshot (`generator/cached_tles.py`)
+- vendored CelesTrak Earth-resources TLE snapshots (`generator/cached_tles.py` and `generator/cached_tles_2022.py`)
 - GeoNames city data
 - Natural Earth land polygons
 
-Runtime source data for GeoNames and Natural Earth may be cached under `dataset/source_data/`, but that directory is not tracked and is not required to exist before running the generator. The CelesTrak TLE snapshot used for canonical reproduction is tracked in `generator/cached_tles.py`.
+Runtime source data for GeoNames and Natural Earth may be cached under `dataset/source_data/`, but that directory is not tracked and is not required to exist before running the generator. The CelesTrak TLE snapshots used for canonical reproduction are tracked in the generator package and staged into normalized CSVs without network access.
 
-`splits.yaml` carries the benchmark-owned generation parameters for the canonical `test` split, including mission timing, satellite-pool filtering, subsystem templates, and task-sampling controls. The retained operational flags `--download-dir`, `--output-dir`, and `--force-download` only affect where source data is staged or refreshed; they are not alternate canonical dataset contracts.
+`splits.yaml` carries the benchmark-owned generation parameters for the canonical splits, including mission timing, per-split CelesTrak snapshot selection, satellite-pool filtering, subsystem templates, and task-sampling controls. The retained operational flags `--download-dir`, `--output-dir`, and `--force-download` only affect where source data is staged or refreshed; they are not alternate canonical dataset contracts.
 
 ## Tests And Fixtures
 

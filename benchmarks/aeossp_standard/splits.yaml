@@ -1,17 +1,19 @@
 # Canonical aeossp_standard dataset construction for the finished benchmark.
 #
-# This migration intentionally keeps a single committed `test` split.
-# Additional benchmark-owned splits such as test_easy, test_medium, test_hard,
-# test_medium_horizon_20220414, and train are deferred to follow-up benchmark
-# design work rather than being implied here before their semantics are settled.
+# test_medium is the primary medium-difficulty split. test_medium_horizon_2022
+# keeps the same generation controls and swaps only the vendored TLE snapshot,
+# which shifts the mission horizon to the matching April 2022 orbit epoch.
 
-example_smoke_case: test/case_0001
+example_smoke_case: test_medium/case_0001
 
 source:
   celestrak:
     kind: vendored_subset
     url: https://celestrak.org/NORAD/elements/gp.php?GROUP=resource&FORMAT=tle
-    snapshot_epoch_utc: "2026-04-14T00:00:00Z"  # Generator rejects any other label.
+    snapshot_epoch_utc: "2026-04-14T00:00:00Z"
+    supported_snapshot_epochs_utc:
+      - "2026-04-14T00:00:00Z"
+      - "2022-04-14T00:00:00Z"
   world_cities:
     kind: geonames_dump
     url: https://download.geonames.org/export/dump/cities15000.zip
@@ -20,7 +22,7 @@ source:
     url: https://raw.githubusercontent.com/nvkelso/natural-earth-vector/master/geojson/ne_110m_land.geojson
 
 splits:
-  test:
+  test_medium: &test_medium_split
     seed: 42
     case_count: 5
     case_seed_stride: 1009
@@ -72,7 +74,7 @@ splits:
 
     satellites:
       min_per_case: 20
-      max_per_case: 40
+      max_per_case: 28
       template_fractions:
         infrared_balanced: 0.20
         visible_agile: 0.32
@@ -116,16 +118,22 @@ splits:
           sunlit_charge_power_w: 115.0
 
     tasks:
-      min_per_case: 800
+      min_per_case: 1600
       max_per_case: 2000
       min_target_separation_m: 20000.0
       city_fraction: 0.5
       visible_fraction: 0.9
       city_weight_options: [3.0, 4.0, 5.0]
       background_weight_options: [1.0, 1.5, 2.0]
-      duration_options_s: [15, 20, 25, 30, 35, 40, 45, 50, 55, 60, 65, 70, 75, 80, 85, 90]
+      duration_options_s: [20, 30, 40, 45, 50, 60, 70, 75, 80, 90, 100, 120]
       hotspot_probability: 0.70
       hotspot_count: 5
       hotspot_min_spacing_s: 3600
       hotspot_window_slack_options_s: [300, 600, 900, 1200]
       uniform_window_slack_options_s: [900, 1200, 1800, 2400, 3600]
+
+  test_medium_horizon_2022:
+    <<: *test_medium_split
+    source:
+      celestrak:
+        snapshot_epoch_utc: "2022-04-14T00:00:00Z"

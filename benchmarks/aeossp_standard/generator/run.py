@@ -5,7 +5,7 @@ from __future__ import annotations
 import argparse
 from pathlib import Path
 
-from .build import generate_dataset, load_generator_config
+from .build import celestrak_snapshot_epochs_for_config, generate_dataset, load_generator_config
 from .sources import fetch_all_sources
 
 
@@ -43,7 +43,11 @@ def main(argv: list[str] | None = None) -> int:
     output_dir = args.output_dir.resolve()
     download_dir = (args.download_dir or (output_dir / "source_data")).resolve()
 
-    fetch_all_sources(download_dir, force_download=args.force_download)
+    fetch_all_sources(
+        download_dir,
+        force_download=args.force_download,
+        celestrak_snapshot_epochs_utc=celestrak_snapshot_epochs_for_config(config),
+    )
     generate_dataset(
         source_dir=download_dir,
         output_dir=output_dir,
