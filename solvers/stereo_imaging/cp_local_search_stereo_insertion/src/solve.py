@@ -1,12 +1,21 @@
-"""Solver entrypoint: parse case, enumerate candidates and products, emit solution."""
+"""Solver entrypoint: parse case, enumerate candidates and products, emit solution.
+
+Phase 7b changes:
+- Multi-run harness: when local_search_config.num_runs > 1, the full pipeline
+  (seed + local search + repair) is executed num_runs times with deterministic
+  perturbation derived from random_seed + run_index.  The best solution is kept.
+- Aggregate statistics (best, mean coverage/quality) are written to status.json.
+"""
 
 from __future__ import annotations
 
 import argparse
+import random
 import sys
 import time
 import traceback
 from pathlib import Path
+from typing import Any
 
 from candidates import CandidateConfig, generate_candidates
 from case_io import load_case, load_solver_config
@@ -18,7 +27,6 @@ from sequence import create_empty_state, insert_product, remove_product
 from solution_io import (
     write_debug_artifacts,
     write_json,
-    write_solution,
     write_solution_from_state,
 )
 
@@ -40,10 +48,11 @@ def _build_status(
     local_search_config=None,
     repair_result=None,
     repair_config=None,
+    multi_run_stats: dict[str, Any] | None = None,
 ) -> dict:
-    return {
-        "status": "phase_5_repair",
-        "phase": 5,
+    status = {
+        "status": "phase_7b_multi_run",
+        "phase": 7,
         "case_dir": str(case_dir),
         "config_dir": str(config_dir) if config_dir is not None else None,
         "solution": str(solution_path),
@@ -79,6 +88,9 @@ def _build_status(
             "runtime_seconds": timing_seconds["total"],
         },
     }
+    if multi_run_stats is not None:
+        status["multi_run_stats"] = multi_run_stats
+    return status
 
 
 def _run_sequence_sanity(product_library, case) -> dict:
@@ -107,9 +119,50 @@ def _run_sequence_sanity(product_library, case) -> dict:
     }
 
 
+def _run_pipeline(
+    case,
+    product_library,
+    seed_config: SeedConfig,
+    local_search_config: LocalSearchConfig,
+    repair_config: RepairConfig,
+    rng: random.Random | None = None,
+) -> tuple:
+    """Run one full pass: seed -> local search -> repair.
+
+    Returns (seed_result, local_search_result, repair_result, repaired_state).
+    """
+    seed_result = build_greedy_seed(product_library, case, seed_config, rng=rng)
+
+    local_search_result = None
+    if not seed_config.seed_only:
+        local_search_result = run_local_search(
+            seed_result.state,
+            seed_result.accepted_products,
+            product_library,
+            case,
+            local_search_config,
+            rng=rng,
+        )
+        best_state = local_search_result.best_state.sequence_state
+        scheduled_products = local_search_result.best_state.scheduled_products
+    else:
+        best_state = seed_result.state
+        scheduled_products = {p.product_id: p for p in seed_result.accepted_products}
+
+    repair_result, repaired_state, _ = repair_state(
+        best_state, scheduled_products, case, repair_config
+    )
+    return seed_result, local_search_result, repair_result, repaired_state
+
+
+def _pipeline_objective(repair_result) -> tuple[int, float]:
+    """Lexicographic objective from repair result."""
+    return (repair_result.final_coverage, repair_result.final_quality)
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(
-        description="CP/local-search stereo insertion solver (Phase 5)."
+        description="CP/local-search stereo insertion solver (Phase 7b)."
     )
     parser.add_argument("--case-dir", required=True)
     parser.add_argument("--config-dir", default="")
@@ -144,36 +197,64 @@ def main(argv: list[str] | None = None) -> int:
         sequence_sanity = _run_sequence_sanity(product_library, case)
         sanity_end = time.perf_counter()
 
-        seed_start = time.perf_counter()
-        seed_result = build_greedy_seed(product_library, case, seed_config)
-        seed_end = time.perf_counter()
+        num_runs = local_search_config.num_runs
+        random_seed = local_search_config.random_seed
 
-        local_search_result = None
-        if not seed_config.seed_only:
-            ls_start = time.perf_counter()
-            local_search_result = run_local_search(
-                seed_result.state,
-                seed_result.accepted_products,
-                product_library,
-                case,
-                local_search_config,
+        # Single run (default) or multi-run harness
+        if num_runs <= 1:
+            seed_start = time.perf_counter()
+            seed_result, local_search_result, repair_result, repaired_state = _run_pipeline(
+                case, product_library, seed_config, local_search_config, repair_config
             )
-            ls_end = time.perf_counter()
-            timing_local_search = ls_end - ls_start
-            best_state = local_search_result.best_state.sequence_state
-            scheduled_products = local_search_result.best_state.scheduled_products
-        else:
+            seed_end = time.perf_counter()
             timing_local_search = 0.0
-            best_state = seed_result.state
-            scheduled_products = {
-                p.product_id: p for p in seed_result.accepted_products
+            if local_search_result is not None:
+                timing_local_search = local_search_result.time_seconds
+            multi_run_stats = None
+        else:
+            # Multi-run harness
+            run_results: list[tuple] = []
+            coverages: list[int] = []
+            qualities: list[float] = []
+            pipeline_start = time.perf_counter()
+
+            for run_index in range(num_runs):
+                run_seed = random_seed + run_index
+                rng = random.Random(run_seed)
+                seed_result, local_search_result, repair_result, repaired_state = _run_pipeline(
+                    case, product_library, seed_config, local_search_config, repair_config, rng=rng
+                )
+                run_results.append((seed_result, local_search_result, repair_result, repaired_state))
+                coverages.append(repair_result.final_coverage)
+                qualities.append(repair_result.final_quality)
+
+            # Pick best run by lexicographic (coverage, quality)
+            best_idx = max(range(num_runs), key=lambda i: (coverages[i], qualities[i]))
+            seed_result, local_search_result, repair_result, repaired_state = run_results[best_idx]
+
+            pipeline_end = time.perf_counter()
+            seed_end = pipeline_end
+            seed_start = pipeline_start
+            timing_local_search = 0.0
+            if local_search_result is not None:
+                timing_local_search = local_search_result.time_seconds
+
+            multi_run_stats = {
+                "num_runs": num_runs,
+                "random_seed": random_seed,
+                "best_run": best_idx,
+                "best_coverage": coverages[best_idx],
+                "best_quality": qualities[best_idx],
+                "mean_coverage": sum(coverages) / num_runs,
+                "mean_quality": sum(qualities) / num_runs,
+                "min_coverage": min(coverages),
+                "min_quality": min(qualities),
+                "all_coverages": coverages,
+                "all_qualities": qualities,
             }
 
-        # Repair
         repair_start = time.perf_counter()
-        repair_result, repaired_state, _repaired_products = repair_state(
-            best_state, scheduled_products, case, repair_config
-        )
+        # repair already done in _run_pipeline
         repair_end = time.perf_counter()
         timing_repair = repair_end - repair_start
 
@@ -207,6 +288,7 @@ def main(argv: list[str] | None = None) -> int:
             local_search_config=local_search_config,
             repair_result=repair_result,
             repair_config=repair_config,
+            multi_run_stats=multi_run_stats,
         )
         write_json(solution_dir / "status.json", status)
 
@@ -230,7 +312,7 @@ def main(argv: list[str] | None = None) -> int:
             solution_dir / "status.json",
             {
                 "status": "error",
-                "phase": 5,
+                "phase": 7,
                 "case_dir": str(case_dir),
                 "config_dir": str(config_dir) if config_dir is not None else None,
                 "error": str(exc),
@@ -242,7 +324,7 @@ def main(argv: list[str] | None = None) -> int:
 
     if local_search_result is not None:
         print(
-            f"phase_5_repair: {case_id} "
+            f"phase_7b: {case_id} "
             f"candidates={candidate_summary.candidate_count} "
             f"products={product_library.summary.total_products} "
             f"feasible={product_library.summary.feasible_products} "
@@ -261,7 +343,7 @@ def main(argv: list[str] | None = None) -> int:
         )
     else:
         print(
-            f"phase_5_repair: {case_id} "
+            f"phase_7b: {case_id} "
             f"candidates={candidate_summary.candidate_count} "
             f"products={product_library.summary.total_products} "
             f"feasible={product_library.summary.feasible_products} "

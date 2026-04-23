@@ -1,12 +1,20 @@
 """Deterministic local search over whole stereo/tri-stereo products.
 
-Implements replace-first, insert-uncovered, and remove-then-repair moves
-with clone-based trial evaluation.  All moves are atomic and rollback on
-failure or lack of objective improvement.
+Implements replace-first, insert-uncovered, remove-then-re-insert, and
+remove-then-repair moves with clone-based trial evaluation.  All moves are
+atomic and rollback on failure or lack of objective improvement.
+
+Phase 7b changes:
+- Dedicated REMOVE move: remove low-quality product + greedily re-insert better
+  alternatives into freed capacity.
+- Move priority: INSERT uncovered → REPLACE covered → REMOVE+re-insert → SWAP.
+- Multi-run harness support: config accepts num_runs and random_seed; the seed
+  and local-search move ordering can be perturbed deterministically per run.
 """
 
 from __future__ import annotations
 
+import random
 import time
 from dataclasses import asdict, dataclass, field
 from typing import Any
@@ -32,6 +40,10 @@ class LocalSearchConfig:
     max_time_seconds: float = 60.0
     enable_repair: bool = True
     repair_candidates_limit: int = 20
+    remove_move_enabled: bool = True
+    remove_candidates_limit: int = 50
+    num_runs: int = 1
+    random_seed: int = 42
 
     @classmethod
     def from_mapping(cls, payload: dict[str, Any] | None) -> "LocalSearchConfig":
@@ -42,6 +54,10 @@ class LocalSearchConfig:
             max_time_seconds=float(payload.get("max_time_seconds", 60.0)),
             enable_repair=bool(payload.get("enable_repair", True)),
             repair_candidates_limit=int(payload.get("repair_candidates_limit", 20)),
+            remove_move_enabled=bool(payload.get("remove_move_enabled", True)),
+            remove_candidates_limit=int(payload.get("remove_candidates_limit", 50)),
+            num_runs=int(payload.get("num_runs", 1)),
+            random_seed=int(payload.get("random_seed", 42)),
         )
 
     def as_status_dict(self) -> dict[str, Any]:
@@ -213,6 +229,13 @@ def _time_exceeded(start: float, limit: float) -> bool:
     return limit > 0 and time.perf_counter() - start >= limit
 
 
+def _shuffle_deterministic(items: list[str], rng: random.Random) -> list[str]:
+    """Return a new list with deterministic shuffle."""
+    shuffled = list(items)
+    rng.shuffle(shuffled)
+    return shuffled
+
+
 # ---------------------------------------------------------------------------
 # Move evaluators
 # ---------------------------------------------------------------------------
@@ -242,6 +265,77 @@ def _try_replace(
         return False, None, "replacement_insert_failed"
     if trial.objective() > state.objective():
         return True, trial, "improved"
+    return False, None, "no_improvement"
+
+
+def _try_remove(
+    state: LocalSearchState,
+    remove_product: StereoProduct,
+    feasible_by_target: dict[str, list[StereoProduct]],
+    case: StereoCase,
+    config: LocalSearchConfig,
+) -> tuple[bool, LocalSearchState | None, str]:
+    """Remove a product and greedily re-insert better alternatives.
+
+    The trial state after removal is filled by scanning:
+    1. The freed target (highest quality product that fits).
+    2. Other uncovered targets.
+    3. Higher-quality replacements for covered targets.
+    """
+    trial = state.clone()
+    trial.remove_product(remove_product, case)
+
+    # Collect candidate products that could improve the trial
+    candidates: list[StereoProduct] = []
+    seen = set(trial.scheduled_products.keys())
+
+    # 1. Freed target first
+    if remove_product.target_id in feasible_by_target:
+        for p in feasible_by_target[remove_product.target_id]:
+            if p.product_id in seen or p.product_id == remove_product.product_id:
+                continue
+            candidates.append(p)
+            break  # best for this target
+
+    # 2. Other uncovered targets
+    for target_id, products in feasible_by_target.items():
+        if target_id in trial.target_to_product_id:
+            continue
+        if target_id == remove_product.target_id:
+            continue  # already handled
+        for p in products:
+            if p.product_id in seen:
+                continue
+            candidates.append(p)
+            break
+
+    # 3. Higher-quality replacements for covered targets
+    for target_id, products in feasible_by_target.items():
+        if target_id not in trial.target_to_product_id:
+            continue
+        current_pid = trial.target_to_product_id[target_id]
+        current_q = trial.scheduled_products[current_pid].quality
+        for p in products:
+            if p.product_id in seen or p.product_id == current_pid:
+                continue
+            if p.quality > current_q:
+                candidates.append(p)
+                break
+
+    # Sort: uncovered targets first, then higher quality
+    candidates.sort(
+        key=lambda p: (p.target_id not in trial.target_to_product_id, p.quality, p.product_id),
+        reverse=True,
+    )
+
+    inserted = 0
+    for product in candidates[: config.remove_candidates_limit]:
+        if trial.add_product(product, case):
+            inserted += 1
+            seen.add(product.product_id)
+
+    if trial.objective() > state.objective():
+        return True, trial, f"improved (removed {remove_product.product_id}, inserted {inserted})"
     return False, None, "no_improvement"
 
 
@@ -298,15 +392,20 @@ def run_local_search(
     product_library: ProductLibrary,
     case: StereoCase,
     config: LocalSearchConfig | None = None,
+    rng: random.Random | None = None,
 ) -> LocalSearchResult:
     """Improve a greedy seed via deterministic product-level local search.
 
-    Move priority per pass:
+    Move priority per pass (Phase 7b):
     1. INSERT uncovered targets (increases coverage).
     2. REPLACE with higher quality for already-covered targets.
-    3. SWAP / remove-then-repair (remove low-quality, insert better alternatives).
+    3. REMOVE low-quality product + re-insert better alternatives.
+    4. SWAP / remove-then-repair (fallback).
 
     Stops when a pass makes no improving moves, or budget exhausted.
+
+    The optional *rng* argument supports deterministic perturbation for
+    multi-run evaluation.  When provided, move ordering is shuffled per pass.
     """
     config = config or LocalSearchConfig()
     start_time = time.perf_counter()
@@ -363,7 +462,11 @@ def run_local_search(
         # -----------------------------------------------------------------
         # Move 1: INSERT uncovered targets
         # -----------------------------------------------------------------
-        for target_id in _uncovered_targets(state, case):
+        uncovered = _uncovered_targets(state, case)
+        if rng is not None:
+            uncovered = _shuffle_deterministic(uncovered, rng)
+
+        for target_id in uncovered:
             if _budget_exceeded():
                 break
             products = feasible_by_target.get(target_id, [])
@@ -391,7 +494,11 @@ def run_local_search(
         # -----------------------------------------------------------------
         # Move 2: REPLACE with higher quality for covered targets
         # -----------------------------------------------------------------
-        for target_id in sorted(state.target_to_product_id.keys()):
+        covered_targets = sorted(state.target_to_product_id.keys())
+        if rng is not None:
+            covered_targets = _shuffle_deterministic(covered_targets, rng)
+
+        for target_id in covered_targets:
             if _budget_exceeded():
                 break
             current_pid = state.target_to_product_id[target_id]
@@ -424,7 +531,36 @@ def run_local_search(
                 improved_this_pass = True
 
         # -----------------------------------------------------------------
-        # Move 3: SWAP / remove-then-repair
+        # Move 3: REMOVE low-quality + re-insert better alternatives
+        # -----------------------------------------------------------------
+        if config.remove_move_enabled and not improved_this_pass:
+            scheduled = list(state.scheduled_products.values())
+            scheduled.sort(key=lambda p: (p.quality, p.product_id))
+            for product in scheduled:
+                if _budget_exceeded():
+                    break
+                before = state.objective()
+                accepted, trial_state, reason = _try_remove(
+                    state, product, feasible_by_target, case, config
+                )
+                _record(
+                    pass_num, "remove", product.target_id,
+                    [product.product_id] + (
+                        list(trial_state.scheduled_products.keys()) if trial_state else []
+                    ),
+                    before, accepted, trial_state, reason,
+                )
+                if accepted:
+                    state = trial_state  # type: ignore[assignment]
+                    moves_accepted += 1
+                    if state.objective() > best_objective:
+                        best_state = state.clone()
+                        best_objective = best_state.objective()
+                    improved_this_pass = True
+                    break
+
+        # -----------------------------------------------------------------
+        # Move 4: SWAP / remove-then-repair (fallback)
         # -----------------------------------------------------------------
         if config.enable_repair and not improved_this_pass:
             scheduled = list(state.scheduled_products.values())

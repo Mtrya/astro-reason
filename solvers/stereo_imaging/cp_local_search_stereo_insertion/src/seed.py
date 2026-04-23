@@ -12,6 +12,7 @@ Phase 7a changes:
 
 from __future__ import annotations
 
+import random
 from dataclasses import asdict, dataclass, field
 from typing import Any
 
@@ -135,6 +136,7 @@ def _product_sort_key(
     covered_targets: set[str],
     remaining_counts: dict[str, int],
     config: SeedConfig,
+    rng: random.Random | None = None,
 ) -> tuple[float, float, float, float, str]:
     """Return a lexicographic sort key for descending coverage-first ordering.
 
@@ -144,12 +146,16 @@ def _product_sort_key(
     3. scarcity                – 1.0 / remaining_count for this target
     4. weighted_quality        – quality * tri_weight or pair_weight
     5. product_id              – deterministic tie-break
+
+    When *rng* is provided, a tiny random epsilon is added to the second
+    element to break ties deterministically but differently per run.
     """
     coverage_value = 1.0 if product.target_id not in covered_targets else 0.0
     weight = config.tri_weight if product.product_type == ProductType.TRI else config.pair_weight
     weighted_quality = product.quality * weight
     scarcity = 1.0 / max(1, remaining_counts.get(product.target_id, 1))
-    return (coverage_value, scarcity + weighted_quality, scarcity, weighted_quality, product.product_id)
+    epsilon = rng.random() * 1e-9 if rng is not None else 0.0
+    return (coverage_value, scarcity + weighted_quality + epsilon, scarcity, weighted_quality, product.product_id)
 
 
 def _attempt_tri_stereo_pre_phase(
@@ -211,6 +217,7 @@ def build_greedy_seed(
     product_library: ProductLibrary,
     case: StereoCase,
     config: SeedConfig | None = None,
+    rng: random.Random | None = None,
 ) -> SeedResult:
     """Construct a deterministic greedy seed schedule.
 
@@ -244,7 +251,7 @@ def build_greedy_seed(
 
         best_idx = max(
             range(len(pool)),
-            key=lambda i: _product_sort_key(pool[i], covered_targets, remaining_counts, config),
+            key=lambda i: _product_sort_key(pool[i], covered_targets, remaining_counts, config, rng),
         )
         best = pool.pop(best_idx)
 
@@ -296,6 +303,11 @@ def build_greedy_seed(
             ]
             if tri_candidates:
                 upgrade_targets.append(target_id)
+
+        # Optionally shuffle upgrade target order for multi-run diversity
+        if rng is not None:
+            upgrade_targets = list(upgrade_targets)
+            rng.shuffle(upgrade_targets)
 
         for target_id in upgrade_targets:
             current = target_to_product[target_id]

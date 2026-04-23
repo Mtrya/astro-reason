@@ -106,6 +106,7 @@ def solver_imports():
             run_local_search,
             _try_insert,
             _try_replace,
+            _try_remove,
             _try_swap,
         )
         from skyfield.api import EarthSatellite
@@ -129,6 +130,7 @@ def solver_imports():
             "run_local_search": run_local_search,
             "_try_insert": _try_insert,
             "_try_replace": _try_replace,
+            "_try_remove": _try_remove,
             "_try_swap": _try_swap,
         }
     finally:
@@ -453,3 +455,106 @@ def test_swap_remove_then_repair(solver_imports) -> None:
     # Should have removed p1 and inserted p2
     assert "t2" in new_state.target_to_product_id
     assert new_state.total_best_quality == pytest.approx(0.8)
+
+
+def test_try_remove_frees_capacity_and_reinserts(solver_imports) -> None:
+    """Removing a low-quality blocking product allows re-inserting better ones."""
+    sat_def = _make_sat_def()
+    ProductType = solver_imports["ProductType"]
+    LocalSearchState = solver_imports["LocalSearchState"]
+    _try_remove = solver_imports["_try_remove"]
+    create_empty_state = solver_imports["create_empty_state"]
+
+    class _FakeCase:
+        satellites = {"sat_test": sat_def}
+        targets = {"t1": None, "t2": None}
+
+    # Product for t1 at 22:00-22:01 (low quality, blocks sequence)
+    c1a = _make_candidate(target_id="t1", start="2026-04-22T22:00:00Z", end="2026-04-22T22:00:06Z", candidate_id="c1a")
+    c1b = _make_candidate(target_id="t1", start="2026-04-22T22:01:00Z", end="2026-04-22T22:01:06Z", candidate_id="c1b")
+    p1 = solver_imports["StereoProduct"](
+        product_id="p1", product_type=ProductType.PAIR, target_id="t1",
+        satellite_id="sat_test", access_interval_id="test::0",
+        observations=(c1a, c1b), quality=0.3, coverage_value=0.3,
+        feasible=True, reject_reasons=tuple(),
+    )
+
+    # Product for t2 at 22:00-22:01 (overlaps with p1, higher quality)
+    c2a = _make_candidate(target_id="t2", start="2026-04-22T22:00:00Z", end="2026-04-22T22:00:06Z", candidate_id="c2a")
+    c2b = _make_candidate(target_id="t2", start="2026-04-22T22:01:00Z", end="2026-04-22T22:01:06Z", candidate_id="c2b")
+    p2 = solver_imports["StereoProduct"](
+        product_id="p2", product_type=ProductType.PAIR, target_id="t2",
+        satellite_id="sat_test", access_interval_id="test::0",
+        observations=(c2a, c2b), quality=0.8, coverage_value=0.8,
+        feasible=True, reject_reasons=tuple(),
+    )
+
+    # Build seed with p1 (blocks p2 due to overlap)
+    seed_state = create_empty_state(_FakeCase())
+    solver_imports["insert_product"](p1, seed_state, _FakeCase())
+    state = LocalSearchState.from_seed(seed_state, [p1])
+
+    feasible_by_target = {
+        "t1": [p1],
+        "t2": [p2],
+    }
+
+    config = solver_imports["LocalSearchConfig"](remove_candidates_limit=50)
+    accepted, new_state, reason = _try_remove(state, p1, feasible_by_target, _FakeCase(), config)
+    assert accepted
+    assert new_state is not None
+    # Should have removed p1 and inserted p2
+    assert "t2" in new_state.target_to_product_id
+    assert new_state.total_best_quality == pytest.approx(0.8)
+
+
+def test_remove_move_priority_in_local_search(solver_imports) -> None:
+    """Local search with remove enabled should accept remove moves when insert/replace fail."""
+    sat_def = _make_sat_def()
+    ProductType = solver_imports["ProductType"]
+    LocalSearchConfig = solver_imports["LocalSearchConfig"]
+    run_local_search = solver_imports["run_local_search"]
+    create_empty_state = solver_imports["create_empty_state"]
+
+    class _FakeCase:
+        satellites = {"sat_test": sat_def}
+        targets = {"t1": None, "t2": None}
+
+    # Seed with low-quality p1 for t1
+    c1a = _make_candidate(target_id="t1", start="2026-04-22T22:00:00Z", end="2026-04-22T22:00:06Z", candidate_id="c1a")
+    c1b = _make_candidate(target_id="t1", start="2026-04-22T22:01:00Z", end="2026-04-22T22:01:06Z", candidate_id="c1b")
+    p1 = solver_imports["StereoProduct"](
+        product_id="p1", product_type=ProductType.PAIR, target_id="t1",
+        satellite_id="sat_test", access_interval_id="test::0",
+        observations=(c1a, c1b), quality=0.3, coverage_value=0.3,
+        feasible=True, reject_reasons=tuple(),
+    )
+
+    # p2 for t2 overlaps with p1 but is higher quality
+    c2a = _make_candidate(target_id="t2", start="2026-04-22T22:00:00Z", end="2026-04-22T22:00:06Z", candidate_id="c2a")
+    c2b = _make_candidate(target_id="t2", start="2026-04-22T22:01:00Z", end="2026-04-22T22:01:06Z", candidate_id="c2b")
+    p2 = solver_imports["StereoProduct"](
+        product_id="p2", product_type=ProductType.PAIR, target_id="t2",
+        satellite_id="sat_test", access_interval_id="test::0",
+        observations=(c2a, c2b), quality=0.8, coverage_value=0.8,
+        feasible=True, reject_reasons=tuple(),
+    )
+
+    library = solver_imports["ProductLibrary"](
+        products=[p1, p2],
+        per_target_products={"t1": [p1], "t2": [p2]},
+        summary=solver_imports["ProductSummary"](
+            total_products=2, pair_products=2, feasible_products=2,
+            per_target_product_counts={"t1": 1, "t2": 1},
+        ),
+    )
+
+    seed_state = create_empty_state(_FakeCase())
+    solver_imports["insert_product"](p1, seed_state, _FakeCase())
+
+    config = LocalSearchConfig(max_passes=5, max_moves_per_pass=100, remove_move_enabled=True)
+    result = run_local_search(seed_state, [p1], library, _FakeCase(), config)
+
+    # Remove move should improve from (1, 0.3) to (1, 0.8)
+    assert result.moves_accepted >= 1
+    assert result.best_objective == (1, pytest.approx(0.8))
