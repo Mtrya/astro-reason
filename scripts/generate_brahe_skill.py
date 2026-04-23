@@ -2,7 +2,7 @@
 """Generate the Brahe skill from upstream docs and reachable source files.
 
 Reads from vendor/brahe/ (or clones upstream) and writes a docs-preserving
-skill tree to .agent/skills/brahe/.
+skill tree to .agents/skills/brahe/.
 """
 
 from __future__ import annotations
@@ -35,7 +35,7 @@ def main() -> int:
     )
     parser.add_argument(
         "--output",
-        default=".agent/skills/brahe",
+        default=".agents/skills/brahe",
         help="Output directory for the skill",
     )
     args = parser.parse_args()

@@ -34,13 +34,13 @@ jobs:
       - name: Compare with committed skill
         id: compare
         run: |
-          if [ ! -d ".agent/skills/brahe" ]; then
+          if [ ! -d ".agents/skills/brahe" ]; then
             echo "has_diff=true" >> "$GITHUB_OUTPUT"
             echo "No committed skill found. Treating as initial generation."
             exit 0
           fi
 
-          if diff -rq .agent/skills/brahe /tmp/brahe-skill-generated > /tmp/diff-summary.txt 2>&1; then
+          if diff -rq .agents/skills/brahe /tmp/brahe-skill-generated > /tmp/diff-summary.txt 2>&1; then
             echo "has_diff=false" >> "$GITHUB_OUTPUT"
           else
             echo "has_diff=true" >> "$GITHUB_OUTPUT"
@@ -65,9 +65,9 @@ jobs:
 
           git checkout -b "$BRANCH"
 
-          rm -rf .agent/skills/brahe
-          cp -r /tmp/brahe-skill-generated .agent/skills/brahe
-          git add .agent/skills/brahe
+          rm -rf .agents/skills/brahe
+          cp -r /tmp/brahe-skill-generated .agents/skills/brahe
+          git add .agents/skills/brahe
 
           if git diff --cached --quiet; then
             echo "No changes to commit after copy. Exiting."
