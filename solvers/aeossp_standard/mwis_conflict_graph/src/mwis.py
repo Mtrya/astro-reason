@@ -8,8 +8,8 @@ from itertools import combinations
 import time
 from typing import Any
 
-from candidates import Candidate
-from graph import ConflictGraph, connected_components
+from .candidates import Candidate
+from .graph import ConflictGraph, connected_components
 
 
 SELECTION_POLICIES = ("weight_end_degree", "weight_degree_end")

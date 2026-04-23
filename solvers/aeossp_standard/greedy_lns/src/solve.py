@@ -9,13 +9,13 @@ import time
 import traceback
 from pathlib import Path
 
-from candidates import CandidateConfig, generate_candidates
-from case_io import load_case, load_solver_config
-from components import build_component_index
-from insertion import InsertionConfig, greedy_insertion
-from local_search import LocalSearchConfig, local_search
-from solution_io import write_json, write_solution
-from validation import RepairConfig, repair_schedule, validate_schedule
+from .candidates import CandidateConfig, generate_candidates
+from .case_io import load_case, load_solver_config
+from .components import build_component_index
+from .insertion import InsertionConfig, greedy_insertion
+from .local_search import LocalSearchConfig, local_search
+from .solution_io import write_json, write_solution
+from .validation import RepairConfig, repair_schedule, validate_schedule
 
 
 def _build_status(

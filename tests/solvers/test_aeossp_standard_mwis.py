@@ -9,12 +9,16 @@ import pytest
 
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
-SOLVER_DIR = REPO_ROOT / "solvers" / "aeossp_standard" / "mwis_conflict_graph" / "src"
 sys.path.insert(0, str(REPO_ROOT))
-sys.path.insert(0, str(SOLVER_DIR))
 
-from candidates import CandidateConfig, CandidateSummary, generate_candidates, start_offsets_for_task  # noqa: E402
-from case_io import (  # noqa: E402
+from solvers.aeossp_standard.mwis_conflict_graph.src.candidates import (  # noqa: E402
+    Candidate,
+    CandidateConfig,
+    CandidateSummary,
+    generate_candidates,
+    start_offsets_for_task,
+)
+from solvers.aeossp_standard.mwis_conflict_graph.src.case_io import (  # noqa: E402
     AeosspCase,
     AttitudeModel,
     Mission,
@@ -26,20 +30,28 @@ from case_io import (  # noqa: E402
     load_solver_config,
     parse_iso_z,
 )
-from geometry import (  # noqa: E402
+from solvers.aeossp_standard.mwis_conflict_graph.src.geometry import (  # noqa: E402
     action_sample_times,
     initial_slew_feasible_from_vectors,
 )
-from graph import build_conflict_graph, connected_components  # noqa: E402
-from mwis import (  # noqa: E402
+from solvers.aeossp_standard.mwis_conflict_graph.src.graph import (  # noqa: E402
+    build_conflict_graph,
+    connected_components,
+)
+from solvers.aeossp_standard.mwis_conflict_graph.src.mwis import (  # noqa: E402
     MwisConfig,
     select_weighted_independent_set,
     solve_exact_component,
     validate_independent_set,
 )
-from solution_io import candidates_to_actions  # noqa: E402
-from transition import TransitionVectorCache, transition_gap_conflict  # noqa: E402
-from validation import (  # noqa: E402
+from solvers.aeossp_standard.mwis_conflict_graph.src.solution_io import (  # noqa: E402
+    candidates_to_actions,
+)
+from solvers.aeossp_standard.mwis_conflict_graph.src.transition import (  # noqa: E402
+    TransitionVectorCache,
+    transition_gap_conflict,
+)
+from solvers.aeossp_standard.mwis_conflict_graph.src.validation import (  # noqa: E402
     RepairConfig,
     ValidationIssue,
     ValidationReport,
@@ -48,8 +60,6 @@ from validation import (  # noqa: E402
     repair_candidates,
     validate_candidates,
 )
-
-from candidates import Candidate  # noqa: E402
 
 
 def _mission() -> Mission:
@@ -281,9 +291,9 @@ def test_generate_candidates_filters_sensor_and_keeps_stable_ids(monkeypatch) ->
         def __init__(self, *args, **kwargs):
             pass
 
-    monkeypatch.setattr("candidates.PropagationContext", DummyPropagation)
-    monkeypatch.setattr("candidates.observation_geometry_valid", lambda **kwargs: True)
-    monkeypatch.setattr("candidates.initial_slew_feasible", lambda **kwargs: True)
+    monkeypatch.setattr("solvers.aeossp_standard.mwis_conflict_graph.src.candidates.PropagationContext", DummyPropagation)
+    monkeypatch.setattr("solvers.aeossp_standard.mwis_conflict_graph.src.candidates.observation_geometry_valid", lambda **kwargs: True)
+    monkeypatch.setattr("solvers.aeossp_standard.mwis_conflict_graph.src.candidates.initial_slew_feasible", lambda **kwargs: True)
 
     candidates, summary = generate_candidates(case, CandidateConfig())
     candidate_ids = [item.candidate_id for item in candidates]
@@ -334,7 +344,7 @@ def test_conflict_graph_adds_duplicate_task_edges_across_satellites(monkeypatch)
         def __init__(self, *args, **kwargs):
             pass
 
-    monkeypatch.setattr("graph.PropagationContext", DummyPropagation)
+    monkeypatch.setattr("solvers.aeossp_standard.mwis_conflict_graph.src.graph.PropagationContext", DummyPropagation)
     graph = build_conflict_graph(_case_for_candidates(candidates), candidates)
 
     assert graph.has_edge("sat_a|task_a|10", "sat_b|task_a|15")
@@ -351,7 +361,7 @@ def test_conflict_graph_adds_same_satellite_overlap_edges(monkeypatch) -> None:
         def __init__(self, *args, **kwargs):
             pass
 
-    monkeypatch.setattr("graph.PropagationContext", DummyPropagation)
+    monkeypatch.setattr("solvers.aeossp_standard.mwis_conflict_graph.src.graph.PropagationContext", DummyPropagation)
     graph = build_conflict_graph(_case_for_candidates(candidates), candidates)
 
     assert graph.has_edge("sat_a|task_a|10", "sat_a|task_b|20")
@@ -368,7 +378,7 @@ def test_transition_gap_conflict_is_order_independent(monkeypatch) -> None:
             return np.array([1.0, 0.0, 0.0])
         return np.array([0.0, 1.0, 0.0])
 
-    monkeypatch.setattr("transition.target_vector_eci", fake_target_vector)
+    monkeypatch.setattr("solvers.aeossp_standard.mwis_conflict_graph.src.transition.target_vector_eci", fake_target_vector)
     vector_cache = TransitionVectorCache(case, propagation=object())
 
     assert transition_gap_conflict(candidate_a, candidate_b, case=case, vector_cache=vector_cache)
@@ -385,7 +395,7 @@ def test_conflict_graph_omits_transition_edge_with_sufficient_gap(monkeypatch) -
         def __init__(self, *args, **kwargs):
             pass
 
-    monkeypatch.setattr("graph.PropagationContext", DummyPropagation)
+    monkeypatch.setattr("solvers.aeossp_standard.mwis_conflict_graph.src.graph.PropagationContext", DummyPropagation)
     graph = build_conflict_graph(_case_for_candidates(candidates), candidates)
 
     assert not graph.has_edge("sat_a|task_a|10", "sat_a|task_b|250")
@@ -539,7 +549,7 @@ def test_local_improvement_applies_weighted_two_swap(monkeypatch) -> None:
     def fake_greedy(component, candidate_by_id, adjacency_map, *, policy, reverse=False):
         return {"blocker"}
 
-    monkeypatch.setattr("mwis.solve_greedy_component", fake_greedy)
+    monkeypatch.setattr("solvers.aeossp_standard.mwis_conflict_graph.src.mwis.solve_greedy_component", fake_greedy)
     selected, stats = select_weighted_independent_set(
         candidates,
         graph,
@@ -586,7 +596,7 @@ def test_recombination_can_improve_incumbent_without_local_search(monkeypatch) -
             return {"l1", "r2"}
         return {"l2", "r1"}
 
-    monkeypatch.setattr("mwis.solve_greedy_component", fake_greedy)
+    monkeypatch.setattr("solvers.aeossp_standard.mwis_conflict_graph.src.mwis.solve_greedy_component", fake_greedy)
 
     selected, stats = select_weighted_independent_set(
         candidates,
@@ -653,9 +663,9 @@ def test_local_validation_rejects_duplicate_tasks(monkeypatch) -> None:
         def __init__(self, *args, **kwargs):
             pass
 
-    monkeypatch.setattr("validation.PropagationContext", DummyPropagation)
-    monkeypatch.setattr("validation.schedule_issues", lambda *args, **kwargs: [])
-    monkeypatch.setattr("validation.battery_issues", lambda *args, **kwargs: ([], {}))
+    monkeypatch.setattr("solvers.aeossp_standard.mwis_conflict_graph.src.validation.PropagationContext", DummyPropagation)
+    monkeypatch.setattr("solvers.aeossp_standard.mwis_conflict_graph.src.validation.schedule_issues", lambda *args, **kwargs: [])
+    monkeypatch.setattr("solvers.aeossp_standard.mwis_conflict_graph.src.validation.battery_issues", lambda *args, **kwargs: ([], {}))
 
     report = validate_candidates(_case_for_candidates(candidates), candidates)
 
@@ -673,9 +683,9 @@ def test_local_validation_rejects_overlap(monkeypatch) -> None:
         def __init__(self, *args, **kwargs):
             pass
 
-    monkeypatch.setattr("validation.PropagationContext", DummyPropagation)
-    monkeypatch.setattr("validation._initial_slew_required_s", lambda *args, **kwargs: 0.0)
-    monkeypatch.setattr("validation.battery_issues", lambda *args, **kwargs: ([], {}))
+    monkeypatch.setattr("solvers.aeossp_standard.mwis_conflict_graph.src.validation.PropagationContext", DummyPropagation)
+    monkeypatch.setattr("solvers.aeossp_standard.mwis_conflict_graph.src.validation._initial_slew_required_s", lambda *args, **kwargs: 0.0)
+    monkeypatch.setattr("solvers.aeossp_standard.mwis_conflict_graph.src.validation.battery_issues", lambda *args, **kwargs: ([], {}))
 
     report = validate_candidates(_case_for_candidates(candidates), candidates)
 
@@ -698,10 +708,10 @@ def test_local_validation_rejects_transition_gap(monkeypatch) -> None:
         available_gap_s = 1.0
         required_gap_s = 9.0
 
-    monkeypatch.setattr("validation.PropagationContext", DummyPropagation)
-    monkeypatch.setattr("validation._initial_slew_required_s", lambda *args, **kwargs: 0.0)
-    monkeypatch.setattr("validation.transition_result", lambda *args, **kwargs: FakeTransition())
-    monkeypatch.setattr("validation.battery_issues", lambda *args, **kwargs: ([], {}))
+    monkeypatch.setattr("solvers.aeossp_standard.mwis_conflict_graph.src.validation.PropagationContext", DummyPropagation)
+    monkeypatch.setattr("solvers.aeossp_standard.mwis_conflict_graph.src.validation._initial_slew_required_s", lambda *args, **kwargs: 0.0)
+    monkeypatch.setattr("solvers.aeossp_standard.mwis_conflict_graph.src.validation.transition_result", lambda *args, **kwargs: FakeTransition())
+    monkeypatch.setattr("solvers.aeossp_standard.mwis_conflict_graph.src.validation.battery_issues", lambda *args, **kwargs: ([], {}))
 
     report = validate_candidates(_case_for_candidates(candidates), candidates)
 
@@ -730,8 +740,8 @@ def test_local_battery_approximation_reports_depletion(monkeypatch) -> None:
         ),
     )
 
-    monkeypatch.setattr("validation._initial_slew_required_s", lambda *args, **kwargs: 0.0)
-    monkeypatch.setattr("validation.is_sunlit", lambda *args, **kwargs: False)
+    monkeypatch.setattr("solvers.aeossp_standard.mwis_conflict_graph.src.validation._initial_slew_required_s", lambda *args, **kwargs: 0.0)
+    monkeypatch.setattr("solvers.aeossp_standard.mwis_conflict_graph.src.validation.is_sunlit", lambda *args, **kwargs: False)
 
     issues, traces = battery_issues(case, [candidate], propagation=object())
 
@@ -777,7 +787,7 @@ def test_bounded_repair_terminates(monkeypatch) -> None:
         ],
     )
 
-    monkeypatch.setattr("validation.validate_candidates", lambda *args, **kwargs: invalid_report)
+    monkeypatch.setattr("solvers.aeossp_standard.mwis_conflict_graph.src.validation.validate_candidates", lambda *args, **kwargs: invalid_report)
 
     result = repair_candidates(
         _case_for_candidates(candidates),

@@ -6,7 +6,7 @@ from pathlib import Path
 from typing import Any
 import json
 
-from candidates import Candidate
+from .candidates import Candidate
 
 
 def write_json(path: Path, payload: Any) -> None:

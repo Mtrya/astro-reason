@@ -7,9 +7,9 @@ from datetime import timedelta
 
 import numpy as np
 
-from candidates import Candidate
-from case_io import AeosspCase, NUMERICAL_EPS, Satellite
-from geometry import (
+from .candidates import Candidate
+from .case_io import AeosspCase, NUMERICAL_EPS, Satellite
+from .geometry import (
     PropagationContext,
     angle_between_deg,
     required_slew_settle_s,

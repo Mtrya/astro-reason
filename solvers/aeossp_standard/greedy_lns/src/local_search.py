@@ -10,12 +10,12 @@ from dataclasses import asdict, dataclass, field
 from datetime import timedelta
 from typing import Any
 
-from candidates import Candidate
-from case_io import AeosspCase
-from components import Component, ComponentIndex, build_component_index
-from geometry import PropagationContext, initial_slew_feasible
-from insertion import _insertion_position
-from transition import TransitionVectorCache, transition_result
+from .candidates import Candidate
+from .case_io import AeosspCase
+from .components import Component, ComponentIndex, build_component_index
+from .geometry import PropagationContext, initial_slew_feasible
+from .insertion import _insertion_position
+from .transition import TransitionVectorCache, transition_result
 
 
 @dataclass(frozen=True, slots=True)

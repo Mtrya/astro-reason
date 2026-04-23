@@ -9,12 +9,16 @@ import pytest
 
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
-SOLVER_DIR = REPO_ROOT / "solvers" / "aeossp_standard" / "greedy_lns" / "src"
 sys.path.insert(0, str(REPO_ROOT))
-sys.path.insert(0, str(SOLVER_DIR))
 
-from candidates import CandidateConfig, CandidateSummary, generate_candidates, start_offsets_for_task  # noqa: E402
-from case_io import (  # noqa: E402
+from solvers.aeossp_standard.greedy_lns.src.candidates import (  # noqa: E402
+    Candidate,
+    CandidateConfig,
+    CandidateSummary,
+    generate_candidates,
+    start_offsets_for_task,
+)
+from solvers.aeossp_standard.greedy_lns.src.case_io import (  # noqa: E402
     AeosspCase,
     AttitudeModel,
     Mission,
@@ -26,26 +30,43 @@ from case_io import (  # noqa: E402
     load_solver_config,
     parse_iso_z,
 )
-from geometry import (  # noqa: E402
+from solvers.aeossp_standard.greedy_lns.src.components import (  # noqa: E402
+    Component,
+    build_component_index,
+)
+from solvers.aeossp_standard.greedy_lns.src.geometry import (  # noqa: E402
     action_sample_times,
     angle_between_deg,
     initial_slew_feasible_from_vectors,
     slew_time_s,
 )
-from solution_io import candidates_to_actions, write_empty_solution  # noqa: E402
-from transition import TransitionVectorCache, transition_gap_conflict, transition_result  # noqa: E402
-
-from candidates import Candidate  # noqa: E402
-from insertion import greedy_insertion, InsertionConfig, InsertionResult  # noqa: E402
-from validation import RepairConfig, ValidationIssue, repair_schedule  # noqa: E402
-from components import Component, build_component_index  # noqa: E402
-from local_search import (  # noqa: E402
+from solvers.aeossp_standard.greedy_lns.src.insertion import (  # noqa: E402
+    InsertionConfig,
+    InsertionResult,
+    greedy_insertion,
+)
+from solvers.aeossp_standard.greedy_lns.src.local_search import (  # noqa: E402
     LocalSearchConfig,
     LocalSearchResult,
     _marginal_profit,
     _recompute_component,
     _by_satellite,
     local_search,
+)
+from solvers.aeossp_standard.greedy_lns.src.solution_io import (  # noqa: E402
+    candidates_to_actions,
+    write_empty_solution,
+)
+from solvers.aeossp_standard.greedy_lns.src.transition import (  # noqa: E402
+    TransitionVectorCache,
+    transition_gap_conflict,
+    transition_result,
+)
+from solvers.aeossp_standard.greedy_lns.src.validation import (  # noqa: E402
+    RepairConfig,
+    ValidationIssue,
+    candidate_shape_issues,
+    repair_schedule,
 )
 
 
@@ -270,9 +291,9 @@ def test_generate_candidates_filters_sensor_and_keeps_stable_ids(monkeypatch) ->
         def __init__(self, *args, **kwargs):
             pass
 
-    monkeypatch.setattr("candidates.PropagationContext", DummyPropagation)
-    monkeypatch.setattr("candidates.observation_geometry_valid", lambda **kwargs: True)
-    monkeypatch.setattr("candidates.initial_slew_feasible", lambda **kwargs: True)
+    monkeypatch.setattr("solvers.aeossp_standard.greedy_lns.src.candidates.PropagationContext", DummyPropagation)
+    monkeypatch.setattr("solvers.aeossp_standard.greedy_lns.src.candidates.observation_geometry_valid", lambda **kwargs: True)
+    monkeypatch.setattr("solvers.aeossp_standard.greedy_lns.src.candidates.initial_slew_feasible", lambda **kwargs: True)
 
     candidates, summary = generate_candidates(case, CandidateConfig())
     candidate_ids = [item.candidate_id for item in candidates]
@@ -397,9 +418,9 @@ def test_greedy_insertion_selects_higher_utility_first(monkeypatch) -> None:
     b = _candidate("b", satellite_id="sat_a", task_id="task_a", start_offset_s=30, end_offset_s=40, weight=1.0)
     case = _case_for_candidates([a, b])
 
-    monkeypatch.setattr("insertion.PropagationContext", lambda *args, **kwargs: None)
-    monkeypatch.setattr("insertion.initial_slew_feasible", lambda **kwargs: True)
-    monkeypatch.setattr("insertion.transition_result", lambda *args, **kwargs: type("R", (), {"feasible": True})())
+    monkeypatch.setattr("solvers.aeossp_standard.greedy_lns.src.insertion.PropagationContext", lambda *args, **kwargs: None)
+    monkeypatch.setattr("solvers.aeossp_standard.greedy_lns.src.insertion.initial_slew_feasible", lambda **kwargs: True)
+    monkeypatch.setattr("solvers.aeossp_standard.greedy_lns.src.insertion.transition_result", lambda *args, **kwargs: type("R", (), {"feasible": True})())
 
     result = greedy_insertion(case, [a, b])
     assert len(result.selected) == 1
@@ -412,9 +433,9 @@ def test_greedy_insertion_rejects_overlap(monkeypatch) -> None:
     b = _candidate("b", satellite_id="sat_a", task_id="task_b", start_offset_s=20, end_offset_s=30, weight=1.0)
     case = _case_for_candidates([a, b])
 
-    monkeypatch.setattr("insertion.PropagationContext", lambda *args, **kwargs: None)
-    monkeypatch.setattr("insertion.initial_slew_feasible", lambda **kwargs: True)
-    monkeypatch.setattr("insertion.transition_result", lambda *args, **kwargs: type("R", (), {"feasible": True})())
+    monkeypatch.setattr("solvers.aeossp_standard.greedy_lns.src.insertion.PropagationContext", lambda *args, **kwargs: None)
+    monkeypatch.setattr("solvers.aeossp_standard.greedy_lns.src.insertion.initial_slew_feasible", lambda **kwargs: True)
+    monkeypatch.setattr("solvers.aeossp_standard.greedy_lns.src.insertion.transition_result", lambda *args, **kwargs: type("R", (), {"feasible": True})())
 
     result = greedy_insertion(case, [a, b])
     assert len(result.selected) == 1
@@ -435,9 +456,9 @@ def test_greedy_insertion_rejects_insufficient_transition(monkeypatch) -> None:
             return FakeResult()
         return type("R", (), {"feasible": True})()
 
-    monkeypatch.setattr("insertion.PropagationContext", lambda *args, **kwargs: None)
-    monkeypatch.setattr("insertion.initial_slew_feasible", lambda **kwargs: True)
-    monkeypatch.setattr("insertion.transition_result", fake_transition)
+    monkeypatch.setattr("solvers.aeossp_standard.greedy_lns.src.insertion.PropagationContext", lambda *args, **kwargs: None)
+    monkeypatch.setattr("solvers.aeossp_standard.greedy_lns.src.insertion.initial_slew_feasible", lambda **kwargs: True)
+    monkeypatch.setattr("solvers.aeossp_standard.greedy_lns.src.insertion.transition_result", fake_transition)
 
     result = greedy_insertion(case, [a, b])
     assert len(result.selected) == 1
@@ -449,8 +470,8 @@ def test_greedy_insertion_respects_initial_slew(monkeypatch) -> None:
     a = _candidate("a", satellite_id="sat_a", task_id="task_a", start_offset_s=10, end_offset_s=20, weight=5.0)
     case = _case_for_candidates([a])
 
-    monkeypatch.setattr("insertion.PropagationContext", lambda *args, **kwargs: None)
-    monkeypatch.setattr("insertion.initial_slew_feasible", lambda **kwargs: False)
+    monkeypatch.setattr("solvers.aeossp_standard.greedy_lns.src.insertion.PropagationContext", lambda *args, **kwargs: None)
+    monkeypatch.setattr("solvers.aeossp_standard.greedy_lns.src.insertion.initial_slew_feasible", lambda **kwargs: False)
 
     result = greedy_insertion(case, [a])
     assert len(result.selected) == 0
@@ -463,9 +484,9 @@ def test_greedy_insertion_insert_between_feasible(monkeypatch) -> None:
     b = _candidate("b", satellite_id="sat_a", task_id="task_b", start_offset_s=22, end_offset_s=28, weight=1.0)
     case = _case_for_candidates([a, b, c])
 
-    monkeypatch.setattr("insertion.PropagationContext", lambda *args, **kwargs: None)
-    monkeypatch.setattr("insertion.initial_slew_feasible", lambda **kwargs: True)
-    monkeypatch.setattr("insertion.transition_result", lambda *args, **kwargs: type("R", (), {"feasible": True})())
+    monkeypatch.setattr("solvers.aeossp_standard.greedy_lns.src.insertion.PropagationContext", lambda *args, **kwargs: None)
+    monkeypatch.setattr("solvers.aeossp_standard.greedy_lns.src.insertion.initial_slew_feasible", lambda **kwargs: True)
+    monkeypatch.setattr("solvers.aeossp_standard.greedy_lns.src.insertion.transition_result", lambda *args, **kwargs: type("R", (), {"feasible": True})())
 
     result = greedy_insertion(case, [a, b, c])
     ids = [item.candidate_id for item in result.selected]
@@ -478,9 +499,9 @@ def test_greedy_insertion_cross_satellite_same_task_rejected(monkeypatch) -> Non
     b = _candidate("b", satellite_id="sat_b", task_id="task_x", start_offset_s=30, end_offset_s=40, weight=1.0)
     case = _case_for_candidates([a, b])
 
-    monkeypatch.setattr("insertion.PropagationContext", lambda *args, **kwargs: None)
-    monkeypatch.setattr("insertion.initial_slew_feasible", lambda **kwargs: True)
-    monkeypatch.setattr("insertion.transition_result", lambda *args, **kwargs: type("R", (), {"feasible": True})())
+    monkeypatch.setattr("solvers.aeossp_standard.greedy_lns.src.insertion.PropagationContext", lambda *args, **kwargs: None)
+    monkeypatch.setattr("solvers.aeossp_standard.greedy_lns.src.insertion.initial_slew_feasible", lambda **kwargs: True)
+    monkeypatch.setattr("solvers.aeossp_standard.greedy_lns.src.insertion.transition_result", lambda *args, **kwargs: type("R", (), {"feasible": True})())
 
     result = greedy_insertion(case, [a, b])
     assert len(result.selected) == 1
@@ -493,8 +514,8 @@ def test_repair_removes_battery_violation(monkeypatch) -> None:
     b = _candidate("b", satellite_id="sat_a", task_id="task_b", start_offset_s=30, end_offset_s=40, weight=1.0)
     case = _case_for_candidates([a, b])
 
-    monkeypatch.setattr("validation.PropagationContext", lambda *args, **kwargs: None)
-    monkeypatch.setattr("validation.schedule_issues", lambda case, candidates, **kwargs: [])
+    monkeypatch.setattr("solvers.aeossp_standard.greedy_lns.src.validation.PropagationContext", lambda *args, **kwargs: None)
+    monkeypatch.setattr("solvers.aeossp_standard.greedy_lns.src.validation.schedule_issues", lambda case, candidates, **kwargs: [])
 
     def fake_battery_issues(case, candidates, **kwargs):
         if any(c.candidate_id == "b" for c in candidates):
@@ -504,7 +525,7 @@ def test_repair_removes_battery_violation(monkeypatch) -> None:
             )
         return ([], {})
 
-    monkeypatch.setattr("validation.battery_issues", fake_battery_issues)
+    monkeypatch.setattr("solvers.aeossp_standard.greedy_lns.src.validation.battery_issues", fake_battery_issues)
 
     result = repair_schedule(case, [a, b], config=RepairConfig(max_repair_iterations=10))
     assert len(result.candidates) == 1
@@ -518,9 +539,9 @@ def test_repair_passes_when_valid(monkeypatch) -> None:
     a = _candidate("a", satellite_id="sat_a", task_id="task_a", start_offset_s=10, end_offset_s=20, weight=5.0)
     case = _case_for_candidates([a])
 
-    monkeypatch.setattr("validation.PropagationContext", lambda *args, **kwargs: None)
-    monkeypatch.setattr("validation.schedule_issues", lambda case, candidates, **kwargs: [])
-    monkeypatch.setattr("validation.battery_issues", lambda case, candidates, **kwargs: ([], {}))
+    monkeypatch.setattr("solvers.aeossp_standard.greedy_lns.src.validation.PropagationContext", lambda *args, **kwargs: None)
+    monkeypatch.setattr("solvers.aeossp_standard.greedy_lns.src.validation.schedule_issues", lambda case, candidates, **kwargs: [])
+    monkeypatch.setattr("solvers.aeossp_standard.greedy_lns.src.validation.battery_issues", lambda case, candidates, **kwargs: ([], {}))
 
     result = repair_schedule(case, [a], config=RepairConfig(max_repair_iterations=10))
     assert len(result.candidates) == 1
@@ -533,8 +554,8 @@ def test_component_graph_overlap_edge(monkeypatch) -> None:
     b = _candidate("b", satellite_id="sat_a", task_id="task_b", start_offset_s=20, end_offset_s=30)
     case = _case_for_candidates([a, b])
 
-    monkeypatch.setattr("components.PropagationContext", lambda *args, **kwargs: None)
-    monkeypatch.setattr("components.transition_gap_conflict", lambda *args, **kwargs: False)
+    monkeypatch.setattr("solvers.aeossp_standard.greedy_lns.src.components.PropagationContext", lambda *args, **kwargs: None)
+    monkeypatch.setattr("solvers.aeossp_standard.greedy_lns.src.components.transition_gap_conflict", lambda *args, **kwargs: False)
 
     index = build_component_index(case, [a, b])
     assert index.stats.component_count == 1
@@ -546,8 +567,8 @@ def test_component_graph_no_edge_for_temporal_separation(monkeypatch) -> None:
     b = _candidate("b", satellite_id="sat_a", task_id="task_b", start_offset_s=100, end_offset_s=110)
     case = _case_for_candidates([a, b])
 
-    monkeypatch.setattr("components.PropagationContext", lambda *args, **kwargs: None)
-    monkeypatch.setattr("components.transition_gap_conflict", lambda *args, **kwargs: False)
+    monkeypatch.setattr("solvers.aeossp_standard.greedy_lns.src.components.PropagationContext", lambda *args, **kwargs: None)
+    monkeypatch.setattr("solvers.aeossp_standard.greedy_lns.src.components.transition_gap_conflict", lambda *args, **kwargs: False)
 
     index = build_component_index(case, [a, b])
     assert index.stats.component_count == 2
@@ -559,8 +580,8 @@ def test_component_graph_edge_for_insufficient_transition(monkeypatch) -> None:
     b = _candidate("b", satellite_id="sat_a", task_id="task_b", start_offset_s=22, end_offset_s=32)
     case = _case_for_candidates([a, b])
 
-    monkeypatch.setattr("components.PropagationContext", lambda *args, **kwargs: None)
-    monkeypatch.setattr("components.transition_gap_conflict", lambda *args, **kwargs: True)
+    monkeypatch.setattr("solvers.aeossp_standard.greedy_lns.src.components.PropagationContext", lambda *args, **kwargs: None)
+    monkeypatch.setattr("solvers.aeossp_standard.greedy_lns.src.components.transition_gap_conflict", lambda *args, **kwargs: True)
 
     index = build_component_index(case, [a, b])
     assert index.stats.component_count == 1
@@ -573,8 +594,8 @@ def test_component_extraction_is_deterministic(monkeypatch) -> None:
     c = _candidate("c", satellite_id="sat_a", task_id="task_c", start_offset_s=40, end_offset_s=50)
     case = _case_for_candidates([a, b, c])
 
-    monkeypatch.setattr("components.PropagationContext", lambda *args, **kwargs: None)
-    monkeypatch.setattr("components.transition_gap_conflict", lambda *args, **kwargs: True)
+    monkeypatch.setattr("solvers.aeossp_standard.greedy_lns.src.components.PropagationContext", lambda *args, **kwargs: None)
+    monkeypatch.setattr("solvers.aeossp_standard.greedy_lns.src.components.transition_gap_conflict", lambda *args, **kwargs: True)
 
     index1 = build_component_index(case, [a, b, c])
     index2 = build_component_index(case, [a, b, c])
@@ -607,7 +628,7 @@ def test_local_search_accepted_improving_move(monkeypatch) -> None:
     high = _candidate("high", satellite_id="sat_a", task_id="task_x", start_offset_s=10, end_offset_s=20, weight=5.0)
     case = _case_for_candidates([low, high])
 
-    monkeypatch.setattr("local_search.build_component_index", lambda case, candidates: type("Idx", (), {
+    monkeypatch.setattr("solvers.aeossp_standard.greedy_lns.src.local_search.build_component_index", lambda case, candidates: type("Idx", (), {
         "components": [
             type("Comp", (), {
                 "satellite_id": "sat_a",
@@ -618,10 +639,10 @@ def test_local_search_accepted_improving_move(monkeypatch) -> None:
         ],
         "stats": type("Stats", (), {"component_count": 1, "largest_component_size": 2})(),
     })())
-    monkeypatch.setattr("local_search.PropagationContext", lambda *args, **kwargs: None)
-    monkeypatch.setattr("local_search.TransitionVectorCache", lambda *args, **kwargs: None)
-    monkeypatch.setattr("local_search.transition_result", lambda *args, **kwargs: type("R", (), {"feasible": True})())
-    monkeypatch.setattr("local_search.initial_slew_feasible", lambda **kwargs: True)
+    monkeypatch.setattr("solvers.aeossp_standard.greedy_lns.src.local_search.PropagationContext", lambda *args, **kwargs: None)
+    monkeypatch.setattr("solvers.aeossp_standard.greedy_lns.src.local_search.TransitionVectorCache", lambda *args, **kwargs: None)
+    monkeypatch.setattr("solvers.aeossp_standard.greedy_lns.src.local_search.transition_result", lambda *args, **kwargs: type("R", (), {"feasible": True})())
+    monkeypatch.setattr("solvers.aeossp_standard.greedy_lns.src.local_search.initial_slew_feasible", lambda **kwargs: True)
 
     greedy_solution = [low]
     result = local_search(case, [low, high], greedy_solution, config=LocalSearchConfig(max_local_search_iterations=10))
@@ -633,7 +654,7 @@ def test_local_search_rejected_non_improving_move(monkeypatch) -> None:
     a = _candidate("a", satellite_id="sat_a", task_id="task_a", start_offset_s=10, end_offset_s=20, weight=5.0)
     case = _case_for_candidates([a])
 
-    monkeypatch.setattr("local_search.build_component_index", lambda case, candidates: type("Idx", (), {
+    monkeypatch.setattr("solvers.aeossp_standard.greedy_lns.src.local_search.build_component_index", lambda case, candidates: type("Idx", (), {
         "components": [
             type("Comp", (), {
                 "satellite_id": "sat_a",
@@ -644,10 +665,10 @@ def test_local_search_rejected_non_improving_move(monkeypatch) -> None:
         ],
         "stats": type("Stats", (), {"component_count": 1, "largest_component_size": 1})(),
     })())
-    monkeypatch.setattr("local_search.PropagationContext", lambda *args, **kwargs: None)
-    monkeypatch.setattr("local_search.TransitionVectorCache", lambda *args, **kwargs: None)
-    monkeypatch.setattr("local_search.transition_result", lambda *args, **kwargs: type("R", (), {"feasible": True})())
-    monkeypatch.setattr("local_search.initial_slew_feasible", lambda **kwargs: True)
+    monkeypatch.setattr("solvers.aeossp_standard.greedy_lns.src.local_search.PropagationContext", lambda *args, **kwargs: None)
+    monkeypatch.setattr("solvers.aeossp_standard.greedy_lns.src.local_search.TransitionVectorCache", lambda *args, **kwargs: None)
+    monkeypatch.setattr("solvers.aeossp_standard.greedy_lns.src.local_search.transition_result", lambda *args, **kwargs: type("R", (), {"feasible": True})())
+    monkeypatch.setattr("solvers.aeossp_standard.greedy_lns.src.local_search.initial_slew_feasible", lambda **kwargs: True)
 
     greedy_solution = [a]
     result = local_search(case, [a], greedy_solution, config=LocalSearchConfig(max_local_search_iterations=10))
@@ -659,11 +680,11 @@ def test_local_search_restart_determinism(monkeypatch) -> None:
     a = _candidate("a", satellite_id="sat_a", task_id="task_a", start_offset_s=10, end_offset_s=20, weight=5.0)
     case = _case_for_candidates([a])
 
-    monkeypatch.setattr("local_search.build_component_index", lambda case, candidates: type("Idx", (), {
+    monkeypatch.setattr("solvers.aeossp_standard.greedy_lns.src.local_search.build_component_index", lambda case, candidates: type("Idx", (), {
         "components": [],
         "stats": type("Stats", (), {"component_count": 0, "largest_component_size": 0})(),
     })())
-    monkeypatch.setattr("local_search.PropagationContext", lambda *args, **kwargs: None)
+    monkeypatch.setattr("solvers.aeossp_standard.greedy_lns.src.local_search.PropagationContext", lambda *args, **kwargs: None)
 
     greedy_solution = [a]
     result1 = local_search(case, [a], greedy_solution, config=LocalSearchConfig(restart_count=2, random_seed=42))
@@ -696,7 +717,6 @@ def test_candidate_shape_issues_catch_duration_mismatch(monkeypatch) -> None:
         satellites=case.satellites,
         tasks={**case.tasks, "task_a": new_task},
     )
-    from validation import candidate_shape_issues
     issues = candidate_shape_issues(new_case, [a])
     assert any(i.reason == "duration_mismatch" for i in issues)
 
@@ -720,7 +740,6 @@ def test_candidate_shape_issues_catch_grid_misalignment(monkeypatch) -> None:
         satellites=case.satellites,
         tasks=case.tasks,
     )
-    from validation import candidate_shape_issues
     issues = candidate_shape_issues(new_case, [a])
     assert any(i.reason == "grid_misalignment" for i in issues)
 
@@ -731,9 +750,9 @@ def test_greedy_insertion_with_minimize_transition_increment(monkeypatch) -> Non
     c = _candidate("c", satellite_id="sat_a", task_id="task_c", start_offset_s=22, end_offset_s=28, weight=1.0)
     case = _case_for_candidates([a, b, c])
 
-    monkeypatch.setattr("insertion.PropagationContext", lambda *args, **kwargs: None)
-    monkeypatch.setattr("insertion.initial_slew_feasible", lambda **kwargs: True)
-    monkeypatch.setattr("insertion.transition_result", lambda *args, **kwargs: type("R", (), {"feasible": True, "required_gap_s": 1.0})())
+    monkeypatch.setattr("solvers.aeossp_standard.greedy_lns.src.insertion.PropagationContext", lambda *args, **kwargs: None)
+    monkeypatch.setattr("solvers.aeossp_standard.greedy_lns.src.insertion.initial_slew_feasible", lambda **kwargs: True)
+    monkeypatch.setattr("solvers.aeossp_standard.greedy_lns.src.insertion.transition_result", lambda *args, **kwargs: type("R", (), {"feasible": True, "required_gap_s": 1.0})())
 
     result = greedy_insertion(case, [a, b, c], config=InsertionConfig(minimize_transition_increment=True))
     ids = [item.candidate_id for item in result.selected]
@@ -746,9 +765,9 @@ def test_greedy_insertion_minimize_rejects_infeasible(monkeypatch) -> None:
     b = _candidate("b", satellite_id="sat_a", task_id="task_b", start_offset_s=20, end_offset_s=30, weight=1.0)
     case = _case_for_candidates([a, b])
 
-    monkeypatch.setattr("insertion.PropagationContext", lambda *args, **kwargs: None)
-    monkeypatch.setattr("insertion.initial_slew_feasible", lambda **kwargs: True)
-    monkeypatch.setattr("insertion.transition_result", lambda *args, **kwargs: type("R", (), {"feasible": True, "required_gap_s": 1.0})())
+    monkeypatch.setattr("solvers.aeossp_standard.greedy_lns.src.insertion.PropagationContext", lambda *args, **kwargs: None)
+    monkeypatch.setattr("solvers.aeossp_standard.greedy_lns.src.insertion.initial_slew_feasible", lambda **kwargs: True)
+    monkeypatch.setattr("solvers.aeossp_standard.greedy_lns.src.insertion.transition_result", lambda *args, **kwargs: type("R", (), {"feasible": True, "required_gap_s": 1.0})())
 
     result = greedy_insertion(case, [a, b], config=InsertionConfig(minimize_transition_increment=True))
     assert len(result.selected) == 1

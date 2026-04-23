@@ -10,7 +10,9 @@ SOLUTION_DIR="${3:-solution}"
 export MPLCONFIGDIR
 mkdir -p "${MPLCONFIGDIR}"
 
-PYTHONPATH="${SCRIPT_DIR}/src${PYTHONPATH:+:${PYTHONPATH}}" python "${SCRIPT_DIR}/src/solve.py" \
+REPO_ROOT="$(cd "${SCRIPT_DIR}/../../.." && pwd)"
+
+PYTHONPATH="${REPO_ROOT}${PYTHONPATH:+:${PYTHONPATH}}" python -m solvers.aeossp_standard.greedy_lns.src.solve \
   --case-dir "${CASE_DIR}" \
   --config-dir "${CONFIG_DIR}" \
   --solution-dir "${SOLUTION_DIR}"

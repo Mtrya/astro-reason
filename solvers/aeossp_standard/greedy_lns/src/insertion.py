@@ -7,10 +7,10 @@ from dataclasses import asdict, dataclass, field
 from datetime import timedelta
 from typing import Any
 
-from candidates import Candidate
-from case_io import AeosspCase
-from geometry import PropagationContext, initial_slew_feasible
-from transition import TransitionVectorCache, transition_result
+from .candidates import Candidate
+from .case_io import AeosspCase
+from .geometry import PropagationContext, initial_slew_feasible
+from .transition import TransitionVectorCache, transition_result
 
 
 @dataclass(frozen=True, slots=True)

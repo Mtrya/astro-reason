@@ -6,8 +6,8 @@ from dataclasses import asdict, dataclass, field
 from datetime import timedelta
 from typing import Any
 
-from case_io import AeosspCase, Satellite, Task, iso_z
-from geometry import PropagationContext, initial_slew_feasible, observation_geometry_valid
+from .case_io import AeosspCase, Satellite, Task, iso_z
+from .geometry import PropagationContext, initial_slew_feasible, observation_geometry_valid
 
 
 @dataclass(frozen=True, slots=True)
