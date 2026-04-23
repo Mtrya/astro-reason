@@ -14,7 +14,7 @@ source:
 
 splits:
   test:
-    seed: 42
+    seed: 84
     case_count: 5
     case_spec_seed_stride: 10007
     target_selection_seed_stride: 10000
@@ -22,10 +22,10 @@ splits:
 
     case_spec:
       target_count:
-        min: 12
+        min: 18
         max: 24
       max_num_satellites:
-        min: 6
+        min: 12
         max: 18
       revisit_threshold_hours_options: [6.0, 8.0, 12.0]
 
@@ -39,6 +39,7 @@ splits:
         min_duration_sec: 30.0
 
     target_selection:
+      max_abs_latitude_deg: 70.0
       initial_pool:
         min_size: 10
         multiplier: 2

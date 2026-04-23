@@ -4,7 +4,7 @@
   "targets": [
     {
       "altitude_m": 0.0,
-      "expected_revisit_period_hours": 6.0,
+      "expected_revisit_period_hours": 8.0,
       "id": "target_001",
       "latitude_deg": -25.0667,
       "longitude_deg": -130.0833,
@@ -15,85 +15,74 @@
     },
     {
       "altitude_m": 0.0,
-      "expected_revisit_period_hours": 6.0,
+      "expected_revisit_period_hours": 8.0,
       "id": "target_002",
-      "latitude_deg": 46.6829,
-      "longitude_deg": 113.2786,
+      "latitude_deg": 2.7333,
+      "longitude_deg": 23.75,
       "max_slant_range_m": 1800000.0,
       "min_duration_sec": 30.0,
       "min_elevation_deg": 20.0,
-      "name": "Baruun-Urt, Mongolia"
+      "name": "Aketi, Congo (Kinshasa)"
     },
     {
       "altitude_m": 0.0,
-      "expected_revisit_period_hours": 6.0,
+      "expected_revisit_period_hours": 8.0,
       "id": "target_003",
-      "latitude_deg": 12.67,
-      "longitude_deg": 124.38,
+      "latitude_deg": 51.5167,
+      "longitude_deg": 104.1333,
       "max_slant_range_m": 1800000.0,
       "min_duration_sec": 30.0,
       "min_elevation_deg": 20.0,
-      "name": "Biri, Philippines"
+      "name": "Baykalsk, Russia"
     },
     {
       "altitude_m": 0.0,
-      "expected_revisit_period_hours": 6.0,
+      "expected_revisit_period_hours": 8.0,
       "id": "target_004",
-      "latitude_deg": -33.9253,
-      "longitude_deg": 18.4239,
+      "latitude_deg": 1.35,
+      "longitude_deg": 172.9333,
       "max_slant_range_m": 1800000.0,
       "min_duration_sec": 30.0,
       "min_elevation_deg": 20.0,
-      "name": "Cape Town, South Africa"
+      "name": "Betio, Kiribati"
     },
     {
       "altitude_m": 0.0,
-      "expected_revisit_period_hours": 6.0,
+      "expected_revisit_period_hours": 8.0,
       "id": "target_005",
-      "latitude_deg": 28.61,
-      "longitude_deg": 77.23,
+      "latitude_deg": -17.7408,
+      "longitude_deg": 139.5477,
       "max_slant_range_m": 1800000.0,
       "min_duration_sec": 30.0,
       "min_elevation_deg": 20.0,
-      "name": "Delhi, India"
+      "name": "Burketown, Australia"
     },
     {
       "altitude_m": 0.0,
-      "expected_revisit_period_hours": 6.0,
+      "expected_revisit_period_hours": 8.0,
       "id": "target_006",
-      "latitude_deg": 69.25,
-      "longitude_deg": 33.4167,
+      "latitude_deg": 19.25,
+      "longitude_deg": -104.5667,
       "max_slant_range_m": 1800000.0,
       "min_duration_sec": 30.0,
       "min_elevation_deg": 20.0,
-      "name": "Gadzhiyevo, Russia"
+      "name": "Cihuatl\u00e1n, Mexico"
     },
     {
       "altitude_m": 0.0,
-      "expected_revisit_period_hours": 6.0,
+      "expected_revisit_period_hours": 8.0,
       "id": "target_007",
-      "latitude_deg": 24.9644,
-      "longitude_deg": 10.1781,
+      "latitude_deg": -10.4261,
+      "longitude_deg": 105.6728,
       "max_slant_range_m": 1800000.0,
       "min_duration_sec": 30.0,
       "min_elevation_deg": 20.0,
-      "name": "Gh\u0101t, Libya"
+      "name": "Flying Fish Cove, Christmas Island"
     },
     {
       "altitude_m": 0.0,
-      "expected_revisit_period_hours": 6.0,
+      "expected_revisit_period_hours": 8.0,
       "id": "target_008",
-      "latitude_deg": 46.2,
-      "longitude_deg": -59.9667,
-      "max_slant_range_m": 1800000.0,
-      "min_duration_sec": 30.0,
-      "min_elevation_deg": 20.0,
-      "name": "Glace Bay, Canada"
-    },
-    {
-      "altitude_m": 0.0,
-      "expected_revisit_period_hours": 6.0,
-      "id": "target_009",
       "latitude_deg": -54.2806,
       "longitude_deg": -36.508,
       "max_slant_range_m": 1800000.0,
@@ -103,117 +92,128 @@
     },
     {
       "altitude_m": 0.0,
-      "expected_revisit_period_hours": 6.0,
+      "expected_revisit_period_hours": 8.0,
+      "id": "target_009",
+      "latitude_deg": 19.5828,
+      "longitude_deg": -154.9695,
+      "max_slant_range_m": 1800000.0,
+      "min_duration_sec": 30.0,
+      "min_elevation_deg": 20.0,
+      "name": "Hawaiian Paradise Park, United States"
+    },
+    {
+      "altitude_m": 0.0,
+      "expected_revisit_period_hours": 8.0,
       "id": "target_010",
-      "latitude_deg": 34.6618,
-      "longitude_deg": -120.4714,
+      "latitude_deg": -11.5189,
+      "longitude_deg": -37.5119,
       "max_slant_range_m": 1800000.0,
       "min_duration_sec": 30.0,
       "min_elevation_deg": 20.0,
-      "name": "Lompoc, United States"
+      "name": "Indiaroba, Brazil"
     },
     {
       "altitude_m": 0.0,
-      "expected_revisit_period_hours": 6.0,
+      "expected_revisit_period_hours": 8.0,
       "id": "target_011",
-      "latitude_deg": 7.0833,
-      "longitude_deg": 171.3833,
+      "latitude_deg": 46.2,
+      "longitude_deg": -61.1,
       "max_slant_range_m": 1800000.0,
       "min_duration_sec": 30.0,
       "min_elevation_deg": 20.0,
-      "name": "Majuro, Marshall Islands"
+      "name": "Inverness, Canada"
     },
     {
       "altitude_m": 0.0,
-      "expected_revisit_period_hours": 6.0,
+      "expected_revisit_period_hours": 8.0,
       "id": "target_012",
-      "latitude_deg": 39.1478,
-      "longitude_deg": 42.5442,
+      "latitude_deg": -15.9251,
+      "longitude_deg": -5.7179,
       "max_slant_range_m": 1800000.0,
       "min_duration_sec": 30.0,
       "min_elevation_deg": 20.0,
-      "name": "Malazgirt, Turkey"
+      "name": "Jamestown, Saint Helena, Ascension, and Tristan da Cunha"
     },
     {
       "altitude_m": 0.0,
-      "expected_revisit_period_hours": 6.0,
+      "expected_revisit_period_hours": 8.0,
       "id": "target_013",
-      "latitude_deg": 1.7156,
-      "longitude_deg": 44.7703,
+      "latitude_deg": 24.86,
+      "longitude_deg": 67.01,
       "max_slant_range_m": 1800000.0,
       "min_duration_sec": 30.0,
       "min_elevation_deg": 20.0,
-      "name": "Marka, Somalia"
+      "name": "Karachi, Pakistan"
     },
     {
       "altitude_m": 0.0,
-      "expected_revisit_period_hours": 6.0,
+      "expected_revisit_period_hours": 8.0,
       "id": "target_014",
-      "latitude_deg": -20.2408,
-      "longitude_deg": -56.3778,
+      "latitude_deg": 56.3167,
+      "longitude_deg": 160.8333,
       "max_slant_range_m": 1800000.0,
       "min_duration_sec": 30.0,
       "min_elevation_deg": 20.0,
-      "name": "Miranda, Brazil"
+      "name": "Klyuchi, Russia"
     },
     {
       "altitude_m": 0.0,
-      "expected_revisit_period_hours": 6.0,
+      "expected_revisit_period_hours": 8.0,
       "id": "target_015",
-      "latitude_deg": 60.5816,
-      "longitude_deg": 169.05,
+      "latitude_deg": 67.6333,
+      "longitude_deg": 53.05,
       "max_slant_range_m": 1800000.0,
       "min_duration_sec": 30.0,
       "min_elevation_deg": 20.0,
-      "name": "Pakhachi, Russia"
+      "name": "Nar\u2019yan-Mar, Russia"
     },
     {
       "altitude_m": 0.0,
-      "expected_revisit_period_hours": 6.0,
+      "expected_revisit_period_hours": 8.0,
       "id": "target_016",
-      "latitude_deg": -4.7975,
-      "longitude_deg": 11.8503,
+      "latitude_deg": 34.4833,
+      "longitude_deg": 7.5167,
       "max_slant_range_m": 1800000.0,
       "min_duration_sec": 30.0,
       "min_elevation_deg": 20.0,
-      "name": "Pointe-Noire, Congo (Brazzaville)"
+      "name": "Negrine, Algeria"
     },
     {
       "altitude_m": 0.0,
-      "expected_revisit_period_hours": 6.0,
+      "expected_revisit_period_hours": 8.0,
       "id": "target_017",
-      "latitude_deg": 10.5737,
-      "longitude_deg": -83.9548,
+      "latitude_deg": 23.6742,
+      "longitude_deg": 116.915,
       "max_slant_range_m": 1800000.0,
       "min_duration_sec": 30.0,
       "min_elevation_deg": 20.0,
-      "name": "Puerto Viejo, Costa Rica"
+      "name": "Qiantangcun, China"
     },
     {
       "altitude_m": 0.0,
-      "expected_revisit_period_hours": 6.0,
+      "expected_revisit_period_hours": 8.0,
       "id": "target_018",
-      "latitude_deg": 2.63,
-      "longitude_deg": 96.09,
+      "latitude_deg": 15.3014,
+      "longitude_deg": -61.3883,
       "max_slant_range_m": 1800000.0,
       "min_duration_sec": 30.0,
       "min_elevation_deg": 20.0,
-      "name": "Simeulu, Indonesia"
+      "name": "Roseau, Dominica"
     },
     {
       "altitude_m": 0.0,
-      "expected_revisit_period_hours": 6.0,
+      "expected_revisit_period_hours": 8.0,
       "id": "target_019",
-      "latitude_deg": -32.799,
-      "longitude_deg": 134.2048,
+      "latitude_deg": -14.4422,
+      "longitude_deg": -67.5283,
       "max_slant_range_m": 1800000.0,
       "min_duration_sec": 30.0,
       "min_elevation_deg": 20.0,
-      "name": "Streaky Bay, Australia"
+      "name": "Rurrenabaque, Bolivia"
     },
     {
       "altitude_m": 0.0,
-      "expected_revisit_period_hours": 6.0,
+      "expected_revisit_period_hours": 8.0,
       "id": "target_020",
       "latitude_deg": 14.895,
       "longitude_deg": -24.498,
@@ -224,19 +224,30 @@
     },
     {
       "altitude_m": 0.0,
-      "expected_revisit_period_hours": 6.0,
+      "expected_revisit_period_hours": 8.0,
       "id": "target_021",
-      "latitude_deg": 20.0124,
-      "longitude_deg": -155.6381,
+      "latitude_deg": 54.5164,
+      "longitude_deg": -128.5997,
       "max_slant_range_m": 1800000.0,
       "min_duration_sec": 30.0,
       "min_elevation_deg": 20.0,
-      "name": "Waimea, United States"
+      "name": "Terrace, Canada"
     },
     {
       "altitude_m": 0.0,
-      "expected_revisit_period_hours": 6.0,
+      "expected_revisit_period_hours": 8.0,
       "id": "target_022",
+      "latitude_deg": -22.4139,
+      "longitude_deg": 47.8634,
+      "max_slant_range_m": 1800000.0,
+      "min_duration_sec": 30.0,
+      "min_elevation_deg": 20.0,
+      "name": "Vohindava, Madagascar"
+    },
+    {
+      "altitude_m": 0.0,
+      "expected_revisit_period_hours": 8.0,
+      "id": "target_023",
       "latitude_deg": -43.9514,
       "longitude_deg": -176.5611,
       "max_slant_range_m": 1800000.0,

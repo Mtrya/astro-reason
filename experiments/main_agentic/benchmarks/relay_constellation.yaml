@@ -25,15 +25,15 @@ aggregation:
       path: metrics.worst_demand_service_fraction
       direction: maximize
       role: secondary
-    - name: latency_p95_ms
-      path: metrics.latency_p95_ms
+    - name: num_added_satellites
+      path: metrics.num_added_satellites
       direction: minimize
       role: secondary
     - name: mean_latency_ms
       path: metrics.mean_latency_ms
       direction: minimize
       role: secondary
-    - name: num_added_satellites
-      path: metrics.num_added_satellites
+    - name: latency_p95_ms
+      path: metrics.latency_p95_ms
       direction: minimize
       role: secondary

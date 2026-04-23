@@ -25,5 +25,5 @@
     "primary_metric": "service_fraction",
     "secondary_metric": "worst_demand_service_fraction"
   },
-  "seed": 20056
+  "seed": 22040
 }

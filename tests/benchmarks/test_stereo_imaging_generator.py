@@ -78,6 +78,7 @@ def _write_splits_yaml(path: Path, *, snapshot_epoch_utc: str = CELESTRAK_SNAPSH
                     "max_count": 4,
                     "urban_target_divisor": 2,
                     "min_urban_population": 1000,
+                    "max_abs_latitude_deg": 70.0,
                     "non_urban_jitter_deg": 0.2,
                     "aoi_radius_min_m": 2500.0,
                     "aoi_radius_max_m": 2500.0,
@@ -157,6 +158,7 @@ def _write_source_tree(source_dir: Path) -> None:
                 "Nairobi,Kenya,-1.2864,36.8172,4397000",
                 "Santiago,Chile,-33.4489,-70.6693,5614000",
                 "Ottawa,Canada,45.4215,-75.6972,994837",
+                "Longyearbyen,Norway,78.2232,15.6267,2368",
             ]
         )
         + "\n",
@@ -181,6 +183,56 @@ def test_load_generator_config_rejects_unsupported_snapshot_epoch(tmp_path: Path
 
     with pytest.raises(ValueError, match="cached CelesTrak snapshot epoch"):
         load_generator_config(splits_path)
+
+
+def test_main_rejects_invalid_max_abs_latitude(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    splits_path = tmp_path / "splits.yaml"
+    _write_splits_yaml(splits_path)
+    payload = yaml.safe_load(splits_path.read_text(encoding="utf-8"))
+    payload["splits"]["test"]["targets"]["max_abs_latitude_deg"] = 0.0
+    splits_path.write_text(yaml.safe_dump(payload, sort_keys=False), encoding="utf-8")
+    download_dir = tmp_path / "sources"
+    output_dir = tmp_path / "output"
+
+    def fake_fetch_all_sources(dest_dir: Path, *, force_download: bool = False):
+        del force_download
+        _write_source_tree(dest_dir)
+        return {
+            "celestrak": SourceFetchResult(
+                "celestrak",
+                [dest_dir / "celestrak" / CELESTRAK_CSV_NAME],
+                {
+                    "record_count": 2,
+                    "sha256": "fake",
+                    "vendored_snapshot": True,
+                },
+            ),
+            "world_cities": SourceFetchResult(
+                "world_cities",
+                [dest_dir / "world_cities" / WORLD_CITIES_FILENAME],
+                {"sha256": "fake"},
+            ),
+        }
+
+    monkeypatch.setattr(generator_run, "fetch_all_sources", fake_fetch_all_sources)
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        [
+            "run.py",
+            str(splits_path),
+            "--download-dir",
+            str(download_dir),
+            "--output-dir",
+            str(output_dir),
+        ],
+    )
+
+    with pytest.raises(ValueError, match=r"targets\.max_abs_latitude_deg"):
+        generator_run.main()
 
 
 def test_sources_only_mode_is_operational_and_skips_dataset_emission(
@@ -283,3 +335,10 @@ def test_main_builds_split_aware_dataset(monkeypatch: pytest.MonkeyPatch, tmp_pa
     assert index["example_smoke_case"] == "test/case_0001"
     assert index["cases"][0]["split"] == "test"
     assert index["cases"][0]["path"] == "cases/test/case_0001"
+    targets = yaml.safe_load(
+        (output_dir / "cases" / "test" / "case_0001" / "targets.yaml").read_text(
+            encoding="utf-8"
+        )
+    )
+    assert targets
+    assert all(abs(float(target["latitude_deg"])) < 70.0 for target in targets)

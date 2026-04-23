@@ -50,10 +50,11 @@ splits:
           open: 0.05
 
     targets:
-      min_count: 24
+      min_count: 36
       max_count: 48
       urban_target_divisor: 4
       min_urban_population: 100000
+      max_abs_latitude_deg: 70.0
       non_urban_jitter_deg: 0.48
       aoi_radius_min_m: 2500.0
       aoi_radius_max_m: 7500.0

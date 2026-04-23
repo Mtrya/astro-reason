@@ -2,58 +2,42 @@
   "demanded_windows": [
     {
       "demand_id": "demand_004",
-      "destination_endpoint_id": "ground_005",
-      "end_time": "2026-01-02T05:05:00Z",
-      "source_endpoint_id": "ground_004",
-      "start_time": "2026-01-02T03:35:00Z",
+      "destination_endpoint_id": "ground_006",
+      "end_time": "2026-01-02T12:35:00Z",
+      "source_endpoint_id": "ground_002",
+      "start_time": "2026-01-02T11:50:00Z",
       "weight": 1.0
     },
     {
-      "demand_id": "demand_007",
+      "demand_id": "demand_003",
       "destination_endpoint_id": "ground_003",
-      "end_time": "2026-01-02T09:20:00Z",
-      "source_endpoint_id": "ground_001",
-      "start_time": "2026-01-02T08:50:00Z",
-      "weight": 1.0
-    },
-    {
-      "demand_id": "demand_006",
-      "destination_endpoint_id": "ground_003",
-      "end_time": "2026-01-03T02:55:00Z",
-      "source_endpoint_id": "ground_001",
-      "start_time": "2026-01-03T02:10:00Z",
+      "end_time": "2026-01-03T13:50:00Z",
+      "source_endpoint_id": "ground_002",
+      "start_time": "2026-01-03T12:20:00Z",
       "weight": 1.0
     },
     {
       "demand_id": "demand_001",
       "destination_endpoint_id": "ground_005",
-      "end_time": "2026-01-03T04:15:00Z",
+      "end_time": "2026-01-03T13:40:00Z",
       "source_endpoint_id": "ground_001",
-      "start_time": "2026-01-03T03:45:00Z",
-      "weight": 1.0
-    },
-    {
-      "demand_id": "demand_003",
-      "destination_endpoint_id": "ground_005",
-      "end_time": "2026-01-03T04:45:00Z",
-      "source_endpoint_id": "ground_002",
-      "start_time": "2026-01-03T03:45:00Z",
-      "weight": 1.0
-    },
-    {
-      "demand_id": "demand_005",
-      "destination_endpoint_id": "ground_005",
-      "end_time": "2026-01-04T15:55:00Z",
-      "source_endpoint_id": "ground_004",
-      "start_time": "2026-01-04T15:10:00Z",
+      "start_time": "2026-01-03T12:40:00Z",
       "weight": 1.0
     },
     {
       "demand_id": "demand_002",
       "destination_endpoint_id": "ground_005",
-      "end_time": "2026-01-05T04:45:00Z",
+      "end_time": "2026-01-03T18:35:00Z",
       "source_endpoint_id": "ground_001",
-      "start_time": "2026-01-05T03:15:00Z",
+      "start_time": "2026-01-03T17:35:00Z",
+      "weight": 1.0
+    },
+    {
+      "demand_id": "demand_005",
+      "destination_endpoint_id": "ground_006",
+      "end_time": "2026-01-04T06:55:00Z",
+      "source_endpoint_id": "ground_002",
+      "start_time": "2026-01-04T05:25:00Z",
       "weight": 1.0
     }
   ]

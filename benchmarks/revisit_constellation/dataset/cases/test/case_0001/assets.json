@@ -1,5 +1,5 @@
 {
-  "max_num_satellites": 7,
+  "max_num_satellites": 18,
   "satellite_model": {
     "attitude_model": {
       "maneuver_discharge_rate_w": 90.0,
