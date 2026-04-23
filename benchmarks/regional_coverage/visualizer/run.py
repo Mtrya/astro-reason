@@ -595,9 +595,8 @@ def _metrics_annotation_text(report: dict[str, Any], selected_actions: list[Pars
     lines = [
         f"<b>Verifier valid:</b> {'yes' if report['valid'] else 'no'}",
         f"<b>Coverage ratio:</b> {metrics.get('coverage_ratio', 0.0):.6f}",
-        f"<b>Covered weight:</b> {metrics.get('covered_weight_m2_equivalent', 0.0):.1f}",
+        f"<b>Weighted coverage ratio:</b> {metrics.get('weighted_coverage_ratio', 0.0):.6f}",
         f"<b>Num actions:</b> {metrics.get('num_actions', 0)}",
-        f"<b>Total slew angle:</b> {metrics.get('total_slew_angle_deg', 0.0):.3f} deg",
         f"<b>Min battery:</b> {metrics.get('min_battery_wh', 0.0):.3f} Wh",
         f"<b>Selected actions:</b> {', '.join(selected_indexes) if selected_indexes else '(none)'}",
     ]

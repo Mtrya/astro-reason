@@ -17,18 +17,11 @@ collect: []
 aggregation:
   verifier_kind: module_directory
   score_metrics:
-    - name: max_revisit_gap_hours
-      path: metrics.max_revisit_gap_hours
+    - name: capped_max_revisit_gap_hours
+      path: metrics.capped_max_revisit_gap_hours
       direction: minimize
       role: primary
-    - name: mean_revisit_gap_hours
-      path: metrics.mean_revisit_gap_hours
+    - name: num_satellites
+      path: metrics.num_satellites
       direction: minimize
       role: secondary
-    - name: satellite_count
-      path: metrics.satellite_count
-      direction: minimize
-      role: secondary
-  flag_metrics:
-    - name: threshold_satisfied
-      path: metrics.threshold_satisfied

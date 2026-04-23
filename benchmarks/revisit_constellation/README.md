@@ -149,20 +149,15 @@ The new benchmark is purely revisit-driven.
 
 The verifier reports these metrics for valid solutions:
 
-- `mean_revisit_gap_hours`
-- `max_revisit_gap_hours`
-- `satellite_count`
-- `threshold_satisfied`
+- `capped_max_revisit_gap_hours`: per-target max revisit gap floored at that target's expected revisit period, then aggregated by maximum
+- `num_satellites`
 - `target_gap_summary`: per-target breakdown with `expected_revisit_period_hours`, `max_revisit_gap_hours`, `mean_revisit_gap_hours`, and `observation_count`
 
 The intended ranking logic is:
 
 1. Valid solutions beat invalid solutions.
-2. If not all targets achieve revisit gaps below the expected threshold, prefer
-   lower `max_revisit_gap_hours`, then lower `mean_revisit_gap_hours`.
-3. If all targets achieve revisit gaps below the expected threshold, prefer the
-   solution that uses fewer satellites, then use
-   `mean_revisit_gap_hours` as a tie-break.
+2. Minimize `capped_max_revisit_gap_hours`.
+3. Minimize `num_satellites`.
 
 ## Revisit Interpretation
 

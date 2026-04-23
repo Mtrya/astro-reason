@@ -369,11 +369,8 @@ The verifier returns a JSON report with this top-level structure:
   "valid": true,
   "metrics": {
     "coverage_ratio": 0.0,
-    "covered_weight_m2_equivalent": 0.0,
+    "weighted_coverage_ratio": 0.0,
     "num_actions": 0,
-    "total_imaging_time_s": 0.0,
-    "total_imaging_energy_wh": 0.0,
-    "total_slew_angle_deg": 0.0,
     "min_battery_wh": 0.0,
     "region_coverages": {}
   },
@@ -385,22 +382,18 @@ The verifier returns a JSON report with this top-level structure:
 Important metric fields:
 
 - `coverage_ratio`
-- `covered_weight_m2_equivalent`
+- `weighted_coverage_ratio` — total covered grid-cell area weight divided by total grid-cell area weight across all regions
 - `num_actions` — counts every parsed `strip_observation` action (including those rejected for schedule violations)
-- `total_imaging_time_s` — sums durations only for actions accepted into the schedule
-- `total_imaging_energy_wh`
-- `total_slew_angle_deg`
 - `min_battery_wh`
-- `region_coverages`
+- `region_coverages` — per-region diagnostic coverage details, including raw covered area-equivalent weights
 
 The primary ranking order is:
 
 1. `valid = true`
 2. maximize `coverage_ratio`
-3. maximize `covered_weight_m2_equivalent`
-4. minimize `total_imaging_energy_wh`
-5. minimize `total_slew_angle_deg`
-6. minimize `num_actions`
+3. maximize `weighted_coverage_ratio`
+4. minimize `num_actions`
+5. maximize `min_battery_wh`
 
 ## What is intentionally out of scope
 

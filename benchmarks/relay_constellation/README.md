@@ -227,9 +227,9 @@ Intended ranking order:
 1. valid solutions beat invalid solutions
 2. maximize `service_fraction`
 3. maximize `worst_demand_service_fraction`
-4. minimize `latency_p95_ms`
+4. minimize `num_added_satellites`
 5. minimize `mean_latency_ms`
-6. minimize `num_added_satellites`
+6. minimize `latency_p95_ms`
 
 ## Verifier Output Format
 

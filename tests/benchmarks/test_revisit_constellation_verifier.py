@@ -297,12 +297,10 @@ def test_verify_solution_helper_matches_manual_loading() -> None:
     )
 
     assert direct.is_valid == via_helper.is_valid
-    assert direct.metrics["mean_revisit_gap_hours"] == pytest.approx(
-        via_helper.metrics["mean_revisit_gap_hours"]
+    assert direct.metrics["capped_max_revisit_gap_hours"] == pytest.approx(
+        via_helper.metrics["capped_max_revisit_gap_hours"]
     )
-    assert direct.metrics["max_revisit_gap_hours"] == pytest.approx(
-        via_helper.metrics["max_revisit_gap_hours"]
-    )
+    assert direct.metrics["num_satellites"] == via_helper.metrics["num_satellites"]
 
 
 def test_cli_main_uses_case_directory_contract(capsys: pytest.CaptureFixture[str]) -> None:
@@ -764,9 +762,10 @@ def test_compute_metrics_zero_observations() -> None:
 
     metrics = _compute_metrics(instance, [], satellite_count=1)
 
-    assert metrics["mean_revisit_gap_hours"] == pytest.approx(1.0)
-    assert metrics["max_revisit_gap_hours"] == pytest.approx(1.0)
-    assert metrics["threshold_satisfied"] is False
+    assert metrics["capped_max_revisit_gap_hours"] == pytest.approx(1.0)
+    assert metrics["num_satellites"] == 1
+    assert metrics["target_gap_summary"]["t1"]["max_revisit_gap_hours"] == pytest.approx(1.0)
+    assert metrics["target_gap_summary"]["t1"]["mean_revisit_gap_hours"] == pytest.approx(1.0)
 
 
 def test_compute_metrics_one_observation_uses_midpoint_and_boundaries() -> None:
@@ -786,9 +785,10 @@ def test_compute_metrics_one_observation_uses_midpoint_and_boundaries() -> None:
 
     metrics = _compute_metrics(instance, observations, satellite_count=1)
 
-    assert metrics["mean_revisit_gap_hours"] == pytest.approx(0.5)
-    assert metrics["max_revisit_gap_hours"] == pytest.approx(0.75)
-    assert metrics["threshold_satisfied"] is False
+    assert metrics["capped_max_revisit_gap_hours"] == pytest.approx(0.75)
+    assert metrics["num_satellites"] == 1
+    assert metrics["target_gap_summary"]["t1"]["mean_revisit_gap_hours"] == pytest.approx(0.5)
+    assert metrics["target_gap_summary"]["t1"]["max_revisit_gap_hours"] == pytest.approx(0.75)
 
 
 def test_compute_metrics_multiple_observations_reduce_max_gap() -> None:
@@ -812,9 +812,9 @@ def test_compute_metrics_multiple_observations_reduce_max_gap() -> None:
 
     metrics = _compute_metrics(instance, observations, satellite_count=1)
 
-    assert metrics["mean_revisit_gap_hours"] == pytest.approx(1.0 / 3.0)
-    assert metrics["max_revisit_gap_hours"] == pytest.approx(0.5)
-    assert metrics["threshold_satisfied"] is True
+    assert metrics["capped_max_revisit_gap_hours"] == pytest.approx(0.5)
+    assert metrics["target_gap_summary"]["t1"]["mean_revisit_gap_hours"] == pytest.approx(1.0 / 3.0)
+    assert metrics["target_gap_summary"]["t1"]["max_revisit_gap_hours"] == pytest.approx(0.5)
 
 
 def test_compute_metrics_deduplicates_simultaneous_target_observations() -> None:
@@ -839,12 +839,14 @@ def test_compute_metrics_deduplicates_simultaneous_target_observations() -> None
 
     metrics = _compute_metrics(instance, observations, satellite_count=2)
 
-    assert metrics["mean_revisit_gap_hours"] == pytest.approx(0.5)
-    assert metrics["max_revisit_gap_hours"] == pytest.approx(0.75)
+    assert metrics["capped_max_revisit_gap_hours"] == pytest.approx(0.75)
+    assert metrics["num_satellites"] == 2
+    assert metrics["target_gap_summary"]["t1"]["mean_revisit_gap_hours"] == pytest.approx(0.5)
+    assert metrics["target_gap_summary"]["t1"]["max_revisit_gap_hours"] == pytest.approx(0.75)
     assert metrics["target_gap_summary"]["t1"]["observation_count"] == 1
 
 
-def test_compute_metrics_threshold_is_per_target_max_gap(tmp_path: Path) -> None:
+def test_compute_metrics_capped_gap_uses_per_target_threshold(tmp_path: Path) -> None:
     mission = _base_mission()
     mission["targets"].append(
         {
@@ -875,4 +877,4 @@ def test_compute_metrics_threshold_is_per_target_max_gap(tmp_path: Path) -> None
 
     assert metrics["target_gap_summary"]["t1"]["max_revisit_gap_hours"] == pytest.approx(0.75)
     assert metrics["target_gap_summary"]["t2"]["max_revisit_gap_hours"] == pytest.approx(1.0)
-    assert metrics["threshold_satisfied"] is False
+    assert metrics["capped_max_revisit_gap_hours"] == pytest.approx(1.0)

@@ -1077,6 +1077,7 @@ def _compute_metrics(case: CaseData, parsed_actions: list[ParsedAction]) -> dict
     total_region_weight = 0.0
     weighted_ratio_sum = 0.0
     covered_weight_total = 0.0
+    grid_weight_total = 0.0
 
     for region_id, region_grid in case.region_grids.items():
         unique_mask = region_grid.coverage_counts >= 1
@@ -1092,22 +1093,20 @@ def _compute_metrics(case: CaseData, parsed_actions: list[ParsedAction]) -> dict
         total_region_weight += region_grid.region.weight
         weighted_ratio_sum += region_grid.region.weight * coverage_ratio
         covered_weight_total += covered_weight
+        grid_weight_total += total_weight
 
     coverage_ratio = (
         0.0 if total_region_weight <= 0.0 else weighted_ratio_sum / total_region_weight
     )
-    num_actions = sum(1 for action in parsed_actions if action.raw_type == "strip_observation")
-    total_imaging_time_s = sum(
-        (action.duration_s for action in parsed_actions if action.accepted_for_schedule), 0.0
+    weighted_coverage_ratio = (
+        0.0 if grid_weight_total <= 0.0 else covered_weight_total / grid_weight_total
     )
+    num_actions = sum(1 for action in parsed_actions if action.raw_type == "strip_observation")
 
     return {
         "coverage_ratio": coverage_ratio,
-        "covered_weight_m2_equivalent": covered_weight_total,
+        "weighted_coverage_ratio": weighted_coverage_ratio,
         "num_actions": num_actions,
-        "total_imaging_time_s": total_imaging_time_s,
-        "total_imaging_energy_wh": 0.0,
-        "total_slew_angle_deg": 0.0,
         "min_battery_wh": 0.0,
         "region_coverages": region_coverages,
     }
@@ -1180,17 +1179,15 @@ def _inspect_loaded_case(case: CaseData, solution_path: str | Path) -> Verificat
     propagators = _build_propagators(case)
     _derive_action_geometry(case, parsed_actions, propagators, violations)
     _apply_coverage(case, parsed_actions)
-    maneuvers, total_slew_angle_deg = _check_overlaps_and_slew(
+    maneuvers, _total_slew_angle_deg = _check_overlaps_and_slew(
         case, parsed_actions, violations
     )
     _check_imaging_duty_limits(case, parsed_actions, violations)
-    min_battery_wh, total_imaging_energy_wh, power_summaries = _simulate_power(
+    min_battery_wh, _total_imaging_energy_wh, power_summaries = _simulate_power(
         case, parsed_actions, propagators, maneuvers, violations
     )
 
     metrics = _compute_metrics(case, parsed_actions)
-    metrics["total_slew_angle_deg"] = total_slew_angle_deg
-    metrics["total_imaging_energy_wh"] = total_imaging_energy_wh
     metrics["min_battery_wh"] = min_battery_wh
     _apply_region_requirements(case, metrics, violations)
 

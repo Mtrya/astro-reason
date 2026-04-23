@@ -460,7 +460,7 @@ def test_identical_roll_gap_requires_only_settling_time(tmp_path: Path):
     )
     valid_report = verify_solution(valid_case_dir, valid_solution_path)
     assert valid_report["valid"] is True
-    assert valid_report["metrics"]["total_slew_angle_deg"] == pytest.approx(0.0)
+    assert valid_report["diagnostics"]["maneuvers"][0]["slew_angle_deg"] == pytest.approx(0.0)
 
     invalid_root = tmp_path / "invalid_case"
     invalid_root.mkdir()
@@ -489,7 +489,8 @@ def test_valid_single_strip_covers_expected_weight(tmp_path: Path):
     report = verify_solution(case_dir, solution_path)
     assert report["valid"] is True
     assert report["metrics"]["coverage_ratio"] == pytest.approx(1.0)
-    assert report["metrics"]["covered_weight_m2_equivalent"] == pytest.approx(25_000_000.0)
+    assert report["metrics"]["weighted_coverage_ratio"] == pytest.approx(1.0)
+    assert "min_battery_wh" in report["metrics"]
     assert report["metrics"]["region_coverages"]["region_001"]["coverage_ratio"] == pytest.approx(1.0)
 
 
