@@ -1,9 +1,17 @@
-"""Candidate observation enumeration for the stereo_imaging CP/local-search solver."""
+"""Candidate observation enumeration for the stereo_imaging CP/local-search solver.
+
+Phase 7b changes:
+- Optional parallel generation across satellites via ProcessPoolExecutor.
+  EarthSatellite is reconstructed inside each worker from TLE strings because
+  the underlying Satrec object is not pickleable.
+"""
 
 from __future__ import annotations
 
+import os
+from concurrent.futures import ProcessPoolExecutor
 from dataclasses import asdict, dataclass, field
-from datetime import timedelta
+from datetime import datetime, timedelta
 from typing import Any
 
 from skyfield.api import EarthSatellite
@@ -37,6 +45,7 @@ class CandidateConfig:
     access_discovery_step_s: float = 60.0
     max_candidates_per_target_per_sat: int | None = None
     debug: bool = False
+    parallel_workers: int | None = None  # None = auto (CPU count), 0 = disable
 
     @classmethod
     def from_mapping(cls, payload: dict[str, Any] | None) -> "CandidateConfig":
@@ -49,6 +58,9 @@ class CandidateConfig:
                 payload.get("max_candidates_per_target_per_sat")
             ),
             debug=bool(payload.get("debug", False)),
+            parallel_workers=_optional_non_negative_int(
+                payload.get("parallel_workers")
+            ),
         )
 
     def as_status_dict(self) -> dict[str, Any]:
@@ -126,126 +138,302 @@ def _optional_positive_int(value: Any) -> int | None:
     return parsed
 
 
+def _optional_non_negative_int(value: Any) -> int | None:
+    if value is None:
+        return None
+    parsed = int(value)
+    if parsed < 0:
+        raise ValueError("parallel_workers must be a non-negative integer")
+    return parsed
+
+
+# ---------------------------------------------------------------------------
+# Worker payload and function for parallel candidate generation
+# ---------------------------------------------------------------------------
+
+@dataclass(frozen=True, slots=True)
+class _SatWorkerPayload:
+    satellite_id: str
+    sat_def: SatelliteDef
+    targets: dict[str, TargetDef]
+    target_ecef: dict[str, Any]
+    mission: Mission
+    config: CandidateConfig
+
+
+def _generate_for_satellite(payload: _SatWorkerPayload) -> tuple[list[Candidate], CandidateSummary]:
+    """Generate candidates for a single satellite.  Reconstructs EarthSatellite locally."""
+    satellite_id = payload.satellite_id
+    sat_def = payload.sat_def
+    targets = payload.targets
+    target_ecef = payload.target_ecef
+    mission = payload.mission
+    config = payload.config
+
+    # Reconstruct EarthSatellite from TLE strings (Satrec is not pickleable)
+    sf = EarthSatellite(sat_def.tle_line1, sat_def.tle_line2, name=satellite_id, ts=_TS)
+
+    summary = CandidateSummary()
+    summary.per_satellite_candidate_counts.setdefault(satellite_id, 0)
+    candidates: list[Candidate] = []
+
+    cap = config.max_candidates_per_target_per_sat
+    interval_stride = timedelta(seconds=config.candidate_stride_s)
+    duration = timedelta(seconds=config.observation_duration_s)
+
+    for target_id, target in sorted(targets.items()):
+        summary.per_target_candidate_counts.setdefault(target_id, 0)
+        te = target_ecef[target_id]
+
+        access_intervals = discover_access_intervals(
+            sf, sat_def, target, te, mission,
+            discovery_step_s=config.access_discovery_step_s,
+        )
+        if not access_intervals:
+            summary.skipped_no_access_intervals += 1
+            continue
+
+        for interval_start, interval_end, access_interval_id in access_intervals:
+            if cap is not None and summary.per_target_candidate_counts[target_id] >= cap:
+                summary.skipped_cap += 1
+                break
+
+            start = interval_start
+            while start + duration <= interval_end:
+                if cap is not None and summary.per_target_candidate_counts[target_id] >= cap:
+                    summary.skipped_cap += 1
+                    break
+
+                end = start + duration
+
+                dur_s = (end - start).total_seconds()
+                if dur_s < sat_def.min_obs_duration_s - 1e-6 or dur_s > sat_def.max_obs_duration_s + 1e-6:
+                    summary.skipped_duration_bounds += 1
+                    start += interval_stride
+                    continue
+
+                mid = start + (end - start) / 2
+                sp, sv = _satellite_state_ecef_m(sf, mid)
+                along_deg, across_deg = compute_steering_angles_to_target(sp, sv, te)
+
+                comb = _combined_off_nadir_deg(along_deg, across_deg)
+                if comb > sat_def.max_off_nadir_deg + 1e-6:
+                    summary.skipped_off_nadir += 1
+                    start += interval_stride
+                    continue
+
+                gp = _boresight_ground_intercept_ecef_m(sp, sv, along_deg, across_deg)
+                if gp is None:
+                    summary.skipped_boresight_no_intercept += 1
+                    start += interval_stride
+                    continue
+
+                epoch = _datetime_to_epoch(mid)
+                el, _ = _solar_elevation_azimuth_deg(epoch, te)
+                if el < mission.min_solar_elevation_deg - 1e-6:
+                    summary.skipped_solar_elevation += 1
+                    start += interval_stride
+                    continue
+
+                step_s = _access_interval_sampling_step_s(sat_def)
+                if not _access_holds_over_window(
+                    sf, target, te, sat_def, mission, start, end, step_s=step_s
+                ):
+                    summary.skipped_outside_access_interval += 1
+                    start += interval_stride
+                    continue
+
+                off = _off_nadir_deg(sp, te)
+                slant = float(np.linalg.norm(gp - sp))
+                eff_px = slant * sat_def.pixel_ifov_deg * (math.pi / 180.0)
+
+                candidate = Candidate(
+                    candidate_id=f"{satellite_id}|{target_id}|{access_interval_id}|{_iso_z(start)}",
+                    satellite_id=satellite_id,
+                    target_id=target_id,
+                    start=start,
+                    end=end,
+                    off_nadir_along_deg=along_deg,
+                    off_nadir_across_deg=across_deg,
+                    access_interval_id=access_interval_id,
+                    effective_pixel_scale_m=float(eff_px),
+                    slant_range_m=float(slant),
+                    boresight_off_nadir_deg=float(off),
+                )
+                candidates.append(candidate)
+                summary.candidate_count += 1
+                summary.per_satellite_candidate_counts[satellite_id] += 1
+                summary.per_target_candidate_counts[target_id] += 1
+                summary.per_access_interval_candidate_counts[access_interval_id] = (
+                    summary.per_access_interval_candidate_counts.get(access_interval_id, 0) + 1
+                )
+                start += interval_stride
+
+    return candidates, summary
+
+
 def generate_candidates(
     case: StereoCase,
     config: CandidateConfig | None = None,
 ) -> tuple[list[Candidate], CandidateSummary]:
     config = config or CandidateConfig()
     summary = CandidateSummary()
-    candidates: list[Candidate] = []
-
-    # Cache EarthSatellite objects and target ECEF positions
-    sf_sats: dict[str, EarthSatellite] = {}
-    for sid, sd in sorted(case.satellites.items()):
-        sf_sats[sid] = EarthSatellite(sd.tle_line1, sd.tle_line2, name=sid, ts=_TS)
+    all_candidates: list[Candidate] = []
 
     target_ecef: dict[str, Any] = {tid: _target_ecef_m(t) for tid, t in sorted(case.targets.items())}
 
-    for satellite_id, sat_def in sorted(case.satellites.items()):
-        sf = sf_sats[satellite_id]
-        summary.per_satellite_candidate_counts.setdefault(satellite_id, 0)
+    workers = config.parallel_workers
+    use_parallel = workers != 0
 
-        for target_id, target in sorted(case.targets.items()):
-            summary.per_target_candidate_counts.setdefault(target_id, 0)
-            te = target_ecef[target_id]
-
-            access_intervals = discover_access_intervals(
-                sf, sat_def, target, te, case.mission,
-                discovery_step_s=config.access_discovery_step_s,
+    if use_parallel:
+        payloads = []
+        for satellite_id, sat_def in sorted(case.satellites.items()):
+            payloads.append(
+                _SatWorkerPayload(
+                    satellite_id=satellite_id,
+                    sat_def=sat_def,
+                    targets=dict(case.targets),
+                    target_ecef=target_ecef,
+                    mission=case.mission,
+                    config=config,
+                )
             )
-            if not access_intervals:
-                summary.skipped_no_access_intervals += 1
-                continue
 
-            cap = config.max_candidates_per_target_per_sat
-            interval_stride = timedelta(seconds=config.candidate_stride_s)
-            duration = timedelta(seconds=config.observation_duration_s)
+        max_workers = workers if workers is not None else min(os.cpu_count() or 1, len(payloads))
+        with ProcessPoolExecutor(max_workers=max_workers) as executor:
+            futures = {
+                executor.submit(_generate_for_satellite, payload): payload.satellite_id
+                for payload in payloads
+            }
+            results: dict[str, tuple[list[Candidate], CandidateSummary]] = {}
+            for future in futures:
+                sat_id = futures[future]
+                results[sat_id] = future.result()
 
-            for interval_start, interval_end, access_interval_id in access_intervals:
-                if cap is not None and summary.per_target_candidate_counts[target_id] >= cap:
-                    summary.skipped_cap += 1
-                    break
+        # Combine in deterministic satellite order
+        for satellite_id, _ in sorted(case.satellites.items()):
+            sat_candidates, sat_summary = results[satellite_id]
+            all_candidates.extend(sat_candidates)
+            summary.candidate_count += sat_summary.candidate_count
+            summary.per_satellite_candidate_counts[satellite_id] = (
+                summary.per_satellite_candidate_counts.get(satellite_id, 0)
+                + sat_summary.per_satellite_candidate_counts.get(satellite_id, 0)
+            )
+            for tid, count in sat_summary.per_target_candidate_counts.items():
+                summary.per_target_candidate_counts[tid] = (
+                    summary.per_target_candidate_counts.get(tid, 0) + count
+                )
+            for aid, count in sat_summary.per_access_interval_candidate_counts.items():
+                summary.per_access_interval_candidate_counts[aid] = (
+                    summary.per_access_interval_candidate_counts.get(aid, 0) + count
+                )
+            summary.skipped_no_access_intervals += sat_summary.skipped_no_access_intervals
+            summary.skipped_outside_access_interval += sat_summary.skipped_outside_access_interval
+            summary.skipped_off_nadir += sat_summary.skipped_off_nadir
+            summary.skipped_boresight_no_intercept += sat_summary.skipped_boresight_no_intercept
+            summary.skipped_duration_bounds += sat_summary.skipped_duration_bounds
+            summary.skipped_solar_elevation += sat_summary.skipped_solar_elevation
+            summary.skipped_cap += sat_summary.skipped_cap
+    else:
+        # Sequential fallback (original behavior)
+        sf_sats: dict[str, EarthSatellite] = {}
+        for sid, sd in sorted(case.satellites.items()):
+            sf_sats[sid] = EarthSatellite(sd.tle_line1, sd.tle_line2, name=sid, ts=_TS)
 
-                # Sample start times within the interval
-                start = interval_start
-                while start + duration <= interval_end:
+        for satellite_id, sat_def in sorted(case.satellites.items()):
+            sf = sf_sats[satellite_id]
+            summary.per_satellite_candidate_counts.setdefault(satellite_id, 0)
+
+            for target_id, target in sorted(case.targets.items()):
+                summary.per_target_candidate_counts.setdefault(target_id, 0)
+                te = target_ecef[target_id]
+
+                access_intervals = discover_access_intervals(
+                    sf, sat_def, target, te, case.mission,
+                    discovery_step_s=config.access_discovery_step_s,
+                )
+                if not access_intervals:
+                    summary.skipped_no_access_intervals += 1
+                    continue
+
+                cap = config.max_candidates_per_target_per_sat
+                interval_stride = timedelta(seconds=config.candidate_stride_s)
+                duration = timedelta(seconds=config.observation_duration_s)
+
+                for interval_start, interval_end, access_interval_id in access_intervals:
                     if cap is not None and summary.per_target_candidate_counts[target_id] >= cap:
                         summary.skipped_cap += 1
                         break
 
-                    end = start + duration
+                    start = interval_start
+                    while start + duration <= interval_end:
+                        if cap is not None and summary.per_target_candidate_counts[target_id] >= cap:
+                            summary.skipped_cap += 1
+                            break
 
-                    # Check duration bounds
-                    dur_s = (end - start).total_seconds()
-                    if dur_s < sat_def.min_obs_duration_s - 1e-6 or dur_s > sat_def.max_obs_duration_s + 1e-6:
-                        summary.skipped_duration_bounds += 1
+                        end = start + duration
+
+                        dur_s = (end - start).total_seconds()
+                        if dur_s < sat_def.min_obs_duration_s - 1e-6 or dur_s > sat_def.max_obs_duration_s + 1e-6:
+                            summary.skipped_duration_bounds += 1
+                            start += interval_stride
+                            continue
+
+                        mid = start + (end - start) / 2
+                        sp, sv = _satellite_state_ecef_m(sf, mid)
+                        along_deg, across_deg = compute_steering_angles_to_target(sp, sv, te)
+
+                        comb = _combined_off_nadir_deg(along_deg, across_deg)
+                        if comb > sat_def.max_off_nadir_deg + 1e-6:
+                            summary.skipped_off_nadir += 1
+                            start += interval_stride
+                            continue
+
+                        gp = _boresight_ground_intercept_ecef_m(sp, sv, along_deg, across_deg)
+                        if gp is None:
+                            summary.skipped_boresight_no_intercept += 1
+                            start += interval_stride
+                            continue
+
+                        epoch = _datetime_to_epoch(mid)
+                        el, _ = _solar_elevation_azimuth_deg(epoch, te)
+                        if el < case.mission.min_solar_elevation_deg - 1e-6:
+                            summary.skipped_solar_elevation += 1
+                            start += interval_stride
+                            continue
+
+                        step_s = _access_interval_sampling_step_s(sat_def)
+                        if not _access_holds_over_window(
+                            sf, target, te, sat_def, case.mission, start, end, step_s=step_s
+                        ):
+                            summary.skipped_outside_access_interval += 1
+                            start += interval_stride
+                            continue
+
+                        off = _off_nadir_deg(sp, te)
+                        slant = float(np.linalg.norm(gp - sp))
+                        eff_px = slant * sat_def.pixel_ifov_deg * (math.pi / 180.0)
+
+                        candidate = Candidate(
+                            candidate_id=f"{satellite_id}|{target_id}|{access_interval_id}|{_iso_z(start)}",
+                            satellite_id=satellite_id,
+                            target_id=target_id,
+                            start=start,
+                            end=end,
+                            off_nadir_along_deg=along_deg,
+                            off_nadir_across_deg=across_deg,
+                            access_interval_id=access_interval_id,
+                            effective_pixel_scale_m=float(eff_px),
+                            slant_range_m=float(slant),
+                            boresight_off_nadir_deg=float(off),
+                        )
+                        all_candidates.append(candidate)
+                        summary.candidate_count += 1
+                        summary.per_satellite_candidate_counts[satellite_id] += 1
+                        summary.per_target_candidate_counts[target_id] += 1
+                        summary.per_access_interval_candidate_counts[access_interval_id] = (
+                            summary.per_access_interval_candidate_counts.get(access_interval_id, 0) + 1
+                        )
                         start += interval_stride
-                        continue
 
-                    # Compute steering angles at midpoint to point at target
-                    mid = start + (end - start) / 2
-                    sp, sv = _satellite_state_ecef_m(sf, mid)
-                    along_deg, across_deg = compute_steering_angles_to_target(sp, sv, te)
-
-                    # Check combined off-nadir
-                    comb = _combined_off_nadir_deg(along_deg, across_deg)
-                    if comb > sat_def.max_off_nadir_deg + 1e-6:
-                        summary.skipped_off_nadir += 1
-                        start += interval_stride
-                        continue
-
-                    # Check boresight intercepts Earth
-                    gp = _boresight_ground_intercept_ecef_m(sp, sv, along_deg, across_deg)
-                    if gp is None:
-                        summary.skipped_boresight_no_intercept += 1
-                        start += interval_stride
-                        continue
-
-                    # Check solar elevation at midpoint
-                    epoch = _datetime_to_epoch(mid)
-                    el, _ = _solar_elevation_azimuth_deg(epoch, te)
-                    if el < case.mission.min_solar_elevation_deg - 1e-6:
-                        summary.skipped_solar_elevation += 1
-                        start += interval_stride
-                        continue
-
-                    # Verify full window access containment
-                    step_s = _access_interval_sampling_step_s(sat_def)
-                    if not _access_holds_over_window(
-                        sf, target, te, sat_def, case.mission, start, end, step_s=step_s
-                    ):
-                        summary.skipped_outside_access_interval += 1
-                        start += interval_stride
-                        continue
-
-                    # Compute derived geometry
-                    off = _off_nadir_deg(sp, te)
-                    slant = float(np.linalg.norm(gp - sp))
-                    eff_px = slant * sat_def.pixel_ifov_deg * (math.pi / 180.0)
-
-                    candidate = Candidate(
-                        candidate_id=f"{satellite_id}|{target_id}|{access_interval_id}|{_iso_z(start)}",
-                        satellite_id=satellite_id,
-                        target_id=target_id,
-                        start=start,
-                        end=end,
-                        off_nadir_along_deg=along_deg,
-                        off_nadir_across_deg=across_deg,
-                        access_interval_id=access_interval_id,
-                        effective_pixel_scale_m=float(eff_px),
-                        slant_range_m=float(slant),
-                        boresight_off_nadir_deg=float(off),
-                    )
-                    candidates.append(candidate)
-                    summary.candidate_count += 1
-                    summary.per_satellite_candidate_counts[satellite_id] += 1
-                    summary.per_target_candidate_counts[target_id] += 1
-                    summary.per_access_interval_candidate_counts[access_interval_id] = (
-                        summary.per_access_interval_candidate_counts.get(access_interval_id, 0) + 1
-                    )
-                    start += interval_stride
-
-    return candidates, summary
-
-
-
+    return all_candidates, summary
