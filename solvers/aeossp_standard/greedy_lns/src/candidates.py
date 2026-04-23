@@ -1,4 +1,4 @@
-"""Candidate observation generation for the standalone MWIS solver."""
+"""Candidate observation generation for the standalone greedy-LNS solver."""
 
 from __future__ import annotations
 
@@ -44,6 +44,8 @@ class Candidate:
     end_time: str
     task_weight: float
     duration_s: int
+    utility: float
+    utility_tie_break: tuple[float, int, float, str]
 
     def as_dict(self) -> dict[str, Any]:
         return asdict(self)
@@ -123,15 +125,24 @@ def _sensor_matches(satellite: Satellite, task: Task) -> bool:
     return satellite.sensor_type == task.required_sensor_type
 
 
+def _compute_utility(task: Task) -> float:
+    if task.required_duration_s > 0:
+        return task.weight / task.required_duration_s
+    return float("inf")
+
+
 def generate_candidates(
     case: AeosspCase,
     config: CandidateConfig | None = None,
+    *,
+    propagation: PropagationContext | None = None,
 ) -> tuple[list[Candidate], CandidateSummary]:
     config = config or CandidateConfig()
     summary = CandidateSummary()
     candidates: list[Candidate] = []
-    step_s = float(min(case.mission.action_time_step_s, case.mission.geometry_sample_step_s))
-    propagation = PropagationContext(case.satellites, step_s=step_s)
+    if propagation is None:
+        step_s = float(min(case.mission.action_time_step_s, case.mission.geometry_sample_step_s))
+        propagation = PropagationContext(case.satellites, step_s=step_s)
 
     for satellite in sorted(case.satellites.values(), key=lambda item: item.satellite_id):
         summary.per_satellite_candidate_counts.setdefault(satellite.satellite_id, 0)
@@ -186,8 +197,10 @@ def generate_candidates(
                 ):
                     summary.skipped_initial_slew += 1
                     continue
+                utility = _compute_utility(task)
+                candidate_id = f"{satellite.satellite_id}|{task.task_id}|{start_offset_s}"
                 candidate = Candidate(
-                    candidate_id=f"{satellite.satellite_id}|{task.task_id}|{start_offset_s}",
+                    candidate_id=candidate_id,
                     satellite_id=satellite.satellite_id,
                     task_id=task.task_id,
                     start_offset_s=start_offset_s,
@@ -196,6 +209,13 @@ def generate_candidates(
                     end_time=iso_z(end_time),
                     task_weight=task.weight,
                     duration_s=task.required_duration_s,
+                    utility=utility,
+                    utility_tie_break=(
+                        -task.weight,
+                        int(round((task.due_time - case.mission.horizon_start).total_seconds())),
+                        0.0,
+                        candidate_id,
+                    ),
                 )
                 candidates.append(candidate)
                 summary.candidate_count += 1

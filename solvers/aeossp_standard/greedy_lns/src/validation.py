@@ -1,4 +1,4 @@
-"""Solver-local validation and bounded repair for MWIS schedules."""
+"""Solver-local schedule validation and bounded repair for greedy-LNS."""
 
 from __future__ import annotations
 
@@ -9,7 +9,7 @@ from typing import Any
 import brahe
 
 from .candidates import Candidate
-from .case_io import AeosspCase, NUMERICAL_EPS, Satellite, iso_z
+from .case_io import AeosspCase, NUMERICAL_EPS, Satellite, _is_aligned, iso_z
 from .geometry import (
     PropagationContext,
     angle_between_deg,
@@ -27,9 +27,7 @@ class RepairConfig:
     @classmethod
     def from_mapping(cls, payload: dict[str, Any] | None) -> "RepairConfig":
         payload = payload or {}
-        return cls(
-            max_repair_iterations=max(0, int(payload.get("max_repair_iterations", 200)))
-        )
+        return cls(max_repair_iterations=max(0, int(payload.get("max_repair_iterations", 200))))
 
     def as_status_dict(self) -> dict[str, Any]:
         return asdict(self)
@@ -45,7 +43,7 @@ class ValidationIssue:
     offset_s: float | None = None
 
     def as_dict(self) -> dict[str, Any]:
-        payload = {
+        payload: dict[str, Any] = {
             "reason": self.reason,
             "message": self.message,
             "candidate_ids": list(self.candidate_ids),
@@ -121,9 +119,7 @@ class RepairResult:
         return {
             "attempts": len(self.reports),
             "actions_before_repair": (
-                len(self.candidates) + len(self.removals)
-                if self.reports
-                else len(self.candidates)
+                len(self.candidates) + len(self.removals) if self.reports else len(self.candidates)
             ),
             "actions_after_repair": len(self.candidates),
             "removed_actions": [removal.as_dict() for removal in self.removals],
@@ -143,98 +139,6 @@ class RepairResult:
             "removed_actions": [removal.as_dict() for removal in self.removals],
             "reports": [report.as_dict() for report in self.reports],
         }
-
-
-def action_shape_issues(case: AeosspCase, candidates: list[Candidate]) -> list[ValidationIssue]:
-    issues: list[ValidationIssue] = []
-    for candidate in candidates:
-        satellite = case.satellites.get(candidate.satellite_id)
-        task = case.tasks.get(candidate.task_id)
-        if satellite is None:
-            issues.append(
-                ValidationIssue(
-                    reason="unknown_satellite",
-                    message=f"unknown satellite_id {candidate.satellite_id}",
-                    candidate_ids=(candidate.candidate_id,),
-                    satellite_id=candidate.satellite_id,
-                    task_id=candidate.task_id,
-                )
-            )
-            continue
-        if task is None:
-            issues.append(
-                ValidationIssue(
-                    reason="unknown_task",
-                    message=f"unknown task_id {candidate.task_id}",
-                    candidate_ids=(candidate.candidate_id,),
-                    satellite_id=candidate.satellite_id,
-                    task_id=candidate.task_id,
-                )
-            )
-            continue
-        if candidate.duration_s != task.required_duration_s:
-            issues.append(
-                ValidationIssue(
-                    reason="duration_mismatch",
-                    message="candidate duration does not match task required_duration_s",
-                    candidate_ids=(candidate.candidate_id,),
-                    satellite_id=candidate.satellite_id,
-                    task_id=candidate.task_id,
-                )
-            )
-        if candidate.start_offset_s % case.mission.action_time_step_s != 0:
-            issues.append(
-                ValidationIssue(
-                    reason="off_grid_start",
-                    message="candidate start is not aligned to action grid",
-                    candidate_ids=(candidate.candidate_id,),
-                    satellite_id=candidate.satellite_id,
-                    task_id=candidate.task_id,
-                )
-            )
-        if candidate.end_offset_s % case.mission.action_time_step_s != 0:
-            issues.append(
-                ValidationIssue(
-                    reason="off_grid_end",
-                    message="candidate end is not aligned to action grid",
-                    candidate_ids=(candidate.candidate_id,),
-                    satellite_id=candidate.satellite_id,
-                    task_id=candidate.task_id,
-                )
-            )
-        if candidate.start_offset_s < 0 or candidate.end_offset_s > case.mission.horizon_seconds:
-            issues.append(
-                ValidationIssue(
-                    reason="out_of_horizon",
-                    message="candidate lies outside the mission horizon",
-                    candidate_ids=(candidate.candidate_id,),
-                    satellite_id=candidate.satellite_id,
-                    task_id=candidate.task_id,
-                )
-            )
-        release_offset = int(round((task.release_time - case.mission.horizon_start).total_seconds()))
-        due_offset = int(round((task.due_time - case.mission.horizon_start).total_seconds()))
-        if candidate.start_offset_s < release_offset or candidate.end_offset_s > due_offset:
-            issues.append(
-                ValidationIssue(
-                    reason="outside_task_window",
-                    message="candidate lies outside the task time window",
-                    candidate_ids=(candidate.candidate_id,),
-                    satellite_id=candidate.satellite_id,
-                    task_id=candidate.task_id,
-                )
-            )
-        if satellite.sensor_type != task.required_sensor_type:
-            issues.append(
-                ValidationIssue(
-                    reason="sensor_mismatch",
-                    message="satellite sensor_type does not match task required_sensor_type",
-                    candidate_ids=(candidate.candidate_id,),
-                    satellite_id=candidate.satellite_id,
-                    task_id=candidate.task_id,
-                )
-            )
-    return issues
 
 
 def duplicate_task_issues(candidates: list[Candidate]) -> list[ValidationIssue]:
@@ -286,9 +190,11 @@ def schedule_issues(
     candidates: list[Candidate],
     *,
     propagation: PropagationContext,
+    vector_cache: TransitionVectorCache | None = None,
 ) -> list[ValidationIssue]:
     issues: list[ValidationIssue] = []
-    vector_cache = TransitionVectorCache(case, propagation)
+    if vector_cache is None:
+        vector_cache = TransitionVectorCache(case, propagation)
     by_satellite: dict[str, list[Candidate]] = {}
     for candidate in candidates:
         if candidate.satellite_id in case.satellites and candidate.task_id in case.tasks:
@@ -392,6 +298,7 @@ def _slew_intervals(
     satellite_candidates: list[Candidate],
     *,
     propagation: PropagationContext,
+    vector_cache: TransitionVectorCache,
 ) -> tuple[list[tuple[float, float, str]], list[ValidationIssue]]:
     intervals: list[tuple[float, float, str]] = []
     issues: list[ValidationIssue] = []
@@ -418,7 +325,6 @@ def _slew_intervals(
     else:
         intervals.append((max(0.0, initial_start), float(first.start_offset_s), first.candidate_id))
 
-    vector_cache = TransitionVectorCache(case, propagation)
     for previous, current in zip(ordered, ordered[1:]):
         result = transition_result(previous, current, case=case, vector_cache=vector_cache)
         intervals.append(
@@ -436,9 +342,12 @@ def battery_issues(
     candidates: list[Candidate],
     *,
     propagation: PropagationContext,
+    vector_cache: TransitionVectorCache | None = None,
 ) -> tuple[list[ValidationIssue], dict[str, BatteryTrace]]:
     issues: list[ValidationIssue] = []
     traces: dict[str, BatteryTrace] = {}
+    if vector_cache is None:
+        vector_cache = TransitionVectorCache(case, propagation)
     by_satellite: dict[str, list[Candidate]] = {}
     for candidate in candidates:
         if candidate.satellite_id in case.satellites:
@@ -462,6 +371,7 @@ def battery_issues(
             case,
             satellite_candidates,
             propagation=propagation,
+            vector_cache=vector_cache,
         )
         issues.extend(slew_issues)
         time_points = _resource_time_points(case, imaging_intervals, slew_intervals)
@@ -515,128 +425,199 @@ def battery_issues(
     return issues, traces
 
 
-def validate_candidates(case: AeosspCase, candidates: list[Candidate]) -> ValidationReport:
+def candidate_shape_issues(case: AeosspCase, candidates: list[Candidate]) -> list[ValidationIssue]:
+    """Check that each selected candidate conforms to case-level constraints."""
+    issues: list[ValidationIssue] = []
+    for candidate in candidates:
+        if candidate.satellite_id not in case.satellites:
+            issues.append(
+                ValidationIssue(
+                    reason="unknown_satellite",
+                    message=f"satellite_id {candidate.satellite_id!r} not in case",
+                    candidate_ids=(candidate.candidate_id,),
+                    satellite_id=candidate.satellite_id,
+                    task_id=candidate.task_id,
+                )
+            )
+            continue
+        if candidate.task_id not in case.tasks:
+            issues.append(
+                ValidationIssue(
+                    reason="unknown_task",
+                    message=f"task_id {candidate.task_id!r} not in case",
+                    candidate_ids=(candidate.candidate_id,),
+                    satellite_id=candidate.satellite_id,
+                    task_id=candidate.task_id,
+                )
+            )
+            continue
+
+        satellite = case.satellites[candidate.satellite_id]
+        task = case.tasks[candidate.task_id]
+
+        if candidate.duration_s != task.required_duration_s:
+            issues.append(
+                ValidationIssue(
+                    reason="duration_mismatch",
+                    message=(
+                        f"duration {candidate.duration_s}s != required {task.required_duration_s}s"
+                    ),
+                    candidate_ids=(candidate.candidate_id,),
+                    satellite_id=candidate.satellite_id,
+                    task_id=candidate.task_id,
+                    offset_s=candidate.start_offset_s,
+                )
+            )
+
+        if not _is_aligned(candidate.start_offset_s, case.mission.action_time_step_s):
+            issues.append(
+                ValidationIssue(
+                    reason="grid_misalignment",
+                    message=(
+                        f"start_offset_s={candidate.start_offset_s} is not aligned to "
+                        f"action_time_step_s={case.mission.action_time_step_s}"
+                    ),
+                    candidate_ids=(candidate.candidate_id,),
+                    satellite_id=candidate.satellite_id,
+                    task_id=candidate.task_id,
+                    offset_s=candidate.start_offset_s,
+                )
+            )
+
+        release_offset_s = (task.release_time - case.mission.horizon_start).total_seconds()
+        due_offset_s = (task.due_time - case.mission.horizon_start).total_seconds()
+        if candidate.start_offset_s + NUMERICAL_EPS < release_offset_s:
+            issues.append(
+                ValidationIssue(
+                    reason="window_violation",
+                    message=(
+                        f"start {candidate.start_offset_s}s is before task release "
+                        f"{release_offset_s}s"
+                    ),
+                    candidate_ids=(candidate.candidate_id,),
+                    satellite_id=candidate.satellite_id,
+                    task_id=candidate.task_id,
+                    offset_s=candidate.start_offset_s,
+                )
+            )
+        if candidate.end_offset_s > due_offset_s + NUMERICAL_EPS:
+            issues.append(
+                ValidationIssue(
+                    reason="window_violation",
+                    message=(
+                        f"end {candidate.end_offset_s}s is after task due "
+                        f"{due_offset_s}s"
+                    ),
+                    candidate_ids=(candidate.candidate_id,),
+                    satellite_id=candidate.satellite_id,
+                    task_id=candidate.task_id,
+                    offset_s=candidate.end_offset_s,
+                )
+            )
+
+        if task.required_sensor_type != satellite.sensor_type:
+            issues.append(
+                ValidationIssue(
+                    reason="sensor_mismatch",
+                    message=(
+                        f"task sensor {task.required_sensor_type!r} != "
+                        f"satellite sensor {satellite.sensor_type!r}"
+                    ),
+                    candidate_ids=(candidate.candidate_id,),
+                    satellite_id=candidate.satellite_id,
+                    task_id=candidate.task_id,
+                )
+            )
+
+    return issues
+
+
+def validate_schedule(
+    case: AeosspCase,
+    candidates: list[Candidate],
+    *,
+    propagation: PropagationContext | None = None,
+    vector_cache: TransitionVectorCache | None = None,
+) -> ValidationReport:
     stable_candidates = sorted(
         candidates,
         key=lambda item: (item.start_offset_s, item.satellite_id, item.task_id, item.candidate_id),
     )
     issues: list[ValidationIssue] = []
-    issues.extend(action_shape_issues(case, stable_candidates))
+    issues.extend(candidate_shape_issues(case, stable_candidates))
     issues.extend(duplicate_task_issues(stable_candidates))
 
-    step_s = float(min(case.mission.action_time_step_s, case.mission.geometry_sample_step_s))
-    propagation = PropagationContext(case.satellites, step_s=step_s)
-    issues.extend(schedule_issues(case, stable_candidates, propagation=propagation))
+    if propagation is None:
+        step_s = float(min(case.mission.action_time_step_s, case.mission.geometry_sample_step_s))
+        propagation = PropagationContext(case.satellites, step_s=step_s)
+    if vector_cache is None:
+        vector_cache = TransitionVectorCache(case, propagation)
+    issues.extend(
+        schedule_issues(
+            case,
+            stable_candidates,
+            propagation=propagation,
+            vector_cache=vector_cache,
+        )
+    )
     battery_failure_issues, battery = battery_issues(
         case,
         stable_candidates,
         propagation=propagation,
+        vector_cache=vector_cache,
     )
     issues.extend(battery_failure_issues)
     return ValidationReport(valid=not issues, issue_count=len(issues), issues=issues, battery=battery)
 
 
-def _candidate_priority(
-    candidate: Candidate,
-    *,
-    conflict_degrees: dict[str, int],
-) -> tuple[Any, ...]:
-    return (
-        candidate.task_weight,
-        -candidate.end_offset_s,
-        -conflict_degrees.get(candidate.candidate_id, 0),
-        candidate.candidate_id,
-    )
+def _candidate_priority(candidate: Candidate) -> tuple[Any, ...]:
+    """Lower priority = more likely to be removed."""
+    return (candidate.utility, candidate.utility_tie_break)
 
 
-def _battery_candidate_priority(
-    candidate: Candidate,
-    *,
-    cutoff_s: float,
-    conflict_degrees: dict[str, int],
-) -> tuple[Any, ...]:
-    return (
-        candidate.task_weight,
-        abs(cutoff_s - candidate.end_offset_s),
-        -candidate.duration_s,
-        -conflict_degrees.get(candidate.candidate_id, 0),
-        -candidate.end_offset_s,
-        candidate.candidate_id,
-    )
-
-
-def _choose_battery_removal(
+def _choose_removal(
     issue: ValidationIssue,
     candidates: list[Candidate],
-    *,
-    conflict_degrees: dict[str, int],
 ) -> Candidate | None:
-    if issue.satellite_id is None:
-        return None
-    cutoff_s = issue.offset_s if issue.offset_s is not None else float("inf")
-    same_satellite = [
-        candidate
-        for candidate in candidates
-        if candidate.satellite_id == issue.satellite_id
-        and candidate.start_offset_s <= cutoff_s + NUMERICAL_EPS
-    ]
-    if not same_satellite:
+    if issue.reason == "battery_depletion":
+        if issue.satellite_id is None:
+            return None
+        # Remove lowest-utility candidate on the failing satellite that starts
+        # at or before the depletion point.
+        cutoff_s = issue.offset_s if issue.offset_s is not None else float("inf")
         same_satellite = [
-            candidate for candidate in candidates if candidate.satellite_id == issue.satellite_id
+            candidate
+            for candidate in candidates
+            if candidate.satellite_id == issue.satellite_id
+            and candidate.start_offset_s <= cutoff_s + NUMERICAL_EPS
         ]
-    if not same_satellite:
-        return None
-    return min(
-        same_satellite,
-        key=lambda candidate: _battery_candidate_priority(
-            candidate,
-            cutoff_s=cutoff_s,
-            conflict_degrees=conflict_degrees,
-        ),
-    )
+        if not same_satellite:
+            same_satellite = [
+                candidate for candidate in candidates if candidate.satellite_id == issue.satellite_id
+            ]
+        if not same_satellite:
+            return None
+        return min(same_satellite, key=_candidate_priority)
 
-
-def choose_repair_removal(
-    report: ValidationReport,
-    candidates: list[Candidate],
-    *,
-    conflict_degrees: dict[str, int] | None = None,
-) -> tuple[Candidate, str] | tuple[None, None]:
-    conflict_degrees = conflict_degrees or {}
+    # For non-battery issues, remove the lowest-utility implicated candidate.
     candidate_by_id = {candidate.candidate_id: candidate for candidate in candidates}
-    for issue in report.issues:
-        if issue.reason == "battery_depletion":
-            removal = _choose_battery_removal(
-                issue,
-                candidates,
-                conflict_degrees=conflict_degrees,
-            )
-            if removal is not None:
-                return removal, issue.reason
-            continue
-        implicated = [
-            candidate_by_id[candidate_id]
-            for candidate_id in issue.candidate_ids
-            if candidate_id in candidate_by_id
-        ]
-        if not implicated:
-            continue
-        return min(
-            implicated,
-            key=lambda candidate: _candidate_priority(
-                candidate,
-                conflict_degrees=conflict_degrees,
-            ),
-        ), issue.reason
-    return None, None
+    implicated = [
+        candidate_by_id[candidate_id]
+        for candidate_id in issue.candidate_ids
+        if candidate_id in candidate_by_id
+    ]
+    if not implicated:
+        return None
+    return min(implicated, key=_candidate_priority)
 
 
-def repair_candidates(
+def repair_schedule(
     case: AeosspCase,
     candidates: list[Candidate],
     *,
     config: RepairConfig | None = None,
-    conflict_degrees: dict[str, int] | None = None,
+    propagation: PropagationContext | None = None,
+    vector_cache: TransitionVectorCache | None = None,
 ) -> RepairResult:
     config = config or RepairConfig()
     current = sorted(
@@ -648,19 +629,24 @@ def repair_candidates(
     terminated_reason = "max_iterations"
 
     for iteration in range(config.max_repair_iterations + 1):
-        report = validate_candidates(case, current)
+        report = validate_schedule(
+            case,
+            current,
+            propagation=propagation,
+            vector_cache=vector_cache,
+        )
         reports.append(report)
         if report.valid:
             terminated_reason = "valid"
             break
         if iteration >= config.max_repair_iterations:
             break
-        removal, reason = choose_repair_removal(
-            report,
-            current,
-            conflict_degrees=conflict_degrees,
-        )
-        if removal is None or reason is None:
+        removal = None
+        for issue in report.issues:
+            removal = _choose_removal(issue, current)
+            if removal is not None:
+                break
+        if removal is None:
             terminated_reason = "no_removal_candidate"
             break
         current = [
@@ -670,7 +656,7 @@ def repair_candidates(
             RepairRemoval(
                 iteration=iteration,
                 candidate_id=removal.candidate_id,
-                reason=reason,
+                reason=issue.reason,
                 task_weight=removal.task_weight,
                 satellite_id=removal.satellite_id,
                 task_id=removal.task_id,
@@ -683,25 +669,3 @@ def repair_candidates(
         removals=removals,
         terminated_reason=terminated_reason,
     )
-
-
-def solution_payload_for_candidates(candidates: list[Candidate]) -> dict[str, Any]:
-    return {
-        "actions": [
-            {
-                "type": "observation",
-                "satellite_id": candidate.satellite_id,
-                "task_id": candidate.task_id,
-                "start_time": candidate.start_time,
-                "end_time": candidate.end_time,
-            }
-            for candidate in sorted(
-                candidates,
-                key=lambda item: (item.start_offset_s, item.satellite_id, item.task_id),
-            )
-        ]
-    }
-
-
-def expected_action_times(candidate: Candidate) -> tuple[str, str]:
-    return candidate.start_time, candidate.end_time

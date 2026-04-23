@@ -6,10 +6,10 @@ from collections import defaultdict
 from dataclasses import asdict, dataclass, field
 from itertools import combinations
 
-from candidates import Candidate
-from case_io import AeosspCase
-from geometry import PropagationContext
-from transition import (
+from .candidates import Candidate
+from .case_io import AeosspCase
+from .geometry import PropagationContext
+from .transition import (
     TransitionVectorCache,
     max_transition_gap_s,
     transition_gap_conflict,

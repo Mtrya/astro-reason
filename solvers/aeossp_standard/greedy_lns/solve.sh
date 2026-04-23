@@ -12,7 +12,7 @@ mkdir -p "${MPLCONFIGDIR}"
 
 REPO_ROOT="$(cd "${SCRIPT_DIR}/../../.." && pwd)"
 
-PYTHONPATH="${REPO_ROOT}${PYTHONPATH:+:${PYTHONPATH}}" python -m solvers.aeossp_standard.mwis_conflict_graph.src.solve \
+PYTHONPATH="${REPO_ROOT}${PYTHONPATH:+:${PYTHONPATH}}" python -m solvers.aeossp_standard.greedy_lns.src.solve \
   --case-dir "${CASE_DIR}" \
   --config-dir "${CONFIG_DIR}" \
   --solution-dir "${SOLUTION_DIR}"

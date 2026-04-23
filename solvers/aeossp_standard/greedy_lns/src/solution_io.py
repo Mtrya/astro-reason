@@ -1,4 +1,4 @@
-"""Solution and status writers for the MWIS scaffold."""
+"""Solution and status writers for the greedy-LNS scaffold."""
 
 from __future__ import annotations
 

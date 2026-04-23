@@ -8,12 +8,12 @@ import time
 import traceback
 from pathlib import Path
 
-from candidates import CandidateConfig, generate_candidates
-from case_io import load_case, load_solver_config
-from graph import build_conflict_graph, connected_components
-from mwis import MwisConfig, select_weighted_independent_set
-from solution_io import write_json, write_solution
-from validation import RepairConfig, repair_candidates
+from .candidates import CandidateConfig, generate_candidates
+from .case_io import load_case, load_solver_config
+from .graph import build_conflict_graph, connected_components
+from .mwis import MwisConfig, select_weighted_independent_set
+from .solution_io import write_json, write_solution
+from .validation import RepairConfig, repair_candidates
 
 
 def _build_status(

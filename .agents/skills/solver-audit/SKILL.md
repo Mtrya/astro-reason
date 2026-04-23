@@ -1,133 +1,160 @@
 ---
 name: solver-audit
-description: Audit a solver implementation for algorithmic correctness, benchmark contract compliance, and reasonable configuration, including paper-to-code checks and reproduction-focused review.
+description: Audit a solver against the fixed target of faithful reproduction adapted to the benchmark, prioritizing compute realism, optimization, and remaining paper-to-code gaps.
 ---
 
 # Solver Audit
 
-Audit a solver implementation for correctness, benchmark contract compliance, and reasonable configuration. Paper comparison is one input to the audit, not the sole criterion. An unoptimized or slow implementation of a correct algorithm is not automatically a failure.
+The target claim is fixed: **faithful reproduction adapted to the benchmark**.
+
+The audit identifies what blocks that target today, especially when the blocker is insufficient computation, weak implementation, or an unfair runtime envelope. You focus on two main aspects:
+1. whether the code, the control flow is correct
+2. whether the optimization, parallelization, and runtime regime is fair
+
+## Priorities
+
+Audit in this order:
+1. whether the solver is being given a fair compute envelope,
+2. what optimization, parallelization, or run-policy work is needed,
+3. what literature elements are still partial or missing after benchmark adaptation,
+4. benchmark-validity only as a short sanity note if relevant.
 
 ## Inputs
 
 Require from user:
-- Path to solver implementation (file or directory)
-- Solver name (e.g., "satnet-milp")
-- Paper or method reference (PDF path, URL, arXiv ID, DOI, local file, or design doc) — optional but recommended
-- Benchmark name (to locate benchmark contract)
+- Path to solver implementation
+- Solver name
+- Benchmark name
+
+Strongly preferred:
+- Paper or method reference
 
 If any required input is missing, ask before proceeding.
 
 ## Workflow
 
-### 1. Parse reference (if provided)
+### 1. Read the target method and benchmark adaptation
 
-If a paper or method reference is available, use the `mineru` skill to parse it to Markdown.
+If a paper or method reference is available, parse it to Markdown. Use `mineru` if it is available and helpful; otherwise use a local transcript or careful manual reading.
 
-
-Read the resulting Markdown file.
-
-### 2. Extract method specification
-
-Search the parsed reference for the algorithm description:
-- Look for sections containing: `Algorithm`, `pseudocode`, `Procedure`, `Method`, `Approach`
-- If explicit numbered steps exist: extract them verbatim
-- If prose-only: extract sequential operations, mathematical formulation, heuristics, parameters, and stopping criteria
-
-If no reference is provided, extract the intended method from solver documentation or code comments.
-
-### 3. Map implementation control flow
-
-Read the solver code and trace:
-- Entry point and main loop structure
-- Core operators/steps and their execution order
-- Constraint handling mechanisms
-- Randomness vs deterministic choices
-- Termination conditions
-
-Ignore language idioms and data-structure choices unless they alter algorithmic logic.
-
-### 4. Check benchmark contract
+Extract:
+- method-defining steps,
+- expected search regime,
+- expected compute regime,
+- benchmark-driven modeling differences.
 
 Read:
 - `benchmarks/<benchmark-name>/README.md`
-- `docs/benchmark_contract.md`
 
-Identify:
-- Required input/output formats and interfaces
-- Documented adaptations between the paper's problem formulation and the benchmark's contract
-- Any benchmark-specific rules the solver must obey
+The benchmark read is for adaptation context, not to redefine the target claim.
 
-### 5. Compare and classify
+### 2. Map the implementation and runtime reality
 
-Create a side-by-side mapping table. For each reference step:
+Trace:
+- end-to-end control flow,
+- implemented vs simplified vs omitted literature elements,
+- actual stop conditions,
+- execution model: single-threaded, multi-threaded, multi-process, distributed, or native-backed,
+- hot-path runtime stack: pure Python, vectorized NumPy, compiled extension, external solver, or mixed,
+- where time goes,
+- whether the named search method really gets to run.
 
-| Reference Step | Implementation | Status | Benchmark Context | Notes |
-|----------------|---------------|--------|-------------------|-------|
+If practical, run the solver or inspect profiler/status outputs so the audit uses measured runtime splits rather than guesses.
+If there is no meaningful parallelism or native acceleration in the hot path, say that explicitly. Prefer precise wording like `single-threaded Python` over softer wording like `pure Python`.
 
-**Status labels:**
-- `MATCH` — Directly corresponds to the reference method
-- `ADAPTATION` — Different from reference, but justified by benchmark contract
-- `DEVIATION` — Different from reference in a way that affects correctness or validity (flag for review)
-- `EXTENSION` — Not in reference, added in implementation
-- `MISSING` — In reference but not implemented
+### 3. Judge compute realism first
 
-**Classification rules:**
-- `MATCH` if the step matches the reference
-- `ADAPTATION` if the step differs but the benchmark contract documents the difference
-- `DEVIATION` only if the difference changes algorithmic correctness or violates the benchmark contract. Cosmetic or performance-related differences that do not affect correctness are **not** deviations.
-- `EXTENSION` for added logic that does not contradict the reference
-- `MISSING` for omitted steps that are material to correctness or solution validity
+Answer these questions:
+- Is the current timeout, thread count, and run policy fair for the target method?
+- Is the implementation leaving obvious performance on the table?
+- Would more time materially help right now?
+- Or is the solver blocked by missing optimization, missing parallelism, or missing heavy-search components? (very likely)
+- Is the time budget long enough for the algorithm to genuinely execute as a planning method, rather than being artificially forced to finish in 60-120 s when a fair evaluation should often allow at least several minutes? (very likely)
+- Is the execution model itself a blocker, for example because the dominant stages are still running as single-threaded Python even though they are obviously data-parallel or compute-heavy?
 
-For every `DEVIATION`, write a specific suggestion for how to fix the correctness issue, or explain why it might be acceptable.
+Call out cases like:
+- single-threaded Python in candidate generation, graph construction, repair, or other dominant hot paths,
+- single-thread Python preprocessing consuming most of the budget,
+- literature expecting multi-run or restart-heavy evaluation but implementation using one run,
+- exact or refinement phases capped so tightly that the claimed method never really executes,
+- short benchmark budgets that only measure setup overhead,
+- implementations being shaped around "always finish quickly" instead of using a realistic multi-minute or multi-hour time budget that lets the planning algorithm actually work.
 
-For every `MISSING`, explain the impact on correctness or solution quality.
+### 4. Assess optimization and time budget
 
-### 6. Assess performance baseline and timeout realism
+Keep this separate from reproduction gaps.
 
-Evaluate whether the solver is configured fairly for the method it implements:
+State clearly:
+- what the dominant bottlenecks are,
+- what the execution model is today and why it is or is not acceptable,
+- what should be parallelized,
+- what should be optimized before simply increasing runtime,
+- what time budget would be a fair next target after basic optimization,
+- whether the method should be evaluated with repeated runs, restarts, or multi-seed regimes instead of a single short run.
 
-- **Literature baseline**: What runtime does the reference report (e.g., hours, minutes)? On what hardware?
-- **Benchmark envelope**: What timeout, thread count, or memory limit is the solver given?
-- **Complexity fit**: Does the timeout realistically accommodate the algorithm's known complexity? Example: a MILP taking ~20 h in the literature should not be expected to finish in 120 s single-threaded.
-- **Resource mismatch**: Flag only if the solver is given resources that make success practically impossible for the claimed method. Do **not** flag a correct-but-slow implementation as invalid.
+The audit should explicitly push back on the common anti-pattern where a planning solver is engineered to complete in 60-120 s even though the intended algorithm family really needs sustained multi-minute or multi-hour search to do its job.
 
-**Performance notes format:**
+### 5. Assess reproduction gaps against the fixed target
 
-| Aspect | Literature / Theory | Benchmark Config | Assessment | Notes |
-|--------|--------------------|------------------|------------|-------|
+For each method-defining element, classify it as:
+- `IMPLEMENTED`
+- `ADAPTED`
+- `PARTIAL`
+- `MISSING`
+- `EXTRA`
 
-### 7. Output audit report
+Use `ADAPTED` only for benchmark-driven changes that still fit the target claim.
 
-Produce a Markdown report with this structure:
+The important question is not "what claim is safe?" It is "what still needs to change before this becomes a faithful benchmark-adapted reproduction?"
+
+### 6. Write the report
+
+Use section-based Markdown only. Do not use tables.
+
+Required structure:
 
 ```markdown
 # Solver Audit: <solver-name>
 
-## Summary
-- Correctness: <PASS / NEEDS_REVIEW / FAIL>
-- Match rate: X/Y steps (if reference provided)
-- Adaptations: N
-- Deviations: M
-- Extensions: P
-- Missing: Q
-- Performance baseline: <REALISTIC / MISALIGNED / UNKNOWN>
+## Bottom Line
+- Target claim: faithful reproduction adapted to the benchmark
+- Status: <READY / NOT_YET>
+- Compute status: <FAIR_TO_EVALUATE / UNDERPROVISIONED / OPTIMIZATION_BLOCKED / BOTH>
+- Headline blockers:
 
-## Detailed Comparison
-<table from step 5>
+## Compute And Runtime
+### Literature regime
+### Current regime
+### Execution model
+### Runtime profile
+### Why the current budget is or is not fair
 
-## Performance & Configuration Assessment
-<table from step 6>
+## Optimization And Time Budget
+### Bottlenecks
+### What to optimize first
+### Recommended budget and run policy
 
-## Suggested Improvements
-<List of actionable fixes for DEVIATION and MISSING items>
-<List of timeout/resource recommendations if applicable>
+## Reproduction Gaps
+### Implemented and adapted pieces
+### Partial or missing pieces
+### What must change to reach the target claim
 
-## Notes
-<Any other observations>
+## Action Plan
+- optimization and parallelization work
+- runtime-budget or run-policy changes
+- remaining algorithmic completion work
+
+## Sanity Footnote
+- verifier or benchmark-validity note, only if relevant
 ```
 
-Do not print the full report to stdout unless the user asks. Save it to a file named `<solver-name>-audit.md` in the current working directory.
+Bias the report toward an actionable answer to:
+- why this solver is or is not getting a fair shot,
+- what engineering work would materially improve it,
+- what algorithmic work still blocks the target claim.
+
+Do not print the full report to stdout unless the user asks. Save it to `<solver-name>-audit.md` in the current working directory.
 
 ## Reference
 
-See [references/audit-report-template.md](references/audit-report-template.md) for the report schema and status definitions.
+See [references/audit-report-template.md](references/audit-report-template.md).
