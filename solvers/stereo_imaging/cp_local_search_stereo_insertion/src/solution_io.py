@@ -59,6 +59,7 @@ def write_debug_artifacts(
     sequence_state: SequenceState | None = None,
     seed_result: Any | None = None,
     local_search_result: Any | None = None,
+    repair_result: Any | None = None,
 ) -> None:
     debug_dir = solution_dir / "debug"
     write_json(
@@ -111,4 +112,16 @@ def write_debug_artifacts(
         write_json(
             debug_dir / "local_search_log.json",
             [r.as_dict() for r in local_search_result.log],
+        )
+    if repair_result is not None:
+        write_json(
+            debug_dir / "repair_removed.json",
+            [p.as_dict() for p in repair_result.removed_products],
+        )
+        write_json(
+            debug_dir / "repair_summary.json",
+            {
+                "case_id": case_id,
+                "repair": repair_result.as_dict(),
+            },
         )

@@ -1,4 +1,4 @@
-"""Solver entrypoint: parse case, enumerate candidates and products, emit empty solution."""
+"""Solver entrypoint: parse case, enumerate candidates and products, emit solution."""
 
 from __future__ import annotations
 
@@ -12,6 +12,7 @@ from candidates import CandidateConfig, generate_candidates
 from case_io import load_case, load_solver_config
 from local_search import LocalSearchConfig, run_local_search
 from products import ProductConfig, build_product_library
+from repair import RepairConfig, repair_state
 from seed import SeedConfig, build_greedy_seed
 from sequence import create_empty_state, insert_product, remove_product
 from solution_io import (
@@ -37,10 +38,12 @@ def _build_status(
     seed_result,
     local_search_result=None,
     local_search_config=None,
+    repair_result=None,
+    repair_config=None,
 ) -> dict:
     return {
-        "status": "phase_4_local_search",
-        "phase": 4,
+        "status": "phase_5_repair",
+        "phase": 5,
         "case_dir": str(case_dir),
         "config_dir": str(config_dir) if config_dir is not None else None,
         "solution": str(solution_path),
@@ -50,11 +53,13 @@ def _build_status(
         "product_config": product_config.as_status_dict(),
         "seed_config": seed_result.config.as_status_dict() if seed_result else None,
         "local_search_config": local_search_config.as_status_dict() if local_search_config is not None else None,
+        "repair_config": repair_config.as_status_dict() if repair_config is not None else None,
         "candidate_summary": candidate_summary.as_dict(),
         "product_summary": product_library.summary.as_dict(),
         "sequence_sanity": sequence_sanity,
         "seed_summary": seed_result.as_dict() if seed_result else None,
         "local_search_summary": local_search_result.as_dict() if local_search_result else None,
+        "repair_summary": repair_result.as_dict() if repair_result else None,
         "timing_seconds": timing_seconds,
         "reproduction_summary": {
             "candidate_count": candidate_summary.candidate_count,
@@ -67,6 +72,10 @@ def _build_status(
             "seed_covered_targets": seed_result.covered_target_count if seed_result else 0,
             "local_search_passes": local_search_result.passes_completed if local_search_result else 0,
             "local_search_accepted": local_search_result.moves_accepted if local_search_result else 0,
+            "repair_removed": len(repair_result.removed_products) if repair_result else 0,
+            "repair_lost_targets": len(repair_result.lost_targets) if repair_result else 0,
+            "final_coverage": repair_result.final_coverage if repair_result else 0,
+            "final_quality": repair_result.final_quality if repair_result else 0.0,
             "runtime_seconds": timing_seconds["total"],
         },
     }
@@ -100,7 +109,7 @@ def _run_sequence_sanity(product_library, case) -> dict:
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(
-        description="Generate stereo_imaging candidates and product library (Phase 2)."
+        description="CP/local-search stereo insertion solver (Phase 5)."
     )
     parser.add_argument("--case-dir", required=True)
     parser.add_argument("--config-dir", default="")
@@ -118,6 +127,7 @@ def main(argv: list[str] | None = None) -> int:
         product_config = ProductConfig.from_mapping(config_payload)
         seed_config = SeedConfig.from_mapping(config_payload)
         local_search_config = LocalSearchConfig.from_mapping(config_payload)
+        repair_config = RepairConfig.from_mapping(config_payload)
 
         case = load_case(case_dir)
         case_id = case.case_dir.name
@@ -149,13 +159,25 @@ def main(argv: list[str] | None = None) -> int:
                 local_search_config,
             )
             ls_end = time.perf_counter()
-            solution_path = write_solution_from_state(
-                solution_dir, local_search_result.best_state.sequence_state
-            )
             timing_local_search = ls_end - ls_start
+            best_state = local_search_result.best_state.sequence_state
+            scheduled_products = local_search_result.best_state.scheduled_products
         else:
-            solution_path = write_solution_from_state(solution_dir, seed_result.state)
             timing_local_search = 0.0
+            best_state = seed_result.state
+            scheduled_products = {
+                p.product_id: p for p in seed_result.accepted_products
+            }
+
+        # Repair
+        repair_start = time.perf_counter()
+        repair_result, repaired_state, _repaired_products = repair_state(
+            best_state, scheduled_products, case, repair_config
+        )
+        repair_end = time.perf_counter()
+        timing_repair = repair_end - repair_start
+
+        solution_path = write_solution_from_state(solution_dir, repaired_state)
 
         total_end = time.perf_counter()
 
@@ -165,6 +187,7 @@ def main(argv: list[str] | None = None) -> int:
             "sequence_sanity": sanity_end - sanity_start,
             "seed": seed_end - seed_start,
             "local_search": timing_local_search,
+            "repair": timing_repair,
             "total": total_end - total_start,
         }
 
@@ -182,6 +205,8 @@ def main(argv: list[str] | None = None) -> int:
             seed_result=seed_result,
             local_search_result=local_search_result,
             local_search_config=local_search_config,
+            repair_result=repair_result,
+            repair_config=repair_config,
         )
         write_json(solution_dir / "status.json", status)
 
@@ -193,9 +218,10 @@ def main(argv: list[str] | None = None) -> int:
                 candidate_summary=candidate_summary,
                 product_library=product_library,
                 timing_seconds=timing_seconds,
-                sequence_state=local_search_result.best_state.sequence_state if local_search_result else seed_result.state,
+                sequence_state=repaired_state,
                 seed_result=seed_result,
                 local_search_result=local_search_result,
+                repair_result=repair_result,
             )
     except Exception as exc:
         traceback_text = traceback.format_exc()
@@ -204,7 +230,7 @@ def main(argv: list[str] | None = None) -> int:
             solution_dir / "status.json",
             {
                 "status": "error",
-                "phase": 4,
+                "phase": 5,
                 "case_dir": str(case_dir),
                 "config_dir": str(config_dir) if config_dir is not None else None,
                 "error": str(exc),
@@ -216,7 +242,7 @@ def main(argv: list[str] | None = None) -> int:
 
     if local_search_result is not None:
         print(
-            f"phase_4_local_search: {case_id} "
+            f"phase_5_repair: {case_id} "
             f"candidates={candidate_summary.candidate_count} "
             f"products={product_library.summary.total_products} "
             f"feasible={product_library.summary.feasible_products} "
@@ -228,11 +254,14 @@ def main(argv: list[str] | None = None) -> int:
             f"ls_passes={local_search_result.passes_completed} "
             f"ls_accepted={local_search_result.moves_accepted} "
             f"ls_best={local_search_result.best_objective} "
+            f"repair_removed={len(repair_result.removed_products)} "
+            f"repair_lost={len(repair_result.lost_targets)} "
+            f"final_coverage={repair_result.final_coverage} "
             f"-> {solution_path}"
         )
     else:
         print(
-            f"phase_4_local_search: {case_id} "
+            f"phase_5_repair: {case_id} "
             f"candidates={candidate_summary.candidate_count} "
             f"products={product_library.summary.total_products} "
             f"feasible={product_library.summary.feasible_products} "
@@ -242,6 +271,9 @@ def main(argv: list[str] | None = None) -> int:
             f"seed_accepted={seed_result.accepted_count} "
             f"seed_covered={seed_result.covered_target_count} "
             f"seed_only=true "
+            f"repair_removed={len(repair_result.removed_products)} "
+            f"repair_lost={len(repair_result.lost_targets)} "
+            f"final_coverage={repair_result.final_coverage} "
             f"-> {solution_path}"
         )
     return 0
