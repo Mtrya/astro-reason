@@ -301,3 +301,29 @@ class SolveSummary:
             "solve_time_s": self.solve_time_s,
             "timeout_reached": self.timeout_reached,
         }
+
+
+@dataclass
+class RepairLog:
+    removed_observations: list[dict[str, Any]] = field(default_factory=list)
+    pre_repair_obs_count: int = 0
+    post_repair_obs_count: int = 0
+    pre_repair_pairs: int = 0
+    post_repair_pairs: int = 0
+    pre_repair_tris: int = 0
+    post_repair_tris: int = 0
+    pre_repair_covered_targets: int = 0
+    post_repair_covered_targets: int = 0
+
+    def as_dict(self) -> dict[str, Any]:
+        return {
+            "removed_observations": list(self.removed_observations),
+            "pre_repair_obs_count": self.pre_repair_obs_count,
+            "post_repair_obs_count": self.post_repair_obs_count,
+            "pre_repair_pairs": self.pre_repair_pairs,
+            "post_repair_pairs": self.post_repair_pairs,
+            "pre_repair_tris": self.pre_repair_tris,
+            "post_repair_tris": self.post_repair_tris,
+            "pre_repair_covered_targets": self.pre_repair_covered_targets,
+            "post_repair_covered_targets": self.post_repair_covered_targets,
+        }

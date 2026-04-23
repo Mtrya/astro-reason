@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import math
 import sys
 from datetime import UTC, datetime, timedelta
@@ -19,6 +20,7 @@ from models import (  # noqa: E402
     Mission,
     QualityModel,
     Satellite,
+    StereoPair,
     Target,
     ValidityThresholds,
 )
@@ -36,6 +38,7 @@ from milp_model import (  # noqa: E402
     solve_greedy_fallback,
     solve_milp,
 )
+from repair import repair_solution  # noqa: E402
 from pruning import (  # noqa: E402
     _CandidateScore,
     _rank_key,
@@ -1241,3 +1244,238 @@ class TestSolveMILP:
         assert len(selected) == 2
         assert summary.selected_pairs == 1
         assert summary.covered_targets == 1
+
+
+# ---------------------------------------------------------------------------
+# Repair tests
+# ---------------------------------------------------------------------------
+
+class TestRepair:
+    def test_deduplicate_identical_observations(self):
+        sat = _satellite()
+        target = _target()
+        mission = _mission()
+        config = {"overlap_grid_angles": 4, "overlap_grid_radii": 1}
+
+        c1 = _candidate(start_offset_s=0, end_offset_s=10)
+        c2 = _candidate(start_offset_s=0, end_offset_s=10)
+        c3 = _candidate(start_offset_s=20, end_offset_s=30)
+        assert c1 == c2  # frozen dataclass equality
+
+        repaired, log = repair_solution(
+            [c1, c2, c3], [], [], {"sat_test": sat}, {"t1": target}, mission, config
+        )
+        assert len(repaired) == 2
+        assert log.pre_repair_obs_count == 3
+        assert log.post_repair_obs_count == 2
+        assert len(log.removed_observations) == 1
+        assert log.removed_observations[0]["reason"] == "duplicate"
+
+    def test_removes_overlap_on_same_satellite(self):
+        sat = _satellite()
+        target = _target()
+        mission = _mission()
+        config = {"overlap_grid_angles": 4, "overlap_grid_radii": 1}
+
+        c1 = _candidate(start_offset_s=0, end_offset_s=10)
+        c2 = _candidate(start_offset_s=5, end_offset_s=15)
+        # Both on same sat -> overlap
+
+        repaired, log = repair_solution(
+            [c1, c2], [], [], {"sat_test": sat}, {"t1": target}, mission, config
+        )
+        assert len(repaired) == 1
+        assert len(log.removed_observations) == 1
+        assert log.removed_observations[0]["reason"] == "overlap"
+
+    def test_removes_slew_violation(self, monkeypatch):
+        sat = _satellite()
+        target = _target()
+        mission = _mission()
+        config = {"overlap_grid_angles": 4, "overlap_grid_radii": 1}
+
+        c1 = _candidate(start_offset_s=0, end_offset_s=2)
+        c2 = _candidate(start_offset_s=3, end_offset_s=5)
+        # Small gap -> slew conflict if angle is large
+
+        monkeypatch.setattr(
+            "repair._boresight_angle_at_boundary", lambda a, b, s: 180.0
+        )
+
+        repaired, log = repair_solution(
+            [c1, c2], [], [], {"sat_test": sat}, {"t1": target}, mission, config
+        )
+        assert len(repaired) == 1
+        assert len(log.removed_observations) == 1
+        assert log.removed_observations[0]["reason"] == "slew"
+
+    def test_preserves_coverage_when_possible(self):
+        sat = _satellite()
+        target1 = _target(target_id="t1")
+        target2 = _target(target_id="t2")
+        mission = _mission()
+        config = {"overlap_grid_angles": 4, "overlap_grid_radii": 1}
+
+        # t1 pair: (c1, c2)
+        c1 = _candidate(target_id="t1", start_offset_s=0, end_offset_s=10)
+        c2 = _candidate(target_id="t1", start_offset_s=20, end_offset_s=30)
+        # t2 pairs: (c2, c3) and (c4, c5)
+        c3 = _candidate(target_id="t2", start_offset_s=40, end_offset_s=50)
+        c4 = _candidate(target_id="t2", start_offset_s=25, end_offset_s=35)
+        c5 = _candidate(target_id="t2", start_offset_s=60, end_offset_s=70)
+        # c2 and c4 overlap on same satellite -> conflict
+
+        pair_t1 = StereoPair(
+            sat_id="sat_test",
+            target_id="t1",
+            access_interval_id="i1",
+            candidate_i=c1,
+            candidate_j=c2,
+            convergence_deg=10.0,
+            overlap_fraction=0.9,
+            pixel_scale_ratio=1.0,
+            valid=True,
+            q_geom=1.0,
+            q_overlap=1.0,
+            q_res=1.0,
+            q_pair=1.0,
+        )
+        pair_t2a = StereoPair(
+            sat_id="sat_test",
+            target_id="t2",
+            access_interval_id="i1",
+            candidate_i=c2,
+            candidate_j=c3,
+            convergence_deg=10.0,
+            overlap_fraction=0.9,
+            pixel_scale_ratio=1.0,
+            valid=True,
+            q_geom=0.5,
+            q_overlap=0.5,
+            q_res=0.5,
+            q_pair=0.5,
+        )
+        pair_t2b = StereoPair(
+            sat_id="sat_test",
+            target_id="t2",
+            access_interval_id="i1",
+            candidate_i=c4,
+            candidate_j=c5,
+            convergence_deg=10.0,
+            overlap_fraction=0.9,
+            pixel_scale_ratio=1.0,
+            valid=True,
+            q_geom=0.5,
+            q_overlap=0.5,
+            q_res=0.5,
+            q_pair=0.5,
+        )
+
+        repaired, log = repair_solution(
+            [c1, c2, c3, c4, c5],
+            [pair_t1, pair_t2a, pair_t2b],
+            [],
+            {"sat_test": sat},
+            {"t1": target1, "t2": target2},
+            mission,
+            config,
+        )
+        # Removing c4 causes 0 coverage loss (t2 still has pair_t2a via c2,c3)
+        # Removing c2 causes t1 to lose coverage
+        # Therefore c4 should be removed.
+        removed_ids = {r["target_id"] for r in log.removed_observations}
+        assert "t1" not in removed_ids
+        assert len(repaired) == 4
+        assert log.post_repair_covered_targets == 2
+
+    def test_deterministic(self, monkeypatch):
+        sat = _satellite()
+        target = _target()
+        mission = _mission()
+        config = {"overlap_grid_angles": 4, "overlap_grid_radii": 1}
+
+        c1 = _candidate(start_offset_s=0, end_offset_s=2)
+        c2 = _candidate(start_offset_s=3, end_offset_s=5)
+
+        monkeypatch.setattr(
+            "repair._boresight_angle_at_boundary", lambda a, b, s: 180.0
+        )
+
+        r1, log1 = repair_solution(
+            [c1, c2], [], [], {"sat_test": sat}, {"t1": target}, mission, config
+        )
+        r2, log2 = repair_solution(
+            [c1, c2], [], [], {"sat_test": sat}, {"t1": target}, mission, config
+        )
+        assert [c.start for c in r1] == [c.start for c in r2]
+        assert log1.removed_observations == log2.removed_observations
+
+    def test_no_repair_when_already_valid(self):
+        sat = _satellite()
+        target = _target()
+        mission = _mission()
+        config = {"overlap_grid_angles": 4, "overlap_grid_radii": 1}
+
+        c1 = _candidate(start_offset_s=0, end_offset_s=2)
+        c2 = _candidate(start_offset_s=200, end_offset_s=202)
+        # Large gap -> no overlap, no slew issue
+
+        repaired, log = repair_solution(
+            [c1, c2], [], [], {"sat_test": sat}, {"t1": target}, mission, config
+        )
+        assert len(repaired) == 2
+        assert len(log.removed_observations) == 0
+        assert log.pre_repair_obs_count == log.post_repair_obs_count
+
+
+# ---------------------------------------------------------------------------
+# End-to-end integration test (slow; marked optional)
+# ---------------------------------------------------------------------------
+
+class TestEndToEnd:
+    @pytest.mark.skipif(
+        not (Path(__file__).resolve().parents[2] / "benchmarks" / "stereo_imaging" / "dataset" / "cases" / "test" / "case_0001").exists(),
+        reason="case_0001 dataset not present",
+    )
+    def test_smoke_case_0001(self, tmp_path):
+        import subprocess
+
+        repo_root = Path(__file__).resolve().parents[2]
+        solver_dir = repo_root / "solvers" / "stereo_imaging" / "time_window_pruned_stereo_milp"
+        case_dir = repo_root / "benchmarks" / "stereo_imaging" / "dataset" / "cases" / "test" / "case_0001"
+        solution_dir = tmp_path / "solution"
+        config_dir = solver_dir / "config.yaml"
+
+        result = subprocess.run(
+            [
+                "./solve.sh",
+                str(case_dir),
+                str(config_dir),
+                str(solution_dir),
+            ],
+            cwd=solver_dir,
+            capture_output=True,
+            text=True,
+        )
+        assert result.returncode == 0, result.stderr
+
+        solution_path = solution_dir / "solution.json"
+        status_path = solution_dir / "status.json"
+        assert solution_path.exists()
+        assert status_path.exists()
+
+        solution = json.loads(solution_path.read_text(encoding="utf-8"))
+        assert "actions" in solution
+        for action in solution["actions"]:
+            assert action["type"] == "observation"
+            assert "satellite_id" in action
+            assert "target_id" in action
+            assert "start_time" in action
+            assert "end_time" in action
+            assert action["start_time"].endswith("Z")
+            assert action["end_time"].endswith("Z")
+
+        status = json.loads(status_path.read_text(encoding="utf-8"))
+        assert status["status"] == "phase_5_solved"
+        assert status["phase"] == 5
+        assert "repair_summary" in status
