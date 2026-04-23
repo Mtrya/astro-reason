@@ -1,6 +1,6 @@
 ---
 name: solver-audit
-description: Audit whether a solver implementation is valid, correctly implements its claimed method, and is reasonably configured for the benchmark. Use when: (1) validating solver correctness against a research paper or documented method, (2) checking benchmark contract compliance, (3) reviewing whether timeouts and resource limits are realistic for the claimed approach, (4) verifying algorithmic reproduction correctness without penalizing unoptimized implementations, (5) reviewing solver pull requests.
+description: Audit a solver implementation for algorithmic correctness, benchmark contract compliance, and reasonable configuration, including paper-to-code checks and reproduction-focused review.
 ---
 
 # Solver Audit
