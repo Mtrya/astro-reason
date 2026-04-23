@@ -31,7 +31,7 @@ Rows keep an explicit `evidence_type`:
 
 - `reproduced_solver`: runnable solver output verified by a benchmark verifier
 - `fixture_backed_lookup`: runnable lookup output verified by a benchmark verifier
-- `transitional_literature`: non-runnable reported metrics
+- `citation_reported`: non-runnable metrics copied from cited literature
 
 Do not merge these categories in reporting without preserving the label.
 
@@ -52,12 +52,12 @@ uv run python experiments/main_solver/run.py \
     --case test/8
 ```
 
-Materialize SatNet transitional rows:
+Materialize SatNet citation-backed rows:
 
 ```bash
 uv run python experiments/main_solver/run.py \
     --benchmark satnet \
-    --solver satnet_literature_transition
+    --solver satnet_milp_claudet2022
 ```
 
 Aggregate results:
@@ -76,9 +76,8 @@ results/main_solver/<benchmark>/<solver>/<case_slug>/
 └── run.json
 ```
 
-Runnable rows include setup, solve, and verifier sections. Transitional
-literature rows include reported metrics and provenance instead of execution
-logs.
+Runnable rows include setup, solve, and verifier sections. Citation-reported
+rows include reported metrics and provenance instead of execution logs.
 
 Benchmark verifiers are consumed as executables. The runner does not import
 benchmark-internal functions, classes, or modules.

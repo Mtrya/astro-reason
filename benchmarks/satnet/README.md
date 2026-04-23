@@ -4,7 +4,7 @@ A reinforcement learning benchmark for the **Deep Space Network (DSN) Scheduling
 
 ## Problem Overview
 
-The Deep Space Network is NASA/JPL's international array of giant radio antennas that supports interplanetary spacecraft missions. The scheduling problem requires maximizing the total duration of successful communication tracks over a 1-week period while respecting:
+The Deep Space Network is NASA/JPL's international array of giant radio antennas that supports interplanetary spacecraft missions. The scheduling problem requires allocating successful communication tracks over a 1-week period while respecting:
 
 - **View Period (VP) constraints**: Communication is only possible when a satellite has line-of-sight to a ground station (determined by orbital mechanics)
 - **Setup/Teardown requirements**: Each track requires calibration time before and after transmission
@@ -73,6 +73,8 @@ Maximize total communication hours:
 ```
 maximize: Σ (track.tracking_off - track.tracking_on) / 3600
 ```
+
+Published SatNet comparisons also emphasize fairness across missions. The principal literature metrics are `U_rms` and `U_max`, which measure the root mean square and worst-case unsatisfied time fraction across missions.
 
 ## Data Format Specifications
 
@@ -206,25 +208,27 @@ The `RESOURCE` must be in the request's `resource_vp_dict`.
 
 ## Scoring Methodology
 
-**Primary Metric**: Total communication hours
+**Tracking Hours**: Total scheduled communication time
 ```python
-score = sum((track['TRACKING_OFF'] - track['TRACKING_ON']) / 3600.0 for track in solution)
+total_hours = sum((track['TRACKING_OFF'] - track['TRACKING_ON']) / 3600.0 for track in solution)
 ```
 
-**Note**: Setup and teardown times consume antenna availability but do **not** count toward the score.
+**Note**: Setup and teardown times consume antenna availability but do **not** count toward total tracking hours.
 
-**Secondary Metrics** (also computed and reported by the verifier):
+**Fairness Metrics** (also computed and reported by the verifier):
 
 - **Requests Satisfied**: Number of requests whose total allocated duration (summed across all tracks for that `track_id`) is at least `duration_min`
-- **Fairness (U_max)**: Maximum unsatisfied fraction across all requests
+- **Fairness (U_max)**: Maximum unsatisfied fraction across all missions
   ```
-  U_i = (requested_duration - allocated_duration) / requested_duration
-  U_max = max(U_i for all requests)
+  U_m = (requested_duration_m - allocated_duration_m) / requested_duration_m
+  U_max = max(U_m for all missions)
   ```
 - **Fairness (U_rms)**: Root-mean-square of unsatisfied fractions
   ```
-  U_rms = sqrt(mean(U_i² for all requests))
+  U_rms = sqrt(mean(U_m² for all missions))
   ```
+
+For fairness accounting, the verifier groups requests by `subject`. Per-request allocated duration is capped at `duration` before mission totals are computed.
 
 ## Instance Classification
 
@@ -258,29 +262,36 @@ uv run python benchmarks/satnet/verifier.py \
 **Output (verbose):**
 ```
 Status: VALID
-Score (hours): 234.5678
-Tracks: 145
-Satisfied requests: 132
 U_rms: 0.32
 U_max: 0.65
+Total tracking hours: 234.5678
+Tracks: 145
+Satisfied requests: 132
 ```
 
 **Output (compact):**
 ```
-VALID: score=234.5678h, tracks=145
+VALID: total_hours=234.5678h, tracks=145
 ```
 
 ## Baseline Performance
 
-From the original RL implementation (Chien et al., 2021):
+Published SatNet baselines report both total scheduled hours (`T_S`) and mission-level fairness metrics. These rows are citation-backed literature results, not outputs reproduced by this repository.
 
-| Method | Avg Hours Allocated | Avg Requests Satisfied | U_rms | U_max |
-|--------|--------------------|-----------------------|-------|-------|
-| Random | ~180h | ~120 | 0.45 | 0.85 |
-| Greedy | ~210h | ~140 | 0.38 | 0.72 |
-| PPO (RL) | ~235h | ~155 | 0.32 | 0.65 |
+| Method | Source | Week | T_S / T_R (hours) | Satisfied Requests | U_rms | U_max |
+|--------|--------|------|-------------------|--------------------|-------|-------|
+| Delta-MILP | Goh et al. (2021), Table 2 | W10_2018 | 822 / 1192 | 203 | 0.26 | 0.48 |
+| Delta-MILP | Goh et al. (2021), Table 2 | W20_2018 | 1059 / 1406 | 249 | 0.21 | 0.64 |
+| Delta-MILP | Goh et al. (2021), Table 2 | W30_2018 | 983 / 1464 | 231 | 0.29 | 0.64 |
+| Delta-MILP | Goh et al. (2021), Table 2 | W40_2018 | 949 / 1737 | 223 | 0.40 | 1.00 |
+| Delta-MILP | Goh et al. (2021), Table 2 | W50_2018 | 816 / 1292 | 197 | 0.35 | 0.60 |
+| RL (PPO) | Goh et al. (2021), Table 3 | W10_2018 | 886 / 1192 | 204 | 0.28 | 0.71 |
+| RL (PPO) | Goh et al. (2021), Table 3 | W20_2018 | 1000 / 1406 | 223 | 0.27 | 0.81 |
+| RL (PPO) | Goh et al. (2021), Table 3 | W30_2018 | 1100 / 1464 | 229 | 0.28 | 0.85 |
+| RL (PPO) | Goh et al. (2021), Table 3 | W40_2018 | 1058 / 1737 | 216 | 0.39 | 0.82 |
+| RL (PPO) | Goh et al. (2021), Table 3 | W50_2018 | 879 / 1292 | 185 | 0.36 | 0.67 |
 
-**Note**: Exact numbers depend on the specific week and random seed.
+The RL rows are selected from 1,000 stochastic inference runs after training convergence, choosing the highest `T_S` candidate with `U_max < 1`.
 
 ## File Locations
 
@@ -317,7 +328,7 @@ Before each transmission:
 - **Setup**: Antenna slewing, receiver tuning, frequency lock acquisition
 - **Teardown**: System reset, logging, antenna repositioning
 
-These times are **physically necessary** and consume antenna availability, but **do not count** toward the objective score (only actual transmission time counts).
+These times are **physically necessary** and consume antenna availability, but **do not count** toward total tracking hours (only actual transmission time counts).
 
 ## License & Attribution
 
@@ -325,6 +336,7 @@ These times are **physically necessary** and consume antenna availability, but *
 
 **Academic References:**
 1. Goh, Edwin, Venkataram, Hamsa Shwetha, Balaji, Bharathan, Wilson, Brian D, and Johnston, Mark D. "SatNet: A benchmark for satellite scheduling optimization." AAAI-22 workshop on Machine Learning for Operations Research (ML4OR), 2021.
+2. Claudet, Thomas, Ryan Alimo, Edwin Goh, Mark D. Johnston, Ramtin Madani, and Brian Wilson. "Delta-MILP: Deep Space Network Scheduling via Mixed-Integer Linear Programming." IEEE Access, 2022.
 
 **Acknowledgments**: This benchmark is based on the open-source SatNet implementation and dataset provided by NASA JPL and the multi-agent learning community.
 

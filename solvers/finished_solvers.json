@@ -11,9 +11,17 @@
     },
     {
       "benchmark": "satnet",
-      "solver": "literature_transition",
-      "path": "solvers/satnet/literature_transition",
-      "evidence_type": "transitional_literature",
+      "solver": "milp_claudet2022",
+      "path": "solvers/satnet/milp_claudet2022",
+      "evidence_type": "citation_reported",
+      "runnable": false,
+      "ci_smoke": false
+    },
+    {
+      "benchmark": "satnet",
+      "solver": "rl_ppo_goh2021",
+      "path": "solvers/satnet/rl_ppo_goh2021",
+      "evidence_type": "citation_reported",
       "runnable": false,
       "ci_smoke": false
     },

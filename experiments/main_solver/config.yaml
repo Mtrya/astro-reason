@@ -2,5 +2,6 @@ results_root: results/main_solver
 
 solvers:
   - spot5_reference_lookup
-  - satnet_literature_transition
+  - satnet_milp_claudet2022
+  - satnet_rl_ppo_goh2021
   - aeossp_standard_mwis_conflict_graph

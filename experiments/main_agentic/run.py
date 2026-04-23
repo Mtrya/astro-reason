@@ -36,7 +36,7 @@ CONTAINER_GROUP_NAME = "korolev"
 PROMPT_FILE_NAME = "PROMPT.md"
 PLACEHOLDER_PATTERN = re.compile(r"\{([A-Za-z_][A-Za-z0-9_]*)\}")
 SATNET_COMPACT_PATTERN = re.compile(
-    r"(VALID|INVALID):\s+score=([+-]?(?:\d+(?:\.\d*)?|\.\d+))h,\s+tracks=(\d+)"
+    r"(VALID|INVALID):\s+(?:total_hours|score)=([+-]?(?:\d+(?:\.\d*)?|\.\d+))h,\s+tracks=(\d+)"
 )
 SPOT5_COMPACT_PATTERN = re.compile(
     r"(VALID|INVALID):\s+profit=(\d+),\s+weight=(\d+)"
@@ -806,7 +806,9 @@ def _cli_section_items(text: str, section: str) -> list[str]:
 
 def _parse_satnet_cli_payload(stdout: str, exit_code: int) -> dict[str, Any]:
     valid = _status_valid(stdout)
-    score_hours = _float_line("Score (hours)", stdout)
+    score_hours = _float_line("Total tracking hours", stdout)
+    if score_hours is None:
+        score_hours = _float_line("Score (hours)", stdout)
     n_tracks = _int_line("Tracks", stdout)
     n_satisfied_requests = _int_line("Satisfied requests", stdout)
     u_rms = _float_line("U_rms", stdout)

@@ -1,0 +1,47 @@
+evidence_type: citation_reported
+benchmark: satnet
+solver: milp_claudet2022
+runnable: false
+provenance:
+  paper: "Claudet et al. (2022), Delta-MILP: Deep Space Network Scheduling via Mixed-Integer Linear Programming"
+  table: "Table 4"
+  source_url: "https://arxiv.org/pdf/2111.11628"
+  note: >
+    Values are the Delta-MILP baseline as reported in the Delta-MILP paper.
+    They are not reproduced solver runs from this repository.
+cases:
+  - case_id: W10_2018
+    total_hours: 822
+    total_requested_hours: 1192
+    n_satisfied_requests: 203
+    u_rms: 0.26
+    u_max: 0.479
+    run_time_hours: 18
+  - case_id: W20_2018
+    total_hours: 1059
+    total_requested_hours: 1406
+    n_satisfied_requests: 249
+    u_rms: 0.21
+    u_max: 0.641
+    run_time_hours: 10.5
+  - case_id: W30_2018
+    total_hours: 983
+    total_requested_hours: 1464
+    n_satisfied_requests: 231
+    u_rms: 0.29
+    u_max: 0.643
+    run_time_hours: 13.5
+  - case_id: W40_2018
+    total_hours: 949
+    total_requested_hours: 1737
+    n_satisfied_requests: 223
+    u_rms: 0.40
+    u_max: 1.00
+    run_time_hours: 22.5
+  - case_id: W50_2018
+    total_hours: 816
+    total_requested_hours: 1292
+    n_satisfied_requests: 197
+    u_rms: 0.35
+    u_max: 0.60
+    run_time_hours: 7.5

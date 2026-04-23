@@ -1,7 +1,0 @@
-id: satnet_literature_transition
-benchmark: satnet
-solver: literature_transition
-solver_path: solvers/satnet/literature_transition
-evidence_type: transitional_literature
-runnable: false
-metrics_path: solvers/satnet/literature_transition/metrics.yaml
