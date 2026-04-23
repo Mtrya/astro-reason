@@ -125,6 +125,14 @@ class ProductLibrary:
         }
 
 
+@dataclass(slots=True)
+class _CandidateGeoCache:
+    """Pre-computed polyline and half-swath-width for a candidate."""
+
+    polyline: list[tuple[float, float]]
+    half_width_m: float
+
+
 def _observation_window_keys(candidates: list[Candidate]) -> tuple[tuple[str, str], ...]:
     return tuple(sorted((_iso_z(c.start), _iso_z(c.end)) for c in candidates))
 
@@ -136,6 +144,9 @@ def _evaluate_pair(
     sf_sats: dict[str, EarthSatellite],
     target_ecef: dict[str, np.ndarray],
     product_config: ProductConfig,
+    geo_cache: dict[int, _CandidateGeoCache] | None = None,
+    i: int = -1,
+    j: int = -1,
 ) -> tuple[bool, float, list[str]]:
     """Evaluate a candidate pair. Returns (feasible, quality, reject_reasons)."""
     mission = case.mission
@@ -161,18 +172,24 @@ def _evaluate_pair(
         reasons.append(f"convergence {gamma:.3f}deg > max {mission.max_convergence_deg}")
 
     # Overlap fraction via Monte Carlo
-    ri = ci.slant_range_m * math.tan(math.radians(sat_def.half_cross_track_fov_deg))
-    rj = cj.slant_range_m * math.tan(math.radians(sat_def.half_cross_track_fov_deg))
-    poly_i = _strip_polyline_en(
-        sf, te, ci.start, ci.end, sample_step_s=8.0,
-        off_nadir_along_deg=ci.off_nadir_along_deg,
-        off_nadir_across_deg=ci.off_nadir_across_deg,
-    )
-    poly_j = _strip_polyline_en(
-        sf, te, cj.start, cj.end, sample_step_s=8.0,
-        off_nadir_along_deg=cj.off_nadir_along_deg,
-        off_nadir_across_deg=cj.off_nadir_across_deg,
-    )
+    if geo_cache is not None and i >= 0 and j >= 0:
+        poly_i = geo_cache[i].polyline
+        poly_j = geo_cache[j].polyline
+        ri = geo_cache[i].half_width_m
+        rj = geo_cache[j].half_width_m
+    else:
+        ri = ci.slant_range_m * math.tan(math.radians(sat_def.half_cross_track_fov_deg))
+        rj = cj.slant_range_m * math.tan(math.radians(sat_def.half_cross_track_fov_deg))
+        poly_i = _strip_polyline_en(
+            sf, te, ci.start, ci.end, sample_step_s=8.0,
+            off_nadir_along_deg=ci.off_nadir_along_deg,
+            off_nadir_across_deg=ci.off_nadir_across_deg,
+        )
+        poly_j = _strip_polyline_en(
+            sf, te, cj.start, cj.end, sample_step_s=8.0,
+            off_nadir_along_deg=cj.off_nadir_along_deg,
+            off_nadir_across_deg=cj.off_nadir_across_deg,
+        )
     wk_pair = tuple(sorted((
         (_iso_z(ci.start), _iso_z(ci.end)),
         (_iso_z(cj.start), _iso_z(cj.end)),
@@ -228,6 +245,9 @@ def _evaluate_triple(
     sf_sats: dict[str, EarthSatellite],
     target_ecef: dict[str, np.ndarray],
     product_config: ProductConfig,
+    geo_cache: dict[int, _CandidateGeoCache] | None = None,
+    indices: tuple[int, int, int] | None = None,
+    pair_cache: dict[tuple[int, int], tuple[bool, float, list[str]]] | None = None,
 ) -> tuple[bool, float, list[str]]:
     """Evaluate a candidate triple. Returns (feasible, quality, reject_reasons)."""
     mission = case.mission
@@ -240,15 +260,20 @@ def _evaluate_triple(
     candidates = [c0, c1, c2]
 
     # Common overlap
-    polys = []
-    hw = []
-    for c in candidates:
-        polys.append(_strip_polyline_en(
-            sf, te, c.start, c.end, 8.0,
-            off_nadir_along_deg=c.off_nadir_along_deg,
-            off_nadir_across_deg=c.off_nadir_across_deg,
-        ))
-        hw.append(c.slant_range_m * math.tan(math.radians(sat_def.half_cross_track_fov_deg)))
+    if geo_cache is not None and indices is not None:
+        i, j, k = indices
+        polys = [geo_cache[i].polyline, geo_cache[j].polyline, geo_cache[k].polyline]
+        hw = [geo_cache[i].half_width_m, geo_cache[j].half_width_m, geo_cache[k].half_width_m]
+    else:
+        polys = []
+        hw = []
+        for c in candidates:
+            polys.append(_strip_polyline_en(
+                sf, te, c.start, c.end, 8.0,
+                off_nadir_along_deg=c.off_nadir_along_deg,
+                off_nadir_across_deg=c.off_nadir_across_deg,
+            ))
+            hw.append(c.slant_range_m * math.tan(math.radians(sat_def.half_cross_track_fov_deg)))
 
     wk_tri = tuple(sorted(((_iso_z(c.start), _iso_z(c.end)) for c in candidates)))
     rng_tri = _stereo_mc_rng(
@@ -270,69 +295,77 @@ def _evaluate_triple(
         reasons.append(f"tri_overlap {o_tri:.3f} < min {mission.min_overlap_fraction}")
 
     # Pair validity flags among (0,1),(0,2),(1,2)
-    pair_flags = []
-    pair_qs = []
-    for (ix, jx) in ((0, 1), (0, 2), (1, 2)):
-        ci, cj = candidates[ix], candidates[jx]
-        # Recompute pair geometry same as _evaluate_pair
-        mi = ci.start + (ci.end - ci.start) / 2
-        mj = cj.start + (cj.end - cj.start) / 2
-        si_pos, _ = _satellite_state_ecef_m(sf, mi)
-        sj_pos, _ = _satellite_state_ecef_m(sf, mj)
-        ui = (si_pos - te) / np.linalg.norm(si_pos - te)
-        uj = (sj_pos - te) / np.linalg.norm(sj_pos - te)
-        gam = _angle_between_deg(ui, uj)
+    pair_flags: list[bool] = []
+    pair_qs: list[float] = []
+    if pair_cache is not None and indices is not None:
+        i, j, k = indices
+        for a, b in ((i, j), (i, k), (j, k)):
+            key = (min(a, b), max(a, b))
+            feasible, q_pair, _ = pair_cache[key]
+            pair_flags.append(feasible)
+            pair_qs.append(q_pair)
+    else:
+        for (ix, jx) in ((0, 1), (0, 2), (1, 2)):
+            ci, cj = candidates[ix], candidates[jx]
+            # Recompute pair geometry same as _evaluate_pair
+            mi = ci.start + (ci.end - ci.start) / 2
+            mj = cj.start + (cj.end - cj.start) / 2
+            si_pos, _ = _satellite_state_ecef_m(sf, mi)
+            sj_pos, _ = _satellite_state_ecef_m(sf, mj)
+            ui = (si_pos - te) / np.linalg.norm(si_pos - te)
+            uj = (sj_pos - te) / np.linalg.norm(sj_pos - te)
+            gam = _angle_between_deg(ui, uj)
 
-        poly_i = _strip_polyline_en(
-            sf, te, ci.start, ci.end, 8.0,
-            off_nadir_along_deg=ci.off_nadir_along_deg,
-            off_nadir_across_deg=ci.off_nadir_across_deg,
-        )
-        poly_j = _strip_polyline_en(
-            sf, te, cj.start, cj.end, 8.0,
-            off_nadir_along_deg=cj.off_nadir_along_deg,
-            off_nadir_across_deg=cj.off_nadir_across_deg,
-        )
-        ri = ci.slant_range_m * math.tan(math.radians(sat_def.half_cross_track_fov_deg))
-        rj = cj.slant_range_m * math.tan(math.radians(sat_def.half_cross_track_fov_deg))
-        wk_edge = tuple(sorted((
-            (_iso_z(ci.start), _iso_z(ci.end)),
-            (_iso_z(cj.start), _iso_z(cj.end)),
-        )))
-        rng_edge = _stereo_mc_rng(
-            case.case_dir.name,
-            ci.satellite_id,
-            ci.target_id,
-            ci.access_interval_id,
-            window_keys=wk_edge,
-            n_samples=product_config.tri_pair_edge_mc_samples,
-            role="tri_pair_edge",
-        )
-        o2 = _monte_carlo_overlap_fraction(
-            target.aoi_radius_m,
-            poly_i, ri,
-            poly_j, rj,
-            n_samples=product_config.tri_pair_edge_mc_samples,
-            rng=rng_edge,
-        )
-        si_m = ci.effective_pixel_scale_m
-        sj_m = cj.effective_pixel_scale_m
-        rsc = max(si_m, sj_m) / min(si_m, sj_m) if min(si_m, sj_m) > 0 else float("inf")
-        okp = (
-            o2 + 1e-6 >= mission.min_overlap_fraction
-            and mission.min_convergence_deg - 1e-6 <= gam <= mission.max_convergence_deg + 1e-6
-            and rsc <= mission.max_pixel_scale_ratio + 1e-6
-        )
-        pair_flags.append(okp)
-        qo = min(1.0, o2 / 0.95)
-        qr = max(0.0, 1.0 - (rsc - 1.0) / 0.5)
-        qg = _pair_geom_quality(gam, target.scene_type)
-        w = mission.pair_weights
-        pair_qs.append(
-            w["geometry"] * qg
-            + w["overlap"] * qo
-            + w["resolution"] * qr
-        )
+            poly_i = _strip_polyline_en(
+                sf, te, ci.start, ci.end, 8.0,
+                off_nadir_along_deg=ci.off_nadir_along_deg,
+                off_nadir_across_deg=ci.off_nadir_across_deg,
+            )
+            poly_j = _strip_polyline_en(
+                sf, te, cj.start, cj.end, 8.0,
+                off_nadir_along_deg=cj.off_nadir_along_deg,
+                off_nadir_across_deg=cj.off_nadir_across_deg,
+            )
+            ri = ci.slant_range_m * math.tan(math.radians(sat_def.half_cross_track_fov_deg))
+            rj = cj.slant_range_m * math.tan(math.radians(sat_def.half_cross_track_fov_deg))
+            wk_edge = tuple(sorted((
+                (_iso_z(ci.start), _iso_z(ci.end)),
+                (_iso_z(cj.start), _iso_z(cj.end)),
+            )))
+            rng_edge = _stereo_mc_rng(
+                case.case_dir.name,
+                ci.satellite_id,
+                ci.target_id,
+                ci.access_interval_id,
+                window_keys=wk_edge,
+                n_samples=product_config.tri_pair_edge_mc_samples,
+                role="tri_pair_edge",
+            )
+            o2 = _monte_carlo_overlap_fraction(
+                target.aoi_radius_m,
+                poly_i, ri,
+                poly_j, rj,
+                n_samples=product_config.tri_pair_edge_mc_samples,
+                rng=rng_edge,
+            )
+            si_m = ci.effective_pixel_scale_m
+            sj_m = cj.effective_pixel_scale_m
+            rsc = max(si_m, sj_m) / min(si_m, sj_m) if min(si_m, sj_m) > 0 else float("inf")
+            okp = (
+                o2 + 1e-6 >= mission.min_overlap_fraction
+                and mission.min_convergence_deg - 1e-6 <= gam <= mission.max_convergence_deg + 1e-6
+                and rsc <= mission.max_pixel_scale_ratio + 1e-6
+            )
+            pair_flags.append(okp)
+            qo = min(1.0, o2 / 0.95)
+            qr = max(0.0, 1.0 - (rsc - 1.0) / 0.5)
+            qg = _pair_geom_quality(gam, target.scene_type)
+            w = mission.pair_weights
+            pair_qs.append(
+                w["geometry"] * qg
+                + w["overlap"] * qo
+                + w["resolution"] * qr
+            )
 
     if sum(1 for x in pair_flags if x) < 2:
         reasons.append(f"only {sum(1 for x in pair_flags if x)} valid pairs among 3 (need >= 2)")
@@ -389,14 +422,31 @@ def build_product_library(
 
     for (sat_id, target_id, access_interval_id), group in sorted(groups.items()):
         n = len(group)
+        sf = sf_sats[sat_id]
+        te = target_ecef[target_id]
+        sat_def = case.satellites[sat_id]
 
-        # Pairs
+        # Pre-compute polylines and swath widths once per candidate in this group
+        geo_cache: dict[int, _CandidateGeoCache] = {}
+        for idx, c in enumerate(group):
+            poly = _strip_polyline_en(
+                sf, te, c.start, c.end, sample_step_s=8.0,
+                off_nadir_along_deg=c.off_nadir_along_deg,
+                off_nadir_across_deg=c.off_nadir_across_deg,
+            )
+            hw = c.slant_range_m * math.tan(math.radians(sat_def.half_cross_track_fov_deg))
+            geo_cache[idx] = _CandidateGeoCache(polyline=poly, half_width_m=hw)
+
+        # Pairs — cache results for reuse in triple evaluation
+        pair_cache: dict[tuple[int, int], tuple[bool, float, list[str]]] = {}
         for i in range(n):
             for j in range(i + 1, n):
                 ci, cj = group[i], group[j]
                 feasible, q_pair, reasons = _evaluate_pair(
-                    ci, cj, case, sf_sats, target_ecef, config
+                    ci, cj, case, sf_sats, target_ecef, config,
+                    geo_cache=geo_cache, i=i, j=j,
                 )
+                pair_cache[(i, j)] = (feasible, q_pair, reasons)
                 product = StereoProduct(
                     product_id=f"pair|{sat_id}|{target_id}|{access_interval_id}|{i}|{j}",
                     product_type=ProductType.PAIR,
@@ -421,14 +471,16 @@ def build_product_library(
                 else:
                     summary.infeasible_products += 1
 
-        # Triples
+        # Triples — reuse cached pair feasibility / quality and candidate geometry
         tri_candidates: list[StereoProduct] = []
         for i in range(n):
             for j in range(i + 1, n):
                 for k in range(j + 1, n):
                     c0, c1, c2 = group[i], group[j], group[k]
                     feasible, q_tri, reasons = _evaluate_triple(
-                        c0, c1, c2, case, sf_sats, target_ecef, config
+                        c0, c1, c2, case, sf_sats, target_ecef, config,
+                        geo_cache=geo_cache, indices=(i, j, k),
+                        pair_cache=pair_cache,
                     )
                     product = StereoProduct(
                         product_id=f"tri|{sat_id}|{target_id}|{access_interval_id}|{i}|{j}|{k}",

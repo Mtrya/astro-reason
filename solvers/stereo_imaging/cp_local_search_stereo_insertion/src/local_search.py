@@ -24,6 +24,8 @@ from products import ProductLibrary, StereoProduct
 from sequence import (
     SequenceState,
     SatelliteSequence,
+    _snapshot_state,
+    _restore_state,
     insert_product as _seq_insert_product,
     remove_product as _seq_remove_product,
 )
@@ -125,13 +127,35 @@ class LocalSearchState:
         )
 
     def add_product(self, product: StereoProduct, case: StereoCase) -> bool:
+        """Insert a product, enforcing at most one product per target.
+
+        If the target already has a scheduled product of lower quality, the old
+        product is removed first (with rollback on insertion failure).
+        """
+        current = self.target_to_product_id.get(product.target_id)
+        if current is not None and current != product.product_id:
+            if product.quality <= self.scheduled_products[current].quality:
+                return False
+            # Remove old product first to free sequence capacity, with rollback
+            # support in case the new product fails to insert.
+            snapshot = _snapshot_state(self.sequence_state)
+            old_product = self.scheduled_products[current]
+            _seq_remove_product(old_product, self.sequence_state, case)
+            result = _seq_insert_product(product, self.sequence_state, case)
+            if not result.success:
+                _restore_state(self.sequence_state, snapshot)
+                return False
+            self.scheduled_products.pop(current, None)
+            self.scheduled_products[product.product_id] = product
+            self.target_to_product_id[product.target_id] = product.product_id
+            return True
+
+        # No existing product for this target — simple insertion.
         result = _seq_insert_product(product, self.sequence_state, case)
         if not result.success:
             return False
         self.scheduled_products[product.product_id] = product
-        current = self.target_to_product_id.get(product.target_id)
-        if current is None or product.quality > self.scheduled_products[current].quality:
-            self.target_to_product_id[product.target_id] = product.product_id
+        self.target_to_product_id[product.target_id] = product.product_id
         return True
 
     def remove_product(self, product: StereoProduct, case: StereoCase) -> None:

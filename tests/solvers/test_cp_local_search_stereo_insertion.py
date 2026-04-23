@@ -1705,6 +1705,7 @@ def test_status_includes_multi_run_stats_when_enabled(solver_imports) -> None:
         config_dir=None,
         solution_path=solution_path,
         case_id="test",
+        satellite_count=2,
         candidate_config=candidate_config,
         candidate_summary=CandidateSummary(),
         product_config=solver_imports["CandidateConfig"](),
