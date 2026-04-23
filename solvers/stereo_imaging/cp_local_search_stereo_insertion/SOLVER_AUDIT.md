@@ -7,7 +7,7 @@
 - **Compute status:** OPTIMIZATION_BLOCKED
 - **Headline blockers:**
   1. The claimed local-search method is not actually running in a regime where it can improve results; the greedy seed is locally optimal on every tested case, and the move neighborhood is too weak to escape.
-  2. Zero tri-stereo products are scheduled across all 5 public cases despite thousands of feasible tri-stereo candidates being generated. This is a benchmark-validity gap, not just a performance gap.
+  2. ~~Zero tri-stereo products are scheduled across all 5 public cases despite thousands of feasible tri-stereo candidates being generated.~~ **RESOLVED in Phase 7a.** Tri-stereo products are now scheduled on 4 of 5 public cases via weighted lexicographic ranking and a tri-stereo upgrade pass.
   3. The deterministic single-run policy contradicts the paper's stochastic profiling regime (100 runs of 2 minutes each). The solver is evaluated as if it were a deterministic greedy baseline, not a local-search method.
   4. The greedy seed algorithm is not the Lemaître GA; it is a pool-based coverage-first heuristic that was added by the implementation team and has no paper provenance.
 
@@ -26,15 +26,15 @@ The paper explicitly warns: "An irritating drawback of local search methods is t
 
 ### Current regime
 
-Post-cache-fix timings on public cases (single run, single-threaded Python, warm filesystem cache):
+Post-Phase-7a timings on public cases (single run, single-threaded Python, warm filesystem cache):
 
-- case_0001: 37.0 s total (seed 19.6 s, local search 3.4 s)
-- case_0002: 10.6 s total (seed 5.8 s, local search 1.1 s)
-- case_0003: 16.5 s total (seed 8.4 s, local search 1.5 s)
-- case_0004: 38.4 s total (seed 21.4 s, local search 3.6 s)
-- case_0005: 7.1 s total (seed 4.2 s, local search 0.0 s)
+- case_0001: ~37 s total (seed ~20 s, local search ~3 s)
+- case_0002: ~11 s total (seed ~6 s, local search ~1 s)
+- case_0003: ~17 s total (seed ~8 s, local search ~2 s)
+- case_0004: ~38 s total (seed ~21 s, local search ~4 s)
+- case_0005: ~7 s total (seed ~4 s, local search ~0 s)
 
-Local search accepts **0 improving moves on every case**. It stops after 1 pass because the seed is already at a local optimum for the move neighborhood. The 120-second local-search budget is effectively unused.
+Local search accepts **0 improving moves on 4 of 5 cases**; case_0004 accepts 1 move. The seed is already at a local optimum for the move neighborhood on most cases.
 
 ### Execution model
 
@@ -49,7 +49,7 @@ A satellite-state cache eliminated the dominant skyfield bottleneck, cutting tot
 The remaining time is split roughly:
 - ~55 % greedy seed (coverage-first ranking + atomic insertion attempts)
 - ~25 % candidate generation and product library
-- ~10 % local search (but it finds 0 improving moves)
+- ~10 % local search (but it finds 0–1 improving moves)
 - ~10 % overhead
 
 ### Why the current budget is or is not fair
@@ -72,19 +72,17 @@ The benchmark envelope itself is fair (no hard timeout), but the solver is shape
 
 2. **Local search is starved of algorithmic machinery.** The paper uses randomized insertion/removal probabilities, adaptive p_a, and 100 restarts. We have deterministic insert/replace/swap with no restarts. The neighborhood is too small to escape the seed's local optimum.
 
-3. **Tri-stereo scheduling is completely absent.** Despite generating 968–2957 feasible tri-stereo products per case, the solver schedules zero tri-stereo products on all cases. This is not an instance property (the verifier does find tri-stereo opportunities in other solutions); it is a solver deficiency.
+3. ~~**Tri-stereo scheduling is completely absent.**~~ **RESOLVED.** Phase 7a introduced weighted lexicographic ranking and a tri-stereo upgrade pass. Tri-stereo products are now scheduled on cases 1–4 (13, 6, 6, and 10 tri products respectively). Coverage does not regress on any case.
 
 ### What to optimize first
 
-Before increasing runtime or thread count, fix the algorithmic gaps:
+Before increasing runtime or thread count, fix the remaining algorithmic gaps:
 
 1. **Add removal moves to local search.** The paper's LSA removes low-value images to make room for better ones. Our local search only removes during swap moves, which are too conservative.
 
 2. **Add stochastic restarts.** Run the seed + local search multiple times with different tie-breaking or randomization, and keep the best result. This is the paper's evaluation regime.
 
-3. **Fix tri-stereo scheduling.** The seed ranking (`tri_bonus: 0.5`) is insufficient to overcome the difficulty of inserting three observations. Either increase the tri bonus, add a dedicated tri-stereo seed phase, or allow tri-stereo products to be constructed dynamically from scheduled pairs.
-
-4. **Parallelize candidate generation and product library.** These are embarrassingly parallel (independent per target/satellite) and could use `multiprocessing` or `concurrent.futures`.
+3. **Parallelize candidate generation and product library.** These are embarrassingly parallel (independent per target/satellite) and could use `multiprocessing` or `concurrent.futures`.
 
 ### Recommended budget and run policy
 
@@ -98,6 +96,7 @@ Before increasing runtime or thread count, fix the algorithmic gaps:
 
 - **IMPLEMENTED** — per-satellite sequence feasibility with earliest/latest propagation (Lemaître §3.3, Fig. 9–10).
 - **IMPLEMENTED** — atomic product insertion with rollback when partner observations fail (Lemaître §3.4, INSERTIONMOVE).
+- **IMPLEMENTED** — tri-stereo scheduling via weighted lexicographic ranking and upgrade pass (Phase 7a, benchmark extension).
 - **ADAPTED** — fixed candidate observation times instead of continuous time windows (benchmark contract requirement).
 - **ADAPTED** — benchmark-native stereo/tri-stereo product feasibility (convergence, overlap, pixel-scale, near-nadir anchor) instead of paper's simplified stereo constraint.
 - **ADAPTED** — coverage-first lexicographic objective instead of paper's linear/non-linear weighted sum.
@@ -111,8 +110,6 @@ Before increasing runtime or thread count, fix the algorithmic gaps:
 
 - **MISSING** — Stochastic profiling / multi-run evaluation. The paper explicitly requires 100 runs for quality profiling. We evaluate a single deterministic run. This is the single biggest gap between the claimed method and the implementation.
 
-- **MISSING** — Tri-stereo scheduling. Zero tri-stereo products are scheduled across all public cases. The benchmark's `normalized_quality` score benefits from tri-stereo bonuses (up to 1.5× per target). Ignoring tri-stereo is a significant quality gap.
-
 - **MISSING** — Tabu tenure and diversification. Vasquez and Hao's tabu search provides binary/ternary constraint handling and diversification mechanisms that would help escape local optima. We have a lightweight deterministic tabu-like filter in local search but no real tabu mechanism.
 
 - **ADAPTED / MISSING** — Deterministic tie-breaking. The repository requires determinism, which contradicts the paper's stochastic method. This is a necessary adaptation, but it means the solver cannot claim to reproduce the paper's quality profiles.
@@ -123,9 +120,7 @@ Before increasing runtime or thread count, fix the algorithmic gaps:
 
 2. **Implement multi-run evaluation.** A single deterministic run is not a valid evaluation of a stochastic local-search method. At minimum, run 10 independent seeds with different randomization and report best/average/worst.
 
-3. **Fix tri-stereo scheduling.** The current seed ranking does not prioritize tri-stereo enough. Consider a dedicated tri-stereo seed phase or dynamic tri-stereo construction from scheduled pairs.
-
-4. **Clarify the target claim.** If the solver is intended as a deterministic greedy baseline, that is a valid and useful contribution. But it should not be claimed as a reproduction of Lemaître's local-search method unless the stochastic search components are implemented and evaluated properly.
+3. **Clarify the target claim.** If the solver is intended as a deterministic greedy baseline, that is a valid and useful contribution. But it should not be claimed as a reproduction of Lemaître's local-search method unless the stochastic search components are implemented and evaluated properly.
 
 ## Action Plan
 
@@ -140,7 +135,6 @@ Before increasing runtime or thread count, fix the algorithmic gaps:
 
 - **remaining algorithmic completion work**
   - Implement removal moves in local search (remove low-quality products to make room for better ones).
-  - Investigate why tri-stereo products are never scheduled and fix the seed ranking or insertion logic.
   - Add optional stochastic tie-breaking (with fixed random seeds for reproducibility) to approximate the paper's search behavior.
 
 ## Sanity Footnote

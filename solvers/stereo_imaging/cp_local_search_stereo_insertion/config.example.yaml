@@ -17,11 +17,10 @@
 
 # Greedy seed
 # seed_only: false           # When true, emit seed solution directly (no local search)
-# tri_first: true            # Prefer tri-stereo over pairs for already-covered targets
+# tri_stereo_seed_phase: true  # Enable tri-stereo upgrade pass after pair seed
 # max_seed_products: null    # Optional cap on number of products in the seed
-# coverage_bonus: 10.0       # Additive bonus for products covering an uncovered target
-# scarcity_weight: 1.0       # Weight on inverse of remaining feasible products per target
-# tri_bonus: 0.5             # Additive bonus for tri-stereo products
+# pair_weight: 1.0           # Weight multiplier for pair-stereo products in seed ranking
+# tri_weight: 1.5            # Weight multiplier for tri-stereo products in seed ranking
 
 # Local search
 # max_passes: 10             # Maximum number of local-search passes over the seed

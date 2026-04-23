@@ -61,7 +61,7 @@ def test_setup_script_runs(solver_dir: Path) -> None:
     assert "ok" in result.stdout.lower()
 
 
-def test_empty_solution_is_valid(case_0001_dir: Path, tmp_path: Path) -> None:
+def test_solver_produces_valid_solution(case_0001_dir: Path, tmp_path: Path) -> None:
     solution_dir = tmp_path / "solution"
     result = _run_solver(case_0001_dir, solution_dir)
     assert result.returncode == 0, result.stderr
@@ -70,7 +70,8 @@ def test_empty_solution_is_valid(case_0001_dir: Path, tmp_path: Path) -> None:
     assert solution_path.exists()
     solution = json.loads(solution_path.read_text())
     assert "actions" in solution
-    assert solution["actions"] == []
+    # Phase 7a: solver now produces non-empty solutions with tri-stereo products
+    assert len(solution["actions"]) > 0
 
     # Verify with benchmark verifier
     verify_result = subprocess.run(

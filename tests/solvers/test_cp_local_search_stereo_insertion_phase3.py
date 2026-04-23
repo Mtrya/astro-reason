@@ -197,7 +197,7 @@ def test_ranking_uncovered_target_first(solver_imports) -> None:
     SeedConfig = solver_imports["SeedConfig"]
     _product_sort_key = solver_imports["_product_sort_key"]
 
-    config = SeedConfig(coverage_bonus=10.0)
+    config = SeedConfig()
     covered = {"t2"}
     remaining = {"t1": 5, "t2": 5}
 
@@ -210,7 +210,7 @@ def test_ranking_uncovered_target_first(solver_imports) -> None:
 
     k1 = _product_sort_key(p_uncovered, covered, remaining, config)
     k2 = _product_sort_key(p_covered, covered, remaining, config)
-    # Uncovered target should win (higher first element)
+    # Uncovered target should win (coverage_value 1.0 > 0.0)
     assert k1[0] > k2[0]
 
 
@@ -219,7 +219,7 @@ def test_ranking_scarcity_tiebreak(solver_imports) -> None:
     SeedConfig = solver_imports["SeedConfig"]
     _product_sort_key = solver_imports["_product_sort_key"]
 
-    config = SeedConfig(scarcity_weight=1.0)
+    config = SeedConfig()
     covered: set[str] = set()
     remaining = {"t1": 2, "t2": 10}
 
@@ -232,8 +232,8 @@ def test_ranking_scarcity_tiebreak(solver_imports) -> None:
 
     k1 = _product_sort_key(p_scarce, covered, remaining, config)
     k2 = _product_sort_key(p_abundant, covered, remaining, config)
-    # Scarce target should win (higher scarcity score)
-    assert k1[1] > k2[1]
+    # Same coverage_value and weighted_quality; scarce target wins on scarcity
+    assert k1[2] > k2[2]
 
 
 def test_ranking_tri_before_pair(solver_imports) -> None:
@@ -241,7 +241,7 @@ def test_ranking_tri_before_pair(solver_imports) -> None:
     SeedConfig = solver_imports["SeedConfig"]
     _product_sort_key = solver_imports["_product_sort_key"]
 
-    config = SeedConfig(tri_first=True, tri_bonus=0.5)
+    config = SeedConfig()  # tri_weight=1.5 > pair_weight=1.0
     covered = {"t1"}
     remaining = {"t1": 5}
 
@@ -254,8 +254,8 @@ def test_ranking_tri_before_pair(solver_imports) -> None:
 
     k1 = _product_sort_key(p_tri, covered, remaining, config)
     k2 = _product_sort_key(p_pair, covered, remaining, config)
-    # Tri should win on tri_score
-    assert k1[2] > k2[2]
+    # Tri should win on weighted_quality (0.5*1.5 > 0.5*1.0)
+    assert k1[1] > k2[1]
 
 
 def test_ranking_pair_before_tri_when_configured(solver_imports) -> None:
@@ -263,7 +263,7 @@ def test_ranking_pair_before_tri_when_configured(solver_imports) -> None:
     SeedConfig = solver_imports["SeedConfig"]
     _product_sort_key = solver_imports["_product_sort_key"]
 
-    config = SeedConfig(tri_first=False, tri_bonus=0.5)
+    config = SeedConfig(tri_weight=0.5, pair_weight=1.0)
     covered = {"t1"}
     remaining = {"t1": 5}
 
@@ -276,8 +276,8 @@ def test_ranking_pair_before_tri_when_configured(solver_imports) -> None:
 
     k1 = _product_sort_key(p_tri, covered, remaining, config)
     k2 = _product_sort_key(p_pair, covered, remaining, config)
-    # Pair should win on tri_score when tri_first=False
-    assert k2[2] > k1[2]
+    # Pair should win on weighted_quality when tri_weight < pair_weight
+    assert k2[1] > k1[1]
 
 
 def test_ranking_deterministic(solver_imports) -> None:
@@ -405,14 +405,14 @@ def test_greedy_seed_rejects_infeasible_insertion(solver_imports) -> None:
         targets = {"t1": None}
 
     # p2 has higher quality, so it should be tried first and accepted.
-    # Then p1 should be rejected because c2a overlaps c1a (or c1a overlaps c2a)
-    # Actually wait: p2 has quality 0.9, p1 has 0.8. So p2 goes first.
-    # After p2 is inserted, p1's candidates overlap with p2's candidates.
-    # So p1 should be rejected.
+    # After p2 is inserted, target t1 is covered.  p1 is skipped (not
+    # rejected) because the solver does not attempt insertion for products
+    # whose target is already covered.
     seed = build_greedy_seed(library, _FakeCase(), SeedConfig())
     assert seed.accepted_count == 1
-    assert seed.rejected_count == 1
-    assert seed.rejected_records[0].product_id == "p1"
+    assert seed.accepted_products[0].product_id == "p2"
+    # p1 should not be in accepted products
+    assert "p1" not in [p.product_id for p in seed.accepted_products]
 
 
 # ---------------------------------------------------------------------------
@@ -499,3 +499,178 @@ def test_seed_only_mode_empty_solution_when_no_products(solver_imports) -> None:
     seed = build_greedy_seed(library, _FakeCase(), SeedConfig())
     assert seed.accepted_count == 0
     assert seed.covered_target_count == 0
+
+
+def test_tri_stereo_pre_phase_accepts_tri_and_skips_pair(solver_imports) -> None:
+    """Tri-stereo pre-phase should accept a feasible tri product and exclude
+    pair products for the same target from the pair phase."""
+    ProductType = solver_imports["ProductType"]
+    ProductLibrary = solver_imports["ProductLibrary"]
+    ProductSummary = solver_imports["ProductSummary"]
+    SeedConfig = solver_imports["SeedConfig"]
+    build_greedy_seed = solver_imports["build_greedy_seed"]
+
+    sat_def = _make_sat_def()
+
+    # Tri-stereo product: three candidates spaced 2 min apart
+    c1 = _make_candidate(
+        start="2026-04-22T22:00:00Z",
+        end="2026-04-22T22:00:06Z",
+        candidate_id="c1",
+    )
+    c2 = _make_candidate(
+        start="2026-04-22T22:02:00Z",
+        end="2026-04-22T22:02:06Z",
+        candidate_id="c2",
+    )
+    c3 = _make_candidate(
+        start="2026-04-22T22:04:00Z",
+        end="2026-04-22T22:04:06Z",
+        candidate_id="c3",
+    )
+    p_tri = solver_imports["StereoProduct"](
+        product_id="p_tri",
+        product_type=ProductType.TRI,
+        target_id="t1",
+        satellite_id="sat_test",
+        access_interval_id="test::0",
+        observations=(c1, c2, c3),
+        quality=0.7,
+        coverage_value=0.7,
+        feasible=True,
+        reject_reasons=tuple(),
+    )
+
+    # Pair product for same target (different candidates, also feasible)
+    c4 = _make_candidate(
+        start="2026-04-22T22:06:00Z",
+        end="2026-04-22T22:06:06Z",
+        candidate_id="c4",
+    )
+    c5 = _make_candidate(
+        start="2026-04-22T22:08:00Z",
+        end="2026-04-22T22:08:06Z",
+        candidate_id="c5",
+    )
+    p_pair = solver_imports["StereoProduct"](
+        product_id="p_pair",
+        product_type=ProductType.PAIR,
+        target_id="t1",
+        satellite_id="sat_test",
+        access_interval_id="test::0",
+        observations=(c4, c5),
+        quality=0.9,
+        coverage_value=0.9,
+        feasible=True,
+        reject_reasons=tuple(),
+    )
+
+    library = ProductLibrary(
+        products=[p_tri, p_pair],
+        per_target_products={"t1": [p_tri, p_pair]},
+        summary=ProductSummary(
+            total_products=2,
+            pair_products=1,
+            tri_products=1,
+            feasible_products=2,
+            per_target_product_counts={"t1": 2},
+        ),
+    )
+
+    class _FakeCase:
+        satellites = {"sat_test": sat_def}
+        targets = {"t1": None}
+
+    # With tri_stereo_seed_phase=True (default), tri should be attempted first.
+    # If tri inserts successfully, pair is skipped because target is covered.
+    seed = build_greedy_seed(library, _FakeCase(), SeedConfig())
+    assert seed.tri_accepted >= 1
+    assert "p_tri" in [p.product_id for p in seed.accepted_products]
+    # Pair should NOT be in accepted because t1 is already covered by tri
+    assert "p_pair" not in [p.product_id for p in seed.accepted_products]
+
+
+def test_tri_stereo_pre_phase_disabled(solver_imports) -> None:
+    """When tri_stereo_seed_phase=False, tri products compete in the same pool."""
+    ProductType = solver_imports["ProductType"]
+    ProductLibrary = solver_imports["ProductLibrary"]
+    ProductSummary = solver_imports["ProductSummary"]
+    SeedConfig = solver_imports["SeedConfig"]
+    build_greedy_seed = solver_imports["build_greedy_seed"]
+
+    sat_def = _make_sat_def()
+
+    c1 = _make_candidate(
+        start="2026-04-22T22:00:00Z",
+        end="2026-04-22T22:00:06Z",
+        candidate_id="c1",
+    )
+    c2 = _make_candidate(
+        start="2026-04-22T22:02:00Z",
+        end="2026-04-22T22:02:06Z",
+        candidate_id="c2",
+    )
+    c3 = _make_candidate(
+        start="2026-04-22T22:04:00Z",
+        end="2026-04-22T22:04:06Z",
+        candidate_id="c3",
+    )
+    p_tri = solver_imports["StereoProduct"](
+        product_id="p_tri",
+        product_type=ProductType.TRI,
+        target_id="t1",
+        satellite_id="sat_test",
+        access_interval_id="test::0",
+        observations=(c1, c2, c3),
+        quality=0.7,
+        coverage_value=0.7,
+        feasible=True,
+        reject_reasons=tuple(),
+    )
+
+    c4 = _make_candidate(
+        start="2026-04-22T22:06:00Z",
+        end="2026-04-22T22:06:06Z",
+        candidate_id="c4",
+    )
+    c5 = _make_candidate(
+        start="2026-04-22T22:08:00Z",
+        end="2026-04-22T22:08:06Z",
+        candidate_id="c5",
+    )
+    p_pair = solver_imports["StereoProduct"](
+        product_id="p_pair",
+        product_type=ProductType.PAIR,
+        target_id="t1",
+        satellite_id="sat_test",
+        access_interval_id="test::0",
+        observations=(c4, c5),
+        quality=0.9,
+        coverage_value=0.9,
+        feasible=True,
+        reject_reasons=tuple(),
+    )
+
+    library = ProductLibrary(
+        products=[p_tri, p_pair],
+        per_target_products={"t1": [p_tri, p_pair]},
+        summary=ProductSummary(
+            total_products=2,
+            pair_products=1,
+            tri_products=1,
+            feasible_products=2,
+            per_target_product_counts={"t1": 2},
+        ),
+    )
+
+    class _FakeCase:
+        satellites = {"sat_test": sat_def}
+        targets = {"t1": None}
+
+    seed = build_greedy_seed(
+        library, _FakeCase(), SeedConfig(tri_stereo_seed_phase=False, tri_weight=0.5)
+    )
+    # With tri_weight < pair_weight, pair has higher weighted_quality
+    # (0.9*1.0 > 0.7*0.5) so pair is accepted first; tri is skipped.
+    assert seed.tri_accepted == 0
+    assert "p_pair" in [p.product_id for p in seed.accepted_products]

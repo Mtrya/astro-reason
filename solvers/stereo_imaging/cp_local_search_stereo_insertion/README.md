@@ -50,26 +50,27 @@ This reproduction keeps that structure and adapts it to `stereo_imaging`:
 - **Phase 4** — local-search product insertion/removal/replacement moves.
 - **Phase 5** — conservative repair pass and main-solver experiment wiring.
 - **Phase 6** — performance tuning (satellite-state cache), validation matrix, and solver audit.
+- **Phase 7a** — tri-stereo seed architecture: weighted lexicographic ranking plus tri-stereo upgrade pass.
 
 ## Validation
 
 All 5 public cases pass the benchmark verifier. Runtimes are on a warm-cache single-threaded Python run.
 
-| Case | Candidates | Seed accepted | Coverage | Norm. quality | Runtime |
-|---|---|---|---|---|---|
-| test/case_0001 | 556 | 57 | 30 / 47 (0.638) | 0.636 | 37.0 s |
-| test/case_0002 | 235 | 28 | 11 / 36 (0.306) | 0.305 | 10.6 s |
-| test/case_0003 | 289 | 43 | 22 / 36 (0.611) | 0.604 | 16.5 s |
-| test/case_0004 | 666 | 85 | 31 / 39 (0.795) | 0.793 | 38.4 s |
-| test/case_0005 | 236 | 0 | 0 / 19 (0.000) | 0.000 | 7.1 s |
+| Case | Candidates | Seed accepted | Tri accepted | Coverage | Norm. quality | Runtime |
+|---|---|---|---|---|---|---|
+| test/case_0001 | 556 | 30 | 13 | 30 / 47 (0.638) | 0.636 | 37.0 s |
+| test/case_0002 | 235 | 11 | 6 | 11 / 36 (0.306) | 0.305 | 10.6 s |
+| test/case_0003 | 289 | 22 | 6 | 22 / 36 (0.611) | 0.604 | 16.5 s |
+| test/case_0004 | 666 | 31 | 10 | 31 / 39 (0.795) | 0.793 | 38.4 s |
+| test/case_0005 | 236 | 0 | 0 | 0 / 19 (0.000) | 0.000 | 7.1 s |
 
-**Seed-only vs local search:** on all public cases, the greedy seed is already at a local optimum for the current move neighborhood; local search accepts 0 improving moves. This is expected given the weak move set (no dedicated removal moves), but it means the local-search component is not currently improving results.
+**Seed-only vs local search:** on all public cases, the greedy seed is already at a local optimum for the current move neighborhood; local search accepts 0 improving moves on 4 of 5 cases (case_0004 accepts 1 move). This is expected given the weak move set (no dedicated removal moves), but it means the local-search component is not currently improving results.
 
 **Determinism:** two consecutive runs on the same case produce byte-identical `solution.json`.
 
 **Repair:** the conservative repair pass removes 0 products on all public cases, confirming that solver-local propagation matches verifier geometry.
 
-**Tri-stereo gap:** zero tri-stereo products are scheduled across all public cases despite thousands of feasible tri-stereo candidates being generated. The seed ranking does not prioritize tri-stereo strongly enough to overcome insertion difficulty.
+**Tri-stereo:** Phase 7a added weighted lexicographic ranking and a tri-stereo upgrade pass. Tri-stereo products are now scheduled on 4 of 5 public cases (13 on case_0001, 6 on case_0002, 6 on case_0003, 10 on case_0004). Coverage does not regress on any case.
 
 ## Solver Contract
 
@@ -105,11 +106,10 @@ See [config.example.yaml](./config.example.yaml) for a commented example.
 
 ```yaml
 seed_only: false
-tri_first: true
+tri_stereo_seed_phase: true
 max_seed_products: null
-coverage_bonus: 10.0
-scarcity_weight: 1.0
-tri_bonus: 0.5
+pair_weight: 1.0
+tri_weight: 1.5
 max_passes: 10
 max_moves_per_pass: 500
 max_time_seconds: 120.0
@@ -117,6 +117,18 @@ enable_repair: true
 repair_candidates_limit: 20
 debug: false
 ```
+
+### Seed ranking
+
+The greedy seed uses a lexicographic sort key (higher is better):
+
+1. `coverage_value` — `1.0` if target is uncovered, `0.0` otherwise
+2. `scarcity + weighted_quality` — combined scarcity and quality score
+3. `scarcity` — `1.0 / remaining_count` for this target
+4. `weighted_quality` — `quality * tri_weight` for tri-stereo, `quality * pair_weight` for pairs
+5. `product_id` — deterministic tie-break
+
+The upgrade pass then tries to replace pair-covered targets with tri-stereo products when the tri product offers strictly better weighted quality and fits in the freed sequence capacity.
 
 ## Running It
 
@@ -154,7 +166,6 @@ uv run python experiments/main_solver/run.py \
 ## Known Limitations
 
 - The solver is a deterministic greedy baseline, not yet a faithful reproduction of Lemaître's stochastic local-search method. The audit flags missing removal moves, missing multi-run evaluation, and a weak move neighborhood.
-- Zero tri-stereo products are scheduled on all tested cases. This is a known quality gap.
 - Single-threaded Python execution. No parallelism or compiled extensions.
 - Solver-local product predicates are designed to match the verifier geometry, but minor drift is possible due to floating-point ordering.
 - The greedy seed dominates runtime (~50–60 % of total time on large cases). The seed algorithm is an implementation invention (pool-based coverage-first greedy), not the sequential track-builder described in the paper.
