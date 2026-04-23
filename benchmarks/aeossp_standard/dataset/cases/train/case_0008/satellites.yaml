@@ -1,0 +1,469 @@
+satellites:
+- satellite_id: sat_001
+  norad_catalog_id: 28649
+  tle_line1: 1 28649U 05017A   26103.78459344  .00000718  00000+0  78137-4 0  9993
+  tle_line2: 2 28649  97.5369 129.7615 0000594  88.5323 271.5964 14.90885377134226
+  sensor:
+    sensor_type: visible
+  attitude_model:
+    max_slew_velocity_deg_per_s: 1.0
+    max_slew_acceleration_deg_per_s2: 0.25
+    settling_time_s: 3.0
+    max_off_nadir_deg: 25.0
+  resource_model:
+    battery_capacity_wh: 1600.0
+    initial_battery_wh: 1000.0
+    idle_power_w: 25.0
+    imaging_power_w: 480.0
+    slew_power_w: 280.0
+    sunlit_charge_power_w: 100.0
+- satellite_id: sat_002
+  norad_catalog_id: 33396
+  tle_line1: 1 33396U 08049A   26103.92431574  .00000228  00000+0  12693-3 0  9997
+  tle_line2: 2 33396  98.5635 163.2775 0001215  96.0005 264.1311 14.20124562908846
+  sensor:
+    sensor_type: visible
+  attitude_model:
+    max_slew_velocity_deg_per_s: 1.8
+    max_slew_acceleration_deg_per_s2: 0.4
+    settling_time_s: 2.0
+    max_off_nadir_deg: 30.0
+  resource_model:
+    battery_capacity_wh: 1300.0
+    initial_battery_wh: 800.0
+    idle_power_w: 20.0
+    imaging_power_w: 420.0
+    slew_power_w: 360.0
+    sunlit_charge_power_w: 85.0
+- satellite_id: sat_003
+  norad_catalog_id: 35681
+  tle_line1: 1 35681U 09041A   26103.88486025  .00000736  00000+0  11600-3 0  9996
+  tle_line2: 2 35681  97.7323 263.9278 0002534  65.1442 295.0031 14.75171584897400
+  sensor:
+    sensor_type: visible
+  attitude_model:
+    max_slew_velocity_deg_per_s: 1.0
+    max_slew_acceleration_deg_per_s2: 0.25
+    settling_time_s: 3.0
+    max_off_nadir_deg: 25.0
+  resource_model:
+    battery_capacity_wh: 1600.0
+    initial_battery_wh: 1000.0
+    idle_power_w: 25.0
+    imaging_power_w: 480.0
+    slew_power_w: 280.0
+    sunlit_charge_power_w: 100.0
+- satellite_id: sat_004
+  norad_catalog_id: 36795
+  tle_line1: 1 36795U 10035A   26103.91725973  .00000606  00000+0  89742-4 0  9999
+  tle_line2: 2 36795  98.0028 154.8560 0012216  44.0868 316.1314 14.78652641850354
+  sensor:
+    sensor_type: visible
+  attitude_model:
+    max_slew_velocity_deg_per_s: 1.0
+    max_slew_acceleration_deg_per_s2: 0.25
+    settling_time_s: 3.0
+    max_off_nadir_deg: 25.0
+  resource_model:
+    battery_capacity_wh: 1600.0
+    initial_battery_wh: 1000.0
+    idle_power_w: 25.0
+    imaging_power_w: 480.0
+    slew_power_w: 280.0
+    sunlit_charge_power_w: 100.0
+- satellite_id: sat_005
+  norad_catalog_id: 38038
+  tle_line1: 1 38038U 11079A   26103.99821456  .00000176  00000+0  72099-4 0  9990
+  tle_line2: 2 38038  98.4114 172.6384 0007359 132.7085 282.0682 14.38160980749987
+  sensor:
+    sensor_type: visible
+  attitude_model:
+    max_slew_velocity_deg_per_s: 1.0
+    max_slew_acceleration_deg_per_s2: 0.25
+    settling_time_s: 3.0
+    max_off_nadir_deg: 25.0
+  resource_model:
+    battery_capacity_wh: 1600.0
+    initial_battery_wh: 1000.0
+    idle_power_w: 25.0
+    imaging_power_w: 480.0
+    slew_power_w: 280.0
+    sunlit_charge_power_w: 100.0
+- satellite_id: sat_006
+  norad_catalog_id: 38755
+  tle_line1: 1 38755U 12047A   26103.91749117  .00000053  00000+0  21261-4 0  9996
+  tle_line2: 2 38755  98.2161 171.9661 0001299  83.6582 276.4765 14.58587911723683
+  sensor:
+    sensor_type: visible
+  attitude_model:
+    max_slew_velocity_deg_per_s: 1.0
+    max_slew_acceleration_deg_per_s2: 0.25
+    settling_time_s: 3.0
+    max_off_nadir_deg: 25.0
+  resource_model:
+    battery_capacity_wh: 1600.0
+    initial_battery_wh: 1000.0
+    idle_power_w: 25.0
+    imaging_power_w: 480.0
+    slew_power_w: 280.0
+    sunlit_charge_power_w: 100.0
+- satellite_id: sat_007
+  norad_catalog_id: 39418
+  tle_line1: 1 39418U 13066C   26103.89800586  .00001935  00000+0  11389-3 0  9999
+  tle_line2: 2 39418  97.3884 155.3394 0021902 172.5671 187.5889 15.12606827678767
+  sensor:
+    sensor_type: visible
+  attitude_model:
+    max_slew_velocity_deg_per_s: 1.8
+    max_slew_acceleration_deg_per_s2: 0.4
+    settling_time_s: 2.0
+    max_off_nadir_deg: 30.0
+  resource_model:
+    battery_capacity_wh: 1300.0
+    initial_battery_wh: 800.0
+    idle_power_w: 20.0
+    imaging_power_w: 420.0
+    slew_power_w: 360.0
+    sunlit_charge_power_w: 85.0
+- satellite_id: sat_008
+  norad_catalog_id: 40053
+  tle_line1: 1 40053U 14034A   26103.93758432  .00000121  00000+0  34006-4 0  9997
+  tle_line2: 2 40053  98.0684 168.0716 0001643  85.6600 274.4789 14.60901965627756
+  sensor:
+    sensor_type: visible
+  attitude_model:
+    max_slew_velocity_deg_per_s: 1.0
+    max_slew_acceleration_deg_per_s2: 0.25
+    settling_time_s: 3.0
+    max_off_nadir_deg: 25.0
+  resource_model:
+    battery_capacity_wh: 1600.0
+    initial_battery_wh: 1000.0
+    idle_power_w: 25.0
+    imaging_power_w: 480.0
+    slew_power_w: 280.0
+    sunlit_charge_power_w: 100.0
+- satellite_id: sat_009
+  norad_catalog_id: 40118
+  tle_line1: 1 40118U 14049A   26103.98557118 -.00000071  00000+0 -23137-5 0  9998
+  tle_line2: 2 40118  98.0162 168.2418 0008785  82.4719 277.7491 14.80823040629735
+  sensor:
+    sensor_type: visible
+  attitude_model:
+    max_slew_velocity_deg_per_s: 1.0
+    max_slew_acceleration_deg_per_s2: 0.25
+    settling_time_s: 3.0
+    max_off_nadir_deg: 25.0
+  resource_model:
+    battery_capacity_wh: 1600.0
+    initial_battery_wh: 1000.0
+    idle_power_w: 25.0
+    imaging_power_w: 480.0
+    slew_power_w: 280.0
+    sunlit_charge_power_w: 100.0
+- satellite_id: sat_010
+  norad_catalog_id: 41556
+  tle_line1: 1 41556U 16033A   26103.92916150  .00003508  00000+0  15880-3 0  9999
+  tle_line2: 2 41556  97.3856 180.9285 0014429 156.8761 203.3127 15.21454593548215
+  sensor:
+    sensor_type: visible
+  attitude_model:
+    max_slew_velocity_deg_per_s: 1.8
+    max_slew_acceleration_deg_per_s2: 0.4
+    settling_time_s: 2.0
+    max_off_nadir_deg: 30.0
+  resource_model:
+    battery_capacity_wh: 1300.0
+    initial_battery_wh: 800.0
+    idle_power_w: 20.0
+    imaging_power_w: 420.0
+    slew_power_w: 360.0
+    sunlit_charge_power_w: 85.0
+- satellite_id: sat_011
+  norad_catalog_id: 41599
+  tle_line1: 1 41599U 16040A   26103.90892410  .00001887  00000+0  92644-4 0  9996
+  tle_line2: 2 41599  97.4545 164.7499 0009098   5.9270 354.2071 15.19282316543959
+  sensor:
+    sensor_type: visible
+  attitude_model:
+    max_slew_velocity_deg_per_s: 1.0
+    max_slew_acceleration_deg_per_s2: 0.25
+    settling_time_s: 3.0
+    max_off_nadir_deg: 25.0
+  resource_model:
+    battery_capacity_wh: 1600.0
+    initial_battery_wh: 1000.0
+    idle_power_w: 25.0
+    imaging_power_w: 480.0
+    slew_power_w: 280.0
+    sunlit_charge_power_w: 100.0
+- satellite_id: sat_012
+  norad_catalog_id: 41877
+  tle_line1: 1 41877U 16074A   26103.95238968  .00000077  00000+0  55447-4 0  9999
+  tle_line2: 2 41877  98.7551 177.9741 0001024 258.0643 102.0420 14.21614797485171
+  sensor:
+    sensor_type: visible
+  attitude_model:
+    max_slew_velocity_deg_per_s: 1.8
+    max_slew_acceleration_deg_per_s2: 0.4
+    settling_time_s: 2.0
+    max_off_nadir_deg: 30.0
+  resource_model:
+    battery_capacity_wh: 1300.0
+    initial_battery_wh: 800.0
+    idle_power_w: 20.0
+    imaging_power_w: 420.0
+    slew_power_w: 360.0
+    sunlit_charge_power_w: 85.0
+- satellite_id: sat_013
+  norad_catalog_id: 41948
+  tle_line1: 1 41948U 17008A   26103.94198096  .00000113  00000+0  85127-5 0  9992
+  tle_line2: 2 41948  97.4171 164.4260 0005923 105.9022 254.2866 15.19300781507828
+  sensor:
+    sensor_type: visible
+  attitude_model:
+    max_slew_velocity_deg_per_s: 1.0
+    max_slew_acceleration_deg_per_s2: 0.25
+    settling_time_s: 3.0
+    max_off_nadir_deg: 25.0
+  resource_model:
+    battery_capacity_wh: 1600.0
+    initial_battery_wh: 1000.0
+    idle_power_w: 25.0
+    imaging_power_w: 480.0
+    slew_power_w: 280.0
+    sunlit_charge_power_w: 100.0
+- satellite_id: sat_014
+  norad_catalog_id: 42767
+  tle_line1: 1 42767U 17036C   26104.09092135 -.00000035  00000+0  15208-5 0  9994
+  tle_line2: 2 42767  97.4333 164.9288 0003685 154.9538 205.1876 15.19227050488418
+  sensor:
+    sensor_type: infrared
+  attitude_model:
+    max_slew_velocity_deg_per_s: 0.9
+    max_slew_acceleration_deg_per_s2: 0.15
+    settling_time_s: 3.5
+    max_off_nadir_deg: 20.0
+  resource_model:
+    battery_capacity_wh: 1800.0
+    initial_battery_wh: 1000.0
+    idle_power_w: 30.0
+    imaging_power_w: 680.0
+    slew_power_w: 320.0
+    sunlit_charge_power_w: 115.0
+- satellite_id: sat_015
+  norad_catalog_id: 42990
+  tle_line1: 1 42990U 17068D   26103.91240376  .00006825  00000+0  19892-3 0  9992
+  tle_line2: 2 42990  97.4416 239.7892 0001051 102.5411 257.5950 15.35706680472443
+  sensor:
+    sensor_type: infrared
+  attitude_model:
+    max_slew_velocity_deg_per_s: 0.9
+    max_slew_acceleration_deg_per_s2: 0.15
+    settling_time_s: 3.5
+    max_off_nadir_deg: 20.0
+  resource_model:
+    battery_capacity_wh: 1800.0
+    initial_battery_wh: 1000.0
+    idle_power_w: 30.0
+    imaging_power_w: 680.0
+    slew_power_w: 320.0
+    sunlit_charge_power_w: 115.0
+- satellite_id: sat_016
+  norad_catalog_id: 42991
+  tle_line1: 1 42991U 17068E   26103.83844932  .00006341  00000+0  18525-3 0  9997
+  tle_line2: 2 42991  97.4427 240.6998 0005447 348.9947  11.1177 15.35651042472498
+  sensor:
+    sensor_type: infrared
+  attitude_model:
+    max_slew_velocity_deg_per_s: 0.9
+    max_slew_acceleration_deg_per_s2: 0.15
+    settling_time_s: 3.5
+    max_off_nadir_deg: 20.0
+  resource_model:
+    battery_capacity_wh: 1800.0
+    initial_battery_wh: 1000.0
+    idle_power_w: 30.0
+    imaging_power_w: 680.0
+    slew_power_w: 320.0
+    sunlit_charge_power_w: 115.0
+- satellite_id: sat_017
+  norad_catalog_id: 43111
+  tle_line1: 1 43111U 18004A   26104.12260037  .00002784  00000+0  13508-3 0  9997
+  tle_line2: 2 43111  97.4095 164.6288 0002452 119.7879 240.3599 15.19306551457606
+  sensor:
+    sensor_type: visible
+  attitude_model:
+    max_slew_velocity_deg_per_s: 1.0
+    max_slew_acceleration_deg_per_s2: 0.25
+    settling_time_s: 3.0
+    max_off_nadir_deg: 25.0
+  resource_model:
+    battery_capacity_wh: 1600.0
+    initial_battery_wh: 1000.0
+    idle_power_w: 25.0
+    imaging_power_w: 480.0
+    slew_power_w: 280.0
+    sunlit_charge_power_w: 100.0
+- satellite_id: sat_018
+  norad_catalog_id: 43260
+  tle_line1: 1 43260U 18031B   26104.16530807  .00000436  00000+0  70146-4 0  9995
+  tle_line2: 2 43260  98.0571 166.7195 0001054 283.4938  76.6154 14.76417197433241
+  sensor:
+    sensor_type: visible
+  attitude_model:
+    max_slew_velocity_deg_per_s: 1.8
+    max_slew_acceleration_deg_per_s2: 0.4
+    settling_time_s: 2.0
+    max_off_nadir_deg: 30.0
+  resource_model:
+    battery_capacity_wh: 1300.0
+    initial_battery_wh: 800.0
+    idle_power_w: 20.0
+    imaging_power_w: 420.0
+    slew_power_w: 360.0
+    sunlit_charge_power_w: 85.0
+- satellite_id: sat_019
+  norad_catalog_id: 43461
+  tle_line1: 1 43461U 18043A   26103.66585510  .00000219  00000+0  55151-4 0  9994
+  tle_line2: 2 43461  98.4522  73.9187 0000584 306.9072  53.2074 14.60559953422274
+  sensor:
+    sensor_type: visible
+  attitude_model:
+    max_slew_velocity_deg_per_s: 1.0
+    max_slew_acceleration_deg_per_s2: 0.25
+    settling_time_s: 3.0
+    max_off_nadir_deg: 25.0
+  resource_model:
+    battery_capacity_wh: 1600.0
+    initial_battery_wh: 1000.0
+    idle_power_w: 25.0
+    imaging_power_w: 480.0
+    slew_power_w: 280.0
+    sunlit_charge_power_w: 100.0
+- satellite_id: sat_020
+  norad_catalog_id: 44622
+  tle_line1: 1 44622U 19066A   26103.98739708  .00000848  00000+0  11127-3 0  9997
+  tle_line2: 2 44622  98.0448  57.1255 0005574   1.4726 358.6503 14.82916452352865
+  sensor:
+    sensor_type: visible
+  attitude_model:
+    max_slew_velocity_deg_per_s: 1.8
+    max_slew_acceleration_deg_per_s2: 0.4
+    settling_time_s: 2.0
+    max_off_nadir_deg: 30.0
+  resource_model:
+    battery_capacity_wh: 1300.0
+    initial_battery_wh: 800.0
+    idle_power_w: 20.0
+    imaging_power_w: 420.0
+    slew_power_w: 360.0
+    sunlit_charge_power_w: 85.0
+- satellite_id: sat_021
+  norad_catalog_id: 44804
+  tle_line1: 1 44804U 19081A   26103.94018655  .00001352  00000+0  67366-4 0  9991
+  tle_line2: 2 44804  97.4366 166.8204 0012500  22.3961 337.7817 15.19216469353714
+  sensor:
+    sensor_type: visible
+  attitude_model:
+    max_slew_velocity_deg_per_s: 1.0
+    max_slew_acceleration_deg_per_s2: 0.25
+    settling_time_s: 3.0
+    max_off_nadir_deg: 25.0
+  resource_model:
+    battery_capacity_wh: 1600.0
+    initial_battery_wh: 1000.0
+    idle_power_w: 25.0
+    imaging_power_w: 480.0
+    slew_power_w: 280.0
+    sunlit_charge_power_w: 100.0
+- satellite_id: sat_022
+  norad_catalog_id: 44819
+  tle_line1: 1 44819U 19082A   26104.00519174  .00000240  00000+0  38029-4 0  9997
+  tle_line2: 2 44819  97.8128 112.0762 0000774 122.4448 237.6839 14.80406192344593
+  sensor:
+    sensor_type: visible
+  attitude_model:
+    max_slew_velocity_deg_per_s: 1.8
+    max_slew_acceleration_deg_per_s2: 0.4
+    settling_time_s: 2.0
+    max_off_nadir_deg: 30.0
+  resource_model:
+    battery_capacity_wh: 1300.0
+    initial_battery_wh: 800.0
+    idle_power_w: 20.0
+    imaging_power_w: 420.0
+    slew_power_w: 360.0
+    sunlit_charge_power_w: 85.0
+- satellite_id: sat_023
+  norad_catalog_id: 48268
+  tle_line1: 1 48268U 21034A   26103.96224166 -.00000034  00000+0  22549-5 0  9990
+  tle_line2: 2 48268  97.8933 179.6508 0001284  93.5777 266.5583 14.81672073268143
+  sensor:
+    sensor_type: infrared
+  attitude_model:
+    max_slew_velocity_deg_per_s: 0.9
+    max_slew_acceleration_deg_per_s2: 0.15
+    settling_time_s: 3.5
+    max_off_nadir_deg: 20.0
+  resource_model:
+    battery_capacity_wh: 1800.0
+    initial_battery_wh: 1000.0
+    idle_power_w: 30.0
+    imaging_power_w: 680.0
+    slew_power_w: 320.0
+    sunlit_charge_power_w: 115.0
+- satellite_id: sat_024
+  norad_catalog_id: 49260
+  tle_line1: 1 49260U 21088A   26103.92213628  .00000211  00000+0  56728-4 0  9990
+  tle_line2: 2 49260  98.1885 175.1284 0001139 100.3231 259.8096 14.57112999241648
+  sensor:
+    sensor_type: infrared
+  attitude_model:
+    max_slew_velocity_deg_per_s: 0.9
+    max_slew_acceleration_deg_per_s2: 0.15
+    settling_time_s: 3.5
+    max_off_nadir_deg: 20.0
+  resource_model:
+    battery_capacity_wh: 1800.0
+    initial_battery_wh: 1000.0
+    idle_power_w: 30.0
+    imaging_power_w: 680.0
+    slew_power_w: 320.0
+    sunlit_charge_power_w: 115.0
+- satellite_id: sat_025
+  norad_catalog_id: 52912
+  tle_line1: 1 52912U 22069A   26103.95907240  .00000113  00000+0  21656-4 0  9994
+  tle_line2: 2 52912  97.8359 353.4264 0001854  52.2815 307.8565 14.79930234205115
+  sensor:
+    sensor_type: visible
+  attitude_model:
+    max_slew_velocity_deg_per_s: 1.0
+    max_slew_acceleration_deg_per_s2: 0.25
+    settling_time_s: 3.0
+    max_off_nadir_deg: 25.0
+  resource_model:
+    battery_capacity_wh: 1600.0
+    initial_battery_wh: 1000.0
+    idle_power_w: 25.0
+    imaging_power_w: 480.0
+    slew_power_w: 280.0
+    sunlit_charge_power_w: 100.0
+- satellite_id: sat_026
+  norad_catalog_id: 60989
+  tle_line1: 1 60989U 24157A   26103.90679551  .00000060  00000+0  39456-4 0  9991
+  tle_line2: 2 60989  98.5642 179.6103 0001350 108.6675 251.4655 14.30813258 83797
+  sensor:
+    sensor_type: visible
+  attitude_model:
+    max_slew_velocity_deg_per_s: 1.8
+    max_slew_acceleration_deg_per_s2: 0.4
+    settling_time_s: 2.0
+    max_off_nadir_deg: 30.0
+  resource_model:
+    battery_capacity_wh: 1300.0
+    initial_battery_wh: 800.0
+    idle_power_w: 20.0
+    imaging_power_w: 420.0
+    slew_power_w: 360.0
+    sunlit_charge_power_w: 85.0

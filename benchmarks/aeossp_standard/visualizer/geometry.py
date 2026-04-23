@@ -135,6 +135,16 @@ def _angle_between_deg(a: np.ndarray, b: np.ndarray) -> np.ndarray:
     return np.degrees(np.arccos(cosines))
 
 
+def _cos_between(a: np.ndarray, b: np.ndarray) -> np.ndarray:
+    na = np.linalg.norm(a, axis=1)
+    nb = np.linalg.norm(b, axis=1)
+    safe = (na > _NUMERICAL_EPS) & (nb > _NUMERICAL_EPS)
+    cosines = np.ones_like(na)
+    cosines[safe] = np.sum(a[safe] * b[safe], axis=1) / (na[safe] * nb[safe])
+    np.clip(cosines, -1.0, 1.0, out=cosines)
+    return cosines
+
+
 def access_mask_for_satellite(
     task_like: dict[str, Any],
     satellite_def: dict[str, Any],
@@ -142,13 +152,13 @@ def access_mask_for_satellite(
 ) -> tuple[np.ndarray, np.ndarray]:
     if satellite_def["sensor"]["sensor_type"] != task_like["required_sensor_type"]:
         n_samples = sampled_positions_ecef_m.shape[0]
-        return np.zeros(n_samples, dtype=bool), np.full(n_samples, np.inf, dtype=float)
+        return np.zeros(n_samples, dtype=bool), np.full(n_samples, np.nan, dtype=float)
 
     target_ecef_m = task_target_ecef_m(task_like)
     target_norm = float(np.linalg.norm(target_ecef_m))
     if target_norm < _NUMERICAL_EPS:
         n_samples = sampled_positions_ecef_m.shape[0]
-        return np.zeros(n_samples, dtype=bool), np.full(n_samples, np.inf, dtype=float)
+        return np.zeros(n_samples, dtype=bool), np.full(n_samples, np.nan, dtype=float)
 
     los_vectors = target_ecef_m[None, :] - sampled_positions_ecef_m
     target_normal = target_ecef_m / target_norm
@@ -157,9 +167,13 @@ def access_mask_for_satellite(
         sampled_positions_ecef_m - target_ecef_m[None, :],
         target_normal,
     ) > 0.0
-    off_nadir_deg = _angle_between_deg(-sampled_positions_ecef_m, los_vectors)
+    off_nadir_deg = np.full(sampled_positions_ecef_m.shape[0], np.nan, dtype=float)
     max_off_nadir = float(satellite_def["attitude_model"]["max_off_nadir_deg"])
-    access_mask = above_horizon & (off_nadir_deg <= max_off_nadir + 1.0e-9)
+    off_nadir_cos = _cos_between(-sampled_positions_ecef_m, los_vectors)
+    access_mask = above_horizon & (
+        off_nadir_cos >= np.cos(np.radians(max_off_nadir + 1.0e-9))
+    )
+    off_nadir_deg[access_mask] = np.degrees(np.arccos(off_nadir_cos[access_mask]))
     return access_mask, off_nadir_deg
 
 

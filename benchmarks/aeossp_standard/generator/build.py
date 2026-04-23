@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from concurrent.futures import ProcessPoolExecutor
 from collections import Counter
 from copy import deepcopy
 from dataclasses import dataclass
@@ -12,6 +13,7 @@ from pathlib import Path
 import random
 from typing import Any
 
+import brahe
 import yaml
 from shapely.geometry import Point, shape
 from shapely.ops import unary_union
@@ -22,7 +24,11 @@ from .normalize import CityRecord, TleRecord, load_celestrak_csv, load_world_cit
 from . import sources as sources_module
 
 MIN_CANDIDATE_BATCH = 24
-CITY_REACHABILITY_PREFILTER_MAX_SATELLITES = 4
+CITY_REACHABILITY_PREFILTER_MAX_SATELLITES = 8
+EARTH_RADIUS_M = 6_371_000.0
+
+_WORKER_CITIES: list[CityRecord] | None = None
+_WORKER_LAND_GEOMETRY: Any | None = None
 
 def _validate_path_segment(value: object, label: str) -> str:
     if not isinstance(value, str) or not value or "/" in value or "\\" in value:
@@ -94,6 +100,58 @@ def _parse_smoke_case(config: dict[str, Any]) -> tuple[str, str]:
     )
 
 
+def _require_supported_celestrak_snapshot_epoch(value: object, label: str) -> str:
+    if not isinstance(value, str) or not value:
+        raise ValueError(f"{label} must be a non-empty string")
+    supported = sources_module.supported_celestrak_snapshot_epochs()
+    if value not in supported:
+        raise ValueError(
+            "aeossp_standard only supports cached CelesTrak snapshot epochs "
+            f"{', '.join(supported)}; got {value!r}"
+        )
+    return value
+
+
+def _default_celestrak_snapshot_epoch(source_config: dict[str, Any]) -> str:
+    celestrak = _require_mapping(source_config.get("celestrak"), "source.celestrak")
+    return _require_supported_celestrak_snapshot_epoch(
+        celestrak.get("snapshot_epoch_utc"),
+        "source.celestrak.snapshot_epoch_utc",
+    )
+
+
+def _split_celestrak_snapshot_epoch(
+    split_config: dict[str, Any],
+    *,
+    source_config: dict[str, Any],
+    label: str,
+) -> str:
+    source_override = split_config.get("source")
+    if source_override is None:
+        return _default_celestrak_snapshot_epoch(source_config)
+    split_source = _require_mapping(source_override, f"{label}.source")
+    celestrak = _require_mapping(split_source.get("celestrak"), f"{label}.source.celestrak")
+    return _require_supported_celestrak_snapshot_epoch(
+        celestrak.get("snapshot_epoch_utc"),
+        f"{label}.source.celestrak.snapshot_epoch_utc",
+    )
+
+
+def celestrak_snapshot_epochs_for_config(config: dict[str, Any]) -> tuple[str, ...]:
+    source_config = _require_mapping(config.get("source"), "source")
+    epochs = [_default_celestrak_snapshot_epoch(source_config)]
+    for split_name, split_config in _require_mapping(config.get("splits"), "splits").items():
+        split_payload = _require_mapping(split_config, f"splits.{split_name}")
+        epochs.append(
+            _split_celestrak_snapshot_epoch(
+                split_payload,
+                source_config=source_config,
+                label=f"splits.{split_name}",
+            )
+        )
+    return tuple(dict.fromkeys(epochs))
+
+
 def load_generator_config(path: Path) -> dict[str, Any]:
     try:
         payload = yaml.safe_load(path.read_text(encoding="utf-8"))
@@ -104,15 +162,10 @@ def load_generator_config(path: Path) -> dict[str, Any]:
 
     config = _require_mapping(payload, "splits config")
     source = _require_mapping(config.get("source"), "source")
-    celestrak = _require_mapping(source.get("celestrak"), "source.celestrak")
+    _require_mapping(source.get("celestrak"), "source.celestrak")
     _require_mapping(source.get("world_cities"), "source.world_cities")
     _require_mapping(source.get("natural_earth_land"), "source.natural_earth_land")
-    snapshot_epoch_utc = str(celestrak.get("snapshot_epoch_utc"))
-    if snapshot_epoch_utc != sources_module.CELESTRAK_SNAPSHOT_EPOCH_UTC:
-        raise ValueError(
-            "aeossp_standard only supports the cached CelesTrak snapshot epoch "
-            f"{sources_module.CELESTRAK_SNAPSHOT_EPOCH_UTC}; got {snapshot_epoch_utc!r}"
-        )
+    _default_celestrak_snapshot_epoch(source)
 
     splits = _require_mapping(config.get("splits"), "splits")
     if not splits:
@@ -121,6 +174,11 @@ def load_generator_config(path: Path) -> dict[str, Any]:
     for split_name, split_config in splits.items():
         _validate_path_segment(split_name, "split name")
         split_payload = _require_mapping(split_config, f"splits.{split_name}")
+        _split_celestrak_snapshot_epoch(
+            split_payload,
+            source_config=source,
+            label=f"splits.{split_name}",
+        )
         case_count = _require_int(split_payload, "case_count", f"splits.{split_name}")
         if case_count <= 0:
             raise ValueError(f"splits.{split_name}.case_count must be positive")
@@ -243,6 +301,7 @@ class TaskSeed:
     longitude_deg: float
     altitude_m: float
     source_kind: str
+    anchor_satellite_id: str | None = None
 
 
 @dataclass(frozen=True)
@@ -254,6 +313,17 @@ class PlannedTask:
     release_time: datetime
     due_time: datetime
     access_interval: AccessInterval
+
+
+@dataclass(frozen=True)
+class GeneratedCase:
+    order: int
+    split_name: str
+    case_id: str
+    mission_payload: dict[str, Any]
+    satellite_payload: dict[str, Any]
+    task_payload: dict[str, Any]
+    summary: dict[str, Any]
 
 
 def _write_yaml(path: Path, payload: dict[str, Any]) -> None:
@@ -291,7 +361,6 @@ def _haversine_distance_m(
     lat_b_deg: float,
     lon_b_deg: float,
 ) -> float:
-    radius_m = 6_371_000.0
     lat_a = math.radians(lat_a_deg)
     lon_a = math.radians(lon_a_deg)
     lat_b = math.radians(lat_b_deg)
@@ -302,7 +371,79 @@ def _haversine_distance_m(
         math.sin(delta_lat / 2.0) ** 2
         + math.cos(lat_a) * math.cos(lat_b) * math.sin(delta_lon / 2.0) ** 2
     )
-    return 2.0 * radius_m * math.asin(math.sqrt(term))
+    return 2.0 * EARTH_RADIUS_M * math.asin(math.sqrt(term))
+
+
+def _unit_sphere_point(latitude_deg: float, longitude_deg: float) -> tuple[float, float, float]:
+    lat = math.radians(latitude_deg)
+    lon = math.radians(longitude_deg)
+    cos_lat = math.cos(lat)
+    return (
+        cos_lat * math.cos(lon),
+        cos_lat * math.sin(lon),
+        math.sin(lat),
+    )
+
+
+class _TargetSeparationIndex:
+    def __init__(
+        self,
+        *,
+        min_target_separation_m: float,
+        seeds: list[TaskSeed] | None = None,
+    ) -> None:
+        self._min_target_separation_m = min_target_separation_m
+        self._min_chord = 2.0 * math.sin(min_target_separation_m / (2.0 * EARTH_RADIUS_M))
+        self._cell_size = max(self._min_chord, 1.0e-12)
+        self._cells: dict[tuple[int, int, int], list[tuple[float, float, float, float, float]]] = {}
+        for seed in seeds or []:
+            self.add(seed.latitude_deg, seed.longitude_deg)
+
+    def clone(self) -> "_TargetSeparationIndex":
+        clone = _TargetSeparationIndex(min_target_separation_m=self._min_target_separation_m)
+        clone._cells = {cell: rows.copy() for cell, rows in self._cells.items()}
+        return clone
+
+    def _cell_for(self, point: tuple[float, float, float]) -> tuple[int, int, int]:
+        return (
+            math.floor(point[0] / self._cell_size),
+            math.floor(point[1] / self._cell_size),
+            math.floor(point[2] / self._cell_size),
+        )
+
+    def is_far_enough(self, latitude_deg: float, longitude_deg: float) -> bool:
+        if self._min_target_separation_m <= 0.0:
+            return True
+        point = _unit_sphere_point(latitude_deg, longitude_deg)
+        cell_x, cell_y, cell_z = self._cell_for(point)
+        for dx in (-1, 0, 1):
+            for dy in (-1, 0, 1):
+                for dz in (-1, 0, 1):
+                    for existing in self._cells.get((cell_x + dx, cell_y + dy, cell_z + dz), []):
+                        chord = math.sqrt(
+                            (point[0] - existing[0]) ** 2
+                            + (point[1] - existing[1]) ** 2
+                            + (point[2] - existing[2]) ** 2
+                        )
+                        if chord <= self._min_chord + 1.0e-12:
+                            distance_m = _haversine_distance_m(
+                                latitude_deg,
+                                longitude_deg,
+                                existing[3],
+                                existing[4],
+                            )
+                            if distance_m < self._min_target_separation_m:
+                                return False
+        return True
+
+    def add(self, latitude_deg: float, longitude_deg: float) -> None:
+        point = _unit_sphere_point(latitude_deg, longitude_deg)
+        self._cells.setdefault(self._cell_for(point), []).append(
+            (point[0], point[1], point[2], latitude_deg, longitude_deg)
+        )
+
+    def add_seed(self, seed: TaskSeed) -> None:
+        self.add(seed.latitude_deg, seed.longitude_deg)
 
 
 def _macro_region(latitude_deg: float, longitude_deg: float) -> str:
@@ -496,13 +637,13 @@ def _sample_city_tasks(
     rng: random.Random,
     cities: list[CityRecord],
     count: int,
-    accepted: list[TaskSeed],
     *,
-    min_target_separation_m: float,
+    separation_index: _TargetSeparationIndex,
 ) -> list[TaskSeed]:
     buckets = _city_candidate_buckets(cities)
     bucket_names = sorted(buckets)
     bucket_offsets = {name: 0 for name in bucket_names}
+    local_index = separation_index.clone()
     selected: list[TaskSeed] = []
     attempts = 0
     while len(selected) < count and attempts < max(5000, count * 40):
@@ -515,23 +656,21 @@ def _sample_city_tasks(
         head_limit = min(len(rows), offset + 12)
         candidate = rng.choice(rows[offset:head_limit])
         bucket_offsets[bucket] = min(len(rows), offset + 1)
-        if not _is_far_enough(
+        if not local_index.is_far_enough(
             candidate.latitude_deg,
             candidate.longitude_deg,
-            accepted + selected,
-            min_target_separation_m=min_target_separation_m,
         ):
             attempts += 1
             continue
-        selected.append(
-            TaskSeed(
-                name=f"{candidate.name}, {candidate.country}",
-                latitude_deg=candidate.latitude_deg,
-                longitude_deg=candidate.longitude_deg,
-                altitude_m=0.0,
-                source_kind="city",
-            )
+        seed = TaskSeed(
+            name=f"{candidate.name}, {candidate.country}",
+            latitude_deg=candidate.latitude_deg,
+            longitude_deg=candidate.longitude_deg,
+            altitude_m=0.0,
+            source_kind="city",
         )
+        selected.append(seed)
+        local_index.add_seed(seed)
         attempts += 1
     if len(selected) < count:
         raise ValueError(f"Unable to sample {count} city tasks with the configured separation")
@@ -542,36 +681,69 @@ def _sample_background_tasks(
     rng: random.Random,
     land_geometry,
     count: int,
-    accepted: list[TaskSeed],
     *,
-    min_target_separation_m: float,
+    separation_index: _TargetSeparationIndex,
+    orbit_grid: Any | None = None,
+    compatible_satellite_ids: set[str] | None = None,
 ) -> list[TaskSeed]:
+    local_index = separation_index.clone()
     selected: list[TaskSeed] = []
     attempts = 0
     max_attempts = max(20_000, count * 500)
+    if orbit_grid is not None and compatible_satellite_ids:
+        satellite_ids = sorted(compatible_satellite_ids)
+        while len(selected) < count and attempts < max_attempts:
+            satellite_id = rng.choice(satellite_ids)
+            sampled_positions = orbit_grid.positions_ecef_m[satellite_id]
+            sample_index = rng.randrange(sampled_positions.shape[0])
+            lon, lat, _alt = brahe.position_ecef_to_geodetic(
+                sampled_positions[sample_index],
+                brahe.AngleFormat.DEGREES,
+            )
+            lon = float(lon)
+            lat = float(lat)
+            if not land_geometry.contains(Point(lon, lat)):
+                attempts += 1
+                continue
+            if not local_index.is_far_enough(lat, lon):
+                attempts += 1
+                continue
+            seed = TaskSeed(
+                name=f"background_{len(selected) + 1:04d}",
+                latitude_deg=lat,
+                longitude_deg=lon,
+                altitude_m=0.0,
+                source_kind="background",
+                anchor_satellite_id=satellite_id,
+            )
+            selected.append(seed)
+            local_index.add_seed(seed)
+            attempts += 1
+        if len(selected) < count:
+            raise ValueError(f"Unable to sample {count} background tasks with the configured separation")
+        return selected
+
     while len(selected) < count and attempts < max_attempts:
         lon = rng.uniform(-180.0, 180.0)
         lat = math.degrees(math.asin(rng.uniform(-1.0, 1.0)))
         if not land_geometry.contains(Point(lon, lat)):
             attempts += 1
             continue
-        if not _is_far_enough(
+        if not local_index.is_far_enough(
             lat,
             lon,
-            accepted + selected,
-            min_target_separation_m=min_target_separation_m,
         ):
             attempts += 1
             continue
-        selected.append(
-            TaskSeed(
-                name=f"background_{len(selected) + 1:04d}",
-                latitude_deg=lat,
-                longitude_deg=lon,
-                altitude_m=0.0,
-                source_kind="background",
-            )
+        seed = TaskSeed(
+            name=f"background_{len(selected) + 1:04d}",
+            latitude_deg=lat,
+            longitude_deg=lon,
+            altitude_m=0.0,
+            source_kind="background",
         )
+        selected.append(seed)
+        local_index.add_seed(seed)
         attempts += 1
     if len(selected) < count:
         raise ValueError(f"Unable to sample {count} background tasks with the configured separation")
@@ -632,24 +804,25 @@ def _sample_candidate_seeds(
     count: int,
     cities: list[CityRecord],
     land_geometry: Any,
-    accepted: list[TaskSeed],
+    separation_index: _TargetSeparationIndex,
+    orbit_grid: Any | None = None,
+    compatible_satellite_ids: set[str] | None = None,
     candidate_cities: list[CityRecord] | None = None,
-    min_target_separation_m: float,
 ) -> list[TaskSeed]:
     if source_kind == "city":
         return _sample_city_tasks(
             rng,
             candidate_cities or cities,
             count,
-            accepted=accepted,
-            min_target_separation_m=min_target_separation_m,
+            separation_index=separation_index,
         )
     return _sample_background_tasks(
         rng,
         land_geometry,
         count,
-        accepted=accepted,
-        min_target_separation_m=min_target_separation_m,
+        separation_index=separation_index,
+        orbit_grid=orbit_grid,
+        compatible_satellite_ids=compatible_satellite_ids,
     )
 
 
@@ -669,25 +842,45 @@ def _reachable_city_candidates(
     sensor_type: str,
     compatible_satellite_ids: set[str],
     task_config: dict[str, Any],
+    min_reachable_count: int,
+    max_checked_count: int,
 ) -> list[CityRecord]:
     min_duration_s = int(min(_require_numeric_list(task_config, "duration_options_s", "tasks")))
     reachable: list[CityRecord] = []
-    for city in cities:
-        intervals = derive_task_access_intervals(
-            {
-                "latitude_deg": city.latitude_deg,
-                "longitude_deg": city.longitude_deg,
-                "altitude_m": 0.0,
-                "required_sensor_type": sensor_type,
-                "required_duration_s": min_duration_s,
-            },
-            satellites,
-            orbit_grid,
-            compatible_satellite_ids=compatible_satellite_ids,
-            min_duration_s=min_duration_s,
-        )
-        if intervals:
-            reachable.append(city)
+    buckets = _city_candidate_buckets(cities)
+    bucket_names = sorted(buckets)
+    bucket_offsets = {name: 0 for name in bucket_names}
+    checked = 0
+    while checked < max_checked_count and len(reachable) < min_reachable_count:
+        exhausted = True
+        for bucket in bucket_names:
+            rows = buckets[bucket]
+            offset = bucket_offsets[bucket]
+            if offset >= len(rows):
+                continue
+            exhausted = False
+            city = rows[offset]
+            bucket_offsets[bucket] = offset + 1
+            checked += 1
+            if checked > max_checked_count:
+                break
+            intervals = derive_task_access_intervals(
+                {
+                    "latitude_deg": city.latitude_deg,
+                    "longitude_deg": city.longitude_deg,
+                    "altitude_m": 0.0,
+                    "required_sensor_type": sensor_type,
+                    "required_duration_s": min_duration_s,
+                },
+                satellites,
+                orbit_grid,
+                compatible_satellite_ids=compatible_satellite_ids,
+                min_duration_s=min_duration_s,
+            )
+            if intervals:
+                reachable.append(city)
+        if exhausted:
+            break
     return reachable or cities
 
 
@@ -810,6 +1003,7 @@ def _build_task_entries(
     planned_tasks: list[PlannedTask] = []
     reachable_city_cache: dict[str, list[CityRecord]] = {}
     min_target_separation_m = _require_float(task_config, "min_target_separation_m", "tasks")
+    separation_index = _TargetSeparationIndex(min_target_separation_m=min_target_separation_m)
     duration_options_s = [int(value) for value in _require_numeric_list(task_config, "duration_options_s", "tasks")]
     for source_kind, sensor_type in group_order:
         remaining = group_counts[(source_kind, sensor_type)]
@@ -825,6 +1019,11 @@ def _build_task_entries(
         ):
             candidate_cities = reachable_city_cache.get(sensor_type)
             if candidate_cities is None:
+                min_reachable_count = max(
+                    MIN_CANDIDATE_BATCH * 4,
+                    remaining * 4,
+                    len(accepted_seeds) + remaining * 4,
+                )
                 candidate_cities = _reachable_city_candidates(
                     cities,
                     satellites=satellites,
@@ -832,6 +1031,11 @@ def _build_task_entries(
                     sensor_type=sensor_type,
                     compatible_satellite_ids=compatible_ids,
                     task_config=task_config,
+                    min_reachable_count=min_reachable_count,
+                    max_checked_count=min(
+                        len(cities),
+                        max(2000, min_reachable_count * 40),
+                    ),
                 )
                 reachable_city_cache[sensor_type] = candidate_cities
         while remaining > 0:
@@ -844,13 +1048,19 @@ def _build_task_entries(
                 count=batch_size,
                 cities=cities,
                 land_geometry=land_geometry,
-                accepted=accepted_seeds,
+                separation_index=separation_index,
+                orbit_grid=orbit_grid,
+                compatible_satellite_ids=compatible_ids,
                 candidate_cities=candidate_cities,
-                min_target_separation_m=min_target_separation_m,
             )
             accepted_this_round = 0
             for candidate in candidates:
                 required_duration_s = rng.choice(duration_options_s)
+                candidate_compatible_ids = (
+                    {candidate.anchor_satellite_id}
+                    if candidate.anchor_satellite_id is not None
+                    else compatible_ids
+                )
                 intervals = derive_task_access_intervals(
                     _provisional_task_like(
                         candidate,
@@ -859,7 +1069,7 @@ def _build_task_entries(
                     ),
                     satellites,
                     orbit_grid,
-                    compatible_satellite_ids=compatible_ids,
+                    compatible_satellite_ids=candidate_compatible_ids,
                     min_duration_s=required_duration_s,
                 )
                 if not intervals:
@@ -893,6 +1103,7 @@ def _build_task_entries(
                     )
                 )
                 accepted_seeds.append(candidate)
+                separation_index.add_seed(candidate)
                 accepted_this_round += 1
                 remaining -= 1
                 if remaining == 0:
@@ -1011,6 +1222,138 @@ def _task_source_mix(tasks: list[dict[str, Any]]) -> dict[str, int]:
     }
 
 
+def _build_generated_case(
+    *,
+    order: int,
+    split_name: str,
+    split_config: dict[str, Any],
+    case_index: int,
+    celestrak_snapshot_epoch_utc: str,
+    retained_pool: list[TleRecord],
+    anchor: datetime,
+    cities: list[CityRecord],
+    land_geometry: Any,
+) -> GeneratedCase:
+    mission_config = _require_mapping(split_config.get("mission"), "mission")
+    satellites_config = _require_mapping(split_config.get("satellites"), "satellites")
+    tasks_config = _require_mapping(split_config.get("tasks"), "tasks")
+    seed = _require_int(split_config, "seed", "split")
+    case_seed_stride = _require_int(split_config, "case_seed_stride", "split")
+    case_start_spacing_hours = _require_int(mission_config, "case_start_spacing_hours", "mission")
+    horizon_hours = _require_int(mission_config, "horizon_hours", "mission")
+
+    case_id = _case_id(case_index)
+    case_seed = _case_seed(seed, case_index, case_seed_stride=case_seed_stride)
+    case_rng = random.Random(case_seed)
+    horizon_start = anchor + timedelta(hours=(case_index - 1) * case_start_spacing_hours)
+    horizon_end = horizon_start + timedelta(hours=horizon_hours)
+
+    satellite_count = case_rng.randint(
+        _require_int(satellites_config, "min_per_case", "satellites"),
+        _require_int(satellites_config, "max_per_case", "satellites"),
+    )
+    task_count = case_rng.randint(
+        _require_int(tasks_config, "min_per_case", "tasks"),
+        _require_int(tasks_config, "max_per_case", "tasks"),
+    )
+    selected_satellites = _select_satellites(case_rng, retained_pool, satellite_count)
+    templates = _assign_satellite_templates(
+        case_rng,
+        satellite_count,
+        satellites_config=satellites_config,
+    )
+    satellite_entries = [
+        _build_satellite_entry(
+            record,
+            template_name,
+            satellite_index,
+            satellites_config=satellites_config,
+        )
+        for satellite_index, (record, template_name) in enumerate(
+            zip(selected_satellites, templates, strict=True),
+            start=1,
+        )
+    ]
+
+    task_entries = _build_task_entries(
+        case_rng,
+        cities=cities,
+        land_geometry=land_geometry,
+        satellites=satellite_entries,
+        horizon_start=horizon_start,
+        horizon_end=horizon_end,
+        task_count=task_count,
+        split_config=split_config,
+    )
+    mission_payload = _mission_payload(
+        case_id,
+        horizon_start,
+        horizon_end,
+        mission_config=mission_config,
+    )
+    _ensure_grid_contract(task_entries, mission_payload)
+
+    relative_case_path = str(Path("cases") / split_name / case_id)
+    summary = {
+        "case_id": case_id,
+        "split": split_name,
+        "path": relative_case_path,
+        "case_seed": case_seed,
+        "num_satellites": len(satellite_entries),
+        "num_tasks": len(task_entries),
+        "horizon_hours": horizon_hours,
+        "celestrak_snapshot_epoch_utc": celestrak_snapshot_epoch_utc,
+        "satellite_sensor_mix": _satellite_sensor_mix(satellite_entries),
+        "task_sensor_mix": _task_sensor_mix(task_entries),
+        "task_source_mix": _task_source_mix(task_entries),
+        "task_weight_summary": _task_weight_summary(task_entries),
+        "norad_catalog_ids": [entry["norad_catalog_id"] for entry in satellite_entries],
+    }
+    return GeneratedCase(
+        order=order,
+        split_name=split_name,
+        case_id=case_id,
+        mission_payload=mission_payload,
+        satellite_payload={"satellites": satellite_entries},
+        task_payload={"tasks": task_entries},
+        summary=summary,
+    )
+
+
+def _init_generation_worker(source_dir: str) -> None:
+    global _WORKER_CITIES, _WORKER_LAND_GEOMETRY
+    source_path = Path(source_dir)
+    _WORKER_CITIES = load_world_cities(source_path / "world_cities" / "world_cities.csv")
+    _WORKER_LAND_GEOMETRY = _load_land_geometry(
+        source_path / "natural_earth" / "ne_110m_land.geojson"
+    )
+
+
+def _build_generated_case_worker(job: dict[str, Any]) -> GeneratedCase:
+    if _WORKER_CITIES is None or _WORKER_LAND_GEOMETRY is None:
+        raise RuntimeError("generation worker was not initialized")
+    celestrak_snapshot_epoch_utc = str(job["celestrak_snapshot_epoch_utc"])
+    split_config = _require_mapping(job["split_config"], "split")
+    return _build_generated_case(
+        order=int(job["order"]),
+        split_name=str(job["split_name"]),
+        split_config=split_config,
+        case_index=int(job["case_index"]),
+        celestrak_snapshot_epoch_utc=celestrak_snapshot_epoch_utc,
+        retained_pool=job["retained_pool"],
+        anchor=job["anchor"],
+        cities=_WORKER_CITIES,
+        land_geometry=_WORKER_LAND_GEOMETRY,
+    )
+
+
+def _write_generated_case(cases_dir: Path, generated_case: GeneratedCase) -> None:
+    case_dir = cases_dir / generated_case.split_name / generated_case.case_id
+    _write_yaml(case_dir / "mission.yaml", generated_case.mission_payload)
+    _write_yaml(case_dir / "satellites.yaml", generated_case.satellite_payload)
+    _write_yaml(case_dir / "tasks.yaml", generated_case.task_payload)
+
+
 def generate_dataset(
     *,
     source_dir: Path,
@@ -1018,108 +1361,85 @@ def generate_dataset(
     split_configs: dict[str, dict[str, Any]],
     example_smoke_case: str,
     source_config: dict[str, Any],
+    jobs: int = 1,
 ) -> None:
-    celestrak_rows = load_celestrak_csv(source_dir / "celestrak" / "earth_resources.csv")
+    if jobs <= 0:
+        raise ValueError("jobs must be positive")
+
     cities = load_world_cities(source_dir / "world_cities" / "world_cities.csv")
     land_geometry = _load_land_geometry(source_dir / "natural_earth" / "ne_110m_land.geojson")
+    celestrak_rows_by_epoch: dict[str, list[TleRecord]] = {}
 
     cases_dir = output_dir / "cases"
     cases_dir.mkdir(parents=True, exist_ok=True)
 
     case_summaries: list[dict[str, Any]] = []
     generated_case_paths: set[str] = set()
+    case_jobs: list[dict[str, Any]] = []
     for split_name, split_config in split_configs.items():
-        mission_config = _require_mapping(split_config.get("mission"), "mission")
-        satellites_config = _require_mapping(split_config.get("satellites"), "satellites")
-        tasks_config = _require_mapping(split_config.get("tasks"), "tasks")
+        _require_mapping(split_config.get("mission"), "mission")
         case_count = _require_int(split_config, "case_count", "split")
-        seed = _require_int(split_config, "seed", "split")
-        case_seed_stride = _require_int(split_config, "case_seed_stride", "split")
-        case_start_spacing_hours = _require_int(mission_config, "case_start_spacing_hours", "mission")
-        horizon_hours = _require_int(mission_config, "horizon_hours", "mission")
-        split_dir = cases_dir / split_name
-        split_dir.mkdir(parents=True, exist_ok=True)
+        _require_mapping(split_config.get("satellites"), "satellites")
+        _require_mapping(split_config.get("tasks"), "tasks")
+        celestrak_snapshot_epoch_utc = _split_celestrak_snapshot_epoch(
+            split_config,
+            source_config=source_config,
+            label=f"splits.{split_name}",
+        )
+        celestrak_rows = celestrak_rows_by_epoch.get(celestrak_snapshot_epoch_utc)
+        if celestrak_rows is None:
+            celestrak_rows = load_celestrak_csv(
+                sources_module.celestrak_csv_path(source_dir, celestrak_snapshot_epoch_utc)
+            )
+            celestrak_rows_by_epoch[celestrak_snapshot_epoch_utc] = celestrak_rows
 
         retained_pool = _build_satellite_pool(
             celestrak_rows,
             satellite_pool_config=_require_mapping(split_config.get("satellite_pool"), "satellite_pool"),
         )
         anchor = _case_anchor_from_pool(retained_pool)
+        (cases_dir / split_name).mkdir(parents=True, exist_ok=True)
         for case_index in range(1, case_count + 1):
-            case_id = _case_id(case_index)
-            case_seed = _case_seed(seed, case_index, case_seed_stride=case_seed_stride)
-            case_rng = random.Random(case_seed)
-            horizon_start = anchor + timedelta(hours=(case_index - 1) * case_start_spacing_hours)
-            horizon_end = horizon_start + timedelta(hours=horizon_hours)
-
-            satellite_count = case_rng.randint(
-                _require_int(satellites_config, "min_per_case", "satellites"),
-                _require_int(satellites_config, "max_per_case", "satellites"),
-            )
-            task_count = case_rng.randint(
-                _require_int(tasks_config, "min_per_case", "tasks"),
-                _require_int(tasks_config, "max_per_case", "tasks"),
-            )
-            selected_satellites = _select_satellites(case_rng, retained_pool, satellite_count)
-            templates = _assign_satellite_templates(
-                case_rng,
-                satellite_count,
-                satellites_config=satellites_config,
-            )
-            satellite_entries = [
-                _build_satellite_entry(
-                    record,
-                    template_name,
-                    satellite_index,
-                    satellites_config=satellites_config,
-                )
-                for satellite_index, (record, template_name) in enumerate(
-                    zip(selected_satellites, templates, strict=True),
-                    start=1,
-                )
-            ]
-
-            task_entries = _build_task_entries(
-                case_rng,
-                cities=cities,
-                land_geometry=land_geometry,
-                satellites=satellite_entries,
-                horizon_start=horizon_start,
-                horizon_end=horizon_end,
-                task_count=task_count,
-                split_config=split_config,
-            )
-            mission_payload = _mission_payload(
-                case_id,
-                horizon_start,
-                horizon_end,
-                mission_config=mission_config,
-            )
-            _ensure_grid_contract(task_entries, mission_payload)
-
-            case_dir = split_dir / case_id
-            _write_yaml(case_dir / "mission.yaml", mission_payload)
-            _write_yaml(case_dir / "satellites.yaml", {"satellites": satellite_entries})
-            _write_yaml(case_dir / "tasks.yaml", {"tasks": task_entries})
-
-            relative_case_path = str(Path("cases") / split_name / case_id)
-            generated_case_paths.add(f"{split_name}/{case_id}")
-            case_summaries.append(
+            case_jobs.append(
                 {
-                    "case_id": case_id,
-                    "split": split_name,
-                    "path": relative_case_path,
-                    "case_seed": case_seed,
-                    "num_satellites": len(satellite_entries),
-                    "num_tasks": len(task_entries),
-                    "horizon_hours": horizon_hours,
-                    "satellite_sensor_mix": _satellite_sensor_mix(satellite_entries),
-                    "task_sensor_mix": _task_sensor_mix(task_entries),
-                    "task_source_mix": _task_source_mix(task_entries),
-                    "task_weight_summary": _task_weight_summary(task_entries),
-                    "norad_catalog_ids": [entry["norad_catalog_id"] for entry in satellite_entries],
+                    "order": len(case_jobs),
+                    "split_name": split_name,
+                    "split_config": split_config,
+                    "case_index": case_index,
+                    "celestrak_snapshot_epoch_utc": celestrak_snapshot_epoch_utc,
+                    "retained_pool": retained_pool,
+                    "anchor": anchor,
                 }
             )
+
+    generated_cases: list[GeneratedCase] = []
+    if jobs == 1 or len(case_jobs) <= 1:
+        for job in case_jobs:
+            generated_cases.append(
+                _build_generated_case(
+                    order=int(job["order"]),
+                    split_name=str(job["split_name"]),
+                    split_config=_require_mapping(job["split_config"], "split"),
+                    case_index=int(job["case_index"]),
+                    celestrak_snapshot_epoch_utc=str(job["celestrak_snapshot_epoch_utc"]),
+                    retained_pool=job["retained_pool"],
+                    anchor=job["anchor"],
+                    cities=cities,
+                    land_geometry=land_geometry,
+                )
+            )
+    else:
+        with ProcessPoolExecutor(
+            max_workers=jobs,
+            initializer=_init_generation_worker,
+            initargs=(str(source_dir),),
+        ) as executor:
+            generated_cases = list(executor.map(_build_generated_case_worker, case_jobs))
+
+    for generated_case in sorted(generated_cases, key=lambda item: item.order):
+        _write_generated_case(cases_dir, generated_case)
+        generated_case_paths.add(f"{generated_case.split_name}/{generated_case.case_id}")
+        case_summaries.append(generated_case.summary)
 
     if example_smoke_case not in generated_case_paths:
         raise ValueError(f"example_smoke_case {example_smoke_case} was not generated")
@@ -1133,6 +1453,11 @@ def generate_dataset(
                 "seed": _require_int(split_config, "seed", "split"),
                 "case_count": _require_int(split_config, "case_count", "split"),
                 "case_seed_stride": _require_int(split_config, "case_seed_stride", "split"),
+                "celestrak_snapshot_epoch_utc": _split_celestrak_snapshot_epoch(
+                    split_config,
+                    source_config=source_config,
+                    label=f"splits.{split_name}",
+                ),
             }
             for split_name, split_config in split_configs.items()
         },

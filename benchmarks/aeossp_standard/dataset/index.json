@@ -4,121 +4,109 @@
     {
       "case_id": "case_0001",
       "case_seed": 1051,
+      "celestrak_snapshot_epoch_utc": "2026-04-14T00:00:00Z",
       "horizon_hours": 12,
       "norad_catalog_ids": [
         28051,
         32783,
+        33396,
+        35681,
         37387,
         38012,
-        38038,
         39019,
         39084,
-        39418,
         40013,
-        40053,
-        41556,
-        42920,
+        42063,
         42988,
-        42990,
+        42991,
         43111,
         43259,
         43260,
         43262,
         48079,
         48268,
-        52912
+        52912,
+        60989
       ],
-      "num_satellites": 21,
-      "num_tasks": 1037,
+      "num_satellites": 20,
+      "num_tasks": 1947,
       "path": "cases/test/case_0001",
       "satellite_sensor_mix": {
         "infrared": 4,
-        "visible": 17
+        "visible": 16
       },
       "split": "test",
       "task_sensor_mix": {
-        "infrared": 104,
-        "visible": 933
+        "infrared": 195,
+        "visible": 1752
       },
       "task_source_mix": {
-        "background": 518,
-        "city": 519
+        "background": 973,
+        "city": 974
       },
       "task_weight_summary": {
         "max": 5.0,
-        "mean": 2.766635,
+        "mean": 2.749358,
         "min": 1.0
       }
     },
     {
       "case_id": "case_0002",
       "case_seed": 2060,
+      "celestrak_snapshot_epoch_utc": "2026-04-14T00:00:00Z",
       "horizon_hours": 12,
       "norad_catalog_ids": [
         28051,
         28649,
         32783,
         33396,
-        35681,
         36795,
         37387,
-        38012,
-        38038,
-        38755,
-        39019,
         39084,
         39418,
         40013,
         40053,
-        40072,
         40118,
-        40894,
+        41556,
         42063,
         42767,
-        42920,
-        42988,
-        42990,
         42991,
-        43111,
         43259,
-        43260,
         43262,
-        43461,
         43484,
         44622,
         44804,
-        44819,
         48079,
         48268,
         49070,
-        52912,
-        60989
+        52912
       ],
-      "num_satellites": 38,
-      "num_tasks": 1399,
+      "num_satellites": 24,
+      "num_tasks": 1791,
       "path": "cases/test/case_0002",
       "satellite_sensor_mix": {
-        "infrared": 8,
-        "visible": 30
+        "infrared": 5,
+        "visible": 19
       },
       "split": "test",
       "task_sensor_mix": {
-        "infrared": 140,
-        "visible": 1259
+        "infrared": 179,
+        "visible": 1612
       },
       "task_source_mix": {
-        "background": 699,
-        "city": 700
+        "background": 895,
+        "city": 896
       },
       "task_weight_summary": {
         "max": 5.0,
-        "mean": 2.776269,
+        "mean": 2.743719,
         "min": 1.0
       }
     },
     {
       "case_id": "case_0003",
       "case_seed": 3069,
+      "celestrak_snapshot_epoch_utc": "2026-04-14T00:00:00Z",
       "horizon_hours": 12,
       "norad_catalog_ids": [
         28649,
@@ -133,10 +121,8 @@
         40072,
         40697,
         41556,
-        41599,
         41727,
         41772,
-        41948,
         42063,
         42767,
         42992,
@@ -144,34 +130,34 @@
         43260,
         43262,
         43461,
-        44804,
         49070
       ],
-      "num_satellites": 25,
-      "num_tasks": 1115,
+      "num_satellites": 22,
+      "num_tasks": 1678,
       "path": "cases/test/case_0003",
       "satellite_sensor_mix": {
-        "infrared": 5,
-        "visible": 20
+        "infrared": 4,
+        "visible": 18
       },
       "split": "test",
       "task_sensor_mix": {
-        "infrared": 111,
-        "visible": 1004
+        "infrared": 168,
+        "visible": 1510
       },
       "task_source_mix": {
-        "background": 557,
-        "city": 558
+        "background": 839,
+        "city": 839
       },
       "task_weight_summary": {
         "max": 5.0,
-        "mean": 2.723767,
+        "mean": 2.775328,
         "min": 1.0
       }
     },
     {
       "case_id": "case_0004",
       "case_seed": 4078,
+      "celestrak_snapshot_epoch_utc": "2026-04-14T00:00:00Z",
       "horizon_hours": 12,
       "norad_catalog_ids": [
         28051,
@@ -186,7 +172,6 @@
         41877,
         42990,
         43260,
-        43262,
         43461,
         43484,
         44622,
@@ -197,44 +182,706 @@
         49260,
         57654
       ],
-      "num_satellites": 22,
-      "num_tasks": 1944,
+      "num_satellites": 21,
+      "num_tasks": 1886,
       "path": "cases/test/case_0004",
       "satellite_sensor_mix": {
         "infrared": 4,
-        "visible": 18
+        "visible": 17
       },
       "split": "test",
       "task_sensor_mix": {
-        "infrared": 194,
-        "visible": 1750
+        "infrared": 188,
+        "visible": 1698
       },
       "task_source_mix": {
-        "background": 972,
-        "city": 972
+        "background": 943,
+        "city": 943
       },
       "task_weight_summary": {
         "max": 5.0,
-        "mean": 2.725823,
+        "mean": 2.75053,
         "min": 1.0
       }
     },
     {
       "case_id": "case_0005",
       "case_seed": 5087,
+      "celestrak_snapshot_epoch_utc": "2026-04-14T00:00:00Z",
       "horizon_hours": 12,
       "norad_catalog_ids": [
         28051,
         32783,
         36795,
+        39084,
+        39150,
+        40013,
+        40072,
+        40697,
+        41556,
+        41599,
+        41601,
+        41727,
+        41877,
+        41948,
+        42063,
+        42920,
+        42990,
+        43259,
+        43260,
+        43262,
+        43461,
+        44819,
+        48079,
+        48268,
+        52912,
+        57654,
+        60989
+      ],
+      "num_satellites": 27,
+      "num_tasks": 1970,
+      "path": "cases/test/case_0005",
+      "satellite_sensor_mix": {
+        "infrared": 5,
+        "visible": 22
+      },
+      "split": "test",
+      "task_sensor_mix": {
+        "infrared": 196,
+        "visible": 1774
+      },
+      "task_source_mix": {
+        "background": 985,
+        "city": 985
+      },
+      "task_weight_summary": {
+        "max": 5.0,
+        "mean": 2.748223,
+        "min": 1.0
+      }
+    },
+    {
+      "case_id": "case_0001",
+      "case_seed": 1051,
+      "celestrak_snapshot_epoch_utc": "2022-04-14T00:00:00Z",
+      "horizon_hours": 12,
+      "norad_catalog_ids": [
+        28649,
+        32783,
+        35681,
+        39019,
+        39084,
+        39150,
+        40072,
+        42990,
+        42991,
+        42992,
+        43111,
+        43259,
+        43260,
+        43585,
+        44622,
+        44804,
+        44819,
+        48079,
+        48268,
+        49070
+      ],
+      "num_satellites": 20,
+      "num_tasks": 1947,
+      "path": "cases/test_horizon_2022/case_0001",
+      "satellite_sensor_mix": {
+        "infrared": 4,
+        "visible": 16
+      },
+      "split": "test_horizon_2022",
+      "task_sensor_mix": {
+        "infrared": 195,
+        "visible": 1752
+      },
+      "task_source_mix": {
+        "background": 973,
+        "city": 974
+      },
+      "task_weight_summary": {
+        "max": 5.0,
+        "mean": 2.744222,
+        "min": 1.0
+      }
+    },
+    {
+      "case_id": "case_0002",
+      "case_seed": 2060,
+      "celestrak_snapshot_epoch_utc": "2022-04-14T00:00:00Z",
+      "horizon_hours": 12,
+      "norad_catalog_ids": [
+        32783,
+        33396,
+        35681,
+        36795,
+        37387,
+        38755,
+        39019,
+        39084,
+        39418,
+        40072,
+        40701,
+        40894,
+        42767,
+        42988,
+        42989,
+        43111,
+        43259,
+        43260,
+        43585,
+        44622,
+        44804,
+        48268,
+        49070,
+        49260
+      ],
+      "num_satellites": 24,
+      "num_tasks": 1791,
+      "path": "cases/test_horizon_2022/case_0002",
+      "satellite_sensor_mix": {
+        "infrared": 5,
+        "visible": 19
+      },
+      "split": "test_horizon_2022",
+      "task_sensor_mix": {
+        "infrared": 179,
+        "visible": 1612
+      },
+      "task_source_mix": {
+        "background": 895,
+        "city": 896
+      },
+      "task_weight_summary": {
+        "max": 5.0,
+        "mean": 2.74651,
+        "min": 1.0
+      }
+    },
+    {
+      "case_id": "case_0003",
+      "case_seed": 3069,
+      "celestrak_snapshot_epoch_utc": "2022-04-14T00:00:00Z",
+      "horizon_hours": 12,
+      "norad_catalog_ids": [
+        28649,
+        32783,
+        33396,
+        36795,
+        37387,
+        38755,
+        39019,
+        40053,
+        40118,
+        40701,
+        41599,
+        41727,
+        41772,
+        42988,
+        42989,
+        43111,
+        44622,
+        44804,
+        44819,
+        48079,
+        48268,
+        49260
+      ],
+      "num_satellites": 22,
+      "num_tasks": 1678,
+      "path": "cases/test_horizon_2022/case_0003",
+      "satellite_sensor_mix": {
+        "infrared": 4,
+        "visible": 18
+      },
+      "split": "test_horizon_2022",
+      "task_sensor_mix": {
+        "infrared": 168,
+        "visible": 1510
+      },
+      "task_source_mix": {
+        "background": 839,
+        "city": 839
+      },
+      "task_weight_summary": {
+        "max": 5.0,
+        "mean": 2.760727,
+        "min": 1.0
+      }
+    },
+    {
+      "case_id": "case_0004",
+      "case_seed": 4078,
+      "celestrak_snapshot_epoch_utc": "2022-04-14T00:00:00Z",
+      "horizon_hours": 12,
+      "norad_catalog_ids": [
+        28649,
+        33396,
+        36795,
+        38012,
+        39084,
+        39150,
+        40118,
+        40701,
+        41727,
+        41772,
+        42920,
+        42987,
+        42990,
+        43259,
+        43262,
+        43585,
+        44622,
+        44804,
+        44819,
+        48079,
+        49070
+      ],
+      "num_satellites": 21,
+      "num_tasks": 1886,
+      "path": "cases/test_horizon_2022/case_0004",
+      "satellite_sensor_mix": {
+        "infrared": 4,
+        "visible": 17
+      },
+      "split": "test_horizon_2022",
+      "task_sensor_mix": {
+        "infrared": 188,
+        "visible": 1698
+      },
+      "task_source_mix": {
+        "background": 943,
+        "city": 943
+      },
+      "task_weight_summary": {
+        "max": 5.0,
+        "mean": 2.730647,
+        "min": 1.0
+      }
+    },
+    {
+      "case_id": "case_0005",
+      "case_seed": 5087,
+      "celestrak_snapshot_epoch_utc": "2022-04-14T00:00:00Z",
+      "horizon_hours": 12,
+      "norad_catalog_ids": [
+        32783,
+        33396,
+        35681,
+        36795,
+        39019,
+        39084,
+        39150,
+        39418,
+        40013,
+        40072,
+        40118,
+        41599,
+        41727,
+        41877,
+        41948,
+        42920,
+        42987,
+        42988,
+        42991,
+        43111,
+        43262,
+        43585,
+        44819,
+        48079,
+        48268,
+        49070,
+        49260
+      ],
+      "num_satellites": 27,
+      "num_tasks": 1970,
+      "path": "cases/test_horizon_2022/case_0005",
+      "satellite_sensor_mix": {
+        "infrared": 5,
+        "visible": 22
+      },
+      "split": "test_horizon_2022",
+      "task_sensor_mix": {
+        "infrared": 196,
+        "visible": 1774
+      },
+      "task_source_mix": {
+        "background": 985,
+        "city": 985
+      },
+      "task_weight_summary": {
+        "max": 5.0,
+        "mean": 2.760914,
+        "min": 1.0
+      }
+    },
+    {
+      "case_id": "case_0001",
+      "case_seed": 1132,
+      "celestrak_snapshot_epoch_utc": "2026-04-14T00:00:00Z",
+      "horizon_hours": 12,
+      "norad_catalog_ids": [
+        28051,
+        33396,
+        36795,
+        38012,
+        38038,
+        38755,
+        39084,
+        39418,
+        40013,
+        40053,
+        40118,
+        41556,
+        41601,
+        41772,
+        41877,
+        41948,
+        42063,
+        42767,
+        42920,
+        42988,
+        43111,
+        43262,
+        43461,
+        43484,
+        44804,
+        48079,
+        52912,
+        60989
+      ],
+      "num_satellites": 28,
+      "num_tasks": 1290,
+      "path": "cases/test_easy/case_0001",
+      "satellite_sensor_mix": {
+        "infrared": 6,
+        "visible": 22
+      },
+      "split": "test_easy",
+      "task_sensor_mix": {
+        "infrared": 64,
+        "visible": 1226
+      },
+      "task_source_mix": {
+        "background": 645,
+        "city": 645
+      },
+      "task_weight_summary": {
+        "max": 5.0,
+        "mean": 2.772481,
+        "min": 1.0
+      }
+    },
+    {
+      "case_id": "case_0002",
+      "case_seed": 2141,
+      "celestrak_snapshot_epoch_utc": "2026-04-14T00:00:00Z",
+      "horizon_hours": 12,
+      "norad_catalog_ids": [
+        28649,
+        35681,
+        37387,
+        38012,
+        39019,
+        39084,
+        39418,
+        40072,
+        40118,
+        40697,
+        41601,
+        41877,
+        41948,
+        42063,
+        42767,
+        42920,
+        42988,
+        42990,
+        43260,
+        43484,
+        44622,
+        44819,
+        48268,
+        49070,
+        49260,
+        60989
+      ],
+      "num_satellites": 26,
+      "num_tasks": 1479,
+      "path": "cases/test_easy/case_0002",
+      "satellite_sensor_mix": {
+        "infrared": 5,
+        "visible": 21
+      },
+      "split": "test_easy",
+      "task_sensor_mix": {
+        "infrared": 74,
+        "visible": 1405
+      },
+      "task_source_mix": {
+        "background": 739,
+        "city": 740
+      },
+      "task_weight_summary": {
+        "max": 5.0,
+        "mean": 2.71501,
+        "min": 1.0
+      }
+    },
+    {
+      "case_id": "case_0003",
+      "case_seed": 3150,
+      "celestrak_snapshot_epoch_utc": "2026-04-14T00:00:00Z",
+      "horizon_hours": 12,
+      "norad_catalog_ids": [
+        32783,
+        33396,
+        35681,
+        37387,
+        38012,
+        38038,
+        38755,
+        39150,
+        40013,
+        40072,
+        40118,
+        40697,
+        41556,
+        41599,
+        41727,
+        41948,
+        42990,
+        42992,
+        43259,
+        43484,
+        44804,
+        48268,
+        57654
+      ],
+      "num_satellites": 23,
+      "num_tasks": 1425,
+      "path": "cases/test_easy/case_0003",
+      "satellite_sensor_mix": {
+        "infrared": 5,
+        "visible": 18
+      },
+      "split": "test_easy",
+      "task_sensor_mix": {
+        "infrared": 71,
+        "visible": 1354
+      },
+      "task_source_mix": {
+        "background": 712,
+        "city": 713
+      },
+      "task_weight_summary": {
+        "max": 5.0,
+        "mean": 2.700702,
+        "min": 1.0
+      }
+    },
+    {
+      "case_id": "case_0004",
+      "case_seed": 4159,
+      "celestrak_snapshot_epoch_utc": "2026-04-14T00:00:00Z",
+      "horizon_hours": 12,
+      "norad_catalog_ids": [
+        28051,
+        28649,
+        35681,
+        36795,
+        37387,
+        38012,
+        38038,
+        39019,
+        39084,
+        39150,
+        39418,
+        40118,
+        40697,
+        40894,
+        41599,
+        41772,
+        41948,
+        42063,
+        42990,
+        42992,
+        43484,
+        44819,
+        48079,
+        48268,
+        49070,
+        52912,
+        57654
+      ],
+      "num_satellites": 27,
+      "num_tasks": 1359,
+      "path": "cases/test_easy/case_0004",
+      "satellite_sensor_mix": {
+        "infrared": 5,
+        "visible": 22
+      },
+      "split": "test_easy",
+      "task_sensor_mix": {
+        "infrared": 68,
+        "visible": 1291
+      },
+      "task_source_mix": {
+        "background": 679,
+        "city": 680
+      },
+      "task_weight_summary": {
+        "max": 5.0,
+        "mean": 2.747609,
+        "min": 1.0
+      }
+    },
+    {
+      "case_id": "case_0005",
+      "case_seed": 5168,
+      "celestrak_snapshot_epoch_utc": "2026-04-14T00:00:00Z",
+      "horizon_hours": 12,
+      "norad_catalog_ids": [
+        28051,
+        33396,
+        36795,
+        38012,
+        39150,
+        39418,
+        40072,
+        40894,
+        41556,
+        41601,
+        41772,
+        41877,
+        42920,
+        42988,
+        42990,
+        42991,
+        43111,
+        43461,
+        44819,
+        48268,
+        49070,
+        49260,
+        60989
+      ],
+      "num_satellites": 23,
+      "num_tasks": 1359,
+      "path": "cases/test_easy/case_0005",
+      "satellite_sensor_mix": {
+        "infrared": 5,
+        "visible": 18
+      },
+      "split": "test_easy",
+      "task_sensor_mix": {
+        "infrared": 68,
+        "visible": 1291
+      },
+      "task_source_mix": {
+        "background": 679,
+        "city": 680
+      },
+      "task_weight_summary": {
+        "max": 5.0,
+        "mean": 2.760854,
+        "min": 1.0
+      }
+    },
+    {
+      "case_id": "case_0001",
+      "case_seed": 1786,
+      "celestrak_snapshot_epoch_utc": "2026-04-14T00:00:00Z",
+      "horizon_hours": 12,
+      "norad_catalog_ids": [
+        28649,
+        32783,
+        33396,
+        35681,
+        36795,
+        37387,
+        38012,
         38755,
         39019,
         39084,
         39150,
+        39418,
         40013,
         40053,
         40072,
+        40118,
+        40894,
+        41556,
+        41599,
+        41727,
+        41877,
+        41948,
+        42063,
+        42920,
+        42988,
+        42990,
+        43111,
+        43259,
+        43260,
+        43262,
+        43461,
+        43484,
+        44622,
+        44819,
+        48079,
+        48268,
+        49070,
+        49260,
+        52912,
+        57654
+      ],
+      "num_satellites": 40,
+      "num_tasks": 3995,
+      "path": "cases/test_hard/case_0001",
+      "satellite_sensor_mix": {
+        "infrared": 8,
+        "visible": 32
+      },
+      "split": "test_hard",
+      "task_sensor_mix": {
+        "infrared": 719,
+        "visible": 3276
+      },
+      "task_source_mix": {
+        "background": 3516,
+        "city": 479
+      },
+      "task_weight_summary": {
+        "max": 5.0,
+        "mean": 1.79587,
+        "min": 1.0
+      }
+    },
+    {
+      "case_id": "case_0002",
+      "case_seed": 2795,
+      "celestrak_snapshot_epoch_utc": "2026-04-14T00:00:00Z",
+      "horizon_hours": 12,
+      "norad_catalog_ids": [
+        28051,
+        28649,
+        32783,
+        33396,
+        35681,
+        36795,
+        38012,
+        38755,
+        39019,
+        39084,
+        39418,
+        40013,
+        40072,
+        40118,
         40697,
+        40894,
         41556,
         41599,
         41601,
@@ -244,40 +891,777 @@
         41948,
         42063,
         42767,
+        42988,
+        42990,
+        42992,
+        43259,
+        43461,
+        43484,
+        44804,
+        48079,
+        49070,
+        49260,
+        52912,
+        57654,
+        60989
+      ],
+      "num_satellites": 38,
+      "num_tasks": 3921,
+      "path": "cases/test_hard/case_0002",
+      "satellite_sensor_mix": {
+        "infrared": 8,
+        "visible": 30
+      },
+      "split": "test_hard",
+      "task_sensor_mix": {
+        "infrared": 706,
+        "visible": 3215
+      },
+      "task_source_mix": {
+        "background": 3450,
+        "city": 471
+      },
+      "task_weight_summary": {
+        "max": 5.0,
+        "mean": 1.807702,
+        "min": 1.0
+      }
+    },
+    {
+      "case_id": "case_0003",
+      "case_seed": 3804,
+      "celestrak_snapshot_epoch_utc": "2026-04-14T00:00:00Z",
+      "horizon_hours": 12,
+      "norad_catalog_ids": [
+        28051,
+        28649,
+        33396,
+        35681,
+        36795,
+        38012,
+        38038,
+        38755,
+        39084,
+        39150,
+        39418,
+        40053,
+        40072,
+        40118,
+        40894,
+        41556,
+        41599,
+        41601,
+        41727,
+        41772,
+        41877,
+        41948,
+        42767,
         42920,
         42988,
+        42990,
+        42992,
+        43111,
+        43260,
+        43262,
+        43484,
+        44622,
+        44819,
+        48079,
+        48268,
+        49070,
+        49260,
+        52912,
+        57654,
+        60989
+      ],
+      "num_satellites": 40,
+      "num_tasks": 3545,
+      "path": "cases/test_hard/case_0003",
+      "satellite_sensor_mix": {
+        "infrared": 8,
+        "visible": 32
+      },
+      "split": "test_hard",
+      "task_sensor_mix": {
+        "infrared": 638,
+        "visible": 2907
+      },
+      "task_source_mix": {
+        "background": 3119,
+        "city": 426
+      },
+      "task_weight_summary": {
+        "max": 5.0,
+        "mean": 1.795628,
+        "min": 1.0
+      }
+    },
+    {
+      "case_id": "case_0004",
+      "case_seed": 4813,
+      "celestrak_snapshot_epoch_utc": "2026-04-14T00:00:00Z",
+      "horizon_hours": 12,
+      "norad_catalog_ids": [
+        28649,
+        32783,
+        35681,
+        37387,
+        38012,
+        38038,
+        38755,
+        39019,
+        39084,
+        39418,
+        40013,
+        40053,
+        40072,
+        40118,
+        40697,
+        40894,
+        41556,
+        41601,
+        41727,
+        41877,
+        41948,
+        42063,
+        42920,
+        42988,
+        42991,
+        42992,
         43111,
         43259,
         43260,
         43262,
         43461,
+        43484,
+        44804,
         44819,
         48079,
+        48268,
+        49070,
+        49260,
+        57654,
+        60989
+      ],
+      "num_satellites": 40,
+      "num_tasks": 3544,
+      "path": "cases/test_hard/case_0004",
+      "satellite_sensor_mix": {
+        "infrared": 8,
+        "visible": 32
+      },
+      "split": "test_hard",
+      "task_sensor_mix": {
+        "infrared": 638,
+        "visible": 2906
+      },
+      "task_source_mix": {
+        "background": 3118,
+        "city": 426
+      },
+      "task_weight_summary": {
+        "max": 5.0,
+        "mean": 1.790632,
+        "min": 1.0
+      }
+    },
+    {
+      "case_id": "case_0005",
+      "case_seed": 5822,
+      "celestrak_snapshot_epoch_utc": "2026-04-14T00:00:00Z",
+      "horizon_hours": 12,
+      "norad_catalog_ids": [
+        28051,
+        28649,
+        33396,
+        35681,
+        36795,
+        37387,
+        38012,
+        38038,
+        38755,
+        39019,
+        39150,
+        40013,
+        40053,
+        40072,
+        40118,
+        40697,
+        41556,
+        41599,
+        41727,
+        41772,
+        41877,
+        41948,
+        42063,
+        42920,
+        42988,
+        42991,
+        42992,
+        43259,
+        43461,
+        43484,
+        44622,
+        44819,
+        48079,
+        49070,
+        52912,
+        60989
+      ],
+      "num_satellites": 36,
+      "num_tasks": 3730,
+      "path": "cases/test_hard/case_0005",
+      "satellite_sensor_mix": {
+        "infrared": 7,
+        "visible": 29
+      },
+      "split": "test_hard",
+      "task_sensor_mix": {
+        "infrared": 672,
+        "visible": 3058
+      },
+      "task_source_mix": {
+        "background": 3282,
+        "city": 448
+      },
+      "task_weight_summary": {
+        "max": 5.0,
+        "mean": 1.791823,
+        "min": 1.0
+      }
+    },
+    {
+      "case_id": "case_0001",
+      "case_seed": 3035,
+      "celestrak_snapshot_epoch_utc": "2026-04-14T00:00:00Z",
+      "horizon_hours": 12,
+      "norad_catalog_ids": [
+        28649,
+        32783,
+        35681,
+        38755,
+        39084,
+        40013,
+        40053,
+        40072,
+        40118,
+        40697,
+        40894,
+        41601,
+        41727,
+        41772,
+        41948,
+        42063,
+        42767,
+        42988,
+        43259,
+        43260,
+        43484,
+        44622,
+        44804,
         48268,
         49260,
         52912,
         57654,
         60989
       ],
-      "num_satellites": 34,
-      "num_tasks": 1401,
-      "path": "cases/test/case_0005",
+      "num_satellites": 28,
+      "num_tasks": 1769,
+      "path": "cases/train/case_0001",
       "satellite_sensor_mix": {
-        "infrared": 7,
-        "visible": 27
+        "infrared": 6,
+        "visible": 22
       },
-      "split": "test",
+      "split": "train",
       "task_sensor_mix": {
-        "infrared": 140,
-        "visible": 1261
+        "infrared": 177,
+        "visible": 1592
       },
       "task_source_mix": {
-        "background": 700,
-        "city": 701
+        "background": 884,
+        "city": 885
       },
       "task_weight_summary": {
         "max": 5.0,
-        "mean": 2.75232,
+        "mean": 2.755229,
+        "min": 1.0
+      }
+    },
+    {
+      "case_id": "case_0002",
+      "case_seed": 4044,
+      "celestrak_snapshot_epoch_utc": "2026-04-14T00:00:00Z",
+      "horizon_hours": 12,
+      "norad_catalog_ids": [
+        28051,
+        33396,
+        36795,
+        37387,
+        38012,
+        38755,
+        39019,
+        39084,
+        39150,
+        40013,
+        40053,
+        40072,
+        40118,
+        40894,
+        41556,
+        41599,
+        41601,
+        41727,
+        41772,
+        42920,
+        42988,
+        43111,
+        43259,
+        43260,
+        43484,
+        44819,
+        60989
+      ],
+      "num_satellites": 27,
+      "num_tasks": 1935,
+      "path": "cases/train/case_0002",
+      "satellite_sensor_mix": {
+        "infrared": 5,
+        "visible": 22
+      },
+      "split": "train",
+      "task_sensor_mix": {
+        "infrared": 193,
+        "visible": 1742
+      },
+      "task_source_mix": {
+        "background": 967,
+        "city": 968
+      },
+      "task_weight_summary": {
+        "max": 5.0,
+        "mean": 2.748837,
+        "min": 1.0
+      }
+    },
+    {
+      "case_id": "case_0003",
+      "case_seed": 5053,
+      "celestrak_snapshot_epoch_utc": "2026-04-14T00:00:00Z",
+      "horizon_hours": 12,
+      "norad_catalog_ids": [
+        28649,
+        33396,
+        35681,
+        36795,
+        37387,
+        38012,
+        38038,
+        38755,
+        39019,
+        39084,
+        39150,
+        40053,
+        40072,
+        41599,
+        41727,
+        41772,
+        42063,
+        42767,
+        42920,
+        43111,
+        44622,
+        48268
+      ],
+      "num_satellites": 22,
+      "num_tasks": 1917,
+      "path": "cases/train/case_0003",
+      "satellite_sensor_mix": {
+        "infrared": 4,
+        "visible": 18
+      },
+      "split": "train",
+      "task_sensor_mix": {
+        "infrared": 192,
+        "visible": 1725
+      },
+      "task_source_mix": {
+        "background": 958,
+        "city": 959
+      },
+      "task_weight_summary": {
+        "max": 5.0,
+        "mean": 2.729004,
+        "min": 1.0
+      }
+    },
+    {
+      "case_id": "case_0004",
+      "case_seed": 6062,
+      "celestrak_snapshot_epoch_utc": "2026-04-14T00:00:00Z",
+      "horizon_hours": 12,
+      "norad_catalog_ids": [
+        35681,
+        36795,
+        37387,
+        38012,
+        39150,
+        39418,
+        40013,
+        40072,
+        40118,
+        40894,
+        41556,
+        41727,
+        41948,
+        42767,
+        42992,
+        43259,
+        43461,
+        43484,
+        44622,
+        44804,
+        48079,
+        49070,
+        57654
+      ],
+      "num_satellites": 23,
+      "num_tasks": 1907,
+      "path": "cases/train/case_0004",
+      "satellite_sensor_mix": {
+        "infrared": 5,
+        "visible": 18
+      },
+      "split": "train",
+      "task_sensor_mix": {
+        "infrared": 191,
+        "visible": 1716
+      },
+      "task_source_mix": {
+        "background": 953,
+        "city": 954
+      },
+      "task_weight_summary": {
+        "max": 5.0,
+        "mean": 2.726796,
+        "min": 1.0
+      }
+    },
+    {
+      "case_id": "case_0005",
+      "case_seed": 7071,
+      "celestrak_snapshot_epoch_utc": "2026-04-14T00:00:00Z",
+      "horizon_hours": 12,
+      "norad_catalog_ids": [
+        28051,
+        32783,
+        35681,
+        37387,
+        38012,
+        39019,
+        39084,
+        39150,
+        39418,
+        40072,
+        40697,
+        41599,
+        41601,
+        41727,
+        41948,
+        42063,
+        42767,
+        42991,
+        43259,
+        43260,
+        43461,
+        43484,
+        44622,
+        44804,
+        44819,
+        48268,
+        49260,
+        60989
+      ],
+      "num_satellites": 28,
+      "num_tasks": 1688,
+      "path": "cases/train/case_0005",
+      "satellite_sensor_mix": {
+        "infrared": 6,
+        "visible": 22
+      },
+      "split": "train",
+      "task_sensor_mix": {
+        "infrared": 168,
+        "visible": 1520
+      },
+      "task_source_mix": {
+        "background": 844,
+        "city": 844
+      },
+      "task_weight_summary": {
+        "max": 5.0,
+        "mean": 2.768957,
+        "min": 1.0
+      }
+    },
+    {
+      "case_id": "case_0006",
+      "case_seed": 8080,
+      "celestrak_snapshot_epoch_utc": "2026-04-14T00:00:00Z",
+      "horizon_hours": 12,
+      "norad_catalog_ids": [
+        28051,
+        38038,
+        38755,
+        40053,
+        40118,
+        40894,
+        41599,
+        41601,
+        41877,
+        41948,
+        42767,
+        42920,
+        42988,
+        44804,
+        44819,
+        48268,
+        49070,
+        49260,
+        52912,
+        57654,
+        60989
+      ],
+      "num_satellites": 21,
+      "num_tasks": 1887,
+      "path": "cases/train/case_0006",
+      "satellite_sensor_mix": {
+        "infrared": 4,
+        "visible": 17
+      },
+      "split": "train",
+      "task_sensor_mix": {
+        "infrared": 189,
+        "visible": 1698
+      },
+      "task_source_mix": {
+        "background": 943,
+        "city": 944
+      },
+      "task_weight_summary": {
+        "max": 5.0,
+        "mean": 2.744568,
+        "min": 1.0
+      }
+    },
+    {
+      "case_id": "case_0007",
+      "case_seed": 9089,
+      "celestrak_snapshot_epoch_utc": "2026-04-14T00:00:00Z",
+      "horizon_hours": 12,
+      "norad_catalog_ids": [
+        28051,
+        35681,
+        36795,
+        37387,
+        38038,
+        40053,
+        40697,
+        41601,
+        41727,
+        41772,
+        41877,
+        42767,
+        42920,
+        42991,
+        42992,
+        43259,
+        43262,
+        43461,
+        43484,
+        44622,
+        44804,
+        48079,
+        48268,
+        49260,
+        57654,
+        60989
+      ],
+      "num_satellites": 26,
+      "num_tasks": 1618,
+      "path": "cases/train/case_0007",
+      "satellite_sensor_mix": {
+        "infrared": 5,
+        "visible": 21
+      },
+      "split": "train",
+      "task_sensor_mix": {
+        "infrared": 162,
+        "visible": 1456
+      },
+      "task_source_mix": {
+        "background": 809,
+        "city": 809
+      },
+      "task_weight_summary": {
+        "max": 5.0,
+        "mean": 2.775649,
+        "min": 1.0
+      }
+    },
+    {
+      "case_id": "case_0008",
+      "case_seed": 10098,
+      "celestrak_snapshot_epoch_utc": "2026-04-14T00:00:00Z",
+      "horizon_hours": 12,
+      "norad_catalog_ids": [
+        28649,
+        33396,
+        35681,
+        36795,
+        38038,
+        38755,
+        39418,
+        40053,
+        40118,
+        41556,
+        41599,
+        41877,
+        41948,
+        42767,
+        42990,
+        42991,
+        43111,
+        43260,
+        43461,
+        44622,
+        44804,
+        44819,
+        48268,
+        49260,
+        52912,
+        60989
+      ],
+      "num_satellites": 26,
+      "num_tasks": 1614,
+      "path": "cases/train/case_0008",
+      "satellite_sensor_mix": {
+        "infrared": 5,
+        "visible": 21
+      },
+      "split": "train",
+      "task_sensor_mix": {
+        "infrared": 162,
+        "visible": 1452
+      },
+      "task_source_mix": {
+        "background": 807,
+        "city": 807
+      },
+      "task_weight_summary": {
+        "max": 5.0,
+        "mean": 2.707559,
+        "min": 1.0
+      }
+    },
+    {
+      "case_id": "case_0009",
+      "case_seed": 11107,
+      "celestrak_snapshot_epoch_utc": "2026-04-14T00:00:00Z",
+      "horizon_hours": 12,
+      "norad_catalog_ids": [
+        28051,
+        36795,
+        37387,
+        38012,
+        38755,
+        39084,
+        39418,
+        40697,
+        41601,
+        41727,
+        41948,
+        42920,
+        42988,
+        42990,
+        43111,
+        43461,
+        44622,
+        44819,
+        57654,
+        60989
+      ],
+      "num_satellites": 20,
+      "num_tasks": 1836,
+      "path": "cases/train/case_0009",
+      "satellite_sensor_mix": {
+        "infrared": 4,
+        "visible": 16
+      },
+      "split": "train",
+      "task_sensor_mix": {
+        "infrared": 184,
+        "visible": 1652
+      },
+      "task_source_mix": {
+        "background": 918,
+        "city": 918
+      },
+      "task_weight_summary": {
+        "max": 5.0,
+        "mean": 2.76171,
+        "min": 1.0
+      }
+    },
+    {
+      "case_id": "case_0010",
+      "case_seed": 12116,
+      "celestrak_snapshot_epoch_utc": "2026-04-14T00:00:00Z",
+      "horizon_hours": 12,
+      "norad_catalog_ids": [
+        28051,
+        28649,
+        38012,
+        38755,
+        39150,
+        39418,
+        40013,
+        40053,
+        40072,
+        40697,
+        40894,
+        41877,
+        41948,
+        42767,
+        42920,
+        42991,
+        43111,
+        43260,
+        43461,
+        44804,
+        48268,
+        49070,
+        49260,
+        52912
+      ],
+      "num_satellites": 24,
+      "num_tasks": 1678,
+      "path": "cases/train/case_0010",
+      "satellite_sensor_mix": {
+        "infrared": 5,
+        "visible": 19
+      },
+      "split": "train",
+      "task_sensor_mix": {
+        "infrared": 168,
+        "visible": 1510
+      },
+      "task_source_mix": {
+        "background": 839,
+        "city": 839
+      },
+      "task_weight_summary": {
+        "max": 5.0,
+        "mean": 2.749106,
         "min": 1.0
       }
     }
@@ -287,6 +1671,10 @@
     "celestrak": {
       "kind": "vendored_subset",
       "snapshot_epoch_utc": "2026-04-14T00:00:00Z",
+      "supported_snapshot_epochs_utc": [
+        "2026-04-14T00:00:00Z",
+        "2022-04-14T00:00:00Z"
+      ],
       "url": "https://celestrak.org/NORAD/elements/gp.php?GROUP=resource&FORMAT=tle"
     },
     "natural_earth_land": {
@@ -302,7 +1690,32 @@
     "test": {
       "case_count": 5,
       "case_seed_stride": 1009,
+      "celestrak_snapshot_epoch_utc": "2026-04-14T00:00:00Z",
       "seed": 42
+    },
+    "test_easy": {
+      "case_count": 5,
+      "case_seed_stride": 1009,
+      "celestrak_snapshot_epoch_utc": "2026-04-14T00:00:00Z",
+      "seed": 123
+    },
+    "test_hard": {
+      "case_count": 5,
+      "case_seed_stride": 1009,
+      "celestrak_snapshot_epoch_utc": "2026-04-14T00:00:00Z",
+      "seed": 777
+    },
+    "test_horizon_2022": {
+      "case_count": 5,
+      "case_seed_stride": 1009,
+      "celestrak_snapshot_epoch_utc": "2022-04-14T00:00:00Z",
+      "seed": 42
+    },
+    "train": {
+      "case_count": 10,
+      "case_seed_stride": 1009,
+      "celestrak_snapshot_epoch_utc": "2026-04-14T00:00:00Z",
+      "seed": 2026
     }
   }
 }

@@ -5,7 +5,7 @@ from __future__ import annotations
 import argparse
 from pathlib import Path
 
-from .build import generate_dataset, load_generator_config
+from .build import celestrak_snapshot_epochs_for_config, generate_dataset, load_generator_config
 from .sources import fetch_all_sources
 
 
@@ -37,19 +37,30 @@ def main(argv: list[str] | None = None) -> int:
         action="store_true",
         help="Re-download source data even when normalized cached files already exist",
     )
+    parser.add_argument(
+        "--jobs",
+        type=int,
+        default=1,
+        help="Number of case-generation worker processes to use; defaults to 1",
+    )
     args = parser.parse_args(argv)
 
     config = load_generator_config(args.splits_path)
     output_dir = args.output_dir.resolve()
     download_dir = (args.download_dir or (output_dir / "source_data")).resolve()
 
-    fetch_all_sources(download_dir, force_download=args.force_download)
+    fetch_all_sources(
+        download_dir,
+        force_download=args.force_download,
+        celestrak_snapshot_epochs_utc=celestrak_snapshot_epochs_for_config(config),
+    )
     generate_dataset(
         source_dir=download_dir,
         output_dir=output_dir,
         split_configs=config["splits"],
         example_smoke_case=config["example_smoke_case"],
         source_config=config["source"],
+        jobs=args.jobs,
     )
     print(f"Wrote aeossp_standard dataset to {output_dir}")
     return 0

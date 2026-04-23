@@ -14,13 +14,14 @@ import pytest
 import yaml
 
 from benchmarks.aeossp_standard.generator import build as gen_build
-from benchmarks.aeossp_standard.generator import cached_tles, sources
+from benchmarks.aeossp_standard.generator import cached_tles, cached_tles_2022, sources
 from benchmarks.aeossp_standard.generator import geometry as gen_geometry
 import benchmarks.aeossp_standard.generator.run as generator_run
 from benchmarks.aeossp_standard.generator.geometry import AccessInterval, OrbitSampleGrid
 from benchmarks.aeossp_standard.generator.normalize import CityRecord
 from benchmarks.aeossp_standard.generator.build import load_generator_config
 from benchmarks.aeossp_standard.generator.sources import (
+    CELESTRAK_2022_SNAPSHOT_EPOCH_UTC,
     CELESTRAK_CSV_NAME,
     CELESTRAK_EARTH_RESOURCES_URL,
     CELESTRAK_SNAPSHOT_EPOCH_UTC,
@@ -309,13 +310,37 @@ def test_load_generator_config_rejects_unsupported_snapshot_epoch(tmp_path: Path
         load_generator_config(splits_path)
 
 
+def test_load_generator_config_allows_split_level_2022_snapshot(tmp_path: Path) -> None:
+    splits_path = tmp_path / "splits.yaml"
+    _write_splits_yaml(splits_path)
+    payload = yaml.safe_load(splits_path.read_text(encoding="utf-8"))
+    payload["splits"]["test_horizon_2022"] = dict(payload["splits"]["test"])
+    payload["splits"]["test_horizon_2022"]["source"] = {
+        "celestrak": {"snapshot_epoch_utc": CELESTRAK_2022_SNAPSHOT_EPOCH_UTC}
+    }
+    splits_path.write_text(yaml.safe_dump(payload, sort_keys=False), encoding="utf-8")
+
+    config = load_generator_config(splits_path)
+
+    assert gen_build.celestrak_snapshot_epochs_for_config(config) == (
+        CELESTRAK_SNAPSHOT_EPOCH_UTC,
+        CELESTRAK_2022_SNAPSHOT_EPOCH_UTC,
+    )
+
+
 def test_main_builds_split_aware_dataset(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     splits_path = tmp_path / "splits.yaml"
     _write_splits_yaml(splits_path)
     output_dir = tmp_path / "output"
     download_dir = tmp_path / "source_data"
 
-    def fake_fetch_all_sources(dest_dir: Path, *, force_download: bool = False):
+    def fake_fetch_all_sources(
+        dest_dir: Path,
+        *,
+        force_download: bool = False,
+        celestrak_snapshot_epochs_utc=None,
+    ):
+        assert celestrak_snapshot_epochs_utc == (CELESTRAK_SNAPSHOT_EPOCH_UTC,)
         _write_source_tree(dest_dir)
         return {
             "celestrak": SourceFetchResult(
@@ -395,6 +420,54 @@ def test_main_builds_split_aware_dataset(monkeypatch: pytest.MonkeyPatch, tmp_pa
     assert (output_dir / "cases" / "test" / "case_0001" / "mission.yaml").is_file()
     assert (output_dir / "cases" / "test" / "case_0001" / "satellites.yaml").is_file()
     assert (output_dir / "cases" / "test" / "case_0001" / "tasks.yaml").is_file()
+
+
+def test_main_passes_jobs_to_generator(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    splits_path = tmp_path / "splits.yaml"
+    _write_splits_yaml(splits_path)
+    output_dir = tmp_path / "output"
+    captured: dict[str, object] = {}
+
+    monkeypatch.setattr(
+        generator_run,
+        "fetch_all_sources",
+        lambda *args, **kwargs: captured.setdefault("fetch_kwargs", kwargs),
+    )
+
+    def fake_generate_dataset(**kwargs):
+        captured.update(kwargs)
+
+    monkeypatch.setattr(generator_run, "generate_dataset", fake_generate_dataset)
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        [
+            "run.py",
+            str(splits_path),
+            "--output-dir",
+            str(output_dir),
+            "--jobs",
+            "3",
+        ],
+    )
+
+    assert generator_run.main() == 0
+    assert captured["jobs"] == 3
+    assert captured["fetch_kwargs"]["celestrak_snapshot_epochs_utc"] == (
+        CELESTRAK_SNAPSHOT_EPOCH_UTC,
+    )
+
+
+def test_generate_dataset_rejects_nonpositive_jobs(tmp_path: Path) -> None:
+    with pytest.raises(ValueError, match="jobs must be positive"):
+        gen_build.generate_dataset(
+            source_dir=tmp_path,
+            output_dir=tmp_path / "output",
+            split_configs={},
+            example_smoke_case="test/case_0001",
+            source_config={},
+            jobs=0,
+        )
 
 
 def _utc_datetime(
@@ -483,6 +556,26 @@ def test_generator_access_intervals_handle_trailing_runs(monkeypatch) -> None:
     assert intervals[0].duration_s == 60
 
 
+def test_generator_access_mask_uses_nan_for_inaccessible_off_nadir() -> None:
+    mask, off_nadir_deg = gen_geometry.access_mask_for_satellite(
+        {
+            "required_sensor_type": "infrared",
+            "latitude_deg": 0.0,
+            "longitude_deg": 0.0,
+            "altitude_m": 0.0,
+        },
+        {
+            "satellite_id": "sat_001",
+            "sensor": {"sensor_type": "visible"},
+            "attitude_model": {"max_off_nadir_deg": 30.0},
+        },
+        np.zeros((3, 3), dtype=float),
+    )
+
+    assert not np.any(mask)
+    assert np.all(np.isnan(off_nadir_deg))
+
+
 def test_reachable_city_candidates_filter_unreachable_rows(monkeypatch) -> None:
     cities = [
         CityRecord("north", "AA", 10.0, 20.0, 1_000_000),
@@ -503,9 +596,85 @@ def test_reachable_city_candidates_filter_unreachable_rows(monkeypatch) -> None:
         sensor_type="infrared",
         compatible_satellite_ids={"sat_001"},
         task_config=_test_split_config()["tasks"],
+        min_reachable_count=2,
+        max_checked_count=2,
     )
 
     assert reachable == [cities[0]]
+
+
+def test_reachable_city_candidates_stops_after_enough_reachable_rows(monkeypatch) -> None:
+    cities = [
+        CityRecord(f"city_{index}", "AA", float(index), 20.0, 1_000_000 - index)
+        for index in range(8)
+    ]
+    calls = {"count": 0}
+
+    def _fake_derive(*args, **kwargs):
+        calls["count"] += 1
+        return [object()]
+
+    monkeypatch.setattr(gen_build, "derive_task_access_intervals", _fake_derive)
+
+    reachable = gen_build._reachable_city_candidates(
+        cities,
+        satellites=[],
+        orbit_grid=object(),
+        sensor_type="infrared",
+        compatible_satellite_ids={"sat_001"},
+        task_config=_test_split_config()["tasks"],
+        min_reachable_count=3,
+        max_checked_count=8,
+    )
+
+    assert len(reachable) == 3
+    assert calls["count"] == 3
+
+
+def test_target_separation_index_rejects_nearby_targets() -> None:
+    index = gen_build._TargetSeparationIndex(min_target_separation_m=20_000.0)
+    index.add(0.0, 0.0)
+
+    assert not index.is_far_enough(0.0, 0.01)
+    assert index.is_far_enough(1.0, 1.0)
+
+
+def test_background_sampling_can_anchor_to_satellite_ground_track() -> None:
+    class LandGeometry:
+        def contains(self, point):
+            return True
+
+    orbit_grid = OrbitSampleGrid(
+        start_time=_utc_datetime(2025, 1, 1, 0, 0, 0),
+        end_time=_utc_datetime(2025, 1, 1, 0, 1, 0),
+        step_s=60,
+        sample_times=(
+            _utc_datetime(2025, 1, 1, 0, 0, 0),
+            _utc_datetime(2025, 1, 1, 0, 1, 0),
+        ),
+        positions_ecef_m={
+            "sat_001": np.array(
+                [
+                    [6_900_000.0, 0.0, 0.0],
+                    [0.0, 6_900_000.0, 0.0],
+                ],
+                dtype=float,
+            )
+        },
+    )
+
+    seeds = gen_build._sample_background_tasks(
+        random.Random(0),
+        LandGeometry(),
+        1,
+        separation_index=gen_build._TargetSeparationIndex(min_target_separation_m=1.0),
+        orbit_grid=orbit_grid,
+        compatible_satellite_ids={"sat_001"},
+    )
+
+    assert len(seeds) == 1
+    assert seeds[0].source_kind == "background"
+    assert seeds[0].anchor_satellite_id == "sat_001"
 
 
 def test_build_task_entries_uses_adaptive_retry_budget(monkeypatch) -> None:
@@ -589,7 +758,7 @@ def test_build_task_entries_uses_adaptive_retry_budget(monkeypatch) -> None:
     assert sample_round["count"] == 13
 
 
-def test_download_celestrak_uses_vendored_snapshot(tmp_path, monkeypatch) -> None:
+def test_get_celestrak_uses_vendored_snapshot(tmp_path, monkeypatch) -> None:
     monkeypatch.setattr(
         sources.urllib.request,
         "urlopen",
@@ -599,7 +768,7 @@ def test_download_celestrak_uses_vendored_snapshot(tmp_path, monkeypatch) -> Non
     legacy_raw_path.parent.mkdir(parents=True, exist_ok=True)
     legacy_raw_path.write_text("legacy", encoding="utf-8")
 
-    result = sources.download_celestrak(tmp_path, force_download=True)
+    result = sources.get_celestrak(tmp_path)
     csv_path = tmp_path / "celestrak" / "earth_resources.csv"
 
     assert result.extra["vendored_snapshot"] is True
@@ -610,6 +779,25 @@ def test_download_celestrak_uses_vendored_snapshot(tmp_path, monkeypatch) -> Non
     assert csv_path.read_text(encoding="utf-8").startswith(
         "name,norad_catalog_id,tle_line1,tle_line2,epoch_iso,inclination_deg,"
     )
+
+
+def test_get_celestrak_uses_2022_vendored_snapshot(tmp_path, monkeypatch) -> None:
+    monkeypatch.setattr(
+        sources.urllib.request,
+        "urlopen",
+        lambda *args, **kwargs: (_ for _ in ()).throw(AssertionError("network should not be used")),
+    )
+
+    result = sources.get_celestrak(
+        tmp_path,
+        snapshot_epoch_utc=CELESTRAK_2022_SNAPSHOT_EPOCH_UTC,
+    )
+    csv_path = sources.celestrak_csv_path(tmp_path, CELESTRAK_2022_SNAPSHOT_EPOCH_UTC)
+
+    assert result.extra["vendored_snapshot"] is True
+    assert result.extra["snapshot_epoch_utc"] == CELESTRAK_2022_SNAPSHOT_EPOCH_UTC
+    assert result.extra["record_count"] == len(cached_tles_2022.CACHED_CELESTRAK_ROWS)
+    assert csv_path.is_file()
 
 
 def test_download_world_cities_uses_vendored_snapshot(tmp_path, monkeypatch) -> None:
