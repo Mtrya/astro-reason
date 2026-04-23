@@ -156,3 +156,76 @@ class CandidateSummary:
             "by_interval": dict(self.by_interval),
             "by_reason": dict(self.by_reason),
         }
+
+
+@dataclass(frozen=True)
+class StereoPair:
+    sat_id: str
+    target_id: str
+    access_interval_id: str
+    candidate_i: CandidateObservation
+    candidate_j: CandidateObservation
+    convergence_deg: float
+    overlap_fraction: float
+    pixel_scale_ratio: float
+    valid: bool
+    q_geom: float
+    q_overlap: float
+    q_res: float
+    q_pair: float
+
+
+@dataclass(frozen=True)
+class TriStereoSet:
+    sat_id: str
+    target_id: str
+    access_interval_id: str
+    candidates: tuple[CandidateObservation, CandidateObservation, CandidateObservation]
+    common_overlap_fraction: float
+    pair_valid_flags: list[bool]
+    pair_qs: list[float]
+    has_anchor: bool
+    valid: bool
+    q_tri: float
+
+
+@dataclass
+class ProductSummary:
+    total_pairs: int = 0
+    valid_pairs: int = 0
+    total_tris: int = 0
+    valid_tris: int = 0
+    by_target: dict[str, dict[str, Any]] = field(default_factory=dict)
+    approximation_flags: dict[str, Any] = field(default_factory=dict)
+
+    def record_pair(self, pair: StereoPair) -> None:
+        self.total_pairs += 1
+        if pair.valid:
+            self.valid_pairs += 1
+        td = self.by_target.setdefault(pair.target_id, {"pairs": 0, "valid_pairs": 0, "tris": 0, "valid_tris": 0, "best_q": 0.0})
+        td["pairs"] += 1
+        if pair.valid:
+            td["valid_pairs"] += 1
+            if pair.q_pair > td["best_q"]:
+                td["best_q"] = pair.q_pair
+
+    def record_tri(self, tri: TriStereoSet) -> None:
+        self.total_tris += 1
+        if tri.valid:
+            self.valid_tris += 1
+        td = self.by_target.setdefault(tri.target_id, {"pairs": 0, "valid_pairs": 0, "tris": 0, "valid_tris": 0, "best_q": 0.0})
+        td["tris"] += 1
+        if tri.valid:
+            td["valid_tris"] += 1
+            if tri.q_tri > td["best_q"]:
+                td["best_q"] = tri.q_tri
+
+    def as_dict(self) -> dict[str, Any]:
+        return {
+            "total_pairs": self.total_pairs,
+            "valid_pairs": self.valid_pairs,
+            "total_tris": self.total_tris,
+            "valid_tris": self.valid_tris,
+            "by_target": dict(self.by_target),
+            "approximation_flags": dict(self.approximation_flags),
+        }

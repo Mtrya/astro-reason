@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import math
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 
 import brahe
 import numpy as np
@@ -90,15 +90,9 @@ def combined_off_nadir_deg(along: float, across: float) -> float:
     return math.degrees(math.atan(math.sqrt(math.tan(a) ** 2 + math.tan(b) ** 2)))
 
 
-def line_of_sight_clear(sat_pos_m: np.ndarray, target_pos_m: np.ndarray) -> bool:
-    """Simplified LOS check: ray from sat to target hits ellipsoid at or before target."""
-    los = target_pos_m - sat_pos_m
-    dist = float(np.linalg.norm(los))
-    if dist < _NUMERICAL_EPS:
-        return True
-    d = los / dist
-    ox, oy, oz = (float(sat_pos_m[i]) for i in range(3))
-    dx, dy, dz = (float(d[i]) for i in range(3))
+def ray_ellipsoid_intersection_m(origin_m: np.ndarray, direction_unit: np.ndarray) -> float | None:
+    ox, oy, oz = (float(origin_m[i]) for i in range(3))
+    dx, dy, dz = (float(direction_unit[i]) for i in range(3))
     a2 = _WGS84_A_M * _WGS84_A_M
     b2 = _WGS84_B_M * _WGS84_B_M
     inv_a2 = 1.0 / a2
@@ -108,18 +102,204 @@ def line_of_sight_clear(sat_pos_m: np.ndarray, target_pos_m: np.ndarray) -> bool
     cc = (ox * ox + oy * oy) * inv_a2 + oz * oz * inv_b2 - 1.0
     disc = bb * bb - 4.0 * aa * cc
     if disc < 0.0 or abs(aa) < 1.0e-30:
-        return False
+        return None
     sqrt_disc = math.sqrt(disc)
     t1 = (-bb - sqrt_disc) / (2.0 * aa)
     t2 = (-bb + sqrt_disc) / (2.0 * aa)
     candidates = [t for t in (t1, t2) if t > _NUMERICAL_EPS]
     if not candidates:
+        return None
+    return min(candidates)
+
+
+def line_of_sight_clear(sat_pos_m: np.ndarray, target_pos_m: np.ndarray) -> bool:
+    los = target_pos_m - sat_pos_m
+    dist = float(np.linalg.norm(los))
+    if dist < _NUMERICAL_EPS:
+        return True
+    d = los / dist
+    t_hit = ray_ellipsoid_intersection_m(sat_pos_m, d)
+    if t_hit is None:
         return False
-    t_hit = min(candidates)
     tx, ty, tz = (float(target_pos_m[i]) for i in range(3))
+    inv_a2 = 1.0 / (_WGS84_A_M * _WGS84_A_M)
+    inv_b2 = 1.0 / (_WGS84_B_M * _WGS84_B_M)
     q = (tx * tx + ty * ty) * inv_a2 + tz * tz * inv_b2
     if q >= 1.0 - _NUMERICAL_EPS:
         return t_hit + 1.0 >= dist
     r_target = float(np.linalg.norm(target_pos_m))
     depth_m = r_target * (1.0 / math.sqrt(q) - 1.0)
     return t_hit + depth_m + 10.0 >= dist
+
+
+def angle_between_deg(a: np.ndarray, b: np.ndarray) -> float:
+    na = float(np.linalg.norm(a))
+    nb = float(np.linalg.norm(b))
+    if na < _NUMERICAL_EPS or nb < _NUMERICAL_EPS:
+        return 0.0
+    c = float(np.dot(a, b) / (na * nb))
+    c = max(-1.0, min(1.0, c))
+    return math.degrees(math.acos(c))
+
+
+def satellite_local_axes(sat_pos_m: np.ndarray, sat_vel_mps: np.ndarray) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+    nadir = -sat_pos_m / np.linalg.norm(sat_pos_m)
+    along = sat_vel_mps - float(np.dot(sat_vel_mps, nadir)) * nadir
+    if float(np.linalg.norm(along)) < _NUMERICAL_EPS:
+        fallback = np.array([0.0, 0.0, 1.0])
+        if abs(float(np.dot(fallback, nadir))) > 0.9:
+            fallback = np.array([0.0, 1.0, 0.0])
+        along = fallback - float(np.dot(fallback, nadir)) * nadir
+    along = along / np.linalg.norm(along)
+    across = np.cross(along, nadir)
+    if float(np.linalg.norm(across)) < _NUMERICAL_EPS:
+        across = np.array([1.0, 0.0, 0.0])
+    else:
+        across = across / np.linalg.norm(across)
+    return along, across, nadir
+
+
+def boresight_unit_vector(
+    sat_pos_m: np.ndarray, sat_vel_mps: np.ndarray, off_nadir_along_deg: float, off_nadir_across_deg: float
+) -> np.ndarray:
+    along_hat, across_hat, nadir_hat = satellite_local_axes(sat_pos_m, sat_vel_mps)
+    vec = (
+        nadir_hat
+        + math.tan(math.radians(float(off_nadir_along_deg))) * along_hat
+        + math.tan(math.radians(float(off_nadir_across_deg))) * across_hat
+    )
+    return vec / np.linalg.norm(vec)
+
+
+def boresight_ground_intercept_ecef_m(
+    sat_pos_m: np.ndarray, sat_vel_mps: np.ndarray, off_nadir_along_deg: float, off_nadir_across_deg: float
+) -> np.ndarray | None:
+    d = boresight_unit_vector(sat_pos_m, sat_vel_mps, off_nadir_along_deg, off_nadir_across_deg)
+    t_hit = ray_ellipsoid_intersection_m(sat_pos_m, d)
+    if t_hit is None:
+        return None
+    return sat_pos_m + t_hit * d
+
+
+def ecef_to_enz(target_ecef_m: np.ndarray, point_ecef_m: np.ndarray) -> np.ndarray:
+    return np.asarray(
+        brahe.relative_position_ecef_to_enz(
+            target_ecef_m,
+            point_ecef_m,
+            brahe.EllipsoidalConversionType.GEOCENTRIC,
+        ),
+        dtype=float,
+    ).reshape(3)
+
+
+def point_distance_to_polyline_2d(p_en: tuple[float, float], poly: list[tuple[float, float]]) -> float:
+    if not poly:
+        return float("inf")
+    px, py = p_en
+    best = float("inf")
+    for i in range(len(poly) - 1):
+        x1, y1 = poly[i]
+        x2, y2 = poly[i + 1]
+        vx, vy = x2 - x1, y2 - y1
+        seg_len2 = vx * vx + vy * vy
+        if seg_len2 < _NUMERICAL_EPS:
+            d = math.hypot(px - x1, py - y1)
+            best = min(best, d)
+            continue
+        t = max(0.0, min(1.0, ((px - x1) * vx + (py - y1) * vy) / seg_len2))
+        qx = x1 + t * vx
+        qy = y1 + t * vy
+        best = min(best, math.hypot(px - qx, py - qy))
+    return best
+
+
+def strip_polyline_en(
+    sf_sat: EarthSatellite,
+    target_ecef_m: np.ndarray,
+    start: datetime,
+    end: datetime,
+    step_s: float,
+    off_nadir_along_deg: float,
+    off_nadir_across_deg: float,
+) -> list[tuple[float, float]]:
+    pts: list[tuple[float, float]] = []
+    if end <= start:
+        return pts
+    t = start
+    while t <= end:
+        sp, sv = satellite_state_ecef_m(sf_sat, t)
+        gp = boresight_ground_intercept_ecef_m(sp, sv, off_nadir_along_deg, off_nadir_across_deg)
+        if gp is not None:
+            enz = ecef_to_enz(target_ecef_m, gp)
+            pts.append((float(enz[0]), float(enz[1])))
+        t += timedelta(seconds=step_s)
+    if not pts or t - timedelta(seconds=step_s) < end:
+        sp, sv = satellite_state_ecef_m(sf_sat, end)
+        gp = boresight_ground_intercept_ecef_m(sp, sv, off_nadir_along_deg, off_nadir_across_deg)
+        if gp is not None:
+            enz = ecef_to_enz(target_ecef_m, gp)
+            tail = (float(enz[0]), float(enz[1]))
+            if not pts or pts[-1] != tail:
+                pts.append(tail)
+    return pts
+
+
+def pixel_scale_m(sat: Satellite, slant_range_m: float) -> float:
+    return slant_range_m * sat.pixel_ifov_deg * (math.pi / 180.0)
+
+
+def overlap_fraction_grid(
+    aoi_radius_m: float,
+    poly_a: list[tuple[float, float]],
+    half_w_a_m: float,
+    poly_b: list[tuple[float, float]],
+    half_w_b_m: float,
+    n_angles: int,
+    n_radii: int,
+) -> float:
+    if aoi_radius_m <= _NUMERICAL_EPS:
+        return 0.0
+    total = 0
+    inside = 0
+    for i in range(n_radii):
+        r = aoi_radius_m * math.sqrt((i + 1) / n_radii)
+        for j in range(n_angles):
+            theta = 2.0 * math.pi * j / n_angles
+            e = r * math.cos(theta)
+            n = r * math.sin(theta)
+            total += 1
+            da = point_distance_to_polyline_2d((e, n), poly_a)
+            db = point_distance_to_polyline_2d((e, n), poly_b)
+            if da <= half_w_a_m + _NUMERICAL_EPS and db <= half_w_b_m + _NUMERICAL_EPS:
+                inside += 1
+    if total == 0:
+        return 0.0
+    return inside / total
+
+
+def tri_overlap_fraction_grid(
+    aoi_radius_m: float,
+    polys: list[list[tuple[float, float]]],
+    half_ws: list[float],
+    n_angles: int,
+    n_radii: int,
+) -> float:
+    if aoi_radius_m <= _NUMERICAL_EPS:
+        return 0.0
+    total = 0
+    inside = 0
+    for i in range(n_radii):
+        r = aoi_radius_m * math.sqrt((i + 1) / n_radii)
+        for j in range(n_angles):
+            theta = 2.0 * math.pi * j / n_angles
+            e = r * math.cos(theta)
+            n = r * math.sin(theta)
+            total += 1
+            if all(
+                point_distance_to_polyline_2d((e, n), polys[k]) <= half_ws[k] + _NUMERICAL_EPS
+                for k in range(3)
+            ):
+                inside += 1
+    if total == 0:
+        return 0.0
+    return inside / total
