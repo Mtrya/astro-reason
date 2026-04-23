@@ -159,6 +159,17 @@ def satellite_local_axes(sat_pos_m: np.ndarray, sat_vel_mps: np.ndarray) -> tupl
     return along, across, nadir
 
 
+def required_steering_angles(
+    sat_pos_m: np.ndarray, sat_vel_mps: np.ndarray, target_ecef_m: np.ndarray
+) -> tuple[float, float]:
+    """Compute off_nadir_along_deg and off_nadir_across_deg to point boresight at target."""
+    d = (target_ecef_m - sat_pos_m) / np.linalg.norm(target_ecef_m - sat_pos_m)
+    along_hat, across_hat, nadir_hat = satellite_local_axes(sat_pos_m, sat_vel_mps)
+    along_deg = math.degrees(math.atan2(float(np.dot(d, along_hat)), float(np.dot(d, nadir_hat))))
+    across_deg = math.degrees(math.atan2(float(np.dot(d, across_hat)), float(np.dot(d, nadir_hat))))
+    return along_deg, across_deg
+
+
 def boresight_unit_vector(
     sat_pos_m: np.ndarray, sat_vel_mps: np.ndarray, off_nadir_along_deg: float, off_nadir_across_deg: float
 ) -> np.ndarray:
@@ -241,6 +252,23 @@ def strip_polyline_en(
             tail = (float(enz[0]), float(enz[1]))
             if not pts or pts[-1] != tail:
                 pts.append(tail)
+    # For short observations the polyline may miss the midpoint ground intercept
+    # because the boresight sweeps across the target.  Insert midpoint explicitly
+    # when it would improve the approximation (fewer than 3 unique points).
+    if len(pts) < 3:
+        mid = start + (end - start) / 2
+        sp, sv = satellite_state_ecef_m(sf_sat, mid)
+        gp = boresight_ground_intercept_ecef_m(sp, sv, off_nadir_along_deg, off_nadir_across_deg)
+        if gp is not None:
+            enz = ecef_to_enz(target_ecef_m, gp)
+            mp = (float(enz[0]), float(enz[1]))
+            # Insert midpoint between first and last if distinct
+            if len(pts) == 2 and pts[0] != mp and pts[-1] != mp:
+                pts.insert(1, mp)
+            elif len(pts) == 1 and pts[0] != mp:
+                pts.append(mp)
+            elif len(pts) == 0:
+                pts.append(mp)
     return pts
 
 

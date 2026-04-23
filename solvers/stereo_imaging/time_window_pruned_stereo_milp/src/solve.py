@@ -1,4 +1,4 @@
-"""Solver entrypoint: generate candidates, enumerate products, and emit empty valid solution."""
+"""Solver entrypoint: generate candidates, enumerate products, optimize, and emit a valid solution."""
 
 from __future__ import annotations
 
@@ -38,7 +38,7 @@ def _candidate_to_action(cand: CandidateObservation) -> dict:
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(
-        description="Phase-4 stereo MILP solver: candidate generation + product enumeration + pruning + MILP/greedy optimization."
+        description="Time-window-pruned stereo MILP solver: candidate generation, product enumeration, pruning, and optimization."
     )
     parser.add_argument("--case-dir", required=True)
     parser.add_argument("--config-dir", default="")
@@ -66,7 +66,7 @@ def main(argv: list[str] | None = None) -> int:
         )
         product_end = time.perf_counter()
 
-        # Phase 3: optional time-window cluster pruning
+        # Optional time-window cluster pruning
         pruning_start = time.perf_counter()
         pruning_cfg = config_payload.get("pruning", {})
         if pruning_cfg.get("enabled", False):
@@ -87,7 +87,7 @@ def main(argv: list[str] | None = None) -> int:
             )
         pruning_end = time.perf_counter()
 
-        # Phase 4: MILP solve or greedy fallback
+        # MILP solve or greedy fallback
         solve_start = time.perf_counter()
         selected_indices, solve_summary = solve_milp(
             candidates, pairs, tris, targets, satellites, mission, config_payload
@@ -96,7 +96,7 @@ def main(argv: list[str] | None = None) -> int:
 
         selected_candidates = [candidates[i] for i in selected_indices]
 
-        # Phase 5: conservative deterministic repair
+        # Conservative deterministic repair
         repair_start = time.perf_counter()
         repaired_candidates, repair_log = repair_solution(
             selected_candidates, pairs, tris, satellites, targets, mission, config_payload
@@ -134,8 +134,8 @@ def main(argv: list[str] | None = None) -> int:
         _write_json(solution_path, solution)
 
         status = {
-            "status": "phase_5_solved",
-            "phase": 5,
+            "status": "solved",
+            "solver_version": "time_window_pruned_stereo_milp",
             "case_dir": str(case_dir),
             "config_dir": str(config_dir) if config_dir is not None else None,
             "solution": str(solution_path),
@@ -160,7 +160,7 @@ def main(argv: list[str] | None = None) -> int:
                 "los": "checked_at_midpoint",
                 "overlap": product_summary.approximation_flags.get("overlap_method", "unknown"),
                 "pixel_scale_secant_correction": product_summary.approximation_flags.get("pixel_scale_secant_correction", False),
-                "note": "Exact SGP4/access reproduction deferred to Phase 6; drift expected.",
+                "note": "Access intervals are coarse-step approximations; minor SGP4 drift relative to exact propagation is expected.",
             },
         }
         _write_json(solution_dir / "status.json", status)
@@ -241,7 +241,7 @@ def main(argv: list[str] | None = None) -> int:
             solution_dir / "status.json",
             {
                 "status": "error",
-                "phase": 5,
+                "solver_version": "time_window_pruned_stereo_milp",
                 "case_dir": str(case_dir),
                 "config_dir": str(config_dir) if config_dir is not None else None,
                 "error": str(exc),
@@ -253,7 +253,7 @@ def main(argv: list[str] | None = None) -> int:
 
     n_removed = len(repair_log.removed_observations)
     print(
-        f"phase_5_solved: case={case_dir.name} "
+        f"solved: case={case_dir.name} "
         f"candidates={candidate_summary.total_accepted} "
         f"pairs={product_summary.total_pairs} valid_pairs={product_summary.valid_pairs} "
         f"tris={product_summary.total_tris} valid_tris={product_summary.valid_tris} "

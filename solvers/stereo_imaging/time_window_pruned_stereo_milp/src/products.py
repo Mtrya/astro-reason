@@ -239,7 +239,7 @@ def enumerate_products(
         "overlap_grid_radii": int(config.get("overlap_grid_radii", 3)),
         "strip_sample_step_s": strip_step_s,
         "pixel_scale_secant_correction": False,
-        "note": "Overlap is grid-approximated; pixel scale omits off-nadir secant correction. Drift flagged for Phase 6.",
+        "note": "Overlap is grid-approximated; pixel scale omits off-nadir secant correction.",
     }
 
     for (sat_id, target_id, interval_id), group in groups.items():

@@ -1,18 +1,18 @@
-# Time-Window-Pruned Stereo MILP Solver — Phase 1
+# Time-Window-Pruned Stereo MILP Solver
 
-Standalone scaffold for the stereo-imaging MILP solver described in Kim et al. 2020.
+Standalone solver for the stereo-imaging scheduling problem described in Kim et al. 2020.
 
-## Phase 1 Scope
+## Method Summary
 
-- Public YAML parsing for `satellites.yaml`, `targets.yaml`, and `mission.yaml`.
-- Deterministic candidate observation library per `(satellite, target, access_interval)`.
-- Cheap local prechecks: horizon, duration, combined off-nadir, solar elevation, LOS.
-- Emits a **valid empty `solution.json`** and a debug candidate summary.
+The solver implements a five-stage pipeline:
 
-## Phase 1 Limitations
+1. **Candidate generation** — For each `(satellite, target, access_interval)`, samples start times and steering angles, then applies cheap local prechecks (horizon, duration, combined off-nadir, solar elevation, LOS).
+2. **Product enumeration** — Evaluates all candidate combinations within each interval as stereo pairs or tri-stereo sets. Checks convergence angle, overlap fraction, and pixel-scale ratio against benchmark thresholds.
+3. **Time-window cluster pruning** — Clusters candidates by temporal gap and caps each cluster to a lambda-bound, preserving anchors and products.
+4. **Optimization** — Builds an abstract MILP (observation/pair/tri variables, conflict constraints, coverage constraints) and solves with OR-Tools or PuLP when available; falls back to a deterministic greedy solver otherwise.
+5. **Repair** — Conservatively removes observations that violate transition-time or exclusivity constraints, then augments coverage with the best valid product for any uncovered targets.
 
-- Access intervals are approximated with a coarse time step; exact SGP4/access reproduction is deferred to Phase 6.
-- No stereo pair/tri enumeration, pruning, or MILP model yet.
+The solver produces a non-empty `solution.json` containing selected observations whenever valid products exist. Coverage and quality depend on the dataset geometry and steering agility of the satellites.
 
 ## Solver Contract
 
@@ -24,9 +24,16 @@ Standalone scaffold for the stereo-imaging MILP solver described in Kim et al. 2
 `setup.sh` checks that `brahe`, `numpy`, `yaml`, and `skyfield` are available.
 
 `solve.sh` writes:
-- `solution.json`: benchmark-compatible empty solution.
-- `status.json`: run summary, candidate counts, rejection reasons, timing.
-- `debug/candidate_summary.json`: sample candidates and rejections when `debug: true`.
+- `solution.json`: benchmark-compatible list of selected observations.
+- `status.json`: run summary, candidate counts, product counts, timing, backend used.
+- `debug/candidate_summary.json`, `debug/product_summary.json`, `debug/pruning_summary.json`, `debug/repair_log.json` when `debug: true`.
+
+## Known Limitations
+
+- Access intervals are found with a coarse time-step search rather than exact SGP4 root-finding; minor drift relative to exact propagation is expected.
+- Solar elevation and LOS checks are sampled at the observation midpoint.
+- Overlap fraction is estimated with a deterministic polar grid rather than Monte Carlo; values may differ by a few percent from the verifier.
+- If no valid stereo pairs or tri-stereo sets exist for a target (e.g. only one satellite accesses it, or slew time exceeds the gap between consecutive intervals), that target will remain uncovered.
 
 ## Citation
 

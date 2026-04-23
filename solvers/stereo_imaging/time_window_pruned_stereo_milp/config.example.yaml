@@ -9,7 +9,7 @@
 # Coarse step for searching access intervals (seconds).
 # Smaller values increase access-interval accuracy but linearly increase runtime.
 # Default: 60.  For quick smoke tests, 120 is acceptable.  For production, 30 or 60.
-time_step_s: 60
+time_step_s: 30
 
 # Stride between candidate start times inside an access interval (seconds).
 # Must be >= min_obs_duration_s of the satellite.  Smaller values create more
@@ -21,12 +21,27 @@ sample_stride_s: 30
 # Default: 20.  Increase only if access intervals are very long.
 max_candidates_per_interval: 20
 
+# When true, steering angles are computed to point the boresight at the target
+# center for each candidate time, rather than using a fixed nadir-centered grid.
+# This dramatically improves overlap fraction and is strongly recommended.
+# Default: true.
+use_target_centered_steering: true
+
 # Steering grid density: number of samples along and across track.
+# With target-centered steering, the grid is centered on the required angles
+# to point at the target, with a small spread (see steering_grid_spread_deg).
 # Total grid points <= along * across after filtering by combined off-nadir.
-# Default: 3 x 3.  Increasing to 5 x 5 creates 2.8x more candidates but may
-# help find valid convergence angles on some geometries.
-steering_along_samples: 3
-steering_across_samples: 3
+# Default: 1 x 1 (exact target pointing).  Increasing to 3 x 3 creates small
+# angular perturbations around the target direction for added diversity.
+steering_along_samples: 1
+steering_across_samples: 1
+
+# Half-width of the steering grid around the target-centered direction (degrees).
+# Only used when use_target_centered_steering is true and samples > 1.
+# A 2° spread is typically enough to stay within the AOI while providing
+# slightly different view angles.
+# Default: 2.0.
+steering_grid_spread_deg: 2.0
 
 # ---------------------------------------------------------------------------
 # Product geometry approximation

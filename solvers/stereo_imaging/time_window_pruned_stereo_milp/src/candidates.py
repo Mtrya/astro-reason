@@ -14,6 +14,7 @@ from geometry import (
     line_of_sight_clear,
     make_earth_satellite,
     off_nadir_deg,
+    required_steering_angles,
     satellite_state_ecef_m,
     solar_elevation_deg,
     target_ecef_m,
@@ -60,7 +61,7 @@ def find_access_intervals(
     target: Target,
     mission: Mission,
     *,
-    time_step_s: float = 60.0,
+    time_step_s: float = 30.0,
     min_interval_length_s: float = 5.0,
 ) -> list[AccessInterval]:
     sf_sat = make_earth_satellite(sat)
@@ -103,6 +104,7 @@ def find_access_intervals(
 
 
 def _generate_steering_grid(max_off_nadir_deg: float, along_samples: int, across_samples: int) -> list[tuple[float, float]]:
+    """Legacy nadir-centered steering grid; kept for fallback mode."""
     if along_samples <= 0:
         along_samples = 1
     if across_samples <= 0:
@@ -119,21 +121,59 @@ def _generate_steering_grid(max_off_nadir_deg: float, along_samples: int, across
     return grid
 
 
+def _generate_target_centered_steering_grid(
+    sat_pos_m: np.ndarray,
+    sat_vel_mps: np.ndarray,
+    target_ecef: np.ndarray,
+    max_off_nadir_deg: float,
+    along_samples: int,
+    across_samples: int,
+    spread_deg: float = 2.0,
+) -> list[tuple[float, float]]:
+    """Compute steering angles centered on the target, with a small grid around the exact pointing."""
+    along_req, across_req = required_steering_angles(sat_pos_m, sat_vel_mps, target_ecef)
+    if along_samples <= 0:
+        along_samples = 1
+    if across_samples <= 0:
+        across_samples = 1
+    if along_samples == 1:
+        along_vals = [along_req]
+    else:
+        half = spread_deg * (along_samples - 1) / 2
+        along_vals = np.linspace(along_req - half, along_req + half, along_samples)
+    if across_samples == 1:
+        across_vals = [across_req]
+    else:
+        half = spread_deg * (across_samples - 1) / 2
+        across_vals = np.linspace(across_req - half, across_req + half, across_samples)
+    grid: list[tuple[float, float]] = []
+    for a in along_vals:
+        for c in across_vals:
+            if combined_off_nadir_deg(float(a), float(c)) <= max_off_nadir_deg + 1e-6:
+                grid.append((float(a), float(c)))
+    # deterministic ordering
+    grid.sort(key=lambda x: (x[0], x[1]))
+    return grid
+
+
 def generate_candidates(
     mission: Mission,
     satellites: dict[str, Satellite],
     targets: dict[str, Target],
     config: dict[str, Any],
 ) -> tuple[list[CandidateObservation], list[RejectionRecord], CandidateSummary]:
-    time_step_s = float(config.get("time_step_s", 60.0))
+    time_step_s = float(config.get("time_step_s", 30.0))
     sample_stride_s = float(config.get("sample_stride_s", 30.0))
     max_candidates_per_interval = int(config.get("max_candidates_per_interval", 20))
-    along_samples = int(config.get("steering_along_samples", 3))
-    across_samples = int(config.get("steering_across_samples", 3))
+    along_samples = int(config.get("steering_along_samples", 1))
+    across_samples = int(config.get("steering_across_samples", 1))
 
     candidates: list[CandidateObservation] = []
     rejections: list[RejectionRecord] = []
     summary = CandidateSummary()
+
+    use_target_centered = bool(config.get("use_target_centered_steering", True))
+    steering_spread_deg = float(config.get("steering_grid_spread_deg", 2.0))
 
     for sat in satellites.values():
         for target in targets.values():
@@ -142,9 +182,8 @@ def generate_candidates(
             )
             if not intervals:
                 continue
-            steering_grid = _generate_steering_grid(
-                sat.max_off_nadir_deg, along_samples, across_samples
-            )
+            sf_sat = make_earth_satellite(sat)
+            te = target_ecef_m(target)
             for interval in intervals:
                 count = 0
                 start_t = interval.start
@@ -153,6 +192,17 @@ def generate_candidates(
                         break
                     # use fixed duration = min_obs_duration_s for deterministic simplicity
                     end_t = start_t + timedelta(seconds=sat.min_obs_duration_s)
+                    mid = start_t + (end_t - start_t) / 2
+                    sp, sv = satellite_state_ecef_m(sf_sat, mid)
+                    if use_target_centered:
+                        steering_grid = _generate_target_centered_steering_grid(
+                            sp, sv, te, sat.max_off_nadir_deg,
+                            along_samples, across_samples, steering_spread_deg,
+                        )
+                    else:
+                        steering_grid = _generate_steering_grid(
+                            sat.max_off_nadir_deg, along_samples, across_samples
+                        )
                     for along, across in steering_grid:
                         if count >= max_candidates_per_interval:
                             break
