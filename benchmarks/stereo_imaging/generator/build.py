@@ -453,11 +453,14 @@ def _jitter_point_inside_cell(
     *,
     scene: str,
     non_urban_jitter_deg: float,
+    max_abs_latitude_deg: float | None,
 ) -> tuple[float, float]:
     lat_idx, lon_idx = cell
     for _ in range(10):
         lat = lat_idx + rng.uniform(-non_urban_jitter_deg, non_urban_jitter_deg)
         lon = lon_idx + rng.uniform(-non_urban_jitter_deg, non_urban_jitter_deg)
+        if max_abs_latitude_deg is not None and abs(lat) >= max_abs_latitude_deg:
+            continue
         if lookup_scene_type(lat, lon) != scene:
             continue
         bilinear_elevation_m(lat, lon)
@@ -501,9 +504,8 @@ def _sample_non_urban_targets(
                 cell,
                 scene=scene,
                 non_urban_jitter_deg=non_urban_jitter_deg,
+                max_abs_latitude_deg=max_abs_latitude_deg,
             )
-            if max_abs_latitude_deg is not None and abs(lat) >= max_abs_latitude_deg:
-                continue
             key = (round(lat, 2), round(lon, 2))
             if key in used:
                 continue
@@ -688,6 +690,8 @@ def generate_dataset(
                 if "max_abs_latitude_deg" in targets_config
                 else None
             )
+            if max_abs_latitude_deg is not None and not (0.0 < max_abs_latitude_deg <= 85.0):
+                raise ValueError("targets.max_abs_latitude_deg must be in (0, 85]")
 
             urban = _sample_urban_targets(
                 cities,
