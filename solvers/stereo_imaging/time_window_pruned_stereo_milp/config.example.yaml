@@ -1,0 +1,18 @@
+# Example config for the time-window-pruned stereo MILP solver (Phase 1).
+
+# Access-interval search coarse step (seconds). Smaller values are more accurate but slower.
+time_step_s: 60
+
+# Candidate time sampling stride within an access interval (seconds).
+sample_stride_s: 30
+
+# Max candidates to keep per (satellite, target, access_interval).
+max_candidates_per_interval: 20
+
+# Steering grid samples along/across track. Total grid points <= along * across
+# after filtering by combined off-nadir limit.
+steering_along_samples: 3
+steering_across_samples: 3
+
+# Emit debug artifacts (candidate_summary.json, etc.)
+debug: true
