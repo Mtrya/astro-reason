@@ -33,6 +33,9 @@ def _read_run_json(path: Path) -> dict[str, Any]:
 def _metric(payload: dict[str, Any], key: str) -> Any:
     verifier = payload.get("verifier") or {}
     reported = payload.get("reported_metrics") or {}
+    verifier_metrics = verifier.get("metrics") if isinstance(verifier, dict) else None
+    if isinstance(verifier_metrics, dict) and key in verifier_metrics:
+        return verifier_metrics[key]
     if key in verifier:
         return verifier[key]
     return reported.get(key)
@@ -53,7 +56,7 @@ def _rows(results_root: Path) -> list[dict[str, Any]]:
                 "valid": _metric(payload, "valid"),
                 "computed_profit": _metric(payload, "computed_profit"),
                 "computed_weight": _metric(payload, "computed_weight"),
-                "score": _metric(payload, "score"),
+                "total_hours": _metric(payload, "total_hours"),
                 "n_tracks": _metric(payload, "n_tracks"),
                 "n_satisfied_requests": _metric(payload, "n_satisfied_requests"),
                 "u_rms": _metric(payload, "u_rms"),
@@ -78,7 +81,7 @@ def _write_csv(path: Path, rows: list[dict[str, Any]]) -> None:
         "valid",
         "computed_profit",
         "computed_weight",
-        "score",
+        "total_hours",
         "n_tracks",
         "n_satisfied_requests",
         "u_rms",

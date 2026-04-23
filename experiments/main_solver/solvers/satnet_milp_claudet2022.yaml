@@ -1,0 +1,7 @@
+id: satnet_milp_claudet2022
+benchmark: satnet
+solver: milp_claudet2022
+solver_path: solvers/satnet/milp_claudet2022
+evidence_type: citation_reported
+runnable: false
+metrics_path: solvers/satnet/milp_claudet2022/metrics.yaml

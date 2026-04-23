@@ -88,7 +88,8 @@ def test_ground_truth_validation(load_ground_truth):
         f"Ground truth solution for {instance.case_id} should be valid. "
         f"Errors: {result.errors}"
     )
-    assert np.isclose(result.score, metrics["score"], atol=1e-4)
+    assert np.isclose(result.total_hours, metrics["score"], atol=1e-4)
+    assert not hasattr(result, "score")
     assert result.n_tracks == metrics["n_tracks"]
     assert result.n_satisfied_requests == metrics["n_satisfied_requests"]
     assert np.isclose(result.u_rms, metrics["u_rms"], atol=1e-4)
@@ -114,7 +115,7 @@ def test_verify_case_helper_matches_direct_verification():
     via_case = verify_case(CASES_DIR / case.case_id, case.solution_path)
 
     assert direct.is_valid == via_case.is_valid
-    assert np.isclose(direct.score, via_case.score, atol=1e-8)
+    assert np.isclose(direct.total_hours, via_case.total_hours, atol=1e-8)
     assert direct.n_tracks == via_case.n_tracks
     assert direct.n_satisfied_requests == via_case.n_satisfied_requests
     assert np.isclose(direct.u_rms, via_case.u_rms, atol=1e-8)

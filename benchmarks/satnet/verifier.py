@@ -10,7 +10,7 @@ Key responsibilities:
 * Parse case-local antenna maintenance schedules.
 * Parse solution JSON files into :class:`Track` / :class:`Solution` objects.
 * Verify that all physical and operational constraints are respected.
-* Compute score and fairness metrics compatible with the public fixtures.
+* Compute total tracking hours and fairness metrics.
 """
 
 from __future__ import annotations
@@ -117,7 +117,7 @@ class VerificationResult:
     """Result of verifying a SatNet solution."""
 
     is_valid: bool
-    score: float = 0.0
+    total_hours: float = 0.0
     n_tracks: int = 0
     n_satisfied_requests: int = 0
     u_rms: float = 0.0
@@ -129,11 +129,11 @@ class VerificationResult:
     def __str__(self) -> str:  # pragma: no cover - formatting helper
         status = "VALID" if self.is_valid else "INVALID"
         lines = [f"Status: {status}"]
-        lines.append(f"Score (hours): {self.score:.4f}")
-        lines.append(f"Tracks: {self.n_tracks}")
-        lines.append(f"Satisfied requests: {self.n_satisfied_requests}")
         lines.append(f"U_rms: {self.u_rms:.6f}")
         lines.append(f"U_max: {self.u_max:.6f}")
+        lines.append(f"Total tracking hours: {self.total_hours:.4f}")
+        lines.append(f"Tracks: {self.n_tracks}")
+        lines.append(f"Satisfied requests: {self.n_satisfied_requests}")
         if self.errors:
             lines.append("Errors:")
             for error in self.errors:
@@ -418,7 +418,7 @@ def verify(instance: Instance, solution: Solution) -> VerificationResult:
                 f"Track {track_id} duration {track_duration}s below minimum {per_track_min_sec}s"
             )
 
-    score_hours = sum(
+    total_hours = sum(
         (track.tracking_off - track.tracking_on) / 3600.0 for track in solution.tracks
     )
 
@@ -466,7 +466,7 @@ def verify(instance: Instance, solution: Solution) -> VerificationResult:
 
     return VerificationResult(
         is_valid=not errors,
-        score=score_hours,
+        total_hours=total_hours,
         n_tracks=solution.n_tracks,
         n_satisfied_requests=len(satisfied_requests),
         u_rms=u_rms,
@@ -490,7 +490,7 @@ def _print_cli_result(result: VerificationResult, verbose: bool) -> None:
         print(result)
     else:
         status = "VALID" if result.is_valid else "INVALID"
-        print(f"{status}: score={result.score:.4f}h, tracks={result.n_tracks}")
+        print(f"{status}: total_hours={result.total_hours:.4f}h, tracks={result.n_tracks}")
 
 
 def main() -> int:  # pragma: no cover - CLI utility

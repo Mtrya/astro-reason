@@ -1,6 +1,6 @@
 # SatNet Mock Solution Fixtures
 
-本目录包含 SatNet benchmark 的 5 个解文件及其真实指标。这些文件作为验证 SatNet 验证器实现正确性的“黄金标准”。
+本目录包含 SatNet benchmark 的 5 个解文件及其真实指标。这些文件作为验证 SatNet 验证器实现正确性的“黄金标准”。它们是验证器测试 fixtures，不是文献基线。
 
 ## 来源与方法论
 

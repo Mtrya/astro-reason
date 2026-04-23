@@ -1,0 +1,7 @@
+id: satnet_rl_ppo_goh2021
+benchmark: satnet
+solver: rl_ppo_goh2021
+solver_path: solvers/satnet/rl_ppo_goh2021
+evidence_type: citation_reported
+runnable: false
+metrics_path: solvers/satnet/rl_ppo_goh2021/metrics.yaml

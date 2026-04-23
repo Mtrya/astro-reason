@@ -1,0 +1,47 @@
+evidence_type: citation_reported
+benchmark: satnet
+solver: rl_ppo_goh2021
+runnable: false
+provenance:
+  paper: "Goh et al. (2021), SatNet: A benchmark for satellite scheduling optimization"
+  table: "Table 3"
+  source_url: "https://openreview.net/pdf?id=buIUxK7F-Bx"
+  note: >
+    Values are reported RL/PPO results selected from 1,000 stochastic inference runs after convergence.
+    They are not reproduced solver runs from this repository.
+cases:
+  - case_id: W10_2018
+    total_hours: 886
+    total_requested_hours: 1192
+    n_satisfied_requests: 204
+    u_rms: 0.28
+    u_max: 0.71
+    training_time_hours: 4
+  - case_id: W20_2018
+    total_hours: 1000
+    total_requested_hours: 1406
+    n_satisfied_requests: 223
+    u_rms: 0.27
+    u_max: 0.81
+    training_time_hours: 18
+  - case_id: W30_2018
+    total_hours: 1100
+    total_requested_hours: 1464
+    n_satisfied_requests: 229
+    u_rms: 0.28
+    u_max: 0.85
+    training_time_hours: 13
+  - case_id: W40_2018
+    total_hours: 1058
+    total_requested_hours: 1737
+    n_satisfied_requests: 216
+    u_rms: 0.39
+    u_max: 0.82
+    training_time_hours: 6
+  - case_id: W50_2018
+    total_hours: 879
+    total_requested_hours: 1292
+    n_satisfied_requests: 185
+    u_rms: 0.36
+    u_max: 0.67
+    training_time_hours: 25

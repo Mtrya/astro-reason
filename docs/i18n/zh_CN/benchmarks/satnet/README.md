@@ -4,7 +4,7 @@
 
 ## 问题概述
 
-深空网络是 NASA/JPL 的国际巨型无线电天线阵列，支持行星际航天器任务。调度问题要求在 1 周周期内最大化成功通信跟踪弧段的总时长，同时遵守：
+深空网络是 NASA/JPL 的国际巨型无线电天线阵列，支持行星际航天器任务。调度问题要求在 1 周周期内分配成功通信跟踪弧段，同时遵守：
 
 - **可见周期（VP）约束**：只有当航天器与地面站有视线时才能通信（由轨道力学决定）
 - **准备/收尾要求**：每次跟踪弧段需要校准时间
@@ -73,6 +73,8 @@
 ```text
 maximize: Σ (跟踪弧段.tracking_off - 跟踪弧段.tracking_on) / 3600
 ```
+
+已发表的 SatNet 对比也强调任务间公平性。主要文献指标是 `U_rms` 和 `U_max`，分别衡量所有任务未满足时间比例的均方根和最差情况。
 
 ## 数据格式规范
 
@@ -202,25 +204,27 @@ week,year,starttime,endtime,antenna
 
 ## 评分方法
 
-**主要指标**：总通信小时数
+**跟踪小时数**：总调度通信时间
 ```python
-score = sum((track['TRACKING_OFF'] - track['TRACKING_ON']) / 3600.0 for track in solution)
+total_hours = sum((track['TRACKING_OFF'] - track['TRACKING_ON']) / 3600.0 for track in solution)
 ```
 
-**注意**：准备和收尾时间消耗天线可用性，但**不计入**分数。
+**注意**：准备和收尾时间消耗天线可用性，但**不计入**总跟踪小时数。
 
-**次要指标**（也由验证器计算并报告）：
+**公平性指标**（也由验证器计算并报告）：
 
 - **满足请求数**：总分配时长（同一 `track_id` 的所有跟踪弧段之和）至少达到 `duration_min` 的请求数量
-- **公平性（U_max）**：所有请求中的最大未满足比例
+- **公平性（U_max）**：所有任务中的最大未满足比例
   ```
-  U_i = (requested_duration - allocated_duration) / requested_duration
-  U_max = max(U_i for all requests)
+  U_m = (requested_duration_m - allocated_duration_m) / requested_duration_m
+  U_max = max(U_m for all missions)
   ```
 - **公平性（U_rms）**：未满足比例的均方根
   ```
-  U_rms = sqrt(mean(U_i² for all requests))
+  U_rms = sqrt(mean(U_m² for all missions))
   ```
+
+在公平性核算中，验证器按 `subject` 对请求分组。计算任务总量前，每个请求的已分配时长会按 `duration` 封顶。
 
 ## 实例分类
 
@@ -254,29 +258,36 @@ uv run python benchmarks/satnet/verifier.py \
 **输出（verbose）：**
 ```text
 Status: VALID
-Score: 234.5678 hours
-Tracks: 145
-Satisfied Requests: 132
 U_rms: 0.32
 U_max: 0.65
+Total tracking hours: 234.5678
+Tracks: 145
+Satisfied requests: 132
 ```
 
 **输出（compact）：**
 ```text
-VALID: score=234.5678h, tracks=145
+VALID: total_hours=234.5678h, tracks=145
 ```
 
 ## 基线性能
 
-来自原始 RL 实现（Chien 等人，2021）：
+已发表的 SatNet 基线同时报告总调度小时数（`T_S`）和任务级公平性指标。这些行是有引用来源的文献结果，不是本仓库复现运行的输出。
 
-| 方法 | 平均分配时长 | 平均满足请求数 | U_rms | U_max |
-|--------|--------------------|-----------------------|-------|-------|
-| Random | ~180h | ~120 | 0.45 | 0.85 |
-| Greedy | ~210h | ~140 | 0.38 | 0.72 |
-| PPO (RL) | ~235h | ~155 | 0.32 | 0.65 |
+| 方法 | 来源 | 周次 | T_S / T_R（小时） | 满足请求数 | U_rms | U_max |
+|--------|--------|------|-------------------|--------------------|-------|-------|
+| Delta-MILP | Claudet 等人（2022），表 4 | W10_2018 | 822 / 1192 | 203 | 0.26 | 0.48 |
+| Delta-MILP | Claudet 等人（2022），表 4 | W20_2018 | 1059 / 1406 | 249 | 0.21 | 0.64 |
+| Delta-MILP | Claudet 等人（2022），表 4 | W30_2018 | 983 / 1464 | 231 | 0.29 | 0.64 |
+| Delta-MILP | Claudet 等人（2022），表 4 | W40_2018 | 949 / 1737 | 223 | 0.40 | 1.00 |
+| Delta-MILP | Claudet 等人（2022），表 4 | W50_2018 | 816 / 1292 | 197 | 0.35 | 0.60 |
+| RL (PPO) | Goh 等人（2021），表 3 | W10_2018 | 886 / 1192 | 204 | 0.28 | 0.71 |
+| RL (PPO) | Goh 等人（2021），表 3 | W20_2018 | 1000 / 1406 | 223 | 0.27 | 0.81 |
+| RL (PPO) | Goh 等人（2021），表 3 | W30_2018 | 1100 / 1464 | 229 | 0.28 | 0.85 |
+| RL (PPO) | Goh 等人（2021），表 3 | W40_2018 | 1058 / 1737 | 216 | 0.39 | 0.82 |
+| RL (PPO) | Goh 等人（2021），表 3 | W50_2018 | 879 / 1292 | 185 | 0.36 | 0.67 |
 
-**注意**：精确数字取决于具体周次和随机种子。
+RL 行是在训练收敛后从 1,000 次随机推理运行中选择的结果，选择规则是在 `U_max < 1` 的候选中取最高 `T_S`。
 
 ## 文件位置
 
@@ -313,7 +324,7 @@ VPs 是**硬约束**——无论天线可用性如何，你都不能在这些窗
 - **准备**：天线转向、接收机调谐、频率锁定获取
 - **收尾**：系统复位、日志记录、天线重新定位
 
-这些时长属于必要的物理开销，会消耗天线可用性，但**不计入**目标分数（只有实际传输时间才算）。
+这些时长属于必要的物理开销，会消耗天线可用性，但**不计入**总跟踪小时数（只有实际传输时间才算）。
 
 ## 许可与归属
 
@@ -321,12 +332,6 @@ VPs 是**硬约束**——无论天线可用性如何，你都不能在这些窗
 
 **学术参考文献：**
 1. Goh, Edwin, Venkataram, Hamsa Shwetha, Balaji, Bharathan, Wilson, Brian D, and Johnston, Mark D. "SatNet: A benchmark for satellite scheduling optimization." AAAI-22 workshop on Machine Learning for Operations Research (ML4OR), 2021.
+2. Claudet, Thomas, Ryan Alimo, Edwin Goh, Mark D. Johnston, Ramtin Madani, and Brian Wilson. "Delta-MILP: Deep Space Network Scheduling via Mixed-Integer Linear Programming." IEEE Access, 2022.
 
 **致谢**：本 benchmark 基于 NASA JPL 和多智能体学习社区提供的开源 SatNet 实现和数据集。
-
-## 参考文献
-
-1. Chien S, Sherwood R, Tran D, et al. "The EO-1 autonomous science agent." Autonomous Agents and Multi-Agent Systems, 2005.
-2. Rabideau G, Chien S, Galer D, Nespoli F. "Managing communications for the Deep Space Network." SpaceOps Conference, 2010.
-3. Chien S, Johnston M, Policella N, et al. "A Generalized Timeline Representation for Planning and Scheduling." ICAPS, 2013.
-4. Beaumet G, Verfaillie G, Charmeau MC. "Feasibility of Autonomous Decision Making on Board an Agile Earth-Observing Satellite." Computational Intelligence, 2011.

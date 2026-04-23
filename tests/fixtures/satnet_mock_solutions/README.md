@@ -1,6 +1,6 @@
 # SatNet Mock Solution Fixtures
 
-This directory contains 5 solution files and their ground truth metrics for the SatNet benchmark. These files serve as the "gold standard" for validating the correctness of the SatNet verifier implementation.
+This directory contains 5 solution files and their ground truth metrics for the SatNet benchmark. These files serve as the "gold standard" for validating the correctness of the SatNet verifier implementation. They are verifier test fixtures, not literature baselines.
 
 ## Provenance and Methodology
 
