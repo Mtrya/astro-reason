@@ -44,7 +44,7 @@ Rules:
 
 ## Summary
 - Correctness: <PASS / NEEDS_REVIEW / FAIL>
-- Match rate: X/Y steps
+- Match rate: X/Y steps (if reference provided)
 - Adaptations: N
 - Deviations: M
 - Extensions: P
