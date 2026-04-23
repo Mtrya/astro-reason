@@ -670,3 +670,56 @@ def test_local_search_restart_determinism(monkeypatch) -> None:
     result2 = local_search(case, [a], greedy_solution, config=LocalSearchConfig(restart_count=2, random_seed=42))
     assert result1.stats.stop_reason == result2.stats.stop_reason
     assert result1.stats.final_objective == result2.stats.final_objective
+
+
+def test_candidate_shape_issues_catch_duration_mismatch(monkeypatch) -> None:
+    a = _candidate("a", satellite_id="sat_a", task_id="task_a", start_offset_s=10, end_offset_s=20, weight=5.0)
+    case = _case_for_candidates([a])
+    # Create a new task with a different required_duration_s
+    task = case.tasks["task_a"]
+    new_task = task.__class__(
+        task_id=task.task_id,
+        name=task.name,
+        latitude_deg=task.latitude_deg,
+        longitude_deg=task.longitude_deg,
+        altitude_m=task.altitude_m,
+        release_time=task.release_time,
+        due_time=task.due_time,
+        required_duration_s=15,
+        required_sensor_type=task.required_sensor_type,
+        weight=task.weight,
+        target_ecef_m=task.target_ecef_m,
+    )
+    new_case = AeosspCase(
+        case_dir=case.case_dir,
+        mission=case.mission,
+        satellites=case.satellites,
+        tasks={**case.tasks, "task_a": new_task},
+    )
+    from validation import candidate_shape_issues
+    issues = candidate_shape_issues(new_case, [a])
+    assert any(i.reason == "duration_mismatch" for i in issues)
+
+
+def test_candidate_shape_issues_catch_grid_misalignment(monkeypatch) -> None:
+    a = _candidate("a", satellite_id="sat_a", task_id="task_a", start_offset_s=10, end_offset_s=20, weight=5.0)
+    case = _case_for_candidates([a])
+    # Create a new case with a larger action_time_step_s
+    mission = case.mission
+    new_mission = mission.__class__(
+        case_id=mission.case_id,
+        horizon_start=mission.horizon_start,
+        horizon_end=mission.horizon_end,
+        action_time_step_s=7,
+        geometry_sample_step_s=mission.geometry_sample_step_s,
+        resource_sample_step_s=mission.resource_sample_step_s,
+    )
+    new_case = AeosspCase(
+        case_dir=case.case_dir,
+        mission=new_mission,
+        satellites=case.satellites,
+        tasks=case.tasks,
+    )
+    from validation import candidate_shape_issues
+    issues = candidate_shape_issues(new_case, [a])
+    assert any(i.reason == "grid_misalignment" for i in issues)

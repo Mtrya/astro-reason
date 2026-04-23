@@ -9,7 +9,7 @@ from typing import Any
 import brahe
 
 from candidates import Candidate
-from case_io import AeosspCase, NUMERICAL_EPS, Satellite, iso_z
+from case_io import AeosspCase, NUMERICAL_EPS, Satellite, _is_aligned, iso_z
 from geometry import (
     PropagationContext,
     angle_between_deg,
@@ -419,12 +419,120 @@ def battery_issues(
     return issues, traces
 
 
+def candidate_shape_issues(case: AeosspCase, candidates: list[Candidate]) -> list[ValidationIssue]:
+    """Check that each selected candidate conforms to case-level constraints."""
+    issues: list[ValidationIssue] = []
+    for candidate in candidates:
+        if candidate.satellite_id not in case.satellites:
+            issues.append(
+                ValidationIssue(
+                    reason="unknown_satellite",
+                    message=f"satellite_id {candidate.satellite_id!r} not in case",
+                    candidate_ids=(candidate.candidate_id,),
+                    satellite_id=candidate.satellite_id,
+                    task_id=candidate.task_id,
+                )
+            )
+            continue
+        if candidate.task_id not in case.tasks:
+            issues.append(
+                ValidationIssue(
+                    reason="unknown_task",
+                    message=f"task_id {candidate.task_id!r} not in case",
+                    candidate_ids=(candidate.candidate_id,),
+                    satellite_id=candidate.satellite_id,
+                    task_id=candidate.task_id,
+                )
+            )
+            continue
+
+        satellite = case.satellites[candidate.satellite_id]
+        task = case.tasks[candidate.task_id]
+
+        if candidate.duration_s != task.required_duration_s:
+            issues.append(
+                ValidationIssue(
+                    reason="duration_mismatch",
+                    message=(
+                        f"duration {candidate.duration_s}s != required {task.required_duration_s}s"
+                    ),
+                    candidate_ids=(candidate.candidate_id,),
+                    satellite_id=candidate.satellite_id,
+                    task_id=candidate.task_id,
+                    offset_s=candidate.start_offset_s,
+                )
+            )
+
+        if not _is_aligned(candidate.start_offset_s, case.mission.action_time_step_s):
+            issues.append(
+                ValidationIssue(
+                    reason="grid_misalignment",
+                    message=(
+                        f"start_offset_s={candidate.start_offset_s} is not aligned to "
+                        f"action_time_step_s={case.mission.action_time_step_s}"
+                    ),
+                    candidate_ids=(candidate.candidate_id,),
+                    satellite_id=candidate.satellite_id,
+                    task_id=candidate.task_id,
+                    offset_s=candidate.start_offset_s,
+                )
+            )
+
+        release_offset_s = (task.release_time - case.mission.horizon_start).total_seconds()
+        due_offset_s = (task.due_time - case.mission.horizon_start).total_seconds()
+        if candidate.start_offset_s + NUMERICAL_EPS < release_offset_s:
+            issues.append(
+                ValidationIssue(
+                    reason="window_violation",
+                    message=(
+                        f"start {candidate.start_offset_s}s is before task release "
+                        f"{release_offset_s}s"
+                    ),
+                    candidate_ids=(candidate.candidate_id,),
+                    satellite_id=candidate.satellite_id,
+                    task_id=candidate.task_id,
+                    offset_s=candidate.start_offset_s,
+                )
+            )
+        if candidate.end_offset_s > due_offset_s + NUMERICAL_EPS:
+            issues.append(
+                ValidationIssue(
+                    reason="window_violation",
+                    message=(
+                        f"end {candidate.end_offset_s}s is after task due "
+                        f"{due_offset_s}s"
+                    ),
+                    candidate_ids=(candidate.candidate_id,),
+                    satellite_id=candidate.satellite_id,
+                    task_id=candidate.task_id,
+                    offset_s=candidate.end_offset_s,
+                )
+            )
+
+        if task.required_sensor_type != satellite.sensor_type:
+            issues.append(
+                ValidationIssue(
+                    reason="sensor_mismatch",
+                    message=(
+                        f"task sensor {task.required_sensor_type!r} != "
+                        f"satellite sensor {satellite.sensor_type!r}"
+                    ),
+                    candidate_ids=(candidate.candidate_id,),
+                    satellite_id=candidate.satellite_id,
+                    task_id=candidate.task_id,
+                )
+            )
+
+    return issues
+
+
 def validate_schedule(case: AeosspCase, candidates: list[Candidate]) -> ValidationReport:
     stable_candidates = sorted(
         candidates,
         key=lambda item: (item.start_offset_s, item.satellite_id, item.task_id, item.candidate_id),
     )
     issues: list[ValidationIssue] = []
+    issues.extend(candidate_shape_issues(case, stable_candidates))
     issues.extend(duplicate_task_issues(stable_candidates))
 
     step_s = float(min(case.mission.action_time_step_s, case.mission.geometry_sample_step_s))
