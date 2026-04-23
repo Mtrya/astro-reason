@@ -46,6 +46,7 @@ RUN uv pip install --system \
     'matplotlib>=3.10.8' \
     'numpy>=2.4.4' \
     'pyproj>=3.7.2' \
+    'pyinstaller>=6.20,<7' \
     'pyyaml>=6.0.3' \
     'pytest>=9.0.3' \
     'shapely>=2.1.2' \
@@ -57,7 +58,8 @@ RUN set -eux; \
     for cmd in claude codex gemini jq kimi opencode pi rg tree; do \
         command -v "$cmd"; \
     done; \
-    python -c "import brahe, datasets, huggingface_hub, kagglehub, matplotlib, numpy, pyproj, yaml, pytest, shapely, skyfield" >/dev/null
+    command -v pyinstaller; \
+    python -c "import brahe, datasets, huggingface_hub, kagglehub, matplotlib, numpy, pyproj, PyInstaller, yaml, pytest, shapely, skyfield" >/dev/null
 
 WORKDIR /app/workspace
 
