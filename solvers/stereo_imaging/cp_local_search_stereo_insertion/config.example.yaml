@@ -1,0 +1,18 @@
+# Example config for the CP/local-search stereo insertion solver.
+#
+# Copy this file into a config directory as config.yaml, or pass it directly to
+# solve.sh as the config path.
+
+# Candidate generation
+# observation_duration_s: 6.0
+# candidate_stride_s: 10
+# max_candidates_per_target_per_sat: null
+
+# Product library
+# max_tri_products_per_target_access: 50
+# pair_mc_samples: 100
+# tri_mc_samples: 100
+# tri_pair_edge_mc_samples: 80
+
+# Debug artifacts
+# debug: false
