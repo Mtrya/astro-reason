@@ -1,4 +1,5 @@
-"""Solver entrypoint: generate candidates and emit actions for Phase 1."""
+"""Solver entrypoint: generate candidates, build schedule via greedy insertion,
+run solver-local repair, and emit a benchmark-compatible solution."""
 
 from __future__ import annotations
 
@@ -10,7 +11,9 @@ from pathlib import Path
 
 from candidates import CandidateConfig, generate_candidates
 from case_io import load_case, load_solver_config
-from solution_io import write_json, write_empty_solution
+from insertion import InsertionConfig, greedy_insertion
+from solution_io import write_json, write_solution
+from validation import RepairConfig, repair_schedule
 
 
 def _build_status(
@@ -21,11 +24,13 @@ def _build_status(
     case,
     candidate_config: CandidateConfig,
     candidate_summary,
+    insertion_result,
+    repair_result,
     timing_seconds: dict[str, float],
 ) -> dict:
     return {
-        "status": "phase_1_candidates_generated",
-        "phase": 1,
+        "status": "phase_2_greedy_insertion_solution_generated",
+        "phase": 2,
         "case_dir": str(case_dir),
         "config_dir": str(config_dir) if config_dir is not None else None,
         "solution": str(solution_path),
@@ -35,6 +40,8 @@ def _build_status(
         "candidate_config": candidate_config.as_status_dict(),
         "utility_policy": "weight_over_duration",
         **candidate_summary.as_debug_dict(case),
+        "insertion": insertion_result.as_dict(),
+        "repair": repair_result.as_status_dict(),
         "timing_seconds": timing_seconds,
     }
 
@@ -46,6 +53,8 @@ def _write_debug_artifacts(
     candidate_config: CandidateConfig,
     candidate_summary,
     candidates,
+    insertion_result,
+    repair_result,
     timing_seconds: dict[str, float],
 ) -> None:
     write_json(
@@ -60,11 +69,28 @@ def _write_debug_artifacts(
         solution_dir / "debug" / "candidates.json",
         [candidate.as_dict() for candidate in candidates],
     )
+    write_json(
+        solution_dir / "debug" / "insertion_stats.json",
+        {
+            "case_id": case.mission.case_id,
+            "insertion": insertion_result.as_dict(),
+            "selected_candidates": [candidate.as_dict() for candidate in insertion_result.selected],
+        },
+    )
+    write_json(
+        solution_dir / "debug" / "repair_log.json",
+        repair_result.as_debug_dict(),
+    )
+    write_json(
+        solution_dir / "debug" / "repaired_candidates.json",
+        [candidate.as_dict() for candidate in repair_result.candidates],
+    )
 
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(
-        description="Generate AEOSSP greedy-LNS candidates and write a Phase-1 scaffold solution."
+        description="Generate AEOSSP greedy-LNS candidates, build a schedule via greedy insertion, "
+        "run solver-local repair, and write a benchmark-compatible solution."
     )
     parser.add_argument("--case-dir", required=True)
     parser.add_argument("--config-dir", default="")
@@ -79,15 +105,24 @@ def main(argv: list[str] | None = None) -> int:
         total_start = time.perf_counter()
         config_payload = load_solver_config(config_dir)
         candidate_config = CandidateConfig.from_mapping(config_payload)
+        insertion_config = InsertionConfig.from_mapping(config_payload)
+        repair_config = RepairConfig.from_mapping(config_payload)
         case = load_case(case_dir)
         candidate_start = time.perf_counter()
         candidates, candidate_summary = generate_candidates(case, candidate_config)
         candidate_end = time.perf_counter()
-        # Phase 1 writes an empty solution; schedule construction comes in Phase 2.
-        solution_path = write_empty_solution(solution_dir)
+        insertion_start = time.perf_counter()
+        insertion_result = greedy_insertion(case, candidates, insertion_config)
+        insertion_end = time.perf_counter()
+        repair_start = time.perf_counter()
+        repair_result = repair_schedule(case, insertion_result.selected, config=repair_config)
+        repair_end = time.perf_counter()
+        solution_path = write_solution(solution_dir, repair_result.candidates)
         total_end = time.perf_counter()
         timing_seconds = {
             "candidate_generation": candidate_end - candidate_start,
+            "insertion": insertion_end - insertion_start,
+            "repair": repair_end - repair_start,
             "total": total_end - total_start,
         }
         status = _build_status(
@@ -97,6 +132,8 @@ def main(argv: list[str] | None = None) -> int:
             case=case,
             candidate_config=candidate_config,
             candidate_summary=candidate_summary,
+            insertion_result=insertion_result,
+            repair_result=repair_result,
             timing_seconds=timing_seconds,
         )
         write_json(solution_dir / "status.json", status)
@@ -107,6 +144,8 @@ def main(argv: list[str] | None = None) -> int:
                 candidate_config=candidate_config,
                 candidate_summary=candidate_summary,
                 candidates=candidates,
+                insertion_result=insertion_result,
+                repair_result=repair_result,
                 timing_seconds=timing_seconds,
             )
     except Exception as exc:
@@ -116,7 +155,7 @@ def main(argv: list[str] | None = None) -> int:
             solution_dir / "status.json",
             {
                 "status": "error",
-                "phase": 1,
+                "phase": 2,
                 "case_dir": str(case_dir),
                 "config_dir": str(config_dir) if config_dir is not None else None,
                 "error": str(exc),
@@ -127,10 +166,12 @@ def main(argv: list[str] | None = None) -> int:
         return 2
 
     print(
-        f"phase_1_candidates_generated: {case.mission.case_id} "
+        f"phase_2_greedy_insertion_solution_generated: {case.mission.case_id} "
         f"candidates={candidate_summary.candidate_count} "
-        f"satellites={len(case.satellites)} "
-        f"tasks={len(case.tasks)} -> {solution_path}"
+        f"inserted={insertion_result.stats.candidates_inserted} "
+        f"after_repair={len(repair_result.candidates)} "
+        f"local_valid={repair_result.final_report.valid} "
+        f"repair_removals={len(repair_result.removals)} -> {solution_path}"
     )
     return 0
 

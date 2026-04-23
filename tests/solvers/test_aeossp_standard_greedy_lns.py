@@ -36,6 +36,8 @@ from solution_io import candidates_to_actions, write_empty_solution  # noqa: E40
 from transition import TransitionVectorCache, transition_gap_conflict, transition_result  # noqa: E402
 
 from candidates import Candidate  # noqa: E402
+from insertion import greedy_insertion, InsertionConfig, InsertionResult  # noqa: E402
+from validation import RepairConfig, ValidationIssue, repair_schedule  # noqa: E402
 
 
 def _mission() -> Mission:
@@ -378,3 +380,140 @@ def test_candidate_summary_zero_task_tracking() -> None:
     assert debug["zero_candidate_task_count"] == 1
     assert debug["zero_candidate_task_ids"] == ["task_b"]
     assert debug["zero_candidate_task_counts_by_sensor"] == {"infrared": 1}
+
+
+
+def test_greedy_insertion_selects_higher_utility_first(monkeypatch) -> None:
+    a = _candidate("a", satellite_id="sat_a", task_id="task_a", start_offset_s=10, end_offset_s=20, weight=5.0)
+    b = _candidate("b", satellite_id="sat_a", task_id="task_a", start_offset_s=30, end_offset_s=40, weight=1.0)
+    case = _case_for_candidates([a, b])
+
+    monkeypatch.setattr("insertion.PropagationContext", lambda *args, **kwargs: None)
+    monkeypatch.setattr("insertion.initial_slew_feasible", lambda **kwargs: True)
+    monkeypatch.setattr("insertion.transition_result", lambda *args, **kwargs: type("R", (), {"feasible": True})())
+
+    result = greedy_insertion(case, [a, b])
+    assert len(result.selected) == 1
+    assert result.selected[0].candidate_id == "a"
+    assert result.stats.candidates_skipped_duplicate_task == 1
+
+
+def test_greedy_insertion_rejects_overlap(monkeypatch) -> None:
+    a = _candidate("a", satellite_id="sat_a", task_id="task_a", start_offset_s=10, end_offset_s=25, weight=5.0)
+    b = _candidate("b", satellite_id="sat_a", task_id="task_b", start_offset_s=20, end_offset_s=30, weight=1.0)
+    case = _case_for_candidates([a, b])
+
+    monkeypatch.setattr("insertion.PropagationContext", lambda *args, **kwargs: None)
+    monkeypatch.setattr("insertion.initial_slew_feasible", lambda **kwargs: True)
+    monkeypatch.setattr("insertion.transition_result", lambda *args, **kwargs: type("R", (), {"feasible": True})())
+
+    result = greedy_insertion(case, [a, b])
+    assert len(result.selected) == 1
+    assert result.selected[0].candidate_id == "a"
+    assert result.stats.candidates_rejected_overlap == 1
+
+
+def test_greedy_insertion_rejects_insufficient_transition(monkeypatch) -> None:
+    a = _candidate("a", satellite_id="sat_a", task_id="task_a", start_offset_s=10, end_offset_s=20, weight=5.0)
+    b = _candidate("b", satellite_id="sat_a", task_id="task_b", start_offset_s=22, end_offset_s=32, weight=1.0)
+    case = _case_for_candidates([a, b])
+
+    class FakeResult:
+        feasible = False
+
+    def fake_transition(previous, current, **kwargs):
+        if previous.candidate_id == "a" and current.candidate_id == "b":
+            return FakeResult()
+        return type("R", (), {"feasible": True})()
+
+    monkeypatch.setattr("insertion.PropagationContext", lambda *args, **kwargs: None)
+    monkeypatch.setattr("insertion.initial_slew_feasible", lambda **kwargs: True)
+    monkeypatch.setattr("insertion.transition_result", fake_transition)
+
+    result = greedy_insertion(case, [a, b])
+    assert len(result.selected) == 1
+    assert result.selected[0].candidate_id == "a"
+    assert result.stats.candidates_rejected_transition == 1
+
+
+def test_greedy_insertion_respects_initial_slew(monkeypatch) -> None:
+    a = _candidate("a", satellite_id="sat_a", task_id="task_a", start_offset_s=10, end_offset_s=20, weight=5.0)
+    case = _case_for_candidates([a])
+
+    monkeypatch.setattr("insertion.PropagationContext", lambda *args, **kwargs: None)
+    monkeypatch.setattr("insertion.initial_slew_feasible", lambda **kwargs: False)
+
+    result = greedy_insertion(case, [a])
+    assert len(result.selected) == 0
+    assert result.stats.candidates_rejected_initial_slew == 1
+
+
+def test_greedy_insertion_insert_between_feasible(monkeypatch) -> None:
+    a = _candidate("a", satellite_id="sat_a", task_id="task_a", start_offset_s=10, end_offset_s=20, weight=1.0)
+    c = _candidate("c", satellite_id="sat_a", task_id="task_c", start_offset_s=30, end_offset_s=40, weight=1.0)
+    b = _candidate("b", satellite_id="sat_a", task_id="task_b", start_offset_s=22, end_offset_s=28, weight=1.0)
+    case = _case_for_candidates([a, b, c])
+
+    monkeypatch.setattr("insertion.PropagationContext", lambda *args, **kwargs: None)
+    monkeypatch.setattr("insertion.initial_slew_feasible", lambda **kwargs: True)
+    monkeypatch.setattr("insertion.transition_result", lambda *args, **kwargs: type("R", (), {"feasible": True})())
+
+    result = greedy_insertion(case, [a, b, c])
+    ids = [item.candidate_id for item in result.selected]
+    assert ids == ["a", "b", "c"]
+    assert result.stats.candidates_inserted == 3
+
+
+def test_greedy_insertion_cross_satellite_same_task_rejected(monkeypatch) -> None:
+    a = _candidate("a", satellite_id="sat_a", task_id="task_x", start_offset_s=10, end_offset_s=20, weight=5.0)
+    b = _candidate("b", satellite_id="sat_b", task_id="task_x", start_offset_s=30, end_offset_s=40, weight=1.0)
+    case = _case_for_candidates([a, b])
+
+    monkeypatch.setattr("insertion.PropagationContext", lambda *args, **kwargs: None)
+    monkeypatch.setattr("insertion.initial_slew_feasible", lambda **kwargs: True)
+    monkeypatch.setattr("insertion.transition_result", lambda *args, **kwargs: type("R", (), {"feasible": True})())
+
+    result = greedy_insertion(case, [a, b])
+    assert len(result.selected) == 1
+    assert result.selected[0].candidate_id == "a"
+    assert result.stats.candidates_skipped_duplicate_task == 1
+
+
+def test_repair_removes_battery_violation(monkeypatch) -> None:
+    a = _candidate("a", satellite_id="sat_a", task_id="task_a", start_offset_s=10, end_offset_s=20, weight=5.0)
+    b = _candidate("b", satellite_id="sat_a", task_id="task_b", start_offset_s=30, end_offset_s=40, weight=1.0)
+    case = _case_for_candidates([a, b])
+
+    monkeypatch.setattr("validation.PropagationContext", lambda *args, **kwargs: None)
+    monkeypatch.setattr("validation.schedule_issues", lambda case, candidates, **kwargs: [])
+
+    def fake_battery_issues(case, candidates, **kwargs):
+        if any(c.candidate_id == "b" for c in candidates):
+            return (
+                [ValidationIssue(reason="battery_depletion", message="battery depleted", satellite_id="sat_a", offset_s=35.0)],
+                {},
+            )
+        return ([], {})
+
+    monkeypatch.setattr("validation.battery_issues", fake_battery_issues)
+
+    result = repair_schedule(case, [a, b], config=RepairConfig(max_repair_iterations=10))
+    assert len(result.candidates) == 1
+    assert result.candidates[0].candidate_id == "a"
+    assert result.terminated_reason == "valid"
+    assert len(result.removals) == 1
+    assert result.removals[0].candidate_id == "b"
+
+
+def test_repair_passes_when_valid(monkeypatch) -> None:
+    a = _candidate("a", satellite_id="sat_a", task_id="task_a", start_offset_s=10, end_offset_s=20, weight=5.0)
+    case = _case_for_candidates([a])
+
+    monkeypatch.setattr("validation.PropagationContext", lambda *args, **kwargs: None)
+    monkeypatch.setattr("validation.schedule_issues", lambda case, candidates, **kwargs: [])
+    monkeypatch.setattr("validation.battery_issues", lambda case, candidates, **kwargs: ([], {}))
+
+    result = repair_schedule(case, [a], config=RepairConfig(max_repair_iterations=10))
+    assert len(result.candidates) == 1
+    assert result.terminated_reason == "valid"
+    assert len(result.removals) == 0
