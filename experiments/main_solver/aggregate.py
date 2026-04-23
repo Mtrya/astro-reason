@@ -38,8 +38,6 @@ def _metric(payload: dict[str, Any], key: str) -> Any:
         return verifier_metrics[key]
     if key in verifier:
         return verifier[key]
-    if key == "total_hours" and "score" in reported:
-        return reported["score"]
     return reported.get(key)
 
 
