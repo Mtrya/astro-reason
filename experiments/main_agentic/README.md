@@ -120,7 +120,7 @@ Each concrete run is assembled from benchmark and harness profiles.
 
 Benchmark profiles own:
 
-- case and verifier workspace assembly
+- case assembly and local verifier-helper exposure
 - benchmark-facing `README.md` and `PROMPT.md` fragments
 - benchmark-native aggregation metadata
 
@@ -168,6 +168,7 @@ Interactive workspaces live under:
 Every concrete run writes one `run.json`. Aggregation reads `run.json` artifacts, not raw session logs.
 
 External verification is performed through benchmark-owned verifier executable entrypoints. `main_agentic` does not import benchmark-internal verifier APIs.
+The agent workspace may include an opaque local verifier helper assembled from `experiments/_fragments/opaque_verifiers/artifacts/`, but official evaluation still runs through the benchmark-owned verifier CLIs outside the workspace.
 Most verifiers emit JSON; SatNet and SPOT5 currently emit text CLI reports, so the runner parses their verbose output into the same `run.json` verifier section used by aggregation.
 
 ## Aggregation
