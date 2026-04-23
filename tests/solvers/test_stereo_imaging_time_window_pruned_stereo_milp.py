@@ -1,4 +1,4 @@
-"""Focused tests for stereo MILP Phase-2 product enumeration and scoring."""
+"""Focused tests for the time-window-pruned stereo MILP solver."""
 
 from __future__ import annotations
 
