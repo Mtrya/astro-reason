@@ -280,11 +280,11 @@ Published SatNet baselines report both total scheduled hours (`T_S`) and mission
 
 | Method | Source | Week | T_S / T_R (hours) | Satisfied Requests | U_rms | U_max |
 |--------|--------|------|-------------------|--------------------|-------|-------|
-| Delta-MILP | Goh et al. (2021), Table 2 | W10_2018 | 822 / 1192 | 203 | 0.26 | 0.48 |
-| Delta-MILP | Goh et al. (2021), Table 2 | W20_2018 | 1059 / 1406 | 249 | 0.21 | 0.64 |
-| Delta-MILP | Goh et al. (2021), Table 2 | W30_2018 | 983 / 1464 | 231 | 0.29 | 0.64 |
-| Delta-MILP | Goh et al. (2021), Table 2 | W40_2018 | 949 / 1737 | 223 | 0.40 | 1.00 |
-| Delta-MILP | Goh et al. (2021), Table 2 | W50_2018 | 816 / 1292 | 197 | 0.35 | 0.60 |
+| Delta-MILP | Claudet et al. (2022), Table 4 | W10_2018 | 822 / 1192 | 203 | 0.26 | 0.48 |
+| Delta-MILP | Claudet et al. (2022), Table 4 | W20_2018 | 1059 / 1406 | 249 | 0.21 | 0.64 |
+| Delta-MILP | Claudet et al. (2022), Table 4 | W30_2018 | 983 / 1464 | 231 | 0.29 | 0.64 |
+| Delta-MILP | Claudet et al. (2022), Table 4 | W40_2018 | 949 / 1737 | 223 | 0.40 | 1.00 |
+| Delta-MILP | Claudet et al. (2022), Table 4 | W50_2018 | 816 / 1292 | 197 | 0.35 | 0.60 |
 | RL (PPO) | Goh et al. (2021), Table 3 | W10_2018 | 886 / 1192 | 204 | 0.28 | 0.71 |
 | RL (PPO) | Goh et al. (2021), Table 3 | W20_2018 | 1000 / 1406 | 223 | 0.27 | 0.81 |
 | RL (PPO) | Goh et al. (2021), Table 3 | W30_2018 | 1100 / 1464 | 229 | 0.28 | 0.85 |
