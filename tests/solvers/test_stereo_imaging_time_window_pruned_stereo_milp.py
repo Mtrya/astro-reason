@@ -1432,6 +1432,54 @@ class TestRepair:
 # End-to-end integration test (slow; marked optional)
 # ---------------------------------------------------------------------------
 
+class TestDeterminism:
+    @pytest.mark.skipif(
+        not (Path(__file__).resolve().parents[2] / "benchmarks" / "stereo_imaging" / "dataset" / "cases" / "test" / "case_0001").exists(),
+        reason="case_0001 dataset not present",
+    )
+    def test_three_runs_identical(self, tmp_path):
+        import subprocess
+
+        repo_root = Path(__file__).resolve().parents[2]
+        solver_dir = repo_root / "solvers" / "stereo_imaging" / "time_window_pruned_stereo_milp"
+        case_dir = repo_root / "benchmarks" / "stereo_imaging" / "dataset" / "cases" / "test" / "case_0001"
+        config_dir = solver_dir / "config.example.yaml"
+
+        statuses: list[dict[str, Any]] = []
+        for i in range(3):
+            solution_dir = tmp_path / f"det_{i}"
+            result = subprocess.run(
+                [
+                    "./solve.sh",
+                    str(case_dir),
+                    str(config_dir),
+                    str(solution_dir),
+                ],
+                cwd=solver_dir,
+                capture_output=True,
+                text=True,
+            )
+            assert result.returncode == 0, result.stderr
+            status = json.loads((solution_dir / "status.json").read_text(encoding="utf-8"))
+            statuses.append(status)
+
+        s0, s1, s2 = statuses
+        assert s0["candidate_counts"] == s1["candidate_counts"] == s2["candidate_counts"]
+        assert s0["product_counts"] == s1["product_counts"] == s2["product_counts"]
+        # solve_time_s is timing noise; compare everything else
+        def _drop_timing(d):
+            d = dict(d)
+            d.pop("solve_time_s", None)
+            return d
+        assert _drop_timing(s0["solve_summary"]) == _drop_timing(s1["solve_summary"]) == _drop_timing(s2["solve_summary"])
+        assert s0["repair_summary"] == s1["repair_summary"] == s2["repair_summary"]
+
+        actions0 = json.loads((tmp_path / "det_0" / "solution.json").read_text(encoding="utf-8"))["actions"]
+        actions1 = json.loads((tmp_path / "det_1" / "solution.json").read_text(encoding="utf-8"))["actions"]
+        actions2 = json.loads((tmp_path / "det_2" / "solution.json").read_text(encoding="utf-8"))["actions"]
+        assert actions0 == actions1 == actions2
+
+
 class TestEndToEnd:
     @pytest.mark.skipif(
         not (Path(__file__).resolve().parents[2] / "benchmarks" / "stereo_imaging" / "dataset" / "cases" / "test" / "case_0001").exists(),
@@ -1443,9 +1491,9 @@ class TestEndToEnd:
         repo_root = Path(__file__).resolve().parents[2]
         solver_dir = repo_root / "solvers" / "stereo_imaging" / "time_window_pruned_stereo_milp"
         case_dir = repo_root / "benchmarks" / "stereo_imaging" / "dataset" / "cases" / "test" / "case_0001"
-        solution_dir = tmp_path / "solution"
-        config_dir = solver_dir / "config.yaml"
+        config_dir = solver_dir / "config.example.yaml"
 
+        solution_dir = tmp_path / "solution"
         result = subprocess.run(
             [
                 "./solve.sh",
