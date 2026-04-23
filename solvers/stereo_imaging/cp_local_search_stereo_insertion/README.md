@@ -2,7 +2,9 @@
 
 This solver is a runnable reproduced solver for `stereo_imaging`.
 
-It follows the method family described by Lemaître et al. in "Selecting and Scheduling Observations of Agile Satellites", adapted to the benchmark's public case and solution contract.
+It draws on the method family described by Lemaître et al. in "Selecting and Scheduling Observations of Agile Satellites", adapted to the benchmark's public case and solution contract.
+
+**Important:** this solver is currently a deterministic greedy baseline with constraint-propagated sequences and a weak local-search veneer. It is not yet a faithful reproduction of Lemaître's stochastic local-search method. See [SOLVER_AUDIT.md](./SOLVER_AUDIT.md) for details.
 
 ## Citation
 
@@ -61,11 +63,13 @@ All 5 public cases pass the benchmark verifier. Runtimes are on a warm-cache sin
 | test/case_0004 | 666 | 85 | 31 / 39 (0.795) | 0.793 | 38.4 s |
 | test/case_0005 | 236 | 0 | 0 / 19 (0.000) | 0.000 | 7.1 s |
 
-**Seed-only vs local search:** on all public cases, the greedy seed is already at a local optimum; local search accepts 0 improving moves. This is correct behavior for these instances, not a bug.
+**Seed-only vs local search:** on all public cases, the greedy seed is already at a local optimum for the current move neighborhood; local search accepts 0 improving moves. This is expected given the weak move set (no dedicated removal moves), but it means the local-search component is not currently improving results.
 
 **Determinism:** two consecutive runs on the same case produce byte-identical `solution.json`.
 
 **Repair:** the conservative repair pass removes 0 products on all public cases, confirming that solver-local propagation matches verifier geometry.
+
+**Tri-stereo gap:** zero tri-stereo products are scheduled across all public cases despite thousands of feasible tri-stereo candidates being generated. The seed ranking does not prioritize tri-stereo strongly enough to overcome insertion difficulty.
 
 ## Solver Contract
 
@@ -149,11 +153,11 @@ uv run python experiments/main_solver/run.py \
 
 ## Known Limitations
 
-- This is a reproduction of the paper's method family, not a claim to reproduce every runtime or every table from the paper.
-- Local search uses deterministic descent instead of stochastic profiling (required for repository repeatability).
+- The solver is a deterministic greedy baseline, not yet a faithful reproduction of Lemaître's stochastic local-search method. The audit flags missing removal moves, missing multi-run evaluation, and a weak move neighborhood.
+- Zero tri-stereo products are scheduled on all tested cases. This is a known quality gap.
 - Single-threaded Python execution. No parallelism or compiled extensions.
 - Solver-local product predicates are designed to match the verifier geometry, but minor drift is possible due to floating-point ordering.
-- The greedy seed dominates runtime (~50–60 % of total time on large cases). Further optimization would require a priority-queue or heap structure.
+- The greedy seed dominates runtime (~50–60 % of total time on large cases). The seed algorithm is an implementation invention (pool-based coverage-first greedy), not the sequential track-builder described in the paper.
 
 ## Audit
 

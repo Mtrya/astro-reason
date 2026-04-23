@@ -3,9 +3,13 @@
 ## Bottom Line
 
 - **Target claim:** faithful reproduction of Lemaître et al. 2002 (CP/local-search over same-pass stereo/tri-stereo products), adapted to the `stereo_imaging` benchmark contract.
-- **Status:** READY
-- **Compute status:** FAIR_TO_EVALUATE (after satellite-state cache fix)
-- **Headline blockers:** none
+- **Status:** NOT_YET
+- **Compute status:** OPTIMIZATION_BLOCKED
+- **Headline blockers:**
+  1. The claimed local-search method is not actually running in a regime where it can improve results; the greedy seed is locally optimal on every tested case, and the move neighborhood is too weak to escape.
+  2. Zero tri-stereo products are scheduled across all 5 public cases despite thousands of feasible tri-stereo candidates being generated. This is a benchmark-validity gap, not just a performance gap.
+  3. The deterministic single-run policy contradicts the paper's stochastic profiling regime (100 runs of 2 minutes each). The solver is evaluated as if it were a deterministic greedy baseline, not a local-search method.
+  4. The greedy seed algorithm is not the Lemaître GA; it is a pool-based coverage-first heuristic that was added by the implementation team and has no paper provenance.
 
 ## Compute And Runtime
 
@@ -13,65 +17,80 @@
 
 Lemaître et al. (2002, §3.4) report:
 - Local Search Algorithm (LSA) reaches steady average/maximum quality after **~1 minute CPU** on a 342-candidate-strip instance.
-- Experiments use **2 minutes per instance**, with LSA run 100 times for statistics.
+- Experiments use **2 minutes per instance**, with LSA run **100 times** for statistical profiling.
 - The paper's instances have 212–1068 candidate images, comparable to the benchmark's public cases (235–666 candidates).
 
 Vasquez and Hao (2001) report large SPOT5 instances within a **one-hour operating limit**.
 
+The paper explicitly warns: "An irritating drawback of local search methods is their non-determinism: each execution results in a different solution. To get an idea of the performance of a local search algorithm, it is a common practice to compute a quality profile... over 100 different resolutions."
+
 ### Current regime
 
-Post-optimization timings on public cases (single run, single-threaded Python, warm filesystem cache):
+Post-cache-fix timings on public cases (single run, single-threaded Python, warm filesystem cache):
 
-| Case | Candidates | Products | Seed (s) | LS (s) | Total (s) |
-|---|---|---|---|---|---|
-| case_0001 | 556 | 4615 | 19.6 | 3.4 | 37.0 |
-| case_0002 | 235 | 1759 | 5.8 | 1.1 | 10.6 |
-| case_0003 | 289 | 2303 | 8.4 | 1.5 | 16.5 |
-| case_0004 | 666 | 5680 | 21.4 | 3.6 | 38.4 |
-| case_0005 | 236 | 1607 | 4.2 | 0.0 | 7.1 |
+- case_0001: 37.0 s total (seed 19.6 s, local search 3.4 s)
+- case_0002: 10.6 s total (seed 5.8 s, local search 1.1 s)
+- case_0003: 16.5 s total (seed 8.4 s, local search 1.5 s)
+- case_0004: 38.4 s total (seed 21.4 s, local search 3.6 s)
+- case_0005: 7.1 s total (seed 4.2 s, local search 0.0 s)
 
-- **Seed** dominates at ~50–60 % of total time.
-- **Local search** uses 19.7s on the largest case (case_0001), well within the 120s budget.
-- **Candidate generation** and **product library** each take ~25–30 % of total time.
+Local search accepts **0 improving moves on every case**. It stops after 1 pass because the seed is already at a local optimum for the move neighborhood. The 120-second local-search budget is effectively unused.
 
 ### Execution model
 
 - **Single-threaded Python 3.13** with `numpy` and `skyfield`.
 - No multiprocessing, no compiled extensions, no GPU.
-- Hot path: skyfield SGP4 propagation → solver-local geometry → sequence propagation.
+- Hot path: skyfield SGP4 propagation (now cached) → solver-local geometry → sequence propagation.
 
 ### Runtime profile
 
-Pre-optimization, the dominant cost was **skyfield SGP4 propagation** (`_satellite_state_ecef_m`), called ~1.15 million times during seed + local search for a single case because `_slew_gap_required_s` recomputes satellite states for every adjacent observation pair on every insertion attempt.
+A satellite-state cache eliminated the dominant skyfield bottleneck, cutting total runtime from ~184 s to ~37 s on case_0001. The cache was a necessary hygiene fix, not an algorithmic improvement.
 
-A module-level dict cache keyed by `(satellite_id, dt_isoformat)` reduced these calls to ~1,100 unique lookups, cutting total runtime from **~184s to ~37s** on case_0001 (5× speedup) while preserving byte-identical `solution.json` output.
+The remaining time is split roughly:
+- ~55 % greedy seed (coverage-first ranking + atomic insertion attempts)
+- ~25 % candidate generation and product library
+- ~10 % local search (but it finds 0 improving moves)
+- ~10 % overhead
 
 ### Why the current budget is or is not fair
 
-- **Fair.** The benchmark contract does not impose a solver timeout. The experiment runner waits for solver completion.
-- The 120s local-search default is **realistic** for the method family and instance sizes.
-- The solver completes all public cases in **7–38 seconds**, which is reasonable for a single-threaded Python baseline.
-- No timeout starvation: local search gets its full budget; seed does not block it.
+The current regime is **not fair to the claimed method** for three reasons:
+
+1. **The local-search method never executes meaningfully.** The paper's LSA is a stochastic, restart-heavy search that improves over minutes. Our implementation is a deterministic descent that stops after one pass because the seed is already locally optimal. More time would not help because the move neighborhood is too weak.
+
+2. **The run policy contradicts the paper.** The paper expects 100 runs for profiling. We evaluate a single deterministic run. This is like evaluating a Monte Carlo tree search with one playout and calling it fair.
+
+3. **The execution model is a blocker.** Single-threaded Python is acceptable for a greedy baseline but not for a local-search method that should be exploring a large neighborhood. The paper's implementation was compiled C-like code on 2002 hardware. Our Python implementation is at least one order of magnitude slower per move evaluation.
+
+The benchmark envelope itself is fair (no hard timeout), but the solver is shaped around "finish quickly in one deterministic run" rather than "execute the claimed local-search method."
 
 ## Optimization And Time Budget
 
 ### Bottlenecks
 
-1. **Skyfield SGP4 propagation** — eliminated by satellite-state cache (done).
-2. **Seed greedy loop** — O(n²) scan for best product plus O(n²) insert_product calls. Could be further reduced with a priority-queue or pre-filtering, but the current ~20s on the largest case is acceptable.
-3. **Candidate generation** — fixed-stride scanning inside access intervals with skyfield propagation. Already benefits from the satellite-state cache.
-4. **Product library** — pair/tri enumeration with Monte Carlo overlap sampling. Could be vectorized, but 4s on the largest case is acceptable.
+1. **Greedy seed dominates runtime** (~55 % of total). The seed is a pool-based O(n²) scan, not the paper's sequential track-builder. It is an implementation invention, not a literature element, yet it consumes most of the budget.
+
+2. **Local search is starved of algorithmic machinery.** The paper uses randomized insertion/removal probabilities, adaptive p_a, and 100 restarts. We have deterministic insert/replace/swap with no restarts. The neighborhood is too small to escape the seed's local optimum.
+
+3. **Tri-stereo scheduling is completely absent.** Despite generating 968–2957 feasible tri-stereo products per case, the solver schedules zero tri-stereo products on all cases. This is not an instance property (the verifier does find tri-stereo opportunities in other solutions); it is a solver deficiency.
 
 ### What to optimize first
 
-- Nothing is currently blocking evaluation. The cache fix was the critical optimization.
-- Future work (not required for audit): vectorize pair/tri overlap estimation with NumPy broadcasting; replace greedy seed scan with a heap for O(n log n) behavior.
+Before increasing runtime or thread count, fix the algorithmic gaps:
+
+1. **Add removal moves to local search.** The paper's LSA removes low-value images to make room for better ones. Our local search only removes during swap moves, which are too conservative.
+
+2. **Add stochastic restarts.** Run the seed + local search multiple times with different tie-breaking or randomization, and keep the best result. This is the paper's evaluation regime.
+
+3. **Fix tri-stereo scheduling.** The seed ranking (`tri_bonus: 0.5`) is insufficient to overcome the difficulty of inserting three observations. Either increase the tri bonus, add a dedicated tri-stereo seed phase, or allow tri-stereo products to be constructed dynamically from scheduled pairs.
+
+4. **Parallelize candidate generation and product library.** These are embarrassingly parallel (independent per target/satellite) and could use `multiprocessing` or `concurrent.futures`.
 
 ### Recommended budget and run policy
 
-- **Default local-search budget:** 120 seconds (already set).
-- **Run policy:** single deterministic run is sufficient for this baseline. Lemaître's paper uses 100 runs for statistical profiling, but the repository's correctness contract emphasizes deterministic repeatability.
-- **Thread count:** single-threaded is acceptable; multi-threading would require care with skyfield and numpy thread safety.
+- **Minimum to be fair:** 10 independent runs of 2 minutes each (matching the paper's profiling regime), keeping the best result. Total budget: ~20 minutes per case.
+- **Better:** 100 runs of 2 minutes each, as in the paper. Total budget: ~3.5 hours per case.
+- **Execution model:** keep single-threaded Python for correctness, but parallelize the multi-run evaluation across cores.
 
 ## Reproduction Gaps
 
@@ -79,33 +98,53 @@ A module-level dict cache keyed by `(satellite_id, dt_isoformat)` reduced these 
 
 - **IMPLEMENTED** — per-satellite sequence feasibility with earliest/latest propagation (Lemaître §3.3, Fig. 9–10).
 - **IMPLEMENTED** — atomic product insertion with rollback when partner observations fail (Lemaître §3.4, INSERTIONMOVE).
-- **IMPLEMENTED** — deterministic greedy seed with coverage-first ranking (Lemaître §3.1 GA adapted to products).
-- **IMPLEMENTED** — local search with insert, replace, and remove-then-repair moves (Lemaître §3.4 LSA).
-- **ADAPTED** — fixed candidate observation times instead of continuous time windows (benchmark contract requires fixed actions).
+- **ADAPTED** — fixed candidate observation times instead of continuous time windows (benchmark contract requirement).
 - **ADAPTED** — benchmark-native stereo/tri-stereo product feasibility (convergence, overlap, pixel-scale, near-nadir anchor) instead of paper's simplified stereo constraint.
-- **ADAPTED** — coverage-first lexicographic objective (`coverage_ratio > normalized_quality`) instead of paper's linear/non-linear weighted sum.
-- **ADAPTED** — deterministic tie-breaking instead of stochastic profiles (repository repeatability requirement).
-- **EXTRA** — conservative repair pass that scans for direct conflicts and removes the least-valuable affected product (Vasquez-inspired defensive step, not in Lemaître).
+- **ADAPTED** — coverage-first lexicographic objective instead of paper's linear/non-linear weighted sum.
+- **EXTRA** — conservative repair pass (Vasquez-inspired defensive step, not in Lemaître).
 
 ### Partial or missing pieces
 
-- **PARTIAL** — Tabu diversification / stochastic profiling. The paper uses randomized insertion/removal probabilities and 100-run quality profiles. The reproduction uses deterministic descent for repeatability. This is an intentional adaptation, not a correctness gap.
-- **MISSING** — Multi-track optimization horizon. The paper processes track-by-track. The benchmark uses a single mission horizon per case. This is a benchmark-driven simplification.
-- **MISSING** — Memory, energy, downlink, and weather constraints. Explicitly out of scope per benchmark contract.
+- **PARTIAL** — Greedy seed. The paper's GA (§3.1) is a sequential track-builder with look-ahead and iterative refinement. Our seed is a pool-based coverage-first heuristic invented for this implementation. It happens to work well on small cases but has no paper provenance.
+
+- **PARTIAL** — Local search moves. The paper has insertion + removal with randomized probabilities and adaptive p_a. We have deterministic insert/replace/swap. The missing removal move is critical because it allows the search to escape local optima by freeing up sequence capacity.
+
+- **MISSING** — Stochastic profiling / multi-run evaluation. The paper explicitly requires 100 runs for quality profiling. We evaluate a single deterministic run. This is the single biggest gap between the claimed method and the implementation.
+
+- **MISSING** — Tri-stereo scheduling. Zero tri-stereo products are scheduled across all public cases. The benchmark's `normalized_quality` score benefits from tri-stereo bonuses (up to 1.5× per target). Ignoring tri-stereo is a significant quality gap.
+
+- **MISSING** — Tabu tenure and diversification. Vasquez and Hao's tabu search provides binary/ternary constraint handling and diversification mechanisms that would help escape local optima. We have a lightweight deterministic tabu-like filter in local search but no real tabu mechanism.
+
+- **ADAPTED / MISSING** — Deterministic tie-breaking. The repository requires determinism, which contradicts the paper's stochastic method. This is a necessary adaptation, but it means the solver cannot claim to reproduce the paper's quality profiles.
 
 ### What must change to reach the target claim
 
-Nothing. The solver correctly implements the paper's core algorithmic structure (constraint-propagated sequences, atomic product insertion/rollback, local search moves) adapted to the benchmark's action-level contract.
+1. **Add removal moves to local search.** Without removal, the search cannot free up capacity to insert better products. This is a correctness-affecting gap.
+
+2. **Implement multi-run evaluation.** A single deterministic run is not a valid evaluation of a stochastic local-search method. At minimum, run 10 independent seeds with different randomization and report best/average/worst.
+
+3. **Fix tri-stereo scheduling.** The current seed ranking does not prioritize tri-stereo enough. Consider a dedicated tri-stereo seed phase or dynamic tri-stereo construction from scheduled pairs.
+
+4. **Clarify the target claim.** If the solver is intended as a deterministic greedy baseline, that is a valid and useful contribution. But it should not be claimed as a reproduction of Lemaître's local-search method unless the stochastic search components are implemented and evaluated properly.
 
 ## Action Plan
 
-- **Completed** — satellite-state cache fix (5× speedup, identical output).
-- **Completed** — default config raised to 120s local-search budget.
-- **Optional future work** — vectorized product overlap estimation; heap-based greedy seed; multi-run statistical profiling harness.
+- **optimization and parallelization work**
+  - Parallelize candidate generation and product library across targets (embarrassingly parallel).
+  - Profile the seed loop to identify remaining hot spots after the satellite-state cache.
+
+- **runtime-budget or run-policy changes**
+  - Add a `num_runs` config parameter. Run the solver `num_runs` times with different random seeds or tie-breaking and keep the best result.
+  - Increase the default local-search budget to 300 seconds per run, but only after removal moves are implemented.
+  - Report aggregate statistics (best, mean, std) when `num_runs > 1`.
+
+- **remaining algorithmic completion work**
+  - Implement removal moves in local search (remove low-quality products to make room for better ones).
+  - Investigate why tri-stereo products are never scheduled and fix the seed ranking or insertion logic.
+  - Add optional stochastic tie-breaking (with fixed random seeds for reproducibility) to approximate the paper's search behavior.
 
 ## Sanity Footnote
 
-- All 5 public cases pass benchmark verifier with `valid=true`.
-- Repair removes 0 products on all cases, indicating solver-local propagation matches verifier geometry.
-- Deterministic repeatability verified: two consecutive runs on case_0001 produce byte-identical `solution.json`.
-- Local search accepts 0 improving moves on all public cases; the greedy seed is already at a local optimum for these instances. This is correct behavior, not a bug.
+- All 5 public cases pass the benchmark verifier with `valid=true` and zero violations.
+- Repair removes 0 products on all cases, confirming that solver-local propagation matches verifier geometry at the action level.
+- The solver is a valid benchmark baseline, but it is currently a deterministic greedy baseline with a weak local-search veneer, not a faithful reproduction of Lemaître's stochastic local-search method.
