@@ -65,6 +65,9 @@ def _build_satellite_dependence_edges(
     case: AeosspCase,
     satellite_id: str,
     candidates: list[Candidate],
+    *,
+    propagation: PropagationContext,
+    vector_cache: TransitionVectorCache,
 ) -> dict[str, set[str]]:
     """Build a dependence adjacency map for one satellite.
 
@@ -83,12 +86,6 @@ def _build_satellite_dependence_edges(
         candidates,
         key=lambda item: (item.start_offset_s, item.end_offset_s, item.candidate_id),
     )
-
-    # We need a vector cache for transition_gap_conflict, but creating one
-    # per satellite is fine.  We only use it when gap <= safe_gap_s.
-    step_s = float(min(case.mission.action_time_step_s, case.mission.geometry_sample_step_s))
-    propagation = PropagationContext(case.satellites, step_s=step_s)
-    vector_cache = TransitionVectorCache(case, propagation)
 
     for left_index, candidate_a in enumerate(ordered):
         for candidate_b in ordered[left_index + 1 :]:
@@ -155,8 +152,17 @@ def _extract_components(
 def build_component_index(
     case: AeosspCase,
     candidates: list[Candidate],
+    *,
+    propagation: PropagationContext | None = None,
+    vector_cache: TransitionVectorCache | None = None,
 ) -> ComponentIndex:
     """Build per-satellite dependence graphs and extract connected components."""
+    if propagation is None:
+        step_s = float(min(case.mission.action_time_step_s, case.mission.geometry_sample_step_s))
+        propagation = PropagationContext(case.satellites, step_s=step_s)
+    if vector_cache is None:
+        vector_cache = TransitionVectorCache(case, propagation)
+
     by_satellite: dict[str, list[Candidate]] = defaultdict(list)
     for candidate in candidates:
         by_satellite[candidate.satellite_id].append(candidate)
@@ -169,7 +175,11 @@ def build_component_index(
         satellite_candidates = by_satellite[satellite_id]
         candidate_by_id = {c.candidate_id: c for c in satellite_candidates}
         adjacency = _build_satellite_dependence_edges(
-            case, satellite_id, satellite_candidates
+            case,
+            satellite_id,
+            satellite_candidates,
+            propagation=propagation,
+            vector_cache=vector_cache,
         )
         satellite_components = _extract_components(
             satellite_id, adjacency, candidate_by_id

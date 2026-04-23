@@ -190,9 +190,11 @@ def schedule_issues(
     candidates: list[Candidate],
     *,
     propagation: PropagationContext,
+    vector_cache: TransitionVectorCache | None = None,
 ) -> list[ValidationIssue]:
     issues: list[ValidationIssue] = []
-    vector_cache = TransitionVectorCache(case, propagation)
+    if vector_cache is None:
+        vector_cache = TransitionVectorCache(case, propagation)
     by_satellite: dict[str, list[Candidate]] = {}
     for candidate in candidates:
         if candidate.satellite_id in case.satellites and candidate.task_id in case.tasks:
@@ -296,6 +298,7 @@ def _slew_intervals(
     satellite_candidates: list[Candidate],
     *,
     propagation: PropagationContext,
+    vector_cache: TransitionVectorCache,
 ) -> tuple[list[tuple[float, float, str]], list[ValidationIssue]]:
     intervals: list[tuple[float, float, str]] = []
     issues: list[ValidationIssue] = []
@@ -322,7 +325,6 @@ def _slew_intervals(
     else:
         intervals.append((max(0.0, initial_start), float(first.start_offset_s), first.candidate_id))
 
-    vector_cache = TransitionVectorCache(case, propagation)
     for previous, current in zip(ordered, ordered[1:]):
         result = transition_result(previous, current, case=case, vector_cache=vector_cache)
         intervals.append(
@@ -340,9 +342,12 @@ def battery_issues(
     candidates: list[Candidate],
     *,
     propagation: PropagationContext,
+    vector_cache: TransitionVectorCache | None = None,
 ) -> tuple[list[ValidationIssue], dict[str, BatteryTrace]]:
     issues: list[ValidationIssue] = []
     traces: dict[str, BatteryTrace] = {}
+    if vector_cache is None:
+        vector_cache = TransitionVectorCache(case, propagation)
     by_satellite: dict[str, list[Candidate]] = {}
     for candidate in candidates:
         if candidate.satellite_id in case.satellites:
@@ -366,6 +371,7 @@ def battery_issues(
             case,
             satellite_candidates,
             propagation=propagation,
+            vector_cache=vector_cache,
         )
         issues.extend(slew_issues)
         time_points = _resource_time_points(case, imaging_intervals, slew_intervals)
@@ -526,7 +532,13 @@ def candidate_shape_issues(case: AeosspCase, candidates: list[Candidate]) -> lis
     return issues
 
 
-def validate_schedule(case: AeosspCase, candidates: list[Candidate]) -> ValidationReport:
+def validate_schedule(
+    case: AeosspCase,
+    candidates: list[Candidate],
+    *,
+    propagation: PropagationContext | None = None,
+    vector_cache: TransitionVectorCache | None = None,
+) -> ValidationReport:
     stable_candidates = sorted(
         candidates,
         key=lambda item: (item.start_offset_s, item.satellite_id, item.task_id, item.candidate_id),
@@ -535,13 +547,24 @@ def validate_schedule(case: AeosspCase, candidates: list[Candidate]) -> Validati
     issues.extend(candidate_shape_issues(case, stable_candidates))
     issues.extend(duplicate_task_issues(stable_candidates))
 
-    step_s = float(min(case.mission.action_time_step_s, case.mission.geometry_sample_step_s))
-    propagation = PropagationContext(case.satellites, step_s=step_s)
-    issues.extend(schedule_issues(case, stable_candidates, propagation=propagation))
+    if propagation is None:
+        step_s = float(min(case.mission.action_time_step_s, case.mission.geometry_sample_step_s))
+        propagation = PropagationContext(case.satellites, step_s=step_s)
+    if vector_cache is None:
+        vector_cache = TransitionVectorCache(case, propagation)
+    issues.extend(
+        schedule_issues(
+            case,
+            stable_candidates,
+            propagation=propagation,
+            vector_cache=vector_cache,
+        )
+    )
     battery_failure_issues, battery = battery_issues(
         case,
         stable_candidates,
         propagation=propagation,
+        vector_cache=vector_cache,
     )
     issues.extend(battery_failure_issues)
     return ValidationReport(valid=not issues, issue_count=len(issues), issues=issues, battery=battery)
@@ -593,6 +616,8 @@ def repair_schedule(
     candidates: list[Candidate],
     *,
     config: RepairConfig | None = None,
+    propagation: PropagationContext | None = None,
+    vector_cache: TransitionVectorCache | None = None,
 ) -> RepairResult:
     config = config or RepairConfig()
     current = sorted(
@@ -604,7 +629,12 @@ def repair_schedule(
     terminated_reason = "max_iterations"
 
     for iteration in range(config.max_repair_iterations + 1):
-        report = validate_schedule(case, current)
+        report = validate_schedule(
+            case,
+            current,
+            propagation=propagation,
+            vector_cache=vector_cache,
+        )
         reports.append(report)
         if report.valid:
             terminated_reason = "valid"

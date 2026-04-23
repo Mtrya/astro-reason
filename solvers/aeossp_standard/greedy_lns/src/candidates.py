@@ -134,12 +134,15 @@ def _compute_utility(task: Task) -> float:
 def generate_candidates(
     case: AeosspCase,
     config: CandidateConfig | None = None,
+    *,
+    propagation: PropagationContext | None = None,
 ) -> tuple[list[Candidate], CandidateSummary]:
     config = config or CandidateConfig()
     summary = CandidateSummary()
     candidates: list[Candidate] = []
-    step_s = float(min(case.mission.action_time_step_s, case.mission.geometry_sample_step_s))
-    propagation = PropagationContext(case.satellites, step_s=step_s)
+    if propagation is None:
+        step_s = float(min(case.mission.action_time_step_s, case.mission.geometry_sample_step_s))
+        propagation = PropagationContext(case.satellites, step_s=step_s)
 
     for satellite in sorted(case.satellites.values(), key=lambda item: item.satellite_id):
         summary.per_satellite_candidate_counts.setdefault(satellite.satellite_id, 0)

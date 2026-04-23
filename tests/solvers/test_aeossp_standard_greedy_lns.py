@@ -628,7 +628,7 @@ def test_local_search_accepted_improving_move(monkeypatch) -> None:
     high = _candidate("high", satellite_id="sat_a", task_id="task_x", start_offset_s=10, end_offset_s=20, weight=5.0)
     case = _case_for_candidates([low, high])
 
-    monkeypatch.setattr("solvers.aeossp_standard.greedy_lns.src.local_search.build_component_index", lambda case, candidates: type("Idx", (), {
+    monkeypatch.setattr("solvers.aeossp_standard.greedy_lns.src.local_search.build_component_index", lambda *args, **kwargs: type("Idx", (), {
         "components": [
             type("Comp", (), {
                 "satellite_id": "sat_a",
@@ -654,7 +654,7 @@ def test_local_search_rejected_non_improving_move(monkeypatch) -> None:
     a = _candidate("a", satellite_id="sat_a", task_id="task_a", start_offset_s=10, end_offset_s=20, weight=5.0)
     case = _case_for_candidates([a])
 
-    monkeypatch.setattr("solvers.aeossp_standard.greedy_lns.src.local_search.build_component_index", lambda case, candidates: type("Idx", (), {
+    monkeypatch.setattr("solvers.aeossp_standard.greedy_lns.src.local_search.build_component_index", lambda *args, **kwargs: type("Idx", (), {
         "components": [
             type("Comp", (), {
                 "satellite_id": "sat_a",
@@ -680,7 +680,7 @@ def test_local_search_restart_determinism(monkeypatch) -> None:
     a = _candidate("a", satellite_id="sat_a", task_id="task_a", start_offset_s=10, end_offset_s=20, weight=5.0)
     case = _case_for_candidates([a])
 
-    monkeypatch.setattr("solvers.aeossp_standard.greedy_lns.src.local_search.build_component_index", lambda case, candidates: type("Idx", (), {
+    monkeypatch.setattr("solvers.aeossp_standard.greedy_lns.src.local_search.build_component_index", lambda *args, **kwargs: type("Idx", (), {
         "components": [],
         "stats": type("Stats", (), {"component_count": 0, "largest_component_size": 0})(),
     })())
@@ -691,6 +691,59 @@ def test_local_search_restart_determinism(monkeypatch) -> None:
     result2 = local_search(case, [a], greedy_solution, config=LocalSearchConfig(restart_count=2, random_seed=42))
     assert result1.stats.stop_reason == result2.stats.stop_reason
     assert result1.stats.final_objective == result2.stats.final_objective
+
+
+def test_local_search_restart_noops_on_empty_incumbent(monkeypatch) -> None:
+    case = _case_for_candidates([])
+
+    monkeypatch.setattr("solvers.aeossp_standard.greedy_lns.src.local_search.build_component_index", lambda *args, **kwargs: type("Idx", (), {
+        "components": [],
+        "stats": type("Stats", (), {"component_count": 0, "largest_component_size": 0})(),
+    })())
+    monkeypatch.setattr("solvers.aeossp_standard.greedy_lns.src.local_search.PropagationContext", lambda *args, **kwargs: None)
+    monkeypatch.setattr("solvers.aeossp_standard.greedy_lns.src.local_search.TransitionVectorCache", lambda *args, **kwargs: None)
+
+    result = local_search(
+        case,
+        [],
+        [],
+        config=LocalSearchConfig(max_local_search_iterations=1, restart_count=2, random_seed=42),
+    )
+
+    assert result.candidates == []
+    assert result.stats.final_objective == 0.0
+    assert result.stats.restarts_executed == 2
+
+
+def test_recompute_component_creates_missing_satellite_bucket(monkeypatch) -> None:
+    low = _candidate("low", satellite_id="sat_a", task_id="task_x", start_offset_s=10, end_offset_s=20, weight=1.0)
+    high = _candidate("high", satellite_id="sat_b", task_id="task_x", start_offset_s=10, end_offset_s=20, weight=5.0)
+    case = _case_for_candidates([low, high])
+    component = Component(
+        satellite_id="sat_b",
+        component_id="sat_b::high",
+        candidates=(high,),
+    )
+    by_satellite = {"sat_a": [low]}
+    scheduled_tasks = {"task_x": low}
+
+    monkeypatch.setattr("solvers.aeossp_standard.greedy_lns.src.local_search.initial_slew_feasible", lambda **kwargs: True)
+    monkeypatch.setattr("solvers.aeossp_standard.greedy_lns.src.local_search.transition_result", lambda *args, **kwargs: type("R", (), {"feasible": True})())
+
+    new_weight, failures = _recompute_component(
+        case,
+        component,
+        by_satellite,
+        scheduled_tasks,
+        propagation=None,
+        vector_cache=None,
+    )
+
+    assert failures == 0
+    assert new_weight == 5.0
+    assert by_satellite["sat_a"] == []
+    assert by_satellite["sat_b"] == [high]
+    assert scheduled_tasks == {"task_x": high}
 
 
 def test_candidate_shape_issues_catch_duration_mismatch(monkeypatch) -> None:

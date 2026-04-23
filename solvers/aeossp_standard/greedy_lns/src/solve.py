@@ -12,9 +12,11 @@ from pathlib import Path
 from .candidates import CandidateConfig, generate_candidates
 from .case_io import load_case, load_solver_config
 from .components import build_component_index
+from .geometry import PropagationContext
 from .insertion import InsertionConfig, greedy_insertion
 from .local_search import LocalSearchConfig, local_search
 from .solution_io import write_json, write_solution
+from .transition import TransitionVectorCache
 from .validation import RepairConfig, repair_schedule, validate_schedule
 
 
@@ -83,6 +85,8 @@ def _write_debug_artifacts(
     local_search_result,
     repair_result,
     timing_seconds: dict[str, float],
+    propagation: PropagationContext,
+    vector_cache: TransitionVectorCache,
 ) -> None:
     write_json(
         solution_dir / "debug" / "candidate_summary.json",
@@ -114,7 +118,12 @@ def _write_debug_artifacts(
     )
 
     # Build component summary from all candidates
-    component_index = build_component_index(case, candidates)
+    component_index = build_component_index(
+        case,
+        candidates,
+        propagation=propagation,
+        vector_cache=vector_cache,
+    )
     write_json(
         solution_dir / "debug" / "component_summary.json",
         {
@@ -124,7 +133,12 @@ def _write_debug_artifacts(
     )
 
     # Validation summary: pre-repair and post-repair
-    pre_repair_validation = validate_schedule(case, local_search_result.candidates)
+    pre_repair_validation = validate_schedule(
+        case,
+        local_search_result.candidates,
+        propagation=propagation,
+        vector_cache=vector_cache,
+    )
     post_repair_validation = repair_result.final_report
     write_json(
         solution_dir / "debug" / "validation_summary.json",
@@ -167,19 +181,43 @@ def main(argv: list[str] | None = None) -> int:
         local_search_config = LocalSearchConfig.from_mapping(config_payload)
         repair_config = RepairConfig.from_mapping(config_payload)
         case = load_case(case_dir)
+        step_s = float(min(case.mission.action_time_step_s, case.mission.geometry_sample_step_s))
+        propagation = PropagationContext(case.satellites, step_s=step_s)
+        vector_cache = TransitionVectorCache(case, propagation)
         candidate_start = time.perf_counter()
-        candidates, candidate_summary = generate_candidates(case, candidate_config)
+        candidates, candidate_summary = generate_candidates(
+            case,
+            candidate_config,
+            propagation=propagation,
+        )
         candidate_end = time.perf_counter()
         insertion_start = time.perf_counter()
-        insertion_result = greedy_insertion(case, candidates, insertion_config)
+        insertion_result = greedy_insertion(
+            case,
+            candidates,
+            insertion_config,
+            propagation=propagation,
+            vector_cache=vector_cache,
+        )
         insertion_end = time.perf_counter()
         local_search_start = time.perf_counter()
         local_search_result = local_search(
-            case, candidates, insertion_result.selected, config=local_search_config
+            case,
+            candidates,
+            insertion_result.selected,
+            config=local_search_config,
+            propagation=propagation,
+            vector_cache=vector_cache,
         )
         local_search_end = time.perf_counter()
         repair_start = time.perf_counter()
-        repair_result = repair_schedule(case, local_search_result.candidates, config=repair_config)
+        repair_result = repair_schedule(
+            case,
+            local_search_result.candidates,
+            config=repair_config,
+            propagation=propagation,
+            vector_cache=vector_cache,
+        )
         repair_end = time.perf_counter()
         solution_path = write_solution(solution_dir, repair_result.candidates)
         total_end = time.perf_counter()
@@ -214,6 +252,8 @@ def main(argv: list[str] | None = None) -> int:
                 local_search_result=local_search_result,
                 repair_result=repair_result,
                 timing_seconds=timing_seconds,
+                propagation=propagation,
+                vector_cache=vector_cache,
             )
     except Exception as exc:
         traceback_text = traceback.format_exc()
