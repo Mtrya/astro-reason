@@ -77,13 +77,28 @@ def _angle_between_deg(a: np.ndarray, b: np.ndarray) -> float:
     return math.degrees(math.acos(c))
 
 
+# Cache for satellite state lookups; keyed by (satellite_id, dt_isoformat).
+# This eliminates repeated SGP4 propagation for the same fixed candidate times.
+_sat_state_cache: dict[tuple[str, str], tuple[np.ndarray, np.ndarray]] = {}
+
+
+def _clear_sat_state_cache() -> None:
+    _sat_state_cache.clear()
+
+
 def _satellite_state_ecef_m(sat: EarthSatellite, dt: datetime) -> tuple[np.ndarray, np.ndarray]:
+    key = (sat.name, dt.astimezone(UTC).isoformat())
+    cached = _sat_state_cache.get(key)
+    if cached is not None:
+        return cached
     t = _TS.from_datetime(dt.astimezone(UTC))
     g = sat.at(t)
     pos, vel = g.frame_xyz_and_velocity(itrs)
     pos_m = np.asarray(pos.km, dtype=float).reshape(3) * 1000.0
     vel_mps = np.asarray(vel.km_per_s, dtype=float).reshape(3) * 1000.0
-    return pos_m, vel_mps
+    result = (pos_m, vel_mps)
+    _sat_state_cache[key] = result
+    return result
 
 
 def _target_ecef_m(target: TargetDef) -> np.ndarray:

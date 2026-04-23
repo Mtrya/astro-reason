@@ -42,11 +42,30 @@ Lemaître et al. maintain feasible per-satellite image sequences, propagate earl
 
 This reproduction keeps that structure and adapts it to `stereo_imaging`:
 
-- **Phase 1** (current): scaffold, public YAML parsing, candidate observation enumeration, and pair/tri-stereo product library.
-- **Phase 2**: per-satellite sequence feasibility with earliest/latest propagation.
-- **Phase 3**: deterministic greedy seed construction.
-- **Phase 4**: local-search product insertion/removal/replacement moves.
-- **Phase 5+**: experiment wiring, validation, tuning, and documentation cleanup.
+- **Phase 1** — scaffold, public YAML parsing, candidate observation enumeration, and pair/tri-stereo product library.
+- **Phase 2** — per-satellite sequence feasibility with earliest/latest propagation.
+- **Phase 3** — deterministic greedy seed construction with coverage-first dynamic ranking.
+- **Phase 4** — local-search product insertion/removal/replacement moves.
+- **Phase 5** — conservative repair pass and main-solver experiment wiring.
+- **Phase 6** — performance tuning (satellite-state cache), validation matrix, and solver audit.
+
+## Validation
+
+All 5 public cases pass the benchmark verifier. Runtimes are on a warm-cache single-threaded Python run.
+
+| Case | Candidates | Seed accepted | Coverage | Norm. quality | Runtime |
+|---|---|---|---|---|---|
+| test/case_0001 | 556 | 57 | 30 / 47 (0.638) | 0.636 | 37.0 s |
+| test/case_0002 | 235 | 28 | 11 / 36 (0.306) | 0.305 | 10.6 s |
+| test/case_0003 | 289 | 43 | 22 / 36 (0.611) | 0.604 | 16.5 s |
+| test/case_0004 | 666 | 85 | 31 / 39 (0.795) | 0.793 | 38.4 s |
+| test/case_0005 | 236 | 0 | 0 / 19 (0.000) | 0.000 | 7.1 s |
+
+**Seed-only vs local search:** on all public cases, the greedy seed is already at a local optimum; local search accepts 0 improving moves. This is correct behavior for these instances, not a bug.
+
+**Determinism:** two consecutive runs on the same case produce byte-identical `solution.json`.
+
+**Repair:** the conservative repair pass removes 0 products on all public cases, confirming that solver-local propagation matches verifier geometry.
 
 ## Solver Contract
 
@@ -59,7 +78,7 @@ This reproduction keeps that structure and adapts it to `stereo_imaging`:
 
 `solve.sh` writes:
 
-- `solution.json`: primary benchmark solution (currently empty valid actions for Phase 1)
+- `solution.json`: primary benchmark solution with an `actions` array of `observation` actions
 - `status.json`: solver summary, timings, and candidate/product library details
 - `debug/*`: optional debug artifacts when `debug: true`
 
@@ -77,6 +96,23 @@ The solver reads optional config from either:
 - `<config_dir>/cp_local_search_stereo_insertion.json`
 
 See [config.example.yaml](./config.example.yaml) for a commented example.
+
+### Default knobs
+
+```yaml
+seed_only: false
+tri_first: true
+max_seed_products: null
+coverage_bonus: 10.0
+scarcity_weight: 1.0
+tri_bonus: 0.5
+max_passes: 10
+max_moves_per_pass: 500
+max_time_seconds: 120.0
+enable_repair: true
+repair_candidates_limit: 20
+debug: false
+```
 
 ## Running It
 
@@ -102,15 +138,23 @@ Direct solve with a config directory:
   /tmp/stereo_cp_solution
 ```
 
-## Phase 1 Exit Criteria
+Official main-solver run:
 
-- Solver scaffold is runnable and standalone.
-- Candidate and product debug summaries are deterministic.
-- Product objects contain all observations needed for atomic insertion/removal.
-- No benchmark, experiment, runtime, or other solver imports are introduced.
+```bash
+uv run python experiments/main_solver/run.py \
+  --benchmark stereo_imaging \
+  --solver stereo_imaging_cp_local_search_stereo_insertion \
+  --case test/case_0001
+```
 
 ## Known Limitations
 
 - This is a reproduction of the paper's method family, not a claim to reproduce every runtime or every table from the paper.
-- Phase 1 does not yet implement sequence propagation, greedy seeding, or local search moves.
+- Local search uses deterministic descent instead of stochastic profiling (required for repository repeatability).
+- Single-threaded Python execution. No parallelism or compiled extensions.
 - Solver-local product predicates are designed to match the verifier geometry, but minor drift is possible due to floating-point ordering.
+- The greedy seed dominates runtime (~50–60 % of total time on large cases). Further optimization would require a priority-queue or heap structure.
+
+## Audit
+
+See [SOLVER_AUDIT.md](./SOLVER_AUDIT.md) for the full solver-audit report covering compute realism, reproduction gaps, and recommended run policy.

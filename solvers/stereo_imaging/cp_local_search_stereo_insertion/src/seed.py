@@ -184,13 +184,12 @@ def build_greedy_seed(
 
         remaining_counts = _compute_remaining_counts(pool)
 
-        pool.sort(
-            key=lambda p: _product_sort_key(p, covered_targets, remaining_counts, config),
-            reverse=True,
+        # O(n) max scan instead of O(n log n) sort; preserves exact deterministic order
+        best_idx = max(
+            range(len(pool)),
+            key=lambda i: _product_sort_key(pool[i], covered_targets, remaining_counts, config),
         )
-
-        best = pool[0]
-        pool.pop(0)
+        best = pool.pop(best_idx)
         iterations += 1
 
         result = insert_product(best, state, case)

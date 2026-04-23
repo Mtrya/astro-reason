@@ -26,7 +26,7 @@
 # Local search
 # max_passes: 10             # Maximum number of local-search passes over the seed
 # max_moves_per_pass: 500    # Move-attempt budget per pass
-# max_time_seconds: 60.0     # Hard time limit for local search
+# max_time_seconds: 120.0    # Hard time limit for local search
 # enable_repair: true        # Enable remove-then-repair (swap) moves
 # repair_candidates_limit: 20  # Max candidates to try after removing a product
 
