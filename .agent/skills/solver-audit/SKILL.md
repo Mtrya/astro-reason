@@ -23,9 +23,6 @@ If any required input is missing, ask before proceeding.
 
 If a paper or method reference is available, use the `mineru` skill to parse it to Markdown.
 
-```bash
-mineru-parse.sh <paper-url-or-path> --output /tmp/mineru-<task-id> --extract
-```
 
 Read the resulting Markdown file.
 
