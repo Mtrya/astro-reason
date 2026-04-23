@@ -6,6 +6,7 @@
 # Candidate generation
 # observation_duration_s: 6.0
 # candidate_stride_s: 10
+# access_discovery_step_s: 60.0
 # max_candidates_per_target_per_sat: null
 
 # Product library
@@ -13,6 +14,9 @@
 # pair_mc_samples: 100
 # tri_mc_samples: 100
 # tri_pair_edge_mc_samples: 80
+
+# Sequence / propagation
+# (no user-facing knobs for Phase 2; propagation is fully deterministic)
 
 # Debug artifacts
 # debug: false

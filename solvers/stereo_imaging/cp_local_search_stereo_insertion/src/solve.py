@@ -11,6 +11,7 @@ from pathlib import Path
 from candidates import CandidateConfig, generate_candidates
 from case_io import load_case, load_solver_config
 from products import ProductConfig, build_product_library
+from sequence import create_empty_state, insert_product, remove_product
 from solution_io import write_debug_artifacts, write_json, write_solution
 
 
@@ -24,11 +25,12 @@ def _build_status(
     candidate_summary,
     product_config: ProductConfig,
     product_library,
+    sequence_sanity: dict,
     timing_seconds: dict[str, float],
 ) -> dict:
     return {
-        "status": "phase_1_candidates_and_product_library",
-        "phase": 1,
+        "status": "phase_2_sequence_propagation_and_feasibility",
+        "phase": 2,
         "case_dir": str(case_dir),
         "config_dir": str(config_dir) if config_dir is not None else None,
         "solution": str(solution_path),
@@ -38,6 +40,7 @@ def _build_status(
         "product_config": product_config.as_status_dict(),
         "candidate_summary": candidate_summary.as_dict(),
         "product_summary": product_library.summary.as_dict(),
+        "sequence_sanity": sequence_sanity,
         "timing_seconds": timing_seconds,
         "reproduction_summary": {
             "candidate_count": candidate_summary.candidate_count,
@@ -51,9 +54,35 @@ def _build_status(
     }
 
 
+def _run_sequence_sanity(product_library, case) -> dict:
+    """Quick sanity check: insert a few feasible products, verify consistency, remove them."""
+    state = create_empty_state(case)
+    feasible_products = [p for p in product_library.products if p.feasible][:5]
+    if not feasible_products:
+        return {"checked": False, "reason": "no feasible products"}
+
+    inserted = 0
+    removed = 0
+    for product in feasible_products:
+        result = insert_product(product, state, case)
+        if result.success:
+            inserted += 1
+            remove_product(product, state, case)
+            removed += 1
+
+    all_empty = all(len(seq.observations) == 0 for seq in state.sequences.values())
+    return {
+        "checked": True,
+        "attempted": len(feasible_products),
+        "inserted": inserted,
+        "removed": removed,
+        "all_empty_after_remove": all_empty,
+    }
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(
-        description="Generate stereo_imaging candidates and product library (Phase 1)."
+        description="Generate stereo_imaging candidates and product library (Phase 2)."
     )
     parser.add_argument("--case-dir", required=True)
     parser.add_argument("--config-dir", default="")
@@ -81,12 +110,17 @@ def main(argv: list[str] | None = None) -> int:
         product_library = build_product_library(candidates, case, product_config)
         product_end = time.perf_counter()
 
+        sanity_start = time.perf_counter()
+        sequence_sanity = _run_sequence_sanity(product_library, case)
+        sanity_end = time.perf_counter()
+
         solution_path = write_solution(solution_dir)
         total_end = time.perf_counter()
 
         timing_seconds = {
             "candidate_generation": candidate_end - candidate_start,
             "product_library": product_end - product_start,
+            "sequence_sanity": sanity_end - sanity_start,
             "total": total_end - total_start,
         }
 
@@ -99,6 +133,7 @@ def main(argv: list[str] | None = None) -> int:
             candidate_summary=candidate_summary,
             product_config=product_config,
             product_library=product_library,
+            sequence_sanity=sequence_sanity,
             timing_seconds=timing_seconds,
         )
         write_json(solution_dir / "status.json", status)
@@ -119,7 +154,7 @@ def main(argv: list[str] | None = None) -> int:
             solution_dir / "status.json",
             {
                 "status": "error",
-                "phase": 1,
+                "phase": 2,
                 "case_dir": str(case_dir),
                 "config_dir": str(config_dir) if config_dir is not None else None,
                 "error": str(exc),
@@ -130,13 +165,14 @@ def main(argv: list[str] | None = None) -> int:
         return 2
 
     print(
-        f"phase_1_candidates_and_product_library: {case_id} "
+        f"phase_2_sequence_propagation_and_feasibility: {case_id} "
         f"candidates={candidate_summary.candidate_count} "
         f"products={product_library.summary.total_products} "
         f"feasible={product_library.summary.feasible_products} "
         f"pairs={product_library.summary.pair_products} "
         f"tris={product_library.summary.tri_products} "
         f"zero_product_targets={len(product_library.summary.zero_product_target_ids)} "
+        f"sanity_inserted={sequence_sanity.get('inserted', 0)} "
         f"-> {solution_path}"
     )
     return 0

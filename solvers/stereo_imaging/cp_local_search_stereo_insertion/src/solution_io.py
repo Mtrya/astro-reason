@@ -8,6 +8,7 @@ from typing import Any
 
 from candidates import Candidate, CandidateSummary
 from products import ProductLibrary
+from sequence import SequenceState
 
 
 def write_json(path: Path, payload: Any) -> None:
@@ -32,6 +33,7 @@ def write_debug_artifacts(
     candidate_summary: CandidateSummary,
     product_library: ProductLibrary,
     timing_seconds: dict[str, float],
+    sequence_state: SequenceState | None = None,
 ) -> None:
     debug_dir = solution_dir / "debug"
     write_json(
@@ -56,3 +58,11 @@ def write_debug_artifacts(
             "summary": product_library.summary.as_dict(),
         },
     )
+    if sequence_state is not None:
+        write_json(
+            debug_dir / "sequence_state.json",
+            {
+                "case_id": case_id,
+                "state": sequence_state.as_dict(),
+            },
+        )
