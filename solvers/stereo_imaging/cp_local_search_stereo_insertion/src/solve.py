@@ -11,8 +11,14 @@ from pathlib import Path
 from candidates import CandidateConfig, generate_candidates
 from case_io import load_case, load_solver_config
 from products import ProductConfig, build_product_library
+from seed import SeedConfig, build_greedy_seed
 from sequence import create_empty_state, insert_product, remove_product
-from solution_io import write_debug_artifacts, write_json, write_solution
+from solution_io import (
+    write_debug_artifacts,
+    write_json,
+    write_solution,
+    write_solution_from_state,
+)
 
 
 def _build_status(
@@ -27,10 +33,11 @@ def _build_status(
     product_library,
     sequence_sanity: dict,
     timing_seconds: dict[str, float],
+    seed_result,
 ) -> dict:
     return {
-        "status": "phase_2_sequence_propagation_and_feasibility",
-        "phase": 2,
+        "status": "phase_3_greedy_seed",
+        "phase": 3,
         "case_dir": str(case_dir),
         "config_dir": str(config_dir) if config_dir is not None else None,
         "solution": str(solution_path),
@@ -38,9 +45,11 @@ def _build_status(
         "satellite_count": len(product_library.summary.per_target_product_counts),
         "candidate_config": candidate_config.as_status_dict(),
         "product_config": product_config.as_status_dict(),
+        "seed_config": seed_result.config.as_status_dict() if seed_result else None,
         "candidate_summary": candidate_summary.as_dict(),
         "product_summary": product_library.summary.as_dict(),
         "sequence_sanity": sequence_sanity,
+        "seed_summary": seed_result.as_dict() if seed_result else None,
         "timing_seconds": timing_seconds,
         "reproduction_summary": {
             "candidate_count": candidate_summary.candidate_count,
@@ -49,6 +58,8 @@ def _build_status(
             "pair_product_count": product_library.summary.pair_products,
             "tri_product_count": product_library.summary.tri_products,
             "zero_product_target_count": len(product_library.summary.zero_product_target_ids),
+            "seed_accepted": seed_result.accepted_count if seed_result else 0,
+            "seed_covered_targets": seed_result.covered_target_count if seed_result else 0,
             "runtime_seconds": timing_seconds["total"],
         },
     }
@@ -98,6 +109,7 @@ def main(argv: list[str] | None = None) -> int:
         config_payload = load_solver_config(config_dir)
         candidate_config = CandidateConfig.from_mapping(config_payload)
         product_config = ProductConfig.from_mapping(config_payload)
+        seed_config = SeedConfig.from_mapping(config_payload)
 
         case = load_case(case_dir)
         case_id = case.case_dir.name
@@ -114,13 +126,21 @@ def main(argv: list[str] | None = None) -> int:
         sequence_sanity = _run_sequence_sanity(product_library, case)
         sanity_end = time.perf_counter()
 
-        solution_path = write_solution(solution_dir)
+        seed_start = time.perf_counter()
+        seed_result = build_greedy_seed(product_library, case, seed_config)
+        seed_end = time.perf_counter()
+
+        if seed_config.seed_only:
+            solution_path = write_solution_from_state(solution_dir, seed_result.state)
+        else:
+            solution_path = write_solution(solution_dir)
         total_end = time.perf_counter()
 
         timing_seconds = {
             "candidate_generation": candidate_end - candidate_start,
             "product_library": product_end - product_start,
             "sequence_sanity": sanity_end - sanity_start,
+            "seed": seed_end - seed_start,
             "total": total_end - total_start,
         }
 
@@ -135,10 +155,11 @@ def main(argv: list[str] | None = None) -> int:
             product_library=product_library,
             sequence_sanity=sequence_sanity,
             timing_seconds=timing_seconds,
+            seed_result=seed_result,
         )
         write_json(solution_dir / "status.json", status)
 
-        if candidate_config.debug:
+        if candidate_config.debug or seed_config.seed_only:
             write_debug_artifacts(
                 solution_dir,
                 case_id=case_id,
@@ -146,6 +167,8 @@ def main(argv: list[str] | None = None) -> int:
                 candidate_summary=candidate_summary,
                 product_library=product_library,
                 timing_seconds=timing_seconds,
+                sequence_state=seed_result.state,
+                seed_result=seed_result,
             )
     except Exception as exc:
         traceback_text = traceback.format_exc()
@@ -154,7 +177,7 @@ def main(argv: list[str] | None = None) -> int:
             solution_dir / "status.json",
             {
                 "status": "error",
-                "phase": 2,
+                "phase": 3,
                 "case_dir": str(case_dir),
                 "config_dir": str(config_dir) if config_dir is not None else None,
                 "error": str(exc),
@@ -165,14 +188,15 @@ def main(argv: list[str] | None = None) -> int:
         return 2
 
     print(
-        f"phase_2_sequence_propagation_and_feasibility: {case_id} "
+        f"phase_3_greedy_seed: {case_id} "
         f"candidates={candidate_summary.candidate_count} "
         f"products={product_library.summary.total_products} "
         f"feasible={product_library.summary.feasible_products} "
         f"pairs={product_library.summary.pair_products} "
         f"tris={product_library.summary.tri_products} "
         f"zero_product_targets={len(product_library.summary.zero_product_target_ids)} "
-        f"sanity_inserted={sequence_sanity.get('inserted', 0)} "
+        f"seed_accepted={seed_result.accepted_count} "
+        f"seed_covered={seed_result.covered_target_count} "
         f"-> {solution_path}"
     )
     return 0
