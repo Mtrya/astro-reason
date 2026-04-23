@@ -1,6 +1,6 @@
 """Candidate observation enumeration for the stereo_imaging CP/local-search solver.
 
-Phase 7b changes:
+Changes:
 - Optional parallel generation across satellites via ProcessPoolExecutor.
   EarthSatellite is reconstructed inside each worker from TLE strings because
   the underlying Satrec object is not pickleable.

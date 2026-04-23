@@ -4,8 +4,8 @@ Builds a reproducible initial schedule that maximizes coverage before local
 search spends effort improving quality.  Products are ranked coverage-first
 with dynamic scarcity updates, then inserted atomically via sequence.py.
 
-Phase 7a changes:
-- Dedicated tri-stereo-first pre-phase: attempt best feasible tri-stereo per
+Changes:
+- Dedicated tri-stereo-first pre-pass: attempt best feasible tri-stereo per
   target before falling back to pair-stereo greedy.
 - Lexicographic sort key replaces ad-hoc composite bonus formula.
 """
@@ -158,7 +158,7 @@ def _product_sort_key(
     return (coverage_value, scarcity + weighted_quality + epsilon, scarcity, weighted_quality, product.product_id)
 
 
-def _attempt_tri_stereo_pre_phase(
+def _attempt_tri_stereo_pre_pass(
     product_library: ProductLibrary,
     state: SequenceState,
     case: StereoCase,
@@ -221,7 +221,7 @@ def build_greedy_seed(
 ) -> SeedResult:
     """Construct a deterministic greedy seed schedule.
 
-    Phase 7a algorithm:
+    Algorithm:
     1. Pair-stereo coverage-first greedy: iteratively select highest-ranked
        feasible product (pair or tri) and attempt atomic insertion.
     2. Optional tri-stereo upgrade pass: for each target covered by a pair,
@@ -240,7 +240,7 @@ def build_greedy_seed(
     tri_accepted = 0
     iterations = 0
 
-    # Phase 7a.1 — build pair-primary seed (pairs compete with tri in same pool)
+    # Step 1 — build pair-primary seed (pairs compete with tri in same pool)
     pool: list[StereoProduct] = [p for p in product_library.products if p.feasible]
 
     while pool:
@@ -279,7 +279,7 @@ def build_greedy_seed(
                 )
             )
 
-    # Phase 7a.2 — tri-stereo upgrade pass
+    # Step 2 — tri-stereo upgrade pass
     # For targets covered by a pair, try to upgrade to tri-stereo if a
     # higher-quality tri product exists and can fit in the freed capacity.
     if config.tri_stereo_seed_phase:

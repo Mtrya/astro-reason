@@ -1,9 +1,9 @@
 """Solver entrypoint: parse case, enumerate candidates and products, emit solution.
 
-Phase 7b changes:
-- Multi-run harness: when local_search_config.num_runs > 1, the full pipeline
-  (seed + local search + repair) is executed num_runs times with deterministic
-  perturbation derived from random_seed + run_index.  The best solution is kept.
+Multi-run harness:
+- When local_search_config.num_runs > 1, the full pipeline (seed + local search +
+  repair) is executed num_runs times with deterministic perturbation derived from
+  random_seed + run_index.  The best solution is kept.
 - Aggregate statistics (best, mean coverage/quality) are written to status.json.
 """
 
@@ -52,8 +52,7 @@ def _build_status(
     multi_run_stats: dict[str, Any] | None = None,
 ) -> dict:
     status = {
-        "status": "phase_7b_multi_run",
-        "phase": 7,
+        "status": "multi_run",
         "case_dir": str(case_dir),
         "config_dir": str(config_dir) if config_dir is not None else None,
         "solution": str(solution_path),
@@ -163,7 +162,7 @@ def _pipeline_objective(repair_result) -> tuple[int, float]:
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(
-        description="CP/local-search stereo insertion solver (Phase 7b)."
+        description="CP/local-search stereo insertion solver."
     )
     parser.add_argument("--case-dir", required=True)
     parser.add_argument("--config-dir", default="")
@@ -314,7 +313,6 @@ def main(argv: list[str] | None = None) -> int:
             solution_dir / "status.json",
             {
                 "status": "error",
-                "phase": 7,
                 "case_dir": str(case_dir),
                 "config_dir": str(config_dir) if config_dir is not None else None,
                 "error": str(exc),
@@ -326,7 +324,7 @@ def main(argv: list[str] | None = None) -> int:
 
     if local_search_result is not None:
         print(
-            f"phase_7b: {case_id} "
+            f"case: {case_id} "
             f"candidates={candidate_summary.candidate_count} "
             f"products={product_library.summary.total_products} "
             f"feasible={product_library.summary.feasible_products} "
@@ -345,7 +343,7 @@ def main(argv: list[str] | None = None) -> int:
         )
     else:
         print(
-            f"phase_7b: {case_id} "
+            f"case: {case_id} "
             f"candidates={candidate_summary.candidate_count} "
             f"products={product_library.summary.total_products} "
             f"feasible={product_library.summary.feasible_products} "

@@ -1720,4 +1720,4 @@ def test_status_includes_multi_run_stats_when_enabled(solver_imports) -> None:
     )
 
     assert status["multi_run_stats"] == multi_run_stats
-    assert status["status"] == "phase_7b_multi_run"
+    assert status["status"] == "multi_run"

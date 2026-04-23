@@ -4,7 +4,7 @@ Implements replace-first, insert-uncovered, remove-then-re-insert, and
 remove-then-repair moves with clone-based trial evaluation.  All moves are
 atomic and rollback on failure or lack of objective improvement.
 
-Phase 7b changes:
+Changes:
 - Dedicated REMOVE move: remove low-quality product + greedily re-insert better
   alternatives into freed capacity.
 - Move priority: INSERT uncovered → REPLACE covered → REMOVE+re-insert → SWAP.
@@ -420,7 +420,7 @@ def run_local_search(
 ) -> LocalSearchResult:
     """Improve a greedy seed via deterministic product-level local search.
 
-    Move priority per pass (Phase 7b):
+    Move priority per pass:
     1. INSERT uncovered targets (increases coverage).
     2. REPLACE with higher quality for already-covered targets.
     3. REMOVE low-quality product + re-insert better alternatives.
