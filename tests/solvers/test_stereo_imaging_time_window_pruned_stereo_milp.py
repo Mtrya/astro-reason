@@ -1433,6 +1433,7 @@ class TestRepair:
 # ---------------------------------------------------------------------------
 
 class TestDeterminism:
+    @pytest.mark.timeout(300)
     @pytest.mark.skipif(
         not (Path(__file__).resolve().parents[2] / "benchmarks" / "stereo_imaging" / "dataset" / "cases" / "test" / "case_0001").exists(),
         reason="case_0001 dataset not present",
@@ -1524,6 +1525,6 @@ class TestEndToEnd:
             assert action["end_time"].endswith("Z")
 
         status = json.loads(status_path.read_text(encoding="utf-8"))
-        assert status["status"] == "phase_5_solved"
-        assert status["phase"] == 5
+        assert status["status"] == "solved"
+        assert status["solver_version"] == "time_window_pruned_stereo_milp"
         assert "repair_summary" in status

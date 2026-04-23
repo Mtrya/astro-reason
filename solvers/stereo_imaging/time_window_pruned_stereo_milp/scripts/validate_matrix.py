@@ -1,4 +1,4 @@
-"""Phase 6 validation matrix for the stereo MILP solver.
+"""Validation matrix for the stereo MILP solver.
 
 Runs the solver across multiple configs and cases, invokes the benchmark
 verifier, and writes a structured JSON report.
@@ -163,7 +163,7 @@ def main() -> int:
         for cfg in CONFIG_MATRIX:
             config_id = cfg["id"]
             print(f"Running {case} / {config_id} ...", end=" ", flush=True)
-            solution_dir = Path("/tmp") / "stereo_phase6_validation" / case / config_id
+            solution_dir = Path("/tmp") / "stereo_validation" / case / config_id
             if solution_dir.exists():
                 import shutil
                 shutil.rmtree(solution_dir)
