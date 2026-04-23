@@ -1,0 +1,24 @@
+mission:
+  case_id: case_0007
+  horizon_start: '2026-04-14T16:00:00Z'
+  horizon_end: '2026-04-15T04:00:00Z'
+  action_time_step_s: 5
+  geometry_sample_step_s: 5
+  resource_sample_step_s: 10
+  propagation:
+    model: sgp4
+    frame_inertial: gcrf
+    frame_fixed: itrf
+    earth_shape: wgs84
+  scoring:
+    ranking_order:
+    - valid
+    - WCR
+    - CR
+    - TAT
+    - PC
+    reported_metrics:
+    - CR
+    - WCR
+    - TAT
+    - PC

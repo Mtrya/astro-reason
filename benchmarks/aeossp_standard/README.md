@@ -310,7 +310,8 @@ Current split decision:
 
 - `test_medium` is the primary medium-difficulty evaluation split
 - `test_medium_horizon_2022` keeps the same medium controls and uses the vendored 2022 historical TLE cache so the mission horizons move to April 2022
-- future benchmark-owned split families such as `test_easy`, `test_hard`, and `train` remain out of scope for this step
+- `train` mirrors `test_medium` controls with `10` cases
+- `test_easy` and `test_hard` are temporarily deferred while split design and generator performance are being improved
 
 Current canonical medium family:
 

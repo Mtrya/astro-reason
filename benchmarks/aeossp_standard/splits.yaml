@@ -3,6 +3,7 @@
 # test_medium is the primary medium-difficulty split. test_medium_horizon_2022
 # keeps the same generation controls and swaps only the vendored TLE snapshot,
 # which shifts the mission horizon to the matching April 2022 orbit epoch.
+# train mirrors test_medium generation controls and expands to 10 cases.
 
 example_smoke_case: test_medium/case_0001
 
@@ -72,7 +73,7 @@ splits:
         - QPS-SAR
         - STRIX
 
-    satellites:
+    satellites: &test_medium_satellites
       min_per_case: 20
       max_per_case: 28
       template_fractions:
@@ -117,7 +118,7 @@ splits:
           slew_power_w: 320.0
           sunlit_charge_power_w: 115.0
 
-    tasks:
+    tasks: &test_medium_tasks
       min_per_case: 1600
       max_per_case: 2000
       min_target_separation_m: 20000.0
@@ -137,3 +138,8 @@ splits:
     source:
       celestrak:
         snapshot_epoch_utc: "2022-04-14T00:00:00Z"
+
+  train:
+    <<: *test_medium_split
+    seed: 2026
+    case_count: 10
