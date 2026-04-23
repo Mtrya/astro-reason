@@ -32,6 +32,14 @@
       "evidence_type": "reproduced_solver",
       "runnable": true,
       "ci_smoke": true
+    },
+    {
+      "benchmark": "aeossp_standard",
+      "solver": "greedy_lns",
+      "path": "solvers/aeossp_standard/greedy_lns",
+      "evidence_type": "reproduced_solver",
+      "runnable": true,
+      "ci_smoke": true
     }
   ]
 }
