@@ -1,0 +1,52 @@
+# Example configuration for the aeossp_standard greedy-LNS solver.
+# Copy or rename this file to config.yaml (or config.json) in your
+# config directory and adjust values as needed.
+
+# --- Candidate generation ---
+# Stride multiplier for candidate start-time grid.  1 = every grid step,
+# 2 = every second grid step, etc.  Larger values reduce candidate count.
+candidate_stride_multiplier: 1
+
+# Hard cap on total candidates across all satellites and tasks.
+# null = no limit.
+max_candidates: null
+
+# Hard cap on candidates per individual task.
+# null = no limit.
+max_candidates_per_task: null
+
+# --- Greedy insertion ---
+# When true, evaluate all feasible insertion positions and choose the one
+# with minimum transition-time increment (Antuori et al. Section 4.1.1).
+# For fixed grid-aligned times this typically resolves to the time-ordered
+# position, but the code structure is preserved for paper fidelity.
+minimize_transition_increment: false
+
+# --- Local search ---
+# Maximum number of first-improving descent iterations.
+max_local_search_iterations: 1000
+
+# Optional wall-clock time budget for local search in seconds.
+# null = no time limit.
+max_local_search_time_s: null
+
+# Number of restarts after reaching a local minimum.
+# 0 = no restarts (deterministic single run).
+restart_count: 0
+
+# Random seed for stochastic ordering and restart perturbation.
+# null = use system time (non-deterministic).
+# Only matters when restart_count > 0 or stochastic_ordering is true.
+random_seed: null
+
+# When true, shuffle component order randomly each iteration.
+# Default is deterministic ordering.
+stochastic_ordering: false
+
+# --- Repair ---
+# Maximum number of repair removal iterations.
+max_repair_iterations: 200
+
+# --- Debug ---
+# When true, write additional debug artifacts to solution_dir/debug/.
+debug: false

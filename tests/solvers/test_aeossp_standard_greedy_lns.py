@@ -723,3 +723,34 @@ def test_candidate_shape_issues_catch_grid_misalignment(monkeypatch) -> None:
     from validation import candidate_shape_issues
     issues = candidate_shape_issues(new_case, [a])
     assert any(i.reason == "grid_misalignment" for i in issues)
+
+
+def test_greedy_insertion_with_minimize_transition_increment(monkeypatch) -> None:
+    a = _candidate("a", satellite_id="sat_a", task_id="task_a", start_offset_s=10, end_offset_s=20, weight=5.0)
+    b = _candidate("b", satellite_id="sat_a", task_id="task_b", start_offset_s=30, end_offset_s=40, weight=3.0)
+    c = _candidate("c", satellite_id="sat_a", task_id="task_c", start_offset_s=22, end_offset_s=28, weight=1.0)
+    case = _case_for_candidates([a, b, c])
+
+    monkeypatch.setattr("insertion.PropagationContext", lambda *args, **kwargs: None)
+    monkeypatch.setattr("insertion.initial_slew_feasible", lambda **kwargs: True)
+    monkeypatch.setattr("insertion.transition_result", lambda *args, **kwargs: type("R", (), {"feasible": True, "required_gap_s": 1.0})())
+
+    result = greedy_insertion(case, [a, b, c], config=InsertionConfig(minimize_transition_increment=True))
+    ids = [item.candidate_id for item in result.selected]
+    assert ids == ["a", "c", "b"]
+    assert result.stats.candidates_inserted == 3
+
+
+def test_greedy_insertion_minimize_rejects_infeasible(monkeypatch) -> None:
+    a = _candidate("a", satellite_id="sat_a", task_id="task_a", start_offset_s=10, end_offset_s=25, weight=5.0)
+    b = _candidate("b", satellite_id="sat_a", task_id="task_b", start_offset_s=20, end_offset_s=30, weight=1.0)
+    case = _case_for_candidates([a, b])
+
+    monkeypatch.setattr("insertion.PropagationContext", lambda *args, **kwargs: None)
+    monkeypatch.setattr("insertion.initial_slew_feasible", lambda **kwargs: True)
+    monkeypatch.setattr("insertion.transition_result", lambda *args, **kwargs: type("R", (), {"feasible": True, "required_gap_s": 1.0})())
+
+    result = greedy_insertion(case, [a, b], config=InsertionConfig(minimize_transition_increment=True))
+    assert len(result.selected) == 1
+    assert result.selected[0].candidate_id == "a"
+    assert result.stats.candidates_rejected_overlap == 1

@@ -11,10 +11,11 @@ from pathlib import Path
 
 from candidates import CandidateConfig, generate_candidates
 from case_io import load_case, load_solver_config
+from components import build_component_index
 from insertion import InsertionConfig, greedy_insertion
 from local_search import LocalSearchConfig, local_search
 from solution_io import write_json, write_solution
-from validation import RepairConfig, repair_schedule
+from validation import RepairConfig, repair_schedule, validate_schedule
 
 
 def _build_status(
@@ -31,8 +32,8 @@ def _build_status(
     timing_seconds: dict[str, float],
 ) -> dict:
     return {
-        "status": "phase_3_local_search_solution_generated",
-        "phase": 3,
+        "status": "phase_5_tuned_solution_generated",
+        "phase": 5,
         "case_dir": str(case_dir),
         "config_dir": str(config_dir) if config_dir is not None else None,
         "solution": str(solution_path),
@@ -46,6 +47,29 @@ def _build_status(
         "local_search": local_search_result.as_dict(),
         "repair": repair_result.as_status_dict(),
         "timing_seconds": timing_seconds,
+        "reproduction_notes": {
+            "method_reference": "Antuori, Wojtowicz, and Hebrard, CP 2025",
+            "components_reproduced": {
+                "greedy_initial_construction": True,
+                "connected_component_local_search": True,
+                "marginal_profit_recomputation": True,
+            },
+            "components_omitted": {
+                "tempo_cp_sat_tsptw_fallback": "omitted — proprietary dependency",
+                "download_memory_planning": "omitted — benchmark is observation-only",
+            },
+            "adaptations": {
+                "battery_handling": "solver-local simulation + bounded repair",
+                "action_grid_alignment": "benchmark-mandated fixed times",
+                "weighted_objective": "maximize task weight (proxy for WCR)",
+            },
+            "known_limitations": [
+                "No CP-SAT exact subproblem fallback (Tempo omitted)",
+                "Candidates use fixed grid-aligned times; no continuous sliding within windows",
+                "Battery model is solver-local approximation, not benchmark verifier",
+                "No download or memory scheduling (benchmark is observation-only)",
+            ],
+        },
     }
 
 
@@ -89,6 +113,29 @@ def _write_debug_artifacts(
             "post_local_search_candidates": [candidate.as_dict() for candidate in local_search_result.candidates],
         },
     )
+
+    # Build component summary from all candidates
+    component_index = build_component_index(case, candidates)
+    write_json(
+        solution_dir / "debug" / "component_summary.json",
+        {
+            "case_id": case.mission.case_id,
+            "component_index": component_index.as_dict(),
+        },
+    )
+
+    # Validation summary: pre-repair and post-repair
+    pre_repair_validation = validate_schedule(case, local_search_result.candidates)
+    post_repair_validation = repair_result.final_report
+    write_json(
+        solution_dir / "debug" / "validation_summary.json",
+        {
+            "case_id": case.mission.case_id,
+            "pre_repair": pre_repair_validation.as_dict(),
+            "post_repair": post_repair_validation.as_dict(),
+        },
+    )
+
     write_json(
         solution_dir / "debug" / "repair_log.json",
         repair_result.as_debug_dict(),
@@ -176,7 +223,7 @@ def main(argv: list[str] | None = None) -> int:
             solution_dir / "status.json",
             {
                 "status": "error",
-                "phase": 3,
+                "phase": 5,
                 "case_dir": str(case_dir),
                 "config_dir": str(config_dir) if config_dir is not None else None,
                 "error": str(exc),
@@ -187,7 +234,7 @@ def main(argv: list[str] | None = None) -> int:
         return 2
 
     print(
-        f"phase_3_local_search_solution_generated: {case.mission.case_id} "
+        f"phase_5_tuned_solution_generated: {case.mission.case_id} "
         f"candidates={candidate_summary.candidate_count} "
         f"inserted={insertion_result.stats.candidates_inserted} "
         f"ls_accepted={local_search_result.stats.moves_accepted} "
