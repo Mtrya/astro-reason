@@ -51,6 +51,7 @@ This reproduction keeps that structure and adapts it to `stereo_imaging`:
 - **Phase 5** — conservative repair pass and main-solver experiment wiring.
 - **Phase 6** — performance tuning (satellite-state cache), validation matrix, and solver audit.
 - **Phase 7a** — tri-stereo seed architecture: weighted lexicographic ranking plus tri-stereo upgrade pass.
+- **Phase 7b** — multi-run harness with deterministic perturbation; parallel candidate generation across satellites.
 
 ## Validation
 
@@ -58,13 +59,13 @@ All 5 public cases pass the benchmark verifier. Runtimes are on a warm-cache sin
 
 | Case | Candidates | Seed accepted | Tri accepted | Coverage | Norm. quality | Runtime |
 |---|---|---|---|---|---|---|
-| test/case_0001 | 556 | 30 | 13 | 30 / 47 (0.638) | 0.636 | 37.0 s |
-| test/case_0002 | 235 | 11 | 6 | 11 / 36 (0.306) | 0.305 | 10.6 s |
-| test/case_0003 | 289 | 22 | 6 | 22 / 36 (0.611) | 0.604 | 16.5 s |
-| test/case_0004 | 666 | 31 | 10 | 31 / 39 (0.795) | 0.793 | 38.4 s |
-| test/case_0005 | 236 | 0 | 0 | 0 / 19 (0.000) | 0.000 | 7.1 s |
+| test/case_0001 | 556 | 30 | 13 | 30 / 47 (0.638) | 0.636 | 12.4 s |
+| test/case_0002 | 235 | 11 | 6 | 11 / 36 (0.306) | 0.305 | 5.2 s |
+| test/case_0003 | 289 | 22 | 6 | 22 / 36 (0.611) | 0.604 | 7.8 s |
+| test/case_0004 | 666 | 31 | 10 | 31 / 39 (0.795) | 0.793 | 13.1 s |
+| test/case_0005 | 236 | 0 | 0 | 0 / 19 (0.000) | 0.000 | 4.1 s |
 
-**Seed-only vs local search:** on all public cases, the greedy seed is already at a local optimum for the current move neighborhood; local search accepts 0 improving moves on 4 of 5 cases (case_0004 accepts 1 move). This is expected given the weak move set (no dedicated removal moves), but it means the local-search component is not currently improving results.
+**Seed-only vs local search:** on all public cases, the greedy seed is already at a local optimum for the current move neighborhood; local search accepts 0 improving moves on all 5 cases. Dedicated `remove` moves were added in Phase 7b but the seed remains locally optimal. The multi-run harness (with RNG perturbation) is the primary mechanism for exploring alternative solutions.
 
 **Determinism:** two consecutive runs on the same case produce byte-identical `solution.json`.
 
@@ -115,6 +116,11 @@ max_moves_per_pass: 500
 max_time_seconds: 120.0
 enable_repair: true
 repair_candidates_limit: 20
+remove_move_enabled: true
+remove_candidates_limit: 50
+num_runs: 1
+random_seed: 42
+parallel_workers: null   # null = auto (CPU count), 0 = disable
 debug: false
 ```
 
@@ -165,8 +171,8 @@ uv run python experiments/main_solver/run.py \
 
 ## Known Limitations
 
-- The solver is a deterministic greedy baseline, not yet a faithful reproduction of Lemaître's stochastic local-search method. The audit flags missing removal moves, missing multi-run evaluation, and a weak move neighborhood.
-- Single-threaded Python execution. No parallelism or compiled extensions.
+- The solver is a deterministic greedy baseline with multi-run evaluation, not yet a faithful reproduction of Lemaître's stochastic local-search method. The audit flags a weak move neighborhood and the fact that the greedy seed is not the paper's GA.
+- Candidate generation can be parallelized across satellites via `parallel_workers`. The seed and local search remain single-threaded.
 - Solver-local product predicates are designed to match the verifier geometry, but minor drift is possible due to floating-point ordering.
 - The greedy seed dominates runtime (~50–60 % of total time on large cases). The seed algorithm is an implementation invention (pool-based coverage-first greedy), not the sequential track-builder described in the paper.
 
