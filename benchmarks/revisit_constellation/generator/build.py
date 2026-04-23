@@ -148,7 +148,7 @@ def _sample_case_spec(
     )
     revisit_threshold_hours = rng.choice(threshold_options)
     satellite_max = _require_int(satellite_bounds, "max", "case_spec.max_num_satellites")
-    if revisit_threshold_hours == 6.0:
+    if abs(revisit_threshold_hours - 6.0) < 1e-9:
         max_num_satellites = satellite_max
     else:
         max_num_satellites = rng.randint(
