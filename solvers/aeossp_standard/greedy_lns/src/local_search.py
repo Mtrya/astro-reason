@@ -177,6 +177,7 @@ def _recompute_component(
     (new_component_weight, insertion_failures).
     """
     satellite_id = component.satellite_id
+    satellite_schedule = by_satellite.setdefault(satellite_id, [])
 
     # 1. Remove currently selected candidates in this component
     selected_in_component = [
@@ -187,7 +188,7 @@ def _recompute_component(
     ]
 
     for c in selected_in_component:
-        by_satellite[satellite_id].remove(c)
+        satellite_schedule.remove(c)
         del scheduled_tasks[c.task_id]
 
     # 2. Compute marginal profit for every candidate in the component
@@ -212,7 +213,7 @@ def _recompute_component(
         inserted = _try_insert_into_satellite(
             case,
             satellite_id,
-            by_satellite[satellite_id],
+            satellite_schedule,
             candidate,
             propagation,
             vector_cache,
@@ -275,6 +276,8 @@ def _perturb(
     scheduled_tasks = dict(scheduled_tasks)
 
     all_selected = list(scheduled_tasks.values())
+    if not all_selected:
+        return by_satellite, scheduled_tasks
     to_remove = rng.sample(all_selected, max(1, int(len(all_selected) * fraction)))
 
     for candidate in to_remove:
@@ -289,6 +292,9 @@ def local_search(
     all_candidates: list[Candidate],
     greedy_solution: list[Candidate],
     config: LocalSearchConfig | None = None,
+    *,
+    propagation: PropagationContext | None = None,
+    vector_cache: TransitionVectorCache | None = None,
 ) -> LocalSearchResult:
     """Improve a greedy solution via connected-component local search.
 
@@ -300,12 +306,19 @@ def local_search(
     stats = LocalSearchStats()
     stats.exact_subproblem_solver = "none"
 
-    step_s = float(min(case.mission.action_time_step_s, case.mission.geometry_sample_step_s))
-    propagation = PropagationContext(case.satellites, step_s=step_s)
-    vector_cache = TransitionVectorCache(case, propagation)
+    if propagation is None:
+        step_s = float(min(case.mission.action_time_step_s, case.mission.geometry_sample_step_s))
+        propagation = PropagationContext(case.satellites, step_s=step_s)
+    if vector_cache is None:
+        vector_cache = TransitionVectorCache(case, propagation)
 
     # Build component index over all candidates
-    component_index = build_component_index(case, all_candidates)
+    component_index = build_component_index(
+        case,
+        all_candidates,
+        propagation=propagation,
+        vector_cache=vector_cache,
+    )
     stats.component_count = component_index.stats.component_count
     stats.largest_component_size = component_index.stats.largest_component_size
 

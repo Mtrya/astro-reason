@@ -154,6 +154,9 @@ def greedy_insertion(
     case: AeosspCase,
     candidates: list[Candidate],
     config: InsertionConfig | None = None,
+    *,
+    propagation: PropagationContext | None = None,
+    vector_cache: TransitionVectorCache | None = None,
 ) -> InsertionResult:
     """Build a schedule by greedily inserting candidates in utility order.
 
@@ -176,9 +179,11 @@ def greedy_insertion(
     config = config or InsertionConfig()
     stats = InsertionStats()
 
-    step_s = float(min(case.mission.action_time_step_s, case.mission.geometry_sample_step_s))
-    propagation = PropagationContext(case.satellites, step_s=step_s)
-    vector_cache = TransitionVectorCache(case, propagation)
+    if propagation is None:
+        step_s = float(min(case.mission.action_time_step_s, case.mission.geometry_sample_step_s))
+        propagation = PropagationContext(case.satellites, step_s=step_s)
+    if vector_cache is None:
+        vector_cache = TransitionVectorCache(case, propagation)
 
     sorted_candidates = sorted(candidates, key=_candidate_sort_key)
 
