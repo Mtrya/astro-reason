@@ -37,6 +37,12 @@ def main(argv: list[str] | None = None) -> int:
         action="store_true",
         help="Re-download source data even when normalized cached files already exist",
     )
+    parser.add_argument(
+        "--jobs",
+        type=int,
+        default=1,
+        help="Number of case-generation worker processes to use; defaults to 1",
+    )
     args = parser.parse_args(argv)
 
     config = load_generator_config(args.splits_path)
@@ -54,6 +60,7 @@ def main(argv: list[str] | None = None) -> int:
         split_configs=config["splits"],
         example_smoke_case=config["example_smoke_case"],
         source_config=config["source"],
+        jobs=args.jobs,
     )
     print(f"Wrote aeossp_standard dataset to {output_dir}")
     return 0

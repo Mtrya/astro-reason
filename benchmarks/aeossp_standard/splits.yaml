@@ -1,11 +1,11 @@
 # Canonical aeossp_standard dataset construction for the finished benchmark.
 #
-# test_medium is the primary medium-difficulty split. test_medium_horizon_2022
+# test is the primary medium-difficulty split. test_horizon_2022
 # keeps the same generation controls and swaps only the vendored TLE snapshot,
 # which shifts the mission horizon to the matching April 2022 orbit epoch.
-# train mirrors test_medium generation controls and expands to 10 cases.
+# train mirrors test generation controls and expands to 10 cases.
 
-example_smoke_case: test_medium/case_0001
+example_smoke_case: test/case_0001
 
 source:
   celestrak:
@@ -23,7 +23,7 @@ source:
     url: https://raw.githubusercontent.com/nvkelso/natural-earth-vector/master/geojson/ne_110m_land.geojson
 
 splits:
-  test_medium: &test_medium_split
+  test: &test_split
     seed: 42
     case_count: 5
     case_seed_stride: 1009
@@ -73,7 +73,7 @@ splits:
         - QPS-SAR
         - STRIX
 
-    satellites: &test_medium_satellites
+    satellites: &test_satellites
       min_per_case: 20
       max_per_case: 28
       template_fractions:
@@ -118,7 +118,7 @@ splits:
           slew_power_w: 320.0
           sunlit_charge_power_w: 115.0
 
-    tasks: &test_medium_tasks
+    tasks: &test_tasks
       min_per_case: 1600
       max_per_case: 2000
       min_target_separation_m: 20000.0
@@ -133,13 +133,48 @@ splits:
       hotspot_window_slack_options_s: [300, 600, 900, 1200]
       uniform_window_slack_options_s: [900, 1200, 1800, 2400, 3600]
 
-  test_medium_horizon_2022:
-    <<: *test_medium_split
+  test_horizon_2022:
+    <<: *test_split
     source:
       celestrak:
         snapshot_epoch_utc: "2022-04-14T00:00:00Z"
 
+  test_easy:
+    <<: *test_split
+    seed: 123
+    satellites:
+      <<: *test_satellites
+      min_per_case: 20
+      max_per_case: 28
+    tasks:
+      <<: *test_tasks
+      min_per_case: 1200
+      max_per_case: 1500
+      visible_fraction: 0.95
+      duration_options_s: [20, 30, 40, 45, 50, 60, 70, 75, 80, 90]
+      hotspot_probability: 0.50
+      hotspot_window_slack_options_s: [600, 900, 1200, 1800]
+      uniform_window_slack_options_s: [1200, 1800, 2400, 3600, 5400]
+
+  test_hard:
+    <<: *test_split
+    seed: 777
+    satellites:
+      <<: *test_satellites
+      min_per_case: 32
+      max_per_case: 40
+    tasks:
+      <<: *test_tasks
+      min_per_case: 3200
+      max_per_case: 4000
+      city_fraction: 0.12
+      visible_fraction: 0.82
+      duration_options_s: [40, 45, 50, 60, 70, 75, 80, 90, 100, 120, 150]
+      hotspot_probability: 0.85
+      hotspot_window_slack_options_s: [300, 450, 600, 900]
+      uniform_window_slack_options_s: [600, 900, 1200, 1800, 2400]
+
   train:
-    <<: *test_medium_split
+    <<: *test_split
     seed: 2026
     case_count: 10

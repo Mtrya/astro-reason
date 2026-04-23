@@ -117,6 +117,16 @@ def _angle_between_deg(a: np.ndarray, b: np.ndarray) -> np.ndarray:
     return np.degrees(np.arccos(cosines))
 
 
+def _cos_between(a: np.ndarray, b: np.ndarray) -> np.ndarray:
+    na = np.linalg.norm(a, axis=1)
+    nb = np.linalg.norm(b, axis=1)
+    safe = (na > _NUMERICAL_EPS) & (nb > _NUMERICAL_EPS)
+    cosines = np.ones_like(na)
+    cosines[safe] = np.sum(a[safe] * b[safe], axis=1) / (na[safe] * nb[safe])
+    np.clip(cosines, -1.0, 1.0, out=cosines)
+    return cosines
+
+
 def access_mask_for_satellite(
     task_like: dict[str, Any],
     satellite_def: dict[str, Any],
@@ -124,13 +134,13 @@ def access_mask_for_satellite(
 ) -> tuple[np.ndarray, np.ndarray]:
     if satellite_def["sensor"]["sensor_type"] != task_like["required_sensor_type"]:
         n_samples = sampled_positions_ecef_m.shape[0]
-        return np.zeros(n_samples, dtype=bool), np.full(n_samples, np.inf, dtype=float)
+        return np.zeros(n_samples, dtype=bool), np.full(n_samples, np.nan, dtype=float)
 
     target_ecef_m = task_target_ecef_m(task_like)
     target_norm = float(np.linalg.norm(target_ecef_m))
     if target_norm < _NUMERICAL_EPS:
         n_samples = sampled_positions_ecef_m.shape[0]
-        return np.zeros(n_samples, dtype=bool), np.full(n_samples, np.inf, dtype=float)
+        return np.zeros(n_samples, dtype=bool), np.full(n_samples, np.nan, dtype=float)
 
     los_vectors = target_ecef_m[None, :] - sampled_positions_ecef_m
     target_normal = target_ecef_m / target_norm
@@ -139,9 +149,13 @@ def access_mask_for_satellite(
         sampled_positions_ecef_m - target_ecef_m[None, :],
         target_normal,
     ) > 0.0
-    off_nadir_deg = _angle_between_deg(-sampled_positions_ecef_m, los_vectors)
     max_off_nadir = float(satellite_def["attitude_model"]["max_off_nadir_deg"])
-    access_mask = above_horizon & (off_nadir_deg <= max_off_nadir + 1.0e-9)
+    off_nadir_cos = _cos_between(-sampled_positions_ecef_m, los_vectors)
+    access_mask = above_horizon & (
+        off_nadir_cos >= np.cos(np.radians(max_off_nadir + 1.0e-9))
+    )
+    off_nadir_deg = np.full(sampled_positions_ecef_m.shape[0], np.nan, dtype=float)
+    off_nadir_deg[access_mask] = np.degrees(np.arccos(off_nadir_cos[access_mask]))
     return access_mask, off_nadir_deg
 
 
@@ -166,53 +180,38 @@ def derive_task_access_intervals(
             satellite_def,
             orbit_grid.positions_ecef_m[satellite_id],
         )
-        run_start: int | None = None
-        for idx, is_access in enumerate(mask):
-            if is_access and run_start is None:
-                run_start = idx
-                continue
-            if is_access:
-                continue
-            if run_start is not None:
-                run_end = idx - 1
-                interval_duration_s = (run_end - run_start) * orbit_grid.step_s
-                if interval_duration_s >= required_duration_s:
-                    start_time = orbit_grid.sample_times[run_start]
-                    end_time = orbit_grid.sample_times[run_end]
-                    intervals.append(
-                        AccessInterval(
-                            satellite_id=satellite_id,
-                            start_index=run_start,
-                            end_index=run_end,
-                            start_time=start_time,
-                            end_time=end_time,
-                            duration_s=interval_duration_s,
-                            midpoint_time=start_time
-                            + timedelta(seconds=interval_duration_s / 2.0),
-                            min_off_nadir_deg=float(np.min(off_nadir_deg[run_start : run_end + 1])),
-                            max_off_nadir_deg=float(np.max(off_nadir_deg[run_start : run_end + 1])),
-                        )
-                    )
-                run_start = None
-        if run_start is not None:
-            run_end = mask.size - 1
-            interval_duration_s = (run_end - run_start) * orbit_grid.step_s
-            if interval_duration_s >= required_duration_s:
-                start_time = orbit_grid.sample_times[run_start]
-                end_time = orbit_grid.sample_times[run_end]
-                intervals.append(
-                    AccessInterval(
-                        satellite_id=satellite_id,
-                        start_index=run_start,
-                        end_index=run_end,
-                        start_time=start_time,
-                        end_time=end_time,
-                        duration_s=interval_duration_s,
-                        midpoint_time=start_time + timedelta(seconds=interval_duration_s / 2.0),
-                        min_off_nadir_deg=float(np.min(off_nadir_deg[run_start : run_end + 1])),
-                        max_off_nadir_deg=float(np.max(off_nadir_deg[run_start : run_end + 1])),
-                    )
+        if not np.any(mask):
+            continue
+        padded = np.empty(mask.size + 2, dtype=np.int8)
+        padded[0] = 0
+        padded[-1] = 0
+        padded[1:-1] = mask.astype(np.int8, copy=False)
+        transitions = np.diff(padded)
+        run_starts = np.flatnonzero(transitions == 1)
+        run_ends = np.flatnonzero(transitions == -1) - 1
+        run_durations_s = (run_ends - run_starts) * orbit_grid.step_s
+        valid_runs = run_durations_s >= required_duration_s
+        for run_start, run_end, interval_duration_s in zip(
+            run_starts[valid_runs],
+            run_ends[valid_runs],
+            run_durations_s[valid_runs],
+            strict=True,
+        ):
+            start_time = orbit_grid.sample_times[int(run_start)]
+            end_time = orbit_grid.sample_times[int(run_end)]
+            intervals.append(
+                AccessInterval(
+                    satellite_id=satellite_id,
+                    start_index=int(run_start),
+                    end_index=int(run_end),
+                    start_time=start_time,
+                    end_time=end_time,
+                    duration_s=int(interval_duration_s),
+                    midpoint_time=start_time + timedelta(seconds=int(interval_duration_s) / 2.0),
+                    min_off_nadir_deg=float(np.min(off_nadir_deg[run_start : run_end + 1])),
+                    max_off_nadir_deg=float(np.max(off_nadir_deg[run_start : run_end + 1])),
                 )
+            )
     intervals.sort(
         key=lambda interval: (
             interval.start_time,

@@ -91,3 +91,23 @@ def test_visualizer_access_intervals_stop_at_last_checked_sample(monkeypatch) ->
     assert intervals[0].start_time == _utc_datetime(2025, 1, 1, 0, 0, 0)
     assert intervals[0].end_time == _utc_datetime(2025, 1, 1, 0, 1, 0)
     assert intervals[0].duration_s == 60
+
+
+def test_visualizer_access_mask_uses_nan_for_inaccessible_off_nadir() -> None:
+    mask, off_nadir_deg = viz_geometry.access_mask_for_satellite(
+        {
+            "required_sensor_type": "infrared",
+            "latitude_deg": 0.0,
+            "longitude_deg": 0.0,
+            "altitude_m": 0.0,
+        },
+        {
+            "satellite_id": "sat_001",
+            "sensor": {"sensor_type": "visible"},
+            "attitude_model": {"max_off_nadir_deg": 30.0},
+        },
+        np.zeros((3, 3), dtype=float),
+    )
+
+    assert not np.any(mask)
+    assert np.all(np.isnan(off_nadir_deg))
