@@ -8,6 +8,8 @@ import time
 from pathlib import Path
 from typing import Any
 
+import yaml
+
 from .action_generation import (
     compact_actions,
     extract_edge_samples,
@@ -17,6 +19,28 @@ from .action_generation import (
 )
 from .case_io import load_case
 from .candidate_selection import load_selection_config, select_candidates
+
+
+def _load_srr_config(config_dir: str | Path | None) -> SRRConfig:
+    """Load SRR config from config_dir/config.yaml if present."""
+    if not config_dir:
+        return SRRConfig()
+    config_path = Path(config_dir) / "config.yaml"
+    if not config_path.is_file():
+        return SRRConfig()
+    try:
+        raw = yaml.safe_load(config_path.read_text(encoding="utf-8")) or {}
+    except Exception:
+        return SRRConfig()
+    srr = raw.get("srr", {})
+    return SRRConfig(
+        seed=srr.get("seed", 42),
+        deterministic=srr.get("deterministic", False),
+        k_paths=srr.get("k_paths", 4),
+        path_change_penalty=srr.get("path_change_penalty", 1.0),
+        multi_run_count=srr.get("multi_run_count", 1),
+        max_path_hops=srr.get("max_path_hops", 10),
+    )
 from .dynamic_graph import build_sample_graphs, graph_summary
 from .orbit_library import generate_candidates
 from .propagation import propagate_all_to_samples
@@ -74,7 +98,7 @@ def solve(
     umcf_instances = build_umcf_instances(case, sample_graphs_selected)
     t_umcf = time.perf_counter() - t_umcf_start
 
-    srr_config = SRRConfig()
+    srr_config = _load_srr_config(config_dir)
     t_srr_start = time.perf_counter()
     srr_result = run_srr_oracle(umcf_instances, srr_config)
     t_srr = time.perf_counter() - t_srr_start
@@ -173,6 +197,135 @@ def solve(
         )
         + "\n",
         encoding="utf-8",
+    )
+
+    # Rounded path log — one entry per (sample, demand) with chosen path
+    rounded_path_log: list[dict[str, Any]] = []
+    for instance, assignments in zip(umcf_instances, srr_result.sample_assignments):
+        for demand_id, path in assignments.items():
+            rounded_path_log.append({
+                "sample_index": instance.sample_index,
+                "demand_id": demand_id,
+                "nodes": list(path.nodes),
+                "edges": [list(e) for e in path.edges],
+                "hop_count": path.hop_count,
+                "total_distance_m": round(path.total_distance_m, 3),
+            })
+    (debug_dir / "rounded_paths.json").write_text(
+        json.dumps(rounded_path_log, indent=2) + "\n", encoding="utf-8"
+    )
+
+    # Active link summary — per-sample edge counts before/after repair
+    active_link_summary: list[dict[str, Any]] = []
+    for instance in umcf_instances:
+        idx = instance.sample_index
+        pre_count = sum(1 for samples in edge_samples.values() if idx in samples)
+        post_count = sum(1 for samples in repaired.values() if idx in samples)
+        active_link_summary.append({
+            "sample_index": idx,
+            "active_edges_before_repair": pre_count,
+            "active_edges_after_repair": post_count,
+        })
+    (debug_dir / "active_link_summary.json").write_text(
+        json.dumps(active_link_summary, indent=2) + "\n", encoding="utf-8"
+    )
+
+    # Reproduction summary — explicit paper-component mapping
+    reproduction_summary = {
+        "sources": [
+            {"paper": "Grislain et al. 2024", "title": "Rethinking LEO Constellations Routing"},
+            {"paper": "Lamothe et al. 2023", "title": "Dynamic Unsplittable Flows with Path-Change Penalties"},
+        ],
+        "components": {
+            "umcf_commodities_and_capacities": {
+                "status": "ADAPTED",
+                "note": "Commodities derived from benchmark demand windows. Edge capacities fixed to 1 (unit edge-disjoint) matching verifier allocation, not flow-based capacities from Grislain.",
+            },
+            "unsplittable_one_path_per_commodity": {
+                "status": "IMPLEMENTED",
+                "note": "SRR assigns exactly one path per commodity per sample. Matches Grislain Algorithm 1 and Lamothe integer constraints.",
+            },
+            "lp_relaxation_for_fractional_flows": {
+                "status": "MISSING",
+                "note": "No LP solver (Gurobi/SCIP) is used. Heuristic uniform probabilities plus path-change boost replace LP-derived fractional flows.",
+            },
+            "srr_sequential_rounding": {
+                "status": "IMPLEMENTED",
+                "note": "Commodities processed in decreasing-weight order. Edge capacities updated after each fixation. Matches Grislain Algorithm 1 lines 1-10.",
+            },
+            "randomized_rounding_from_lp_solution": {
+                "status": "ADAPTED",
+                "note": "Probabilities are heuristic (uniform base + exp(boost) for previous path) instead of sampled from LP relaxation x_p^k values.",
+            },
+            "k_shortest_path_restriction": {
+                "status": "IMPLEMENTED",
+                "note": "k=4 shortest simple paths by hop count then distance, matching Lamothe Appendix C parameter setting.",
+            },
+            "dynamic_path_change_penalty": {
+                "status": "ADAPTED",
+                "note": "Per-sample boost to previous path (exp(penalty_alpha)) instead of Lamothe per-block MILP objective term P * sum(1 - x_k).",
+            },
+            "k_nearest_first_last_hop": {
+                "status": "MISSING",
+                "note": "Solver uses all ground-visible satellites; no k-nearest restriction on ingress/egress hops as studied in Grislain Section 4.",
+            },
+            "path_sequence_formulation": {
+                "status": "MISSING",
+                "note": "Lamothe Section 3.1 path-sequence MILP with column generation not implemented.",
+            },
+            "extended_arc_path_formulation": {
+                "status": "MISSING",
+                "note": "Lamothe Section 3.2 compact MILP not implemented.",
+            },
+            "aggregated_arc_node_formulation": {
+                "status": "MISSING",
+                "note": "Lamothe Section 3.4 super-commodity LP relaxation not implemented.",
+            },
+            "column_generation_pricing": {
+                "status": "MISSING",
+                "note": "No column generation or pricing schemes (Lamothe Sections 4.1-4.3) are used.",
+            },
+            "srr_recomputation_threshold_theta": {
+                "status": "MISSING",
+                "note": "LP is never recomputed because no LP is solved. Threshold theta (Lamothe Appendix C) irrelevant.",
+            },
+            "flow_penalization_epsilon": {
+                "status": "MISSING",
+                "note": "Lamotte Appendix C hop-based cost epsilon=1e-4 not used. Paths sorted by hop count then distance instead.",
+            },
+            "multi_time_step_methods": {
+                "status": "MISSING",
+                "note": "Solver processes each sample independently (one time step at a time). No path-sequence or rolling-horizon optimization.",
+            },
+            "candidate_orbit_library": {
+                "status": "IMPLEMENTED",
+                "note": "Deterministic Walker-delta orbit library generated from manifest constraints. Not from Grislain/Lamothe.",
+            },
+            "greedy_marginal_candidate_selection": {
+                "status": "IMPLEMENTED",
+                "note": "Union-Find reachability proxy with per-candidate marginal scoring. Solver-local heuristic, not from papers.",
+            },
+            "geometry_pre_validation": {
+                "status": "IMPLEMENTED",
+                "note": "Exact brahe elevation filter removes boundary-mismatch samples before compaction. Benchmark adaptation.",
+            },
+            "degree_cap_repair": {
+                "status": "IMPLEMENTED",
+                "note": "Importance-based deterministic dropping enforces per-sample degree caps. Benchmark adaptation.",
+            },
+            "interval_compaction": {
+                "status": "IMPLEMENTED",
+                "note": "Consecutive sample runs merged into grid-aligned interval actions. Benchmark adaptation.",
+            },
+        },
+        "drift_notes": {
+            "oracle_vs_verifier_service": "Internal SRR serves commodities on per-sample graphs; verifier re-allocates routes from compacted intervals. Drift arises because: (1) verifier uses edge-disjoint shortest-path allocation per sample, not SRR paths; (2) repair drops edges that SRR selected; (3) compaction creates intervals where some interior samples may lack verifier-feasible geometry.",
+            "latency_drift": "SRR paths optimize hop count then distance; verifier uses shortest-path by distance. UMCF may prefer longer paths for load balancing, increasing mean latency vs verifier's optimal routing.",
+            "action_count_drift": "SRR path changes create many short intervals. Path-change penalty reduces churn but cannot eliminate it because the underlying graph changes dynamically.",
+        },
+    }
+    (debug_dir / "reproduction_summary.json").write_text(
+        json.dumps(reproduction_summary, indent=2) + "\n", encoding="utf-8"
     )
 
     # 10. Write status
