@@ -15,6 +15,10 @@ max_candidates: null
 # null = no limit.
 max_candidates_per_task: null
 
+# Process workers for deterministic satellite-level candidate generation.
+# 1 = serial generation.
+candidate_workers: 1
+
 # --- Greedy insertion ---
 # When true, evaluate all feasible insertion positions and choose the one
 # with minimum transition-time increment (Antuori et al. Section 4.1.1).

@@ -7,6 +7,7 @@
 # candidate_stride_multiplier: 1
 # max_candidates: null
 # max_candidates_per_task: null
+# candidate_workers: 1
 
 # Graph selection policy
 # selection_policy: weight_degree_end

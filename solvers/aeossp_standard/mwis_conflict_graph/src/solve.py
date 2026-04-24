@@ -108,19 +108,50 @@ def _budget_status(
     }
 
 
-def _execution_model() -> dict[str, dict[str, str | bool]]:
+def _candidate_generation_execution_model(
+    candidate_config: CandidateConfig,
+    *,
+    satellite_count: int,
+) -> dict[str, Any]:
+    effective_workers = (
+        min(candidate_config.candidate_workers, satellite_count)
+        if candidate_config.candidate_workers > 1 and satellite_count > 1
+        else 1
+    )
+    if effective_workers > 1:
+        return {
+            "model": "process_pool_python",
+            "bounded_by_search_budget": False,
+            "parallelism_scope": "satellite",
+            "configured_workers": candidate_config.candidate_workers,
+            "effective_workers": effective_workers,
+            "notes": "satellite-level process pool with deterministic parent-side merge",
+        }
+    return {
+        "model": "single_threaded_python",
+        "bounded_by_search_budget": False,
+        "parallelism_scope": "none",
+        "configured_workers": candidate_config.candidate_workers,
+        "effective_workers": 1,
+        "notes": "serial sweep over satellites, tasks, and grid-aligned start offsets",
+    }
+
+
+def _execution_model(
+    candidate_config: CandidateConfig,
+    *,
+    satellite_count: int,
+) -> dict[str, dict[str, Any]]:
     return {
         "case_load": {
             "model": "single_threaded_python",
             "bounded_by_search_budget": False,
             "notes": "loads YAML case files into solver-local data classes",
         },
-        "candidate_generation": {
-            "model": "single_threaded_python",
-            "bounded_by_search_budget": False,
-            "parallelism_scope": "none",
-            "notes": "serial sweep over satellites, tasks, and grid-aligned start offsets",
-        },
+        "candidate_generation": _candidate_generation_execution_model(
+            candidate_config,
+            satellite_count=satellite_count,
+        ),
         "graph_build": {
             "model": "single_threaded_python",
             "bounded_by_search_budget": False,
@@ -177,7 +208,10 @@ def _build_status(
         "task_count": len(case.tasks),
         "candidate_config": candidate_config.as_status_dict(),
         "mwis_config": mwis_config.as_dict(),
-        "execution_model": _execution_model(),
+        "execution_model": _execution_model(
+            candidate_config,
+            satellite_count=len(case.satellites),
+        ),
         **candidate_summary.as_debug_dict(case),
         "graph": graph.stats.as_dict(),
         "solver": mwis_stats.as_dict(),
