@@ -317,6 +317,108 @@ def test_generate_candidates_filters_sensor_and_keeps_stable_ids(monkeypatch) ->
     assert summary.skipped_sensor_mismatch == 6
 
 
+def _patch_fast_candidate_generation(monkeypatch) -> None:
+    class DummyPropagation:
+        def __init__(self, *args, **kwargs):
+            pass
+
+    class FakeProcessPoolExecutor:
+        def __init__(self, *args, **kwargs):
+            pass
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *args):
+            return False
+
+        def map(self, function, *iterables):
+            return [function(*args) for args in zip(*iterables)]
+
+    monkeypatch.setattr("solvers.aeossp_standard.mwis_conflict_graph.src.candidates.PropagationContext", DummyPropagation)
+    monkeypatch.setattr("solvers.aeossp_standard.mwis_conflict_graph.src.candidates.ProcessPoolExecutor", FakeProcessPoolExecutor)
+    monkeypatch.setattr("solvers.aeossp_standard.mwis_conflict_graph.src.candidates.observation_geometry_valid", lambda **kwargs: True)
+    monkeypatch.setattr("solvers.aeossp_standard.mwis_conflict_graph.src.candidates.initial_slew_feasible", lambda **kwargs: True)
+
+
+def test_parallel_candidate_generation_matches_serial_order_and_summary(monkeypatch) -> None:
+    mission = _mission()
+    case = AeosspCase(
+        case_dir=Path("."),
+        mission=mission,
+        satellites={
+            "sat_b": _satellite("sat_b", "infrared"),
+            "sat_a": _satellite("sat_a", "visible"),
+        },
+        tasks={
+            "task_b": _task("task_b", "infrared"),
+            "task_a": _task("task_a", "visible"),
+        },
+    )
+    _patch_fast_candidate_generation(monkeypatch)
+
+    serial_candidates, serial_summary = generate_candidates(
+        case,
+        CandidateConfig(candidate_workers=1),
+    )
+    parallel_candidates, parallel_summary = generate_candidates(
+        case,
+        CandidateConfig(candidate_workers=2),
+    )
+
+    assert [item.candidate_id for item in parallel_candidates] == [
+        item.candidate_id for item in serial_candidates
+    ]
+    assert parallel_summary.as_dict() == serial_summary.as_dict()
+
+
+def test_parallel_candidate_generation_preserves_cap_accounting(monkeypatch) -> None:
+    mission = _mission()
+    case = AeosspCase(
+        case_dir=Path("."),
+        mission=mission,
+        satellites={
+            "sat_a": _satellite("sat_a", "visible"),
+            "sat_b": _satellite("sat_b", "visible"),
+        },
+        tasks={
+            "task_a": _task("task_a", "visible"),
+            "task_b": _task("task_b", "visible"),
+        },
+    )
+    _patch_fast_candidate_generation(monkeypatch)
+    config = CandidateConfig(
+        max_candidates=5,
+        max_candidates_per_task=2,
+        candidate_workers=2,
+    )
+
+    serial_candidates, serial_summary = generate_candidates(
+        case,
+        CandidateConfig(
+            max_candidates=config.max_candidates,
+            max_candidates_per_task=config.max_candidates_per_task,
+            candidate_workers=1,
+        ),
+    )
+    parallel_candidates, parallel_summary = generate_candidates(case, config)
+
+    assert [item.candidate_id for item in parallel_candidates] == [
+        item.candidate_id for item in serial_candidates
+    ]
+    assert parallel_summary.as_dict() == serial_summary.as_dict()
+    assert parallel_summary.candidate_count == 4
+    assert parallel_summary.skipped_cap == 8
+
+
+def test_candidate_config_parses_candidate_workers() -> None:
+    assert CandidateConfig.from_mapping({}).candidate_workers == 1
+    assert CandidateConfig.from_mapping({"candidate_workers": "2"}).candidate_workers == 2
+
+    with pytest.raises(ValueError, match="candidate worker count"):
+        CandidateConfig.from_mapping({"candidate_workers": 0})
+
+
 def test_candidate_summary_debug_dict_reports_zero_candidate_tasks() -> None:
     case = AeosspCase(
         case_dir=Path("."),
@@ -889,7 +991,15 @@ def test_status_payload_reports_execution_model_and_timing_schema(tmp_path: Path
         def as_status_dict(self) -> dict:
             return {"final_local_valid": True}
 
-    case = _case_for_candidates([])
+    case = AeosspCase(
+        case_dir=Path("."),
+        mission=_mission(),
+        satellites={
+            "sat_a": _satellite("sat_a", "visible"),
+            "sat_b": _satellite("sat_b", "visible"),
+        },
+        tasks={},
+    )
     timing = _timing_with_accounting(
         {
             "config_load": 0.1,
@@ -908,7 +1018,7 @@ def test_status_payload_reports_execution_model_and_timing_schema(tmp_path: Path
         config_dir=None,
         solution_path=tmp_path / "solution.json",
         case=case,
-        candidate_config=CandidateConfig(),
+        candidate_config=CandidateConfig(candidate_workers=2),
         candidate_summary=CandidateSummary(),
         graph=type("Graph", (), {"stats": DictPayload({"vertex_count": 0})})(),
         mwis_config=MwisConfig(),
@@ -935,7 +1045,10 @@ def test_status_payload_reports_execution_model_and_timing_schema(tmp_path: Path
         "repair",
         "solution_write",
     }
-    assert status["execution_model"]["candidate_generation"]["model"] == "single_threaded_python"
+    assert status["execution_model"]["candidate_generation"]["model"] == "process_pool_python"
+    assert status["execution_model"]["candidate_generation"]["parallelism_scope"] == "satellite"
+    assert status["execution_model"]["candidate_generation"]["configured_workers"] == 2
+    assert status["execution_model"]["candidate_generation"]["effective_workers"] == 2
     assert status["execution_model"]["graph_build"]["model"] == "single_threaded_python"
     assert status["execution_model"]["search"]["budget_field"] == "time_limit_s"
     assert status["budget"]["configured"]["total_time_budget_s"] is None

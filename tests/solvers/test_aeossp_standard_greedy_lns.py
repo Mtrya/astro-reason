@@ -319,6 +319,100 @@ def test_generate_candidates_filters_sensor_and_keeps_stable_ids(monkeypatch) ->
     assert summary.per_task_candidate_counts["task_b"] == 3
 
 
+def _patch_fast_candidate_generation(monkeypatch) -> None:
+    class DummyPropagation:
+        def __init__(self, *args, **kwargs):
+            pass
+
+    class FakeProcessPoolExecutor:
+        def __init__(self, *args, **kwargs):
+            pass
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *args):
+            return False
+
+        def map(self, function, *iterables):
+            return [function(*args) for args in zip(*iterables)]
+
+    monkeypatch.setattr("solvers.aeossp_standard.greedy_lns.src.candidates.PropagationContext", DummyPropagation)
+    monkeypatch.setattr("solvers.aeossp_standard.greedy_lns.src.candidates.ProcessPoolExecutor", FakeProcessPoolExecutor)
+    monkeypatch.setattr("solvers.aeossp_standard.greedy_lns.src.candidates.observation_geometry_valid", lambda **kwargs: True)
+    monkeypatch.setattr("solvers.aeossp_standard.greedy_lns.src.candidates.initial_slew_feasible", lambda **kwargs: True)
+
+
+def test_parallel_candidate_generation_matches_serial_order_and_summary(monkeypatch) -> None:
+    mission = _mission()
+    case = AeosspCase(
+        case_dir=Path("."),
+        mission=mission,
+        satellites={
+            "sat_b": _satellite("sat_b", "infrared"),
+            "sat_a": _satellite("sat_a", "visible"),
+        },
+        tasks={
+            "task_b": _task("task_b", "infrared"),
+            "task_a": _task("task_a", "visible"),
+        },
+    )
+    _patch_fast_candidate_generation(monkeypatch)
+
+    serial_candidates, serial_summary = generate_candidates(
+        case,
+        CandidateConfig(candidate_workers=1),
+    )
+    parallel_candidates, parallel_summary = generate_candidates(
+        case,
+        CandidateConfig(candidate_workers=2),
+    )
+
+    assert [item.candidate_id for item in parallel_candidates] == [
+        item.candidate_id for item in serial_candidates
+    ]
+    assert parallel_summary.as_dict() == serial_summary.as_dict()
+
+
+def test_parallel_candidate_generation_preserves_cap_accounting(monkeypatch) -> None:
+    mission = _mission()
+    case = AeosspCase(
+        case_dir=Path("."),
+        mission=mission,
+        satellites={
+            "sat_a": _satellite("sat_a", "visible"),
+            "sat_b": _satellite("sat_b", "visible"),
+        },
+        tasks={
+            "task_a": _task("task_a", "visible"),
+            "task_b": _task("task_b", "visible"),
+        },
+    )
+    _patch_fast_candidate_generation(monkeypatch)
+    config = CandidateConfig(
+        max_candidates=5,
+        max_candidates_per_task=2,
+        candidate_workers=2,
+    )
+
+    serial_candidates, serial_summary = generate_candidates(
+        case,
+        CandidateConfig(
+            max_candidates=config.max_candidates,
+            max_candidates_per_task=config.max_candidates_per_task,
+            candidate_workers=1,
+        ),
+    )
+    parallel_candidates, parallel_summary = generate_candidates(case, config)
+
+    assert [item.candidate_id for item in parallel_candidates] == [
+        item.candidate_id for item in serial_candidates
+    ]
+    assert parallel_summary.as_dict() == serial_summary.as_dict()
+    assert parallel_summary.candidate_count == 4
+    assert parallel_summary.skipped_cap == 8
+
+
 def test_angle_between_deg_edge_cases() -> None:
     assert angle_between_deg(np.array([1.0, 0.0, 0.0]), np.array([1.0, 0.0, 0.0])) == pytest.approx(0.0)
     assert angle_between_deg(np.array([1.0, 0.0, 0.0]), np.array([-1.0, 0.0, 0.0])) == pytest.approx(180.0)
@@ -341,7 +435,15 @@ def test_slew_time_triangular_vs_trapezoidal() -> None:
 
 
 def test_transition_result_cross_satellite_is_always_feasible() -> None:
-    case = _case_for_candidates([])
+    case = AeosspCase(
+        case_dir=Path("."),
+        mission=_mission(),
+        satellites={
+            "sat_a": _satellite("sat_a", "visible"),
+            "sat_b": _satellite("sat_b", "visible"),
+        },
+        tasks={},
+    )
     a = _candidate("a", satellite_id="sat_a", start_offset_s=10, end_offset_s=20)
     b = _candidate("b", satellite_id="sat_b", start_offset_s=30, end_offset_s=40)
 
@@ -355,7 +457,15 @@ def test_transition_result_cross_satellite_is_always_feasible() -> None:
 
 
 def test_transition_gap_conflict_same_satellite_overlap() -> None:
-    case = _case_for_candidates([])
+    case = AeosspCase(
+        case_dir=Path("."),
+        mission=_mission(),
+        satellites={
+            "sat_a": _satellite("sat_a", "visible"),
+            "sat_b": _satellite("sat_b", "visible"),
+        },
+        tasks={},
+    )
     a = _candidate("a", satellite_id="sat_a", start_offset_s=10, end_offset_s=25)
     b = _candidate("b", satellite_id="sat_a", start_offset_s=20, end_offset_s=30)
 
@@ -391,12 +501,20 @@ def test_candidate_config_from_mapping_defaults() -> None:
     assert cfg.candidate_stride_multiplier == 1
     assert cfg.max_candidates is None
     assert cfg.max_candidates_per_task is None
+    assert cfg.candidate_workers == 1
     assert not cfg.debug
 
 
 def test_candidate_config_caps_reject_non_positive() -> None:
     with pytest.raises(ValueError, match="positive integers"):
         CandidateConfig.from_mapping({"max_candidates": 0})
+
+
+def test_candidate_config_parses_candidate_workers() -> None:
+    assert CandidateConfig.from_mapping({"candidate_workers": "2"}).candidate_workers == 2
+
+    with pytest.raises(ValueError, match="candidate worker count"):
+        CandidateConfig.from_mapping({"candidate_workers": 0})
 
 
 def test_candidate_summary_zero_task_tracking() -> None:
@@ -700,7 +818,15 @@ def test_local_search_restart_determinism(monkeypatch) -> None:
 
 
 def test_local_search_restart_noops_on_empty_incumbent(monkeypatch) -> None:
-    case = _case_for_candidates([])
+    case = AeosspCase(
+        case_dir=Path("."),
+        mission=_mission(),
+        satellites={
+            "sat_a": _satellite("sat_a", "visible"),
+            "sat_b": _satellite("sat_b", "visible"),
+        },
+        tasks={},
+    )
 
     monkeypatch.setattr("solvers.aeossp_standard.greedy_lns.src.local_search.build_component_index", lambda *args, **kwargs: type("Idx", (), {
         "components": [],
@@ -885,7 +1011,15 @@ def test_status_payload_reports_execution_model_and_timing_schema(tmp_path: Path
         def as_status_dict(self) -> dict:
             return self.payload
 
-    case = _case_for_candidates([])
+    case = AeosspCase(
+        case_dir=Path("."),
+        mission=_mission(),
+        satellites={
+            "sat_a": _satellite("sat_a", "visible"),
+            "sat_b": _satellite("sat_b", "visible"),
+        },
+        tasks={},
+    )
     timing = _timing_with_accounting(
         {
             "config_load": 0.1,
@@ -904,7 +1038,7 @@ def test_status_payload_reports_execution_model_and_timing_schema(tmp_path: Path
         config_dir=None,
         solution_path=tmp_path / "solution.json",
         case=case,
-        candidate_config=CandidateConfig(),
+        candidate_config=CandidateConfig(candidate_workers=2),
         candidate_summary=CandidateSummary(),
         insertion_result=DictPayload({"selected_count": 0}),
         local_search_result=DictPayload({"stats": {"stop_reason": "local_minimum"}}),
@@ -928,7 +1062,10 @@ def test_status_payload_reports_execution_model_and_timing_schema(tmp_path: Path
         "solution_write",
         "graph_build",
     }
-    assert status["execution_model"]["candidate_generation"]["model"] == "single_threaded_python"
+    assert status["execution_model"]["candidate_generation"]["model"] == "process_pool_python"
+    assert status["execution_model"]["candidate_generation"]["parallelism_scope"] == "satellite"
+    assert status["execution_model"]["candidate_generation"]["configured_workers"] == 2
+    assert status["execution_model"]["candidate_generation"]["effective_workers"] == 2
     assert status["execution_model"]["search"]["budget_field"] == "max_local_search_time_s"
     assert status["execution_model"]["graph_build"]["model"] == "not_applicable"
     assert status["budget"]["configured"]["total_time_budget_s"] is None
