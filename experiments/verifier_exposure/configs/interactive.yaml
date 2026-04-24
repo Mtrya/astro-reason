@@ -1,0 +1,17 @@
+name: verifier_exposure_interactive
+mode: interactive
+
+benchmark: relay_constellation
+harness: codex
+split: test
+case: case_0001
+exposure: opaque
+timeout_seconds: 3600
+
+resources:
+  cpus: 2
+  memory: 8g
+  shm_size: 1g
+
+results:
+  root: results/agent_runs/experiments/verifier_exposure

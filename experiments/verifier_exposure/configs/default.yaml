@@ -1,0 +1,36 @@
+name: verifier_exposure
+mode: batch
+
+benchmark: relay_constellation
+harness: codex
+split: test
+cases:
+  - case_0001
+  - case_0002
+  - case_0003
+  - case_0004
+  - case_0005
+exposures:
+  - transparent
+  - opaque
+  - none
+
+timeout_seconds: 7200
+
+batch:
+  max_concurrency: 1
+  max_retries: 1
+  skip_completed: true
+  retry_statuses:
+    - runner_error
+    - timeout
+    - agent_failed
+
+resources:
+  cpus: 8
+  memory: 32g
+  shm_size: 16g
+
+results:
+  root: results/agent_runs/experiments/verifier_exposure
+  aggregate_dir: summaries
