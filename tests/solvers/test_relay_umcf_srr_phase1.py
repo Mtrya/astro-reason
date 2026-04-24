@@ -48,6 +48,12 @@ from solvers.relay_constellation.umcf_srr_contact_plan.src.solution_io import (
     write_solution,
     write_status,
 )
+from solvers.relay_constellation.umcf_srr_contact_plan.src.candidate_selection import (
+    SelectionConfig,
+    _evaluate_allowed_set,
+    _evaluate_sample,
+    select_candidates,
+)
 from solvers.relay_constellation.umcf_srr_contact_plan.src.solve import solve
 
 
@@ -215,3 +221,139 @@ class TestSmoke:
         solution_path = tmp_path / "solution" / "solution.json"
         verdict = verify_solution(_smoke_case_dir(), solution_path)
         assert verdict.valid is True
+
+
+class TestCandidateSelection:
+    def test_no_added_baseline(self) -> None:
+        case = load_case(_smoke_case_dir())
+        all_sats = dict(case.backbone_satellites)
+        candidates = generate_candidates(case.manifest)
+        all_sats.update(candidates)
+        graphs = build_sample_graphs(case, all_sats)
+
+        config = SelectionConfig(policy="no-added")
+        selected, debug = select_candidates(case, graphs, candidates, config)
+        assert len(selected) == 0
+        assert debug["policy"] == "no-added"
+        assert debug["baseline_total_weighted_service"] >= 0
+
+    def test_greedy_selects_up_to_max_added(self) -> None:
+        case = load_case(_smoke_case_dir())
+        all_sats = dict(case.backbone_satellites)
+        candidates = generate_candidates(case.manifest, CandidateConfig(max_candidates=4))
+        all_sats.update(candidates)
+        graphs = build_sample_graphs(case, all_sats)
+
+        max_added = 2
+        config = SelectionConfig(
+            policy="greedy_marginal",
+            max_added_satellites=max_added,
+            evaluation_sample_stride=1,
+        )
+        selected, debug = select_candidates(case, graphs, candidates, config)
+        assert len(selected) <= max_added
+        assert debug["policy"] == "greedy_marginal"
+        assert len(debug["scores_by_iteration"]) <= max_added
+
+    def test_greedy_improves_over_baseline(self) -> None:
+        case = load_case(_smoke_case_dir())
+        all_sats = dict(case.backbone_satellites)
+        candidates = generate_candidates(case.manifest, CandidateConfig(max_candidates=4))
+        all_sats.update(candidates)
+        graphs = build_sample_graphs(case, all_sats)
+
+        config = SelectionConfig(
+            policy="greedy_marginal",
+            max_added_satellites=2,
+            evaluation_sample_stride=1,
+        )
+        selected, debug = select_candidates(case, graphs, candidates, config)
+        assert debug["selected_total_weighted_service"] >= debug["baseline_total_weighted_service"]
+
+    def test_greedy_marginal_scores_are_non_negative(self) -> None:
+        case = load_case(_smoke_case_dir())
+        all_sats = dict(case.backbone_satellites)
+        candidates = generate_candidates(case.manifest, CandidateConfig(max_candidates=4))
+        all_sats.update(candidates)
+        graphs = build_sample_graphs(case, all_sats)
+
+        config = SelectionConfig(
+            policy="greedy_marginal",
+            max_added_satellites=2,
+            evaluation_sample_stride=1,
+        )
+        selected, debug = select_candidates(case, graphs, candidates, config)
+        scores = [s["total_weighted_service"] for s in debug["scores_by_iteration"]]
+        for s in scores:
+            assert s >= 0
+
+    def test_deterministic_tie_break(self) -> None:
+        """Running twice with same inputs should give identical results."""
+        case = load_case(_smoke_case_dir())
+        all_sats = dict(case.backbone_satellites)
+        candidates = generate_candidates(case.manifest, CandidateConfig(max_candidates=4))
+        all_sats.update(candidates)
+        graphs = build_sample_graphs(case, all_sats)
+
+        config = SelectionConfig(
+            policy="greedy_marginal",
+            max_added_satellites=2,
+            evaluation_sample_stride=1,
+        )
+        selected1, debug1 = select_candidates(case, graphs, candidates, config)
+        selected2, debug2 = select_candidates(case, graphs, candidates, config)
+        assert list(selected1.keys()) == list(selected2.keys())
+        assert debug1["selected_total_weighted_service"] == debug2["selected_total_weighted_service"]
+
+    def test_fixed_candidates_mode(self) -> None:
+        case = load_case(_smoke_case_dir())
+        all_sats = dict(case.backbone_satellites)
+        candidates = generate_candidates(case.manifest)
+        all_sats.update(candidates)
+        graphs = build_sample_graphs(case, all_sats)
+
+        fixed_ids = sorted(candidates.keys())[:2]
+        config = SelectionConfig(
+            policy="fixed",
+            fixed_candidates=fixed_ids,
+            evaluation_sample_stride=1,
+        )
+        selected, debug = select_candidates(case, graphs, candidates, config)
+        assert list(selected.keys()) == fixed_ids
+        assert debug["policy"] == "fixed"
+
+    def test_fixed_candidates_rejects_unknown(self) -> None:
+        case = load_case(_smoke_case_dir())
+        all_sats = dict(case.backbone_satellites)
+        candidates = generate_candidates(case.manifest)
+        all_sats.update(candidates)
+        graphs = build_sample_graphs(case, all_sats)
+
+        config = SelectionConfig(
+            policy="fixed",
+            fixed_candidates=["nonexistent"],
+            evaluation_sample_stride=1,
+        )
+        with pytest.raises(ValueError):
+            select_candidates(case, graphs, candidates, config)
+
+    def test_evaluate_sample_with_no_satellites(self) -> None:
+        case = load_case(_smoke_case_dir())
+        all_sats = dict(case.backbone_satellites)
+        candidates = generate_candidates(case.manifest)
+        all_sats.update(candidates)
+        graphs = build_sample_graphs(case, all_sats)
+
+        w, pd = _evaluate_sample(graphs[0], case.demands, set())
+        assert w == 0.0
+        assert all(v == 0 for v in pd.values())
+
+    def test_selected_candidates_in_solution_is_valid(self, tmp_path: Path) -> None:
+        from benchmarks.relay_constellation.verifier import verify_solution
+
+        result = solve(_smoke_case_dir(), tmp_path / "solution")
+        solution_path = tmp_path / "solution" / "solution.json"
+        verdict = verify_solution(_smoke_case_dir(), solution_path)
+        assert verdict.valid is True
+        # Should have selected some candidates (greedy default)
+        assert result["summary"]["selected_candidate_ids"]
