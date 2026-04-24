@@ -12,6 +12,8 @@ def build_time_grid(
     routing_step_s: int,
 ) -> tuple[datetime, ...]:
     """Return grid-aligned sample instants from horizon_start inclusive to horizon_end inclusive."""
+    if routing_step_s <= 0:
+        raise ValueError("routing_step_s must be > 0")
     step = timedelta(seconds=routing_step_s)
     samples: list[datetime] = []
     current = horizon_start
@@ -27,6 +29,8 @@ def sample_index(
     routing_step_s: int,
 ) -> int:
     """Return the grid index for an instant; raises ValueError if off-grid."""
+    if routing_step_s <= 0:
+        raise ValueError("routing_step_s must be > 0")
     delta = instant - horizon_start
     total_seconds = delta.total_seconds()
     step = routing_step_s

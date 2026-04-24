@@ -63,7 +63,7 @@ def propagate_satellites_parallel(
         If the process pool fails; callers should fall back to sequential.
     """
     if not satellites:
-        return {}
+        return {}, []
 
     if max_workers is None:
         max_workers = min(os.cpu_count() or 1, len(satellites))
@@ -71,10 +71,13 @@ def propagate_satellites_parallel(
     if max_workers <= 1:
         from .propagation import propagate_satellite
 
-        return {
-            sid: propagate_satellite(state, epoch, sample_times)
-            for sid, state in satellites
-        }
+        positions: dict[str, dict[int, np.ndarray]] = {}
+        timings: list[float] = []
+        for sid, state in satellites:
+            t0 = time.monotonic()
+            positions[sid] = propagate_satellite(state, epoch, sample_times)
+            timings.append((time.monotonic() - t0) * 1000.0)
+        return positions, timings
 
     args_list = [(sid, state, epoch, sample_times) for sid, state in satellites]
 

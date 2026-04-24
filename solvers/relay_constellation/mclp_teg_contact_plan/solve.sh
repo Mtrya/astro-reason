@@ -11,11 +11,14 @@ REPO_ROOT="$(cd "${SCRIPT_DIR}/../../.." && pwd)"
 # Prefer system/project Python for base deps (brahe, numpy, yaml).
 # Append solver-local venv site-packages so optional local deps (e.g. pulp) are importable.
 PYTHON="python3"
-VENV_SITE_PACKAGES="${SCRIPT_DIR}/.venv/lib/python3.13/site-packages"
-if [[ -d "${VENV_SITE_PACKAGES}" ]]; then
-    PYTHONPATH="${REPO_ROOT}:${VENV_SITE_PACKAGES}${PYTHONPATH:+:${PYTHONPATH}}"
-else
-    PYTHONPATH="${REPO_ROOT}${PYTHONPATH:+:${PYTHONPATH}}"
+PYTHONPATH="${REPO_ROOT}${PYTHONPATH:+:${PYTHONPATH}}"
+
+# If a solver-local venv exists, append its site-packages so optional local deps (e.g. pulp) are importable.
+if [[ -x "${SCRIPT_DIR}/.venv/bin/python" ]]; then
+    VENV_SITE_PACKAGES=$("${SCRIPT_DIR}/.venv/bin/python" -c "import sys, os; print(os.path.join(os.path.dirname(os.path.dirname(sys.executable)), 'lib', f'python{sys.version_info.major}.{sys.version_info.minor}', 'site-packages'))" 2>/dev/null || true)
+    if [[ -n "${VENV_SITE_PACKAGES}" && -d "${VENV_SITE_PACKAGES}" ]]; then
+        PYTHONPATH="${PYTHONPATH}:${VENV_SITE_PACKAGES}"
+    fi
 fi
 
 PYTHONPATH="${PYTHONPATH}" \

@@ -160,6 +160,111 @@ def _compute_covered_samples(
     return covered
 
 
+def _compute_marginal_gain_fast(
+    cid: str,
+    base_set: set[str],
+    demand_samples: dict[str, list[int]],
+    demands_by_id: dict[str, DemandWindow],
+    ground_map: dict[int, dict[str, set[str]]],
+    isl_map: dict[int, dict[str, set[str]]],
+    base_cc_cache: dict[int, dict[str, int]],
+    sample_to_demands: dict[int, list[str]],
+) -> set[DemandSample]:
+    """Return demand-samples newly covered by adding candidate cid to base_set.
+
+    Avoids recomputing connected components from scratch by using the precomputed
+    base_cc_cache and incrementally checking connectivity through the candidate.
+    """
+    new_covered: set[DemandSample] = set()
+    trial_set = base_set | {cid}
+
+    for sidx, d_ids in sample_to_demands.items():
+        gm = ground_map.get(sidx, {})
+        if not gm:
+            continue
+
+        im = isl_map.get(sidx, {})
+        base_cc = base_cc_cache.get(sidx, {})
+        cand_peers = im.get(cid, set()) & trial_set if im else set()
+
+        for d_id in d_ids:
+            demand = demands_by_id[d_id]
+
+            # Was it already covered by base?
+            src_base = gm.get(demand.source_endpoint_id, set()) & base_set
+            dst_base = gm.get(demand.destination_endpoint_id, set()) & base_set
+            base_covered = False
+            if src_base and dst_base:
+                for s in src_base:
+                    for d in dst_base:
+                        if s == d or (s in base_cc and d in base_cc and base_cc[s] == base_cc[d]):
+                            base_covered = True
+                            break
+                    if base_covered:
+                        break
+
+            if base_covered:
+                continue
+
+            # Check trial coverage
+            src_trial = gm.get(demand.source_endpoint_id, set()) & trial_set
+            dst_trial = gm.get(demand.destination_endpoint_id, set()) & trial_set
+            if not src_trial or not dst_trial:
+                continue
+
+            # Direct relay (same satellite sees both endpoints)
+            if src_trial & dst_trial:
+                new_covered.add(DemandSample(d_id, sidx))
+                continue
+
+            # Need ISL connectivity
+            if not im:
+                continue
+
+            connected = False
+            for s in src_trial:
+                for d in dst_trial:
+                    if s == d:
+                        connected = True
+                        break
+                    # Both in base and same CC
+                    if s in base_cc and d in base_cc and base_cc[s] == base_cc[d]:
+                        connected = True
+                        break
+                    # Candidate bridges them directly
+                    if s == cid and d in cand_peers:
+                        connected = True
+                        break
+                    if d == cid and s in cand_peers:
+                        connected = True
+                        break
+                    if s in cand_peers and d in cand_peers:
+                        connected = True
+                        break
+                    # One in base CC, other is candidate or peer, and they're in same merged component
+                    if s in base_cc and (d == cid or d in cand_peers):
+                        for p in cand_peers:
+                            if p in base_cc and base_cc[p] == base_cc[s]:
+                                connected = True
+                                break
+                        if connected:
+                            break
+                    if d in base_cc and (s == cid or s in cand_peers):
+                        for p in cand_peers:
+                            if p in base_cc and base_cc[p] == base_cc[d]:
+                                connected = True
+                                break
+                        if connected:
+                            break
+                if connected:
+                    break
+
+            if connected:
+                new_covered.add(DemandSample(d_id, sidx))
+
+    return new_covered
+
+
 def _weighted_score(
     covered: set[DemandSample],
     demands_by_id: dict[str, DemandWindow],
@@ -207,19 +312,39 @@ def greedy_select(
     # Precompute marginal contributions
     iteration_log: list[dict[str, object]] = []
 
+    # Precompute reverse mapping: sample_index -> demand_ids
+    sample_to_demands: dict[int, list[str]] = defaultdict(list)
+    for d_id, sidxs in demand_samples.items():
+        for sidx in sidxs:
+            sample_to_demands[sidx].append(d_id)
+
     while len(selected) < max_added:
         best_cand_id: str | None = None
         best_marginal = -1.0
         best_new_covered: set[DemandSample] = set()
 
+        base_set = backbone_ids | selected_ids
+
+        # Precompute base CC for each sample once per greedy iteration
+        base_cc_cache: dict[int, dict[str, int]] = {}
+        for sidx in sample_to_demands:
+            im = isl_map.get(sidx, {})
+            if im:
+                base_cc_cache[sidx] = _connected_components(base_set, im)
+
         for cid in candidate_ids:
             if cid in selected_ids:
                 continue
-            trial_set = backbone_ids | selected_ids | {cid}
-            trial_covered = _compute_covered_samples(
-                trial_set, demand_samples, demands_by_id, ground_map, isl_map
+            new_covered = _compute_marginal_gain_fast(
+                cid,
+                base_set,
+                demand_samples,
+                demands_by_id,
+                ground_map,
+                isl_map,
+                base_cc_cache,
+                sample_to_demands,
             )
-            new_covered = trial_covered - current_covered
             marginal = _weighted_score(new_covered, demands_by_id)
 
             if marginal > best_marginal or (
@@ -360,8 +485,12 @@ def milp_select(
     if case.manifest.constraints.max_added_satellites > max_added_for_milp:
         return None
 
+    # Materialize iterables to allow multiple iterations
+    sample_times_tuple = tuple(sample_times)
+    link_records_tuple = tuple(link_records)
+
     all_ds, cover_sets, backbone_covered = _build_simplified_cover_matrix(
-        candidates, case, sample_times, link_records
+        candidates, case, sample_times_tuple, link_records_tuple
     )
     demands_by_id = {d.demand_id: d for d in case.demands.demanded_windows}
     candidate_by_id = {c.satellite_id: c for c in candidates}
@@ -410,8 +539,8 @@ def milp_select(
     ]
 
     # Compute score for selected set using the same service-potential function
-    demand_samples = build_demand_sample_indices(case, sample_times)
-    ground_map, isl_map = build_ground_and_isl_maps(link_records)
+    demand_samples = build_demand_sample_indices(case, sample_times_tuple)
+    ground_map, isl_map = build_ground_and_isl_maps(link_records_tuple)
     backbone_ids = {s.satellite_id for s in case.network.backbone_satellites}
     selected_ids = {c.satellite_id for c in selected}
     covered = _compute_covered_samples(

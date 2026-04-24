@@ -69,13 +69,16 @@ def generate_candidates(
     # Altitude grid: default to two shells (min and max) if step not given
     if altitude_step_m is None:
         altitude_step_m = raw_max_alt - raw_min_alt
+    if altitude_step_m <= 0:
+        altitude_step_m = max(raw_max_alt - raw_min_alt, 1.0)
     altitudes: list[float] = []
     current_alt = raw_min_alt
     while current_alt <= raw_max_alt + NUMERICAL_EPS:
         # Clamp to safe interior range to avoid verifier rejecting for fp drift
         safe_alt = min(current_alt, raw_max_alt)
-        safe_alt = max(safe_alt, raw_min_alt + ALTITUDE_BUFFER_M)
-        safe_alt = min(safe_alt, raw_max_alt - ALTITUDE_BUFFER_M)
+        buffer = min(ALTITUDE_BUFFER_M, (raw_max_alt - raw_min_alt) / 2.0)
+        safe_alt = max(safe_alt, raw_min_alt + buffer)
+        safe_alt = min(safe_alt, raw_max_alt - buffer)
         altitudes.append(safe_alt)
         current_alt += altitude_step_m
     if len(altitudes) == 0:
@@ -83,6 +86,8 @@ def generate_candidates(
     # Inclination grid: default to two bands (min and max) if step not given
     if inclination_step_deg is None:
         inclination_step_deg = max_inc - min_inc
+    if inclination_step_deg <= 0:
+        inclination_step_deg = max(max_inc - min_inc, 1.0)
     inclinations: list[float] = []
     current_inc = min_inc
     while current_inc <= max_inc + NUMERICAL_EPS:

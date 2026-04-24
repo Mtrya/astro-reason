@@ -8,7 +8,6 @@ from typing import Iterable
 import numpy as np
 
 import brahe
-import numpy as np
 
 from .case_io import BackboneSatellite, Case, Constraints, GroundEndpoint
 from .orbit_library import CandidateSatellite
@@ -42,7 +41,13 @@ def build_link_cache(
     """
     constraints = case.manifest.constraints
     endpoints = case.network.ground_endpoints
-    num_samples = len(next(iter(backbone_positions.values())))
+    if not backbone_positions:
+        if candidate_positions:
+            num_samples = len(next(iter(candidate_positions.values())))
+        else:
+            raise ValueError("backbone_positions and candidate_positions are both empty")
+    else:
+        num_samples = len(next(iter(backbone_positions.values())))
 
     records: list[LinkRecord] = []
     summary = {
@@ -59,12 +64,8 @@ def build_link_cache(
         all_sat_positions[cid] = cpos
 
     # Ground links: every endpoint to every satellite
+    endpoint_ecef_tuples: list[tuple[float, float, float]] = []
     for endpoint in endpoints:
-        endpoint_ecef = (
-            endpoint.latitude_deg,
-            endpoint.longitude_deg,
-            endpoint.altitude_m,
-        )
         endpoint_ecef_arr = np.asarray(
             brahe.position_geodetic_to_ecef(
                 [endpoint.longitude_deg, endpoint.latitude_deg, endpoint.altitude_m],
@@ -72,10 +73,14 @@ def build_link_cache(
             ),
             dtype=float,
         )
+        endpoint_ecef_tuples.append(tuple(endpoint_ecef_arr.tolist()))
+
+    for endpoint_idx, endpoint in enumerate(endpoints):
+        endpoint_ecef_tuple = endpoint_ecef_tuples[endpoint_idx]
         for sat_id, positions in all_sat_positions.items():
             for sample_index in range(num_samples):
                 is_feasible, distance_m = ground_link_feasible(
-                    tuple(endpoint_ecef_arr.tolist()),
+                    endpoint_ecef_tuple,
                     positions[sample_index],
                     endpoint.min_elevation_deg,
                     constraints.max_ground_range_m,

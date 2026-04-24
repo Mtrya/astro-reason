@@ -31,10 +31,18 @@ def _build_demands_by_sample(
 ) -> dict[int, list[DemandWindow]]:
     """Map each sample index to the list of demands active at that sample."""
     result: dict[int, list[DemandWindow]] = defaultdict(list)
+    if not sample_times:
+        return dict(result)
+
+    horizon_start = sample_times[0]
+    routing_step_s = (sample_times[1] - sample_times[0]).total_seconds() if len(sample_times) > 1 else 1.0
+    num_samples = len(sample_times)
+
     for demand in case.demands.demanded_windows:
-        for sidx, st in enumerate(sample_times):
-            if demand.start_time <= st <= demand.end_time:
-                result[sidx].append(demand)
+        start_idx = max(0, int(round((demand.start_time - horizon_start).total_seconds() / routing_step_s)))
+        end_idx = min(num_samples - 1, int(round((demand.end_time - horizon_start).total_seconds() / routing_step_s)))
+        for sidx in range(start_idx, end_idx + 1):
+            result[sidx].append(demand)
     return dict(result)
 
 

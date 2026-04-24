@@ -350,7 +350,7 @@ def main() -> None:
     print(f"  Parallel mode: {parallel_mode}")
     print(f"  Parallel enabled: {use_parallel}")
     if any_fallback:
-        print(f"  Parallel fallback: yes (sequential used)")
+        print("  Parallel fallback: yes (sequential used)")
     print(f"  Actions: {len(actions)} ({sched_summary.get('num_ground_actions', 0)} ground, {sched_summary.get('num_isl_actions', 0)} ISL)")
     print(f"  Local violations: {len(sched_summary.get('local_violations', []))}")
     print(f"  Solution written to: {solution_dir.resolve()}")

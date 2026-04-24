@@ -153,7 +153,7 @@ def main() -> int:
             f"| {r['case_id']} | {r['mode_name']} | {r.get('valid', '?')} | "
             f"{r.get('service_fraction', '-')} | {r.get('worst_demand_service_fraction', '-')} | "
             f"{r.get('num_added_satellites', '-')} | {r.get('num_actions', '-')} | "
-            f"{r['solve_time_s']} | {r['verifier_time_s']} |"
+            f"{r['solve_time_s']} | {r.get('verifier_time_s', '-')} |"
         )
 
     return 0

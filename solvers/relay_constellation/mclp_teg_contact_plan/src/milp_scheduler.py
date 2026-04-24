@@ -110,7 +110,7 @@ def milp_select_links(
     solver = pulp.PULP_CBC_CMD(msg=False, timeLimit=time_limit_seconds)
     result_status = prob.solve(solver)
 
-    if pulp.LpStatus[result_status] not in ("Optimal", "Not Solved"):
+    if pulp.LpStatus[result_status] != "Optimal":
         return None
 
     selected: set[tuple[str, str, str]] = set()

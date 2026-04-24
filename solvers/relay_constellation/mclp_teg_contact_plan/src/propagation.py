@@ -40,7 +40,7 @@ def _datetime_to_epoch(value: datetime) -> brahe.Epoch:
 
 
 def _isoformat_z(value: datetime) -> str:
-    return value.astimezone(datetime.timezone.utc).isoformat().replace("+00:00", "Z")
+    return value.astimezone(timezone.utc).isoformat().replace("+00:00", "Z")
 
 
 def propagate_satellite(

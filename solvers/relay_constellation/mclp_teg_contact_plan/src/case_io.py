@@ -7,7 +7,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
-import yaml
+import json
 
 
 def _parse_iso8601_z(value: str) -> datetime:
@@ -108,7 +108,7 @@ def _load_constraints(data: dict[str, Any]) -> Constraints:
 
 
 def load_manifest(path: Path) -> Manifest:
-    data = yaml.safe_load(path.read_text(encoding="utf-8"))
+    data = json.loads(path.read_text(encoding="utf-8"))
     return Manifest(
         benchmark=str(data["benchmark"]),
         case_id=str(data["case_id"]),
@@ -122,7 +122,7 @@ def load_manifest(path: Path) -> Manifest:
 
 
 def load_network(path: Path) -> Network:
-    data = yaml.safe_load(path.read_text(encoding="utf-8"))
+    data = json.loads(path.read_text(encoding="utf-8"))
     satellites = tuple(
         BackboneSatellite(
             satellite_id=str(s["satellite_id"]),
@@ -149,7 +149,7 @@ def load_network(path: Path) -> Network:
 
 
 def load_demands(path: Path) -> Demands:
-    data = yaml.safe_load(path.read_text(encoding="utf-8"))
+    data = json.loads(path.read_text(encoding="utf-8"))
     windows = tuple(
         DemandWindow(
             demand_id=str(w["demand_id"]),
