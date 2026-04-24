@@ -1,26 +1,39 @@
-"""Main entrypoint for the MCLP+TEG relay solver (Phase 1 scaffold)."""
+"""Main entrypoint for the MCLP+TEG relay solver."""
 
 from __future__ import annotations
 
 import argparse
+import json
 import time
 from pathlib import Path
 from typing import Any
 
 from .case_io import load_case
 from .link_cache import build_link_cache
+from .mclp import greedy_select, milp_select
 from .orbit_library import generate_candidates
 from .propagation import propagate_satellite
 from .solution_io import write_debug_summary, write_solution, write_status
 from .time_grid import build_time_grid
 
 
+def _load_config(config_dir: Path) -> dict[str, Any]:
+    """Load optional solver config from config_dir/config.json."""
+    config_path = config_dir / "config.json"
+    if config_path.exists():
+        return json.loads(config_path.read_text(encoding="utf-8"))
+    return {}
+
+
 def main() -> None:
-    parser = argparse.ArgumentParser(description="MCLP+TEG relay solver (Phase 1)")
+    parser = argparse.ArgumentParser(description="MCLP+TEG relay solver")
     parser.add_argument("--case-dir", required=True, help="Path to benchmark case directory")
     parser.add_argument("--config-dir", default="", help="Optional config directory")
     parser.add_argument("--solution-dir", default="solution", help="Output directory for solution artifacts")
     args = parser.parse_args()
+
+    config = _load_config(Path(args.config_dir)) if args.config_dir else {}
+    mclp_mode = config.get("mclp_mode", "auto")  # "auto", "greedy", or "milp"
 
     t0 = time.monotonic()
     case = load_case(Path(args.case_dir))
@@ -34,7 +47,7 @@ def main() -> None:
     )
     t2 = time.monotonic()
 
-    # Generate candidate orbit library (conservative grid for Phase 1)
+    # Generate candidate orbit library (conservative grid for speed)
     candidates = generate_candidates(
         case.manifest.constraints,
         altitude_step_m=case.manifest.constraints.max_altitude_m - case.manifest.constraints.min_altitude_m,
@@ -71,11 +84,49 @@ def main() -> None:
     link_records, link_summary = build_link_cache(case, backbone_positions, candidate_positions)
     t6 = time.monotonic()
 
-    # Write empty solution (Phase 1)
+    # MCLP candidate selection
+    selected: list[Any] = []
+    mclp_summary: dict[str, Any] = {"policy": "none", "selected_count": 0}
+
+    if candidates:
+        if mclp_mode == "milp":
+            milp_result = milp_select(candidates, case, sample_times, link_records)
+            if milp_result is not None:
+                selected, mclp_summary = milp_result
+            else:
+                selected, mclp_summary = greedy_select(candidates, case, sample_times, link_records)
+                mclp_summary["policy"] = "greedy (milp fallback)"
+        elif mclp_mode == "greedy":
+            selected, mclp_summary = greedy_select(candidates, case, sample_times, link_records)
+        else:  # auto
+            milp_result = milp_select(candidates, case, sample_times, link_records)
+            if milp_result is not None:
+                selected, mclp_summary = milp_result
+            else:
+                selected, mclp_summary = greedy_select(candidates, case, sample_times, link_records)
+    t7 = time.monotonic()
+
+    # Build added_satellites output
+    added_satellites: list[dict[str, Any]] = []
+    for cand in selected:
+        x, y, z, vx, vy, vz = cand.state_eci_m_mps
+        added_satellites.append(
+            {
+                "satellite_id": cand.satellite_id,
+                "x_m": x,
+                "y_m": y,
+                "z_m": z,
+                "vx_m_s": vx,
+                "vy_m_s": vy,
+                "vz_m_s": vz,
+            }
+        )
+
+    # Write solution (no actions yet — Phase 3)
     solution_dir = Path(args.solution_dir)
     write_solution(
         solution_dir,
-        added_satellites=[],
+        added_satellites=added_satellites,
         actions=[],
     )
 
@@ -92,6 +143,11 @@ def main() -> None:
         "num_ground_endpoints": len(case.network.ground_endpoints),
         "num_demanded_windows": len(case.demands.demanded_windows),
         "num_candidate_satellites": len(candidates),
+        "mclp_policy": mclp_summary.get("policy", "none"),
+        "mclp_baseline_score": mclp_summary.get("baseline_score", 0.0),
+        "mclp_selected_score": mclp_summary.get("selected_score", 0.0),
+        "mclp_selected_count": mclp_summary.get("selected_count", 0),
+        "mclp_selected_candidate_ids": mclp_summary.get("selected_candidate_ids", []),
         "link_cache_summary": link_summary,
         "timings_s": {
             "load_case": round(t1 - t0, 3),
@@ -100,7 +156,8 @@ def main() -> None:
             "propagate_backbone": round(t4 - t3, 3),
             "propagate_candidates": round(t5 - t4, 3),
             "build_link_cache": round(t6 - t5, 3),
-            "total": round(t6 - t0, 3),
+            "mclp_selection": round(t7 - t6, 3),
+            "total": round(t7 - t0, 3),
         },
     }
     write_status(solution_dir, status)
@@ -125,11 +182,32 @@ def main() -> None:
         },
     )
     write_debug_summary(solution_dir, "link_cache_summary", link_summary)
+    write_debug_summary(solution_dir, "mclp_reward_summary", mclp_summary)
+    write_debug_summary(
+        solution_dir,
+        "selected_orbits",
+        {
+            "count": len(selected),
+            "selected": [
+                {
+                    "satellite_id": c.satellite_id,
+                    "altitude_m": c.altitude_m,
+                    "inclination_deg": c.inclination_deg,
+                    "raan_deg": c.raan_deg,
+                    "mean_anomaly_deg": c.mean_anomaly_deg,
+                    "eccentricity": c.eccentricity,
+                }
+                for c in selected
+            ],
+        },
+    )
 
-    print(f"Phase 1 scaffold complete for {case.manifest.case_id}")
+    print(f"MCLP selection complete for {case.manifest.case_id}")
+    print(f"  Policy: {mclp_summary.get('policy', 'none')}")
     print(f"  Candidates: {len(candidates)}")
-    print(f"  Samples: {len(sample_times)}")
-    print(f"  Links: {link_summary.get('total_records', 0)}")
+    print(f"  Selected: {len(selected)}")
+    print(f"  Baseline score: {mclp_summary.get('baseline_score', 0.0)}")
+    print(f"  Selected score: {mclp_summary.get('selected_score', 0.0)}")
     print(f"  Solution written to: {solution_dir.resolve()}")
 
 

@@ -55,24 +55,31 @@ def generate_candidates(
         Number of mean-anomaly slots per plane (default 4).
     fixed_eccentricity:
         If provided, use this eccentricity for all candidates; otherwise use
-        half of max_eccentricity capped by the constraint.
+        0.0 (circular orbits) to guarantee apogee/perigee respect altitude bounds.
     """
-    min_alt = constraints.min_altitude_m
-    max_alt = constraints.max_altitude_m
+    # Small buffer to avoid floating-point drift pushing apogee/perigee outside bounds
+    ALTITUDE_BUFFER_M = 50.0
+
+    raw_min_alt = constraints.min_altitude_m
+    raw_max_alt = constraints.max_altitude_m
     min_inc = constraints.min_inclination_deg if constraints.min_inclination_deg is not None else 0.0
     max_inc = constraints.max_inclination_deg if constraints.max_inclination_deg is not None else 180.0
     max_ecc = constraints.max_eccentricity
 
     # Altitude grid: default to two shells (min and max) if step not given
     if altitude_step_m is None:
-        altitude_step_m = max_alt - min_alt
+        altitude_step_m = raw_max_alt - raw_min_alt
     altitudes: list[float] = []
-    current_alt = min_alt
-    while current_alt <= max_alt + NUMERICAL_EPS:
-        altitudes.append(min(current_alt, max_alt))
+    current_alt = raw_min_alt
+    while current_alt <= raw_max_alt + NUMERICAL_EPS:
+        # Clamp to safe interior range to avoid verifier rejecting for fp drift
+        safe_alt = min(current_alt, raw_max_alt)
+        safe_alt = max(safe_alt, raw_min_alt + ALTITUDE_BUFFER_M)
+        safe_alt = min(safe_alt, raw_max_alt - ALTITUDE_BUFFER_M)
+        altitudes.append(safe_alt)
         current_alt += altitude_step_m
     if len(altitudes) == 0:
-        altitudes = [(min_alt + max_alt) / 2.0]
+        altitudes = [(raw_min_alt + raw_max_alt) / 2.0]
     # Inclination grid: default to two bands (min and max) if step not given
     if inclination_step_deg is None:
         inclination_step_deg = max_inc - min_inc
@@ -84,11 +91,9 @@ def generate_candidates(
     if len(inclinations) == 0:
         inclinations = [(min_inc + max_inc) / 2.0]
 
-    # Eccentricity
+    # Eccentricity: default to 0 (circular) so altitude bounds are respected
     if fixed_eccentricity is not None:
         ecc = fixed_eccentricity
-    elif max_ecc is not None:
-        ecc = min(max_ecc * 0.5, max_ecc)
     else:
         ecc = 0.0
     if max_ecc is not None:
