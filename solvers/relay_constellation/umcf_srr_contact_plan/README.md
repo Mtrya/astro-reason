@@ -1,60 +1,236 @@
 # UMCF/SRR Contact-Plan Solver
 
-This solver implements an internal oracle based on the Unsplittable Multi-Commodity Flow (UMCF) problem with Sequential Randomized Rounding (SRR) for the `relay_constellation` benchmark.
+This solver is a runnable reproduced solver for `relay_constellation`.
 
-## Method Overview
+It follows the method family described by Grislain et al. and Lamothe et al. for unsplittable multi-commodity flow routing with sequential randomized rounding, adapted to the benchmark's public case and solution contract.
 
-The solver follows a three-stage pipeline:
+## Citation
 
-1. **Candidate Selection** — Greedy marginal scoring with a Union-Find reachability proxy selects added satellites from a deterministic orbit library.
-2. **Internal UMCF/SRR Oracle** — For each routing sample, an internal UMCF instance is built from the dynamic communication graph. The SRR heuristic assigns one unsplittable path per active demand commodity, tracking unit edge capacities.
-3. **Action Generation** — SRR paths are converted into interval-based link actions. A deterministic repair step enforces per-sample degree caps, and a geometry filter tightens ground links against the exact verifier elevation model before compaction.
+```bibtex
+@inproceedings{grislain2022rethinking,
+  title={Rethinking {LEO} Constellations Routing with the Unsplittable Multi-Commodity Flows Problem},
+  author={Grislain, Paul and Pelissier, Nicolas and Lamothe, Fran{\c{c}}ois and Hotescu, Oana and Lacan, J{\'e}r{\^o}me and Lochin, Emmanuel and Radzik, Jos{\'e}},
+  booktitle={2022 11th Advanced Satellite Multimedia Systems Conference and 17th Signal Processing for Space Communications Workshop (ASMS/SPSC)},
+  pages={1--8},
+  year={2022},
+  organization={IEEE},
+  doi={10.1109/ASMS/SPSC55670.2022.9914743}
+}
 
-## Execution Model
+@article{lamothe2023dynamic,
+  title={Dynamic unsplittable flows with path-change penalties: New formulations and solution schemes for large instances},
+  author={Lamothe, Fran{\c{c}}ois and Rachelson, Emmanuel and Ha{\¨\i}t, Alain and Baudoin, C{\'e}dric and Dup{\'e}, Jean-Baptiste},
+  journal={Computers \& Operations Research},
+  volume={152},
+  pages={106154},
+  year={2023},
+  publisher={Elsevier},
+  doi={10.1016/j.cor.2023.106154}
+}
+```
 
-- **Language**: Pure Python 3.13, single-threaded.
-- **Geometry**: Vectorised NumPy for orbital propagation, link geometry, and graph construction.
-- **Path Generation**: Custom Dijkstra + DFS enumeration (no external graph library).
-- **Rounding**: Sequential, demand-sorted, capacity-tracking heuristic.
-- **Parallelism**: ProcessPoolExecutor used only for candidate evaluation and orbit propagation. The UMCF/SRR oracle and action generation are sequential per sample.
-- **No compiled extensions or external solvers** are used in the oracle.
+The solver is standalone. It reads benchmark case files and writes a benchmark solution JSON, but it does not import or execute benchmark, experiment, runtime, or other solver internals.
 
-## Action Generation Pipeline
+## Method Summary
 
-After the SRR oracle produces per-sample path assignments:
+The Grislain paper introduces a routing protocol for LEO constellations based on the Unsplittable Multi-Commodity Flow (UMCF) problem. Instead of shortest-path latency minimization, it maximizes the total traffic crossing the constellation by assigning each commodity (source-destination pair) to a single unsplittable path. The assignment is computed via Sequential Randomized Rounding (SRR): solve a fractional LP relaxation, then repeatedly sample paths for commodities in decreasing-demand order, updating capacities after each fixation.
 
-1. **Extract** — Collect all canonical edges used by SRR paths and the samples at which they are active.
-2. **Geometry Filter** — Remove ground-link samples that fail the exact brahe elevation check (the fast vectorised approximation used during graph construction can differ at boundary samples).
-3. **Repair** — For each sample, count per-node active degree. If a node exceeds its cap (`max_links_per_satellite` or `max_links_per_endpoint`), drop the lowest-importance incident edges until the cap is satisfied. Importance is the maximum commodity weight of any demand whose path uses that edge.
-4. **Compact** — Merge consecutive samples for each edge into interval actions with grid-aligned `start_time` and `end_time`.
-5. **Emit** — Convert actions to the benchmark JSON schema and write `solution.json`.
+The Lamothe paper extends this to the dynamic setting with path-change penalties. When a commodity changes its path between consecutive time steps, a penalty is incurred. The paper presents several MILP formulations (path-sequence, arc-path, arc-node), column-generation pricing schemes, and SRR heuristics that alternate between LP updates and rounding steps.
 
-## Approximation & Reproduction Gaps
+This reproduction keeps the core UMCF/SRR structure and adapts it to `relay_constellation`:
 
-| Component | Status | Notes |
-|-----------|--------|-------|
-| LP relaxation for fractional flows | **MISSING** | Heuristic uniform probabilities used instead of an LP solver. Room left for an optional LP backend. |
-| Path-set restriction | **IMPLEMENTED** | k-shortest simple paths by hop count then distance (default k=4). |
-| SRR control flow | **IMPLEMENTED** | Commodities sorted by decreasing demand; sequential rounding with capacity updates. |
-| Dynamic path-change penalty | **ADAPTED** | Per-sample boost to previous path; Lamothe formulation uses per-block penalties. |
-| Node-degree modeling in oracle | **PARTIAL** | Degree caps tracked as node capacities but not consumed during internal rounding (they are action-level constraints). |
-| Action geometry pre-validation | **IMPLEMENTED** | Exact brahe elevation filter removes boundary-mismatch samples before compaction. |
+- The solver generates a deterministic orbit library of candidate relay satellites.
+- A greedy marginal selection step chooses which candidates to add.
+- For each routing-sample instant, it builds a dynamic communication graph from propagated positions.
+- An internal UMCF instance is formed from active demands and feasible paths.
+- The SRR heuristic assigns one path per commodity, tracking unit edge capacities.
+- Paths are converted into interval-based link actions, repaired for degree caps, and compacted.
+
+## Benchmark Adaptation
+
+The benchmark differs from the papers in several important ways:
+
+- **No solver-submitted routes**: The benchmark verifier owns routing and allocation. The solver submits only interval-based link activations (`ground_link` and `inter_satellite_link` actions). The internal UMCF/SRR paths are an oracle for deciding which links to activate, not claims about actual end-to-end routes. The verifier may route differently than the oracle expected, especially after repair drops edges or compaction creates intervals where interior samples differ geometrically.
+- **Unit edge capacities**: The verifier allocates routes under unit-capacity edge usage (edge-disjoint). The solver's internal oracle uses the same unit-capacity model, so capacity reasoning is aligned, but the verifier's deterministic shortest-path allocation may choose different paths than SRR's randomized rounding.
+- **Per-sample graphs, not per-block**: The Lamothe paper optimizes over sequences of time steps (blocks) with path-change penalties aggregated across blocks. The benchmark evaluates each sample independently, so the solver applies path-change penalties per-sample instead. This is a necessary adaptation because the benchmark's validity and scoring are per-sample.
+- **Added satellites, not fixed constellations**: The papers assume a known fixed constellation. The benchmark provides a MEO backbone and asks the solver to augment it with LEO relays. The solver therefore adds a candidate-generation and candidate-selection stage that does not exist in the literature.
+- **Node-degree caps are action-level constraints**: The papers model arc capacities. The benchmark also enforces per-sample limits on how many links a satellite or endpoint may maintain. These degree caps are enforced by a post-hoc repair step, not modeled as node capacities inside the oracle.
+
+## Solver Contract
+
+```bash
+./setup.sh
+./solve.sh <case_dir> [config_dir] [solution_dir]
+```
+
+`setup.sh` validates that `brahe`, `numpy`, and `yaml` are available.
+
+`solve.sh` writes:
+
+- `solution.json`: primary benchmark solution
+- `status.json`: solver summary, timings, and reproduction disclosure
+- `debug/*`: debug artifacts
+
+The primary solution artifact is one JSON object with top-level `added_satellites` and `actions` arrays.
+
+## Pipeline
+
+The solver pipeline is:
+
+1. **Load case** — Parse `manifest.json`, `network.json`, and `demands.json`.
+2. **Generate candidates** — Build a deterministic orbit library from manifest constraints (altitude, inclination, RAAN, mean-anomaly grid).
+3. **Propagate and build graphs** — Propagate all satellites (backbone + candidates) to routing-sample epochs using `brahe.NumericalOrbitPropagator`. Build per-sample communication graphs from ISL range, Earth occlusion, and ground-elevation geometry.
+4. **Select candidates** — Evaluate each candidate's marginal contribution to demand connectivity using a Union-Find reachability proxy on a strided subset of samples. Select greedily up to the manifest limit.
+5. **Rebuild graphs** — Rebuild per-sample graphs using only the selected satellites so that routing does not traverse unselected candidates.
+6. **Build UMCF instances** — For each sample, enumerate k-shortest simple paths per commodity and build a UMCF instance with unit edge capacities.
+7. **Run SRR oracle** — For each sample, sort commodities by decreasing demand weight, assign paths via sequential randomized rounding (or deterministic highest-probability selection), and track remaining edge capacities.
+8. **Generate actions** — Extract edges from assigned paths, filter ground links against exact verifier elevation geometry, repair per-sample degree caps, compact consecutive samples into interval actions, and emit the benchmark JSON schema.
+
+## Dependency And Backend Choices
+
+- **Python 3.13** — Pure Python with no compiled extensions in the oracle.
+- **brahe** — Astrodynamics propagation (`NumericalOrbitPropagator`, J2 gravity, GCRF/ITRF frames, deterministic zero-valued static EOP provider). This matches the verifier's propagation model exactly.
+- **NumPy** — Vectorized geometry for link feasibility, distance matrices, and elevation checks.
+- **PyYAML** — Config parsing.
+- **No external LP solver** — The solver uses heuristic uniform probabilities instead of LP relaxation. Room is left for an optional LP backend.
+- **No external graph library** — Path enumeration uses a custom Dijkstra + DFS implementation.
+
+`setup.sh` assumes the project environment already provides `brahe`, `numpy`, and `yaml`. If a future iteration adds an LP backend (e.g., `scipy` or `cvxopt`), the solver-local environment should be extended and `setup.sh` should install it.
+
+## Configuration
+
+The solver reads optional config from `<config_dir>/config.yaml`.
+
+See [config.example.yaml](./config.example.yaml) for a commented example.
+
+Key knobs:
+
+- `srr.deterministic` — When `true`, pick the highest-probability path deterministically instead of sampling. Makes the solver fully reproducible without multi-run aggregation.
+- `srr.multi_run_count` — Number of independent seeded SRR runs. Keeps the assignment set with the highest total served commodity weight. Ignored when `deterministic` is `true`.
+- `srr.seed` — Random seed base for stochastic rounding.
+- `srr.k_paths` — Maximum number of shortest simple paths to consider per commodity.
+- `srr.max_path_hops` — Maximum hop count for path enumeration.
+- `srr.path_change_penalty` — Boost factor for sticking with the same path across consecutive samples. Higher values reduce interval churn.
+- `candidate_selection.policy` — `"greedy_marginal"`, `"no-added"`, or `"fixed"`.
+- `candidate_selection.evaluation_sample_stride` — Sample stride for marginal evaluation (1 = every sample, 10 = every 10th).
+- `candidate_selection.parallel_eval` — Opt-in flag for process-pool candidate evaluation. Not recommended at current scale because per-candidate work is too small to amortize fork/pickle/join overhead.
 
 ## Debug Artifacts
 
 Written to `<solution_dir>/debug/`:
 
-- `umcf_instances.json` — Summary of UMCF instances (commodities per sample, edges, nodes).
-- `srr_summary.json` — Served/dropped commodities, path changes, seed, timing, approximation disclosure.
-- `selected_candidates.json` — Candidate selection scores and policy.
+- `reproduction_summary.json` — Explicit mapping of paper components to implementation status (IMPLEMENTED, ADAPTED, PARTIAL, MISSING) with drift notes.
+- `selected_candidates.json` — Candidate selection scores, policy, and per-iteration marginal contributions.
 - `routed_potential_summary.json` — Full candidate selection debug.
+- `umcf_instances.json` — Summary of UMCF instances per sample (commodities, edges, nodes).
+- `srr_summary.json` — Served/dropped commodities, path changes, seed, timing, and approximation disclosure.
+- `rounded_paths.json` — Per-sample, per-demand path chosen by SRR.
+- `active_link_summary.json` — Edge counts before and after degree-cap repair for each sample.
 - `action_summary.json` — Repair and compaction statistics.
 
-## Configuration
+These are useful for answering:
 
-The solver reads `config.yaml` from the optional `config_dir`. Candidate selection policy and SRR parameters can be exposed there in future iterations.
+- why a particular candidate was selected or rejected
+- how many commodities were dropped per sample
+- whether path-change penalties reduced interval churn
+- how much repair altered the edge set
+- which paper components are approximated or omitted
 
-## Entry Points
+## Running It
 
-- `setup.sh` — Validates dependencies (`brahe`, `numpy`, `yaml`).
-- `solve.sh <case_dir> [config_dir] [solution_dir]` — Runs the solver.
+Direct setup:
+
+```bash
+./solvers/relay_constellation/umcf_srr_contact_plan/setup.sh
+```
+
+Direct solve on a public smoke case:
+
+```bash
+./solvers/relay_constellation/umcf_srr_contact_plan/solve.sh \
+  benchmarks/relay_constellation/dataset/cases/test/case_0001
+```
+
+Direct solve with a config directory:
+
+```bash
+./solvers/relay_constellation/umcf_srr_contact_plan/solve.sh \
+  benchmarks/relay_constellation/dataset/cases/test/case_0001 \
+  /path/to/config_dir \
+  /tmp/relay_umcf_solution
+```
+
+Official smoke verification through `main_solver`:
+
+```bash
+uv run python experiments/main_solver/run.py \
+  --benchmark relay_constellation \
+  --solver relay_constellation_umcf_srr_contact_plan \
+  --case test/case_0001
+```
+
+Aggregate experiment results:
+
+```bash
+uv run python experiments/main_solver/aggregate.py
+```
+
+## Sanity Baseline
+
+The papers report packet-loss and congestion metrics over simulated Telesat constellations, not the benchmark's `service_fraction`, `worst_demand_service_fraction`, and latency metrics. Treat the paper's performance claims as a rough sanity check for behavior, not as a target metric table for this benchmark.
+
+What matters here is:
+
+- official verification passes
+- candidate counts are plausible
+- repair does not collapse the link set
+- service fraction improves over the backbone-only baseline
+- randomized multi-run sometimes improves and sometimes degrades relative to deterministic mode
+
+If service fraction looks unexpectedly low, inspect:
+
+- candidate selection (are good candidates being filtered out?)
+- SRR dropped commodities (are demands unservable due to graph sparsity?)
+- repair aggressiveness (is degree-cap repair dropping too many edges?)
+- ground-link geometry filter (are boundary samples being incorrectly removed?)
+
+## Known Limitations
+
+- This is a reproduction of the paper's method family, not a claim to reproduce every runtime or every table from the papers.
+- No LP relaxation is used. Heuristic uniform probabilities replace the fractional flow optimization that drives the SRR heuristic in the literature. An LP backend would be the single largest improvement to reproduction fidelity.
+- Node-degree caps (`max_links_per_satellite`, `max_links_per_endpoint`) are enforced by post-hoc repair, not modeled as node capacities inside the oracle. The oracle may select paths that violate caps, relying on repair to drop edges afterward.
+- The solver processes each sample independently. The Lamothe paper's path-sequence and block-based formulations, which optimize over sequences of time steps, are not implemented.
+- Column generation and the associated pricing schemes are not implemented.
+- The k-nearest first/last hop restriction studied in Grislain is not implemented.
+
+## Compute Notes
+
+- **Typical runtime**: approximately 13 seconds end-to-end on the smoke case (test/case_0001, 24 satellites, ~5760 routing samples).
+- **Dominant stage**: orbit propagation at roughly 70% of runtime. Propagation is parallelized across satellites via `ProcessPoolExecutor`, yielding about a 9x speedup over single-threaded propagation.
+- **Graph construction**: roughly 18% of runtime. Vectorized NumPy within each sample, sequential across samples.
+- **Candidate selection**: roughly 9% of runtime after an optimization that replaced process-pool evaluation with a sequential loop. Process-pool candidate evaluation is available via config but not recommended at current scale.
+- **SRR + action generation**: roughly 3% of runtime.
+- **Recommended timeout**: 60 seconds for a single deterministic run; 300 seconds allows roughly 20 seeds for the randomized multi-run mode. The current 300-second experiment timeout is generous and fair.
+- **No compiled extensions or external solvers** are used in the oracle. All computation is pure Python with NumPy vectorization for geometry.
+
+## Reproduction Gap Summary
+
+The following table maps paper components to their status in this solver. `IMPLEMENTED` means the element is present closely enough for the target claim. `ADAPTED` means it changed for benchmark reasons but still supports the claim. `PARTIAL` means it exists in simplified form. `MISSING` means it is absent and blocks full reproduction.
+
+- **UMCF commodities and capacities**: ADAPTED — Commodities derived from benchmark demand windows. Edge capacities fixed to 1 (unit edge-disjoint), matching verifier allocation rather than flow-based capacities from the paper.
+- **Unsplittable one-path-per-commodity constraint**: IMPLEMENTED — SRR assigns exactly one path per commodity per sample.
+- **LP relaxation for fractional flows**: MISSING — No LP solver is used. Heuristic uniform probabilities plus path-change boost replace LP-derived fractional flows. This is the largest gap.
+- **SRR sequential rounding control flow**: IMPLEMENTED — Commodities processed in decreasing-weight order with edge-capacity updates.
+- **Randomized rounding from LP solution**: ADAPTED — Probabilities are heuristic (uniform base plus exponential boost for the previous path) instead of sampled from LP relaxation values.
+- **k-shortest path restriction**: IMPLEMENTED — k=4 shortest simple paths by hop count then distance.
+- **Dynamic path-change penalty**: ADAPTED — Per-sample boost to the previous path instead of the paper's per-block MILP objective term.
+- **k-nearest first/last hop restriction**: MISSING — Not implemented.
+- **Path-sequence / arc-path / arc-node formulations**: MISSING — None of the MILP formulations from Lamothe are implemented.
+- **Column generation pricing**: MISSING — No column generation or pricing schemes are used.
+- **Candidate orbit library**: IMPLEMENTED — Deterministic grid generated from manifest constraints. Solver-local addition, not from the papers.
+- **Greedy marginal candidate selection**: IMPLEMENTED — Union-Find reachability proxy. Solver-local heuristic, not from the papers.
+- **Degree-cap repair and interval compaction**: IMPLEMENTED — Post-hoc repair and compaction are benchmark adaptations.
+
+## Evidence Type
+
+This solver is registered in `experiments/main_solver` with `evidence_type: reproduced_solver`.

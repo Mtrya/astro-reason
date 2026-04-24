@@ -1,4 +1,4 @@
-"""Focused tests for relay_constellation UMCF/SRR solver Phase 3 oracle."""
+"""Focused tests for relay_constellation UMCF/SRR solver SRR oracle."""
 
 from __future__ import annotations
 

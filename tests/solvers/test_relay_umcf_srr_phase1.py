@@ -1,4 +1,4 @@
-"""Focused tests for relay_constellation UMCF/SRR solver Phase 1 scaffold."""
+"""Focused tests for relay_constellation UMCF/SRR solver candidate generation and dynamic graphs."""
 
 from __future__ import annotations
 
