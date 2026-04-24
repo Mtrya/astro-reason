@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from collections import defaultdict
+from collections import Counter, defaultdict
 from dataclasses import asdict, dataclass, field
 from itertools import combinations
 import time
@@ -84,6 +84,9 @@ class MwisStats:
     selection_policy: str
     max_exact_component_size: int
     time_limit_s: float | None
+    effective_time_limit_s: float | None
+    deadline_source: str
+    selection_started_after_deadline: bool
     max_local_passes: int
     population_size: int
     recombination_rounds: int
@@ -108,6 +111,9 @@ class MwisStats:
             "selection_policy": self.selection_policy,
             "max_exact_component_size": self.max_exact_component_size,
             "time_limit_s": self.time_limit_s,
+            "effective_time_limit_s": self.effective_time_limit_s,
+            "deadline_source": self.deadline_source,
+            "selection_started_after_deadline": self.selection_started_after_deadline,
             "max_local_passes": self.max_local_passes,
             "population_size": self.population_size,
             "recombination_rounds": self.recombination_rounds,
@@ -119,7 +125,24 @@ class MwisStats:
             "recombination_attempt_count": self.recombination_attempt_count,
             "recombination_win_count": self.recombination_win_count,
             "incumbent_source": self.incumbent_source,
+            "component_stop_reasons": dict(
+                sorted(Counter(item.stop_reason for item in self.component_search).items())
+            ),
+            "component_search": self.component_search_status(),
         }
+
+    def component_search_status(self) -> list[dict[str, Any]]:
+        return [
+            {
+                "component_index": item.component_index,
+                "component_size": item.component_size,
+                "mode": item.mode,
+                "stop_reason": item.stop_reason,
+                "time_limit_hit": item.time_limit_hit,
+                "elapsed_s": item.elapsed_s,
+            }
+            for item in self.component_search
+        ]
 
     def component_search_debug(self) -> list[dict[str, Any]]:
         return [item.as_dict() for item in self.component_search]
@@ -483,6 +506,44 @@ def _summarize_global_incumbent_source(component_sources: list[str]) -> str:
     return "mixed"
 
 
+def _deadline_accounting(
+    *,
+    search_start: float,
+    time_limit_s: float | None,
+    deadline: float | None,
+) -> tuple[float | None, float | None, str, bool]:
+    refinement_deadline = (
+        search_start + time_limit_s
+        if time_limit_s is not None
+        else None
+    )
+    deadline_options: list[tuple[str, float]] = []
+    if refinement_deadline is not None:
+        deadline_options.append(("time_limit_s", refinement_deadline))
+    if deadline is not None:
+        deadline_options.append(("total_time_budget_s", deadline))
+    if not deadline_options:
+        return None, None, "none", False
+
+    effective_source, effective_deadline = min(
+        deadline_options,
+        key=lambda item: (item[1], item[0]),
+    )
+    if (
+        refinement_deadline is not None
+        and deadline is not None
+        and abs(refinement_deadline - deadline) <= 1.0e-12
+    ):
+        effective_source = "time_limit_s_and_total_time_budget_s"
+    effective_time_limit_s = max(0.0, effective_deadline - search_start)
+    return (
+        effective_deadline,
+        effective_time_limit_s,
+        effective_source,
+        effective_deadline <= search_start,
+    )
+
+
 def _baseline_population(
     component: list[str],
     candidate_by_id: dict[str, Candidate],
@@ -669,6 +730,8 @@ def select_weighted_independent_set(
     candidates: list[Candidate],
     graph: ConflictGraph,
     config: MwisConfig | None = None,
+    *,
+    deadline: float | None = None,
 ) -> tuple[list[Candidate], MwisStats]:
     config = config or MwisConfig()
     candidate_by_id = {candidate.candidate_id: candidate for candidate in candidates}
@@ -677,10 +740,15 @@ def select_weighted_independent_set(
     large_components = 0
     refined_components = 0
     search_start = time.perf_counter()
-    deadline = (
-        search_start + config.time_limit_s
-        if config.time_limit_s is not None
-        else None
+    (
+        effective_deadline,
+        effective_time_limit_s,
+        deadline_source,
+        selection_started_after_deadline,
+    ) = _deadline_accounting(
+        search_start=search_start,
+        time_limit_s=config.time_limit_s,
+        deadline=deadline,
     )
     time_limit_hit = False
     global_stop_reason = "converged"
@@ -730,7 +798,7 @@ def select_weighted_independent_set(
                 candidate_by_id,
                 graph.adjacency,
                 config=config,
-                deadline=deadline,
+                deadline=effective_deadline,
             )
             component_search.append(component_stats)
             if component_stats.mode == "refined":
@@ -765,6 +833,9 @@ def select_weighted_independent_set(
         selection_policy=config.selection_policy,
         max_exact_component_size=config.max_exact_component_size,
         time_limit_s=config.time_limit_s,
+        effective_time_limit_s=effective_time_limit_s,
+        deadline_source=deadline_source,
+        selection_started_after_deadline=selection_started_after_deadline,
         max_local_passes=config.max_local_passes,
         population_size=config.population_size,
         recombination_rounds=config.recombination_rounds,

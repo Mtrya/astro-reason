@@ -104,16 +104,24 @@ Key knobs:
 - `candidate_stride_multiplier`
 - `max_candidates`
 - `max_candidates_per_task`
+- `candidate_workers`
+- `graph_workers`
 - `selection_policy`
 - `max_exact_component_size`
 - `max_local_passes`
 - `population_size`
 - `recombination_rounds`
+- `total_time_budget_s`
 - `time_limit_s`
 - `max_repair_iterations`
+- `enable_incremental_repair`
 - `debug`
 
-`time_limit_s` only bounds the incumbent-refinement search on large components. It does not cap candidate generation, graph construction, or local validation. If the time budget is reached, the solver returns the best incumbent found so far and still performs local validation and repair.
+Use `total_time_budget_s` as the main fair-run runtime knob. Candidate generation and graph construction are accounted for before selection starts, and the remaining budget is passed into MWIS refinement. `time_limit_s` remains backward-compatible as a refinement-only cap; when both are set, the earlier deadline wins. If the budget is reached, the solver returns the best incumbent found so far and still performs local validation and repair.
+
+For hard cases, tune refinement effort with `max_local_passes`, `population_size`, and `recombination_rounds` inside the total budget. `graph_workers` can enable satellite-scoped graph-build workers while preserving deterministic edge sets. `status.json` reports the graph-build execution model, the effective selection budget, the deadline source, whether selection began after the total budget was consumed, and compact per-component stop reasons.
+
+Repair defaults to incremental affected-satellite validation after the initial full pass. Set `enable_incremental_repair: false` to force repeated full validation for comparison. Repair status reports objective impact, removals by reason, validation time by iteration, incremental/full validation counts, and fallback count.
 
 ## Debug Artifacts
 
@@ -134,6 +142,8 @@ These are useful for answering:
 - how dense the conflict graph is
 - which search path produced the incumbent
 - whether a time budget stopped refinement
+- which stop reason each component reported
+- how much objective and validation time repair consumed
 - why a candidate was removed during local repair
 
 ## Running It

@@ -3,6 +3,7 @@ from __future__ import annotations
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 import sys
+import time
 
 import numpy as np
 import pytest
@@ -35,6 +36,8 @@ from solvers.aeossp_standard.mwis_conflict_graph.src.geometry import (  # noqa: 
     initial_slew_feasible_from_vectors,
 )
 from solvers.aeossp_standard.mwis_conflict_graph.src.graph import (  # noqa: E402
+    GraphBuildConfig,
+    _build_conflict_graph_legacy,
     build_conflict_graph,
     connected_components,
 )
@@ -552,6 +555,105 @@ def test_conflict_graph_omits_transition_edge_with_sufficient_gap(monkeypatch) -
     assert graph.stats.transition_edge_count == 0
 
 
+def _assert_graphs_equal(left, right) -> None:
+    assert left.adjacency == right.adjacency
+    assert left.reason_edges == right.reason_edges
+    assert left.stats.as_dict() == right.stats.as_dict()
+
+
+def test_graph_build_config_parses_worker_count() -> None:
+    assert GraphBuildConfig.from_mapping({}).graph_workers == 1
+    assert GraphBuildConfig.from_mapping({"graph_workers": "3"}).graph_workers == 3
+
+    with pytest.raises(ValueError, match="graph worker count"):
+        GraphBuildConfig.from_mapping({"graph_workers": 0})
+
+
+def test_optimized_conflict_graph_matches_legacy_serial_edges(monkeypatch) -> None:
+    candidates = [
+        _candidate("sat_a|task_a|10", satellite_id="sat_a", task_id="task_a", start_offset_s=10, end_offset_s=20),
+        _candidate("sat_b|task_a|12", satellite_id="sat_b", task_id="task_a", start_offset_s=12, end_offset_s=22),
+        _candidate("sat_a|task_b|18", satellite_id="sat_a", task_id="task_b", start_offset_s=18, end_offset_s=28),
+        _candidate("sat_a|task_c|35", satellite_id="sat_a", task_id="task_c", start_offset_s=35, end_offset_s=45),
+        _candidate("sat_a|task_d|250", satellite_id="sat_a", task_id="task_d", start_offset_s=250, end_offset_s=260),
+        _candidate("sat_b|task_e|20", satellite_id="sat_b", task_id="task_e", start_offset_s=20, end_offset_s=30),
+    ]
+    case = _case_for_candidates(candidates)
+
+    class DummyPropagation:
+        def __init__(self, *args, **kwargs):
+            pass
+
+    def fake_transition_gap_conflict(candidate_a, candidate_b, *, case, vector_cache):
+        previous, current = sorted(
+            (candidate_a, candidate_b),
+            key=lambda item: (item.start_offset_s, item.end_offset_s, item.candidate_id),
+        )
+        return current.start_offset_s - previous.end_offset_s < 20
+
+    monkeypatch.setattr("solvers.aeossp_standard.mwis_conflict_graph.src.graph.PropagationContext", DummyPropagation)
+    monkeypatch.setattr(
+        "solvers.aeossp_standard.mwis_conflict_graph.src.graph.transition_gap_conflict",
+        fake_transition_gap_conflict,
+    )
+
+    legacy = _build_conflict_graph_legacy(case, list(reversed(candidates)))
+    optimized = build_conflict_graph(case, list(reversed(candidates)))
+
+    _assert_graphs_equal(optimized, legacy)
+    assert optimized.stats.duplicate_task_edge_count == 1
+    assert optimized.stats.overlap_edge_count == 2
+    assert optimized.stats.transition_edge_count == 2
+
+
+def test_parallel_conflict_graph_matches_serial_and_merges_deterministically(monkeypatch) -> None:
+    candidates = [
+        _candidate("sat_a|task_a|10", satellite_id="sat_a", task_id="task_a", start_offset_s=10, end_offset_s=20),
+        _candidate("sat_a|task_b|25", satellite_id="sat_a", task_id="task_b", start_offset_s=25, end_offset_s=35),
+        _candidate("sat_b|task_a|10", satellite_id="sat_b", task_id="task_a", start_offset_s=10, end_offset_s=20),
+        _candidate("sat_b|task_c|18", satellite_id="sat_b", task_id="task_c", start_offset_s=18, end_offset_s=28),
+    ]
+    case = _case_for_candidates(candidates)
+
+    class DummyPropagation:
+        def __init__(self, *args, **kwargs):
+            pass
+
+    class FakeProcessPoolExecutor:
+        created_max_workers: list[int] = []
+
+        def __init__(self, *, max_workers):
+            self.created_max_workers.append(max_workers)
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, exc_type, exc, tb):
+            return False
+
+        def map(self, fn, items):
+            return [fn(item) for item in items]
+
+    def fake_transition_gap_conflict(candidate_a, candidate_b, *, case, vector_cache):
+        return True
+
+    monkeypatch.setattr("solvers.aeossp_standard.mwis_conflict_graph.src.graph.PropagationContext", DummyPropagation)
+    monkeypatch.setattr(
+        "solvers.aeossp_standard.mwis_conflict_graph.src.graph.ProcessPoolExecutor",
+        FakeProcessPoolExecutor,
+    )
+    monkeypatch.setattr(
+        "solvers.aeossp_standard.mwis_conflict_graph.src.graph.transition_gap_conflict",
+        fake_transition_gap_conflict,
+    )
+
+    serial = build_conflict_graph(case, candidates, config=GraphBuildConfig(graph_workers=1))
+    parallel = build_conflict_graph(case, candidates, config=GraphBuildConfig(graph_workers=4))
+
+    _assert_graphs_equal(parallel, serial)
+    assert FakeProcessPoolExecutor.created_max_workers == [2]
+
+
 def test_connected_components_are_stable() -> None:
     adjacency = {
         "a": {"b"},
@@ -801,6 +903,53 @@ def test_time_budget_returns_valid_baseline_incumbent() -> None:
     assert stats.time_limit_hit
     assert stats.search_stop_reason == "time_limit"
     assert stats.independent_set_valid
+    assert stats.effective_time_limit_s == 0.0
+    assert stats.deadline_source == "time_limit_s"
+    assert stats.selection_started_after_deadline
+    assert stats.as_dict()["component_stop_reasons"]["time_limit"] == 2
+    assert stats.as_dict()["component_search"][0]["stop_reason"] == "time_limit"
+
+
+def test_total_budget_deadline_bounds_mwis_refinement() -> None:
+    candidates = [
+        _candidate("early", task_id="task_early", weight=5.0, start_offset_s=10, end_offset_s=20),
+        _candidate("late", task_id="task_late", weight=5.0, start_offset_s=20, end_offset_s=30),
+        _candidate("free", task_id="task_free", weight=1.0, start_offset_s=35, end_offset_s=45),
+    ]
+    adjacency = {
+        "early": {"late"},
+        "late": {"early"},
+        "free": set(),
+    }
+    graph = type(
+        "ManualGraph",
+        (),
+        {
+            "adjacency": adjacency,
+            "stats": None,
+        },
+    )()
+
+    selected, stats = select_weighted_independent_set(
+        candidates,
+        graph,
+        MwisConfig(
+            max_exact_component_size=0,
+            time_limit_s=None,
+            max_local_passes=4,
+            population_size=2,
+            recombination_rounds=2,
+        ),
+        deadline=time.perf_counter() - 1.0,
+    )
+
+    assert [candidate.candidate_id for candidate in selected] == ["early", "free"]
+    assert stats.time_limit_hit
+    assert stats.search_stop_reason == "time_limit"
+    assert stats.time_limit_s is None
+    assert stats.effective_time_limit_s == 0.0
+    assert stats.deadline_source == "total_time_budget_s"
+    assert stats.selection_started_after_deadline
 
 
 def test_local_validation_rejects_duplicate_tasks(monkeypatch) -> None:
@@ -920,6 +1069,13 @@ def test_repair_selection_removes_lowest_priority_implicated_candidate() -> None
     assert reason == "transition_gap"
 
 
+def test_repair_config_parses_incremental_flag() -> None:
+    assert RepairConfig.from_mapping({}).enable_incremental_repair
+    assert RepairConfig.from_mapping({"enable_incremental_repair": False}).enable_incremental_repair is False
+    assert RepairConfig.from_mapping({"enable_incremental_repair": "false"}).enable_incremental_repair is False
+    assert RepairConfig.from_mapping({"enable_incremental_repair": "true"}).enable_incremental_repair is True
+
+
 def test_bounded_repair_terminates(monkeypatch) -> None:
     candidates = [
         _candidate("a", task_id="task_a", weight=1.0),
@@ -942,12 +1098,85 @@ def test_bounded_repair_terminates(monkeypatch) -> None:
     result = repair_candidates(
         _case_for_candidates(candidates),
         candidates,
-        config=RepairConfig(max_repair_iterations=1),
+        config=RepairConfig(max_repair_iterations=1, enable_incremental_repair=False),
     )
 
     assert len(result.reports) == 2
     assert len(result.removals) == 1
     assert result.terminated_reason == "max_iterations"
+
+
+def test_incremental_repair_matches_full_repair_and_reports_impact(monkeypatch) -> None:
+    low = _candidate("sat_a|task_shared|10", satellite_id="sat_a", task_id="task_shared", weight=1.0)
+    high = _candidate(
+        "sat_b|task_shared|15",
+        satellite_id="sat_b",
+        task_id="task_shared",
+        start_offset_s=15,
+        end_offset_s=25,
+        weight=5.0,
+    )
+    candidates = [high, low]
+    case = _case_for_candidates(candidates)
+    for satellite_id, satellite in list(case.satellites.items()):
+        case.satellites[satellite_id] = Satellite(
+            satellite_id=satellite.satellite_id,
+            norad_catalog_id=satellite.norad_catalog_id,
+            tle_line1=satellite.tle_line1,
+            tle_line2=satellite.tle_line2,
+            sensor_type=satellite.sensor_type,
+            attitude_model=satellite.attitude_model,
+            resource_model=ResourceModel(
+                battery_capacity_wh=100.0,
+                initial_battery_wh=100.0,
+                idle_power_w=0.0,
+                imaging_power_w=0.0,
+                slew_power_w=0.0,
+                sunlit_charge_power_w=0.0,
+            ),
+        )
+
+    class DummyPropagation:
+        def __init__(self, *args, **kwargs):
+            pass
+
+    monkeypatch.setattr("solvers.aeossp_standard.mwis_conflict_graph.src.validation.PropagationContext", DummyPropagation)
+    monkeypatch.setattr("solvers.aeossp_standard.mwis_conflict_graph.src.validation._initial_slew_required_s", lambda *args, **kwargs: 0.0)
+    monkeypatch.setattr("solvers.aeossp_standard.mwis_conflict_graph.src.validation.is_sunlit", lambda *args, **kwargs: False)
+
+    full = repair_candidates(
+        case,
+        candidates,
+        config=RepairConfig(max_repair_iterations=4, enable_incremental_repair=False),
+    )
+    incremental = repair_candidates(
+        case,
+        candidates,
+        config=RepairConfig(max_repair_iterations=4, enable_incremental_repair=True),
+    )
+
+    assert [candidate.candidate_id for candidate in incremental.candidates] == [
+        candidate.candidate_id for candidate in full.candidates
+    ]
+    assert [removal.as_dict() for removal in incremental.removals] == [
+        removal.as_dict() for removal in full.removals
+    ]
+    assert incremental.final_report.as_dict() == full.final_report.as_dict()
+
+    status = incremental.as_status_dict()
+    assert status["actions_before_repair"] == 2
+    assert status["actions_after_repair"] == 1
+    assert status["objective_before_repair"] == 6.0
+    assert status["objective_after_repair"] == 5.0
+    assert status["objective_removed_by_repair"] == 1.0
+    assert status["removed_action_count_by_reason"] == {"duplicate_task": 1}
+    assert status["battery_failure_count_before_repair"] == 0
+    assert status["battery_failure_count_after_repair"] == 0
+    assert status["full_validation_count"] == 1
+    assert status["incremental_validation_count"] == 1
+    assert status["fallback_count"] == 0
+    assert status["affected_satellites_by_iteration"] == [[], ["sat_a"]]
+    assert len(status["validation_time_s_by_iteration"]) == 2
 
 
 def test_budget_config_parses_total_time_budget() -> None:
@@ -966,6 +1195,10 @@ def test_budget_status_reports_total_and_refinement_budgets() -> None:
         timing_seconds={"total": 2.0, "candidate_generation": 1.0},
         stage_order=("candidate_generation",),
         search_stage_budget_s=None,
+        search_stage_budget_hit=False,
+        selection_started_with_remaining_budget_s=None,
+        selection_deadline_source="none",
+        selection_started_after_deadline=False,
         refinement_only_budget_s=4.0,
         refinement_only_budget_hit=False,
     )
@@ -984,6 +1217,10 @@ def test_budget_status_reports_total_and_refinement_budgets() -> None:
         },
         stage_order=("candidate_generation", "graph_build", "selection"),
         search_stage_budget_s=0.0,
+        search_stage_budget_hit=True,
+        selection_started_with_remaining_budget_s=0.0,
+        selection_deadline_source="total_time_budget_s",
+        selection_started_after_deadline=True,
         refinement_only_budget_s=None,
         refinement_only_budget_hit=True,
     )
@@ -993,6 +1230,9 @@ def test_budget_status_reports_total_and_refinement_budgets() -> None:
     assert pressured["remaining_time_s"] == 0.0
     assert pressured["search_stage_budget_s"] == 0.0
     assert pressured["search_stage_budget_hit"]
+    assert pressured["selection_started_with_remaining_budget_s"] == 0.0
+    assert pressured["selection_deadline_source"] == "total_time_budget_s"
+    assert pressured["selection_started_after_deadline"]
     assert not pressured["refinement_only_time_limit_hit"]
 
 
@@ -1023,6 +1263,8 @@ def test_status_payload_reports_execution_model_and_timing_schema(tmp_path: Path
                 "selected_candidate_count": self.selected_candidate_count,
                 "search_stop_reason": self.search_stop_reason,
                 "time_limit_hit": self.time_limit_hit,
+                "component_stop_reasons": {"exact": 1},
+                "component_search": [],
             }
 
     class RepairPayload:
@@ -1061,6 +1303,7 @@ def test_status_payload_reports_execution_model_and_timing_schema(tmp_path: Path
         solution_path=tmp_path / "solution.json",
         case=case,
         candidate_config=CandidateConfig(candidate_workers=2),
+        graph_config=GraphBuildConfig(graph_workers=2),
         candidate_summary=CandidateSummary(),
         graph=type("Graph", (), {"stats": DictPayload({"vertex_count": 0})})(),
         mwis_config=MwisConfig(),
@@ -1073,6 +1316,10 @@ def test_status_payload_reports_execution_model_and_timing_schema(tmp_path: Path
             timing_seconds=timing,
             stage_order=("candidate_generation",),
             search_stage_budget_s=None,
+            search_stage_budget_hit=False,
+            selection_started_with_remaining_budget_s=None,
+            selection_deadline_source="none",
+            selection_started_after_deadline=False,
             refinement_only_budget_s=None,
             refinement_only_budget_hit=False,
         ),
@@ -1091,12 +1338,21 @@ def test_status_payload_reports_execution_model_and_timing_schema(tmp_path: Path
     assert status["execution_model"]["candidate_generation"]["parallelism_scope"] == "satellite"
     assert status["execution_model"]["candidate_generation"]["configured_workers"] == 2
     assert status["execution_model"]["candidate_generation"]["effective_workers"] == 2
-    assert status["execution_model"]["graph_build"]["model"] == "single_threaded_python"
+    assert status["graph_config"] == {"graph_workers": 2}
+    assert status["execution_model"]["graph_build"]["model"] == "process_pool_python"
+    assert status["execution_model"]["graph_build"]["parallelism_scope"] == "satellite_temporal_edges"
+    assert status["execution_model"]["graph_build"]["configured_workers"] == 2
+    assert status["execution_model"]["graph_build"]["effective_workers"] == 2
     assert "candidate_precompute" in status
     assert "geometry_cache" in status
-    assert status["execution_model"]["search"]["budget_field"] == "time_limit_s"
+    assert status["execution_model"]["search"]["budget_field"] == "effective_time_limit_s"
+    assert status["execution_model"]["search"]["configured_budget_fields"] == [
+        "total_time_budget_s",
+        "time_limit_s",
+    ]
     assert status["budget"]["configured"]["total_time_budget_s"] is None
     assert not status["budget"]["budget_hit"]
+    assert status["budget"]["selection_deadline_source"] == "none"
     assert status["budget"]["refinement_only_time_limit_s"] is None
     assert status["timing_seconds"]["accounted_total"] == pytest.approx(2.6)
     assert status["timing_seconds"]["unaccounted_overhead"] == pytest.approx(0.2)
