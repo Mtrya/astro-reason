@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import time
 from pathlib import Path
 from typing import Any
@@ -26,6 +27,59 @@ def _load_config(config_dir: Path) -> dict[str, Any]:
     return {}
 
 
+def _propagate_with_timings(
+    satellites: list[tuple[str, tuple[float, ...]]],
+    epoch: Any,
+    sample_times: tuple[Any, ...],
+    use_parallel: bool,
+) -> tuple[dict[str, Any], list[float], bool]:
+    """Propagate satellites and return (positions, per-satellite ms, fallback_happened)."""
+    if not satellites:
+        return {}, [], False
+
+    if use_parallel:
+        try:
+            from .parallel import ParallelExecutionError, propagate_satellites_parallel
+
+            positions, timings = propagate_satellites_parallel(
+                satellites, epoch, sample_times
+            )
+            return positions, timings, False
+        except ParallelExecutionError:
+            pass
+
+    # Sequential fallback (also the primary path when parallel is disabled)
+    positions: dict[str, Any] = {}
+    timings: list[float] = []
+    for sid, state in satellites:
+        t0 = time.monotonic()
+        positions[sid] = propagate_satellite(state, epoch, sample_times)
+        timings.append((time.monotonic() - t0) * 1000.0)
+    return positions, timings, use_parallel
+
+
+def _build_link_cache_with_mode(
+    case: Any,
+    backbone_positions: dict[str, Any],
+    candidate_positions: dict[str, Any],
+    use_parallel: bool,
+) -> tuple[tuple[Any, ...], dict[str, object], bool]:
+    """Build link cache and return (records, summary, fallback_happened)."""
+    if use_parallel:
+        try:
+            from .parallel import ParallelExecutionError, build_link_cache_parallel
+
+            records, summary = build_link_cache_parallel(
+                case, backbone_positions, candidate_positions
+            )
+            return records, summary, False
+        except ParallelExecutionError:
+            pass
+
+    records, summary = build_link_cache(case, backbone_positions, candidate_positions)
+    return records, summary, use_parallel
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description="MCLP+TEG relay solver")
     parser.add_argument("--case-dir", required=True, help="Path to benchmark case directory")
@@ -37,6 +91,8 @@ def main() -> None:
     mclp_mode = config.get("mclp_mode", "auto")  # "auto", "greedy", or "milp"
     scheduler_mode = config.get("scheduler_mode", "auto")  # "auto", "greedy", or "milp"
     milp_config = config.get("milp_config", {})
+    parallel_mode = config.get("parallel_mode", "auto")  # "auto", "parallel", or "sequential"
+    time_budget_s = config.get("time_budget_s", 300)
 
     t0 = time.monotonic()
     case = load_case(Path(args.case_dir))
@@ -63,28 +119,36 @@ def main() -> None:
     )
     t3 = time.monotonic()
 
+    # Decide whether to use parallel execution
+    n_satellites = len(case.network.backbone_satellites) + len(candidates)
+    auto_parallel = n_satellites > 1 or len(sample_times) > 1000
+    use_parallel = parallel_mode == "parallel" or (parallel_mode == "auto" and auto_parallel)
+    worker_count = min(os.cpu_count() or 1, n_satellites) if use_parallel else 1
+
     # Propagate backbone satellites
-    backbone_positions: dict[str, dict[int, Any]] = {}
-    for sat in case.network.backbone_satellites:
-        backbone_positions[sat.satellite_id] = propagate_satellite(
-            sat.state_eci_m_mps,
-            case.manifest.epoch,
-            sample_times,
-        )
+    backbone_tasks = [
+        (sat.satellite_id, sat.state_eci_m_mps)
+        for sat in case.network.backbone_satellites
+    ]
+    backbone_positions, backbone_timings_ms, bb_fallback = _propagate_with_timings(
+        backbone_tasks, case.manifest.epoch, sample_times, use_parallel
+    )
     t4 = time.monotonic()
 
     # Propagate candidate satellites
-    candidate_positions: dict[str, dict[int, Any]] = {}
-    for cand in candidates:
-        candidate_positions[cand.satellite_id] = propagate_satellite(
-            cand.state_eci_m_mps,
-            case.manifest.epoch,
-            sample_times,
-        )
+    candidate_tasks = [
+        (cand.satellite_id, cand.state_eci_m_mps)
+        for cand in candidates
+    ]
+    candidate_positions, candidate_timings_ms, cand_fallback = _propagate_with_timings(
+        candidate_tasks, case.manifest.epoch, sample_times, use_parallel
+    )
     t5 = time.monotonic()
 
     # Build link-feasibility cache
-    link_records, link_summary = build_link_cache(case, backbone_positions, candidate_positions)
+    link_records, link_summary, lc_fallback = _build_link_cache_with_mode(
+        case, backbone_positions, candidate_positions, use_parallel
+    )
     t6 = time.monotonic()
 
     # MCLP candidate selection
@@ -134,6 +198,9 @@ def main() -> None:
     )
     t8 = time.monotonic()
 
+    total_time = t8 - t0
+    any_fallback = bb_fallback or cand_fallback or lc_fallback
+
     # Write solution
     solution_dir = Path(args.solution_dir)
     write_solution(
@@ -155,6 +222,19 @@ def main() -> None:
         "num_ground_endpoints": len(case.network.ground_endpoints),
         "num_demanded_windows": len(case.demands.demanded_windows),
         "num_candidate_satellites": len(candidates),
+        "compute_budget_s": time_budget_s,
+        "budget_warning": (
+            f"Total time {total_time:.1f}s exceeds 90% of budget {time_budget_s}s"
+            if total_time > time_budget_s * 0.9 else None
+        ),
+        "execution_model": {
+            "parallel_mode": parallel_mode,
+            "parallel_enabled": use_parallel,
+            "worker_count": worker_count,
+            "propagation_mode": "parallel" if (use_parallel and not bb_fallback) else "sequential",
+            "link_cache_mode": "parallel" if (use_parallel and not lc_fallback) else "sequential",
+            "parallel_fallback": any_fallback,
+        },
         "mclp_policy": mclp_summary.get("policy", "none"),
         "mclp_baseline_score": mclp_summary.get("baseline_score", 0.0),
         "mclp_selected_score": mclp_summary.get("selected_score", 0.0),
@@ -166,11 +246,16 @@ def main() -> None:
             "build_time_grid": round(t2 - t1, 3),
             "generate_candidates": round(t3 - t2, 3),
             "propagate_backbone": round(t4 - t3, 3),
+            "propagate_backbone_total": round(t4 - t3, 3),
+            "propagate_backbone_per_satellite_ms": [round(v, 3) for v in backbone_timings_ms],
             "propagate_candidates": round(t5 - t4, 3),
+            "propagate_candidates_total": round(t5 - t4, 3),
+            "propagate_candidates_per_satellite_ms": [round(v, 3) for v in candidate_timings_ms],
             "build_link_cache": round(t6 - t5, 3),
+            "build_link_cache_total": round(t6 - t5, 3),
             "mclp_selection": round(t7 - t6, 3),
             "scheduler": round(t8 - t7, 3),
-            "total": round(t8 - t0, 3),
+            "total": round(total_time, 3),
         },
         "scheduler_mode": sched_summary.get("scheduler_mode", "greedy"),
         "scheduler_milp_attempted": sched_summary.get("milp_attempted", False),
@@ -246,6 +331,10 @@ def main() -> None:
         print(f"  MILP attempted: {sched_summary['milp_attempted']}")
         if sched_summary.get("milp_fallback_reason"):
             print(f"  MILP fallback reason: {sched_summary['milp_fallback_reason']}")
+    print(f"  Parallel mode: {parallel_mode}")
+    print(f"  Parallel enabled: {use_parallel}")
+    if any_fallback:
+        print(f"  Parallel fallback: yes (sequential used)")
     print(f"  Actions: {len(actions)} ({sched_summary.get('num_ground_actions', 0)} ground, {sched_summary.get('num_isl_actions', 0)} ISL)")
     print(f"  Local violations: {len(sched_summary.get('local_violations', []))}")
     print(f"  Solution written to: {solution_dir.resolve()}")
