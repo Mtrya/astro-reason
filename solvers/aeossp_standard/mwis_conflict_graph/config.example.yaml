@@ -13,6 +13,7 @@
 # graph_workers: 1
 
 # Graph selection policy
+# backend: internal_reduction
 # selection_policy: weight_degree_end
 # max_exact_component_size: 20
 

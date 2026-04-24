@@ -8,6 +8,7 @@ from itertools import combinations
 import time
 from typing import Any
 
+from .backend import BackendResolution, parse_backend, resolve_backend
 from .candidates import Candidate
 from .graph import ConflictGraph, connected_components
 from .reduction import ReductionResult, reduce_component
@@ -24,6 +25,7 @@ class MwisConfig:
     max_local_passes: int = 8
     population_size: int = 4
     recombination_rounds: int = 6
+    backend: str = "internal_reduction"
 
     @classmethod
     def from_mapping(cls, payload: dict[str, Any] | None) -> "MwisConfig":
@@ -44,6 +46,7 @@ class MwisConfig:
             max_local_passes=max(0, int(payload.get("max_local_passes", 8))),
             population_size=max(1, int(payload.get("population_size", 4))),
             recombination_rounds=max(0, int(payload.get("recombination_rounds", 6))),
+            backend=parse_backend(payload.get("backend")),
         )
 
     def as_dict(self) -> dict[str, Any]:
@@ -105,6 +108,10 @@ class MwisStats:
     recombination_attempt_count: int
     recombination_win_count: int
     incumbent_source: str
+    requested_backend: str = "internal_reduction"
+    backend: str = "internal_reduction"
+    backend_available: bool = True
+    backend_fallback_reason: str | None = None
     reduction_original_vertex_count: int = 0
     reduction_reduced_vertex_count: int = 0
     included_by_reduction_count: int = 0
@@ -137,6 +144,10 @@ class MwisStats:
             "recombination_attempt_count": self.recombination_attempt_count,
             "recombination_win_count": self.recombination_win_count,
             "incumbent_source": self.incumbent_source,
+            "requested_backend": self.requested_backend,
+            "backend": self.backend,
+            "backend_available": self.backend_available,
+            "backend_fallback_reason": self.backend_fallback_reason,
             "reduction_original_vertex_count": self.reduction_original_vertex_count,
             "reduction_reduced_vertex_count": self.reduction_reduced_vertex_count,
             "included_by_reduction_count": self.included_by_reduction_count,
@@ -545,6 +556,75 @@ def _apply_reduction_stats(
     return stats
 
 
+def _select_component_with_backend(
+    component_index: int,
+    component: list[str],
+    candidate_by_id: dict[str, Candidate],
+    adjacency: dict[str, set[str]],
+    *,
+    config: MwisConfig,
+    deadline: float | None,
+    backend: BackendResolution,
+) -> tuple[set[str], ComponentSearchStats, bool]:
+    if backend.backend not in {"internal_reduction", "fallback_python"}:
+        raise RuntimeError(f"unsupported resolved MWIS backend: {backend.backend}")
+    reduction = reduce_component(component, candidate_by_id, adjacency)
+    reduced_component = reduction.active_component
+
+    if len(reduced_component) <= config.max_exact_component_size:
+        reduced_selected = solve_exact_component(
+            reduced_component,
+            candidate_by_id,
+            adjacency,
+            policy=config.selection_policy,
+        )
+        component_selected = reduction.reconstruct(reduced_selected)
+        selected_key = _selected_key(component_selected, candidate_by_id)
+        return (
+            component_selected,
+            ComponentSearchStats(
+                component_index=component_index,
+                component_size=len(component),
+                reduced_component_size=len(reduced_component),
+                mode="exact",
+                baseline_source="exact",
+                incumbent_source="exact",
+                baseline_weight=selected_key[0],
+                baseline_count=len(component_selected),
+                final_weight=selected_key[0],
+                final_count=len(component_selected),
+                initial_population_size=1,
+                local_improvement_count=0,
+                successful_two_swap_count=0,
+                recombination_attempt_count=0,
+                recombination_win_count=0,
+                elapsed_s=0.0,
+                time_limit_hit=False,
+                stop_reason="exact",
+                included_by_reduction_count=reduction.stats.included_by_reduction_count,
+                removed_by_reduction_count=reduction.stats.removed_by_reduction_count,
+                reduction_rule_counts=dict(reduction.stats.rule_counts),
+            ),
+            True,
+        )
+
+    reduced_selected, component_stats = _refine_large_component(
+        component_index,
+        reduced_component,
+        candidate_by_id,
+        adjacency,
+        config=config,
+        deadline=deadline,
+    )
+    component_selected = reduction.reconstruct(reduced_selected)
+    component_stats = _apply_reduction_stats(
+        component_stats,
+        reduction,
+        candidate_by_id,
+    )
+    return component_selected, component_stats, False
+
+
 def _deadline_accounting(
     *,
     search_start: float,
@@ -774,6 +854,7 @@ def select_weighted_independent_set(
     deadline: float | None = None,
 ) -> tuple[list[Candidate], MwisStats]:
     config = config or MwisConfig()
+    backend = resolve_backend(config.backend)
     candidate_by_id = {candidate.candidate_id: candidate for candidate in candidates}
     selected_ids: set[str] = set()
     exact_components = 0
@@ -805,66 +886,27 @@ def select_weighted_independent_set(
     component_sources: list[str] = []
 
     for component_index, component in enumerate(connected_components(graph.adjacency), start=1):
-        reduction = reduce_component(component, candidate_by_id, graph.adjacency)
-        reduction_original_vertex_count += reduction.stats.original_component_size
-        reduction_reduced_vertex_count += reduction.stats.reduced_component_size
-        included_by_reduction_count += reduction.stats.included_by_reduction_count
-        removed_by_reduction_count += reduction.stats.removed_by_reduction_count
-        reduction_rule_counts.update(reduction.stats.rule_counts)
-        reduced_component = reduction.active_component
+        component_selected, component_stats, exact_component = _select_component_with_backend(
+            component_index,
+            component,
+            candidate_by_id,
+            graph.adjacency,
+            config=config,
+            deadline=effective_deadline,
+            backend=backend,
+        )
+        reduction_original_vertex_count += component_stats.component_size
+        reduction_reduced_vertex_count += component_stats.reduced_component_size
+        included_by_reduction_count += component_stats.included_by_reduction_count
+        removed_by_reduction_count += component_stats.removed_by_reduction_count
+        reduction_rule_counts.update(component_stats.reduction_rule_counts)
 
-        if len(reduced_component) <= config.max_exact_component_size:
-            reduced_selected = solve_exact_component(
-                reduced_component,
-                candidate_by_id,
-                graph.adjacency,
-                policy=config.selection_policy,
-            )
-            component_selected = reduction.reconstruct(reduced_selected)
+        if exact_component:
             exact_components += 1
-            selected_key = _selected_key(component_selected, candidate_by_id)
-            component_search.append(
-                ComponentSearchStats(
-                    component_index=component_index,
-                    component_size=len(component),
-                    reduced_component_size=len(reduced_component),
-                    mode="exact",
-                    baseline_source="exact",
-                    incumbent_source="exact",
-                    baseline_weight=selected_key[0],
-                    baseline_count=len(component_selected),
-                    final_weight=selected_key[0],
-                    final_count=len(component_selected),
-                    initial_population_size=1,
-                    local_improvement_count=0,
-                    successful_two_swap_count=0,
-                    recombination_attempt_count=0,
-                    recombination_win_count=0,
-                    elapsed_s=0.0,
-                    time_limit_hit=False,
-                    stop_reason="exact",
-                    included_by_reduction_count=reduction.stats.included_by_reduction_count,
-                    removed_by_reduction_count=reduction.stats.removed_by_reduction_count,
-                    reduction_rule_counts=dict(reduction.stats.rule_counts),
-                )
-            )
+            component_search.append(component_stats)
             component_sources.append("exact")
         else:
             large_components += 1
-            reduced_selected, component_stats = _refine_large_component(
-                component_index,
-                reduced_component,
-                candidate_by_id,
-                graph.adjacency,
-                config=config,
-                deadline=effective_deadline,
-            )
-            component_selected = reduction.reconstruct(reduced_selected)
-            component_stats = _apply_reduction_stats(
-                component_stats,
-                reduction,
-                candidate_by_id,
-            )
             component_search.append(component_stats)
             if component_stats.mode == "refined":
                 refined_components += 1
@@ -912,6 +954,10 @@ def select_weighted_independent_set(
         recombination_attempt_count=recombination_attempt_count,
         recombination_win_count=recombination_win_count,
         incumbent_source=_summarize_global_incumbent_source(component_sources),
+        requested_backend=backend.requested_backend,
+        backend=backend.backend,
+        backend_available=backend.backend_available,
+        backend_fallback_reason=backend.backend_fallback_reason,
         reduction_original_vertex_count=reduction_original_vertex_count,
         reduction_reduced_vertex_count=reduction_reduced_vertex_count,
         included_by_reduction_count=included_by_reduction_count,

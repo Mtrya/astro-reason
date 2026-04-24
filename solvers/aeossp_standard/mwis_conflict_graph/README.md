@@ -106,6 +106,7 @@ Key knobs:
 - `max_candidates_per_task`
 - `candidate_workers`
 - `graph_workers`
+- `backend`
 - `selection_policy`
 - `max_exact_component_size`
 - `max_local_passes`
@@ -119,7 +120,9 @@ Key knobs:
 
 Use `total_time_budget_s` as the main fair-run runtime knob. Candidate generation and graph construction are accounted for before selection starts, and the remaining budget is passed into MWIS refinement. `time_limit_s` remains backward-compatible as a refinement-only cap; when both are set, the earlier deadline wins. If the budget is reached, the solver returns the best incumbent found so far and still performs local validation and repair.
 
-For hard cases, tune refinement effort with `max_local_passes`, `population_size`, and `recombination_rounds` inside the total budget. `graph_workers` can enable satellite-scoped graph-build workers while preserving deterministic edge sets. `status.json` reports the graph-build execution model, the effective selection budget, the deadline source, whether selection began after the total budget was consumed, reduction counts, and compact per-component stop reasons.
+For hard cases, tune refinement effort with `max_local_passes`, `population_size`, and `recombination_rounds` inside the total budget. `graph_workers` can enable satellite-scoped graph-build workers while preserving deterministic edge sets. `status.json` reports the graph-build execution model, the effective selection budget, the deadline source, whether selection began after the total budget was consumed, backend selection, reduction counts, and compact per-component stop reasons.
+
+`backend` defaults to `internal_reduction`, the solver-local reduction-backed Python path. `fallback_python` explicitly selects the same deterministic pure-Python fallback machinery. `redumis` is accepted as an optional backend request, but no external ReduMIS binary is bundled; until one is installed and integrated, the solver reports it unavailable and falls back to `fallback_python`.
 
 Repair defaults to incremental affected-satellite validation after the initial full pass. Set `enable_incremental_repair: false` to force repeated full validation for comparison. Repair status reports objective impact, removals by reason, validation time by iteration, incremental/full validation counts, and fallback count.
 
@@ -202,7 +205,7 @@ If raw graph selection looks strong but repair removes many actions, inspect the
 ## Known Limitations
 
 - This is a reproduction of the paper's method family, not a claim to reproduce every runtime or every table from the paper.
-- The solver implements only a small safe weighted-MWIS reduction subset and does not call an external ReduMIS backend.
+- The solver implements an internal reduction-backed backend interface, but no external ReduMIS backend is bundled.
 - Battery feasibility is handled by solver-local validation and repair instead of being fully encoded as graph conflicts.
 - Full multi-case tuning may be more practical on a server than on a development laptop.
 
