@@ -49,3 +49,43 @@ def write_debug_summary(solution_dir: Path, name: str, payload: dict[str, Any]) 
         json.dumps(payload, indent=2, sort_keys=True) + "\n",
         encoding="utf-8",
     )
+
+
+def write_reproduction_summary(
+    solution_dir: Path,
+    *,
+    mclp_mode: str,
+    scheduler_mode: str,
+    parallel_mode: str,
+    worker_count: int,
+    time_budget_s: int,
+) -> None:
+    """Emit debug/reproduction_summary.json mapping implementation to paper sources."""
+    payload = {
+        "paper_components": {
+            "mclp_candidate_selection": "Rogers et al. MCLP (greedy adaptation; optional small MILP)",
+            "teg_contact_scheduler": "Gerard et al. TEG scheduling (greedy max-weight matching + bounded per-sample MILP)",
+            "orbit_library": "Rogers-style finite orbital slot library",
+            "link_geometry": "Gerard-style ISL visibility with Earth occultation",
+            "parallel_propagation": "Embarrassingly parallel satellite propagation across workers",
+        },
+        "benchmark_adaptations": [
+            "Rogers observation reward (coverage over targets) -> demand-window service-potential score (path diversity via ground+ISL connectivity)",
+            "Rogers fixed cardinality N (exactly N satellites) -> benchmark max_added_satellites upper bound (<= K)",
+            "Gerard capacity objective (maximize temporal flow) -> benchmark action-interval generator (ground_link and inter_satellite_link intervals)",
+            "Gerard retargeting delay (pointing/acquisition overhead) -> NOT modeled; benchmark assumes instant link switching",
+            "Benchmark verifier owns route allocation and latency scoring; solver submits only added_satellites and actions",
+            "Rogers MILP over full candidate set -> greedy marginal-gain heuristic with optional small MILP for <=20 candidates",
+            "Gerard full-horizon MILP scheduler -> bounded per-sample MILP with deterministic greedy fallback",
+        ],
+        "compute_envelope": {
+            "parallel_mode": parallel_mode,
+            "worker_count": worker_count,
+            "time_budget_s": time_budget_s,
+        },
+        "mode_used": {
+            "mclp_mode": mclp_mode,
+            "scheduler_mode": scheduler_mode,
+        },
+    }
+    write_debug_summary(solution_dir, "reproduction_summary", payload)

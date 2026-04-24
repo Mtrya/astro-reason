@@ -15,7 +15,7 @@ from .mclp import greedy_select, milp_select
 from .orbit_library import generate_candidates
 from .propagation import propagate_satellite
 from .scheduler import run_scheduler
-from .solution_io import write_debug_summary, write_solution, write_status
+from .solution_io import write_debug_summary, write_reproduction_summary, write_solution, write_status
 from .time_grid import build_time_grid
 
 
@@ -88,11 +88,12 @@ def main() -> None:
     args = parser.parse_args()
 
     config = _load_config(Path(args.config_dir)) if args.config_dir else {}
-    mclp_mode = config.get("mclp_mode", "auto")  # "auto", "greedy", or "milp"
+    mclp_mode = config.get("mclp_mode", "auto")  # "auto", "greedy", "milp", or "none"
     scheduler_mode = config.get("scheduler_mode", "auto")  # "auto", "greedy", or "milp"
     milp_config = config.get("milp_config", {})
     parallel_mode = config.get("parallel_mode", "auto")  # "auto", "parallel", or "sequential"
     time_budget_s = config.get("time_budget_s", 300)
+    orbit_grid = config.get("orbit_grid", {})
 
     t0 = time.monotonic()
     case = load_case(Path(args.case_dir))
@@ -106,18 +107,25 @@ def main() -> None:
     )
     t2 = time.monotonic()
 
-    # Generate candidate orbit library (conservative grid for speed)
-    candidates = generate_candidates(
-        case.manifest.constraints,
-        altitude_step_m=case.manifest.constraints.max_altitude_m - case.manifest.constraints.min_altitude_m,
-        inclination_step_deg=(
-            (case.manifest.constraints.max_inclination_deg or 180.0)
-            - (case.manifest.constraints.min_inclination_deg or 0.0)
-        ),
-        num_raan_planes=1,
-        num_phase_slots=1,
-    )
-    t3 = time.monotonic()
+    # Generate candidate orbit library (configurable grid)
+    # Skip generation entirely when no candidates will be selected
+    if mclp_mode == "none":
+        candidates = []
+        t3 = time.monotonic()
+    else:
+        og = orbit_grid
+        alt_step = og.get("altitude_step_m")
+        inc_step = og.get("inclination_step_deg")
+        num_raan = og.get("num_raan_planes", 3)
+        num_phase = og.get("num_phase_slots", 2)
+        candidates = generate_candidates(
+            case.manifest.constraints,
+            altitude_step_m=alt_step,
+            inclination_step_deg=inc_step,
+            num_raan_planes=num_raan,
+            num_phase_slots=num_phase,
+        )
+        t3 = time.monotonic()
 
     # Decide whether to use parallel execution
     n_satellites = len(case.network.backbone_satellites) + len(candidates)
@@ -155,7 +163,7 @@ def main() -> None:
     selected: list[Any] = []
     mclp_summary: dict[str, Any] = {"policy": "none", "selected_count": 0}
 
-    if candidates:
+    if candidates and mclp_mode != "none":
         if mclp_mode == "milp":
             milp_result = milp_select(candidates, case, sample_times, link_records)
             if milp_result is not None:
@@ -318,6 +326,14 @@ def main() -> None:
                 for c in selected
             ],
         },
+    )
+    write_reproduction_summary(
+        solution_dir,
+        mclp_mode=mclp_mode,
+        scheduler_mode=sched_summary.get("scheduler_mode", "greedy"),
+        parallel_mode=parallel_mode,
+        worker_count=worker_count,
+        time_budget_s=time_budget_s,
     )
 
     print(f"MCLP+TEG scheduling complete for {case.manifest.case_id}")
