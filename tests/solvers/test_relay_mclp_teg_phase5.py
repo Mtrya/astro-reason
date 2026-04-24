@@ -272,8 +272,8 @@ def test_end_to_end_parallel_and_sequential_equivalence(tmp_path: Path) -> None:
         pytest.skip("Smoke case not available")
 
     configs = [
-        ("parallel", {"parallel_mode": "parallel"}),
-        ("sequential", {"parallel_mode": "sequential", "time_budget_s": 300}),
+        ("parallel", {"parallel_mode": "parallel", "mclp_mode": "none"}),
+        ("sequential", {"parallel_mode": "sequential", "mclp_mode": "none", "time_budget_s": 300}),
     ]
 
     statuses = {}
