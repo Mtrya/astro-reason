@@ -411,6 +411,48 @@ def test_parallel_candidate_generation_preserves_cap_accounting(monkeypatch) -> 
     assert parallel_summary.skipped_cap == 8
 
 
+def test_candidate_generation_precomputes_offsets_once_per_task(monkeypatch) -> None:
+    mission = _mission()
+    case = AeosspCase(
+        case_dir=Path("."),
+        mission=mission,
+        satellites={
+            "sat_a": _satellite("sat_a", "visible"),
+            "sat_b": _satellite("sat_b", "infrared"),
+        },
+        tasks={
+            "task_b": _task("task_b", "infrared"),
+            "task_a": _task("task_a", "visible"),
+        },
+    )
+    _patch_fast_candidate_generation(monkeypatch)
+
+    calls: list[str] = []
+
+    def counted_offsets(case_arg, task, *, stride_multiplier=1):
+        calls.append(task.task_id)
+        return start_offsets_for_task(
+            case_arg,
+            task,
+            stride_multiplier=stride_multiplier,
+        )
+
+    monkeypatch.setattr(
+        "solvers.aeossp_standard.mwis_conflict_graph.src.candidates.start_offsets_for_task",
+        counted_offsets,
+    )
+
+    _, serial_summary = generate_candidates(case, CandidateConfig(candidate_workers=1))
+    assert calls == ["task_a", "task_b"]
+    assert serial_summary.candidate_precompute["total_start_offsets"] == 6
+    assert "geometry_cache" in serial_summary.as_dict()
+
+    calls.clear()
+    _, parallel_summary = generate_candidates(case, CandidateConfig(candidate_workers=2))
+    assert calls == ["task_a", "task_b"]
+    assert parallel_summary.candidate_precompute == serial_summary.candidate_precompute
+
+
 def test_candidate_config_parses_candidate_workers() -> None:
     assert CandidateConfig.from_mapping({}).candidate_workers == 1
     assert CandidateConfig.from_mapping({"candidate_workers": "2"}).candidate_workers == 2
@@ -1050,6 +1092,8 @@ def test_status_payload_reports_execution_model_and_timing_schema(tmp_path: Path
     assert status["execution_model"]["candidate_generation"]["configured_workers"] == 2
     assert status["execution_model"]["candidate_generation"]["effective_workers"] == 2
     assert status["execution_model"]["graph_build"]["model"] == "single_threaded_python"
+    assert "candidate_precompute" in status
+    assert "geometry_cache" in status
     assert status["execution_model"]["search"]["budget_field"] == "time_limit_s"
     assert status["budget"]["configured"]["total_time_budget_s"] is None
     assert not status["budget"]["budget_hit"]
