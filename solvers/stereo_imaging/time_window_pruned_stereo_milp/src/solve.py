@@ -194,8 +194,12 @@ def main(argv: list[str] | None = None) -> int:
                     "sample_valid_pairs": [
                         {
                             "sat_id": p.sat_id,
+                            "satellite_ids": list(p.satellite_ids),
                             "target_id": p.target_id,
                             "access_interval_id": p.access_interval_id,
+                            "access_interval_ids": list(p.access_interval_ids),
+                            "pair_mode": p.pair_mode,
+                            "time_separation_s": p.time_separation_s,
                             "convergence_deg": p.convergence_deg,
                             "overlap_fraction": p.overlap_fraction,
                             "pixel_scale_ratio": p.pixel_scale_ratio,
@@ -207,8 +211,10 @@ def main(argv: list[str] | None = None) -> int:
                     "sample_valid_tris": [
                         {
                             "sat_id": t.sat_id,
+                            "satellite_ids": list(t.satellite_ids),
                             "target_id": t.target_id,
                             "access_interval_id": t.access_interval_id,
+                            "access_interval_ids": list(t.access_interval_ids),
                             "common_overlap_fraction": t.common_overlap_fraction,
                             "pair_valid_flags": t.pair_valid_flags,
                             "has_anchor": t.has_anchor,

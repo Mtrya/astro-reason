@@ -80,7 +80,7 @@ class Mission:
     horizon_start: datetime
     horizon_end: datetime
     allow_cross_satellite_stereo: bool
-    allow_cross_date_stereo: bool
+    max_stereo_pair_separation_s: float
     validity_thresholds: ValidityThresholds
     quality_model: QualityModel
 
@@ -160,9 +160,7 @@ class CandidateSummary:
 
 @dataclass(frozen=True)
 class StereoPair:
-    sat_id: str
     target_id: str
-    access_interval_id: str
     candidate_i: CandidateObservation
     candidate_j: CandidateObservation
     convergence_deg: float
@@ -173,13 +171,56 @@ class StereoPair:
     q_overlap: float
     q_res: float
     q_pair: float
+    time_separation_s: float | None = None
+    satellite_ids: tuple[str, str] | None = None
+    access_interval_ids: tuple[str, str] | None = None
+    pair_mode: str | None = None
+
+    def __post_init__(self) -> None:
+        time_separation_s = self.time_separation_s
+        if time_separation_s is None:
+            mid_i = self.candidate_i.start + (self.candidate_i.end - self.candidate_i.start) / 2
+            mid_j = self.candidate_j.start + (self.candidate_j.end - self.candidate_j.start) / 2
+            time_separation_s = abs((mid_j - mid_i).total_seconds())
+        satellite_ids = self.satellite_ids
+        if satellite_ids is None:
+            satellite_ids = (self.candidate_i.sat_id, self.candidate_j.sat_id)
+        access_interval_ids = self.access_interval_ids
+        if access_interval_ids is None:
+            access_interval_ids = (
+                self.candidate_i.access_interval_id,
+                self.candidate_j.access_interval_id,
+            )
+        pair_mode = self.pair_mode
+        if pair_mode is None:
+            if satellite_ids[0] == satellite_ids[1] and access_interval_ids[0] == access_interval_ids[1]:
+                pair_mode = "same_satellite_same_pass"
+            elif satellite_ids[0] != satellite_ids[1]:
+                pair_mode = "cross_satellite"
+            else:
+                pair_mode = "same_satellite_other_interval"
+
+        object.__setattr__(self, "time_separation_s", float(time_separation_s))
+        object.__setattr__(self, "satellite_ids", satellite_ids)
+        object.__setattr__(self, "access_interval_ids", access_interval_ids)
+        object.__setattr__(self, "pair_mode", pair_mode)
+
+    @property
+    def sat_id(self) -> str:
+        if self.satellite_ids[0] == self.satellite_ids[1]:
+            return self.satellite_ids[0]
+        return "__cross_satellite__"
+
+    @property
+    def access_interval_id(self) -> str:
+        if self.access_interval_ids[0] == self.access_interval_ids[1]:
+            return self.access_interval_ids[0]
+        return "__multiple_intervals__"
 
 
 @dataclass(frozen=True)
 class TriStereoSet:
-    sat_id: str
     target_id: str
-    access_interval_id: str
     candidates: tuple[CandidateObservation, CandidateObservation, CandidateObservation]
     common_overlap_fraction: float
     pair_valid_flags: list[bool]
@@ -187,6 +228,31 @@ class TriStereoSet:
     has_anchor: bool
     valid: bool
     q_tri: float
+    satellite_ids: tuple[str, str, str] | None = None
+    access_interval_ids: tuple[str, str, str] | None = None
+
+    def __post_init__(self) -> None:
+        satellite_ids = self.satellite_ids
+        if satellite_ids is None:
+            satellite_ids = tuple(c.sat_id for c in self.candidates)
+        access_interval_ids = self.access_interval_ids
+        if access_interval_ids is None:
+            access_interval_ids = tuple(c.access_interval_id for c in self.candidates)
+
+        object.__setattr__(self, "satellite_ids", satellite_ids)
+        object.__setattr__(self, "access_interval_ids", access_interval_ids)
+
+    @property
+    def sat_id(self) -> str:
+        if self.satellite_ids[0] == self.satellite_ids[1] == self.satellite_ids[2]:
+            return self.satellite_ids[0]
+        return "__multi_satellite__"
+
+    @property
+    def access_interval_id(self) -> str:
+        if self.access_interval_ids[0] == self.access_interval_ids[1] == self.access_interval_ids[2]:
+            return self.access_interval_ids[0]
+        return "__multiple_intervals__"
 
 
 @dataclass
@@ -195,13 +261,19 @@ class ProductSummary:
     valid_pairs: int = 0
     total_tris: int = 0
     valid_tris: int = 0
+    pair_mode_counts: dict[str, int] = field(default_factory=dict)
+    valid_pair_mode_counts: dict[str, int] = field(default_factory=dict)
+    multi_satellite_tris: int = 0
+    valid_multi_satellite_tris: int = 0
     by_target: dict[str, dict[str, Any]] = field(default_factory=dict)
     approximation_flags: dict[str, Any] = field(default_factory=dict)
 
     def record_pair(self, pair: StereoPair) -> None:
         self.total_pairs += 1
+        self.pair_mode_counts[pair.pair_mode] = self.pair_mode_counts.get(pair.pair_mode, 0) + 1
         if pair.valid:
             self.valid_pairs += 1
+            self.valid_pair_mode_counts[pair.pair_mode] = self.valid_pair_mode_counts.get(pair.pair_mode, 0) + 1
         td = self.by_target.setdefault(pair.target_id, {"pairs": 0, "valid_pairs": 0, "tris": 0, "valid_tris": 0, "best_q": 0.0})
         td["pairs"] += 1
         if pair.valid:
@@ -211,8 +283,12 @@ class ProductSummary:
 
     def record_tri(self, tri: TriStereoSet) -> None:
         self.total_tris += 1
+        if len(set(tri.satellite_ids)) > 1:
+            self.multi_satellite_tris += 1
         if tri.valid:
             self.valid_tris += 1
+            if len(set(tri.satellite_ids)) > 1:
+                self.valid_multi_satellite_tris += 1
         td = self.by_target.setdefault(tri.target_id, {"pairs": 0, "valid_pairs": 0, "tris": 0, "valid_tris": 0, "best_q": 0.0})
         td["tris"] += 1
         if tri.valid:
@@ -226,6 +302,10 @@ class ProductSummary:
             "valid_pairs": self.valid_pairs,
             "total_tris": self.total_tris,
             "valid_tris": self.valid_tris,
+            "pair_mode_counts": dict(self.pair_mode_counts),
+            "valid_pair_mode_counts": dict(self.valid_pair_mode_counts),
+            "multi_satellite_tris": self.multi_satellite_tris,
+            "valid_multi_satellite_tris": self.valid_multi_satellite_tris,
             "by_target": dict(self.by_target),
             "approximation_flags": dict(self.approximation_flags),
         }

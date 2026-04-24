@@ -442,7 +442,11 @@ def solve_greedy_fallback(
             "quality": pv["pair"].q_pair,
             "target_id": pv["pair"].target_id,
             "sat_id": pv["pair"].sat_id,
+            "satellite_ids": list(pv["pair"].satellite_ids),
             "interval_id": pv["pair"].access_interval_id,
+            "access_interval_ids": list(pv["pair"].access_interval_ids),
+            "pair_mode": pv["pair"].pair_mode,
+            "time_separation_s": pv["pair"].time_separation_s,
             "start": pv["pair"].candidate_i.start,
         })
     for k, tv in enumerate(model.tri_vars):
@@ -453,7 +457,9 @@ def solve_greedy_fallback(
             "quality": tv["tri"].q_tri,
             "target_id": tv["tri"].target_id,
             "sat_id": tv["tri"].sat_id,
+            "satellite_ids": list(tv["tri"].satellite_ids),
             "interval_id": tv["tri"].access_interval_id,
+            "access_interval_ids": list(tv["tri"].access_interval_ids),
             "start": tv["tri"].candidates[0].start,
         })
 

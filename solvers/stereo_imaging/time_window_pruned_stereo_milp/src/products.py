@@ -48,6 +48,38 @@ class _CandidateGeometry:
     strip_half_width_m: float
 
 
+def _candidate_midpoint(cand: CandidateObservation):
+    return cand.start + (cand.end - cand.start) / 2
+
+
+def _product_time_separation_s(candidates: tuple[CandidateObservation, ...] | list[CandidateObservation]) -> float:
+    if len(candidates) < 2:
+        return 0.0
+    midpoints = [_candidate_midpoint(cand) for cand in candidates]
+    return (max(midpoints) - min(midpoints)).total_seconds()
+
+
+def _stereo_pair_mode(
+    mission: Mission,
+    cand_i: CandidateObservation,
+    cand_j: CandidateObservation,
+) -> str | None:
+    if cand_i.target_id != cand_j.target_id:
+        return None
+    if cand_i.access_interval_id == "none" or cand_j.access_interval_id == "none":
+        return None
+    separation_s = _product_time_separation_s((cand_i, cand_j))
+    if separation_s - 1e-6 > mission.max_stereo_pair_separation_s:
+        return None
+    if cand_i.sat_id == cand_j.sat_id:
+        if cand_i.access_interval_id != cand_j.access_interval_id:
+            return None
+        return "same_satellite_same_pass"
+    if not mission.allow_cross_satellite_stereo:
+        return None
+    return "cross_satellite"
+
+
 def _pair_geom_quality(gamma_deg: float, scene: str) -> float:
     lo, hi = _SCENE_GEOM_BANDS_DEG.get(scene, (8.0, 18.0))
     if lo <= gamma_deg <= hi:
@@ -97,10 +129,10 @@ def evaluate_pair(
     cand_j: CandidateObservation,
     geo_i: _CandidateGeometry,
     geo_j: _CandidateGeometry,
-    sat: Satellite,
     target: Target,
     mission: Mission,
     config: dict[str, Any],
+    pair_mode: str,
 ) -> StereoPair:
     te = target_ecef_m(target)
     ui = (geo_i.sat_pos_m - te) / np.linalg.norm(geo_i.sat_pos_m - te)
@@ -133,11 +165,10 @@ def evaluate_pair(
     q_res = max(0.0, 1.0 - (ps_ratio - 1.0) / 0.5)
     w = mission.quality_model.pair_weights
     q_pair = w["geometry"] * q_geom + w["overlap"] * q_overlap + w["resolution"] * q_res
+    time_separation_s = _product_time_separation_s((cand_i, cand_j))
 
     return StereoPair(
-        sat_id=sat.id,
         target_id=target.id,
-        access_interval_id=cand_i.access_interval_id,
         candidate_i=cand_i,
         candidate_j=cand_j,
         convergence_deg=gamma,
@@ -148,6 +179,10 @@ def evaluate_pair(
         q_overlap=q_overlap,
         q_res=q_res,
         q_pair=q_pair,
+        time_separation_s=time_separation_s,
+        satellite_ids=(cand_i.sat_id, cand_j.sat_id),
+        access_interval_ids=(cand_i.access_interval_id, cand_j.access_interval_id),
+        pair_mode=pair_mode,
     )
 
 
@@ -156,7 +191,6 @@ def evaluate_tri(
     geos: tuple[_CandidateGeometry, _CandidateGeometry, _CandidateGeometry],
     pair_results: dict[tuple[int, int], StereoPair],
     indices: tuple[int, int, int],
-    sat: Satellite,
     target: Target,
     mission: Mission,
     config: dict[str, Any],
@@ -203,9 +237,7 @@ def evaluate_tri(
     q_tri = min(1.0, (max(valid_qs) if valid_qs else 0.0) + beta * r)
 
     return TriStereoSet(
-        sat_id=sat.id,
         target_id=target.id,
-        access_interval_id=cands[0].access_interval_id,
         candidates=cands,
         common_overlap_fraction=common_overlap,
         pair_valid_flags=pair_flags,
@@ -213,6 +245,8 @@ def evaluate_tri(
         has_anchor=has_anchor,
         valid=valid,
         q_tri=q_tri,
+        satellite_ids=tuple(c.sat_id for c in cands),
+        access_interval_ids=tuple(c.access_interval_id for c in cands),
     )
 
 
@@ -225,10 +259,9 @@ def enumerate_products(
 ) -> tuple[list[StereoPair], list[TriStereoSet], ProductSummary]:
     strip_step_s = float(config.get("strip_sample_step_s", 8.0))
 
-    groups: dict[tuple[str, str, str], list[CandidateObservation]] = {}
+    groups: dict[str, list[CandidateObservation]] = {}
     for cand in candidates:
-        key = (cand.sat_id, cand.target_id, cand.access_interval_id)
-        groups.setdefault(key, []).append(cand)
+        groups.setdefault(cand.target_id, []).append(cand)
 
     pairs: list[StereoPair] = []
     tris: list[TriStereoSet] = []
@@ -239,16 +272,31 @@ def enumerate_products(
         "overlap_grid_radii": int(config.get("overlap_grid_radii", 3)),
         "strip_sample_step_s": strip_step_s,
         "pixel_scale_secant_correction": True,
+        "pair_policy": "benchmark_same_pass_or_cross_satellite_with_midpoint_bound",
         "note": "Overlap is grid-approximated; pixel scale includes off-nadir secant correction.",
     }
 
-    for (sat_id, target_id, interval_id), group in groups.items():
+    for target_id, group in groups.items():
         if len(group) < 2:
             continue
-        sat = satellites[sat_id]
         target = targets[target_id]
-        group_sorted = sorted(group, key=lambda c: c.start)
-        geos = [_precompute_candidate_geometry(c, sat, target, strip_step_s) for c in group_sorted]
+        group_sorted = sorted(
+            group,
+            key=lambda c: (
+                c.start,
+                c.end,
+                c.sat_id,
+                c.access_interval_id,
+                c.off_nadir_along_deg,
+                c.off_nadir_across_deg,
+            ),
+        )
+        geos = [
+            _precompute_candidate_geometry(c, satellites[c.sat_id], target, strip_step_s)
+            if c.sat_id in satellites
+            else None
+            for c in group_sorted
+        ]
         # skip any candidate whose geometry failed (None)
         valid_indices = [idx for idx, g in enumerate(geos) if g is not None]
         if len(valid_indices) < 2:
@@ -259,8 +307,11 @@ def enumerate_products(
             for b_idx in range(a_idx + 1, len(valid_indices)):
                 i = valid_indices[a_idx]
                 j = valid_indices[b_idx]
+                pair_mode = _stereo_pair_mode(mission, group_sorted[i], group_sorted[j])
+                if pair_mode is None:
+                    continue
                 pair = evaluate_pair(
-                    group_sorted[i], group_sorted[j], geos[i], geos[j], sat, target, mission, config
+                    group_sorted[i], group_sorted[j], geos[i], geos[j], target, mission, config, pair_mode
                 )
                 pairs.append(pair)
                 summary.record_pair(pair)
@@ -273,12 +324,14 @@ def enumerate_products(
                         i = valid_indices[a_idx]
                         j = valid_indices[b_idx]
                         k = valid_indices[c_idx]
+                        edge_keys = ((i, j), (i, k), (j, k))
+                        if any(edge not in pair_results for edge in edge_keys):
+                            continue
                         tri = evaluate_tri(
                             (group_sorted[i], group_sorted[j], group_sorted[k]),
                             (geos[i], geos[j], geos[k]),
                             pair_results,
                             (i, j, k),
-                            sat,
                             target,
                             mission,
                             config,

@@ -27,11 +27,13 @@ from models import (  # noqa: E402
 from products import (  # noqa: E402
     _pair_geom_quality,
     _precompute_candidate_geometry,
+    _stereo_pair_mode,
     _tri_bonus_R,
     evaluate_pair,
     evaluate_tri,
     enumerate_products,
 )
+from case_io import load_case as solver_load_case  # noqa: E402
 from milp_model import (  # noqa: E402
     build_conflict_graph,
     build_milp,
@@ -92,6 +94,8 @@ def _target(
 
 def _mission(
     *,
+    allow_cross_satellite_stereo: bool = False,
+    max_stereo_pair_separation_s: float = 3600.0,
     min_overlap_fraction: float = 0.8,
     min_convergence_deg: float = 5.0,
     max_convergence_deg: float = 45.0,
@@ -102,8 +106,8 @@ def _mission(
     return Mission(
         horizon_start=datetime(2026, 6, 18, 0, 0, 0, tzinfo=UTC),
         horizon_end=datetime(2026, 6, 19, 0, 0, 0, tzinfo=UTC),
-        allow_cross_satellite_stereo=False,
-        allow_cross_date_stereo=False,
+        allow_cross_satellite_stereo=allow_cross_satellite_stereo,
+        max_stereo_pair_separation_s=max_stereo_pair_separation_s,
         validity_thresholds=ValidityThresholds(
             min_overlap_fraction=min_overlap_fraction,
             min_convergence_deg=min_convergence_deg,
@@ -180,6 +184,109 @@ class TestTriBonusR:
 
     def test_no_pairs_anchor_only(self):
         assert _tri_bonus_R([False, False, False], True) == pytest.approx(0.4)
+
+
+class TestContractAlignment:
+    def test_load_case_keeps_max_stereo_pair_separation(self):
+        case_dir = (
+            REPO_ROOT
+            / "benchmarks"
+            / "stereo_imaging"
+            / "dataset"
+            / "cases"
+            / "test"
+            / "case_0001"
+        )
+        mission, satellites, targets = solver_load_case(case_dir)
+
+        assert mission.allow_cross_satellite_stereo is True
+        assert mission.max_stereo_pair_separation_s == pytest.approx(3600.0)
+        assert satellites
+        assert targets
+
+    def test_stereo_pair_representation_handles_cross_satellite_metadata(self):
+        c1 = _candidate(sat_id="sat_a", interval_id="sat_a::t1::0")
+        c2 = _candidate(sat_id="sat_b", interval_id="sat_b::t1::2", start_offset_s=30, end_offset_s=40)
+
+        pair = StereoPair(
+            target_id="t1",
+            candidate_i=c1,
+            candidate_j=c2,
+            convergence_deg=10.0,
+            overlap_fraction=0.9,
+            pixel_scale_ratio=1.0,
+            valid=True,
+            q_geom=1.0,
+            q_overlap=1.0,
+            q_res=1.0,
+            q_pair=0.95,
+        )
+
+        assert pair.satellite_ids == ("sat_a", "sat_b")
+        assert pair.access_interval_ids == ("sat_a::t1::0", "sat_b::t1::2")
+        assert pair.pair_mode == "cross_satellite"
+        assert pair.sat_id == "__cross_satellite__"
+        assert pair.access_interval_id == "__multiple_intervals__"
+
+    def test_tri_representation_handles_multi_satellite_metadata(self):
+        c1 = _candidate(sat_id="sat_a", interval_id="sat_a::t1::0")
+        c2 = _candidate(sat_id="sat_b", interval_id="sat_b::t1::1", start_offset_s=20, end_offset_s=30)
+        c3 = _candidate(sat_id="sat_c", interval_id="sat_c::t1::2", start_offset_s=40, end_offset_s=50)
+
+        from models import TriStereoSet
+
+        tri = TriStereoSet(
+            target_id="t1",
+            candidates=(c1, c2, c3),
+            common_overlap_fraction=0.85,
+            pair_valid_flags=[True, True, False],
+            pair_qs=[0.8, 0.75, 0.0],
+            has_anchor=True,
+            valid=True,
+            q_tri=0.9,
+        )
+
+        assert tri.satellite_ids == ("sat_a", "sat_b", "sat_c")
+        assert tri.access_interval_ids == ("sat_a::t1::0", "sat_b::t1::1", "sat_c::t1::2")
+        assert tri.sat_id == "__multi_satellite__"
+        assert tri.access_interval_id == "__multiple_intervals__"
+
+
+class TestPairPolicy:
+    def test_stereo_pair_mode_accepts_same_satellite_same_pass(self):
+        mission = _mission()
+        c1 = _candidate(sat_id="sat_a", interval_id="i1", start_offset_s=0, end_offset_s=10)
+        c2 = _candidate(sat_id="sat_a", interval_id="i1", start_offset_s=20, end_offset_s=30)
+
+        assert _stereo_pair_mode(mission, c1, c2) == "same_satellite_same_pass"
+
+    def test_stereo_pair_mode_rejects_same_satellite_other_interval(self):
+        mission = _mission()
+        c1 = _candidate(sat_id="sat_a", interval_id="i1", start_offset_s=0, end_offset_s=10)
+        c2 = _candidate(sat_id="sat_a", interval_id="i2", start_offset_s=20, end_offset_s=30)
+
+        assert _stereo_pair_mode(mission, c1, c2) is None
+
+    def test_stereo_pair_mode_respects_cross_satellite_policy(self):
+        c1 = _candidate(sat_id="sat_a", interval_id="i1", start_offset_s=0, end_offset_s=10)
+        c2 = _candidate(sat_id="sat_b", interval_id="j1", start_offset_s=20, end_offset_s=30)
+
+        assert _stereo_pair_mode(_mission(allow_cross_satellite_stereo=False), c1, c2) is None
+        assert _stereo_pair_mode(_mission(allow_cross_satellite_stereo=True), c1, c2) == "cross_satellite"
+
+    def test_stereo_pair_mode_accepts_exact_time_separation_bound(self):
+        mission = _mission(allow_cross_satellite_stereo=True, max_stereo_pair_separation_s=20.0)
+        c1 = _candidate(sat_id="sat_a", interval_id="i1", start_offset_s=0, end_offset_s=10)
+        c2 = _candidate(sat_id="sat_b", interval_id="j1", start_offset_s=20, end_offset_s=30)
+
+        assert _stereo_pair_mode(mission, c1, c2) == "cross_satellite"
+
+    def test_stereo_pair_mode_rejects_time_separation_above_bound(self):
+        mission = _mission(allow_cross_satellite_stereo=True, max_stereo_pair_separation_s=19.0)
+        c1 = _candidate(sat_id="sat_a", interval_id="i1", start_offset_s=0, end_offset_s=10)
+        c2 = _candidate(sat_id="sat_b", interval_id="j1", start_offset_s=20, end_offset_s=30)
+
+        assert _stereo_pair_mode(mission, c1, c2) is None
 
 
 # ---------------------------------------------------------------------------
@@ -458,8 +565,8 @@ class TestEvaluateTri:
 # ---------------------------------------------------------------------------
 
 class TestEnumerateProducts:
-    def test_only_same_interval_produces_pairs(self, monkeypatch):
-        sat = _satellite()
+    def test_same_satellite_different_interval_is_rejected(self, monkeypatch):
+        sat = _satellite(sat_id="sat_a")
         target = _target()
         mission = _mission()
         config = {"overlap_grid_angles": 4, "overlap_grid_radii": 1}
@@ -481,10 +588,226 @@ class TestEnumerateProducts:
         c1 = _candidate(interval_id="i1")
         c2 = _candidate(interval_id="i1")
         c3 = _candidate(interval_id="i2")
-        pairs, tris, summary = enumerate_products([c1, c2, c3], {"sat_test": sat}, {"t1": target}, mission, config)
-        assert len(pairs) == 1  # only (c1,c2)
+        pairs, tris, summary = enumerate_products([c1, c2, c3], {"sat_test": sat, "sat_a": sat}, {"t1": target}, mission, config)
+        assert len(pairs) == 1
         assert pairs[0].access_interval_id == "i1"
         assert len(tris) == 0
+
+    def test_cross_satellite_pair_enumerates_when_mission_allowed(self, monkeypatch):
+        sat_a = _satellite(sat_id="sat_a")
+        sat_b = _satellite(sat_id="sat_b")
+        target = _target()
+        mission = _mission(allow_cross_satellite_stereo=True, max_stereo_pair_separation_s=30.0)
+        config = {"overlap_grid_angles": 4, "overlap_grid_radii": 1}
+
+        def fake_precompute(cand, sat, target, step):
+            from products import _CandidateGeometry
+
+            te = np.array([0.0, 0.0, 6378137.0])
+            angle_deg = {"sat_a": 0.0, "sat_b": 10.0}.get(cand.sat_id, 0.0)
+            angle = math.radians(angle_deg)
+            sp = np.array([math.sin(angle) * 7e6, 0.0, math.cos(angle) * 7e6])
+            return _CandidateGeometry(
+                sat_pos_m=sp,
+                boresight_ground_m=te,
+                slant_range_m=1e6,
+                pixel_scale_m=1.0,
+                strip_polyline_en=[(0.0, -5000.0), (0.0, 5000.0)],
+                strip_half_width_m=1e6,
+            )
+
+        monkeypatch.setattr("products._precompute_candidate_geometry", fake_precompute)
+
+        c1 = _candidate(sat_id="sat_a", interval_id="sat_a::t1::0", start_offset_s=0, end_offset_s=10)
+        c2 = _candidate(sat_id="sat_b", interval_id="sat_b::t1::1", start_offset_s=20, end_offset_s=30)
+
+        pairs, tris, summary = enumerate_products(
+            [c1, c2],
+            {"sat_a": sat_a, "sat_b": sat_b},
+            {"t1": target},
+            mission,
+            config,
+        )
+
+        assert len(pairs) == 1
+        assert len(tris) == 0
+        pair = pairs[0]
+        assert pair.valid is True
+        assert pair.pair_mode == "cross_satellite"
+        assert pair.satellite_ids == ("sat_a", "sat_b")
+        assert pair.access_interval_ids == ("sat_a::t1::0", "sat_b::t1::1")
+        assert pair.time_separation_s == pytest.approx(20.0)
+        assert summary.pair_mode_counts == {"cross_satellite": 1}
+        assert summary.valid_pair_mode_counts == {"cross_satellite": 1}
+
+    def test_cross_satellite_pair_rejected_when_mission_disabled(self, monkeypatch):
+        sat_a = _satellite(sat_id="sat_a")
+        sat_b = _satellite(sat_id="sat_b")
+        target = _target()
+        mission = _mission(allow_cross_satellite_stereo=False)
+        config = {"overlap_grid_angles": 4, "overlap_grid_radii": 1}
+
+        def fake_precompute(cand, sat, target, step):
+            from products import _CandidateGeometry
+
+            te = np.array([0.0, 0.0, 6378137.0])
+            angle_deg = {"sat_a": 0.0, "sat_b": 10.0}.get(cand.sat_id, 0.0)
+            angle = math.radians(angle_deg)
+            sp = np.array([math.sin(angle) * 7e6, 0.0, math.cos(angle) * 7e6])
+            return _CandidateGeometry(
+                sat_pos_m=sp,
+                boresight_ground_m=te,
+                slant_range_m=1e6,
+                pixel_scale_m=1.0,
+                strip_polyline_en=[(0.0, -5000.0), (0.0, 5000.0)],
+                strip_half_width_m=1e6,
+            )
+
+        monkeypatch.setattr("products._precompute_candidate_geometry", fake_precompute)
+
+        c1 = _candidate(sat_id="sat_a", interval_id="sat_a::t1::0", start_offset_s=0, end_offset_s=10)
+        c2 = _candidate(sat_id="sat_b", interval_id="sat_b::t1::1", start_offset_s=20, end_offset_s=30)
+
+        pairs, tris, summary = enumerate_products(
+            [c1, c2],
+            {"sat_a": sat_a, "sat_b": sat_b},
+            {"t1": target},
+            mission,
+            config,
+        )
+
+        assert len(pairs) == 0
+        assert len(tris) == 0
+        assert summary.total_pairs == 0
+        assert summary.pair_mode_counts == {}
+
+    def test_pair_above_separation_bound_is_rejected(self, monkeypatch):
+        sat_a = _satellite(sat_id="sat_a")
+        sat_b = _satellite(sat_id="sat_b")
+        target = _target()
+        mission = _mission(allow_cross_satellite_stereo=True, max_stereo_pair_separation_s=10.0)
+        config = {"overlap_grid_angles": 4, "overlap_grid_radii": 1}
+
+        def fake_precompute(cand, sat, target, step):
+            from products import _CandidateGeometry
+
+            te = np.array([0.0, 0.0, 6378137.0])
+            angle_deg = {"sat_a": 0.0, "sat_b": 10.0}.get(cand.sat_id, 0.0)
+            angle = math.radians(angle_deg)
+            sp = np.array([math.sin(angle) * 7e6, 0.0, math.cos(angle) * 7e6])
+            return _CandidateGeometry(
+                sat_pos_m=sp,
+                boresight_ground_m=te,
+                slant_range_m=1e6,
+                pixel_scale_m=1.0,
+                strip_polyline_en=[(0.0, -5000.0), (0.0, 5000.0)],
+                strip_half_width_m=1e6,
+            )
+
+        monkeypatch.setattr("products._precompute_candidate_geometry", fake_precompute)
+
+        c1 = _candidate(sat_id="sat_a", interval_id="sat_a::t1::0", start_offset_s=0, end_offset_s=10)
+        c2 = _candidate(sat_id="sat_b", interval_id="sat_b::t1::1", start_offset_s=20, end_offset_s=30)
+
+        pairs, tris, summary = enumerate_products(
+            [c1, c2],
+            {"sat_a": sat_a, "sat_b": sat_b},
+            {"t1": target},
+            mission,
+            config,
+        )
+
+        assert len(pairs) == 0
+        assert len(tris) == 0
+        assert summary.total_pairs == 0
+
+    def test_cross_satellite_tri_requires_policy_compliant_edges(self, monkeypatch):
+        sat_a = _satellite(sat_id="sat_a")
+        sat_b = _satellite(sat_id="sat_b")
+        target = _target()
+        mission = _mission(allow_cross_satellite_stereo=True, max_stereo_pair_separation_s=40.0)
+        config = {"overlap_grid_angles": 4, "overlap_grid_radii": 1}
+
+        def fake_precompute(cand, sat, target, step):
+            from products import _CandidateGeometry
+
+            te = np.array([0.0, 0.0, 6378137.0])
+            angle_deg = {"sat_a": 0.0, "sat_b": 10.0}.get(cand.sat_id, 0.0)
+            angle = math.radians(angle_deg)
+            sp = np.array([math.sin(angle) * 7e6, 0.0, math.cos(angle) * 7e6])
+            return _CandidateGeometry(
+                sat_pos_m=sp,
+                boresight_ground_m=te,
+                slant_range_m=1e6,
+                pixel_scale_m=1.0,
+                strip_polyline_en=[(0.0, -5000.0), (0.0, 5000.0)],
+                strip_half_width_m=1e6,
+            )
+
+        monkeypatch.setattr("products._precompute_candidate_geometry", fake_precompute)
+
+        c1 = _candidate(sat_id="sat_a", interval_id="sat_a::t1::0", start_offset_s=0, end_offset_s=10)
+        c2 = _candidate(sat_id="sat_b", interval_id="sat_b::t1::1", start_offset_s=10, end_offset_s=20)
+        c3 = _candidate(sat_id="sat_a", interval_id="sat_a::t1::2", start_offset_s=20, end_offset_s=30)
+
+        pairs, tris, summary = enumerate_products(
+            [c1, c2, c3],
+            {"sat_a": sat_a, "sat_b": sat_b},
+            {"t1": target},
+            mission,
+            config,
+        )
+
+        assert len(pairs) == 2
+        assert len(tris) == 0
+        assert summary.total_pairs == 2
+        assert summary.total_tris == 0
+
+    def test_cross_satellite_tri_can_enumerate(self, monkeypatch):
+        sat_a = _satellite(sat_id="sat_a")
+        sat_b = _satellite(sat_id="sat_b")
+        sat_c = _satellite(sat_id="sat_c")
+        target = _target()
+        mission = _mission(allow_cross_satellite_stereo=True, max_stereo_pair_separation_s=40.0)
+        config = {"overlap_grid_angles": 4, "overlap_grid_radii": 1}
+
+        def fake_precompute(cand, sat, target, step):
+            from products import _CandidateGeometry
+
+            te = np.array([0.0, 0.0, 6378137.0])
+            angle_deg = {"sat_a": 0.0, "sat_b": 10.0, "sat_c": 20.0}.get(cand.sat_id, 0.0)
+            angle = math.radians(angle_deg)
+            sp = np.array([math.sin(angle) * 7e6, 0.0, math.cos(angle) * 7e6])
+            return _CandidateGeometry(
+                sat_pos_m=sp,
+                boresight_ground_m=te,
+                slant_range_m=1e6,
+                pixel_scale_m=1.0,
+                strip_polyline_en=[(0.0, -5000.0), (0.0, 5000.0)],
+                strip_half_width_m=1e6,
+            )
+
+        monkeypatch.setattr("products._precompute_candidate_geometry", fake_precompute)
+
+        c1 = _candidate(sat_id="sat_a", interval_id="sat_a::t1::0", start_offset_s=0, end_offset_s=10)
+        c2 = _candidate(sat_id="sat_b", interval_id="sat_b::t1::1", start_offset_s=10, end_offset_s=20)
+        c3 = _candidate(sat_id="sat_c", interval_id="sat_c::t1::2", start_offset_s=20, end_offset_s=30)
+
+        pairs, tris, summary = enumerate_products(
+            [c1, c2, c3],
+            {"sat_a": sat_a, "sat_b": sat_b, "sat_c": sat_c},
+            {"t1": target},
+            mission,
+            config,
+        )
+
+        assert len(pairs) == 3
+        assert all(pair.valid for pair in pairs)
+        assert len(tris) == 1
+        assert tris[0].valid is True
+        assert tris[0].satellite_ids == ("sat_a", "sat_b", "sat_c")
+        assert summary.multi_satellite_tris == 1
+        assert summary.valid_multi_satellite_tris == 1
 
 
 # ---------------------------------------------------------------------------
@@ -1329,9 +1652,7 @@ class TestRepair:
         # c2 and c4 overlap on same satellite -> conflict
 
         pair_t1 = StereoPair(
-            sat_id="sat_test",
             target_id="t1",
-            access_interval_id="i1",
             candidate_i=c1,
             candidate_j=c2,
             convergence_deg=10.0,
@@ -1344,9 +1665,7 @@ class TestRepair:
             q_pair=1.0,
         )
         pair_t2a = StereoPair(
-            sat_id="sat_test",
             target_id="t2",
-            access_interval_id="i1",
             candidate_i=c2,
             candidate_j=c3,
             convergence_deg=10.0,
@@ -1359,9 +1678,7 @@ class TestRepair:
             q_pair=0.5,
         )
         pair_t2b = StereoPair(
-            sat_id="sat_test",
             target_id="t2",
-            access_interval_id="i1",
             candidate_i=c4,
             candidate_j=c5,
             convergence_deg=10.0,

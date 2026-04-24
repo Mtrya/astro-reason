@@ -23,8 +23,8 @@ The solver is standalone. It reads benchmark case files and writes a benchmark s
 The paper decomposes agile Earth-observation scheduling with stereo constraints into candidate generation, product pruning, and MILP optimization. This reproduction keeps that structure and adapts it to `stereo_imaging`:
 
 - **Candidate**: one `(satellite_id, target_id, start_time, end_time, off_nadir_along_deg, off_nadir_across_deg)` observation inside a found access interval that satisfies horizon, duration, combined off-nadir, solar elevation, and LOS prechecks.
-- **Stereo pair**: two candidates of the same satellite and target that satisfy convergence-angle, overlap-fraction, and pixel-scale-ratio thresholds.
-- **Tri-stereo set**: three candidates of the same satellite and target that satisfy pairwise validity, common overlap, and a near-nadir anchor requirement.
+- **Stereo pair**: two candidates on the same target scored against convergence-angle, overlap-fraction, and pixel-scale-ratio thresholds, with the data model widened to represent the benchmark's same-satellite same-pass and cross-satellite product modes.
+- **Tri-stereo set**: three candidates on the same target with sufficient common overlap and a near-nadir anchor requirement, with product metadata widened so later phases can model the benchmark's full constituent-pair rules.
 - **Conflict graph**: edges encode same-satellite temporal overlap and insufficient slew-plus-settle gap.
 - **Coverage**: each target is covered when at least one valid pair or tri-stereo set containing that target is selected.
 - **Objective**: lexicographic maximize covered targets, then total pair/tri quality.
@@ -44,7 +44,7 @@ The benchmark differs from the paper in a few important ways:
 - Access intervals are found with a coarse time-step search rather than exact SGP4 root-finding; minor drift relative to exact propagation is expected.
 - Solar elevation and LOS checks are sampled at the observation midpoint.
 - Overlap fraction is estimated with a deterministic polar grid rather than Monte Carlo; values may differ by a few percent from the verifier.
-- The paper assumes multiple satellites can contribute to a stereo pair; the benchmark currently limits pairs and tri-stereo sets to the same satellite.
+- The benchmark now allows both same-satellite same-pass stereo and mission-bounded cross-satellite stereo. This solver's Phase 1 contract alignment widens mission parsing and product metadata to represent those modes; full benchmark-faithful enumeration and enforcement still land in later phases.
 - Candidate generation is vectorized with batched skyfield propagation and parallelized over `(satellite, target)` pairs for speed.
 
 That means this solver reproduces the paper's candidate-prune-optimize pipeline, while remaining faithful to the benchmark's public validity contract.

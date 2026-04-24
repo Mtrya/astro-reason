@@ -83,7 +83,7 @@ def load_case(case_dir: Path) -> tuple[Mission, dict[str, Satellite], dict[str, 
         horizon_start=_parse_iso_strict(m["horizon_start"]),
         horizon_end=_parse_iso_strict(m["horizon_end"]),
         allow_cross_satellite_stereo=bool(m.get("allow_cross_satellite_stereo", False)),
-        allow_cross_date_stereo=bool(m.get("allow_cross_date_stereo", False)),
+        max_stereo_pair_separation_s=float(m["max_stereo_pair_separation_s"]),
         validity_thresholds=ValidityThresholds.from_mapping(m["validity_thresholds"]),
         quality_model=QualityModel.from_mapping(m["quality_model"]),
     )
