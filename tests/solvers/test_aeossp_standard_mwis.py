@@ -889,13 +889,20 @@ def test_greedy_selection_is_deterministic_when_exact_disabled() -> None:
 def test_mwis_config_allows_non_default_selection_policy() -> None:
     config = MwisConfig.from_mapping(
         {
+            "backend": "fallback_python",
             "max_exact_component_size": 0,
             "selection_policy": "weight_degree_end",
         }
     )
 
+    assert config.backend == "fallback_python"
     assert config.max_exact_component_size == 0
     assert config.selection_policy == "weight_degree_end"
+
+
+def test_mwis_config_rejects_unknown_backend() -> None:
+    with pytest.raises(ValueError, match="backend must be one of"):
+        MwisConfig.from_mapping({"backend": "native_magic"})
 
 
 def test_mwis_config_parses_phase_5_search_knobs() -> None:
@@ -988,6 +995,10 @@ def test_local_improvement_applies_weighted_two_swap(monkeypatch) -> None:
     assert stats.local_improvement_count >= 1
     assert stats.successful_two_swap_count == 1
     assert stats.independent_set_valid
+    assert stats.requested_backend == "internal_reduction"
+    assert stats.backend == "internal_reduction"
+    assert stats.backend_available
+    assert stats.backend_fallback_reason is None
 
 
 def test_recombination_can_improve_incumbent_without_local_search(monkeypatch) -> None:
@@ -1036,6 +1047,70 @@ def test_recombination_can_improve_incumbent_without_local_search(monkeypatch) -
     assert stats.recombination_attempt_count >= 1
     assert stats.recombination_win_count >= 1
     assert stats.incumbent_source == "recombination"
+
+
+def test_explicit_fallback_python_backend_reports_backend_status() -> None:
+    candidates = [
+        _candidate("early", task_id="task_early", weight=5.0, start_offset_s=10, end_offset_s=20),
+        _candidate("late", task_id="task_late", weight=5.0, start_offset_s=20, end_offset_s=30),
+    ]
+    adjacency = {
+        "early": {"late"},
+        "late": {"early"},
+    }
+    graph = type(
+        "ManualGraph",
+        (),
+        {
+            "adjacency": adjacency,
+            "stats": None,
+        },
+    )()
+
+    selected, stats = select_weighted_independent_set(
+        candidates,
+        graph,
+        MwisConfig(backend="fallback_python", max_exact_component_size=0),
+    )
+
+    assert [candidate.candidate_id for candidate in selected] == ["early"]
+    assert stats.requested_backend == "fallback_python"
+    assert stats.backend == "fallback_python"
+    assert stats.backend_available
+    assert stats.backend_fallback_reason is None
+    assert stats.as_dict()["backend"] == "fallback_python"
+
+
+def test_redumis_backend_request_falls_back_without_native_dependency() -> None:
+    candidates = [
+        _candidate("early", task_id="task_early", weight=5.0, start_offset_s=10, end_offset_s=20),
+        _candidate("late", task_id="task_late", weight=5.0, start_offset_s=20, end_offset_s=30),
+    ]
+    adjacency = {
+        "early": {"late"},
+        "late": {"early"},
+    }
+    graph = type(
+        "ManualGraph",
+        (),
+        {
+            "adjacency": adjacency,
+            "stats": None,
+        },
+    )()
+
+    selected, stats = select_weighted_independent_set(
+        candidates,
+        graph,
+        MwisConfig(backend="redumis", max_exact_component_size=0),
+    )
+
+    assert [candidate.candidate_id for candidate in selected] == ["early"]
+    assert stats.requested_backend == "redumis"
+    assert stats.backend == "fallback_python"
+    assert not stats.backend_available
+    assert stats.backend_fallback_reason is not None
+    assert "not bundled" in stats.backend_fallback_reason
 
 
 def test_time_budget_returns_valid_baseline_incumbent() -> None:
