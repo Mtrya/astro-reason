@@ -21,7 +21,9 @@ The tracked entrypoint is:
 uv run python experiments/_fragments/opaque_verifiers/build.py
 ```
 
-Artifacts are runtime-image-specific. The builder uses the base runtime image from `runtimes/base/runtime.yaml`, mounts the repository into a disposable container, builds the artifact inside that container, and smoke-tests the artifact inside the same image before marking it reusable.
+Artifacts are runtime-image-specific. The builder uses the base runtime image from `runtimes/base/runtime.yaml`, mounts the repository into a disposable container, builds the artifact inside that container, and smoke-tests the artifact inside the same image before marking it reusable. Reused artifacts are still checked against the verifier source hash, builder inputs, runtime image stamp, executability, and the benchmark-specific smoke case.
+
+The `artifacts/` directory may contain generated verifier binaries, `build.json` metadata, and temporary build scratch directories. All of that state is ignored; only `build.py`, `manifest.yaml`, this README, and the `.gitignore` policy are tracked.
 
 If the runtime image is missing or stale, rebuild it first:
 

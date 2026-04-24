@@ -171,6 +171,44 @@ External verification is performed through benchmark-owned verifier executable e
 The agent workspace may include an opaque local verifier helper assembled from `experiments/_fragments/opaque_verifiers/artifacts/`, but official evaluation still runs through the benchmark-owned verifier CLIs outside the workspace.
 Most verifiers emit JSON; SatNet and SPOT5 currently emit text CLI reports, so the runner parses their verbose output into the same `run.json` verifier section used by aggregation.
 
+## Smoke Checks
+
+Before running a matrix after verifier-source or prompt-contract changes, refresh or validate the opaque helpers:
+
+```bash
+uv run python experiments/_fragments/opaque_verifiers/build.py
+```
+
+That command rebuilds stale artifacts and reruns each artifact's smoke case inside the base runtime image. For workspace-inspection smoke checks, interactive mode is the most direct path because it leaves the assembled workspace in `.runtime/interactive_workspaces/`:
+
+```bash
+uv run python experiments/main_agentic/run.py \
+  --interactive \
+  --benchmark aeossp_standard \
+  --harness codex \
+  --split test \
+  --case case_0001
+```
+
+The same check should be repeated for a single-file verifier profile, for example:
+
+```bash
+uv run python experiments/main_agentic/run.py \
+  --interactive \
+  --benchmark satnet \
+  --harness codex \
+  --split test \
+  --case W10_2018
+```
+
+Confirm the workspace contains `README.md`, `case/`, `verifier`, `AGENTS.md`, and no readable verifier source copied from `benchmarks/`. The corresponding `run.json` assembly records should point at `experiments/_fragments/opaque_verifiers/artifacts/<benchmark>/verifier` and at the harness-specific Brahe skill target. Batch smoke results can then be aggregated with:
+
+```bash
+uv run python experiments/main_agentic/aggregate.py
+```
+
+This is not full-matrix validation. Remaining risks after a smoke pass include platform-specific binary behavior, less common verifier import/data-path cases beyond the manifest smoke cases, and future README drift if verifier semantics change. When verifier behavior changes, update the benchmark-facing `README.default.md` fragment in the same pass so it stays as precise as the code.
+
 ## Aggregation
 
 Summarize completed batch artifacts:
