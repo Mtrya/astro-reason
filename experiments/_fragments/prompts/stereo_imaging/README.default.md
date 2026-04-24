@@ -101,7 +101,18 @@ required_gap_s = slew_time_s + settling_time_s
 
 The gap between observations must be at least `required_gap_s`.
 
-Validated observations are grouped by common `target_id`, common `satellite_id`, and membership in the same continuous access interval for that satellite-target pair. The current mission files set cross-satellite and cross-date stereo aside, so useful products are same-satellite, same-pass groups. For a pair, convergence angle `gamma_deg` is the angle at the target between the two target-to-satellite midpoint directions. Pixel scale ratio is:
+Validated observations can form stereo products only when they share a common `target_id` and satisfy one of the mission-allowed product modes:
+
+- same-satellite same-pass: common `satellite_id` and membership in the same continuous access interval for that satellite-target pair
+- cross-satellite: different `satellite_id` values, allowed only when `mission.allow_cross_satellite_stereo` is true
+
+Every product pair must also satisfy the bounded temporal constraint:
+
+```text
+abs(midpoint_time_i - midpoint_time_j) <= mission.max_stereo_pair_separation_s
+```
+
+Crossing a UTC calendar-date boundary is not invalid by itself. A pair centered at 23:59 and 00:01 can still be valid if it satisfies the temporal bound and all geometry rules. Cross-satellite products do not require inter-satellite slew or non-overlap checks; same-satellite observations still obey the same-satellite overlap and slew/settle rules above. For a pair, convergence angle `gamma_deg` is the angle at the target between the two target-to-satellite midpoint directions. Pixel scale ratio is:
 
 ```text
 pixel_scale_ratio = max(scale_i, scale_j) / min(scale_i, scale_j)
@@ -115,7 +126,7 @@ min_convergence_deg <= gamma_deg <= max_convergence_deg
 pixel_scale_ratio <= max_pixel_scale_ratio
 ```
 
-A valid tri-stereo set requires three observations in the same group, common overlap at least `min_overlap_fraction`, at least two valid constituent pairs under the same pair rules, and at least one observation with `boresight_off_nadir_deg <= near_nadir_anchor_max_off_nadir_deg`.
+A valid tri-stereo set requires three observations of the same target, all constituent pairs satisfying the mission-allowed product mode and bounded temporal constraint, common overlap at least `min_overlap_fraction`, at least two valid constituent pairs under the same pair rules, and at least one observation with `boresight_off_nadir_deg <= near_nadir_anchor_max_off_nadir_deg`.
 
 Overlap is a deterministic approximation inside each target's circular AOI of radius `aoi_radius_m`. Each observation footprint is a pushbroom strip in the target-centered local tangent plane. The strip centerline is sampled every 8 seconds between observation start and end using the commanded boresight, and half-width is:
 

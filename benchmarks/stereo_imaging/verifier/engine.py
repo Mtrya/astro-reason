@@ -1,4 +1,4 @@
-"""Stereo imaging v3 verification engine."""
+"""Stereo imaging v4 verification engine."""
 
 from __future__ import annotations
 
@@ -447,7 +447,7 @@ def _access_interval_sampling_step_s(sat_def: SatelliteDef) -> float:
     """
     Sample access on observation-scale resolution.
 
-    v3 observations are 2-60 s long in the canonical release, so a 1 s grid keeps
+    v4 observations are 2-60 s long in the canonical release, so a 1 s grid keeps
     short valid windows and brief daylight/off-nadir outages from being aliased away.
     """
     return max(0.25, min(1.0, sat_def.min_obs_duration_s / 2.0))

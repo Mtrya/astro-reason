@@ -2,7 +2,7 @@
 
 ## Problem
 
-Plan optical satellite observations to acquire same-pass stereo or tri-stereo imagery over a set of ground targets.
+Plan optical satellite observations to acquire same-pass or bounded cross-satellite stereo and tri-stereo imagery over a set of ground targets.
 
 The benchmark focuses on physically meaningful observation geometry and retargeting cost. It does not model photogrammetry internals, cloud cover, downlink, storage, or onboard power.
 
