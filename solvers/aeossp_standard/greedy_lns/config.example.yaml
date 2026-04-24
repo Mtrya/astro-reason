@@ -41,6 +41,9 @@ total_time_budget_s: null
 
 # Number of restarts after reaching a local minimum.
 # 0 = no restarts (deterministic single run).
+# For a fair multi-start run profile, use restart_count >= 4 with
+# stochastic_ordering: true, a fixed random_seed, and total_time_budget_s set
+# to the experiment envelope.
 restart_count: 0
 
 # Random seed for stochastic ordering and restart perturbation.
@@ -51,6 +54,29 @@ random_seed: null
 # When true, shuffle component order randomly each iteration.
 # Default is deterministic ordering.
 stochastic_ordering: false
+
+# When true, small connected components are reinserted by exact bounded
+# enumeration instead of marginal-profit greedy ordering. This is a
+# solver-local benchmark adaptation of the paper's exact subproblem role; it
+# does not use the proprietary Tempo backend.
+enable_exact_reinsertion: false
+
+# Maximum component size eligible for exact bounded enumeration.
+# Larger components fall back to greedy reinsertion.
+max_exact_component_size: 8
+
+# Per-component wall-clock timeout for exact reinsertion.
+# null = no per-component exact timeout.
+exact_subproblem_timeout_s: 0.05
+
+# When true, objective-improving local-search moves that clearly worsen
+# solver-local battery depletion are rejected before final repair.
+enable_battery_guardrails: false
+
+# Minimum acceptable solver-local battery floor for guarded moves.
+# A move is rejected only when it worsens battery below this floor or adds a
+# battery-depletion issue. Final repair still runs as a safety net.
+battery_guard_min_wh: 0.0
 
 # --- Repair ---
 # Maximum number of repair removal iterations.

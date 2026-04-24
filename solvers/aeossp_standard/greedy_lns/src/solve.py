@@ -19,7 +19,7 @@ from .insertion import InsertionConfig, greedy_insertion
 from .local_search import LocalSearchConfig, local_search
 from .solution_io import write_json, write_solution
 from .transition import TransitionVectorCache
-from .validation import RepairConfig, repair_schedule, validate_schedule
+from .validation import BatteryGuardConfig, RepairConfig, repair_schedule, validate_schedule
 
 
 @dataclass(frozen=True, slots=True)
@@ -196,6 +196,11 @@ def _build_status(
     timing_seconds: dict[str, float],
     budget_status: dict[str, Any],
 ) -> dict:
+    local_search_payload = local_search_result.as_dict()
+    local_search_stats = local_search_payload.get("stats", {})
+    exact_reinsertion = local_search_stats.get("exact_reinsertion", {})
+    exact_solver = local_search_stats.get("exact_subproblem_solver", "none")
+    exact_enabled = bool(exact_reinsertion.get("enabled", False))
     return {
         "status": "solution_generated",
         "case_dir": str(case_dir),
@@ -212,7 +217,7 @@ def _build_status(
         ),
         **candidate_summary.as_debug_dict(case),
         "insertion": insertion_result.as_dict(),
-        "local_search": local_search_result.as_dict(),
+        "local_search": local_search_payload,
         "repair": repair_result.as_status_dict(),
         "timing_seconds": timing_seconds,
         "budget": budget_status,
@@ -222,18 +227,25 @@ def _build_status(
                 "greedy_initial_construction": True,
                 "connected_component_local_search": True,
                 "marginal_profit_recomputation": True,
+                "bounded_exact_reinsertion": exact_enabled,
             },
             "components_omitted": {
-                "tempo_cp_sat_tsptw_fallback": "omitted — proprietary dependency",
+                "tempo_cp_sat_tsptw_fallback": (
+                    "replaced by solver-local bounded exact enumeration"
+                    if exact_enabled
+                    else "omitted — proprietary dependency"
+                ),
                 "download_memory_planning": "omitted — benchmark is observation-only",
             },
             "adaptations": {
-                "battery_handling": "solver-local simulation + bounded repair",
+                "battery_handling": "optional solver-local guardrails + bounded repair",
                 "action_grid_alignment": "benchmark-mandated fixed times",
                 "weighted_objective": "maximize task weight (proxy for WCR)",
+                "exact_subproblem_solver": exact_solver,
             },
             "known_limitations": [
-                "No CP-SAT exact subproblem fallback (Tempo omitted)",
+                "No proprietary Tempo CP-SAT backend",
+                "Bounded exact reinsertion only applies to configured small components",
                 "Candidates use fixed grid-aligned times; no continuous sliding within windows",
                 "Battery model is solver-local approximation, not benchmark verifier",
                 "No download or memory scheduling (benchmark is observation-only)",
@@ -348,6 +360,7 @@ def main(argv: list[str] | None = None) -> int:
         candidate_config = CandidateConfig.from_mapping(config_payload)
         insertion_config = InsertionConfig.from_mapping(config_payload)
         local_search_config = LocalSearchConfig.from_mapping(config_payload)
+        battery_guard_config = BatteryGuardConfig.from_mapping(config_payload)
         repair_config = RepairConfig.from_mapping(config_payload)
         budget_config = BudgetConfig.from_mapping(config_payload)
         config_end = time.perf_counter()
@@ -395,6 +408,7 @@ def main(argv: list[str] | None = None) -> int:
             config=local_search_config,
             propagation=propagation,
             vector_cache=vector_cache,
+            battery_guard_config=battery_guard_config,
         )
         local_search_end = time.perf_counter()
         repair_start = time.perf_counter()
