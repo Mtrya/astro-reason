@@ -250,7 +250,7 @@ def _candidate_observation(
         boresight_azimuth_deg=float(_boresight_azimuth_deg(target_pos, target_pos)),
         solar_elevation_deg=float(solar_el),
         solar_azimuth_deg=float(solar_az),
-        effective_pixel_scale_m=slant * sat_def.pixel_ifov_deg * (3.141592653589793 / 180.0),
+        effective_pixel_scale_m=slant * math.radians(sat_def.pixel_ifov_deg),
         access_interval_id=access_interval_id,
         slant_range_m=slant,
     )
