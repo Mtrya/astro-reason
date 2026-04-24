@@ -1,0 +1,11 @@
+{
+  "mclp_mode": "auto",
+  "scheduler_mode": "auto",
+  "parallel_mode": "auto",
+  "time_budget_s": 300,
+  "milp_config": {
+    "max_total_variables": 500,
+    "max_samples": 50,
+    "milp_time_limit_per_sample": 5.0
+  }
+}

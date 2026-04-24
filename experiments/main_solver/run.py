@@ -232,7 +232,7 @@ def _verify_solution(job: Job, solution_path: Path, *, log_dir: Path) -> dict[st
     stdout = (log_dir / "verifier.stdout.log").read_text(encoding="utf-8")
     if job.benchmark_id == "spot5":
         parsed = _parse_spot5_verifier(stdout, run["returncode"])
-    elif job.benchmark_id == "aeossp_standard":
+    elif job.benchmark_id in ("aeossp_standard", "relay_constellation"):
         parsed = _parse_json_verifier(stdout, run["returncode"])
     else:
         parsed = {
