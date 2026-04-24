@@ -1,4 +1,4 @@
-"""CLI entry point for the stereo_imaging v3 verifier."""
+"""CLI entry point for the stereo_imaging v4 verifier."""
 
 from __future__ import annotations
 
@@ -11,7 +11,7 @@ from .engine import verify_solution
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(
-        description="Verify a stereo_imaging v3 solution against one canonical case directory.",
+        description="Verify a stereo_imaging v4 solution against one canonical case directory.",
     )
     parser.add_argument(
         "case_dir",

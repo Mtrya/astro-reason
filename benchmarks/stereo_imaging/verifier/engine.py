@@ -1,4 +1,4 @@
-"""Stereo imaging v3 verification engine."""
+"""Stereo imaging v4 verification engine."""
 
 from __future__ import annotations
 
@@ -447,7 +447,7 @@ def _access_interval_sampling_step_s(sat_def: SatelliteDef) -> float:
     """
     Sample access on observation-scale resolution.
 
-    v3 observations are 2-60 s long in the canonical release, so a 1 s grid keeps
+    v4 observations are 2-60 s long in the canonical release, so a 1 s grid keeps
     short valid windows and brief daylight/off-nadir outages from being aliased away.
     """
     return max(0.25, min(1.0, sat_def.min_obs_duration_s / 2.0))
@@ -608,6 +608,186 @@ def _tri_bonus_R(
     if has_anchor:
         r += 0.4
     return min(1.0, r)
+
+
+def _action_midpoint(action: ObservationAction) -> datetime:
+    return action.start + (action.end - action.start) / 2
+
+
+def _product_time_separation_s(actions: list[ObservationAction]) -> float:
+    if len(actions) < 2:
+        return 0.0
+    midpoints = [_action_midpoint(action) for action in actions]
+    return (max(midpoints) - min(midpoints)).total_seconds()
+
+
+def _stereo_pair_mode(
+    mission: Mission,
+    first_action: ObservationAction,
+    second_action: ObservationAction,
+    first_derived: DerivedObservation,
+    second_derived: DerivedObservation,
+) -> str | None:
+    """Return the stereo mode if a pair is allowed by mission-level product policy."""
+    if first_derived.target_id != second_derived.target_id:
+        return None
+    if first_derived.access_interval_id == "none" or second_derived.access_interval_id == "none":
+        return None
+    separation_s = _product_time_separation_s([first_action, second_action])
+    if separation_s - 1e-6 > mission.max_stereo_pair_separation_s:
+        return None
+    if first_derived.satellite_id == second_derived.satellite_id:
+        if first_derived.access_interval_id != second_derived.access_interval_id:
+            return None
+        return "same_satellite_same_pass"
+    if not mission.allow_cross_satellite_stereo:
+        return None
+    return "cross_satellite"
+
+
+def _product_seed_labels(derived: list[DerivedObservation]) -> tuple[str, str]:
+    satellite_label = "+".join(sorted(d.satellite_id for d in derived))
+    access_label = "+".join(
+        sorted(f"{d.satellite_id}:{d.access_interval_id}" for d in derived)
+    )
+    return satellite_label, access_label
+
+
+def _evaluate_stereo_pair(
+    *,
+    case_id: str,
+    mission: Mission,
+    satellites: dict[str, SatelliteDef],
+    targets: dict[str, TargetDef],
+    sf_sats: dict[str, EarthSatellite],
+    target_ecef: dict[str, np.ndarray],
+    actions: list[ObservationAction],
+    first_index: int,
+    second_index: int,
+    first_derived: DerivedObservation,
+    second_derived: DerivedObservation,
+    stereo_mode: str,
+    n_samples: int,
+    role: str,
+) -> dict[str, Any]:
+    first_action = actions[first_index]
+    second_action = actions[second_index]
+    target_id = first_derived.target_id
+    target = targets[target_id]
+    target_pos = target_ecef[target_id]
+    first_sat = satellites[first_derived.satellite_id]
+    second_sat = satellites[second_derived.satellite_id]
+    first_sf = sf_sats[first_derived.satellite_id]
+    second_sf = sf_sats[second_derived.satellite_id]
+
+    first_pos = _satellite_state_ecef_m(first_sf, _action_midpoint(first_action))[0]
+    second_pos = _satellite_state_ecef_m(second_sf, _action_midpoint(second_action))[0]
+    first_view = (first_pos - target_pos) / np.linalg.norm(first_pos - target_pos)
+    second_view = (second_pos - target_pos) / np.linalg.norm(second_pos - target_pos)
+    gamma = _angle_between_deg(first_view, second_view)
+    bisector = first_view + second_view
+    bisector_norm = float(np.linalg.norm(bisector))
+    if bisector_norm < _NUMERICAL_EPS:
+        bisector_el_deg = 0.0
+        asymmetry_deg = 90.0
+    else:
+        bisector_hat = bisector / bisector_norm
+        up_t = target_pos / float(np.linalg.norm(target_pos))
+        cos_a = max(-1.0, min(1.0, float(np.dot(up_t, bisector_hat))))
+        asymmetry_deg = math.degrees(math.acos(cos_a))
+        bisector_el_deg = 90.0 - asymmetry_deg
+
+    first_half_width_m = first_derived.slant_range_m * math.tan(
+        math.radians(first_sat.half_cross_track_fov_deg)
+    )
+    second_half_width_m = second_derived.slant_range_m * math.tan(
+        math.radians(second_sat.half_cross_track_fov_deg)
+    )
+    first_poly = _strip_polyline_en(
+        first_sf,
+        target_pos,
+        first_action.start,
+        first_action.end,
+        sample_step_s=8.0,
+        off_nadir_along_deg=first_action.off_nadir_along_deg,
+        off_nadir_across_deg=first_action.off_nadir_across_deg,
+    )
+    second_poly = _strip_polyline_en(
+        second_sf,
+        target_pos,
+        second_action.start,
+        second_action.end,
+        sample_step_s=8.0,
+        off_nadir_along_deg=second_action.off_nadir_along_deg,
+        off_nadir_across_deg=second_action.off_nadir_across_deg,
+    )
+    window_keys = tuple(
+        sorted((_observation_window_key(first_action), _observation_window_key(second_action)))
+    )
+    satellite_label, access_label = _product_seed_labels([first_derived, second_derived])
+    rng_pair = _stereo_mc_rng(
+        case_id,
+        satellite_label,
+        target_id,
+        access_label,
+        window_keys=window_keys,
+        n_samples=n_samples,
+        role=role,
+    )
+    overlap = _monte_carlo_overlap_fraction(
+        target.aoi_radius_m,
+        first_poly,
+        first_half_width_m,
+        second_poly,
+        second_half_width_m,
+        n_samples=n_samples,
+        rng=rng_pair,
+    )
+    first_scale_m = first_derived.effective_pixel_scale_m
+    second_scale_m = second_derived.effective_pixel_scale_m
+    pixel_scale_ratio = max(first_scale_m, second_scale_m) / min(first_scale_m, second_scale_m)
+    first_nadir_alt = float(np.linalg.norm(first_pos)) - _WGS84_A_M
+    second_nadir_alt = float(np.linalg.norm(second_pos)) - _WGS84_A_M
+    mean_alt = max(1000.0, 0.5 * (first_nadir_alt + second_nadir_alt))
+    bh = float(np.linalg.norm(first_pos - second_pos)) / mean_alt
+
+    ok = (
+        overlap + 1e-6 >= mission.min_overlap_fraction
+        and mission.min_convergence_deg - 1e-6 <= gamma <= mission.max_convergence_deg + 1e-6
+        and pixel_scale_ratio <= mission.max_pixel_scale_ratio + 1e-6
+    )
+    q_overlap = min(1.0, overlap / 0.95)
+    q_res = max(0.0, 1.0 - (pixel_scale_ratio - 1.0) / 0.5)
+    q_geom = _pair_geom_quality(gamma, target.scene_type)
+    weights = mission.pair_weights
+    q_pair = (
+        weights["geometry"] * q_geom
+        + weights["overlap"] * q_overlap
+        + weights["resolution"] * q_res
+    )
+    satellite_ids = [first_derived.satellite_id, second_derived.satellite_id]
+    access_interval_ids = [first_derived.access_interval_id, second_derived.access_interval_id]
+    return {
+        "satellite_id": first_derived.satellite_id
+        if first_derived.satellite_id == second_derived.satellite_id
+        else None,
+        "satellite_ids": satellite_ids,
+        "target_id": target_id,
+        "access_interval_id": first_derived.access_interval_id
+        if first_derived.access_interval_id == second_derived.access_interval_id
+        else None,
+        "access_interval_ids": access_interval_ids,
+        "stereo_mode": stereo_mode,
+        "time_separation_s": _product_time_separation_s([first_action, second_action]),
+        "gamma_deg": gamma,
+        "bisector_elevation_deg": bisector_el_deg,
+        "asymmetry_deg": asymmetry_deg,
+        "overlap_fraction": overlap,
+        "pixel_scale_ratio": pixel_scale_ratio,
+        "b_h_proxy": bh,
+        "valid_pair": ok,
+        "q_pair": q_pair if ok else 0.0,
+    }
 
 
 def verify_solution(case_dir: str | Path, solution_path: str | Path) -> VerificationReport:
@@ -777,24 +957,21 @@ def verify_solution(case_dir: str | Path, solution_path: str | Path) -> Verifica
             )
         )
 
-    # Stereo products (same satellite, same target, same access id)
-    derived_by_key: dict[tuple[str, str, str], list[tuple[int, DerivedObservation]]] = {}
+    # Stereo products (same target; same-satellite products remain same-pass, while
+    # cross-satellite products are controlled by mission policy and temporal bound).
+    derived_by_target: dict[str, list[tuple[int, DerivedObservation]]] = {}
     for d in derived_list:
         if d.access_interval_id == "none":
             continue
-        key = (d.satellite_id, d.target_id, d.access_interval_id)
-        derived_by_key.setdefault(key, []).append((d.action_index, d))
+        derived_by_target.setdefault(d.target_id, []).append((d.action_index, d))
 
     pair_diagnostics: list[dict[str, Any]] = []
 
     per_target_best: dict[str, float] = {tid: 0.0 for tid in targets}
     covered: set[str] = set()
 
-    for _key, group in derived_by_key.items():
-        sat_id, target_id, _aid = _key
+    for target_id, group in derived_by_target.items():
         tg = targets[target_id]
-        sd = satellites[sat_id]
-        sf = sf_sats[sat_id]
         te = target_ecef[target_id]
         obs_indices = [g[0] for g in group]
         ders = [g[1] for g in group]
@@ -805,105 +982,30 @@ def verify_solution(case_dir: str | Path, solution_path: str | Path) -> Verifica
                 di, dj = ders[i], ders[j]
                 ai = actions[obs_indices[i]]
                 aj = actions[obs_indices[j]]
-                # convergence at target between view directions to satellite at midpoints
-                si = _satellite_state_ecef_m(sf, ai.start + (ai.end - ai.start) / 2)[0]
-                sj = _satellite_state_ecef_m(sf, aj.start + (aj.end - aj.start) / 2)[0]
-                ui = (si - te) / np.linalg.norm(si - te)
-                uj = (sj - te) / np.linalg.norm(sj - te)
-                gamma = _angle_between_deg(ui, uj)
-                bisector = ui + uj
-                bisector_norm = float(np.linalg.norm(bisector))
-                if bisector_norm < _NUMERICAL_EPS:
-                    bisector_el_deg = 0.0
-                    asymmetry_deg = 90.0
-                else:
-                    bisector_hat = bisector / bisector_norm
-                    up_t = te / float(np.linalg.norm(te))
-                    cos_a = max(-1.0, min(1.0, float(np.dot(up_t, bisector_hat))))
-                    asymmetry_deg = math.degrees(math.acos(cos_a))
-                    bisector_el_deg = 90.0 - asymmetry_deg
-                ri = di.slant_range_m * math.tan(math.radians(sd.half_cross_track_fov_deg))
-                rj = dj.slant_range_m * math.tan(math.radians(sd.half_cross_track_fov_deg))
-                poly_i = _strip_polyline_en(
-                    sf,
-                    te,
-                    ai.start,
-                    ai.end,
-                    sample_step_s=8.0,
-                    off_nadir_along_deg=ai.off_nadir_along_deg,
-                    off_nadir_across_deg=ai.off_nadir_across_deg,
-                )
-                poly_j = _strip_polyline_en(
-                    sf,
-                    te,
-                    aj.start,
-                    aj.end,
-                    sample_step_s=8.0,
-                    off_nadir_along_deg=aj.off_nadir_along_deg,
-                    off_nadir_across_deg=aj.off_nadir_across_deg,
-                )
-                wk_pair = tuple(
-                    sorted((_observation_window_key(ai), _observation_window_key(aj)))
-                )
-                rng_pair = _stereo_mc_rng(
-                    case_id,
-                    sat_id,
-                    target_id,
-                    di.access_interval_id,
-                    window_keys=wk_pair,
+                stereo_mode = _stereo_pair_mode(mission, ai, aj, di, dj)
+                if stereo_mode is None:
+                    continue
+                pair_result = _evaluate_stereo_pair(
+                    case_id=case_id,
+                    mission=mission,
+                    satellites=satellites,
+                    targets=targets,
+                    sf_sats=sf_sats,
+                    target_ecef=target_ecef,
+                    actions=actions,
+                    first_index=obs_indices[i],
+                    second_index=obs_indices[j],
+                    first_derived=di,
+                    second_derived=dj,
+                    stereo_mode=stereo_mode,
                     n_samples=100,
                     role="pair_overlap",
                 )
-                o_ij = _monte_carlo_overlap_fraction(
-                    tg.aoi_radius_m,
-                    poly_i,
-                    ri,
-                    poly_j,
-                    rj,
-                    n_samples=100,
-                    rng=rng_pair,
-                )
-                si_m = di.effective_pixel_scale_m
-                sj_m = dj.effective_pixel_scale_m
-                rscale = max(si_m, sj_m) / min(si_m, sj_m)
-                nadir_alt_i = float(np.linalg.norm(si)) - _WGS84_A_M
-                nadir_alt_j = float(np.linalg.norm(sj)) - _WGS84_A_M
-                mean_alt = max(1000.0, 0.5 * (nadir_alt_i + nadir_alt_j))
-                bh = float(np.linalg.norm(si - sj)) / mean_alt
-
-                ok = (
-                    o_ij + 1e-6 >= mission.min_overlap_fraction
-                    and mission.min_convergence_deg - 1e-6 <= gamma <= mission.max_convergence_deg + 1e-6
-                    and rscale <= mission.max_pixel_scale_ratio + 1e-6
-                )
-                q_overlap = min(1.0, o_ij / 0.95)
-                q_res = max(0.0, 1.0 - (rscale - 1.0) / 0.5)
-                q_geom = _pair_geom_quality(gamma, tg.scene_type)
-                w = mission.pair_weights
-                q_pair = (
-                    w["geometry"] * q_geom
-                    + w["overlap"] * q_overlap
-                    + w["resolution"] * q_res
-                )
-                pair_diagnostics.append(
-                    {
-                        "satellite_id": sat_id,
-                        "target_id": target_id,
-                        "access_interval_id": di.access_interval_id,
-                        "gamma_deg": gamma,
-                        "bisector_elevation_deg": bisector_el_deg,
-                        "asymmetry_deg": asymmetry_deg,
-                        "overlap_fraction": o_ij,
-                        "pixel_scale_ratio": rscale,
-                        "b_h_proxy": bh,
-                        "valid_pair": ok,
-                        "q_pair": q_pair if ok else 0.0,
-                    }
-                )
-                if ok:
+                pair_diagnostics.append(pair_result)
+                if pair_result["valid_pair"]:
                     covered.add(target_id)
-                    if q_pair > per_target_best[target_id]:
-                        per_target_best[target_id] = q_pair
+                    if pair_result["q_pair"] > per_target_best[target_id]:
+                        per_target_best[target_id] = pair_result["q_pair"]
 
         # triples
         for i in range(n):
@@ -911,9 +1013,19 @@ def verify_solution(case_dir: str | Path, solution_path: str | Path) -> Verifica
                 for k in range(j + 1, n):
                     a0, a1, a2 = actions[obs_indices[i]], actions[obs_indices[j]], actions[obs_indices[k]]
                     d0, d1, d2 = ders[i], ders[j], ders[k]
+                    edge_modes = [
+                        _stereo_pair_mode(mission, a0, a1, d0, d1),
+                        _stereo_pair_mode(mission, a0, a2, d0, d2),
+                        _stereo_pair_mode(mission, a1, a2, d1, d2),
+                    ]
+                    if any(mode is None for mode in edge_modes):
+                        continue
+                    tri_ders = [d0, d1, d2]
+                    tri_sat_defs = [satellites[d.satellite_id] for d in tri_ders]
+                    tri_sf_sats = [sf_sats[d.satellite_id] for d in tri_ders]
                     polys = [
                         _strip_polyline_en(
-                            sf,
+                            tri_sf_sats[0],
                             te,
                             a0.start,
                             a0.end,
@@ -922,7 +1034,7 @@ def verify_solution(case_dir: str | Path, solution_path: str | Path) -> Verifica
                             off_nadir_across_deg=a0.off_nadir_across_deg,
                         ),
                         _strip_polyline_en(
-                            sf,
+                            tri_sf_sats[1],
                             te,
                             a1.start,
                             a1.end,
@@ -931,7 +1043,7 @@ def verify_solution(case_dir: str | Path, solution_path: str | Path) -> Verifica
                             off_nadir_across_deg=a1.off_nadir_across_deg,
                         ),
                         _strip_polyline_en(
-                            sf,
+                            tri_sf_sats[2],
                             te,
                             a2.start,
                             a2.end,
@@ -941,9 +1053,9 @@ def verify_solution(case_dir: str | Path, solution_path: str | Path) -> Verifica
                         ),
                     ]
                     hw = [
-                        d0.slant_range_m * math.tan(math.radians(sd.half_cross_track_fov_deg)),
-                        d1.slant_range_m * math.tan(math.radians(sd.half_cross_track_fov_deg)),
-                        d2.slant_range_m * math.tan(math.radians(sd.half_cross_track_fov_deg)),
+                        d0.slant_range_m * math.tan(math.radians(tri_sat_defs[0].half_cross_track_fov_deg)),
+                        d1.slant_range_m * math.tan(math.radians(tri_sat_defs[1].half_cross_track_fov_deg)),
+                        d2.slant_range_m * math.tan(math.radians(tri_sat_defs[2].half_cross_track_fov_deg)),
                     ]
                     wk_tri = tuple(
                         sorted(
@@ -954,11 +1066,12 @@ def verify_solution(case_dir: str | Path, solution_path: str | Path) -> Verifica
                             )
                         )
                     )
+                    satellite_label, access_label = _product_seed_labels(tri_ders)
                     rng_tri = _stereo_mc_rng(
                         case_id,
-                        sat_id,
+                        satellite_label,
                         target_id,
-                        d0.access_interval_id,
+                        access_label,
                         window_keys=wk_tri,
                         n_samples=100,
                         role="tri_overlap",
@@ -966,76 +1079,29 @@ def verify_solution(case_dir: str | Path, solution_path: str | Path) -> Verifica
                     o_tri = _monte_carlo_tri_overlap(
                         tg.aoi_radius_m, polys, hw, n_samples=100, rng=rng_tri
                     )
-                    # pair validity flags among (0,1),(0,2),(1,2) using same geometry as above - approximate by recomputing
                     pair_flags = []
                     pair_qs = []
-                    for (ix, jx) in ((i, j), (i, k), (j, k)):
+                    for edge_idx, (ix, jx) in enumerate(((i, j), (i, k), (j, k))):
                         di, dj = ders[ix], ders[jx]
                         ai, aj = actions[obs_indices[ix]], actions[obs_indices[jx]]
-                        si = _satellite_state_ecef_m(sf, ai.start + (ai.end - ai.start) / 2)[0]
-                        sj = _satellite_state_ecef_m(sf, aj.start + (aj.end - aj.start) / 2)[0]
-                        ui = (si - te) / np.linalg.norm(si - te)
-                        uj = (sj - te) / np.linalg.norm(sj - te)
-                        gam = _angle_between_deg(ui, uj)
-                        poly_i = _strip_polyline_en(
-                            sf,
-                            te,
-                            ai.start,
-                            ai.end,
-                            8.0,
-                            off_nadir_along_deg=ai.off_nadir_along_deg,
-                            off_nadir_across_deg=ai.off_nadir_across_deg,
-                        )
-                        poly_j = _strip_polyline_en(
-                            sf,
-                            te,
-                            aj.start,
-                            aj.end,
-                            8.0,
-                            off_nadir_along_deg=aj.off_nadir_along_deg,
-                            off_nadir_across_deg=aj.off_nadir_across_deg,
-                        )
-                        wk_edge = tuple(
-                            sorted((_observation_window_key(ai), _observation_window_key(aj)))
-                        )
-                        rng_edge = _stereo_mc_rng(
-                            case_id,
-                            sat_id,
-                            target_id,
-                            di.access_interval_id,
-                            window_keys=wk_edge,
+                        edge_result = _evaluate_stereo_pair(
+                            case_id=case_id,
+                            mission=mission,
+                            satellites=satellites,
+                            targets=targets,
+                            sf_sats=sf_sats,
+                            target_ecef=target_ecef,
+                            actions=actions,
+                            first_index=obs_indices[ix],
+                            second_index=obs_indices[jx],
+                            first_derived=di,
+                            second_derived=dj,
+                            stereo_mode=edge_modes[edge_idx] or "unknown",
                             n_samples=80,
                             role="tri_pair_edge",
                         )
-                        o2 = _monte_carlo_overlap_fraction(
-                            tg.aoi_radius_m,
-                            poly_i,
-                            di.slant_range_m * math.tan(math.radians(sd.half_cross_track_fov_deg)),
-                            poly_j,
-                            dj.slant_range_m * math.tan(math.radians(sd.half_cross_track_fov_deg)),
-                            n_samples=80,
-                            rng=rng_edge,
-                        )
-                        si_m = di.effective_pixel_scale_m
-                        sj_m = dj.effective_pixel_scale_m
-                        rsc = max(si_m, sj_m) / min(si_m, sj_m)
-                        okp = (
-                            o2 + 1e-6 >= mission.min_overlap_fraction
-                            and mission.min_convergence_deg - 1e-6
-                            <= gam
-                            <= mission.max_convergence_deg + 1e-6
-                            and rsc <= mission.max_pixel_scale_ratio + 1e-6
-                        )
-                        pair_flags.append(okp)
-                        qo = min(1.0, o2 / 0.95)
-                        qr = max(0.0, 1.0 - (rsc - 1.0) / 0.5)
-                        qg = _pair_geom_quality(gam, tg.scene_type)
-                        w = mission.pair_weights
-                        pair_qs.append(
-                            w["geometry"] * qg
-                            + w["overlap"] * qo
-                            + w["resolution"] * qr
-                        )
+                        pair_flags.append(bool(edge_result["valid_pair"]))
+                        pair_qs.append(float(edge_result["q_pair"]))
                     anchor = any(
                         ders[ix].boresight_off_nadir_deg
                         <= mission.near_nadir_anchor_max_off_nadir_deg + 1e-6

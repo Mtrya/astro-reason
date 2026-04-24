@@ -334,7 +334,7 @@ uv run python -m benchmarks.stereo_imaging.generator.run \
 
 规范生成器将测试实例写入 `dataset/cases/test/` 下，更新 `dataset/index.json`，并写入 `dataset/example_solution.json`（与 `splits.yaml` 中的 `example_smoke_case: test/case_0001` 对齐）。运行时源暂存到 `dataset/source_data/` 下。
 
-`splits.yaml` 携带 benchmark 自有的构建参数以及 vendored 真实 TLE 子集的确切支持 CelesTrak 快照 epoch 标签。规范任务时域锚定到该缓存快照，生成器会拒绝任何其他 epoch，因为本 benchmark 不提供替代的缓存 TLE 快照。
+`splits.yaml` 携带 benchmark 自有的构建参数以及 vendored 真实 TLE 子集的确切支持 CelesTrak 快照 epoch 标签。卫星 TLE 行和传感器/敏捷参数位于 `generator/satellite_catalog.py`，因此 split 文件只保留实例数量、任务策略和采样参数。规范任务时域锚定到该缓存快照，生成器会拒绝任何其他 epoch，因为本 benchmark 不提供替代的缓存 TLE 快照。
 
 `--sources-only`、`--download-dir` 和 `--force-download` 是源暂存周围保留的操作模式；它们不是替代的规范数据集构建契约。
 

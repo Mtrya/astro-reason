@@ -1,4 +1,4 @@
-"""Stereo imaging v3 verifier."""
+"""Stereo imaging v4 verifier."""
 
 from .engine import verify_solution
 
