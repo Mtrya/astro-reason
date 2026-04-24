@@ -1,4 +1,4 @@
-"""Load v3 case files and solution JSON."""
+"""Load stereo_imaging case files and solution JSON."""
 
 from __future__ import annotations
 
@@ -61,11 +61,14 @@ def load_mission(case_dir: Path) -> Mission:
     ctx = "mission.yaml mission"
     vt = m["validity_thresholds"]
     qm = m["quality_model"]
+    max_pair_sep_s = float(m.get("max_stereo_pair_separation_s", float("inf")))
+    if max_pair_sep_s <= 0.0:
+        raise ValueError(f"{ctx}.max_stereo_pair_separation_s must be positive")
     return Mission(
         horizon_start=_parse_iso_utc(_require_str(m, "horizon_start", ctx), field=f"{ctx}.horizon_start"),
         horizon_end=_parse_iso_utc(_require_str(m, "horizon_end", ctx), field=f"{ctx}.horizon_end"),
         allow_cross_satellite_stereo=bool(m.get("allow_cross_satellite_stereo", False)),
-        allow_cross_date_stereo=bool(m.get("allow_cross_date_stereo", False)),
+        max_stereo_pair_separation_s=max_pair_sep_s,
         min_overlap_fraction=_require_float(vt, "min_overlap_fraction", f"{ctx}.validity_thresholds"),
         min_convergence_deg=_require_float(vt, "min_convergence_deg", f"{ctx}.validity_thresholds"),
         max_convergence_deg=_require_float(vt, "max_convergence_deg", f"{ctx}.validity_thresholds"),

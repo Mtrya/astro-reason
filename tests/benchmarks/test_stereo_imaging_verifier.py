@@ -22,16 +22,25 @@ from benchmarks.stereo_imaging.verifier.engine import (
     _off_nadir_deg,
     _pair_geom_quality,
     _point_distance_to_polyline_2d,
+    _product_time_separation_s,
     _ray_ellipsoid_intersection_m,
     _satellite_local_axes,
     _stereo_mc_rng,
+    _stereo_pair_mode,
     _tri_bonus_R,
     _tri_quality_from_valid_pairs,
     _WGS84_A_M,
+    _evaluate_stereo_pair,
     verify_solution,
 )
 from benchmarks.stereo_imaging.verifier.io import load_case, load_solution_actions
-from benchmarks.stereo_imaging.verifier.models import ObservationAction, SatelliteDef
+from benchmarks.stereo_imaging.verifier.models import (
+    DerivedObservation,
+    Mission,
+    ObservationAction,
+    SatelliteDef,
+    TargetDef,
+)
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 FIXTURES_DIR = REPO_ROOT / "tests" / "fixtures" / "stereo_imaging"
@@ -65,7 +74,7 @@ def _base_mission_dict(
             "horizon_start": horizon_start,
             "horizon_end": horizon_end,
             "allow_cross_satellite_stereo": False,
-            "allow_cross_date_stereo": False,
+            "max_stereo_pair_separation_s": 7200.0,
             "validity_thresholds": {
                 "min_overlap_fraction": 0.8,
                 "min_convergence_deg": 5.0,
@@ -199,6 +208,62 @@ def _obs_action(
         "off_nadir_along_deg": along,
         "off_nadir_across_deg": across,
     }
+
+
+def _mission_model(
+    *,
+    allow_cross_satellite: bool = False,
+    max_pair_separation_s: float = 7200.0,
+) -> Mission:
+    return Mission(
+        horizon_start=datetime(2026, 6, 18, 0, 0, 0, tzinfo=UTC),
+        horizon_end=datetime(2026, 6, 19, 6, 0, 0, tzinfo=UTC),
+        allow_cross_satellite_stereo=allow_cross_satellite,
+        max_stereo_pair_separation_s=max_pair_separation_s,
+        min_overlap_fraction=0.8,
+        min_convergence_deg=5.0,
+        max_convergence_deg=45.0,
+        max_pixel_scale_ratio=1.5,
+        min_solar_elevation_deg=10.0,
+        near_nadir_anchor_max_off_nadir_deg=10.0,
+        pair_weights={"geometry": 0.5, "overlap": 0.35, "resolution": 0.15},
+        tri_stereo_bonus_by_scene={
+            "urban_structured": 0.12,
+            "rugged": 0.10,
+            "vegetated": 0.08,
+            "open": 0.05,
+        },
+    )
+
+
+def _derived_obs(
+    *,
+    sat: str = "sat_test",
+    target: str = "t1",
+    action_index: int = 0,
+    access_interval_id: str = "access_0",
+    midpoint: str = "2026-06-18T01:00:02Z",
+    scale_m: float = 0.5,
+    slant_m: float = 700000.0,
+    off_nadir: float = 0.0,
+) -> DerivedObservation:
+    return DerivedObservation(
+        satellite_id=sat,
+        target_id=target,
+        action_index=action_index,
+        start_time="2026-06-18T01:00:00Z",
+        end_time="2026-06-18T01:00:05Z",
+        midpoint_time=midpoint,
+        sat_position_ecef_m=[0.0, 0.0, 0.0],
+        sat_velocity_ecef_mps=[0.0, 0.0, 0.0],
+        boresight_off_nadir_deg=off_nadir,
+        boresight_azimuth_deg=0.0,
+        solar_elevation_deg=45.0,
+        solar_azimuth_deg=180.0,
+        effective_pixel_scale_m=scale_m,
+        access_interval_id=access_interval_id,
+        slant_range_m=slant_m,
+    )
 
 
 # ===================================================================
@@ -490,6 +555,14 @@ class TestIOLoadCase:
         assert "t1" in targets
         assert mission.min_overlap_fraction == pytest.approx(0.8)
 
+    def test_rejects_nonpositive_stereo_pair_separation(self, tmp_path):
+        mission = _base_mission_dict()
+        mission["mission"]["max_stereo_pair_separation_s"] = 0.0
+        case_dir = _write_case(tmp_path / "case", mission=mission)
+
+        with pytest.raises(ValueError, match="max_stereo_pair_separation_s"):
+            load_case(case_dir)
+
 
 class TestParseIsoUtcStrict:
     def test_mission_rejects_naive_timestamp(self, tmp_path):
@@ -570,6 +643,211 @@ class TestStereoMcRng:
             "c", "s", "t", "a", window_keys=w_pair, n_samples=80, role="pair_overlap"
         )
         assert r_a.random() != r_b.random()
+
+
+class TestStereoPairPolicy:
+    def test_same_satellite_same_access_allowed_without_cross_satellite(self):
+        mission = _mission_model(allow_cross_satellite=False)
+        a0 = ObservationAction(
+            "sat_a",
+            "t1",
+            datetime(2026, 6, 18, 1, 0, 0, tzinfo=UTC),
+            datetime(2026, 6, 18, 1, 0, 5, tzinfo=UTC),
+            0.0,
+            0.0,
+        )
+        a1 = ObservationAction(
+            "sat_a",
+            "t1",
+            datetime(2026, 6, 18, 1, 1, 0, tzinfo=UTC),
+            datetime(2026, 6, 18, 1, 1, 5, tzinfo=UTC),
+            0.0,
+            0.0,
+        )
+        d0 = _derived_obs(sat="sat_a", action_index=0, access_interval_id="pass_0")
+        d1 = _derived_obs(sat="sat_a", action_index=1, access_interval_id="pass_0")
+
+        assert _stereo_pair_mode(mission, a0, a1, d0, d1) == "same_satellite_same_pass"
+
+    def test_same_satellite_different_access_rejected(self):
+        mission = _mission_model(allow_cross_satellite=True)
+        a0 = ObservationAction(
+            "sat_a",
+            "t1",
+            datetime(2026, 6, 18, 1, 0, 0, tzinfo=UTC),
+            datetime(2026, 6, 18, 1, 0, 5, tzinfo=UTC),
+            0.0,
+            0.0,
+        )
+        a1 = ObservationAction(
+            "sat_a",
+            "t1",
+            datetime(2026, 6, 18, 2, 0, 0, tzinfo=UTC),
+            datetime(2026, 6, 18, 2, 0, 5, tzinfo=UTC),
+            0.0,
+            0.0,
+        )
+        d0 = _derived_obs(sat="sat_a", action_index=0, access_interval_id="pass_0")
+        d1 = _derived_obs(sat="sat_a", action_index=1, access_interval_id="pass_1")
+
+        assert _stereo_pair_mode(mission, a0, a1, d0, d1) is None
+
+    def test_cross_satellite_requires_enablement(self):
+        mission = _mission_model(allow_cross_satellite=False)
+        a0 = ObservationAction(
+            "sat_a",
+            "t1",
+            datetime(2026, 6, 18, 1, 0, 0, tzinfo=UTC),
+            datetime(2026, 6, 18, 1, 0, 5, tzinfo=UTC),
+            0.0,
+            0.0,
+        )
+        a1 = ObservationAction(
+            "sat_b",
+            "t1",
+            datetime(2026, 6, 18, 1, 1, 0, tzinfo=UTC),
+            datetime(2026, 6, 18, 1, 1, 5, tzinfo=UTC),
+            0.0,
+            0.0,
+        )
+        d0 = _derived_obs(sat="sat_a", action_index=0, access_interval_id="sat_a_pass_0")
+        d1 = _derived_obs(sat="sat_b", action_index=1, access_interval_id="sat_b_pass_0")
+
+        assert _stereo_pair_mode(mission, a0, a1, d0, d1) is None
+
+    def test_cross_midnight_pair_uses_temporal_bound_not_date_boundary(self):
+        mission = _mission_model(allow_cross_satellite=True, max_pair_separation_s=180.0)
+        a0 = ObservationAction(
+            "sat_a",
+            "t1",
+            datetime(2026, 6, 18, 23, 58, 55, tzinfo=UTC),
+            datetime(2026, 6, 18, 23, 59, 5, tzinfo=UTC),
+            0.0,
+            0.0,
+        )
+        a1 = ObservationAction(
+            "sat_b",
+            "t1",
+            datetime(2026, 6, 19, 0, 0, 55, tzinfo=UTC),
+            datetime(2026, 6, 19, 0, 1, 5, tzinfo=UTC),
+            0.0,
+            0.0,
+        )
+        d0 = _derived_obs(sat="sat_a", action_index=0, access_interval_id="sat_a_pass_0")
+        d1 = _derived_obs(sat="sat_b", action_index=1, access_interval_id="sat_b_pass_0")
+
+        assert _product_time_separation_s([a0, a1]) == pytest.approx(120.0)
+        assert _stereo_pair_mode(mission, a0, a1, d0, d1) == "cross_satellite"
+
+    def test_pair_over_temporal_bound_rejected(self):
+        mission = _mission_model(allow_cross_satellite=True, max_pair_separation_s=60.0)
+        a0 = ObservationAction(
+            "sat_a",
+            "t1",
+            datetime(2026, 6, 18, 23, 58, 55, tzinfo=UTC),
+            datetime(2026, 6, 18, 23, 59, 5, tzinfo=UTC),
+            0.0,
+            0.0,
+        )
+        a1 = ObservationAction(
+            "sat_b",
+            "t1",
+            datetime(2026, 6, 19, 0, 0, 55, tzinfo=UTC),
+            datetime(2026, 6, 19, 0, 1, 5, tzinfo=UTC),
+            0.0,
+            0.0,
+        )
+        d0 = _derived_obs(sat="sat_a", action_index=0, access_interval_id="sat_a_pass_0")
+        d1 = _derived_obs(sat="sat_b", action_index=1, access_interval_id="sat_b_pass_0")
+
+        assert _stereo_pair_mode(mission, a0, a1, d0, d1) is None
+
+
+class TestEvaluateStereoPair:
+    def test_mixed_satellite_pair_uses_each_satellite_geometry(self, monkeypatch):
+        target_pos = np.array([_WGS84_A_M, 0.0, 0.0])
+        baseline_angle = math.radians(10.0)
+        sat_a_pos = target_pos + np.array([700000.0, 0.0, 0.0])
+        sat_b_pos = target_pos + 700000.0 * np.array(
+            [math.cos(baseline_angle), math.sin(baseline_angle), 0.0]
+        )
+
+        class FakeSat:
+            def __init__(self, name: str):
+                self.name = name
+
+        def fake_state(sat, _dt):
+            if sat.name == "sat_a":
+                return sat_a_pos, np.array([0.0, 7500.0, 0.0])
+            return sat_b_pos, np.array([0.0, 7500.0, 0.0])
+
+        monkeypatch.setattr(
+            "benchmarks.stereo_imaging.verifier.engine._satellite_state_ecef_m",
+            fake_state,
+        )
+        monkeypatch.setattr(
+            "benchmarks.stereo_imaging.verifier.engine._strip_polyline_en",
+            lambda *args, **kwargs: [(0.0, 0.0), (100.0, 0.0)],
+        )
+        monkeypatch.setattr(
+            "benchmarks.stereo_imaging.verifier.engine._monte_carlo_overlap_fraction",
+            lambda *args, **kwargs: 1.0,
+        )
+
+        actions = [
+            ObservationAction(
+                "sat_a",
+                "t1",
+                datetime(2026, 6, 18, 1, 0, 0, tzinfo=UTC),
+                datetime(2026, 6, 18, 1, 0, 5, tzinfo=UTC),
+                0.0,
+                0.0,
+            ),
+            ObservationAction(
+                "sat_b",
+                "t1",
+                datetime(2026, 6, 18, 1, 1, 0, tzinfo=UTC),
+                datetime(2026, 6, 18, 1, 1, 5, tzinfo=UTC),
+                0.0,
+                0.0,
+            ),
+        ]
+        satellites = {
+            "sat_a": _make_sat_def(),
+            "sat_b": _make_sat_def(),
+        }
+        target_defs = {
+            "t1": TargetDef(
+                target_id="t1",
+                latitude_deg=0.0,
+                longitude_deg=0.0,
+                aoi_radius_m=5000.0,
+                elevation_ref_m=0.0,
+                scene_type="urban_structured",
+            )
+        }
+
+        result = _evaluate_stereo_pair(
+            case_id="case_x",
+            mission=_mission_model(allow_cross_satellite=True),
+            satellites=satellites,
+            targets=target_defs,
+            sf_sats={"sat_a": FakeSat("sat_a"), "sat_b": FakeSat("sat_b")},
+            target_ecef={"t1": target_pos},
+            actions=actions,
+            first_index=0,
+            second_index=1,
+            first_derived=_derived_obs(sat="sat_a", action_index=0, scale_m=0.5),
+            second_derived=_derived_obs(sat="sat_b", action_index=1, scale_m=0.5),
+            stereo_mode="cross_satellite",
+            n_samples=100,
+            role="pair_overlap",
+        )
+
+        assert result["valid_pair"] is True
+        assert result["stereo_mode"] == "cross_satellite"
+        assert result["satellite_ids"] == ["sat_a", "sat_b"]
+        assert result["gamma_deg"] == pytest.approx(10.0, abs=1e-6)
 
 
 class TestIOLoadSolution:

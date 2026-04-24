@@ -29,8 +29,8 @@ splits:
       base_horizon_start: "2026-04-06T00:00:00Z"
       case_start_spacing_hours: 6
       horizon_duration_s: 172800
-      allow_cross_satellite_stereo: false
-      allow_cross_date_stereo: false
+      allow_cross_satellite_stereo: true
+      max_stereo_pair_separation_s: 3600.0
       validity_thresholds:
         min_overlap_fraction: 0.8
         min_convergence_deg: 5.0
@@ -48,6 +48,12 @@ splits:
           rugged: 0.10
           vegetated: 0.08
           open: 0.05
+
+    feasibility_guard:
+      max_generation_attempts_per_case: 8
+      access_sample_step_s: 60.0
+      max_candidate_observations_per_access: 8
+      overlap_samples: 80
 
     targets:
       min_count: 36

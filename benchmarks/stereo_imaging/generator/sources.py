@@ -1,4 +1,4 @@
-"""Reproducible download and staging for stereo_imaging v3 source data."""
+"""Reproducible download and staging for stereo_imaging source data."""
 
 from __future__ import annotations
 

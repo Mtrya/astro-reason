@@ -95,8 +95,8 @@ mission:
   horizon_start: ISO8601
   horizon_end: ISO8601
 
-  allow_cross_satellite_stereo: false
-  allow_cross_date_stereo: false
+  allow_cross_satellite_stereo: true
+  max_stereo_pair_separation_s: 7200
 
   validity_thresholds:
     min_overlap_fraction: 0.80
@@ -193,20 +193,27 @@ The verifier returns a JSON report:
 
 Two observations `(i, j)` form a valid stereo pair when all of the following hold:
 
-1. same `target_id`, `satellite_id`, and `access_interval_id`
-2. AOI overlap fraction `>= min_overlap_fraction` (default 0.80)
-3. convergence angle `min_convergence_deg <= gamma <= max_convergence_deg` (default 5–45 deg)
-4. pixel scale ratio `max(s_i, s_j) / min(s_i, s_j) <= max_pixel_scale_ratio` (default 1.5)
-5. all action-level hard constraints satisfied
+1. same `target_id`
+2. one of the mission-allowed stereo modes:
+   - same-satellite same-pass: same `satellite_id` and same `access_interval_id`
+   - cross-satellite: different `satellite_id` values and `allow_cross_satellite_stereo: true`
+3. midpoint separation `<= max_stereo_pair_separation_s`
+4. AOI overlap fraction `>= min_overlap_fraction` (default 0.80)
+5. convergence angle `min_convergence_deg <= gamma <= max_convergence_deg` (default 5–45 deg)
+6. pixel scale ratio `max(s_i, s_j) / min(s_i, s_j) <= max_pixel_scale_ratio` (default 1.5)
+7. all action-level hard constraints satisfied
+
+The temporal constraint is a duration bound, not a UTC date-boundary rule. For example, observations centered at 23:59 and 00:01 can form a valid product if they satisfy `max_stereo_pair_separation_s` and the other pair rules.
 
 ### Valid tri-stereo set
 
 Three observations form a valid tri-stereo set when:
 
-1. all three share the same `target_id`, `satellite_id`, and `access_interval_id`
-2. common AOI overlap fraction `>= min_overlap_fraction`
-3. at least two of the three constituent pairs are valid stereo pairs
-4. one observation has `boresight_off_nadir_deg <= near_nadir_anchor_max_off_nadir_deg` (the near-nadir anchor)
+1. all three share the same `target_id`
+2. all three constituent pairs satisfy the mission-level same-satellite or cross-satellite mode rules and the bounded temporal constraint
+3. common AOI overlap fraction `>= min_overlap_fraction`
+4. at least two of the three constituent pairs are valid stereo pairs
+5. one observation has `boresight_off_nadir_deg <= near_nadir_anchor_max_off_nadir_deg` (the near-nadir anchor)
 
 ## Quality model
 
@@ -279,8 +286,7 @@ A local secant correction for off-nadir projection is applied.
 - cloud and weather modeling
 - downlink, ground stations, contact windows
 - onboard storage and power accounting
-- cross-satellite stereo (disabled by default)
-- cross-date stereo (disabled by default)
+- unbounded temporal-baseline stereo products
 - dense image matching internals
 - bundle adjustment
 - fine terrain occlusion or slope physics

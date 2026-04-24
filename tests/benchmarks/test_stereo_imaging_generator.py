@@ -3,13 +3,20 @@ from __future__ import annotations
 import csv
 import json
 import sys
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 import pytest
 import yaml
 
+import benchmarks.stereo_imaging.generator.build as generator_build
 import benchmarks.stereo_imaging.generator.run as generator_run
 from benchmarks.stereo_imaging.generator.build import load_generator_config
+from benchmarks.stereo_imaging.generator.feasibility import (
+    CandidateObservation,
+    FeasibilityAuditResult,
+    _evaluate_candidate_pairs,
+)
 from benchmarks.stereo_imaging.generator.sources import (
     CELESTRAK_CSV_NAME,
     CELESTRAK_EARTH_RESOURCES_URL,
@@ -18,6 +25,13 @@ from benchmarks.stereo_imaging.generator.sources import (
     SourceFetchResult,
     WORLD_CITIES_DATASET,
     WORLD_CITIES_FILENAME,
+)
+from benchmarks.stereo_imaging.verifier.models import (
+    DerivedObservation,
+    Mission,
+    ObservationAction,
+    SatelliteDef,
+    TargetDef,
 )
 
 
@@ -50,7 +64,7 @@ def _write_splits_yaml(path: Path, *, snapshot_epoch_utc: str = CELESTRAK_SNAPSH
                     "case_start_spacing_hours": 6,
                     "horizon_duration_s": 172800,
                     "allow_cross_satellite_stereo": False,
-                    "allow_cross_date_stereo": False,
+                    "max_stereo_pair_separation_s": 7200.0,
                     "validity_thresholds": {
                         "min_overlap_fraction": 0.8,
                         "min_convergence_deg": 5.0,
@@ -72,6 +86,12 @@ def _write_splits_yaml(path: Path, *, snapshot_epoch_utc: str = CELESTRAK_SNAPSH
                             "open": 0.05,
                         },
                     },
+                },
+                "feasibility_guard": {
+                    "max_generation_attempts_per_case": 3,
+                    "access_sample_step_s": 60.0,
+                    "max_candidate_observations_per_access": 4,
+                    "overlap_samples": 40,
                 },
                 "targets": {
                     "min_count": 4,
@@ -166,6 +186,99 @@ def _write_source_tree(source_dir: Path) -> None:
     )
 
 
+def _mission_model(
+    *,
+    allow_cross_satellite: bool = True,
+    max_pair_separation_s: float = 7200.0,
+) -> Mission:
+    return Mission(
+        horizon_start=datetime(2026, 4, 6, 0, 0, tzinfo=UTC),
+        horizon_end=datetime(2026, 4, 7, 0, 0, tzinfo=UTC),
+        allow_cross_satellite_stereo=allow_cross_satellite,
+        max_stereo_pair_separation_s=max_pair_separation_s,
+        min_overlap_fraction=0.8,
+        min_convergence_deg=5.0,
+        max_convergence_deg=45.0,
+        max_pixel_scale_ratio=1.5,
+        min_solar_elevation_deg=10.0,
+        near_nadir_anchor_max_off_nadir_deg=10.0,
+        pair_weights={"geometry": 0.5, "overlap": 0.35, "resolution": 0.15},
+        tri_stereo_bonus_by_scene={
+            "urban_structured": 0.12,
+            "rugged": 0.10,
+            "vegetated": 0.08,
+            "open": 0.05,
+        },
+    )
+
+
+def _sat_def(sat_id: str) -> SatelliteDef:
+    return SatelliteDef(
+        sat_id=sat_id,
+        norad_catalog_id=1,
+        tle_line1="1 00001U 00001A   26096.00000000  .00000000  00000+0  00000+0 0  9991",
+        tle_line2="2 00001  98.0000 000.0000 0001000 000.0000 000.0000 14.00000000000001",
+        pixel_ifov_deg=0.00004,
+        cross_track_pixels=12000,
+        max_off_nadir_deg=30.0,
+        max_slew_velocity_deg_per_s=2.0,
+        max_slew_acceleration_deg_per_s2=1.0,
+        settling_time_s=1.0,
+        min_obs_duration_s=2.0,
+        max_obs_duration_s=60.0,
+    )
+
+
+def _target_def() -> TargetDef:
+    return TargetDef(
+        target_id="t1",
+        latitude_deg=0.0,
+        longitude_deg=0.0,
+        aoi_radius_m=2500.0,
+        elevation_ref_m=0.0,
+        scene_type="urban_structured",
+    )
+
+
+def _candidate(
+    *,
+    sat_id: str,
+    action_index: int,
+    start_second: int,
+) -> CandidateObservation:
+    start = datetime(2026, 4, 6, 1, 0, 0, tzinfo=UTC) + timedelta(seconds=start_second)
+    end = start + timedelta(seconds=2)
+    action = ObservationAction(sat_id, "t1", start, end, 0.0, 0.0)
+    derived = DerivedObservation(
+        satellite_id=sat_id,
+        target_id="t1",
+        action_index=action_index,
+        start_time=start.strftime("%Y-%m-%dT%H:%M:%SZ"),
+        end_time=end.strftime("%Y-%m-%dT%H:%M:%SZ"),
+        midpoint_time=(start + (end - start) / 2).strftime("%Y-%m-%dT%H:%M:%SZ"),
+        sat_position_ecef_m=[0.0, 0.0, 0.0],
+        sat_velocity_ecef_mps=[0.0, 0.0, 0.0],
+        boresight_off_nadir_deg=0.0,
+        boresight_azimuth_deg=0.0,
+        solar_elevation_deg=45.0,
+        solar_azimuth_deg=180.0,
+        effective_pixel_scale_m=0.5,
+        access_interval_id=f"{sat_id}::t1::0",
+        slant_range_m=700000.0,
+    )
+    return CandidateObservation(action=action, derived=derived)
+
+
+def _accepting_audit(**_kwargs) -> FeasibilityAuditResult:
+    return FeasibilityAuditResult(
+        feasible=True,
+        diagnostics={
+            "satellites_with_access": ["sat_a"],
+            "candidate_observation_count": 2,
+        },
+    )
+
+
 def test_main_requires_splits_yaml(monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]) -> None:
     monkeypatch.setattr(sys, "argv", ["run.py"])
 
@@ -183,6 +296,94 @@ def test_load_generator_config_rejects_unsupported_snapshot_epoch(tmp_path: Path
 
     with pytest.raises(ValueError, match="cached CelesTrak snapshot epoch"):
         load_generator_config(splits_path)
+
+
+def test_load_generator_config_rejects_removed_cross_date_field(tmp_path: Path) -> None:
+    splits_path = tmp_path / "splits.yaml"
+    _write_splits_yaml(splits_path)
+    payload = yaml.safe_load(splits_path.read_text(encoding="utf-8"))
+    payload["splits"]["test"]["mission"]["allow_cross_date_stereo"] = False
+    splits_path.write_text(yaml.safe_dump(payload, sort_keys=False), encoding="utf-8")
+
+    with pytest.raises(ValueError, match="allow_cross_date_stereo"):
+        load_generator_config(splits_path)
+
+
+def test_load_generator_config_rejects_invalid_pair_separation(tmp_path: Path) -> None:
+    splits_path = tmp_path / "splits.yaml"
+    _write_splits_yaml(splits_path)
+    payload = yaml.safe_load(splits_path.read_text(encoding="utf-8"))
+    payload["splits"]["test"]["mission"]["max_stereo_pair_separation_s"] = 0.0
+    splits_path.write_text(yaml.safe_dump(payload, sort_keys=False), encoding="utf-8")
+
+    with pytest.raises(ValueError, match="max_stereo_pair_separation_s"):
+        load_generator_config(splits_path)
+
+
+def test_load_generator_config_rejects_invalid_attempt_limit(tmp_path: Path) -> None:
+    splits_path = tmp_path / "splits.yaml"
+    _write_splits_yaml(splits_path)
+    payload = yaml.safe_load(splits_path.read_text(encoding="utf-8"))
+    payload["splits"]["test"]["feasibility_guard"]["max_generation_attempts_per_case"] = 0
+    splits_path.write_text(yaml.safe_dump(payload, sort_keys=False), encoding="utf-8")
+
+    with pytest.raises(ValueError, match="max_generation_attempts_per_case"):
+        load_generator_config(splits_path)
+
+
+def test_feasibility_guard_rejects_case_without_candidate_access() -> None:
+    result = _evaluate_candidate_pairs(
+        case_id="case_0001",
+        mission=_mission_model(),
+        satellites={"sat_a": _sat_def("sat_a")},
+        targets={"t1": _target_def()},
+        sf_sats={"sat_a": object()},
+        target_ecef={},
+        candidates=[],
+        overlap_samples=10,
+    )
+
+    assert result.feasible is False
+    assert result.diagnostics["candidate_observation_count"] == 0
+    assert result.diagnostics["most_common_rejection_reason"] == "no_candidate_access"
+
+
+def test_feasibility_guard_accepts_cross_satellite_candidate_pair(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    def fake_evaluate_pair(**kwargs):
+        return {
+            "valid_pair": True,
+            "q_pair": 0.9,
+            "stereo_mode": kwargs["stereo_mode"],
+            "satellite_ids": [
+                kwargs["first_derived"].satellite_id,
+                kwargs["second_derived"].satellite_id,
+            ],
+        }
+
+    monkeypatch.setattr(
+        "benchmarks.stereo_imaging.generator.feasibility._evaluate_stereo_pair",
+        fake_evaluate_pair,
+    )
+
+    result = _evaluate_candidate_pairs(
+        case_id="case_0001",
+        mission=_mission_model(allow_cross_satellite=True, max_pair_separation_s=180.0),
+        satellites={"sat_a": _sat_def("sat_a"), "sat_b": _sat_def("sat_b")},
+        targets={"t1": _target_def()},
+        sf_sats={"sat_a": object(), "sat_b": object()},
+        target_ecef={},
+        candidates=[
+            _candidate(sat_id="sat_a", action_index=0, start_second=0),
+            _candidate(sat_id="sat_b", action_index=1, start_second=60),
+        ],
+        overlap_samples=10,
+    )
+
+    assert result.feasible is True
+    assert result.diagnostics["candidate_cross_satellite_pair_count"] == 1
+    assert result.diagnostics["accepted_pair"]["stereo_mode"] == "cross_satellite"
 
 
 def test_main_rejects_invalid_max_abs_latitude(
@@ -316,6 +517,7 @@ def test_main_builds_split_aware_dataset(monkeypatch: pytest.MonkeyPatch, tmp_pa
         }
 
     monkeypatch.setattr(generator_run, "fetch_all_sources", fake_fetch_all_sources)
+    monkeypatch.setattr(generator_build, "audit_case_feasibility", _accepting_audit)
     monkeypatch.setattr(
         sys,
         "argv",
@@ -335,6 +537,14 @@ def test_main_builds_split_aware_dataset(monkeypatch: pytest.MonkeyPatch, tmp_pa
     assert index["example_smoke_case"] == "test/case_0001"
     assert index["cases"][0]["split"] == "test"
     assert index["cases"][0]["path"] == "cases/test/case_0001"
+    assert index["spec_version"] == "v4"
+    mission = yaml.safe_load(
+        (output_dir / "cases" / "test" / "case_0001" / "mission.yaml").read_text(
+            encoding="utf-8"
+        )
+    )["mission"]
+    assert mission["max_stereo_pair_separation_s"] == pytest.approx(7200.0)
+    assert "allow_cross_date_stereo" not in mission
     targets = yaml.safe_load(
         (output_dir / "cases" / "test" / "case_0001" / "targets.yaml").read_text(
             encoding="utf-8"
@@ -342,3 +552,131 @@ def test_main_builds_split_aware_dataset(monkeypatch: pytest.MonkeyPatch, tmp_pa
     )
     assert targets
     assert all(abs(float(target["latitude_deg"])) < 70.0 for target in targets)
+
+
+def test_main_exhausts_feasibility_attempts_without_writing_case(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    splits_path = tmp_path / "splits.yaml"
+    _write_splits_yaml(splits_path)
+    payload = yaml.safe_load(splits_path.read_text(encoding="utf-8"))
+    payload["splits"]["test"]["feasibility_guard"]["max_generation_attempts_per_case"] = 2
+    splits_path.write_text(yaml.safe_dump(payload, sort_keys=False), encoding="utf-8")
+    download_dir = tmp_path / "sources"
+    output_dir = tmp_path / "output"
+
+    def fake_fetch_all_sources(dest_dir: Path, *, force_download: bool = False):
+        del force_download
+        _write_source_tree(dest_dir)
+        return {
+            "celestrak": SourceFetchResult(
+                "celestrak",
+                [dest_dir / "celestrak" / CELESTRAK_CSV_NAME],
+                {
+                    "record_count": 2,
+                    "sha256": "fake",
+                    "vendored_snapshot": True,
+                },
+            ),
+            "world_cities": SourceFetchResult(
+                "world_cities",
+                [dest_dir / "world_cities" / WORLD_CITIES_FILENAME],
+                {"sha256": "fake"},
+            ),
+        }
+
+    def rejecting_audit(**_kwargs):
+        return FeasibilityAuditResult(
+            feasible=False,
+            diagnostics={
+                "satellites_with_access": [],
+                "candidate_observation_count": 0,
+                "candidate_same_satellite_pair_count": 0,
+                "candidate_cross_satellite_pair_count": 0,
+                "most_common_rejection_reason": "no_candidate_access",
+            },
+        )
+
+    monkeypatch.setattr(generator_run, "fetch_all_sources", fake_fetch_all_sources)
+    monkeypatch.setattr(generator_build, "audit_case_feasibility", rejecting_audit)
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        [
+            "run.py",
+            str(splits_path),
+            "--download-dir",
+            str(download_dir),
+            "--output-dir",
+            str(output_dir),
+        ],
+    )
+
+    with pytest.raises(RuntimeError, match="exhausted 2 generation attempts"):
+        generator_run.main()
+    assert not (output_dir / "cases" / "test" / "case_0001").exists()
+
+
+def test_main_retries_until_feasibility_guard_accepts(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    splits_path = tmp_path / "splits.yaml"
+    _write_splits_yaml(splits_path)
+    download_dir = tmp_path / "sources"
+    output_dir = tmp_path / "output"
+
+    def fake_fetch_all_sources(dest_dir: Path, *, force_download: bool = False):
+        del force_download
+        _write_source_tree(dest_dir)
+        return {
+            "celestrak": SourceFetchResult(
+                "celestrak",
+                [dest_dir / "celestrak" / CELESTRAK_CSV_NAME],
+                {
+                    "record_count": 2,
+                    "sha256": "fake",
+                    "vendored_snapshot": True,
+                },
+            ),
+            "world_cities": SourceFetchResult(
+                "world_cities",
+                [dest_dir / "world_cities" / WORLD_CITIES_FILENAME],
+                {"sha256": "fake"},
+            ),
+        }
+
+    calls = {"count": 0}
+
+    def flaky_audit(**_kwargs):
+        calls["count"] += 1
+        return FeasibilityAuditResult(
+            feasible=calls["count"] == 2,
+            diagnostics={
+                "satellites_with_access": ["sat_a"],
+                "candidate_observation_count": 2,
+                "candidate_same_satellite_pair_count": 1,
+                "candidate_cross_satellite_pair_count": 0,
+                "most_common_rejection_reason": None,
+            },
+        )
+
+    monkeypatch.setattr(generator_run, "fetch_all_sources", fake_fetch_all_sources)
+    monkeypatch.setattr(generator_build, "audit_case_feasibility", flaky_audit)
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        [
+            "run.py",
+            str(splits_path),
+            "--download-dir",
+            str(download_dir),
+            "--output-dir",
+            str(output_dir),
+        ],
+    )
+
+    assert generator_run.main() == 0
+    assert calls["count"] == 2
+    assert (output_dir / "cases" / "test" / "case_0001" / "mission.yaml").exists()
