@@ -35,6 +35,8 @@ def main() -> None:
 
     config = _load_config(Path(args.config_dir)) if args.config_dir else {}
     mclp_mode = config.get("mclp_mode", "auto")  # "auto", "greedy", or "milp"
+    scheduler_mode = config.get("scheduler_mode", "auto")  # "auto", "greedy", or "milp"
+    milp_config = config.get("milp_config", {})
 
     t0 = time.monotonic()
     case = load_case(Path(args.case_dir))
@@ -123,9 +125,13 @@ def main() -> None:
             }
         )
 
-    # Greedy contact scheduling
+    # Contact scheduling (MILP or greedy)
     selected_ids = {c.satellite_id for c in selected}
-    actions, sched_summary = run_scheduler(case, sample_times, link_records, selected_ids)
+    actions, sched_summary = run_scheduler(
+        case, sample_times, link_records, selected_ids,
+        scheduler_mode=scheduler_mode,
+        milp_config=milp_config,
+    )
     t8 = time.monotonic()
 
     # Write solution
@@ -166,6 +172,12 @@ def main() -> None:
             "scheduler": round(t8 - t7, 3),
             "total": round(t8 - t0, 3),
         },
+        "scheduler_mode": sched_summary.get("scheduler_mode", "greedy"),
+        "scheduler_milp_attempted": sched_summary.get("milp_attempted", False),
+        "scheduler_milp_fallback_reason": sched_summary.get("milp_fallback_reason", None),
+        "scheduler_milp_model_variables": sched_summary.get("milp_model_variables", None),
+        "scheduler_milp_model_constraints": sched_summary.get("milp_model_constraints", None),
+        "scheduler_milp_total_solve_time_s": sched_summary.get("milp_total_solve_time_s", None),
         "scheduler_num_actions": sched_summary.get("num_actions", 0),
         "scheduler_num_ground_actions": sched_summary.get("num_ground_actions", 0),
         "scheduler_num_isl_actions": sched_summary.get("num_isl_actions", 0),
@@ -195,6 +207,15 @@ def main() -> None:
     write_debug_summary(solution_dir, "link_cache_summary", link_summary)
     write_debug_summary(solution_dir, "mclp_reward_summary", mclp_summary)
     write_debug_summary(solution_dir, "teg_summary", sched_summary)
+    if sched_summary.get("milp_attempted"):
+        write_debug_summary(solution_dir, "milp_summary", {
+            "milp_attempted": sched_summary.get("milp_attempted"),
+            "milp_fallback_reason": sched_summary.get("milp_fallback_reason"),
+            "milp_model_variables": sched_summary.get("milp_model_variables"),
+            "milp_model_constraints": sched_summary.get("milp_model_constraints"),
+            "milp_total_solve_time_s": sched_summary.get("milp_total_solve_time_s"),
+            "milp_per_sample_solve_times_s": sched_summary.get("milp_per_sample_solve_times_s"),
+        })
     write_debug_summary(
         solution_dir,
         "selected_orbits",
@@ -220,6 +241,11 @@ def main() -> None:
     print(f"  Selected: {len(selected)}")
     print(f"  Baseline score: {mclp_summary.get('baseline_score', 0.0)}")
     print(f"  Selected score: {mclp_summary.get('selected_score', 0.0)}")
+    print(f"  Scheduler mode: {sched_summary.get('scheduler_mode', 'greedy')}")
+    if sched_summary.get("milp_attempted"):
+        print(f"  MILP attempted: {sched_summary['milp_attempted']}")
+        if sched_summary.get("milp_fallback_reason"):
+            print(f"  MILP fallback reason: {sched_summary['milp_fallback_reason']}")
     print(f"  Actions: {len(actions)} ({sched_summary.get('num_ground_actions', 0)} ground, {sched_summary.get('num_isl_actions', 0)} ISL)")
     print(f"  Local violations: {len(sched_summary.get('local_violations', []))}")
     print(f"  Solution written to: {solution_dir.resolve()}")

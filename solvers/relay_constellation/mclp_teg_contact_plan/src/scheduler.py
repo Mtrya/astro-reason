@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from collections import defaultdict
 from datetime import datetime, timedelta
-from typing import Iterable
+from typing import Any, Iterable
 
 from .case_io import Case, DemandWindow
 from .link_cache import LinkRecord
@@ -346,7 +346,7 @@ def _local_validate(
     return violations
 
 
-def run_scheduler(
+def _run_greedy_scheduler(
     case: Case,
     sample_times: tuple[datetime, ...],
     link_records: Iterable[LinkRecord],
@@ -404,6 +404,13 @@ def run_scheduler(
     num_isl = sum(1 for a in actions if a["action_type"] == "inter_satellite_link")
 
     summary = {
+        "scheduler_mode": "greedy",
+        "milp_attempted": False,
+        "milp_fallback_reason": None,
+        "milp_model_variables": None,
+        "milp_model_constraints": None,
+        "milp_total_solve_time_s": None,
+        "milp_per_sample_solve_times_s": None,
         "num_samples_with_links": len(selected_by_sample),
         "total_selected_links": total_selected,
         "total_utility": round(total_utility, 6),
@@ -413,4 +420,77 @@ def run_scheduler(
         "local_violations": local_violations,
     }
 
+    return actions, summary
+
+
+def run_scheduler(
+    case: Case,
+    sample_times: tuple[datetime, ...],
+    link_records: Iterable[LinkRecord],
+    selected_satellite_ids: set[str] | None = None,
+    scheduler_mode: str = "auto",
+    milp_config: dict[str, Any] | None = None,
+) -> tuple[list[dict], dict]:
+    """Run the contact scheduler (MILP or greedy) and return actions plus summary.
+
+    Parameters
+    ----------
+    scheduler_mode : "auto", "greedy", or "milp"
+        "auto" tries MILP for small problems and falls back to greedy.
+        "greedy" always uses the greedy scheduler.
+        "milp" requires MILP to succeed; raises RuntimeError on failure.
+    milp_config : optional dict with keys:
+        - max_total_variables (int, default 500)
+        - max_samples (int, default 50)
+        - milp_time_limit_per_sample (float, default 5.0)
+    """
+    cfg = milp_config or {}
+    mode = scheduler_mode.lower().strip()
+
+    if mode == "greedy":
+        return _run_greedy_scheduler(case, sample_times, link_records, selected_satellite_ids)
+
+    # Lazy import to avoid circular dependency at module load time
+    from .milp_scheduler import milp_scheduler_available, run_milp_scheduler
+
+    if mode == "milp":
+        result = run_milp_scheduler(
+            case,
+            sample_times,
+            link_records,
+            selected_satellite_ids=selected_satellite_ids,
+            milp_time_limit_per_sample=cfg.get("milp_time_limit_per_sample", 5.0),
+            max_total_variables=cfg.get("max_total_variables", 500),
+            max_samples=cfg.get("max_samples", 50),
+        )
+        if result is None:
+            raise RuntimeError("MILP scheduler failed or exceeded bounds")
+        return result
+
+    # auto mode
+    if not milp_scheduler_available():
+        actions, summary = _run_greedy_scheduler(
+            case, sample_times, link_records, selected_satellite_ids
+        )
+        summary["milp_attempted"] = False
+        summary["milp_fallback_reason"] = "pulp_cbc_unavailable"
+        return actions, summary
+
+    result = run_milp_scheduler(
+        case,
+        sample_times,
+        link_records,
+        selected_satellite_ids=selected_satellite_ids,
+        milp_time_limit_per_sample=cfg.get("milp_time_limit_per_sample", 5.0),
+        max_total_variables=cfg.get("max_total_variables", 500),
+        max_samples=cfg.get("max_samples", 50),
+    )
+    if result is not None:
+        return result
+
+    actions, summary = _run_greedy_scheduler(
+        case, sample_times, link_records, selected_satellite_ids
+    )
+    summary["milp_attempted"] = True
+    summary["milp_fallback_reason"] = "problem_too_large_or_solver_failed"
     return actions, summary
