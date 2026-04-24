@@ -348,6 +348,61 @@ def _find_candidate_observations(
     return candidates
 
 
+def _find_candidate_observations_for_target(
+    mission: Mission,
+    satellites: dict[str, SatelliteDef],
+    target: TargetDef,
+    sf_sats: dict[str, EarthSatellite],
+    target_pos: np.ndarray,
+    *,
+    access_sample_step_s: float,
+    max_candidates_per_access: int,
+) -> list[CandidateObservation]:
+    candidates: list[CandidateObservation] = []
+    for sat_id, sat_def in satellites.items():
+        sf_sat = sf_sats[sat_id]
+        current_samples: list[datetime] = []
+        access_index = 0
+        for instant in _iter_samples(
+            mission.horizon_start,
+            mission.horizon_end,
+            step_s=access_sample_step_s,
+        ):
+            if _access_predicate(sf_sat, target, target_pos, sat_def, mission, instant):
+                current_samples.append(instant)
+                continue
+            _append_access_candidates(
+                samples=current_samples,
+                candidates=candidates,
+                sat_id=sat_id,
+                target_id=target.target_id,
+                access_index=access_index,
+                mission=mission,
+                sat_def=sat_def,
+                sf_sat=sf_sat,
+                target=target,
+                target_pos=target_pos,
+                max_candidates=max_candidates_per_access,
+            )
+            if current_samples:
+                access_index += 1
+            current_samples = []
+        _append_access_candidates(
+            samples=current_samples,
+            candidates=candidates,
+            sat_id=sat_id,
+            target_id=target.target_id,
+            access_index=access_index,
+            mission=mission,
+            sat_def=sat_def,
+            sf_sat=sf_sat,
+            target=target,
+            target_pos=target_pos,
+            max_candidates=max_candidates_per_access,
+        )
+    return candidates
+
+
 def _same_satellite_actions_feasible(
     first: ObservationAction,
     second: ObservationAction,
@@ -489,6 +544,77 @@ def _evaluate_candidate_pairs(
     return FeasibilityAuditResult(feasible=False, diagnostics=diagnostics)
 
 
+def _audit_case_feasibility_streaming(
+    *,
+    case_id: str,
+    mission: Mission,
+    satellites: dict[str, SatelliteDef],
+    targets: dict[str, TargetDef],
+    sf_sats: dict[str, EarthSatellite],
+    target_ecef: dict[str, np.ndarray],
+    access_sample_step_s: float,
+    max_candidates_per_access: int,
+    overlap_samples: int,
+) -> FeasibilityAuditResult:
+    scanned_candidates: list[CandidateObservation] = []
+    scanned_targets = 0
+    last_report: FeasibilityAuditResult | None = None
+    for target_id, target in targets.items():
+        scanned_targets += 1
+        candidates = _find_candidate_observations_for_target(
+            mission,
+            satellites,
+            target,
+            sf_sats,
+            target_ecef[target_id],
+            access_sample_step_s=access_sample_step_s,
+            max_candidates_per_access=max_candidates_per_access,
+        )
+        scanned_candidates.extend(candidates)
+        if len(candidates) < 2:
+            continue
+        target_report = _evaluate_candidate_pairs(
+            case_id=case_id,
+            mission=mission,
+            satellites=satellites,
+            targets=targets,
+            sf_sats=sf_sats,
+            target_ecef=target_ecef,
+            candidates=candidates,
+            overlap_samples=overlap_samples,
+        )
+        last_report = target_report
+        if target_report.feasible:
+            diagnostics = dict(target_report.diagnostics)
+            diagnostics["targets_scanned_before_accept"] = scanned_targets
+            diagnostics["candidate_observation_count_before_accept"] = len(scanned_candidates)
+            return FeasibilityAuditResult(feasible=True, diagnostics=diagnostics)
+
+    if scanned_candidates:
+        return _evaluate_candidate_pairs(
+            case_id=case_id,
+            mission=mission,
+            satellites=satellites,
+            targets=targets,
+            sf_sats=sf_sats,
+            target_ecef=target_ecef,
+            candidates=scanned_candidates,
+            overlap_samples=overlap_samples,
+        )
+    if last_report is not None:
+        return last_report
+    return _evaluate_candidate_pairs(
+        case_id=case_id,
+        mission=mission,
+        satellites=satellites,
+        targets=targets,
+        sf_sats=sf_sats,
+        target_ecef=target_ecef,
+        candidates=[],
+        overlap_samples=overlap_samples,
+    )
+
+
 def audit_case_feasibility(
     *,
     case_id: str,
@@ -506,6 +632,18 @@ def audit_case_feasibility(
         for sat_id, sat in satellites.items()
     }
     target_ecef = {target_id: _target_ecef_m(target) for target_id, target in targets.items()}
+    if bool(config.get("stop_after_first_feasible", True)):
+        return _audit_case_feasibility_streaming(
+            case_id=case_id,
+            mission=mission,
+            satellites=satellites,
+            targets=targets,
+            sf_sats=sf_sats,
+            target_ecef=target_ecef,
+            access_sample_step_s=float(config["access_sample_step_s"]),
+            max_candidates_per_access=int(config["max_candidate_observations_per_access"]),
+            overlap_samples=int(config["overlap_samples"]),
+        )
     candidates = _find_candidate_observations(
         mission,
         satellites,

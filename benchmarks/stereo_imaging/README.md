@@ -334,7 +334,7 @@ uv run python -m benchmarks.stereo_imaging.generator.run \
 
 The canonical generator writes cases under `dataset/cases/test/`, updates `dataset/index.json`, and writes `dataset/example_solution.json` (aligned with `example_smoke_case: test/case_0001` in `splits.yaml`). Runtime sources are staged under `dataset/source_data/`.
 
-`splits.yaml` carries the benchmark-owned construction parameters plus an exact supported CelesTrak snapshot epoch label for the vendored real-TLE subset. The canonical mission horizon is anchored to that cached snapshot, and the generator rejects any other epoch because this benchmark does not ship alternate cached TLE snapshots.
+`splits.yaml` carries the benchmark-owned construction parameters plus an exact supported CelesTrak snapshot epoch label for the vendored real-TLE subset. The satellite TLE rows and sensor/agility profiles live in `generator/satellite_catalog.py`, so the split file stays focused on case counts, mission policy, and sampling parameters. The canonical mission horizon is anchored to that cached snapshot, and the generator rejects any other epoch because this benchmark does not ship alternate cached TLE snapshots.
 
 `--sources-only`, `--download-dir`, and `--force-download` are retained operational modes around source staging; they are not alternate canonical dataset-construction contracts.
 

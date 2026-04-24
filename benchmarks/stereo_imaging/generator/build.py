@@ -18,6 +18,7 @@ from . import sources as sources_module
 from .feasibility import audit_case_feasibility, format_feasibility_diagnostics
 from .lookup_tables import ELEVATION_GRID, LOOKUP_TABLE_VERSION, SCENE_GRID
 from .normalize import load_celestrak_csv, load_world_cities
+from .satellite_catalog import SATELLITE_CATALOG
 
 LOOKUP_GRID_RESOLUTION_DEG = 1.0
 LOOKUP_LAT_MIN = -89
@@ -172,6 +173,23 @@ def _sample_case_satellites_and_target_count(
     rng.shuffle(pool)
     norad_ids = pool[:n_sat]
     return norad_ids, n_targ
+
+
+def _satellite_catalog_from_config(
+    satellites_config: dict[str, Any],
+    *,
+    label: str,
+) -> dict[int, dict[str, Any]]:
+    configured_catalog = satellites_config.get("catalog")
+    if configured_catalog is None:
+        return {int(norad): dict(spec) for norad, spec in SATELLITE_CATALOG.items()}
+    return {
+        int(norad): _require_mapping(spec, f"{label}.catalog.{norad}")
+        for norad, spec in _require_mapping(
+            configured_catalog,
+            f"{label}.catalog",
+        ).items()
+    }
 
 
 def _inclination_deg_from_tle_line2(line2: str) -> float:
@@ -698,18 +716,15 @@ def generate_dataset(
             split_config,
             f"splits.{split_name}",
         )
-        satellite_catalog = {
-            int(norad): _require_mapping(spec, f"splits.{split_name}.satellites.catalog.{norad}")
-            for norad, spec in _require_mapping(
-                satellites_config.get("catalog"),
-                f"splits.{split_name}.satellites.catalog",
-            ).items()
-        }
+        satellite_catalog = _satellite_catalog_from_config(
+            satellites_config,
+            label=f"splits.{split_name}.satellites",
+        )
         for norad in satellite_catalog:
             if norad not in celestrak_by_norad:
                 raise KeyError(
                     f"Catalog NORAD {norad} not in CelesTrak CSV; "
-                    "refresh source data or update splits.yaml."
+                    "refresh source data or update satellite_catalog.py."
                 )
         pool_norads = sorted(satellite_catalog.keys())
         selected_norad_catalog_ids.update(pool_norads)

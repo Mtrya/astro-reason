@@ -15,6 +15,7 @@ from benchmarks.stereo_imaging.generator.build import load_generator_config
 from benchmarks.stereo_imaging.generator.feasibility import (
     CandidateObservation,
     FeasibilityAuditResult,
+    _audit_case_feasibility_streaming,
     _evaluate_candidate_pairs,
 )
 from benchmarks.stereo_imaging.generator.sources import (
@@ -33,6 +34,20 @@ from benchmarks.stereo_imaging.verifier.models import (
     SatelliteDef,
     TargetDef,
 )
+
+
+def test_generator_uses_benchmark_satellite_catalog_when_split_omits_catalog() -> None:
+    catalog = generator_build._satellite_catalog_from_config(
+        {
+            "min_per_case": 10,
+            "max_per_case": 12,
+        },
+        label="splits.test.satellites",
+    )
+
+    assert len(catalog) >= 20
+    assert catalog[38012]["id"] == "sat_pleiades_1a"
+    assert catalog[38755]["id"] == "sat_spot_6"
 
 
 def _write_splits_yaml(path: Path, *, snapshot_epoch_utc: str = CELESTRAK_SNAPSHOT_EPOCH_UTC) -> None:
@@ -229,9 +244,9 @@ def _sat_def(sat_id: str) -> SatelliteDef:
     )
 
 
-def _target_def() -> TargetDef:
+def _target_def(target_id: str = "t1") -> TargetDef:
     return TargetDef(
-        target_id="t1",
+        target_id=target_id,
         latitude_deg=0.0,
         longitude_deg=0.0,
         aoi_radius_m=2500.0,
@@ -245,13 +260,14 @@ def _candidate(
     sat_id: str,
     action_index: int,
     start_second: int,
+    target_id: str = "t1",
 ) -> CandidateObservation:
     start = datetime(2026, 4, 6, 1, 0, 0, tzinfo=UTC) + timedelta(seconds=start_second)
     end = start + timedelta(seconds=2)
-    action = ObservationAction(sat_id, "t1", start, end, 0.0, 0.0)
+    action = ObservationAction(sat_id, target_id, start, end, 0.0, 0.0)
     derived = DerivedObservation(
         satellite_id=sat_id,
-        target_id="t1",
+        target_id=target_id,
         action_index=action_index,
         start_time=start.strftime("%Y-%m-%dT%H:%M:%SZ"),
         end_time=end.strftime("%Y-%m-%dT%H:%M:%SZ"),
@@ -263,7 +279,7 @@ def _candidate(
         solar_elevation_deg=45.0,
         solar_azimuth_deg=180.0,
         effective_pixel_scale_m=0.5,
-        access_interval_id=f"{sat_id}::t1::0",
+        access_interval_id=f"{sat_id}::{target_id}::0",
         slant_range_m=700000.0,
     )
     return CandidateObservation(action=action, derived=derived)
@@ -384,6 +400,55 @@ def test_feasibility_guard_accepts_cross_satellite_candidate_pair(
     assert result.feasible is True
     assert result.diagnostics["candidate_cross_satellite_pair_count"] == 1
     assert result.diagnostics["accepted_pair"]["stereo_mode"] == "cross_satellite"
+
+
+def test_streaming_feasibility_guard_stops_after_first_feasible_target(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    scanned_targets: list[str] = []
+
+    def fake_find_candidates(mission, satellites, target, sf_sats, target_pos, **kwargs):
+        del mission, satellites, sf_sats, target_pos, kwargs
+        scanned_targets.append(target.target_id)
+        if target.target_id != "t2":
+            return []
+        return [
+            _candidate(sat_id="sat_a", action_index=0, start_second=0, target_id="t2"),
+            _candidate(sat_id="sat_b", action_index=1, start_second=60, target_id="t2"),
+        ]
+
+    def fake_evaluate_pair(**kwargs):
+        return {
+            "valid_pair": True,
+            "q_pair": 0.9,
+            "stereo_mode": kwargs["stereo_mode"],
+        }
+
+    monkeypatch.setattr(
+        "benchmarks.stereo_imaging.generator.feasibility._find_candidate_observations_for_target",
+        fake_find_candidates,
+    )
+    monkeypatch.setattr(
+        "benchmarks.stereo_imaging.generator.feasibility._evaluate_stereo_pair",
+        fake_evaluate_pair,
+    )
+
+    result = _audit_case_feasibility_streaming(
+        case_id="case_0001",
+        mission=_mission_model(allow_cross_satellite=True, max_pair_separation_s=180.0),
+        satellites={"sat_a": _sat_def("sat_a"), "sat_b": _sat_def("sat_b")},
+        targets={"t1": _target_def("t1"), "t2": _target_def("t2"), "t3": _target_def("t3")},
+        sf_sats={"sat_a": object(), "sat_b": object()},
+        target_ecef={"t1": object(), "t2": object(), "t3": object()},
+        access_sample_step_s=60.0,
+        max_candidates_per_access=4,
+        overlap_samples=10,
+    )
+
+    assert result.feasible is True
+    assert scanned_targets == ["t1", "t2"]
+    assert result.diagnostics["targets_scanned_before_accept"] == 2
+    assert result.diagnostics["candidate_observation_count_before_accept"] == 2
 
 
 def test_main_rejects_invalid_max_abs_latitude(

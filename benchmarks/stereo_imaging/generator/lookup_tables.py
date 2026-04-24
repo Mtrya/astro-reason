@@ -1,7 +1,7 @@
 """Vendored stereo_imaging lookup tables.
 
-Canonical Earth-resources TLE lines for the `splits.yaml` satellite catalog are
-vendored in `cached_tles.py` (not this module) so dataset regeneration stays
+Canonical Earth-resources TLE lines and satellite sensor profiles are vendored
+in `satellite_catalog.py` (not this module) so dataset regeneration stays
 deterministic without live CelesTrak downloads.
 """
 

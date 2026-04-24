@@ -4,92 +4,172 @@
   "cases": [
     {
       "case_id": "case_0001",
-      "horizon_end": "2026-04-24T22:00:00Z",
-      "horizon_start": "2026-04-22T22:00:00Z",
+      "horizon_end": "2026-05-11T00:00:00Z",
+      "horizon_start": "2026-05-09T00:00:00Z",
       "norad_catalog_ids": [
-        41556,
-        38012,
-        40118
+        35682,
+        40010,
+        40011,
+        40015,
+        40298,
+        41875,
+        32060,
+        40894,
+        41772,
+        38755,
+        33321
       ],
-      "num_satellites": 3,
-      "num_targets": 47,
+      "num_satellites": 11,
+      "num_targets": 142,
       "path": "cases/test/case_0001",
       "satellite_ids": [
-        "sat_ziyuan_3_02",
-        "sat_pleiades_1a",
-        "sat_gaofen_2"
+        "sat_dubaisat_1",
+        "sat_kazeosat_2",
+        "sat_hodoyoshi_4",
+        "sat_hodoyoshi_3",
+        "sat_asnaro",
+        "sat_gokturk_1a",
+        "sat_worldview_1",
+        "sat_gaofen_9_01",
+        "sat_skysat_c5",
+        "sat_spot_6",
+        "sat_huanjing_1b_hj_1b"
       ],
       "split": "test"
     },
     {
       "case_id": "case_0002",
-      "horizon_end": "2026-04-25T04:00:00Z",
-      "horizon_start": "2026-04-23T04:00:00Z",
+      "horizon_end": "2026-05-11T06:00:00Z",
+      "horizon_start": "2026-05-09T06:00:00Z",
       "norad_catalog_ids": [
-        41556,
-        40013
+        39030,
+        32060,
+        40013,
+        40336,
+        40010,
+        38338,
+        40894,
+        32783,
+        38755,
+        39150
       ],
-      "num_satellites": 2,
-      "num_targets": 36,
+      "num_satellites": 10,
+      "num_targets": 121,
       "path": "cases/test/case_0002",
       "satellite_ids": [
-        "sat_ziyuan_3_02",
-        "sat_deimos_2"
+        "sat_gokturk_2",
+        "sat_worldview_1",
+        "sat_deimos_2",
+        "sat_cbers_4",
+        "sat_kazeosat_2",
+        "sat_kompsat_3",
+        "sat_gaofen_9_01",
+        "sat_cartosat_2a",
+        "sat_spot_6",
+        "sat_gaofen_1"
       ],
       "split": "test"
     },
     {
       "case_id": "case_0003",
-      "horizon_end": "2026-04-25T10:00:00Z",
-      "horizon_start": "2026-04-23T10:00:00Z",
+      "horizon_end": "2026-05-11T12:00:00Z",
+      "horizon_start": "2026-05-09T12:00:00Z",
       "norad_catalog_ids": [
-        38755,
-        41556
+        40536,
+        36795,
+        41773,
+        37791,
+        41771,
+        33396,
+        40015,
+        41772,
+        35946,
+        40718
       ],
-      "num_satellites": 2,
-      "num_targets": 36,
+      "num_satellites": 10,
+      "num_targets": 121,
       "path": "cases/test/case_0003",
       "satellite_ids": [
-        "sat_spot_6",
-        "sat_ziyuan_3_02"
+        "sat_kompsat_3a",
+        "sat_cartosat_2b",
+        "sat_skysat_c2",
+        "sat_rasat",
+        "sat_skysat_c4",
+        "sat_theos",
+        "sat_hodoyoshi_3",
+        "sat_skysat_c5",
+        "sat_worldview_2",
+        "sat_carbonite_1_cbnt_1"
       ],
       "split": "test"
     },
     {
       "case_id": "case_0004",
-      "horizon_end": "2026-04-25T16:00:00Z",
-      "horizon_start": "2026-04-23T16:00:00Z",
+      "horizon_end": "2026-05-11T18:00:00Z",
+      "horizon_start": "2026-05-09T18:00:00Z",
       "norad_catalog_ids": [
-        38012,
-        41556,
-        40118,
-        38755
+        39419,
+        39418,
+        40536,
+        41774,
+        38755,
+        40298,
+        40336,
+        41948,
+        40894,
+        40718,
+        29268,
+        28649
       ],
-      "num_satellites": 4,
-      "num_targets": 39,
+      "num_satellites": 12,
+      "num_targets": 126,
       "path": "cases/test/case_0004",
       "satellite_ids": [
-        "sat_pleiades_1a",
-        "sat_ziyuan_3_02",
-        "sat_gaofen_2",
-        "sat_spot_6"
+        "sat_dubaisat_2",
+        "sat_skysat_a",
+        "sat_kompsat_3a",
+        "sat_skysat_c3",
+        "sat_spot_6",
+        "sat_asnaro",
+        "sat_cbers_4",
+        "sat_cartosat_2d",
+        "sat_gaofen_9_01",
+        "sat_carbonite_1_cbnt_1",
+        "sat_arirang_2_kompsat_2",
+        "sat_cartosat_1"
       ],
       "split": "test"
     },
     {
       "case_id": "case_0005",
-      "horizon_end": "2026-04-25T22:00:00Z",
-      "horizon_start": "2026-04-23T22:00:00Z",
+      "horizon_end": "2026-05-12T00:00:00Z",
+      "horizon_start": "2026-05-10T00:00:00Z",
       "norad_catalog_ids": [
-        40118,
-        41556
+        29268,
+        35946,
+        38755,
+        40718,
+        41772,
+        38038,
+        39019,
+        40015,
+        41771,
+        41599
       ],
-      "num_satellites": 2,
-      "num_targets": 46,
+      "num_satellites": 10,
+      "num_targets": 141,
       "path": "cases/test/case_0005",
       "satellite_ids": [
-        "sat_gaofen_2",
-        "sat_ziyuan_3_02"
+        "sat_arirang_2_kompsat_2",
+        "sat_worldview_2",
+        "sat_spot_6",
+        "sat_carbonite_1_cbnt_1",
+        "sat_skysat_c5",
+        "sat_ziyuan_1_02c_zy_1_02c",
+        "sat_pleiades_1b",
+        "sat_hodoyoshi_3",
+        "sat_skysat_c4",
+        "sat_cartosat_2c"
       ],
       "split": "test"
     }
@@ -98,17 +178,61 @@
   "generator_seed": 20260406,
   "horizon_duration_s": 172800,
   "selected_norad_catalog_ids": [
+    28649,
+    29268,
+    32060,
+    32783,
+    33320,
+    33321,
+    33331,
+    33396,
+    35681,
+    35682,
+    35946,
+    36795,
+    37791,
     38012,
+    38038,
+    38338,
     38755,
+    39019,
+    39030,
+    39150,
+    39160,
+    39418,
+    39419,
+    39731,
+    40010,
+    40011,
     40013,
+    40015,
     40053,
+    40072,
+    40115,
     40118,
-    41556
+    40298,
+    40336,
+    40536,
+    40701,
+    40718,
+    40894,
+    41556,
+    41599,
+    41601,
+    41771,
+    41772,
+    41773,
+    41774,
+    41875,
+    41948,
+    42767,
+    42920,
+    42987
   ],
   "source": {
     "celestrak": {
       "kind": "vendored_subset",
-      "snapshot_epoch_utc": "2026-04-06T00:00:00Z",
+      "snapshot_epoch_utc": "2026-04-24T00:00:00Z",
       "url": "https://celestrak.org/NORAD/elements/gp.php?GROUP=resource&FORMAT=tle"
     },
     "lookup_tables": {
@@ -117,9 +241,9 @@
     },
     "runtime_provenance": {
       "celestrak": {
-        "record_count": 6,
-        "sha256": "a49d4ec486f898a1c062eac2bdb82deed4591ebe8ca3c18a4f89615351ab2ac2",
-        "snapshot_epoch_utc": "2026-04-06T00:00:00Z",
+        "record_count": 50,
+        "sha256": "f3268f4fc731c0b80cc368beb154a041da36b57410b2b997a8b5b22c73616daf",
+        "snapshot_epoch_utc": "2026-04-24T00:00:00Z",
         "url": "https://celestrak.org/NORAD/elements/gp.php?GROUP=resource&FORMAT=tle",
         "vendored_snapshot": true
       },
@@ -141,5 +265,5 @@
       "page_url": "https://www.kaggle.com/datasets/juanmah/world-cities"
     }
   },
-  "spec_version": "v3"
+  "spec_version": "v4"
 }

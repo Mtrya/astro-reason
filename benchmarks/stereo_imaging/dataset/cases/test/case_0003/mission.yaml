@@ -1,8 +1,8 @@
 mission:
-  horizon_start: '2026-04-23T10:00:00Z'
-  horizon_end: '2026-04-25T10:00:00Z'
-  allow_cross_satellite_stereo: false
-  allow_cross_date_stereo: false
+  horizon_start: '2026-05-09T12:00:00Z'
+  horizon_end: '2026-05-11T12:00:00Z'
+  allow_cross_satellite_stereo: true
+  max_stereo_pair_separation_s: 3600.0
   validity_thresholds:
     min_overlap_fraction: 0.8
     min_convergence_deg: 5.0

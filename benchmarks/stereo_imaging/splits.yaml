@@ -10,7 +10,7 @@ source:
   celestrak:
     kind: vendored_subset
     url: https://celestrak.org/NORAD/elements/gp.php?GROUP=resource&FORMAT=tle
-    snapshot_epoch_utc: "2026-04-06T00:00:00Z"  # Generator rejects any other epoch.
+    snapshot_epoch_utc: "2026-04-24T00:00:00Z"  # Generator rejects any other epoch.
   world_cities:
     kind: kaggle_dataset
     dataset: juanmah/world-cities
@@ -26,7 +26,7 @@ splits:
     case_seed_stride: 10007
 
     mission:
-      base_horizon_start: "2026-04-06T00:00:00Z"
+      base_horizon_start: "2026-04-22T02:00:00Z"
       case_start_spacing_hours: 6
       horizon_duration_s: 172800
       allow_cross_satellite_stereo: true
@@ -56,8 +56,8 @@ splits:
       overlap_samples: 80
 
     targets:
-      min_count: 36
-      max_count: 48
+      min_count: 120
+      max_count: 144
       urban_target_divisor: 4
       min_urban_population: 100000
       max_abs_latitude_deg: 70.0
@@ -66,66 +66,5 @@ splits:
       aoi_radius_max_m: 7500.0
 
     satellites:
-      min_per_case: 2
-      max_per_case: 4
-      catalog:
-        "38012":
-          id: sat_pleiades_1a
-          pixel_ifov_deg: 0.00004
-          cross_track_pixels: 20000
-          max_off_nadir_deg: 30.0
-          max_slew_velocity_deg_per_s: 1.95
-          max_slew_acceleration_deg_per_s2: 0.95
-          settling_time_s: 1.9
-          min_obs_duration_s: 2.0
-          max_obs_duration_s: 60.0
-        "38755":
-          id: sat_spot_6
-          pixel_ifov_deg: 0.00012
-          cross_track_pixels: 12000
-          max_off_nadir_deg: 30.0
-          max_slew_velocity_deg_per_s: 2.35
-          max_slew_acceleration_deg_per_s2: 1.15
-          settling_time_s: 1.35
-          min_obs_duration_s: 2.0
-          max_obs_duration_s: 60.0
-        "40013":
-          id: sat_deimos_2
-          pixel_ifov_deg: 0.00022
-          cross_track_pixels: 12000
-          max_off_nadir_deg: 30.0
-          max_slew_velocity_deg_per_s: 1.95
-          max_slew_acceleration_deg_per_s2: 0.95
-          settling_time_s: 1.9
-          min_obs_duration_s: 2.0
-          max_obs_duration_s: 60.0
-        "40053":
-          id: sat_spot_7
-          pixel_ifov_deg: 0.00012
-          cross_track_pixels: 12000
-          max_off_nadir_deg: 30.0
-          max_slew_velocity_deg_per_s: 2.35
-          max_slew_acceleration_deg_per_s2: 1.15
-          settling_time_s: 1.35
-          min_obs_duration_s: 2.0
-          max_obs_duration_s: 60.0
-        "40118":
-          id: sat_gaofen_2
-          pixel_ifov_deg: 0.000065
-          cross_track_pixels: 12000
-          max_off_nadir_deg: 25.0
-          max_slew_velocity_deg_per_s: 0.55
-          max_slew_acceleration_deg_per_s2: 0.065
-          settling_time_s: 3.0
-          min_obs_duration_s: 2.0
-          max_obs_duration_s: 60.0
-        "41556":
-          id: sat_ziyuan_3_02
-          pixel_ifov_deg: 0.00017
-          cross_track_pixels: 6000
-          max_off_nadir_deg: 25.0
-          max_slew_velocity_deg_per_s: 0.78
-          max_slew_acceleration_deg_per_s2: 0.08
-          settling_time_s: 2.5
-          min_obs_duration_s: 2.0
-          max_obs_duration_s: 60.0
+      min_per_case: 10
+      max_per_case: 12
