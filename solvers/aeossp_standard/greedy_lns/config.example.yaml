@@ -30,6 +30,11 @@ max_local_search_iterations: 1000
 # null = no time limit.
 max_local_search_time_s: null
 
+# Optional end-to-end wall-clock accounting budget in seconds.
+# When set, remaining budget is passed into local search after preprocessing.
+# Candidate generation and repair are not interrupted in this phase.
+total_time_budget_s: null
+
 # Number of restarts after reaching a local minimum.
 # 0 = no restarts (deterministic single run).
 restart_count: 0
