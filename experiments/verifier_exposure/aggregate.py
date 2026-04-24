@@ -116,60 +116,67 @@ def _records(config: dict[str, Any], config_path: Path) -> list[dict[str, Any]]:
     exposures = config.get("exposures", [])
     cases = config.get("cases", [])
     benchmark = config.get("benchmark")
-    harness = config.get("harness")
+    harnesses = config.get("harnesses", [])
     split = config.get("split")
     if not isinstance(exposures, list) or not isinstance(cases, list):
         raise SystemExit("Config exposures and cases must be lists")
-    if not isinstance(benchmark, str) or not isinstance(harness, str) or not isinstance(split, str):
-        raise SystemExit("Config benchmark, harness, and split must be strings")
+    if not isinstance(harnesses, list):
+        raise SystemExit("Config harnesses must be a list")
+    if not harnesses:
+        raise SystemExit(f"Config harnesses must contain at least one item: {config_path}")
+    if not isinstance(benchmark, str) or not isinstance(split, str):
+        raise SystemExit("Config benchmark and split must be strings")
     rows: list[dict[str, Any]] = []
     for exposure in exposures:
-        for case_id in cases:
-            run_path = _run_path(
-                root,
-                config_path.stem,
-                exposure=str(exposure),
-                benchmark=benchmark,
-                harness=harness,
-                split=split,
-                case_id=str(case_id),
-            )
-            payload = _read_run_json(run_path)
-            if payload is None:
+        for harness in harnesses:
+            for case_id in cases:
+                run_path = _run_path(
+                    root,
+                    config_path.stem,
+                    exposure=str(exposure),
+                    benchmark=benchmark,
+                    harness=str(harness),
+                    split=split,
+                    case_id=str(case_id),
+                )
+                payload = _read_run_json(run_path)
+                if payload is None:
+                    rows.append(
+                        {
+                            "exposure": exposure,
+                            "harness": harness,
+                            "case_id": case_id,
+                            "artifact_state": "missing_or_malformed",
+                            "overall_status": "missing_artifact",
+                            "agent_status": "missing_artifact",
+                            "verifier_status": "missing_artifact",
+                            "valid": None,
+                            "service_fraction": None,
+                            "worst_demand_service_fraction": None,
+                            "mean_latency_ms": None,
+                            "latency_p95_ms": None,
+                            "result_path": _display_path(run_path),
+                        }
+                    )
+                    continue
+                verifier = payload.get("verifier") if isinstance(payload.get("verifier"), dict) else {}
                 rows.append(
                     {
-                        "exposure": exposure,
-                        "case_id": case_id,
-                        "artifact_state": "missing_or_malformed",
-                        "overall_status": "missing_artifact",
-                        "agent_status": "missing_artifact",
-                        "verifier_status": "missing_artifact",
-                        "valid": None,
-                        "service_fraction": None,
-                        "worst_demand_service_fraction": None,
-                        "mean_latency_ms": None,
-                        "latency_p95_ms": None,
+                        "exposure": payload.get("exposure", exposure),
+                        "harness": payload.get("harness", harness),
+                        "case_id": payload.get("case_id", case_id),
+                        "artifact_state": "present",
+                        "overall_status": payload.get("overall_status", "unknown"),
+                        "agent_status": payload.get("agent_status", "unknown"),
+                        "verifier_status": payload.get("verifier_status", "unknown"),
+                        "valid": verifier.get("valid") if isinstance(verifier.get("valid"), bool) else None,
+                        "service_fraction": _metric(payload, "service_fraction"),
+                        "worst_demand_service_fraction": _metric(payload, "worst_demand_service_fraction"),
+                        "mean_latency_ms": _metric(payload, "mean_latency_ms"),
+                        "latency_p95_ms": _metric(payload, "latency_p95_ms"),
                         "result_path": _display_path(run_path),
                     }
                 )
-                continue
-            verifier = payload.get("verifier") if isinstance(payload.get("verifier"), dict) else {}
-            rows.append(
-                {
-                    "exposure": payload.get("exposure", exposure),
-                    "case_id": payload.get("case_id", case_id),
-                    "artifact_state": "present",
-                    "overall_status": payload.get("overall_status", "unknown"),
-                    "agent_status": payload.get("agent_status", "unknown"),
-                    "verifier_status": payload.get("verifier_status", "unknown"),
-                    "valid": verifier.get("valid") if isinstance(verifier.get("valid"), bool) else None,
-                    "service_fraction": _metric(payload, "service_fraction"),
-                    "worst_demand_service_fraction": _metric(payload, "worst_demand_service_fraction"),
-                    "mean_latency_ms": _metric(payload, "mean_latency_ms"),
-                    "latency_p95_ms": _metric(payload, "latency_p95_ms"),
-                    "result_path": _display_path(run_path),
-                }
-            )
     return rows
 
 
@@ -199,17 +206,40 @@ def _summary(rows: list[dict[str, Any]]) -> dict[str, Any]:
                 [row["mean_latency_ms"] for row in exposure_rows if isinstance(row["mean_latency_ms"], float)]
             ),
         }
+    by_exposure_harness: dict[str, Any] = {}
+    for exposure in exposures:
+        for harness in sorted({str(row["harness"]) for row in rows if row["exposure"] == exposure}):
+            group_rows = [row for row in rows if row["exposure"] == exposure and row["harness"] == harness]
+            valid_values = [row["valid"] for row in group_rows if isinstance(row["valid"], bool)]
+            by_exposure_harness[f"{exposure}/{harness}"] = {
+                "run_count": len(group_rows),
+                "valid_count": sum(1 for value in valid_values if value),
+                "valid_rate": (sum(1 for value in valid_values if value) / len(valid_values)) if valid_values else None,
+                "overall_status_counts": dict(Counter(str(row["overall_status"]) for row in group_rows)),
+                "mean_service_fraction": _mean(
+                    [row["service_fraction"] for row in group_rows if isinstance(row["service_fraction"], float)]
+                ),
+                "mean_worst_demand_service_fraction": _mean(
+                    [
+                        row["worst_demand_service_fraction"]
+                        for row in group_rows
+                        if isinstance(row["worst_demand_service_fraction"], float)
+                    ]
+                ),
+            }
     return {
         "schema_version": 1,
         "experiment": "verifier_exposure",
         "generated_at": datetime.now(timezone.utc).isoformat(),
         "by_exposure": by_exposure,
+        "by_exposure_harness": by_exposure_harness,
     }
 
 
 def _write_csv(path: Path, rows: list[dict[str, Any]]) -> None:
     fieldnames = [
         "exposure",
+        "harness",
         "case_id",
         "artifact_state",
         "overall_status",
