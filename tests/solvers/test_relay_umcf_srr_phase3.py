@@ -208,6 +208,21 @@ class TestPathGeneration:
         )
         assert all(p.hop_count <= 2 for p in paths)
 
+    def test_dijkstra_path_respects_max_hops(self) -> None:
+        """When the shortest Dijkstra path exceeds max_hops, it should be excluded."""
+        graph = _graph_triangle()
+        adj = {}
+        for node, edges in graph.adjacency.items():
+            adj.setdefault(node, [])
+            for e in edges:
+                adj[node].append((e.node_b, e.distance_m))
+
+        # The Dijkstra path ep1-sat2-ep2 is 1 hop, so max_hops=0 should exclude it
+        paths = k_shortest_paths(
+            adj, "ep1", "ep2", k=10, endpoint_ids={"ep1", "ep2"}, max_hops=0
+        )
+        assert len(paths) == 0
+
 
 class TestHeuristicProbabilities:
     def test_uniform_base(self) -> None:
@@ -353,3 +368,12 @@ class TestSequentialRounding:
         config_pen = SRRConfig(deterministic=True, k_paths=4, path_change_penalty=5.0)
         second, _ = sequential_rounding(inst, prev, config_pen, random.Random(42))
         assert second[case.demands[0].demand_id].nodes == prev[case.demands[0].demand_id].nodes
+
+    def test_multi_run_count_zero_rejected(self) -> None:
+        """A non-positive multi_run_count should raise ValueError upfront."""
+        case = _tiny_case()
+        graph = _graph_single_path()
+        instances = build_umcf_instances(case, [graph])
+        config = SRRConfig(deterministic=True, multi_run_count=0)
+        with pytest.raises(ValueError):
+            run_srr_oracle(instances, config)

@@ -209,3 +209,23 @@ class TestCandidateSelection:
         )
         with pytest.raises(ValueError):
             select_candidates(case, graphs, candidates, config)
+
+    def test_empty_demands_does_not_crash(self) -> None:
+        case = load_case(_smoke_case_dir())
+        all_sats = dict(case.backbone_satellites)
+        candidates = generate_candidates(case.manifest, CandidateConfig(max_candidates=2))
+        all_sats.update(candidates)
+        graphs = build_sample_graphs(case, all_sats)
+
+        # Simulate zero demands by using an empty demand list
+        case_no_demands = Case(
+            case_dir=case.case_dir,
+            manifest=case.manifest,
+            backbone_satellites=case.backbone_satellites,
+            ground_endpoints=case.ground_endpoints,
+            demands=[],
+        )
+        config = SelectionConfig(policy="greedy_marginal", max_added_satellites=1)
+        selected, debug = select_candidates(case_no_demands, graphs, candidates, config)
+        assert len(selected) == 0
+        assert debug["baseline_total_weighted_service"] == 0.0
