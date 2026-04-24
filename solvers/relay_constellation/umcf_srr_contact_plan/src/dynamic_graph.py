@@ -5,6 +5,8 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Any
 
+import numpy as np
+
 from .case_io import Case, Endpoint, Satellite
 from .link_geometry import ground_links_feasible, isl_links_feasible
 from .propagation import propagate_all_to_samples
