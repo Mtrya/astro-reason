@@ -563,6 +563,15 @@ class TestIOLoadCase:
         with pytest.raises(ValueError, match="max_stereo_pair_separation_s"):
             load_case(case_dir)
 
+    def test_missing_stereo_pair_separation_defaults_to_one_hour(self, tmp_path):
+        mission = _base_mission_dict()
+        del mission["mission"]["max_stereo_pair_separation_s"]
+        case_dir = _write_case(tmp_path / "case", mission=mission)
+
+        loaded, _, _ = load_case(case_dir)
+
+        assert loaded.max_stereo_pair_separation_s == pytest.approx(3600.0)
+
 
 class TestParseIsoUtcStrict:
     def test_mission_rejects_naive_timestamp(self, tmp_path):

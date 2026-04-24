@@ -5,12 +5,13 @@ from __future__ import annotations
 from collections import Counter
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
+import math
 from typing import Any
 
 import numpy as np
 from skyfield.api import EarthSatellite
 
-from benchmarks.stereo_imaging.verifier.engine import (
+from ..verifier.engine import (
     _access_holds_over_window,
     _access_interval_sampling_step_s,
     _access_predicate,
@@ -30,7 +31,7 @@ from benchmarks.stereo_imaging.verifier.engine import (
     _target_ecef_m,
     _TS,
 )
-from benchmarks.stereo_imaging.verifier.models import (
+from ..verifier.models import (
     DerivedObservation,
     Mission,
     ObservationAction,
@@ -126,6 +127,13 @@ def _targets_from_rows(rows: list[dict[str, Any]]) -> dict[str, TargetDef]:
     return targets
 
 
+def _positive_int_config(config: dict[str, Any], key: str) -> int:
+    value = config[key]
+    if not isinstance(value, int) or isinstance(value, bool) or value <= 0:
+        raise ValueError(f"feasibility_guard.{key} must be a positive integer")
+    return value
+
+
 def _iter_samples(start: datetime, end: datetime, *, step_s: float):
     step = timedelta(seconds=step_s)
     current = start
@@ -167,8 +175,6 @@ def _pointing_offsets_deg(
 
 
 def math_atan_deg(value: float) -> float:
-    import math
-
     return math.degrees(math.atan(value))
 
 
@@ -624,6 +630,11 @@ def audit_case_feasibility(
     guard_config: dict[str, Any] | None = None,
 ) -> FeasibilityAuditResult:
     config = {**DEFAULT_FEASIBILITY_GUARD_CONFIG, **(guard_config or {})}
+    max_candidates_per_access = _positive_int_config(
+        config,
+        "max_candidate_observations_per_access",
+    )
+    overlap_samples = _positive_int_config(config, "overlap_samples")
     mission = _mission_from_doc(mission_doc)
     satellites = _satellites_from_rows(satellite_rows)
     targets = _targets_from_rows(target_rows)
@@ -641,8 +652,8 @@ def audit_case_feasibility(
             sf_sats=sf_sats,
             target_ecef=target_ecef,
             access_sample_step_s=float(config["access_sample_step_s"]),
-            max_candidates_per_access=int(config["max_candidate_observations_per_access"]),
-            overlap_samples=int(config["overlap_samples"]),
+            max_candidates_per_access=max_candidates_per_access,
+            overlap_samples=overlap_samples,
         )
     candidates = _find_candidate_observations(
         mission,
@@ -651,7 +662,7 @@ def audit_case_feasibility(
         sf_sats,
         target_ecef,
         access_sample_step_s=float(config["access_sample_step_s"]),
-        max_candidates_per_access=int(config["max_candidate_observations_per_access"]),
+        max_candidates_per_access=max_candidates_per_access,
     )
     return _evaluate_candidate_pairs(
         case_id=case_id,
@@ -661,7 +672,7 @@ def audit_case_feasibility(
         sf_sats=sf_sats,
         target_ecef=target_ecef,
         candidates=candidates,
-        overlap_samples=int(config["overlap_samples"]),
+        overlap_samples=overlap_samples,
     )
 
 

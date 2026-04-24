@@ -61,7 +61,7 @@ def load_mission(case_dir: Path) -> Mission:
     ctx = "mission.yaml mission"
     vt = m["validity_thresholds"]
     qm = m["quality_model"]
-    max_pair_sep_s = float(m.get("max_stereo_pair_separation_s", float("inf")))
+    max_pair_sep_s = float(m.get("max_stereo_pair_separation_s", 3600.0))
     if max_pair_sep_s <= 0.0:
         raise ValueError(f"{ctx}.max_stereo_pair_separation_s must be positive")
     return Mission(

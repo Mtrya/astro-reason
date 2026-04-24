@@ -17,6 +17,7 @@ from benchmarks.stereo_imaging.generator.feasibility import (
     FeasibilityAuditResult,
     _audit_case_feasibility_streaming,
     _evaluate_candidate_pairs,
+    audit_case_feasibility,
 )
 from benchmarks.stereo_imaging.generator.sources import (
     CELESTRAK_CSV_NAME,
@@ -347,6 +348,17 @@ def test_load_generator_config_rejects_invalid_attempt_limit(tmp_path: Path) -> 
         load_generator_config(splits_path)
 
 
+def test_load_generator_config_rejects_fractional_overlap_samples(tmp_path: Path) -> None:
+    splits_path = tmp_path / "splits.yaml"
+    _write_splits_yaml(splits_path)
+    payload = yaml.safe_load(splits_path.read_text(encoding="utf-8"))
+    payload["splits"]["test"]["feasibility_guard"]["overlap_samples"] = 0.5
+    splits_path.write_text(yaml.safe_dump(payload, sort_keys=False), encoding="utf-8")
+
+    with pytest.raises(ValueError, match="overlap_samples"):
+        load_generator_config(splits_path)
+
+
 def test_feasibility_guard_rejects_case_without_candidate_access() -> None:
     result = _evaluate_candidate_pairs(
         case_id="case_0001",
@@ -362,6 +374,17 @@ def test_feasibility_guard_rejects_case_without_candidate_access() -> None:
     assert result.feasible is False
     assert result.diagnostics["candidate_observation_count"] == 0
     assert result.diagnostics["most_common_rejection_reason"] == "no_candidate_access"
+
+
+def test_feasibility_guard_rejects_fractional_overlap_samples() -> None:
+    with pytest.raises(ValueError, match="overlap_samples"):
+        audit_case_feasibility(
+            case_id="case_0001",
+            mission_doc={},
+            satellite_rows=[],
+            target_rows=[],
+            guard_config={"overlap_samples": 0.5},
+        )
 
 
 def test_feasibility_guard_accepts_cross_satellite_candidate_pair(

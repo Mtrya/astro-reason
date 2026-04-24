@@ -77,16 +77,16 @@ def _split_guard_settings(split_config: dict[str, Any], label: str) -> tuple[int
 
     audit_config = dict(guard)
     audit_config.pop("max_generation_attempts_per_case", None)
-    for key in (
-        "access_sample_step_s",
-        "max_candidate_observations_per_access",
-        "overlap_samples",
-    ):
+    if "access_sample_step_s" in audit_config:
+        value = audit_config["access_sample_step_s"]
+        if not isinstance(value, (int, float)) or isinstance(value, bool) or float(value) <= 0.0:
+            raise ValueError(f"{label}.feasibility_guard.access_sample_step_s must be positive")
+    for key in ("max_candidate_observations_per_access", "overlap_samples"):
         if key not in audit_config:
             continue
         value = audit_config[key]
-        if not isinstance(value, (int, float)) or isinstance(value, bool) or float(value) <= 0.0:
-            raise ValueError(f"{label}.feasibility_guard.{key} must be positive")
+        if not isinstance(value, int) or isinstance(value, bool) or value <= 0:
+            raise ValueError(f"{label}.feasibility_guard.{key} must be a positive integer")
     return max_attempts, audit_config
 
 
