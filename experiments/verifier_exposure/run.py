@@ -195,6 +195,13 @@ def _string_tuple(data: dict[str, Any], key: str, label: str, path: Path) -> tup
     return tuple(value)
 
 
+def _required_string_tuple(data: dict[str, Any], key: str, label: str, path: Path) -> tuple[str, ...]:
+    value = _string_tuple(data, key, label, path)
+    if not value:
+        raise SystemExit(f"{label}.{key} must contain at least one item: {path}")
+    return value
+
+
 def _resource_limits(data: dict[str, Any]) -> ResourceLimits:
     raw = data.get("resources", {})
     if raw is None:
@@ -262,7 +269,7 @@ def load_family_config(path: Path) -> FamilyConfig:
         split=_require_str(data, "split", "Family config", path),
         cases=_string_tuple(data, "cases", "Family config", path),
         exposures=_string_tuple(data, "exposures", "Family config", path),
-        harnesses=_string_tuple(data, "harnesses", "Family config", path),
+        harnesses=_required_string_tuple(data, "harnesses", "Family config", path),
         timeout_seconds=_positive_int(data.get("timeout_seconds", 7200), "timeout_seconds", path),
         resources=_resource_limits(data),
         batch=_batch_settings(data, path),
@@ -281,7 +288,7 @@ def load_interactive_config(path: Path) -> InteractiveConfig:
         split=_require_str(data, "split", "Interactive config", path),
         case_id=_require_str(data, "case", "Interactive config", path),
         exposure=_require_str(data, "exposure", "Interactive config", path),
-        harnesses=_string_tuple(data, "harnesses", "Interactive config", path),
+        harnesses=_required_string_tuple(data, "harnesses", "Interactive config", path),
         timeout_seconds=_positive_int(data.get("timeout_seconds", 3600), "timeout_seconds", path),
         resources=_resource_limits(data),
         results_root=results_root,

@@ -122,6 +122,8 @@ def _records(config: dict[str, Any], config_path: Path) -> list[dict[str, Any]]:
         raise SystemExit("Config exposures and cases must be lists")
     if not isinstance(harnesses, list):
         raise SystemExit("Config harnesses must be a list")
+    if not harnesses:
+        raise SystemExit(f"Config harnesses must contain at least one item: {config_path}")
     if not isinstance(benchmark, str) or not isinstance(split, str):
         raise SystemExit("Config benchmark and split must be strings")
     rows: list[dict[str, Any]] = []
