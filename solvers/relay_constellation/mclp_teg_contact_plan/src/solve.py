@@ -13,6 +13,7 @@ from .link_cache import build_link_cache
 from .mclp import greedy_select, milp_select
 from .orbit_library import generate_candidates
 from .propagation import propagate_satellite
+from .scheduler import run_scheduler
 from .solution_io import write_debug_summary, write_solution, write_status
 from .time_grid import build_time_grid
 
@@ -122,12 +123,17 @@ def main() -> None:
             }
         )
 
-    # Write solution (no actions yet — Phase 3)
+    # Greedy contact scheduling
+    selected_ids = {c.satellite_id for c in selected}
+    actions, sched_summary = run_scheduler(case, sample_times, link_records, selected_ids)
+    t8 = time.monotonic()
+
+    # Write solution
     solution_dir = Path(args.solution_dir)
     write_solution(
         solution_dir,
         added_satellites=added_satellites,
-        actions=[],
+        actions=actions,
     )
 
     # Write status
@@ -157,8 +163,13 @@ def main() -> None:
             "propagate_candidates": round(t5 - t4, 3),
             "build_link_cache": round(t6 - t5, 3),
             "mclp_selection": round(t7 - t6, 3),
-            "total": round(t7 - t0, 3),
+            "scheduler": round(t8 - t7, 3),
+            "total": round(t8 - t0, 3),
         },
+        "scheduler_num_actions": sched_summary.get("num_actions", 0),
+        "scheduler_num_ground_actions": sched_summary.get("num_ground_actions", 0),
+        "scheduler_num_isl_actions": sched_summary.get("num_isl_actions", 0),
+        "scheduler_local_violations": sched_summary.get("local_violations", []),
     }
     write_status(solution_dir, status)
 
@@ -183,6 +194,7 @@ def main() -> None:
     )
     write_debug_summary(solution_dir, "link_cache_summary", link_summary)
     write_debug_summary(solution_dir, "mclp_reward_summary", mclp_summary)
+    write_debug_summary(solution_dir, "teg_summary", sched_summary)
     write_debug_summary(
         solution_dir,
         "selected_orbits",
@@ -202,12 +214,14 @@ def main() -> None:
         },
     )
 
-    print(f"MCLP selection complete for {case.manifest.case_id}")
+    print(f"MCLP+TEG scheduling complete for {case.manifest.case_id}")
     print(f"  Policy: {mclp_summary.get('policy', 'none')}")
     print(f"  Candidates: {len(candidates)}")
     print(f"  Selected: {len(selected)}")
     print(f"  Baseline score: {mclp_summary.get('baseline_score', 0.0)}")
     print(f"  Selected score: {mclp_summary.get('selected_score', 0.0)}")
+    print(f"  Actions: {len(actions)} ({sched_summary.get('num_ground_actions', 0)} ground, {sched_summary.get('num_isl_actions', 0)} ISL)")
+    print(f"  Local violations: {len(sched_summary.get('local_violations', []))}")
     print(f"  Solution written to: {solution_dir.resolve()}")
 
 
