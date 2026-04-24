@@ -49,28 +49,31 @@ def _ensure_brahe_ready() -> None:
     _brahe_eop_initialized = True
 
 
-def _epoch_to_seconds(ep: object) -> float:
-    """Convert brahe Epoch to unix timestamp (seconds since 1970-01-01 UTC)."""
-    return float(ep.unix_timestamp())
+def _epoch_to_tuple(ep: object) -> tuple:
+    """Convert brahe Epoch to a pickle-friendly datetime tuple.
+
+    Returns (year, month, day, hour, minute, second, fraction, time_system).
+    """
+    return ep.to_datetime()
 
 
-def _seconds_to_epoch(seconds: float) -> object:
-    """Convert unix timestamp back to brahe Epoch."""
+def _tuple_to_epoch(t: tuple) -> object:
+    """Reconstruct a brahe Epoch from a datetime tuple."""
     import brahe
 
-    return brahe.Epoch.from_unix_timestamp(seconds)
+    return brahe.Epoch.from_datetime(*t, brahe.TimeSystem.UTC)
 
 
 def _propagate_one_satellite(
     satellite_state: np.ndarray,
-    epoch_seconds: float,
-    last_epoch_seconds: float,
-    sample_epoch_seconds: list[float],
+    epoch_tuple: tuple,
+    last_epoch_tuple: tuple,
+    sample_epoch_tuples: list[tuple],
 ) -> np.ndarray:
     """Propagate a single satellite and return ECEF positions at sample times.
 
     This function is pickle-friendly for ProcessPoolExecutor.
-    All epoch arguments are passed as float seconds since J2000.
+    Epoch arguments are passed as datetime tuples from ``Epoch.to_datetime()``.
     """
     import brahe
 
@@ -80,19 +83,18 @@ def _propagate_one_satellite(
     force_config = brahe.ForceModelConfig(
         gravity=brahe.GravityConfiguration.spherical_harmonic(2, 0)
     )
-    epoch = _seconds_to_epoch(epoch_seconds)
-    last_epoch = _seconds_to_epoch(last_epoch_seconds)
+    epoch = _tuple_to_epoch(epoch_tuple)
+    last_epoch = _tuple_to_epoch(last_epoch_tuple)
     propagator = brahe.NumericalOrbitPropagator.from_eci(
         epoch,
         satellite_state,
         force_config=force_config,
     )
     propagator.propagate_to(last_epoch)
-    traj = propagator.trajectory
-    rows = np.zeros((len(sample_epoch_seconds), 3), dtype=float)
-    for row_index, sample_seconds in enumerate(sample_epoch_seconds):
-        sample_epoch = _seconds_to_epoch(sample_seconds)
-        state_eci = np.asarray(traj.interpolate(sample_epoch), dtype=float)
+    rows = np.zeros((len(sample_epoch_tuples), 3), dtype=float)
+    for row_index, sample_tuple in enumerate(sample_epoch_tuples):
+        sample_epoch = _tuple_to_epoch(sample_tuple)
+        state_eci = np.asarray(propagator.state(sample_epoch), dtype=float)
         rows[row_index] = np.asarray(
             brahe.position_eci_to_ecef(sample_epoch, state_eci[:3]),
             dtype=float,
@@ -121,9 +123,9 @@ def propagate_satellites(
     last_epoch = _datetime_to_epoch(time_for_index(manifest, last_sample_index))
     sample_epochs = [_datetime_to_epoch(time_for_index(manifest, idx)) for idx in samples]
 
-    epoch_seconds = _epoch_to_seconds(epoch)
-    last_epoch_seconds = _epoch_to_seconds(last_epoch)
-    sample_epoch_seconds = [_epoch_to_seconds(ep) for ep in sample_epochs]
+    epoch_tuple = _epoch_to_tuple(epoch)
+    last_epoch_tuple = _epoch_to_tuple(last_epoch)
+    sample_epoch_tuples = [_epoch_to_tuple(ep) for ep in sample_epochs]
 
     satellite_ids = sorted(satellites.keys())
     states = [satellites[sid].state_eci_m_mps for sid in satellite_ids]
@@ -135,9 +137,9 @@ def propagate_satellites(
                 executor.submit(
                     _propagate_one_satellite,
                     state,
-                    epoch_seconds,
-                    last_epoch_seconds,
-                    sample_epoch_seconds,
+                    epoch_tuple,
+                    last_epoch_tuple,
+                    sample_epoch_tuples,
                 )
                 for state in states
             ]
@@ -145,7 +147,7 @@ def propagate_satellites(
     else:
         results = [
             _propagate_one_satellite(
-                state, epoch_seconds, last_epoch_seconds, sample_epoch_seconds
+                state, epoch_tuple, last_epoch_tuple, sample_epoch_tuples
             )
             for state in states
         ]
