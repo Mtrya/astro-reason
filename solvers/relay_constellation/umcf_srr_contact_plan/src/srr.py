@@ -158,7 +158,9 @@ def k_shortest_paths(
     if spath is None:
         return []
 
-    unique_paths: dict[tuple[str, ...], Path] = {spath.nodes: spath}
+    unique_paths: dict[tuple[str, ...], Path] = {}
+    if spath.hop_count <= max_hops:
+        unique_paths[spath.nodes] = spath
 
     # 2. DFS enumeration of simple paths, capped by max_hops and a visit limit
     #    to keep runtime bounded on small dense graphs.
@@ -316,6 +318,9 @@ def run_srr_oracle(
     different seeds and the assignment set with the highest served weight is
     returned.
     """
+    if config.multi_run_count <= 0:
+        raise ValueError(f"multi_run_count must be positive, got {config.multi_run_count}")
+
     t0 = time.perf_counter()
     path_gen_time = 0.0
     rounding_time = 0.0

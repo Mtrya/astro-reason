@@ -195,10 +195,13 @@ def _compute_marginal_scores(
     scores: dict[str, dict[str, Any]] = {}
     for cid in remaining_candidates:
         total_new = results[cid]["total_weighted_service"] - baseline["total_weighted_service"]
-        worst_new = max(
-            results[cid]["per_demand_samples"][d.demand_id] - baseline["per_demand_samples"][d.demand_id]
-            for d in demands
-        )
+        if demands:
+            worst_new = max(
+                results[cid]["per_demand_samples"][d.demand_id] - baseline["per_demand_samples"][d.demand_id]
+                for d in demands
+            )
+        else:
+            worst_new = 0.0
         scores[cid] = {
             "total_weighted_service": total_new,
             "worst_demand_samples": worst_new,
