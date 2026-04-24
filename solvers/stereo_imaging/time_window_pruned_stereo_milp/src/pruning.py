@@ -97,48 +97,46 @@ class _CandidateScore:
     valid_tri_count: int
 
 
-def _score_candidates(
-    cluster: list[CandidateObservation],
+def _build_candidate_to_metrics(
     pairs: list[StereoPair],
     tris: list[TriStereoSet],
+) -> dict[CandidateObservation, dict[str, Any]]:
+    """Pre-index products by constituent candidate once."""
+    metrics: dict[CandidateObservation, dict[str, Any]] = {}
+    for p in pairs:
+        if p.valid:
+            for c in (p.candidate_i, p.candidate_j):
+                m = metrics.setdefault(c, {"pair_count": 0, "tri_count": 0, "max_q": 0.0})
+                m["pair_count"] += 1
+                m["max_q"] = max(m["max_q"], p.q_pair)
+    for t in tris:
+        if t.valid:
+            for c in t.candidates:
+                m = metrics.setdefault(c, {"pair_count": 0, "tri_count": 0, "max_q": 0.0})
+                m["tri_count"] += 1
+                m["max_q"] = max(m["max_q"], t.q_tri)
+    return metrics
+
+
+def _score_candidates(
+    cluster: list[CandidateObservation],
+    candidate_to_metrics: dict[CandidateObservation, dict[str, Any]],
     target_total_candidates: dict[str, int],
     near_nadir_anchor_max_off_nadir_deg: float,
 ) -> list[_CandidateScore]:
     """Precompute per-candidate metrics for ranking."""
-    # Build lookup sets for fast membership tests
-    cand_key = lambda c: (c.sat_id, c.target_id, c.access_interval_id, c.start, c.end, c.off_nadir_along_deg, c.off_nadir_across_deg)
-    # Use id() for hashability since CandidateObservation is frozen dataclass
-
-    pair_counts: dict[int, int] = {}
-    tri_counts: dict[int, int] = {}
-    max_q: dict[int, float] = {}
-
-    for p in pairs:
-        if p.valid:
-            for c in (p.candidate_i, p.candidate_j):
-                cid = id(c)
-                pair_counts[cid] = pair_counts.get(cid, 0) + 1
-                max_q[cid] = max(max_q.get(cid, 0.0), p.q_pair)
-
-    for t in tris:
-        if t.valid:
-            for c in t.candidates:
-                cid = id(c)
-                tri_counts[cid] = tri_counts.get(cid, 0) + 1
-                max_q[cid] = max(max_q.get(cid, 0.0), t.q_tri)
-
     cluster_mean_on = 0.0
     if cluster:
         cluster_mean_on = sum(c.combined_off_nadir_deg for c in cluster) / len(cluster)
 
     scores: list[_CandidateScore] = []
     for c in cluster:
-        cid = id(c)
-        vpc = pair_counts.get(cid, 0)
-        vtc = tri_counts.get(cid, 0)
+        m = candidate_to_metrics.get(c, {"pair_count": 0, "tri_count": 0, "max_q": 0.0})
+        vpc = m["pair_count"]
+        vtc = m["tri_count"]
         has_product = vpc > 0 or vtc > 0
         scarcity = 1.0 / (1.0 + target_total_candidates.get(c.target_id, 0))
-        q = max_q.get(cid, 0.0)
+        q = m["max_q"]
         is_anchor = c.combined_off_nadir_deg <= near_nadir_anchor_max_off_nadir_deg + 1e-9
         scores.append(_CandidateScore(c, has_product, scarcity, q, is_anchor, vpc, vtc))
 
@@ -221,6 +219,9 @@ def prune_candidates(
 
     clusters = cluster_candidates_by_gap(candidates, gap_s)
 
+    # Pre-index product metrics by candidate once, before cluster loop
+    candidate_to_metrics = _build_candidate_to_metrics(pairs, tris)
+
     retained: list[CandidateObservation] = []
     preservation_forced = 0
     rejected_by_capacity = 0
@@ -230,7 +231,7 @@ def prune_candidates(
     for cluster_idx, cluster in enumerate(clusters):
         cluster_mean_on = sum(c.combined_off_nadir_deg for c in cluster) / len(cluster) if cluster else 0.0
         scores = _score_candidates(
-            cluster, pairs, tris, target_total_candidates,
+            cluster, candidate_to_metrics, target_total_candidates,
             mission.validity_thresholds.near_nadir_anchor_max_off_nadir_deg,
         )
         scores_sorted = sorted(scores, key=lambda s: _rank_key(s, cluster_mean_on))
@@ -238,7 +239,7 @@ def prune_candidates(
         # Track per-target counts within this cluster
         retained_in_cluster: list[CandidateObservation] = []
         cluster_retained_per_target: dict[str, int] = {}
-        force_retained_ids: set[int] = set()
+        force_retained_ids: set[CandidateObservation] = set()
 
         # Hard preservation pass
         if preserve_anchors or preserve_products:
@@ -267,17 +268,15 @@ def prune_candidates(
                         force = True
 
                 if force:
-                    cid = id(s.cand)
-                    if cid not in force_retained_ids:
-                        force_retained_ids.add(cid)
+                    if s.cand not in force_retained_ids:
+                        force_retained_ids.add(s.cand)
                         retained_in_cluster.append(s.cand)
                         cluster_retained_per_target[tid] = cluster_retained_per_target.get(tid, 0) + 1
                         preservation_forced += 1
 
         # Capacity pass: fill remaining slots by rank
         for s in scores_sorted:
-            cid = id(s.cand)
-            if cid in force_retained_ids:
+            if s.cand in force_retained_ids:
                 continue
             tid = s.cand.target_id
             current_for_target = cluster_retained_per_target.get(tid, 0)
@@ -310,8 +309,7 @@ def prune_candidates(
             tid = c.target_id
             by_target_info[tid]["post"] += 1
         for s in scores_sorted:
-            cid = id(s.cand)
-            if cid in force_retained_ids:
+            if s.cand in force_retained_ids:
                 by_target_info[s.cand.target_id]["forced"] += 1
             elif s.cand not in retained_in_cluster:
                 by_target_info[s.cand.target_id]["rejected"] += 1
@@ -320,13 +318,13 @@ def prune_candidates(
     if len(retained) > max_total:
         # Recompute global scores for retained candidates
         global_scores = _score_candidates(
-            retained, pairs, tris, target_total_candidates,
+            retained, candidate_to_metrics, target_total_candidates,
             mission.validity_thresholds.near_nadir_anchor_max_off_nadir_deg,
         )
         global_mean_on = sum(s.cand.combined_off_nadir_deg for s in global_scores) / len(global_scores) if global_scores else 0.0
         global_scores_sorted = sorted(global_scores, key=lambda s: _rank_key(s, global_mean_on))
         # Force-retain anchors and product participants even under global cap
-        global_force_ids: set[int] = set()
+        global_force_ids: set[CandidateObservation] = set()
         if preserve_anchors or preserve_products:
             target_anchors_g: dict[str, list[_CandidateScore]] = {}
             target_prod_g: dict[str, list[_CandidateScore]] = {}
@@ -348,12 +346,11 @@ def prune_candidates(
                     if len(prods) == 1 and prods[0] is s:
                         force = True
                 if force:
-                    global_force_ids.add(id(s.cand))
+                    global_force_ids.add(s.cand)
 
         kept: list[CandidateObservation] = []
         for s in global_scores_sorted:
-            cid = id(s.cand)
-            if cid in global_force_ids:
+            if s.cand in global_force_ids:
                 kept.append(s.cand)
             elif len(kept) < max_total:
                 kept.append(s.cand)

@@ -51,19 +51,20 @@ def _min_slew_time_s(delta_deg: float, sat: Satellite) -> float:
         return d / omega + omega / alpha
 
 
-def _boresight_angle_between(cand_a: CandidateObservation, cand_b: CandidateObservation, sat: Satellite) -> float:
-    """Angle (deg) between boresight vectors at candidate midpoints."""
-    sf = make_earth_satellite(sat)
-    mid_a = cand_a.start + (cand_a.end - cand_a.start) / 2
-    mid_b = cand_b.start + (cand_b.end - cand_b.start) / 2
-    sp_a, sv_a = satellite_state_ecef_m(sf, mid_a)
-    sp_b, sv_b = satellite_state_ecef_m(sf, mid_b)
+def _boresight_angle_at_boundaries(
+    cand_a: CandidateObservation, cand_b: CandidateObservation, sat: Satellite, sf: Any
+) -> float:
+    """Angle (deg) between boresight vectors at end of cand_a and start of cand_b."""
+    sp_a, sv_a = satellite_state_ecef_m(sf, cand_a.end)
+    sp_b, sv_b = satellite_state_ecef_m(sf, cand_b.start)
     b_a = boresight_unit_vector(sp_a, sv_a, cand_a.off_nadir_along_deg, cand_a.off_nadir_across_deg)
     b_b = boresight_unit_vector(sp_b, sv_b, cand_b.off_nadir_along_deg, cand_b.off_nadir_across_deg)
     return angle_between_deg(b_a, b_b)
 
 
-def _conflict_between(cand_a: CandidateObservation, cand_b: CandidateObservation, sat: Satellite) -> str | None:
+def _conflict_between(
+    cand_a: CandidateObservation, cand_b: CandidateObservation, sat: Satellite, sf: Any
+) -> str | None:
     """Return conflict reason or None if the two candidates can coexist."""
     if cand_a.sat_id != cand_b.sat_id:
         return None
@@ -82,7 +83,7 @@ def _conflict_between(cand_a: CandidateObservation, cand_b: CandidateObservation
     else:
         return "overlap"  # should not reach here
 
-    delta_deg = _boresight_angle_between(a_first, a_second, sat)
+    delta_deg = _boresight_angle_at_boundaries(a_first, a_second, sat, sf)
     need = sat.settling_time_s + _min_slew_time_s(delta_deg, sat) + _SLEW_SAFETY_BUFFER_S
     if gap + 1e-6 < need:
         return "slew"
@@ -91,23 +92,47 @@ def _conflict_between(cand_a: CandidateObservation, cand_b: CandidateObservation
 
 
 def build_conflict_graph(
-    candidates: list[CandidateObservation], satellites: dict[str, Satellite]
+    candidates: list[CandidateObservation],
+    satellites: dict[str, Satellite],
+    sat_es_map: dict[str, Any] | None = None,
 ) -> dict[tuple[int, int], str]:
     """Map from sorted (index_a, index_b) to conflict reason."""
+    if sat_es_map is None:
+        sat_es_map = {sid: make_earth_satellite(sat) for sid, sat in satellites.items()}
+
     conflicts: dict[tuple[int, int], str] = {}
-    n = len(candidates)
-    for i in range(n):
-        ci = candidates[i]
-        sat = satellites.get(ci.sat_id)
+
+    # Group candidates by satellite and sort by start time
+    sat_candidates: dict[str, list[tuple[int, CandidateObservation]]] = {}
+    for i, c in enumerate(candidates):
+        sat_candidates.setdefault(c.sat_id, []).append((i, c))
+
+    for sat_id, sat_cands in sat_candidates.items():
+        sat = satellites.get(sat_id)
         if sat is None:
             continue
-        for j in range(i + 1, n):
-            cj = candidates[j]
-            if cj.sat_id != ci.sat_id:
-                continue
-            reason = _conflict_between(ci, cj, sat)
-            if reason is not None:
-                conflicts[(i, j)] = reason
+
+        sat_cands.sort(key=lambda x: x[1].start)
+        max_gap_s = sat.settling_time_s + _min_slew_time_s(180.0, sat) + _SLEW_SAFETY_BUFFER_S
+        sf = sat_es_map.get(sat_id)
+        if sf is None:
+            continue
+
+        n = len(sat_cands)
+        for i in range(n):
+            idx_i, cand_i = sat_cands[i]
+            for j in range(i + 1, n):
+                idx_j, cand_j = sat_cands[j]
+
+                gap = (cand_j.start - cand_i.end).total_seconds()
+                if gap > max_gap_s:
+                    break
+
+                reason = _conflict_between(cand_i, cand_j, sat, sf)
+                if reason is not None:
+                    a, b = (idx_i, idx_j) if idx_i < idx_j else (idx_j, idx_i)
+                    conflicts[(a, b)] = reason
+
     return conflicts
 
 
@@ -129,11 +154,8 @@ class AbstractMILP:
     objective_quality_terms: list[tuple[float, int, str]] = field(default_factory=list)
 
 
-def _candidate_index_map(candidates: list[CandidateObservation]) -> dict[tuple, int]:
-    return {
-        (c.sat_id, c.target_id, c.access_interval_id, c.start, c.end, c.off_nadir_along_deg, c.off_nadir_across_deg): i
-        for i, c in enumerate(candidates)
-    }
+def _candidate_index_map(candidates: list[CandidateObservation]) -> dict[CandidateObservation, int]:
+    return {c: i for i, c in enumerate(candidates)}
 
 
 def build_milp(
@@ -144,6 +166,7 @@ def build_milp(
     satellites: dict[str, Satellite],
     mission: Mission,
     config: dict[str, Any],
+    prebuilt_conflicts: dict[tuple[int, int], str] | None = None,
 ) -> AbstractMILP:
     """Construct the abstract MILP from candidates, products, and conflicts."""
     opt_cfg = config.get("optimization", {})
@@ -152,8 +175,7 @@ def build_milp(
     cand_index = _candidate_index_map(candidates)
 
     def _find_obs_index(cand: CandidateObservation) -> int:
-        key = (cand.sat_id, cand.target_id, cand.access_interval_id, cand.start, cand.end, cand.off_nadir_along_deg, cand.off_nadir_across_deg)
-        return cand_index[key]
+        return cand_index[cand]
 
     model = AbstractMILP(coverage_weight=coverage_weight)
 
@@ -162,7 +184,7 @@ def build_milp(
         model.obs_vars.append({"idx": i, "cand": c})
 
     # Conflict constraints
-    conflicts = build_conflict_graph(candidates, satellites)
+    conflicts = prebuilt_conflicts if prebuilt_conflicts is not None else build_conflict_graph(candidates, satellites)
     for (ia, ib), reason in conflicts.items():
         model.conflict_constraints.append({
             "type": "conflict",
@@ -435,6 +457,12 @@ def solve_greedy_fallback(
             "start": tv["tri"].candidates[0].start,
         })
 
+    # Pre-build obs -> product indices mapping for efficient repair
+    obs_to_products: dict[int, set[int]] = {i: set() for i in range(n_obs)}
+    for pi, prod in enumerate(products):
+        for oi in prod["obs_indices"]:
+            obs_to_products[oi].add(pi)
+
     # Sort by quality desc, then deterministic tie-breakers
     products.sort(key=lambda p: (
         -p["quality"],
@@ -447,7 +475,7 @@ def solve_greedy_fallback(
     ))
 
     selected_obs: set[int] = set()
-    selected_products: list[dict[str, Any]] = []
+    selected_prod_indices: set[int] = set()
 
     def _can_add_obs(obs_idx: int) -> bool:
         for other in selected_obs:
@@ -458,12 +486,12 @@ def solve_greedy_fallback(
         return True
 
     # Greedy pass
-    for prod in products:
+    for pi, prod in enumerate(products):
         obs_idxs = prod["obs_indices"]
         if all(_can_add_obs(oi) for oi in obs_idxs):
             for oi in obs_idxs:
                 selected_obs.add(oi)
-            selected_products.append(prod)
+            selected_prod_indices.add(pi)
 
     # Conflict repair pass
     for _ in range(max_repair_iter):
@@ -482,13 +510,13 @@ def solve_greedy_fallback(
                 if ib in conflict_neighbors.get(ia, set()):
                     # Remove the one that participates in fewer products
                     # Count how many selected products each observation participates in
-                    def _obs_value(oi: int) -> float:
+                    def _obs_value(oi: int) -> tuple[int, float]:
                         count = 0
                         q_sum = 0.0
-                        for sp in selected_products:
-                            if oi in sp["obs_indices"]:
+                        for p_idx in obs_to_products[oi]:
+                            if p_idx in selected_prod_indices:
                                 count += 1
-                                q_sum += sp["quality"]
+                                q_sum += products[p_idx]["quality"]
                         return (count, q_sum)
 
                     va = _obs_value(ia)
@@ -499,11 +527,11 @@ def solve_greedy_fallback(
                         to_remove = ib
 
                     selected_obs.discard(to_remove)
-                    # Also remove any products that now have missing observations
-                    selected_products = [
-                        sp for sp in selected_products
-                        if all(oi in selected_obs for oi in sp["obs_indices"])
-                    ]
+                    # Remove products that are no longer fully covered
+                    for p_idx in obs_to_products[to_remove]:
+                        if p_idx in selected_prod_indices:
+                            if not all(oi in selected_obs for oi in products[p_idx]["obs_indices"]):
+                                selected_prod_indices.discard(p_idx)
                     removed = True
                     break
             if removed:
@@ -513,9 +541,7 @@ def solve_greedy_fallback(
 
     # Coverage-augmenting pass
     if coverage_augment:
-        covered_targets = set()
-        for sp in selected_products:
-            covered_targets.add(sp["target_id"])
+        covered_targets = {products[pi]["target_id"] for pi in selected_prod_indices}
 
         for tid in sorted(target_coverage_map.keys()):
             if tid in covered_targets:
@@ -527,20 +553,20 @@ def solve_greedy_fallback(
                 if all(_can_add_obs(oi) for oi in tp["obs_indices"]):
                     for oi in tp["obs_indices"]:
                         selected_obs.add(oi)
-                    selected_products.append(tp)
+                    selected_prod_indices.add(products.index(tp))
                     covered_targets.add(tid)
                     break
 
     selected_indices = sorted(selected_obs)
 
     # Approximate objective value
-    covered_targets = set(sp["target_id"] for sp in selected_products)
+    covered_targets = {products[pi]["target_id"] for pi in selected_prod_indices}
     obj_coverage = len(covered_targets)
-    obj_quality = sum(sp["quality"] for sp in selected_products)
+    obj_quality = sum(products[pi]["quality"] for pi in selected_prod_indices)
     objective_value = model.coverage_weight * obj_coverage + obj_quality
 
     stats = {
-        "greedy_pass_products": len(selected_products),
+        "greedy_pass_products": len(selected_prod_indices),
         "coverage_augment": coverage_augment,
         "repair_iterations": max_repair_iter,
     }
@@ -646,6 +672,9 @@ def solve_milp(
     elif isinstance(multi_lambda, (list, tuple)) and len(multi_lambda) == 0:
         multi_lambda = [float(opt_cfg.get("coverage_weight", 1000.0))]
 
+    # Build conflict graph once — conflicts depend only on candidates and satellites
+    prebuilt_conflicts = build_conflict_graph(candidates, satellites)
+
     best_result: tuple[list[int], float, dict[str, Any], str | None, str, bool, float] | None = None
     best_coverage = -1
     best_quality = -1.0
@@ -656,7 +685,10 @@ def solve_milp(
         opt_copy = dict(opt_cfg)
         opt_copy["coverage_weight"] = cw
         cfg_copy["optimization"] = opt_copy
-        model = build_milp(candidates, pairs, tris, targets, satellites, mission, cfg_copy)
+        model = build_milp(
+            candidates, pairs, tris, targets, satellites, mission, cfg_copy,
+            prebuilt_conflicts=prebuilt_conflicts,
+        )
 
         selected_indices, objective_value, solve_stats, fallback_reason, backend_used, timeout_reached, solve_time = _solve_once(
             model, backend, time_limit_s, cfg_copy
@@ -678,7 +710,10 @@ def solve_milp(
     opt_copy = dict(opt_cfg)
     opt_copy["coverage_weight"] = opt_cfg.get("coverage_weight", 1000.0)
     cfg_copy["optimization"] = opt_copy
-    final_model = build_milp(candidates, pairs, tris, targets, satellites, mission, cfg_copy)
+    final_model = build_milp(
+        candidates, pairs, tris, targets, satellites, mission, cfg_copy,
+        prebuilt_conflicts=prebuilt_conflicts,
+    )
     covered, sel_pairs, sel_tris, quality = _evaluate_solution(final_model, selected_indices)
 
     summary = SolveSummary(

@@ -40,6 +40,7 @@ from milp_model import (  # noqa: E402
 )
 from repair import repair_solution  # noqa: E402
 from pruning import (  # noqa: E402
+    _build_candidate_to_metrics,
     _CandidateScore,
     _rank_key,
     _score_candidates,
@@ -621,8 +622,9 @@ class TestScoreCandidates:
         pairs, tris, _ = enumerate_products([c1, c2, c3], {"sat_test": sat}, {"t1": target}, mission, config)
 
         target_totals = {"t1": 3}
+        metrics = _build_candidate_to_metrics(pairs, tris)
         scores = _score_candidates(
-            [c1, c2, c3], pairs, tris, target_totals,
+            [c1, c2, c3], metrics, target_totals,
             mission.validity_thresholds.near_nadir_anchor_max_off_nadir_deg,
         )
         assert len(scores) == 3
@@ -659,8 +661,9 @@ class TestScoreCandidates:
         c_orphan = _candidate(start_offset_s=1000, along=0.0)
         cluster = [c1, c2, c_orphan]
         target_totals = {"t1": 3}
+        metrics = _build_candidate_to_metrics(pairs, tris)
         scores = _score_candidates(
-            cluster, pairs, tris, target_totals,
+            cluster, metrics, target_totals,
             mission.validity_thresholds.near_nadir_anchor_max_off_nadir_deg,
         )
         orphan_score = next(s for s in scores if s.cand is c_orphan)

@@ -12,6 +12,7 @@ from skyfield.api import EarthSatellite, load
 from skyfield.framelib import itrs
 
 from geometry import (
+    _TS,
     _datetime_to_epoch,
     combined_off_nadir_deg,
     line_of_sight_clear,
@@ -69,7 +70,7 @@ def _batch_access_predicate(
     """Vectorized access check over a list of datetimes using a single skyfield Times batch."""
     if not dts:
         return []
-    ts = load.timescale()
+    ts = _TS
     t = ts.from_datetimes([dt.astimezone(UTC) for dt in dts])
     g = sf_sat.at(t)
     pos_m, vel_mps = g.frame_xyz_and_velocity(itrs)
