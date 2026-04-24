@@ -706,9 +706,16 @@ def _run_to_files(cmd: list[str], stdout_path: Path, stderr_path: Path) -> tuple
     return result.returncode, True
 
 
-def _run_capture(cmd: list[str]) -> tuple[int, str, str, bool]:
+def _run_capture(cmd: list[str], *, cwd: Path | None = None) -> tuple[int, str, str, bool]:
     try:
-        result = subprocess.run(cmd, capture_output=True, text=True, encoding="utf-8", errors="replace")
+        result = subprocess.run(
+            cmd,
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+            errors="replace",
+            cwd=cwd,
+        )
     except FileNotFoundError as exc:
         return 127, "", f"Failed to launch process: {exc}", False
     return result.returncode, result.stdout or "", result.stderr or "", True
@@ -728,7 +735,7 @@ def _external_verifier(item: RunItem, output_dir: Path, solution_present: bool) 
         str(case_dir),
         str(solution),
     ]
-    exit_code, stdout, stderr, launched = _run_capture(cmd)
+    exit_code, stdout, stderr, launched = _run_capture(cmd, cwd=REPO_ROOT)
     (output_dir / "verifier_stdout.txt").write_text(stdout, encoding="utf-8")
     (output_dir / "verifier_stderr.txt").write_text(stderr, encoding="utf-8")
     if not launched:
@@ -826,7 +833,7 @@ def _write_run_json(
         "schema_version": 1,
         "experiment": "verifier_exposure",
         "mode": mode,
-        "config": item.config_path.relative_to(REPO_ROOT).as_posix(),
+        "config": _relative(item.config_path),
         "exposure": item.exposure,
         "benchmark": item.benchmark,
         "harness": item.harness,
@@ -1031,9 +1038,18 @@ def _run_batch(args: argparse.Namespace) -> int:
         futures = {executor.submit(_run_with_retries, item, config.batch): item for item in pending}
         for future in concurrent.futures.as_completed(futures):
             item = futures[future]
-            result = future.result()
-            status_counts[result.overall_status] = status_counts.get(result.overall_status, 0) + 1
-            print(f"Finished {item.exposure}/{item.case_id}: {result.overall_status}")
+            try:
+                result = future.result()
+                status = result.overall_status
+            except BaseException as exc:
+                status = "runner_error"
+                output_dir = _output_dir(item)
+                output_dir.mkdir(parents=True, exist_ok=True)
+                (output_dir / "runner_error.txt").write_text(f"{type(exc).__name__}: {exc}\n", encoding="utf-8")
+                print(f"Failed {item.exposure}/{item.case_id}: {status} ({exc})")
+            else:
+                print(f"Finished {item.exposure}/{item.case_id}: {status}")
+            status_counts[status] = status_counts.get(status, 0) + 1
     if not pending:
         print("No runs selected for execution.")
     print("Status counts:", json.dumps(status_counts, sort_keys=True))
@@ -1098,12 +1114,21 @@ def _run_interactive(args: argparse.Namespace) -> int:
     runtime = load_runtime("base")
     cmd = _build_docker_command(item, runtime, roots, identity, interactive=True)
     start = datetime.now(timezone.utc)
-    exit_code = subprocess.run(cmd, check=False).returncode
+    try:
+        exit_code = subprocess.run(cmd, check=False).returncode
+        launched = True
+    except FileNotFoundError as exc:
+        (output_dir / "agent_stderr.txt").write_text(
+            f"Failed to launch process: {exc}\n",
+            encoding="utf-8",
+        )
+        exit_code = 127
+        launched = False
     end = datetime.now(timezone.utc)
     solution_present = _copy_solution(workspace_dir, output_dir)
     verifier_status, verifier_result = _external_verifier(item, output_dir, solution_present)
     collected = _collect_artifacts(profile, roots, output_dir)
-    agent_status = _agent_status(exit_code, True, solution_present)
+    agent_status = _agent_status(exit_code, launched, solution_present)
     overall_status = _overall_status(agent_status, verifier_status, interactive=True)
     _write_run_json(
         item,

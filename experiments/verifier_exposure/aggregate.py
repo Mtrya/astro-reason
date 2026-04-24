@@ -105,6 +105,12 @@ def _format(value: Any) -> str:
     return str(value)
 
 
+def _display_path(path: Path) -> str:
+    if path.is_relative_to(REPO_ROOT):
+        return path.relative_to(REPO_ROOT).as_posix()
+    return path.as_posix()
+
+
 def _records(config: dict[str, Any], config_path: Path) -> list[dict[str, Any]]:
     root = _result_root(config, config_path)
     exposures = config.get("exposures", [])
@@ -143,7 +149,7 @@ def _records(config: dict[str, Any], config_path: Path) -> list[dict[str, Any]]:
                         "worst_demand_service_fraction": None,
                         "mean_latency_ms": None,
                         "latency_p95_ms": None,
-                        "result_path": run_path.relative_to(REPO_ROOT).as_posix(),
+                        "result_path": _display_path(run_path),
                     }
                 )
                 continue
@@ -161,7 +167,7 @@ def _records(config: dict[str, Any], config_path: Path) -> list[dict[str, Any]]:
                     "worst_demand_service_fraction": _metric(payload, "worst_demand_service_fraction"),
                     "mean_latency_ms": _metric(payload, "mean_latency_ms"),
                     "latency_p95_ms": _metric(payload, "latency_p95_ms"),
-                    "result_path": run_path.relative_to(REPO_ROOT).as_posix(),
+                    "result_path": _display_path(run_path),
                 }
             )
     return rows
