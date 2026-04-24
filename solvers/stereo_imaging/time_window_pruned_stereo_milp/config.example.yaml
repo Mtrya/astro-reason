@@ -98,10 +98,9 @@ optimization:
   backend: auto
 
   # MILP solver time limit (seconds).
-  # Kim et al. used up to 3 hours for direct MILP on 100-task instances.
-  # 300s is realistic for the greedy fallback / heuristic layer but is
-  # MISALIGNED for exact MILP on dense cases.  Increase if a backend is
-  # installed and you need better optimality.
+  # 300s is realistic for the greedy fallback / heuristic layer.
+  # 1800s (30 min) is recommended when an exact MILP backend is installed
+  # and you want better optimality on dense cases.
   time_limit_s: 300
 
   # Lexicographic big-M weight: coverage_weight * covered_targets + quality.
@@ -111,6 +110,12 @@ optimization:
 
   # If the MILP backend times out, fall back to greedy.
   fallback_on_timeout: true
+
+  # Multi-lambda restart heuristic: run the solver with multiple coverage weights
+  # and keep the result with the highest coverage (tie-break on quality).
+  # Set to null or [] to disable (single run with coverage_weight).
+  # Default: [100.0, 500.0, 1000.0, 2000.0]
+  multi_lambda_restarts: [100.0, 500.0, 1000.0, 2000.0]
 
   # Greedy fallback knobs
   greedy_coverage_augment: true

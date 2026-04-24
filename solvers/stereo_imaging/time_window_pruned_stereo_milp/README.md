@@ -21,7 +21,19 @@ The solver produces a non-empty `solution.json` containing selected observations
 ./solve.sh <case_dir> [config_dir] [solution_dir]
 ```
 
-`setup.sh` checks that `brahe`, `numpy`, `yaml`, and `skyfield` are available.
+`setup.sh` checks that `brahe`, `numpy`, `yaml`, and `skyfield` are available and optionally installs solver-local dependencies (`ortools`, `pulp`) from `requirements.txt`.
+
+### Backend installation
+
+The solver works out of the box with a deterministic greedy fallback. To use the exact MILP formulation, install one of the following backends:
+
+```bash
+pip install ortools>=9.11
+# or
+pip install pulp>=2.9
+```
+
+`setup.sh` will attempt to install both automatically when `pip` is available. With a backend installed, set `backend: auto` (default) or explicitly `backend: ortools` / `backend: pulp`. Increase `time_limit_s` to 1800 or more for exact solves on dense cases.
 
 `solve.sh` writes:
 - `solution.json`: benchmark-compatible list of selected observations.

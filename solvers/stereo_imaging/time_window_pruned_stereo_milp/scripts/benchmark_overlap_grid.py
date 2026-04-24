@@ -1,0 +1,71 @@
+"""Benchmark overlap grid density vs accuracy and runtime on a single case."""
+
+from __future__ import annotations
+
+import json
+import sys
+import time
+from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
+
+from candidates import generate_candidates
+from case_io import load_case, load_solver_config
+from products import enumerate_products
+
+REPO_ROOT = Path(__file__).resolve().parents[4]
+CASES_ROOT = REPO_ROOT / "benchmarks" / "stereo_imaging" / "dataset" / "cases" / "test"
+
+CONFIGS = [
+    {"id": "8x3", "overlap_grid_angles": 8, "overlap_grid_radii": 3},
+    {"id": "12x4", "overlap_grid_angles": 12, "overlap_grid_radii": 4},
+    {"id": "16x5", "overlap_grid_angles": 16, "overlap_grid_radii": 5},
+    {"id": "24x6", "overlap_grid_angles": 24, "overlap_grid_radii": 6},
+]
+
+
+def run(case_name: str):
+    case_dir = CASES_ROOT / case_name
+    if not case_dir.exists():
+        print(f"Case not found: {case_dir}")
+        return
+
+    mission, satellites, targets = load_case(case_dir)
+    base_cfg = load_solver_config(None)
+    base_cfg["debug"] = False
+    base_cfg["parallel_candidate_generation"] = False
+
+    # Generate candidates once
+    candidates, _, _ = generate_candidates(mission, satellites, targets, base_cfg)
+
+    results = []
+    for grid_cfg in CONFIGS:
+        cfg = dict(base_cfg)
+        cfg.update(grid_cfg)
+
+        t0 = time.perf_counter()
+        pairs, tris, summary = enumerate_products(candidates, satellites, targets, mission, cfg)
+        elapsed = time.perf_counter() - t0
+
+        results.append({
+            "config_id": grid_cfg["id"],
+            "overlap_grid_angles": grid_cfg["overlap_grid_angles"],
+            "overlap_grid_radii": grid_cfg["overlap_grid_radii"],
+            "total_pairs": summary.total_pairs,
+            "valid_pairs": summary.valid_pairs,
+            "total_tris": summary.total_tris,
+            "valid_tris": summary.valid_tris,
+            "product_enumeration_time_s": round(elapsed, 3),
+        })
+
+    out = {
+        "case": case_name,
+        "candidates": len(candidates),
+        "results": results,
+    }
+    print(json.dumps(out, indent=2))
+
+
+if __name__ == "__main__":
+    case = sys.argv[1] if len(sys.argv) > 1 else "case_0001"
+    run(case)

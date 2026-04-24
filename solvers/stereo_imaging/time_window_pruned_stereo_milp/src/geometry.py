@@ -272,8 +272,15 @@ def strip_polyline_en(
     return pts
 
 
-def pixel_scale_m(sat: Satellite, slant_range_m: float) -> float:
-    return slant_range_m * sat.pixel_ifov_deg * (math.pi / 180.0)
+def pixel_scale_m(sat: Satellite, slant_range_m: float, off_nadir_deg: float = 0.0) -> float:
+    """Ground pixel size including off-nadir secant correction.
+
+    At nonzero off-nadir the ground-projected pixel is stretched by 1/cos(off_nadir).
+    """
+    base = slant_range_m * sat.pixel_ifov_deg * (math.pi / 180.0)
+    if abs(off_nadir_deg) < _NUMERICAL_EPS:
+        return base
+    return base / math.cos(math.radians(off_nadir_deg))
 
 
 def overlap_fraction_grid(

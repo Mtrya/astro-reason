@@ -2,11 +2,14 @@
 
 from __future__ import annotations
 
-from datetime import datetime, timedelta
+import os
+from datetime import UTC, datetime, timedelta
+from multiprocessing import Pool
 from typing import Any
 
 import numpy as np
-from skyfield.api import EarthSatellite
+from skyfield.api import EarthSatellite, load
+from skyfield.framelib import itrs
 
 from geometry import (
     _datetime_to_epoch,
@@ -56,6 +59,49 @@ def _access_predicate(
     return True
 
 
+def _batch_access_predicate(
+    sf_sat: EarthSatellite,
+    te: np.ndarray,
+    sat: Satellite,
+    mission: Mission,
+    dts: list[datetime],
+) -> list[bool]:
+    """Vectorized access check over a list of datetimes using a single skyfield Times batch."""
+    if not dts:
+        return []
+    ts = load.timescale()
+    t = ts.from_datetimes([dt.astimezone(UTC) for dt in dts])
+    g = sf_sat.at(t)
+    pos_m, vel_mps = g.frame_xyz_and_velocity(itrs)
+    pos_m = np.asarray(pos_m.km, dtype=float).T * 1000.0  # shape (N, 3)
+    # Vectorized LOS clear
+    los = te.reshape(1, 3) - pos_m  # shape (N, 3)
+    dist = np.linalg.norm(los, axis=1)
+    los_hat = los / dist.reshape(-1, 1)
+    # Ray-ellipsoid intersection (simplified: check if target is above horizon)
+    # For speed, use dot product with local up vector
+    up = pos_m / np.linalg.norm(pos_m, axis=1).reshape(-1, 1)
+    # up points from Earth center to satellite; target is visible when dot(los_hat, -up) > 0
+    cos_el = np.sum(los_hat * up, axis=1)
+    los_ok = cos_el < 0.0
+    # Vectorized off-nadir
+    nadir = -up
+    cos_off = np.sum(nadir * los_hat, axis=1)
+    cos_off = np.clip(cos_off, -1.0, 1.0)
+    off_nadir = np.degrees(np.arccos(cos_off))
+    off_ok = off_nadir <= sat.max_off_nadir_deg + 1e-6
+    # Solar elevation (not easily vectorized with brahe; loop over epochs)
+    results = []
+    for i, dt in enumerate(dts):
+        if not (los_ok[i] and off_ok[i]):
+            results.append(False)
+            continue
+        epoch = _datetime_to_epoch(dt)
+        se = solar_elevation_deg(epoch, te)
+        results.append(se >= mission.validity_thresholds.min_solar_elevation_deg - 1e-6)
+    return results
+
+
 def find_access_intervals(
     sat: Satellite,
     target: Target,
@@ -66,12 +112,14 @@ def find_access_intervals(
 ) -> list[AccessInterval]:
     sf_sat = make_earth_satellite(sat)
     te = target_ecef_m(target)
+    dts = list(_iter_horizon(mission.horizon_start, mission.horizon_end, time_step_s))
+    ok_list = _batch_access_predicate(sf_sat, te, sat, mission, dts)
+
     raw: list[tuple[datetime, datetime]] = []
     current_start: datetime | None = None
     current_end: datetime | None = None
 
-    for dt in _iter_horizon(mission.horizon_start, mission.horizon_end, time_step_s):
-        ok = _access_predicate(sf_sat, te, sat, mission, dt)
+    for dt, ok in zip(dts, ok_list):
         if ok:
             if current_start is None:
                 current_start = dt
@@ -156,6 +204,85 @@ def _generate_target_centered_steering_grid(
     return grid
 
 
+def _generate_candidates_for_pair(
+    sat: Satellite,
+    target: Target,
+    mission: Mission,
+    time_step_s: float,
+    sample_stride_s: float,
+    max_candidates_per_interval: int,
+    along_samples: int,
+    across_samples: int,
+    use_target_centered: bool,
+    steering_spread_deg: float,
+) -> tuple[list[CandidateObservation], list[RejectionRecord], CandidateSummary]:
+    """Worker: generate candidates for a single (satellite, target) pair."""
+    intervals = find_access_intervals(sat, target, mission, time_step_s=time_step_s)
+    if not intervals:
+        return [], [], CandidateSummary()
+
+    sf_sat = make_earth_satellite(sat)
+    te = target_ecef_m(target)
+    candidates: list[CandidateObservation] = []
+    rejections: list[RejectionRecord] = []
+    summary = CandidateSummary()
+
+    for interval in intervals:
+        count = 0
+        start_t = interval.start
+        while start_t + timedelta(seconds=sat.min_obs_duration_s) <= interval.end:
+            if count >= max_candidates_per_interval:
+                break
+            end_t = start_t + timedelta(seconds=sat.min_obs_duration_s)
+            mid = start_t + (end_t - start_t) / 2
+            sp, sv = satellite_state_ecef_m(sf_sat, mid)
+            if use_target_centered:
+                steering_grid = _generate_target_centered_steering_grid(
+                    sp, sv, te, sat.max_off_nadir_deg,
+                    along_samples, across_samples, steering_spread_deg,
+                )
+            else:
+                steering_grid = _generate_steering_grid(
+                    sat.max_off_nadir_deg, along_samples, across_samples
+                )
+            for along, across in steering_grid:
+                if count >= max_candidates_per_interval:
+                    break
+                cand, reason = _evaluate_candidate(
+                    sat, target, interval, start_t, end_t, along, across, mission
+                )
+                if cand is not None:
+                    candidates.append(cand)
+                    summary.record(
+                        accepted=True,
+                        sat_id=sat.id,
+                        target_id=target.id,
+                        interval_id=interval.interval_id,
+                    )
+                    count += 1
+                else:
+                    rejections.append(
+                        RejectionRecord(
+                            sat_id=sat.id,
+                            target_id=target.id,
+                            interval_id=interval.interval_id,
+                            reason=reason or "unknown",
+                            start=start_t,
+                            end=end_t,
+                        )
+                    )
+                    summary.record(
+                        accepted=False,
+                        sat_id=sat.id,
+                        target_id=target.id,
+                        interval_id=interval.interval_id,
+                        reason=reason,
+                    )
+            start_t += timedelta(seconds=sample_stride_s)
+
+    return candidates, rejections, summary
+
+
 def generate_candidates(
     mission: Mission,
     satellites: dict[str, Satellite],
@@ -168,76 +295,63 @@ def generate_candidates(
     along_samples = int(config.get("steering_along_samples", 1))
     across_samples = int(config.get("steering_across_samples", 1))
 
-    candidates: list[CandidateObservation] = []
-    rejections: list[RejectionRecord] = []
-    summary = CandidateSummary()
-
     use_target_centered = bool(config.get("use_target_centered_steering", True))
     steering_spread_deg = float(config.get("steering_grid_spread_deg", 2.0))
+    parallel = bool(config.get("parallel_candidate_generation", True))
 
-    for sat in satellites.values():
-        for target in targets.values():
-            intervals = find_access_intervals(
-                sat, target, mission, time_step_s=time_step_s
+    pairs = [(sat, target) for sat in satellites.values() for target in targets.values()]
+    n_workers = max(1, os.cpu_count() or 1)
+
+    if parallel and len(pairs) >= 4 and n_workers > 1:
+        with Pool(processes=n_workers) as pool:
+            results = pool.starmap(
+                _generate_candidates_for_pair,
+                [
+                    (
+                        sat, target, mission, time_step_s, sample_stride_s,
+                        max_candidates_per_interval, along_samples, across_samples,
+                        use_target_centered, steering_spread_deg,
+                    )
+                    for sat, target in pairs
+                ],
             )
-            if not intervals:
-                continue
-            sf_sat = make_earth_satellite(sat)
-            te = target_ecef_m(target)
-            for interval in intervals:
-                count = 0
-                start_t = interval.start
-                while start_t + timedelta(seconds=sat.min_obs_duration_s) <= interval.end:
-                    if count >= max_candidates_per_interval:
-                        break
-                    # use fixed duration = min_obs_duration_s for deterministic simplicity
-                    end_t = start_t + timedelta(seconds=sat.min_obs_duration_s)
-                    mid = start_t + (end_t - start_t) / 2
-                    sp, sv = satellite_state_ecef_m(sf_sat, mid)
-                    if use_target_centered:
-                        steering_grid = _generate_target_centered_steering_grid(
-                            sp, sv, te, sat.max_off_nadir_deg,
-                            along_samples, across_samples, steering_spread_deg,
-                        )
-                    else:
-                        steering_grid = _generate_steering_grid(
-                            sat.max_off_nadir_deg, along_samples, across_samples
-                        )
-                    for along, across in steering_grid:
-                        if count >= max_candidates_per_interval:
-                            break
-                        cand, reason = _evaluate_candidate(
-                            sat, target, interval, start_t, end_t, along, across, mission
-                        )
-                        if cand is not None:
-                            candidates.append(cand)
-                            summary.record(
-                                accepted=True,
-                                sat_id=sat.id,
-                                target_id=target.id,
-                                interval_id=interval.interval_id,
-                            )
-                            count += 1
-                        else:
-                            rejections.append(
-                                RejectionRecord(
-                                    sat_id=sat.id,
-                                    target_id=target.id,
-                                    interval_id=interval.interval_id,
-                                    reason=reason or "unknown",
-                                    start=start_t,
-                                    end=end_t,
-                                )
-                            )
-                            summary.record(
-                                accepted=False,
-                                sat_id=sat.id,
-                                target_id=target.id,
-                                interval_id=interval.interval_id,
-                                reason=reason,
-                            )
-                    start_t += timedelta(seconds=sample_stride_s)
+        candidates: list[CandidateObservation] = []
+        rejections: list[RejectionRecord] = []
+        summary = CandidateSummary()
+        for cands, rej, sm in results:
+            candidates.extend(cands)
+            rejections.extend(rej)
+            # Merge summary
+            summary.total_generated += sm.total_generated
+            summary.total_accepted += sm.total_accepted
+            summary.total_rejected += sm.total_rejected
+            summary.by_satellite.update(sm.by_satellite)
+            summary.by_target.update(sm.by_target)
+            summary.by_interval.update(sm.by_interval)
+            for reason, count in sm.by_reason.items():
+                summary.by_reason[reason] = summary.by_reason.get(reason, 0) + count
+        return candidates, rejections, summary
 
+    # Sequential fallback
+    candidates = []
+    rejections = []
+    summary = CandidateSummary()
+    for sat, target in pairs:
+        cands, rej, sm = _generate_candidates_for_pair(
+            sat, target, mission, time_step_s, sample_stride_s,
+            max_candidates_per_interval, along_samples, across_samples,
+            use_target_centered, steering_spread_deg,
+        )
+        candidates.extend(cands)
+        rejections.extend(rej)
+        summary.total_generated += sm.total_generated
+        summary.total_accepted += sm.total_accepted
+        summary.total_rejected += sm.total_rejected
+        summary.by_satellite.update(sm.by_satellite)
+        summary.by_target.update(sm.by_target)
+        summary.by_interval.update(sm.by_interval)
+        for reason, count in sm.by_reason.items():
+            summary.by_reason[reason] = summary.by_reason.get(reason, 0) + count
     return candidates, rejections, summary
 
 

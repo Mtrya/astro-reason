@@ -79,7 +79,7 @@ def _precompute_candidate_geometry(
     if gp is None:
         gp = te
     slant = float(np.linalg.norm(gp - sp))
-    ps = pixel_scale_m(sat, slant)
+    ps = pixel_scale_m(sat, slant, cand.combined_off_nadir_deg)
     poly = strip_polyline_en(sf, te, cand.start, cand.end, strip_step_s, cand.off_nadir_along_deg, cand.off_nadir_across_deg)
     half_w = slant * np.tan(np.radians(sat.half_cross_track_fov_deg))
     return _CandidateGeometry(
@@ -238,8 +238,8 @@ def enumerate_products(
         "overlap_grid_angles": int(config.get("overlap_grid_angles", 8)),
         "overlap_grid_radii": int(config.get("overlap_grid_radii", 3)),
         "strip_sample_step_s": strip_step_s,
-        "pixel_scale_secant_correction": False,
-        "note": "Overlap is grid-approximated; pixel scale omits off-nadir secant correction.",
+        "pixel_scale_secant_correction": True,
+        "note": "Overlap is grid-approximated; pixel scale includes off-nadir secant correction.",
     }
 
     for (sat_id, target_id, interval_id), group in groups.items():

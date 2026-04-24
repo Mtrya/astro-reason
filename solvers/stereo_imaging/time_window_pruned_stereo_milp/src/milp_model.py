@@ -551,22 +551,13 @@ def solve_greedy_fallback(
 # Unified solve entrypoint
 # ---------------------------------------------------------------------------
 
-def solve_milp(
-    candidates: list[CandidateObservation],
-    pairs: list[StereoPair],
-    tris: list[TriStereoSet],
-    targets: dict[str, Target],
-    satellites: dict[str, Satellite],
-    mission: Mission,
+def _solve_once(
+    model: AbstractMILP,
+    backend: str,
+    time_limit_s: float,
     config: dict[str, Any],
-) -> tuple[list[int], SolveSummary]:
-    """Build model, try backends, fall back to greedy. Return selected obs indices and summary."""
-    opt_cfg = config.get("optimization", {})
-    backend = opt_cfg.get("backend", "auto")
-    time_limit_s = float(opt_cfg.get("time_limit_s", 300.0))
-
-    model = build_milp(candidates, pairs, tris, targets, satellites, mission, config)
-
+) -> tuple[list[int] | None, float, dict[str, Any], str | None, str, bool, float]:
+    """Try one solve. Returns (selected_indices, obj_value, stats, fallback_reason, backend_used, timeout_reached, solve_time)."""
     tried: list[str] = []
     selected_indices: list[int] | None = None
     objective_value = 0.0
@@ -606,7 +597,14 @@ def solve_milp(
         solve_time = time.perf_counter() - solve_start
         timeout_reached = False
 
-    # Count selected products and covered targets
+    return selected_indices, objective_value, solve_stats, fallback_reason, backend_used, timeout_reached, solve_time
+
+
+def _evaluate_solution(
+    model: AbstractMILP,
+    selected_indices: list[int],
+) -> tuple[int, int, int, float]:
+    """Return (covered_targets, selected_pairs, selected_tris, quality)."""
     selected_obs_set = set(selected_indices)
     selected_pairs = 0
     selected_tris = 0
@@ -625,20 +623,78 @@ def solve_milp(
             covered_targets.add(tv["tri"].target_id)
             obj_quality += tv["tri"].q_tri
 
+    return len(covered_targets), selected_pairs, selected_tris, obj_quality
+
+
+def solve_milp(
+    candidates: list[CandidateObservation],
+    pairs: list[StereoPair],
+    tris: list[TriStereoSet],
+    targets: dict[str, Target],
+    satellites: dict[str, Satellite],
+    mission: Mission,
+    config: dict[str, Any],
+) -> tuple[list[int], SolveSummary]:
+    """Build model, try backends, optionally run multi-lambda restarts, fall back to greedy."""
+    opt_cfg = config.get("optimization", {})
+    backend = opt_cfg.get("backend", "auto")
+    time_limit_s = float(opt_cfg.get("time_limit_s", 300.0))
+    multi_lambda = opt_cfg.get("multi_lambda_restarts", None)
+    if multi_lambda is None:
+        # Default: single run with coverage_weight = 1000
+        multi_lambda = [float(opt_cfg.get("coverage_weight", 1000.0))]
+    elif isinstance(multi_lambda, (list, tuple)) and len(multi_lambda) == 0:
+        multi_lambda = [float(opt_cfg.get("coverage_weight", 1000.0))]
+
+    best_result: tuple[list[int], float, dict[str, Any], str | None, str, bool, float] | None = None
+    best_coverage = -1
+    best_quality = -1.0
+
+    for cw in multi_lambda:
+        # Build a fresh model with this coverage weight
+        cfg_copy = dict(config)
+        opt_copy = dict(opt_cfg)
+        opt_copy["coverage_weight"] = cw
+        cfg_copy["optimization"] = opt_copy
+        model = build_milp(candidates, pairs, tris, targets, satellites, mission, cfg_copy)
+
+        selected_indices, objective_value, solve_stats, fallback_reason, backend_used, timeout_reached, solve_time = _solve_once(
+            model, backend, time_limit_s, cfg_copy
+        )
+
+        covered, sel_pairs, sel_tris, quality = _evaluate_solution(model, selected_indices)
+
+        # Lexicographic comparison: maximize coverage, then quality
+        if covered > best_coverage or (covered == best_coverage and quality > best_quality):
+            best_coverage = covered
+            best_quality = quality
+            best_result = (selected_indices, objective_value, solve_stats, fallback_reason, backend_used, timeout_reached, solve_time)
+
+    assert best_result is not None
+    selected_indices, objective_value, solve_stats, fallback_reason, backend_used, timeout_reached, solve_time = best_result
+
+    # Re-evaluate with the winning model (rebuild for final stats)
+    cfg_copy = dict(config)
+    opt_copy = dict(opt_cfg)
+    opt_copy["coverage_weight"] = opt_cfg.get("coverage_weight", 1000.0)
+    cfg_copy["optimization"] = opt_copy
+    final_model = build_milp(candidates, pairs, tris, targets, satellites, mission, cfg_copy)
+    covered, sel_pairs, sel_tris, quality = _evaluate_solution(final_model, selected_indices)
+
     summary = SolveSummary(
         backend_used=backend_used,
         fallback_reason=fallback_reason,
-        n_obs_vars=len(model.obs_vars),
-        n_pair_vars=len(model.pair_vars),
-        n_tri_vars=len(model.tri_vars),
-        n_conflict_constraints=len(model.conflict_constraints),
-        n_coverage_constraints=len(model.target_coverage_constraints),
+        n_obs_vars=len(final_model.obs_vars),
+        n_pair_vars=len(final_model.pair_vars),
+        n_tri_vars=len(final_model.tri_vars),
+        n_conflict_constraints=len(final_model.conflict_constraints),
+        n_coverage_constraints=len(final_model.target_coverage_constraints),
         selected_observations=len(selected_indices),
-        selected_pairs=selected_pairs,
-        selected_tris=selected_tris,
-        covered_targets=len(covered_targets),
-        objective_coverage=len(covered_targets),
-        objective_quality=obj_quality,
+        selected_pairs=sel_pairs,
+        selected_tris=sel_tris,
+        covered_targets=covered,
+        objective_coverage=covered,
+        objective_quality=quality,
         solve_time_s=solve_time,
         timeout_reached=timeout_reached,
     )
