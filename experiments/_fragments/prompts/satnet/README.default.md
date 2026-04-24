@@ -49,17 +49,76 @@ Each array element should describe one scheduled track with:
 
 The verifier checks timing consistency between setup, transmission, and teardown, so those fields must align exactly with the request parameters.
 
-## Important Task Semantics
+## Modeling Contract
 
-- `START_TIME -> TRACKING_ON -> TRACKING_OFF -> END_TIME` is a strict timing chain: setup occupies the first segment, actual communication occupies the middle segment, and teardown occupies the last segment.
-- A scheduled transmission must fit fully inside at least one valid view period for the chosen antenna.
-- Tracks on the same antenna cannot overlap, including setup and teardown time.
-- Tracks cannot overlap with maintenance windows on the same antenna.
-- `TRACK_ID` must refer to a real request.
-- The chosen `RESOURCE` must be compatible with that request.
-- Some requests allow arrayed resources, so the resource key must match the request's allowed resource combinations rather than an arbitrary antenna label.
-- Communication hours come only from `TRACKING_ON` to `TRACKING_OFF`; setup and teardown help validity but add no direct objective value.
-- For very long requests, the verifier allows a single scheduled track to satisfy a capped per-track minimum of 4 hours instead of the full original minimum duration.
+Use Unix timestamps in integer seconds. `case/problem.json` is a JSON array of requests for one week, and `case/maintenance.csv` contains downtime windows for the same week. Request fields `duration` and `duration_min` are in hours; `setup_time` and `teardown_time` are in minutes. Solution rows use absolute Unix seconds.
+
+Each solution row is one antenna allocation with fields `RESOURCE`, `SC`, `START_TIME`, `TRACKING_ON`, `TRACKING_OFF`, `END_TIME`, and `TRACK_ID`. `TRACK_ID` must equal a request `track_id` in `problem.json`. `RESOURCE` must be an antenna ID used by the case and must appear as a component of at least one resource-combination key in that request's `resource_vp_dict`. `SC` must parse as an integer, but hard validity is driven by `TRACK_ID`, resources, timing, view periods, maintenance, and overlaps.
+
+For the referenced request, timing must satisfy exactly:
+
+```text
+TRACKING_ON = START_TIME + 60 * setup_time
+END_TIME = TRACKING_OFF + 60 * teardown_time
+```
+
+Setup and teardown consume antenna time but do not count as communication time.
+
+Rows with the same `TRACK_ID`, `START_TIME`, `TRACKING_ON`, `TRACKING_OFF`, and `END_TIME` are grouped as one logical track. A single-antenna logical track has one row. An arrayed logical track has multiple rows, one per antenna. The antenna names in the group are sorted and joined with `_` to form the combination key, such as `DSS-34_DSS-35`; that key must exist in the request's `resource_vp_dict`. Do not submit the joined key as one row's `RESOURCE`.
+
+View periods are the hard visibility windows. For each logical track, the communication interval must fit inside at least one view-period interval for the chosen combination key:
+
+```text
+view_period["TRX ON"] <= TRACKING_ON <= TRACKING_OFF <= view_period["TRX OFF"]
+```
+
+`RISE`/`SET` may exist in `problem.json`, but normalized `TRX ON`/`TRX OFF` bounds are the operative communication bounds. Request-level `time_window_start` and `time_window_end` are broader request metadata and are not the hard containment interval when resource view periods are present.
+
+Antenna exclusivity uses half-open occupied intervals:
+
+```text
+[START_TIME, END_TIME)
+```
+
+Two rows on the same `RESOURCE` may not overlap, and a row may not overlap any `maintenance.csv` interval `[starttime, endtime)` for that antenna. These checks include setup and teardown.
+
+Each logical track must meet a per-track communication minimum:
+
+```text
+track_duration_s = TRACKING_OFF - TRACKING_ON
+requested_s = int(duration * 3600)
+minimum_s = int(duration_min * 3600)
+
+if requested_s >= 28800:
+  per_track_min_s = min(minimum_s, 14400)
+else:
+  per_track_min_s = minimum_s
+
+track_duration_s >= per_track_min_s
+```
+
+Request satisfaction is stricter than per-track validity. For each `TRACK_ID`, communication time is summed across logical tracks, counted once per logical track even if arrayed, then capped at `requested_s`:
+
+```text
+allocated_s = min(sum(TRACKING_OFF - TRACKING_ON over logical tracks), requested_s)
+satisfied if allocated_s >= minimum_s
+```
+
+The main communication-hours report is antenna-time:
+
+```text
+total_hours = sum((TRACKING_OFF - TRACKING_ON) / 3600 over solution rows)
+```
+
+Arrayed contacts therefore add one row's communication time per participating antenna. Fairness metrics group requests by `subject`. For each subject:
+
+```text
+subject_requested_s = sum(int(duration * 3600) for requests with that subject)
+subject_allocated_s = sum(allocated_s for those requests)
+U_i = max(subject_requested_s - subject_allocated_s, 0) / subject_requested_s
+```
+
+`U_max = max(U_i)`, and `U_rms = sqrt(mean(U_i^2))`. `n_satisfied_requests` counts requests whose capped allocation reaches `duration_min`. Residual ambiguity is mostly inherited from integer truncation of hour/minute request fields; when in doubt, use the equations above and then confirm with the local helper.
 
 ## Validation Notes
 

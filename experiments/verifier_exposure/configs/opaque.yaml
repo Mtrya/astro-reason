@@ -1,0 +1,22 @@
+exposure: opaque
+
+workspace_verifier:
+  exposed: true
+  kind: opaque_binary
+  location: verifier
+  command: ./verifier case/ solution.json
+
+assemble:
+  - source: experiments/_fragments/prompts/relay_constellation/README.default.md
+    target: /app/workspace/README.md
+    render: true
+  - source: benchmarks/{benchmark}/dataset/cases/{split}/{case_id}
+    target: /app/workspace/case
+  - source: experiments/_fragments/opaque_verifiers/artifacts/{benchmark}/verifier
+    target: /app/workspace/verifier
+  - source: experiments/_fragments/prompts/relay_constellation/PROMPT.default.md
+    target: /home/korolev/PROMPT.md
+    render: true
+  - source: experiments/_fragments/prompts/_shared/AGENTS.main_agentic.default.md
+    target: /app/workspace/AGENTS.md
+    render: true

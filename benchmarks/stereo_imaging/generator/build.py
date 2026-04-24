@@ -1,4 +1,4 @@
-"""Canonical v3 stereo_imaging dataset generation."""
+"""Canonical stereo_imaging dataset generation."""
 
 from __future__ import annotations
 
@@ -15,14 +15,18 @@ from typing import Any
 import yaml
 
 from . import sources as sources_module
+from .feasibility import audit_case_feasibility, format_feasibility_diagnostics
 from .lookup_tables import ELEVATION_GRID, LOOKUP_TABLE_VERSION, SCENE_GRID
 from .normalize import load_celestrak_csv, load_world_cities
+from .satellite_catalog import SATELLITE_CATALOG
 
 LOOKUP_GRID_RESOLUTION_DEG = 1.0
 LOOKUP_LAT_MIN = -89
 LOOKUP_LAT_MAX = 90
 LOOKUP_LON_MIN = -179
 LOOKUP_LON_MAX = 180
+DEFAULT_MAX_GENERATION_ATTEMPTS_PER_CASE = 8
+MIN_TARGET_ELEVATION_M = 0.0
 
 
 def _validate_path_segment(value: object, label: str) -> str:
@@ -57,6 +61,36 @@ def _require_float(mapping: dict[str, Any], key: str, label: str) -> float:
     return float(value)
 
 
+def _split_guard_settings(split_config: dict[str, Any], label: str) -> tuple[int, dict[str, Any]]:
+    if "feasibility_guard" in split_config:
+        guard = _require_mapping(split_config.get("feasibility_guard"), f"{label}.feasibility_guard")
+    else:
+        guard = {}
+    max_attempts_raw = guard.get(
+        "max_generation_attempts_per_case",
+        DEFAULT_MAX_GENERATION_ATTEMPTS_PER_CASE,
+    )
+    if not isinstance(max_attempts_raw, int) or isinstance(max_attempts_raw, bool):
+        raise ValueError(f"{label}.feasibility_guard.max_generation_attempts_per_case must be an integer")
+    max_attempts = max_attempts_raw
+    if max_attempts <= 0:
+        raise ValueError(f"{label}.feasibility_guard.max_generation_attempts_per_case must be positive")
+
+    audit_config = dict(guard)
+    audit_config.pop("max_generation_attempts_per_case", None)
+    if "access_sample_step_s" in audit_config:
+        value = audit_config["access_sample_step_s"]
+        if not isinstance(value, (int, float)) or isinstance(value, bool) or float(value) <= 0.0:
+            raise ValueError(f"{label}.feasibility_guard.access_sample_step_s must be positive")
+    for key in ("max_candidate_observations_per_access", "overlap_samples"):
+        if key not in audit_config:
+            continue
+        value = audit_config[key]
+        if not isinstance(value, int) or isinstance(value, bool) or value <= 0:
+            raise ValueError(f"{label}.feasibility_guard.{key} must be a positive integer")
+    return max_attempts, audit_config
+
+
 def load_generator_config(path: Path) -> dict[str, Any]:
     try:
         payload = yaml.safe_load(path.read_text(encoding="utf-8"))
@@ -85,6 +119,19 @@ def load_generator_config(path: Path) -> dict[str, Any]:
         if case_count <= 0:
             raise ValueError(f"splits.{split_name}.case_count must be positive")
         _require_int(split_payload, "seed", f"splits.{split_name}")
+        mission_payload = _require_mapping(split_payload.get("mission"), f"splits.{split_name}.mission")
+        if "allow_cross_date_stereo" in mission_payload:
+            raise ValueError(
+                f"splits.{split_name}.mission.allow_cross_date_stereo is no longer supported; "
+                "use max_stereo_pair_separation_s"
+            )
+        if _require_float(
+            mission_payload,
+            "max_stereo_pair_separation_s",
+            f"splits.{split_name}.mission",
+        ) <= 0.0:
+            raise ValueError(f"splits.{split_name}.mission.max_stereo_pair_separation_s must be positive")
+        _split_guard_settings(split_payload, f"splits.{split_name}")
 
     smoke_case = config.get("example_smoke_case")
     if not isinstance(smoke_case, str) or not smoke_case:
@@ -129,6 +176,23 @@ def _sample_case_satellites_and_target_count(
     return norad_ids, n_targ
 
 
+def _satellite_catalog_from_config(
+    satellites_config: dict[str, Any],
+    *,
+    label: str,
+) -> dict[int, dict[str, Any]]:
+    configured_catalog = satellites_config.get("catalog")
+    if configured_catalog is None:
+        return {int(norad): dict(spec) for norad, spec in SATELLITE_CATALOG.items()}
+    return {
+        int(norad): _require_mapping(spec, f"{label}.catalog.{norad}")
+        for norad, spec in _require_mapping(
+            configured_catalog,
+            f"{label}.catalog",
+        ).items()
+    }
+
+
 def _inclination_deg_from_tle_line2(line2: str) -> float:
     if len(line2) < 16:
         return 98.0
@@ -147,9 +211,10 @@ def _utc_iso(dt: datetime) -> str:
 
 def _horizon_for_case(seed: int, case_index: int, *, split_config: dict[str, Any]) -> tuple[str, str]:
     """Deterministic mission horizon per case (48 h)."""
+    del seed
     mission = _require_mapping(split_config.get("mission"), "mission")
     base = _parse_iso_utc(str(mission["base_horizon_start"])).astimezone(timezone.utc)
-    offset_hours = (seed % 1000) + case_index * _require_int(
+    offset_hours = case_index * _require_int(
         mission,
         "case_start_spacing_hours",
         "mission",
@@ -195,7 +260,7 @@ def _mission_template(
             "horizon_start": horizon_start,
             "horizon_end": horizon_end,
             "allow_cross_satellite_stereo": bool(mission_config["allow_cross_satellite_stereo"]),
-            "allow_cross_date_stereo": bool(mission_config["allow_cross_date_stereo"]),
+            "max_stereo_pair_separation_s": float(mission_config["max_stereo_pair_separation_s"]),
             "validity_thresholds": validity_thresholds,
             "quality_model": quality_model,
         }
@@ -293,6 +358,15 @@ def bilinear_elevation_m(
     )
 
 
+def _target_elevation_m(lat: float, lon: float) -> float:
+    elevation_m = float(bilinear_elevation_m(lat, lon))
+    if elevation_m < MIN_TARGET_ELEVATION_M:
+        raise ValueError(
+            f"Target ({lat}, {lon}) has below-ellipsoid elevation {elevation_m:.3f} m"
+        )
+    return elevation_m
+
+
 def _lookup_metadata_payload() -> dict[str, Any]:
     elevation_items = [
         [lat_idx, lon_idx, round(float(value), 6)]
@@ -375,7 +449,7 @@ def _sample_urban_targets(
         ):
             continue
         try:
-            bilinear_elevation_m(lat, lon)
+            _target_elevation_m(lat, lon)
         except ValueError:
             continue
         used.add(key)
@@ -423,6 +497,10 @@ def _candidate_cells_by_scene(
             max_abs_latitude_deg=max_abs_latitude_deg,
         ):
             continue
+        try:
+            _target_elevation_m(float(lat_idx), float(lon_idx))
+        except ValueError:
+            continue
         candidates[scene].append(cell)
     return candidates
 
@@ -463,7 +541,10 @@ def _jitter_point_inside_cell(
             continue
         if lookup_scene_type(lat, lon) != scene:
             continue
-        bilinear_elevation_m(lat, lon)
+        try:
+            _target_elevation_m(lat, lon)
+        except ValueError:
+            continue
         return lat, lon
     raise RuntimeError(f"Could not sample a stable point inside scene cell {cell} ({scene})")
 
@@ -499,13 +580,16 @@ def _sample_non_urban_targets(
                 break
             if cell in used_cells:
                 continue
-            lat, lon = _jitter_point_inside_cell(
-                rng,
-                cell,
-                scene=scene,
-                non_urban_jitter_deg=non_urban_jitter_deg,
-                max_abs_latitude_deg=max_abs_latitude_deg,
-            )
+            try:
+                lat, lon = _jitter_point_inside_cell(
+                    rng,
+                    cell,
+                    scene=scene,
+                    non_urban_jitter_deg=non_urban_jitter_deg,
+                    max_abs_latitude_deg=max_abs_latitude_deg,
+                )
+            except RuntimeError:
+                continue
             key = (round(lat, 2), round(lon, 2))
             if key in used:
                 continue
@@ -539,7 +623,7 @@ def _finalize_targets(
     for target in raw:
         lat = float(target["latitude_deg"])
         lon = float(target["longitude_deg"])
-        elevation_m = float(bilinear_elevation_m(lat, lon))
+        elevation_m = _target_elevation_m(lat, lon)
         aoi_radius_m = round(rng.uniform(aoi_radius_min_m, aoi_radius_max_m), 1)
         out.append(
             {
@@ -587,7 +671,7 @@ def build_example_solution(
     cases: list[BuiltCase],
     horizon_starts: dict[str, str],
 ) -> dict[str, Any]:
-    """Minimal valid v3 solution for verifier smoke tests (not a quality baseline).
+    """Minimal valid solution for verifier smoke tests (not a quality baseline).
 
     Single per-case shape matching real solutions; aligned with the first canonical case.
     """
@@ -605,7 +689,7 @@ def generate_dataset(
     git_revision: str | None = None,
 ) -> dict[str, Any]:
     """
-    Build canonical v3 cases under output_dir plus index.json and example_solution.json.
+    Build canonical cases under output_dir plus index.json and example_solution.json.
 
     Expects normalized runtime source data under source_dir and vendored lookup tables in this package.
     """
@@ -649,90 +733,131 @@ def generate_dataset(
         satellites_config = _require_mapping(split_config.get("satellites"), f"splits.{split_name}.satellites")
         targets_config = _require_mapping(split_config.get("targets"), f"splits.{split_name}.targets")
         mission_config = _require_mapping(split_config.get("mission"), f"splits.{split_name}.mission")
-        satellite_catalog = {
-            int(norad): _require_mapping(spec, f"splits.{split_name}.satellites.catalog.{norad}")
-            for norad, spec in _require_mapping(
-                satellites_config.get("catalog"),
-                f"splits.{split_name}.satellites.catalog",
-            ).items()
-        }
+        max_generation_attempts, guard_config = _split_guard_settings(
+            split_config,
+            f"splits.{split_name}",
+        )
+        satellite_catalog = _satellite_catalog_from_config(
+            satellites_config,
+            label=f"splits.{split_name}.satellites",
+        )
         for norad in satellite_catalog:
             if norad not in celestrak_by_norad:
                 raise KeyError(
                     f"Catalog NORAD {norad} not in CelesTrak CSV; "
-                    "refresh source data or update splits.yaml."
+                    "refresh source data or update satellite_catalog.py."
                 )
         pool_norads = sorted(satellite_catalog.keys())
         selected_norad_catalog_ids.update(pool_norads)
 
         for case_index in range(case_count):
             case_id = f"case_{case_index + 1:04d}"
-            rng = random.Random(seed + case_index * case_seed_stride)
-            norad_list, n_targets = _sample_case_satellites_and_target_count(
-                rng,
-                pool_norads,
-                split_config=split_config,
-            )
-            inclinations = [
-                _inclination_deg_from_tle_line2(celestrak_by_norad[n]["tle_line2"]) for n in norad_list
-            ]
+            base_case_seed = seed + case_index * case_seed_stride
+            accepted: tuple[list[int], list[dict[str, Any]], list[dict[str, Any]], str, str] | None = None
+            last_diagnostics: dict[str, Any] | None = None
 
-            satellites = [
-                _build_satellite_dict(celestrak_by_norad, n, satellite_catalog) for n in norad_list
-            ]
-            sat_ids = [sat["id"] for sat in satellites]
-
-            urban_divisor = _require_int(targets_config, "urban_target_divisor", "targets")
-            n_urban = n_targets // urban_divisor
-            used_coords: set[tuple[float, float]] = set()
-            max_abs_latitude_deg = (
-                _require_float(targets_config, "max_abs_latitude_deg", "targets")
-                if "max_abs_latitude_deg" in targets_config
-                else None
-            )
-            if max_abs_latitude_deg is not None and not (0.0 < max_abs_latitude_deg <= 85.0):
-                raise ValueError("targets.max_abs_latitude_deg must be in (0, 85]")
-
-            urban = _sample_urban_targets(
-                cities,
-                rng,
-                n_urban,
-                used_coords,
-                inclinations,
-                min_urban_population=_require_int(
-                    targets_config,
-                    "min_urban_population",
-                    "targets",
-                ),
-                max_abs_latitude_deg=max_abs_latitude_deg,
-            )
-            non_urban = _sample_non_urban_targets(
-                rng,
-                n_targets - n_urban,
-                used_coords,
-                inclinations,
-                non_urban_jitter_deg=_require_float(
-                    targets_config,
-                    "non_urban_jitter_deg",
-                    "targets",
-                ),
-                max_abs_latitude_deg=max_abs_latitude_deg,
-            )
-            raw_targets = urban + non_urban
-            rng.shuffle(raw_targets)
-            if len(raw_targets) < n_targets:
-                raise RuntimeError(
-                    f"Could not sample enough targets for {case_id} (got {len(raw_targets)})."
+            for attempt_index in range(max_generation_attempts):
+                rng = random.Random(base_case_seed + attempt_index)
+                norad_list, n_targets = _sample_case_satellites_and_target_count(
+                    rng,
+                    pool_norads,
+                    split_config=split_config,
                 )
-            raw_targets = raw_targets[:n_targets]
-            targets = _finalize_targets(
-                raw_targets,
-                rng,
-                aoi_radius_min_m=_require_float(targets_config, "aoi_radius_min_m", "targets"),
-                aoi_radius_max_m=_require_float(targets_config, "aoi_radius_max_m", "targets"),
-            )
+                inclinations = [
+                    _inclination_deg_from_tle_line2(celestrak_by_norad[n]["tle_line2"])
+                    for n in norad_list
+                ]
 
-            horizon_start, horizon_end = _horizon_for_case(seed, case_index, split_config=split_config)
+                satellites = [
+                    _build_satellite_dict(celestrak_by_norad, n, satellite_catalog)
+                    for n in norad_list
+                ]
+
+                urban_divisor = _require_int(targets_config, "urban_target_divisor", "targets")
+                n_urban = n_targets // urban_divisor
+                used_coords: set[tuple[float, float]] = set()
+                max_abs_latitude_deg = (
+                    _require_float(targets_config, "max_abs_latitude_deg", "targets")
+                    if "max_abs_latitude_deg" in targets_config
+                    else None
+                )
+                if max_abs_latitude_deg is not None and not (0.0 < max_abs_latitude_deg <= 85.0):
+                    raise ValueError("targets.max_abs_latitude_deg must be in (0, 85]")
+
+                urban = _sample_urban_targets(
+                    cities,
+                    rng,
+                    n_urban,
+                    used_coords,
+                    inclinations,
+                    min_urban_population=_require_int(
+                        targets_config,
+                        "min_urban_population",
+                        "targets",
+                    ),
+                    max_abs_latitude_deg=max_abs_latitude_deg,
+                )
+                non_urban = _sample_non_urban_targets(
+                    rng,
+                    n_targets - n_urban,
+                    used_coords,
+                    inclinations,
+                    non_urban_jitter_deg=_require_float(
+                        targets_config,
+                        "non_urban_jitter_deg",
+                        "targets",
+                    ),
+                    max_abs_latitude_deg=max_abs_latitude_deg,
+                )
+                raw_targets = urban + non_urban
+                rng.shuffle(raw_targets)
+                if len(raw_targets) < n_targets:
+                    raise RuntimeError(
+                        f"Could not sample enough targets for {case_id} (got {len(raw_targets)})."
+                    )
+                raw_targets = raw_targets[:n_targets]
+                targets = _finalize_targets(
+                    raw_targets,
+                    rng,
+                    aoi_radius_min_m=_require_float(targets_config, "aoi_radius_min_m", "targets"),
+                    aoi_radius_max_m=_require_float(targets_config, "aoi_radius_max_m", "targets"),
+                )
+
+                horizon_start, horizon_end = _horizon_for_case(
+                    seed,
+                    case_index,
+                    split_config=split_config,
+                )
+                mission_doc = _mission_template(
+                    horizon_start,
+                    horizon_end,
+                    mission_config=mission_config,
+                )
+                audit = audit_case_feasibility(
+                    case_id=case_id,
+                    mission_doc=mission_doc,
+                    satellite_rows=satellites,
+                    target_rows=targets,
+                    guard_config=guard_config,
+                )
+                if audit.feasible:
+                    accepted = (norad_list, satellites, targets, horizon_start, horizon_end)
+                    break
+                last_diagnostics = audit.diagnostics
+
+            if accepted is None:
+                detail = (
+                    format_feasibility_diagnostics(last_diagnostics)
+                    if last_diagnostics is not None
+                    else "no feasibility audit was completed"
+                )
+                raise RuntimeError(
+                    f"{split_name}/{case_id}: exhausted {max_generation_attempts} generation "
+                    f"attempts without a feasible stereo product; last audit: {detail}"
+                )
+
+            norad_list, satellites, targets, horizon_start, horizon_end = accepted
+            sat_ids = [sat["id"] for sat in satellites]
             horizon_starts[case_id] = horizon_start
 
             case_dir = cases_root / split_name / case_id
@@ -769,7 +894,7 @@ def generate_dataset(
 
     index_doc: dict[str, Any] = {
         "benchmark": "stereo_imaging",
-        "spec_version": "v3",
+        "spec_version": "v4",
         "source": {
             **source_config,
             "runtime_provenance": _source_provenance_for_index(provenance),
@@ -817,4 +942,5 @@ __all__ = [
     "load_generator_config",
     "generate_dataset",
     "build_example_solution",
+    "DEFAULT_MAX_GENERATION_ATTEMPTS_PER_CASE",
 ]

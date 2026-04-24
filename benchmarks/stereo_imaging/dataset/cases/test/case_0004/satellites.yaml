@@ -1,48 +1,144 @@
-- id: sat_pleiades_1a
-  norad_catalog_id: 38012
-  tle_line1: 1 38012U 11076F   26096.23539690  .00000494  00000+0  11617-3 0  9994
-  tle_line2: 2 38012  98.2002 172.2949 0001342  74.1943  10.7084 14.58565955761501
-  pixel_ifov_deg: 4.0e-05
-  cross_track_pixels: 20000
-  max_off_nadir_deg: 30.0
-  max_slew_velocity_deg_per_s: 1.95
-  max_slew_acceleration_deg_per_s2: 0.95
-  settling_time_s: 1.9
-  min_obs_duration_s: 2.0
-  max_obs_duration_s: 60.0
-- id: sat_ziyuan_3_02
-  norad_catalog_id: 41556
-  tle_line1: 1 41556U 16033A   26096.29981155  .00008085  00000+0  36271-3 0  9999
-  tle_line2: 2 41556  97.3856 173.4419 0013709 182.6366 177.4800 15.21376229547058
-  pixel_ifov_deg: 0.00017
-  cross_track_pixels: 6000
-  max_off_nadir_deg: 25.0
-  max_slew_velocity_deg_per_s: 0.78
-  max_slew_acceleration_deg_per_s2: 0.08
-  settling_time_s: 2.5
-  min_obs_duration_s: 2.0
-  max_obs_duration_s: 60.0
-- id: sat_gaofen_2
-  norad_catalog_id: 40118
-  tle_line1: 1 40118U 14049A   26096.28245968  .00001468  00000+0  19713-3 0  9991
-  tle_line2: 2 40118  98.0167 160.5417 0008774 103.7901 256.4289 14.80819438628590
+- id: sat_dubaisat_2
+  norad_catalog_id: 39419
+  tle_line1: 1 39419U 13066D   26114.26100384  .00002789  00000+0  17640-3 0  9996
+  tle_line2: 2 39419  97.4560 105.8406 0010155 211.9306 148.1309 15.09773565678259
   pixel_ifov_deg: 6.5e-05
   cross_track_pixels: 12000
-  max_off_nadir_deg: 25.0
-  max_slew_velocity_deg_per_s: 0.55
-  max_slew_acceleration_deg_per_s2: 0.065
-  settling_time_s: 3.0
+  max_off_nadir_deg: 30.0
+  max_slew_velocity_deg_per_s: 1.4
+  max_slew_acceleration_deg_per_s2: 0.65
+  settling_time_s: 2.0
+  min_obs_duration_s: 2.0
+  max_obs_duration_s: 60.0
+- id: sat_skysat_a
+  norad_catalog_id: 39418
+  tle_line1: 1 39418U 13066C   26114.01931263  .00002667  00000+0  15530-3 0  9997
+  tle_line2: 2 39418  97.3867 165.1411 0022796 138.8428 221.4528 15.12650859680297
+  pixel_ifov_deg: 6.5e-05
+  cross_track_pixels: 12000
+  max_off_nadir_deg: 30.0
+  max_slew_velocity_deg_per_s: 1.4
+  max_slew_acceleration_deg_per_s2: 0.65
+  settling_time_s: 2.0
+  min_obs_duration_s: 2.0
+  max_obs_duration_s: 60.0
+- id: sat_kompsat_3a
+  norad_catalog_id: 40536
+  tle_line1: 1 40536U 15014A   26114.23669984  .00027133  00000+0  42987-3 0  9998
+  tle_line2: 2 40536  97.6905 101.7641 0059942  16.1379 344.1763 15.51290459613449
+  pixel_ifov_deg: 6.5e-05
+  cross_track_pixels: 12000
+  max_off_nadir_deg: 30.0
+  max_slew_velocity_deg_per_s: 1.4
+  max_slew_acceleration_deg_per_s2: 0.65
+  settling_time_s: 2.0
+  min_obs_duration_s: 2.0
+  max_obs_duration_s: 60.0
+- id: sat_skysat_c3
+  norad_catalog_id: 41774
+  tle_line1: 1 41774U 16058E   26114.02641491  .00016388  00000+0  29093-3 0  9995
+  tle_line2: 2 41774  96.9102 147.0205 0002720 106.1034 254.0518 15.50274923537713
+  pixel_ifov_deg: 6.5e-05
+  cross_track_pixels: 12000
+  max_off_nadir_deg: 30.0
+  max_slew_velocity_deg_per_s: 1.4
+  max_slew_acceleration_deg_per_s2: 0.65
+  settling_time_s: 2.0
   min_obs_duration_s: 2.0
   max_obs_duration_s: 60.0
 - id: sat_spot_6
   norad_catalog_id: 38755
-  tle_line1: 1 38755U 12047A   26096.23426606  .00000498  00000+0  11693-3 0  9997
-  tle_line2: 2 38755  98.2167 164.3679 0001434  83.0887 277.0475 14.58566315722563
+  tle_line1: 1 38755U 12047A   26114.27654466  .00000019  00000+0  14062-4 0  9992
+  tle_line2: 2 38755  98.2139 182.2081 0001235  83.9835 276.1505 14.58520198725194
   pixel_ifov_deg: 0.00012
   cross_track_pixels: 12000
   max_off_nadir_deg: 30.0
   max_slew_velocity_deg_per_s: 2.35
   max_slew_acceleration_deg_per_s2: 1.15
   settling_time_s: 1.35
+  min_obs_duration_s: 2.0
+  max_obs_duration_s: 60.0
+- id: sat_asnaro
+  norad_catalog_id: 40298
+  tle_line1: 1 40298U 14070A   26114.29356267  .00006153  00000+0  29210-3 0  9990
+  tle_line2: 2 40298  97.3453 191.8532 0003069  24.8285 335.3098 15.19594125635829
+  pixel_ifov_deg: 6.5e-05
+  cross_track_pixels: 12000
+  max_off_nadir_deg: 30.0
+  max_slew_velocity_deg_per_s: 1.4
+  max_slew_acceleration_deg_per_s2: 0.65
+  settling_time_s: 2.0
+  min_obs_duration_s: 2.0
+  max_obs_duration_s: 60.0
+- id: sat_cbers_4
+  norad_catalog_id: 40336
+  tle_line1: 1 40336U 14079A   26114.29709541 -.00000148  00000+0 -36951-4 0  9990
+  tle_line2: 2 40336  98.3390 172.8298 0001232 133.2408 226.8881 14.35543694596229
+  pixel_ifov_deg: 6.5e-05
+  cross_track_pixels: 12000
+  max_off_nadir_deg: 30.0
+  max_slew_velocity_deg_per_s: 1.4
+  max_slew_acceleration_deg_per_s2: 0.65
+  settling_time_s: 2.0
+  min_obs_duration_s: 2.0
+  max_obs_duration_s: 60.0
+- id: sat_cartosat_2d
+  norad_catalog_id: 41948
+  tle_line1: 1 41948U 17008A   26114.28266123  .00002236  00000+0  10930-3 0  9994
+  tle_line2: 2 41948  97.4146 174.5804 0005762  76.3771 283.8105 15.19251804509398
+  pixel_ifov_deg: 5.0e-05
+  cross_track_pixels: 12000
+  max_off_nadir_deg: 30.0
+  max_slew_velocity_deg_per_s: 1.2
+  max_slew_acceleration_deg_per_s2: 0.4
+  settling_time_s: 2.5
+  min_obs_duration_s: 2.0
+  max_obs_duration_s: 60.0
+- id: sat_gaofen_9_01
+  norad_catalog_id: 40894
+  tle_line1: 1 40894U 15047A   26114.28092965  .00000720  00000+0  94833-4 0  9996
+  tle_line2: 2 40894  97.6329 152.4138 0026289 319.4468  40.4787 14.82783212572203
+  pixel_ifov_deg: 6.5e-05
+  cross_track_pixels: 12000
+  max_off_nadir_deg: 30.0
+  max_slew_velocity_deg_per_s: 1.4
+  max_slew_acceleration_deg_per_s2: 0.65
+  settling_time_s: 2.0
+  min_obs_duration_s: 2.0
+  max_obs_duration_s: 60.0
+- id: sat_carbonite_1_cbnt_1
+  norad_catalog_id: 40718
+  tle_line1: 1 40718U 15032D   26114.29034138  .00000701  00000+0  91377-4 0  9993
+  tle_line2: 2 40718  97.6501 294.6247 0015920 109.2764 251.0174 14.83409660581353
+  pixel_ifov_deg: 6.5e-05
+  cross_track_pixels: 12000
+  max_off_nadir_deg: 30.0
+  max_slew_velocity_deg_per_s: 1.4
+  max_slew_acceleration_deg_per_s2: 0.65
+  settling_time_s: 2.0
+  min_obs_duration_s: 2.0
+  max_obs_duration_s: 60.0
+- id: sat_arirang_2_kompsat_2
+  norad_catalog_id: 29268
+  tle_line1: 1 29268U 06031A   26114.27521279  .00000242  00000+0  53929-4 0  9995
+  tle_line2: 2 29268  97.8316 301.3291 0013061 242.7061 290.3237 14.64624137 53580
+  pixel_ifov_deg: 6.5e-05
+  cross_track_pixels: 12000
+  max_off_nadir_deg: 30.0
+  max_slew_velocity_deg_per_s: 1.4
+  max_slew_acceleration_deg_per_s2: 0.65
+  settling_time_s: 2.0
+  min_obs_duration_s: 2.0
+  max_obs_duration_s: 60.0
+- id: sat_cartosat_1
+  norad_catalog_id: 28649
+  tle_line1: 1 28649U 05017A   26114.05326308  .00000820  00000+0  88424-4 0  9992
+  tle_line2: 2 28649  97.5353 139.5682 0000921 127.8728 232.2574 14.90904401135752
+  pixel_ifov_deg: 5.0e-05
+  cross_track_pixels: 12000
+  max_off_nadir_deg: 30.0
+  max_slew_velocity_deg_per_s: 1.2
+  max_slew_acceleration_deg_per_s2: 0.4
+  settling_time_s: 2.5
   min_obs_duration_s: 2.0
   max_obs_duration_s: 60.0

@@ -1,0 +1,27 @@
+{
+  "$schema": "https://opencode.ai/config.json",
+  "autoupdate": false,
+  "share": "disabled",
+  "enabled_providers": ["dpsk"],
+  "model": "dpsk/replace_with_dpsk_model_id",
+  "small_model": "dpsk/replace_with_dpsk_small_model_id",
+  "permission": "allow",
+  "provider": {
+    "dpsk": {
+      "npm": "@ai-sdk/openai-compatible",
+      "name": "dpsk",
+      "options": {
+        "baseURL": "replace_with_dpsk_base_url",
+        "apiKey": "replace_with_dpsk_api_key"
+      },
+      "models": {
+        "replace_with_dpsk_model_id": {
+          "name": "replace_with_dpsk_model_id"
+        },
+        "replace_with_dpsk_small_model_id": {
+          "name": "replace_with_dpsk_small_model_id"
+        }
+      }
+    }
+  }
+}

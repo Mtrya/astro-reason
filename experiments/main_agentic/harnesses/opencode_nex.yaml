@@ -5,6 +5,8 @@ assemble:
   - source: experiments/_fragments/configs/opencode_nex/opencode
     target: /home/korolev/.config/opencode
     example: experiments/_fragments/configs/opencode_nex/opencode.example
+  - source: .agents/skills/brahe
+    target: /home/korolev/.config/opencode/skills/brahe
 
 commands:
   headless_shell_command: >-
@@ -18,3 +20,4 @@ forward_env_keys: []
 
 notes:
   - OpenCode Nex uses the shared OpenCode runtime path under /home/korolev/.config/opencode with a Nex-flavored local config.
+  - The Brahe skill is assembled into /home/korolev/.config/opencode/skills/brahe for OpenCode skill discovery.

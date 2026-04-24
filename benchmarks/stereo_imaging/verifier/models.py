@@ -1,4 +1,4 @@
-"""Typed structures for the stereo_imaging v3 verifier."""
+"""Typed structures for the stereo_imaging verifier."""
 
 from __future__ import annotations
 
@@ -12,7 +12,7 @@ class Mission:
     horizon_start: datetime
     horizon_end: datetime
     allow_cross_satellite_stereo: bool
-    allow_cross_date_stereo: bool
+    max_stereo_pair_separation_s: float
     min_overlap_fraction: float
     min_convergence_deg: float
     max_convergence_deg: float

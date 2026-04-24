@@ -1,0 +1,20 @@
+exposure: none
+
+workspace_verifier:
+  exposed: false
+  kind: none
+  location: Verifier is not exposed in this workspace.
+  command: No verifier helper is available in this workspace.
+
+assemble:
+  - source: experiments/_fragments/prompts/relay_constellation/README.verifier_exposure_none.md
+    target: /app/workspace/README.md
+    render: true
+  - source: benchmarks/{benchmark}/dataset/cases/{split}/{case_id}
+    target: /app/workspace/case
+  - source: experiments/_fragments/prompts/relay_constellation/PROMPT.default.md
+    target: /home/korolev/PROMPT.md
+    render: true
+  - source: experiments/_fragments/prompts/_shared/AGENTS.main_agentic.default.md
+    target: /app/workspace/AGENTS.md
+    render: true

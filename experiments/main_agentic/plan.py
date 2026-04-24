@@ -18,6 +18,12 @@ DEFAULT_INTERACTIVE_CONFIG = FAMILY_DIR / "configs" / "interactive.yaml"
 SHARED_AGENTS_FRAGMENT = (
     REPO_ROOT / "experiments" / "_fragments" / "prompts" / "_shared" / "AGENTS.main_agentic.default.md"
 )
+OPAQUE_VERIFIER_ARTIFACTS_ROOT = (
+    REPO_ROOT / "experiments" / "_fragments" / "opaque_verifiers" / "artifacts"
+)
+OPAQUE_VERIFIER_BUILD_SCRIPT = (
+    REPO_ROOT / "experiments" / "_fragments" / "opaque_verifiers" / "build.py"
+)
 INTERACTIVE_WORKSPACES_ROOT = REPO_ROOT / ".runtime" / "interactive_workspaces"
 
 
@@ -155,6 +161,15 @@ class RunItem:
 
 
 @dataclass(frozen=True)
+class OpaqueVerifierArtifactStatus:
+    benchmark: str
+    path: Path
+    state: str
+    present: bool
+    note: str | None
+
+
+@dataclass(frozen=True)
 class BatchPlan:
     config: BatchConfig
     selected_benchmarks: tuple[str, ...]
@@ -162,6 +177,7 @@ class BatchPlan:
     effective_split: str
     items: tuple[RunItem, ...]
     unavailable_configs: tuple[tuple[str, Path], ...]
+    opaque_verifier_artifacts: tuple[OpaqueVerifierArtifactStatus, ...]
 
 
 @dataclass(frozen=True)
@@ -175,6 +191,7 @@ class InteractivePlan:
     effective_case_id: str
     results_root: Path
     unavailable_configs: tuple[tuple[str, Path], ...]
+    opaque_verifier_artifacts: tuple[OpaqueVerifierArtifactStatus, ...]
 
 
 @dataclass(frozen=True)
@@ -201,6 +218,61 @@ class BatchPreview:
 
 def family_relpath() -> Path:
     return FAMILY_DIR.relative_to(REPO_ROOT)
+
+
+def opaque_verifier_benchmark(path: Path) -> str | None:
+    try:
+        relative = path.resolve().relative_to(OPAQUE_VERIFIER_ARTIFACTS_ROOT)
+    except ValueError:
+        return None
+    return relative.parts[0] if relative.parts else None
+
+
+def opaque_verifier_rebuild_command(benchmarks: tuple[str, ...]) -> str:
+    ordered = tuple(dict.fromkeys(benchmarks))
+    command = [
+        "uv",
+        "run",
+        "python",
+        OPAQUE_VERIFIER_BUILD_SCRIPT.relative_to(REPO_ROOT).as_posix(),
+    ]
+    for benchmark in ordered:
+        command.extend(["--benchmark", benchmark])
+    return " ".join(command)
+
+
+def _opaque_verifier_metadata_state(path: Path) -> tuple[str, str | None]:
+    metadata_path = path.parent / "build.json"
+    if not metadata_path.exists():
+        return "missing_metadata", f"missing metadata: {metadata_path}"
+    try:
+        data = yaml.safe_load(metadata_path.read_text(encoding="utf-8"))
+    except Exception as exc:
+        return "malformed_metadata", f"malformed metadata: {metadata_path}: {exc}"
+    if not isinstance(data, dict):
+        return "malformed_metadata", f"metadata is not a mapping: {metadata_path}"
+    if data.get("build_target") != "runtime_docker_image":
+        return "stale_metadata", "artifact was not built inside the runtime Docker image"
+    return "present", None
+
+
+def _opaque_verifier_artifact_status(benchmark: str, path: Path) -> OpaqueVerifierArtifactStatus:
+    if not path.exists():
+        return OpaqueVerifierArtifactStatus(
+            benchmark=benchmark,
+            path=path,
+            state="missing",
+            present=False,
+            note=None,
+        )
+    state, note = _opaque_verifier_metadata_state(path)
+    return OpaqueVerifierArtifactStatus(
+        benchmark=benchmark,
+        path=path,
+        state=state,
+        present=state == "present",
+        note=note,
+    )
 
 
 def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
@@ -766,6 +838,118 @@ def _collect_missing_configs(harnesses: tuple[HarnessProfile, ...]) -> tuple[tup
     return tuple(missing)
 
 
+def _benchmark_assemble_replacements(
+    benchmark: str,
+    *,
+    split: str,
+    case_id: str,
+    config_name: str,
+) -> dict[str, str]:
+    return {
+        "benchmark": benchmark,
+        "split": split,
+        "case_id": case_id,
+        "family": FAMILY_DIR.name,
+        "config_name": config_name,
+    }
+
+
+def _opaque_verifier_artifacts_for_benchmark(
+    profile: BenchmarkProfile,
+    *,
+    split: str,
+    case_id: str,
+    config_name: str,
+) -> tuple[OpaqueVerifierArtifactStatus, ...]:
+    assemble_specs = materialize_assemble_templates(
+        profile.assemble,
+        _benchmark_assemble_replacements(
+            profile.benchmark,
+            split=split,
+            case_id=case_id,
+            config_name=config_name,
+        ),
+        owner_path=profile.profile_path,
+    )
+    artifacts: list[OpaqueVerifierArtifactStatus] = []
+    seen_paths: set[Path] = set()
+    for spec in assemble_specs:
+        benchmark = opaque_verifier_benchmark(spec.source)
+        if benchmark is None or spec.source in seen_paths:
+            continue
+        seen_paths.add(spec.source)
+        artifacts.append(_opaque_verifier_artifact_status(benchmark, spec.source))
+    return tuple(sorted(artifacts, key=lambda item: (item.benchmark, item.path.as_posix())))
+
+
+def _collect_opaque_verifier_artifacts_for_batch(
+    benchmark_profiles: dict[str, BenchmarkProfile],
+    selected_benchmarks: tuple[str, ...],
+    *,
+    split: str,
+    case_ids_by_benchmark: dict[str, tuple[str, ...]],
+    config_name: str,
+) -> tuple[OpaqueVerifierArtifactStatus, ...]:
+    artifacts: list[OpaqueVerifierArtifactStatus] = []
+    for benchmark in selected_benchmarks:
+        case_ids = case_ids_by_benchmark[benchmark]
+        artifacts.extend(
+            _opaque_verifier_artifacts_for_benchmark(
+                benchmark_profiles[benchmark],
+                split=split,
+                case_id=case_ids[0],
+                config_name=config_name,
+            )
+        )
+    return tuple(artifacts)
+
+
+def _collect_opaque_verifier_artifacts_for_interactive(
+    benchmark_profile: BenchmarkProfile,
+    *,
+    split: str,
+    case_id: str,
+    config_name: str,
+) -> tuple[OpaqueVerifierArtifactStatus, ...]:
+    return _opaque_verifier_artifacts_for_benchmark(
+        benchmark_profile,
+        split=split,
+        case_id=case_id,
+        config_name=config_name,
+    )
+
+
+def raise_if_unusable_opaque_verifiers(
+    artifacts: tuple[OpaqueVerifierArtifactStatus, ...],
+) -> None:
+    unusable = tuple(artifact for artifact in artifacts if not artifact.present)
+    if not unusable:
+        return
+    benchmarks = tuple(artifact.benchmark for artifact in unusable)
+    lines = ["Unusable required opaque verifier artifacts:"]
+    for artifact in unusable:
+        note = f" ({artifact.note})" if artifact.note else ""
+        lines.append(f"- {artifact.benchmark}: {artifact.state} at {artifact.path}{note}")
+    lines.append(f"Rebuild with: {opaque_verifier_rebuild_command(benchmarks)}")
+    raise SystemExit("\n".join(lines))
+
+
+def _append_opaque_verifier_lines(
+    lines: list[str],
+    artifacts: tuple[OpaqueVerifierArtifactStatus, ...],
+) -> None:
+    if not artifacts:
+        lines.append("Opaque verifier artifacts: none")
+        return
+    lines.append("Opaque verifier artifacts:")
+    for artifact in artifacts:
+        note = f" ({artifact.note})" if artifact.note else ""
+        lines.append(f"  - {artifact.benchmark}: {artifact.state} at {artifact.path}{note}")
+    unusable = tuple(artifact.benchmark for artifact in artifacts if not artifact.present)
+    if unusable:
+        lines.append(f"Rebuild command: {opaque_verifier_rebuild_command(unusable)}")
+
+
 def _unique_requested_cases(case_filters: tuple[str, ...]) -> tuple[str, ...]:
     seen: set[str] = set()
     selected: list[str] = []
@@ -946,6 +1130,7 @@ def build_batch_plan(
         raise SystemExit("\n".join(lines))
 
     items: list[RunItem] = []
+    case_ids_by_benchmark: dict[str, tuple[str, ...]] = {}
     for benchmark in selected_benchmarks:
         case_ids = _select_case_ids(
             _enumerate_case_ids(benchmark, effective_split),
@@ -953,6 +1138,7 @@ def build_batch_plan(
             split=effective_split,
             case_filters=_unique_requested_cases(case_filters),
         )
+        case_ids_by_benchmark[benchmark] = case_ids
         benchmark_profile = benchmark_profiles[benchmark]
         for case_id in case_ids:
             for harness in selected_harnesses:
@@ -972,6 +1158,15 @@ def build_batch_plan(
                         harness_profile=harness_profile,
                     )
                 )
+    opaque_verifier_artifacts = _collect_opaque_verifier_artifacts_for_batch(
+        benchmark_profiles,
+        selected_benchmarks,
+        split=effective_split,
+        case_ids_by_benchmark=case_ids_by_benchmark,
+        config_name=config.config_path.stem,
+    )
+    if require_real_configs:
+        raise_if_unusable_opaque_verifiers(opaque_verifier_artifacts)
 
     return BatchPlan(
         config=config,
@@ -980,6 +1175,7 @@ def build_batch_plan(
         effective_split=effective_split,
         items=tuple(items),
         unavailable_configs=unavailable,
+        opaque_verifier_artifacts=opaque_verifier_artifacts,
     )
 
 
@@ -1036,6 +1232,14 @@ def build_interactive_plan(
     case_dir = REPO_ROOT / "benchmarks" / config.benchmark / "dataset" / "cases" / effective_split / effective_case_id
     if not case_dir.is_dir():
         raise SystemExit(f"Case directory does not exist: {case_dir}")
+    opaque_verifier_artifacts = _collect_opaque_verifier_artifacts_for_interactive(
+        benchmark_profile,
+        split=effective_split,
+        case_id=effective_case_id,
+        config_name=config.config_path.stem,
+    )
+    if require_real_configs:
+        raise_if_unusable_opaque_verifiers(opaque_verifier_artifacts)
     return InteractivePlan(
         config=config,
         benchmark_profile=benchmark_profile,
@@ -1046,6 +1250,7 @@ def build_interactive_plan(
         effective_case_id=effective_case_id,
         results_root=REPO_ROOT / "results" / "agent_runs" / family_relpath(),
         unavailable_configs=unavailable,
+        opaque_verifier_artifacts=opaque_verifier_artifacts,
     )
 
 
@@ -1137,6 +1342,7 @@ def describe_batch_preview(preview: BatchPreview, *, include_items: bool = True)
             lines.append(f"  - {harness}: {path}")
     else:
         lines.append("Unavailable harness configs: none")
+    _append_opaque_verifier_lines(lines, plan.opaque_verifier_artifacts)
     lines.append(
         "Artifact states: "
         + ", ".join(f"{key}={value}" for key, value in artifact_counts.items())
@@ -1181,6 +1387,7 @@ def describe_interactive_plan(plan: InteractivePlan) -> str:
             lines.append(f"  - {harness}: {path}")
     else:
         lines.append("Unavailable harness configs: none")
+    _append_opaque_verifier_lines(lines, plan.opaque_verifier_artifacts)
     return "\n".join(lines)
 
 

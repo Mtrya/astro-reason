@@ -5,6 +5,8 @@ assemble:
   - source: experiments/_fragments/configs/claude_code/.claude
     target: /home/korolev/.claude
     example: experiments/_fragments/configs/claude_code/.claude.example
+  - source: .agents/skills/brahe
+    target: /home/korolev/.claude/skills/brahe
 
 commands:
   headless_shell_command: >-
@@ -25,3 +27,4 @@ forward_env_keys: []
 notes:
   - Claude Code stores additional per-session state under /home/korolev/.claude/session-env and /home/korolev/.claude/sessions; collect more later if a run needs deeper replay artifacts.
   - Provider and auth details should stay in the real settings file or environment rather than in tracked configs.
+  - The Brahe skill is assembled into /home/korolev/.claude/skills/brahe for native skill discovery.
