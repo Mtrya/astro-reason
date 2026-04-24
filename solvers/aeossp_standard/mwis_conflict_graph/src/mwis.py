@@ -10,6 +10,7 @@ from typing import Any
 
 from .candidates import Candidate
 from .graph import ConflictGraph, connected_components
+from .reduction import ReductionResult, reduce_component
 
 
 SELECTION_POLICIES = ("weight_end_degree", "weight_degree_end")
@@ -53,6 +54,7 @@ class MwisConfig:
 class ComponentSearchStats:
     component_index: int
     component_size: int
+    reduced_component_size: int
     mode: str
     baseline_source: str
     incumbent_source: str
@@ -68,9 +70,14 @@ class ComponentSearchStats:
     elapsed_s: float
     time_limit_hit: bool
     stop_reason: str
+    included_by_reduction_count: int = 0
+    removed_by_reduction_count: int = 0
+    reduction_rule_counts: dict[str, int] = field(default_factory=dict)
 
     def as_dict(self) -> dict[str, Any]:
-        return asdict(self)
+        payload = asdict(self)
+        payload["reduction_rule_counts"] = dict(sorted(self.reduction_rule_counts.items()))
+        return payload
 
 
 @dataclass(slots=True)
@@ -98,6 +105,11 @@ class MwisStats:
     recombination_attempt_count: int
     recombination_win_count: int
     incumbent_source: str
+    reduction_original_vertex_count: int = 0
+    reduction_reduced_vertex_count: int = 0
+    included_by_reduction_count: int = 0
+    removed_by_reduction_count: int = 0
+    reduction_rule_counts: dict[str, int] = field(default_factory=dict)
     component_search: list[ComponentSearchStats] = field(default_factory=list)
 
     def as_dict(self) -> dict[str, Any]:
@@ -125,6 +137,11 @@ class MwisStats:
             "recombination_attempt_count": self.recombination_attempt_count,
             "recombination_win_count": self.recombination_win_count,
             "incumbent_source": self.incumbent_source,
+            "reduction_original_vertex_count": self.reduction_original_vertex_count,
+            "reduction_reduced_vertex_count": self.reduction_reduced_vertex_count,
+            "included_by_reduction_count": self.included_by_reduction_count,
+            "removed_by_reduction_count": self.removed_by_reduction_count,
+            "reduction_rule_counts": dict(sorted(self.reduction_rule_counts.items())),
             "component_stop_reasons": dict(
                 sorted(Counter(item.stop_reason for item in self.component_search).items())
             ),
@@ -136,10 +153,14 @@ class MwisStats:
             {
                 "component_index": item.component_index,
                 "component_size": item.component_size,
+                "reduced_component_size": item.reduced_component_size,
                 "mode": item.mode,
                 "stop_reason": item.stop_reason,
                 "time_limit_hit": item.time_limit_hit,
                 "elapsed_s": item.elapsed_s,
+                "included_by_reduction_count": item.included_by_reduction_count,
+                "removed_by_reduction_count": item.removed_by_reduction_count,
+                "reduction_rule_counts": dict(sorted(item.reduction_rule_counts.items())),
             }
             for item in self.component_search
         ]
@@ -506,6 +527,24 @@ def _summarize_global_incumbent_source(component_sources: list[str]) -> str:
     return "mixed"
 
 
+def _apply_reduction_stats(
+    stats: ComponentSearchStats,
+    reduction: ReductionResult,
+    candidate_by_id: dict[str, Candidate],
+) -> ComponentSearchStats:
+    included_key = _selected_key(reduction.included_ids, candidate_by_id)
+    stats.component_size = reduction.stats.original_component_size
+    stats.reduced_component_size = reduction.stats.reduced_component_size
+    stats.baseline_weight += included_key[0]
+    stats.baseline_count += reduction.stats.included_by_reduction_count
+    stats.final_weight += included_key[0]
+    stats.final_count += reduction.stats.included_by_reduction_count
+    stats.included_by_reduction_count = reduction.stats.included_by_reduction_count
+    stats.removed_by_reduction_count = reduction.stats.removed_by_reduction_count
+    stats.reduction_rule_counts = dict(reduction.stats.rule_counts)
+    return stats
+
+
 def _deadline_accounting(
     *,
     search_start: float,
@@ -707,6 +746,7 @@ def _refine_large_component(
     stats = ComponentSearchStats(
         component_index=component_index,
         component_size=len(component),
+        reduced_component_size=len(component),
         mode="refined" if refined else "baseline_only",
         baseline_source=baseline_entry.source,
         incumbent_source=incumbent.source,
@@ -756,28 +796,44 @@ def select_weighted_independent_set(
     successful_two_swap_count = 0
     recombination_attempt_count = 0
     recombination_win_count = 0
+    reduction_original_vertex_count = 0
+    reduction_reduced_vertex_count = 0
+    included_by_reduction_count = 0
+    removed_by_reduction_count = 0
+    reduction_rule_counts: Counter[str] = Counter()
     component_search: list[ComponentSearchStats] = []
     component_sources: list[str] = []
 
     for component_index, component in enumerate(connected_components(graph.adjacency), start=1):
-        if len(component) <= config.max_exact_component_size:
-            component_selected = solve_exact_component(
-                component,
+        reduction = reduce_component(component, candidate_by_id, graph.adjacency)
+        reduction_original_vertex_count += reduction.stats.original_component_size
+        reduction_reduced_vertex_count += reduction.stats.reduced_component_size
+        included_by_reduction_count += reduction.stats.included_by_reduction_count
+        removed_by_reduction_count += reduction.stats.removed_by_reduction_count
+        reduction_rule_counts.update(reduction.stats.rule_counts)
+        reduced_component = reduction.active_component
+
+        if len(reduced_component) <= config.max_exact_component_size:
+            reduced_selected = solve_exact_component(
+                reduced_component,
                 candidate_by_id,
                 graph.adjacency,
                 policy=config.selection_policy,
             )
+            component_selected = reduction.reconstruct(reduced_selected)
             exact_components += 1
+            selected_key = _selected_key(component_selected, candidate_by_id)
             component_search.append(
                 ComponentSearchStats(
                     component_index=component_index,
                     component_size=len(component),
+                    reduced_component_size=len(reduced_component),
                     mode="exact",
                     baseline_source="exact",
                     incumbent_source="exact",
-                    baseline_weight=_selected_key(component_selected, candidate_by_id)[0],
+                    baseline_weight=selected_key[0],
                     baseline_count=len(component_selected),
-                    final_weight=_selected_key(component_selected, candidate_by_id)[0],
+                    final_weight=selected_key[0],
                     final_count=len(component_selected),
                     initial_population_size=1,
                     local_improvement_count=0,
@@ -787,18 +843,27 @@ def select_weighted_independent_set(
                     elapsed_s=0.0,
                     time_limit_hit=False,
                     stop_reason="exact",
+                    included_by_reduction_count=reduction.stats.included_by_reduction_count,
+                    removed_by_reduction_count=reduction.stats.removed_by_reduction_count,
+                    reduction_rule_counts=dict(reduction.stats.rule_counts),
                 )
             )
             component_sources.append("exact")
         else:
             large_components += 1
-            component_selected, component_stats = _refine_large_component(
+            reduced_selected, component_stats = _refine_large_component(
                 component_index,
-                component,
+                reduced_component,
                 candidate_by_id,
                 graph.adjacency,
                 config=config,
                 deadline=effective_deadline,
+            )
+            component_selected = reduction.reconstruct(reduced_selected)
+            component_stats = _apply_reduction_stats(
+                component_stats,
+                reduction,
+                candidate_by_id,
             )
             component_search.append(component_stats)
             if component_stats.mode == "refined":
@@ -847,6 +912,11 @@ def select_weighted_independent_set(
         recombination_attempt_count=recombination_attempt_count,
         recombination_win_count=recombination_win_count,
         incumbent_source=_summarize_global_incumbent_source(component_sources),
+        reduction_original_vertex_count=reduction_original_vertex_count,
+        reduction_reduced_vertex_count=reduction_reduced_vertex_count,
+        included_by_reduction_count=included_by_reduction_count,
+        removed_by_reduction_count=removed_by_reduction_count,
+        reduction_rule_counts=dict(reduction_rule_counts),
         component_search=component_search,
     )
     return selected, stats
