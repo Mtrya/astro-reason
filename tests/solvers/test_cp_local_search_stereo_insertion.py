@@ -262,6 +262,67 @@ def test_load_case_smoke(solver_imports) -> None:
     assert len(case.satellites) > 0
     assert len(case.targets) > 0
     assert case.mission.horizon_start < case.mission.horizon_end
+    assert case.mission.allow_cross_satellite_stereo is True
+    assert case.mission.max_stereo_pair_separation_s == 3600.0
+
+
+def test_load_case_requires_max_stereo_pair_separation(tmp_path: Path, solver_imports) -> None:
+    case_dir = tmp_path / "case_missing_pair_separation"
+    case_dir.mkdir()
+    (case_dir / "mission.yaml").write_text(
+        """mission:
+  horizon_start: '2026-04-22T02:00:00Z'
+  horizon_end: '2026-04-24T02:00:00Z'
+  allow_cross_satellite_stereo: true
+  validity_thresholds:
+    min_overlap_fraction: 0.8
+    min_convergence_deg: 5.0
+    max_convergence_deg: 45.0
+    max_pixel_scale_ratio: 1.5
+    min_solar_elevation_deg: 10.0
+    near_nadir_anchor_max_off_nadir_deg: 10.0
+  quality_model:
+    pair_weights:
+      geometry: 0.5
+      overlap: 0.35
+      resolution: 0.15
+    tri_stereo_bonus_by_scene:
+      urban_structured: 0.12
+      rugged: 0.1
+      vegetated: 0.08
+      open: 0.05
+""",
+        encoding="utf-8",
+    )
+    (case_dir / "satellites.yaml").write_text(
+        """- id: sat_test
+  norad_catalog_id: 38012
+  tle_line1: "1 38012U 11076F   26096.23539690  .00000494  00000+0  11617-3 0  9994"
+  tle_line2: "2 38012  98.2002 172.2949 0001342  74.1943  10.7084 14.58565955761501"
+  pixel_ifov_deg: 4.0e-5
+  cross_track_pixels: 20000
+  max_off_nadir_deg: 30.0
+  max_slew_velocity_deg_per_s: 1.95
+  max_slew_acceleration_deg_per_s2: 0.95
+  settling_time_s: 1.9
+  min_obs_duration_s: 2.0
+  max_obs_duration_s: 60.0
+""",
+        encoding="utf-8",
+    )
+    (case_dir / "targets.yaml").write_text(
+        """- id: t1
+  latitude_deg: 48.8566
+  longitude_deg: 2.3522
+  aoi_radius_m: 5000.0
+  elevation_ref_m: 0.0
+  scene_type: urban_structured
+""",
+        encoding="utf-8",
+    )
+
+    with pytest.raises(ValueError, match="missing max_stereo_pair_separation_s"):
+        solver_imports["load_case"](case_dir)
 
 
 def test_setup_script_runs() -> None:
@@ -1575,15 +1636,20 @@ def _make_minimal_stereo_case(solver_imports) -> "StereoCase":
         horizon_start=datetime(2026, 4, 22, 0, 0, 0, tzinfo=UTC),
         horizon_end=datetime(2026, 4, 23, 0, 0, 0, tzinfo=UTC),
         allow_cross_satellite_stereo=True,
-        allow_cross_date_stereo=False,
+        max_stereo_pair_separation_s=3600.0,
         min_overlap_fraction=0.5,
         min_convergence_deg=5.0,
         max_convergence_deg=35.0,
         max_pixel_scale_ratio=2.0,
         min_solar_elevation_deg=10.0,
         near_nadir_anchor_max_off_nadir_deg=15.0,
-        pair_weights={"urban_structured": 0.9, "open": 1.0},
-        tri_stereo_bonus_by_scene={"urban_structured": 0.15, "open": 0.1},
+        pair_weights={"geometry": 0.5, "overlap": 0.35, "resolution": 0.15},
+        tri_stereo_bonus_by_scene={
+            "urban_structured": 0.12,
+            "rugged": 0.1,
+            "vegetated": 0.08,
+            "open": 0.05,
+        },
     )
 
     return StereoCase(
@@ -1592,6 +1658,24 @@ def _make_minimal_stereo_case(solver_imports) -> "StereoCase":
         satellites={"sat_a": sat_a, "sat_b": sat_b},
         targets={"t1": target_1, "t2": target_2},
     )
+
+
+def test_minimal_stereo_case_uses_benchmark_shaped_mission(solver_imports) -> None:
+    case = _make_minimal_stereo_case(solver_imports)
+
+    assert case.mission.allow_cross_satellite_stereo is True
+    assert case.mission.max_stereo_pair_separation_s == 3600.0
+    assert case.mission.pair_weights == {
+        "geometry": 0.5,
+        "overlap": 0.35,
+        "resolution": 0.15,
+    }
+    assert case.mission.tri_stereo_bonus_by_scene == {
+        "urban_structured": 0.12,
+        "rugged": 0.1,
+        "vegetated": 0.08,
+        "open": 0.05,
+    }
 
 
 def test_parallel_candidates_identical_to_serial(solver_imports) -> None:

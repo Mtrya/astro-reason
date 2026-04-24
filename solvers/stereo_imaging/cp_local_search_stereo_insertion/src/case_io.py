@@ -16,7 +16,7 @@ class Mission:
     horizon_start: datetime
     horizon_end: datetime
     allow_cross_satellite_stereo: bool
-    allow_cross_date_stereo: bool
+    max_stereo_pair_separation_s: float
     min_overlap_fraction: float
     min_convergence_deg: float
     max_convergence_deg: float
@@ -122,7 +122,7 @@ def load_mission(case_dir: Path) -> Mission:
         horizon_start=_parse_iso_utc(_require_str(m, "horizon_start", ctx), field=f"{ctx}.horizon_start"),
         horizon_end=_parse_iso_utc(_require_str(m, "horizon_end", ctx), field=f"{ctx}.horizon_end"),
         allow_cross_satellite_stereo=bool(m.get("allow_cross_satellite_stereo", False)),
-        allow_cross_date_stereo=bool(m.get("allow_cross_date_stereo", False)),
+        max_stereo_pair_separation_s=_require_float(m, "max_stereo_pair_separation_s", ctx),
         min_overlap_fraction=_require_float(vt, "min_overlap_fraction", f"{ctx}.validity_thresholds"),
         min_convergence_deg=_require_float(vt, "min_convergence_deg", f"{ctx}.validity_thresholds"),
         max_convergence_deg=_require_float(vt, "max_convergence_deg", f"{ctx}.validity_thresholds"),
