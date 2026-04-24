@@ -28,8 +28,8 @@ The paper decomposes agile Earth-observation scheduling into acquisition plannin
 - **Candidate**: one grid-aligned `(satellite_id, task_id, start_time, end_time)` observation that satisfies sensor matching, task window, geometry, and initial slew feasibility.
 - **Utility**: task `weight / duration` by default, with deterministic tie-breaks for higher weight, earlier due time, lower transition increment, and candidate id.
 - **Greedy insertion**: candidates are processed in descending utility order; each candidate is inserted into its satellite's schedule if it does not overlap an existing action, violate transition gaps, or duplicate an already scheduled task.
-- **Connected-component local search**: the solver builds a same-satellite dependence graph from overlap and transition edges, extracts connected components, and repeatedly attempts to improve the incumbent by removing all selected candidates in one component and reinserting them via marginal-profit greedy ordering against the current global selection.
-- **Repair**: solver-local validation checks the final schedule for overlap, transition, initial slew, duplicate task, and battery issues; any violations are resolved by iteratively removing the lowest-utility violating candidate.
+- **Connected-component local search**: the solver builds a same-satellite dependence graph from overlap and transition edges, extracts connected components, and repeatedly attempts to improve the incumbent by removing all selected candidates in one component and reinserting them against the current global selection. By default this uses marginal-profit greedy ordering; an optional bounded exact enumeration path is available for small components.
+- **Battery guardrails and repair**: optional local-search guardrails reject objective-improving moves that clearly worsen solver-local battery depletion. Final bounded repair still checks the schedule for overlap, transition, initial slew, duplicate task, and battery issues, then removes the lowest-utility violating candidate when needed.
 
 ## Benchmark Adaptation
 
@@ -38,10 +38,10 @@ The benchmark differs from the paper in a few important ways:
 - The benchmark ranks by valid first, then `WCR`, `CR`, `TAT`, and `PC`, so the solver uses weighted selection rather than pure collect count.
 - Observation actions must be exactly aligned to the public action grid and must match each task's exact duration.
 - Slew feasibility uses the benchmark's scalar bang-coast-bang plus settling semantics rather than the paper's time-independent transition matrix.
-- Battery is not naturally pairwise, so it is not encoded in the dependence graph. Instead, the solver performs solver-local validation and bounded repair after greedy insertion and local search.
+- Battery is not naturally pairwise, so it is not encoded in the dependence graph. Instead, the solver can use solver-local battery guardrails during local search and always runs bounded repair after greedy insertion and local search.
 - The benchmark is observation-only; download and memory planning are out of scope.
 
-That means this solver reproduces the paper's greedy construction and connected-component local-search approach, while remaining faithful to the benchmark's public validity contract.
+That means this solver reproduces the paper's greedy construction and connected-component local-search approach, while remaining faithful to the benchmark's public validity contract. The proprietary Tempo fallback is not integrated; when `enable_exact_reinsertion` is set, small components use a solver-local exact enumeration that preserves the benchmark's one-observation-per-task, overlap, transition, initial-slew, and fixed-grid constraints.
 
 ## Solver Contract
 
@@ -70,7 +70,7 @@ The solver pipeline is:
 4. Improve the schedule with first-improving connected-component local search using marginal-profit recomputation.
 5. Run solver-local validation and bounded repair to remove any remaining issues, especially battery depletion risk.
 
-The repair stage is intentionally conservative. It keeps the solver standalone and reduces official verifier failures without claiming that battery feasibility is fully proven by the greedy/LNS core.
+The repair stage is intentionally conservative. It keeps the solver standalone and reduces official verifier failures without claiming that battery feasibility is fully proven by the greedy/LNS core. Status artifacts report action and objective impact before and after repair, plus battery-failure counts.
 
 ## Configuration
 
@@ -96,6 +96,11 @@ Key knobs:
 - `restart_count`
 - `random_seed`
 - `stochastic_ordering`
+- `enable_exact_reinsertion`
+- `max_exact_component_size`
+- `exact_subproblem_timeout_s`
+- `enable_battery_guardrails`
+- `battery_guard_min_wh`
 - `max_repair_iterations`
 - `debug`
 
@@ -180,8 +185,8 @@ If raw greedy/local-search selection looks strong but repair removes many action
 ## Known Limitations
 
 - This is a reproduction of the paper's acquisition-planning method, not a claim to reproduce every runtime or every table from the paper.
-- The solver does not include the paper's Tempo CP-SAT TSPTW fallback, which is a proprietary dependency.
-- Battery feasibility is handled by solver-local validation and repair instead of being fully encoded inside the greedy/LNS core.
+- The solver does not include the paper's proprietary Tempo CP-SAT TSPTW backend. Its optional exact reinsertion path is a bounded benchmark-adapted equivalent for small connected components.
+- Battery feasibility is handled by optional solver-local guardrails and bounded repair instead of being fully encoded inside the greedy/LNS core.
 - Candidate generation is currently unoptimized and dominates runtime on larger cases. A future issue may address efficiency.
 - Download and memory scheduling are omitted because the benchmark is observation-only.
 

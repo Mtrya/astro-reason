@@ -34,6 +34,23 @@ class RepairConfig:
 
 
 @dataclass(frozen=True, slots=True)
+class BatteryGuardConfig:
+    enable_battery_guardrails: bool = False
+    battery_guard_min_wh: float = 0.0
+
+    @classmethod
+    def from_mapping(cls, payload: dict[str, Any] | None) -> "BatteryGuardConfig":
+        payload = payload or {}
+        return cls(
+            enable_battery_guardrails=bool(payload.get("enable_battery_guardrails", False)),
+            battery_guard_min_wh=float(payload.get("battery_guard_min_wh", 0.0)),
+        )
+
+    def as_status_dict(self) -> dict[str, Any]:
+        return asdict(self)
+
+
+@dataclass(frozen=True, slots=True)
 class ValidationIssue:
     reason: str
     message: str
@@ -92,6 +109,20 @@ class ValidationReport:
 
 
 @dataclass(frozen=True, slots=True)
+class BatteryGuardDecision:
+    allowed: bool
+    affected_satellites: tuple[str, ...]
+    before_min_battery_wh: float | None
+    after_min_battery_wh: float | None
+    before_battery_failure_count: int
+    after_battery_failure_count: int
+    reason: str
+
+    def as_dict(self) -> dict[str, Any]:
+        return asdict(self)
+
+
+@dataclass(frozen=True, slots=True)
 class RepairRemoval:
     iteration: int
     candidate_id: str
@@ -116,20 +147,33 @@ class RepairResult:
         return self.reports[-1]
 
     def as_status_dict(self) -> dict[str, Any]:
+        objective_after_repair = _candidate_objective(self.candidates)
+        objective_removed_by_repair = sum(removal.task_weight for removal in self.removals)
+        objective_before_repair = objective_after_repair + objective_removed_by_repair
+        initial_report = self.reports[0] if self.reports else None
+        final_report = self.final_report
         return {
             "attempts": len(self.reports),
             "actions_before_repair": (
                 len(self.candidates) + len(self.removals) if self.reports else len(self.candidates)
             ),
             "actions_after_repair": len(self.candidates),
+            "objective_before_repair": objective_before_repair,
+            "objective_after_repair": objective_after_repair,
+            "objective_removed_by_repair": objective_removed_by_repair,
+            "battery_failure_count_before_repair": (
+                _battery_failure_count(initial_report) if initial_report is not None else 0
+            ),
+            "battery_failure_count_after_repair": _battery_failure_count(final_report),
+            "removed_action_count_by_reason": _removal_count_by_reason(self.removals),
             "removed_actions": [removal.as_dict() for removal in self.removals],
             "terminated_reason": self.terminated_reason,
             "initial_local_valid": self.reports[0].valid if self.reports else True,
             "initial_issue_count": self.reports[0].issue_count if self.reports else 0,
-            "final_local_valid": self.final_report.valid,
-            "final_issue_count": self.final_report.issue_count,
-            "initial_report": self.reports[0].as_dict() if self.reports else None,
-            "final_report": self.final_report.as_dict(),
+            "final_local_valid": final_report.valid,
+            "final_issue_count": final_report.issue_count,
+            "initial_report": initial_report.as_dict() if initial_report is not None else None,
+            "final_report": final_report.as_dict(),
         }
 
     def as_debug_dict(self) -> dict[str, Any]:
@@ -139,6 +183,21 @@ class RepairResult:
             "removed_actions": [removal.as_dict() for removal in self.removals],
             "reports": [report.as_dict() for report in self.reports],
         }
+
+
+def _candidate_objective(candidates: list[Candidate]) -> float:
+    return sum(candidate.task_weight for candidate in candidates)
+
+
+def _battery_failure_count(report: ValidationReport) -> int:
+    return sum(1 for issue in report.issues if issue.reason == "battery_depletion")
+
+
+def _removal_count_by_reason(removals: list[RepairRemoval]) -> dict[str, int]:
+    counts: dict[str, int] = {}
+    for removal in removals:
+        counts[removal.reason] = counts.get(removal.reason, 0) + 1
+    return dict(sorted(counts.items()))
 
 
 def duplicate_task_issues(candidates: list[Candidate]) -> list[ValidationIssue]:
@@ -423,6 +482,94 @@ def battery_issues(
                 )
             )
     return issues, traces
+
+
+def _battery_failure_count_for_satellites(
+    issues: list[ValidationIssue],
+    affected_satellites: set[str],
+) -> int:
+    return sum(
+        1
+        for issue in issues
+        if issue.reason == "battery_depletion"
+        and issue.satellite_id in affected_satellites
+    )
+
+
+def _min_battery_for_satellites(
+    traces: dict[str, BatteryTrace],
+    affected_satellites: set[str],
+) -> float | None:
+    values = [
+        trace.min_battery_wh
+        for satellite_id, trace in traces.items()
+        if satellite_id in affected_satellites
+    ]
+    if not values:
+        return None
+    return min(values)
+
+
+def evaluate_battery_guard(
+    case: AeosspCase,
+    before_candidates: list[Candidate],
+    after_candidates: list[Candidate],
+    *,
+    affected_satellite_ids: set[str] | tuple[str, ...] | list[str],
+    config: BatteryGuardConfig,
+    propagation: PropagationContext,
+    vector_cache: TransitionVectorCache,
+) -> BatteryGuardDecision:
+    affected_satellites = set(affected_satellite_ids)
+    if not config.enable_battery_guardrails or not affected_satellites:
+        return BatteryGuardDecision(
+            allowed=True,
+            affected_satellites=tuple(sorted(affected_satellites)),
+            before_min_battery_wh=None,
+            after_min_battery_wh=None,
+            before_battery_failure_count=0,
+            after_battery_failure_count=0,
+            reason="disabled" if not config.enable_battery_guardrails else "no_affected_satellites",
+        )
+
+    before_issues, before_traces = battery_issues(
+        case,
+        before_candidates,
+        propagation=propagation,
+        vector_cache=vector_cache,
+    )
+    after_issues, after_traces = battery_issues(
+        case,
+        after_candidates,
+        propagation=propagation,
+        vector_cache=vector_cache,
+    )
+    before_min = _min_battery_for_satellites(before_traces, affected_satellites)
+    after_min = _min_battery_for_satellites(after_traces, affected_satellites)
+    before_failure_count = _battery_failure_count_for_satellites(
+        before_issues, affected_satellites
+    )
+    after_failure_count = _battery_failure_count_for_satellites(
+        after_issues, affected_satellites
+    )
+
+    before_floor = before_min if before_min is not None else float("inf")
+    after_floor = after_min if after_min is not None else float("inf")
+    worsens_below_floor = (
+        after_floor < config.battery_guard_min_wh - NUMERICAL_EPS
+        and after_floor < before_floor - NUMERICAL_EPS
+    )
+    adds_failure = after_failure_count > before_failure_count
+    allowed = not (worsens_below_floor or adds_failure)
+    return BatteryGuardDecision(
+        allowed=allowed,
+        affected_satellites=tuple(sorted(affected_satellites)),
+        before_min_battery_wh=before_min,
+        after_min_battery_wh=after_min,
+        before_battery_failure_count=before_failure_count,
+        after_battery_failure_count=after_failure_count,
+        reason="accepted" if allowed else "battery_worsened",
+    )
 
 
 def candidate_shape_issues(case: AeosspCase, candidates: list[Candidate]) -> list[ValidationIssue]:
