@@ -2,7 +2,6 @@ name: verifier_exposure
 mode: batch
 
 benchmark: relay_constellation
-harness: codex
 split: test
 cases:
   - case_0001
@@ -14,11 +13,14 @@ exposures:
   - transparent
   - opaque
   - none
+harnesses:
+  - codex
+  - opencode_dpsk
 
 timeout_seconds: 7200
 
 batch:
-  max_concurrency: 1
+  max_concurrency: 2
   max_retries: 1
   skip_completed: true
   retry_statuses:
