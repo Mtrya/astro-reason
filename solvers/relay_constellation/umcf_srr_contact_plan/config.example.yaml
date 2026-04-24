@@ -1,0 +1,38 @@
+# Example configuration for the relay_constellation UMCF/SRR contact-plan solver.
+# Copy or rename this file to config.yaml (or config.json) in your
+# config directory and adjust values as needed.
+
+# --- SRR oracle ---
+# When true, rounding picks the highest-probability path deterministically
+# instead of sampling.  This makes the solver fully reproducible without
+# multi-run aggregation.
+deterministic: true
+
+# Number of independent seeded SRR runs.  The assignment set with the highest
+# total served commodity weight across all runs is kept.
+# Ignored when deterministic is true.
+multi_run_count: 1
+
+# Random seed base for stochastic rounding.
+# Each run i uses seed = seed + i.
+# Ignored when deterministic is true.
+seed: 42
+
+# Maximum number of shortest simple paths to consider per commodity.
+k_paths: 4
+
+# Maximum hop count for path enumeration.
+max_path_hops: 10
+
+# Boost factor for sticking with the same path across consecutive samples.
+# Higher values reduce interval churn and improve compaction.
+path_change_penalty: 1.0
+
+# --- Candidate selection ---
+# Maximum number of added satellites to select from the orbit library.
+# If omitted, the solver uses the benchmark manifest limit.
+# max_added_satellites: null
+
+# --- Debug ---
+# When true, write additional debug artifacts to solution_dir/debug/.
+debug: false

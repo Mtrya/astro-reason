@@ -1,0 +1,30 @@
+id: relay_constellation_umcf_srr_contact_plan
+benchmark: relay_constellation
+solver: umcf_srr_contact_plan
+solver_path: solvers/relay_constellation/umcf_srr_contact_plan
+evidence_type: reproduced_solver
+runnable: true
+setup_script: setup.sh
+solve_script: solve.sh
+solution_filename: solution.json
+timeout_seconds: 300
+cases:
+  - id: test/case_0001
+    case_dir: benchmarks/relay_constellation/dataset/cases/test/case_0001
+  - id: test/case_0002
+    case_dir: benchmarks/relay_constellation/dataset/cases/test/case_0002
+  - id: test/case_0003
+    case_dir: benchmarks/relay_constellation/dataset/cases/test/case_0003
+  - id: test/case_0004
+    case_dir: benchmarks/relay_constellation/dataset/cases/test/case_0004
+  - id: test/case_0005
+    case_dir: benchmarks/relay_constellation/dataset/cases/test/case_0005
+verifier:
+  command:
+    - uv
+    - run
+    - python
+    - -m
+    - benchmarks.relay_constellation.verifier.run
+    - "{case_dir}"
+    - "{solution_path}"
