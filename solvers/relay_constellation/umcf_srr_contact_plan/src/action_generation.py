@@ -8,7 +8,7 @@ from typing import Any
 
 import numpy as np
 
-from .case_io import Manifest
+from .case_io import Endpoint, Manifest
 from .srr import Path
 from .time_grid import time_for_index
 from .umcf import UMCFInstance
@@ -174,23 +174,22 @@ def repair_degree_caps(
         edge: set(samples) for edge, samples in edge_samples.items()
     }
 
-    # Collect all sample indices that appear
-    all_samples: set[int] = set()
-    for samples in repaired.values():
-        all_samples.update(samples)
+    # Pre-build sample-to-active-edges mapping so we don't re-scan all edges
+    # inside the repair loop.
+    sample_to_edges: dict[int, set[tuple[str, str]]] = {}
+    for edge, samples in repaired.items():
+        for sample_idx in samples:
+            sample_to_edges.setdefault(sample_idx, set()).add(edge)
 
     total_dropped = 0
     samples_repaired = 0
 
-    for sample_idx in sorted(all_samples):
-        # Iteratively drop least-important edges incident to over-cap nodes
-        while True:
-            active_edges = {
-                edge for edge, samples in repaired.items() if sample_idx in samples
-            }
-            if not active_edges:
-                break
+    for sample_idx in sorted(sample_to_edges):
+        active_edges = sample_to_edges[sample_idx]
+        original_count = len(active_edges)
 
+        # Iteratively drop least-important edges incident to over-cap nodes
+        while active_edges:
             # Count degrees
             degrees: dict[str, int] = {}
             for edge in active_edges:
@@ -198,7 +197,7 @@ def repair_degree_caps(
                 degrees[a] = degrees.get(a, 0) + 1
                 degrees[b] = degrees.get(b, 0) + 1
 
-            # Find over-cap nodes and their excess
+            # Find over-cap nodes
             over_cap_nodes: set[str] = set()
             for node, deg in degrees.items():
                 cap = max_links_per_endpoint if node in endpoint_ids else max_links_per_satellite
@@ -221,17 +220,11 @@ def repair_degree_caps(
 
             # Drop the least important edge
             _, edge_to_drop = candidates[0]
+            active_edges.discard(edge_to_drop)
             repaired[edge_to_drop].discard(sample_idx)
             total_dropped += 1
 
-        # Check if this sample had any repair work
-        original_count = sum(
-            1 for samples in edge_samples.values() if sample_idx in samples
-        )
-        repaired_count = sum(
-            1 for samples in repaired.values() if sample_idx in samples
-        )
-        if repaired_count < original_count:
+        if len(active_edges) < original_count:
             samples_repaired += 1
 
     # Clean up empty sets

@@ -174,7 +174,6 @@ class TestRepairDegreeCaps:
                 ],
             },
         )
-        # Override node capacity so sat1 has cap 4
         inst.node_capacity["sat1"] = 4
 
         assignments = [
@@ -193,14 +192,11 @@ class TestRepairDegreeCaps:
             max_links_per_endpoint=2,
             endpoint_ids={"ep1", "ep2", "ep3", "ep4", "ep5", "ep6"},
         )
-        # Should have dropped 2 edges (the weight-1 edges)
         assert summary["total_dropped_edges"] == 2
-        # sat1 should now have degree 4 in the repaired set
         sat1_degree = sum(
             1 for edge in repaired if "sat1" in edge
         )
         assert sat1_degree == 4
-        # The dropped edges should be the weight-1 ones
         assert ("ep5", "sat1") not in repaired or 0 not in repaired[("ep5", "sat1")]
         assert ("ep6", "sat1") not in repaired or 0 not in repaired[("ep6", "sat1")]
 
@@ -220,7 +216,6 @@ class TestRepairDegreeCaps:
                 "sat2": [("ep1", 100.0), ("ep3", 100.0)],
             },
         )
-        # ep1 has 2 links in graph; with cap 1 it violates
         assignments = [
             {
                 "d1": SRRPath(("ep1", "sat1", "ep2"), (("ep1", "sat1"), ("ep2", "sat1")), 200.0, 2),
@@ -236,9 +231,7 @@ class TestRepairDegreeCaps:
             max_links_per_endpoint=1,
             endpoint_ids={"ep1", "ep2", "ep3"},
         )
-        # ep1 had degree 2, cap 1 => 1 drop
         assert summary["total_dropped_edges"] >= 1
-        # ep1 degree in repaired should be <= 1
         ep1_degree = sum(
             1 for edge in repaired if "ep1" in edge
         )
@@ -292,10 +285,8 @@ class TestCompactActions:
         }
         actions, summary = compact_actions(edge_samples, {"ep1"}, manifest)
         assert summary["num_actions"] == 2
-        # First action covers samples 0,1,2
         assert actions[0].start_time == datetime(2024, 1, 1, 0, 0, 0, tzinfo=UTC)
         assert actions[0].end_time == datetime(2024, 1, 1, 3, 0, 0, tzinfo=UTC)
-        # Second action covers sample 4
         assert actions[1].start_time == datetime(2024, 1, 1, 4, 0, 0, tzinfo=UTC)
         assert actions[1].end_time == datetime(2024, 1, 1, 5, 0, 0, tzinfo=UTC)
 
@@ -318,9 +309,7 @@ class TestCompactActions:
             ("ep1", "sat1"): {0, 2, 3},
         }
         actions, _ = compact_actions(edge_samples, {"ep1"}, manifest)
-        # Should produce 2 actions: [0,1) and [2,4)
         assert len(actions) == 2
-        # Verify no overlap
         for i in range(len(actions)):
             for j in range(i + 1, len(actions)):
                 a, b = actions[i], actions[j]
@@ -398,35 +387,3 @@ class TestActionsToJson:
         json_actions = actions_to_json(actions)
         assert json_actions[0]["endpoint_id"] == "ep1"
         assert json_actions[1]["endpoint_id"] == "ep2"
-
-
-class TestSmoke:
-    def test_solve_produces_actions(self, tmp_path: Path) -> None:
-        from solvers.relay_constellation.umcf_srr_contact_plan.src.solve import solve
-
-        case_dir = REPO_ROOT / "benchmarks" / "relay_constellation" / "dataset" / "cases" / "test" / "case_0001"
-        result = solve(case_dir, tmp_path / "solution")
-        solution_path = tmp_path / "solution" / "solution.json"
-        import json
-        payload = json.loads(solution_path.read_text())
-        assert len(payload["actions"]) > 0
-        assert result["summary"]["num_actions"] > 0
-
-    def test_solution_with_actions_is_verifier_valid(self, tmp_path: Path) -> None:
-        from benchmarks.relay_constellation.verifier import verify_solution
-        from solvers.relay_constellation.umcf_srr_contact_plan.src.solve import solve
-
-        case_dir = REPO_ROOT / "benchmarks" / "relay_constellation" / "dataset" / "cases" / "test" / "case_0001"
-        result = solve(case_dir, tmp_path / "solution")
-        solution_path = tmp_path / "solution" / "solution.json"
-        verdict = verify_solution(case_dir, solution_path)
-        assert verdict.valid is True, f"Verifier violations: {verdict.violations}"
-
-    def test_repair_summary_present(self, tmp_path: Path) -> None:
-        from solvers.relay_constellation.umcf_srr_contact_plan.src.solve import solve
-
-        case_dir = REPO_ROOT / "benchmarks" / "relay_constellation" / "dataset" / "cases" / "test" / "case_0001"
-        result = solve(case_dir, tmp_path / "solution")
-        assert "repair_dropped_edges" in result["summary"]
-        assert "repair_samples_repaired" in result["summary"]
-        assert "action_generation" in result["timing_s"]

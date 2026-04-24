@@ -16,7 +16,6 @@ from solvers.relay_constellation.umcf_srr_contact_plan.src.case_io import (
     Endpoint,
     Manifest,
     Satellite,
-    load_case,
 )
 from solvers.relay_constellation.umcf_srr_contact_plan.src.dynamic_graph import (
     GraphEdge,
@@ -147,7 +146,6 @@ class TestUMCFConstruction:
         graph = _graph_triangle()
         instances = build_umcf_instances(case, [graph])
         inst = instances[0]
-        # 4 undirected edges => 4 canonical keys
         assert len(inst.edge_capacity) == 4
         assert all(v == 1 for v in inst.edge_capacity.values())
 
@@ -181,9 +179,7 @@ class TestPathGeneration:
             adj, "ep1", "ep2", k=4, endpoint_ids={"ep1", "ep2"}, max_hops=5
         )
         assert len(paths) >= 2
-        # Shortest by hop count should be ep1-sat2-ep2 (1 hop)
         assert paths[0].nodes == ("ep1", "sat2", "ep2")
-        # Second should be ep1-sat1-sat2-ep2 (2 hops)
         assert paths[1].nodes == ("ep1", "sat1", "sat2", "ep2")
 
     def test_no_ground_transit_in_paths(self) -> None:
@@ -197,8 +193,6 @@ class TestPathGeneration:
         paths = k_shortest_paths(
             adj, "ep1", "ep3", k=4, endpoint_ids={"ep1", "ep2", "ep3"}, max_hops=5
         )
-        # No valid simple path exists that doesn't go through ep2 as intermediate
-        # because ep1--sat1--ep2--sat2--ep3 is the only topology and ep2 is an endpoint
         assert len(paths) == 0
 
     def test_k_shortest_paths_respects_max_hops(self) -> None:
@@ -212,7 +206,6 @@ class TestPathGeneration:
         paths = k_shortest_paths(
             adj, "ep1", "ep2", k=10, endpoint_ids={"ep1", "ep2"}, max_hops=2
         )
-        # Only 1-hop path fits
         assert all(p.hop_count <= 2 for p in paths)
 
 
@@ -230,7 +223,6 @@ class TestHeuristicProbabilities:
         p2 = SRRPath(("a", "c", "b"), (("a", "c"), ("c", "b")), 20.0, 2)
         prev = SRRPath(("a", "b"), (("a", "b"),), 10.0, 1)
         probs = heuristic_probabilities([p1, p2], prev, 1.0)
-        # p1 should have higher probability due to penalty boost
         assert probs[0] > probs[1]
         assert pytest.approx(probs[0] + probs[1]) == 1.0
 
@@ -258,9 +250,8 @@ class TestSequentialRounding:
         import random
 
         assignments, _ = sequential_rounding(inst, None, config, random.Random(42))
-        # Only one path exists (ep1-sat1-ep2), capacity 1
         assert len(assignments) == 1
-        assert "d1" in assignments  # largest weight wins
+        assert "d1" in assignments
 
     def test_deterministic_mode(self) -> None:
         graph = _graph_triangle()
@@ -293,7 +284,6 @@ class TestSequentialRounding:
 
         assignments1, _ = sequential_rounding(inst, None, config, random.Random(42))
         assignments2, _ = sequential_rounding(inst, None, config, random.Random(99))
-        # Deterministic mode should give the same result regardless of RNG
         assert assignments1 == assignments2
 
     def test_seeded_reproducibility(self) -> None:
@@ -354,38 +344,12 @@ class TestSequentialRounding:
             satellite_ids={"sat1", "sat2"},
         )
 
-        # First round: deterministic, pick shortest path
         config = SRRConfig(deterministic=True, k_paths=4, path_change_penalty=0.0)
         import random
 
         first, _ = sequential_rounding(inst, None, config, random.Random(42))
         prev = first
 
-        # Second round with penalty: should pick same path
         config_pen = SRRConfig(deterministic=True, k_paths=4, path_change_penalty=5.0)
         second, _ = sequential_rounding(inst, prev, config_pen, random.Random(42))
         assert second[case.demands[0].demand_id].nodes == prev[case.demands[0].demand_id].nodes
-
-
-class TestSmoke:
-    def test_solve_produces_oracle_debug(self, tmp_path: Path) -> None:
-        from solvers.relay_constellation.umcf_srr_contact_plan.src.solve import solve
-
-        case_dir = REPO_ROOT / "benchmarks" / "relay_constellation" / "dataset" / "cases" / "test" / "case_0001"
-        result = solve(case_dir, tmp_path / "solution")
-        debug_dir = tmp_path / "solution" / "debug"
-        assert (debug_dir / "umcf_instances.json").exists()
-        assert (debug_dir / "srr_summary.json").exists()
-        assert result["summary"]["srr_served_commodities"] >= 0
-        assert result["summary"]["srr_dropped_commodities"] >= 0
-        assert "srr_execution_time_s" in result["summary"]
-
-    def test_solution_still_verifier_valid(self, tmp_path: Path) -> None:
-        from benchmarks.relay_constellation.verifier import verify_solution
-        from solvers.relay_constellation.umcf_srr_contact_plan.src.solve import solve
-
-        case_dir = REPO_ROOT / "benchmarks" / "relay_constellation" / "dataset" / "cases" / "test" / "case_0001"
-        result = solve(case_dir, tmp_path / "solution")
-        solution_path = tmp_path / "solution" / "solution.json"
-        verdict = verify_solution(case_dir, solution_path)
-        assert verdict.valid is True

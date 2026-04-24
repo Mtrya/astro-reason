@@ -19,6 +19,12 @@ from .action_generation import (
 )
 from .case_io import load_case
 from .candidate_selection import load_selection_config, select_candidates
+from .dynamic_graph import build_sample_graphs, graph_summary
+from .orbit_library import generate_candidates
+from .propagation import propagate_all_to_samples
+from .solution_io import write_solution, write_status
+from .srr import SRRConfig, run_srr_oracle
+from .umcf import build_umcf_instances, instance_summary
 
 
 def _load_srr_config(config_dir: str | Path | None) -> SRRConfig:
@@ -41,12 +47,6 @@ def _load_srr_config(config_dir: str | Path | None) -> SRRConfig:
         multi_run_count=srr.get("multi_run_count", 1),
         max_path_hops=srr.get("max_path_hops", 10),
     )
-from .dynamic_graph import build_sample_graphs, graph_summary
-from .orbit_library import generate_candidates
-from .propagation import propagate_all_to_samples
-from .solution_io import write_solution, write_status
-from .srr import SRRConfig, run_srr_oracle
-from .umcf import build_umcf_instances, instance_summary
 
 
 def solve(
