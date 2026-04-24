@@ -21,6 +21,11 @@
 # This only bounds the refinement search, not total solve time.
 # time_limit_s: null
 
+# Optional end-to-end wall-clock accounting budget in seconds.
+# When set, remaining budget is passed into MWIS refinement after preprocessing.
+# Candidate generation, graph build, and repair are not interrupted in this phase.
+# total_time_budget_s: null
+
 # Solver-local repair
 # max_repair_iterations: 200
 

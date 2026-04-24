@@ -60,6 +60,12 @@ from solvers.aeossp_standard.mwis_conflict_graph.src.validation import (  # noqa
     repair_candidates,
     validate_candidates,
 )
+from solvers.aeossp_standard.mwis_conflict_graph.src.solve import (  # noqa: E402
+    BudgetConfig,
+    _build_status as build_status_payload,
+    _budget_status,
+    _timing_with_accounting,
+)
 
 
 def _mission() -> Mission:
@@ -798,3 +804,154 @@ def test_bounded_repair_terminates(monkeypatch) -> None:
     assert len(result.reports) == 2
     assert len(result.removals) == 1
     assert result.terminated_reason == "max_iterations"
+
+
+def test_budget_config_parses_total_time_budget() -> None:
+    assert BudgetConfig.from_mapping({}).total_time_budget_s is None
+    assert BudgetConfig.from_mapping({"total_time_budget_s": ""}).total_time_budget_s is None
+    assert BudgetConfig.from_mapping({"total_time_budget_s": 0}).total_time_budget_s == 0.0
+    assert BudgetConfig.from_mapping({"total_time_budget_s": "3.5"}).total_time_budget_s == 3.5
+
+    with pytest.raises(ValueError, match="total_time_budget_s"):
+        BudgetConfig.from_mapping({"total_time_budget_s": -1})
+
+
+def test_budget_status_reports_total_and_refinement_budgets() -> None:
+    no_budget = _budget_status(
+        budget_config=BudgetConfig(),
+        timing_seconds={"total": 2.0, "candidate_generation": 1.0},
+        stage_order=("candidate_generation",),
+        search_stage_budget_s=None,
+        refinement_only_budget_s=4.0,
+        refinement_only_budget_hit=False,
+    )
+    assert no_budget["configured"]["total_time_budget_s"] is None
+    assert not no_budget["budget_hit"]
+    assert no_budget["refinement_only_time_limit_s"] == 4.0
+    assert not no_budget["refinement_only_time_limit_hit"]
+
+    pressured = _budget_status(
+        budget_config=BudgetConfig(total_time_budget_s=1.5),
+        timing_seconds={
+            "total": 3.0,
+            "candidate_generation": 1.0,
+            "graph_build": 0.7,
+            "selection": 0.5,
+        },
+        stage_order=("candidate_generation", "graph_build", "selection"),
+        search_stage_budget_s=0.0,
+        refinement_only_budget_s=None,
+        refinement_only_budget_hit=True,
+    )
+    assert pressured["budget_hit"]
+    assert pressured["stage_observed"] == "graph_build"
+    assert pressured["output_status"] == "best_effort"
+    assert pressured["remaining_time_s"] == 0.0
+    assert pressured["search_stage_budget_s"] == 0.0
+    assert pressured["search_stage_budget_hit"]
+    assert not pressured["refinement_only_time_limit_hit"]
+
+
+def test_status_payload_reports_execution_model_and_timing_schema(tmp_path: Path) -> None:
+    class DictPayload:
+        def __init__(self, payload: dict):
+            self.payload = payload
+
+        def as_dict(self) -> dict:
+            return self.payload
+
+        def as_status_dict(self) -> dict:
+            return self.payload
+
+    class MwisStatsPayload:
+        selection_policy = "weight_degree_end"
+        selected_candidate_count = 0
+        incumbent_source = "exact"
+        local_improvement_count = 0
+        successful_two_swap_count = 0
+        recombination_attempt_count = 0
+        recombination_win_count = 0
+        search_stop_reason = "exact_only"
+        time_limit_hit = False
+
+        def as_dict(self) -> dict:
+            return {
+                "selected_candidate_count": self.selected_candidate_count,
+                "search_stop_reason": self.search_stop_reason,
+                "time_limit_hit": self.time_limit_hit,
+            }
+
+    class RepairPayload:
+        final_report = type("FinalReport", (), {"valid": True})()
+        candidates: list[Candidate] = []
+        removals: list[object] = []
+
+        def as_status_dict(self) -> dict:
+            return {"final_local_valid": True}
+
+    case = _case_for_candidates([])
+    timing = _timing_with_accounting(
+        {
+            "config_load": 0.1,
+            "case_load": 0.2,
+            "candidate_generation": 1.0,
+            "graph_build": 0.4,
+            "selection": 0.3,
+            "repair": 0.5,
+            "solution_write": 0.1,
+        },
+        total_seconds=2.8,
+        aliases={"search": 0.3},
+    )
+    status = build_status_payload(
+        case_dir=tmp_path,
+        config_dir=None,
+        solution_path=tmp_path / "solution.json",
+        case=case,
+        candidate_config=CandidateConfig(),
+        candidate_summary=CandidateSummary(),
+        graph=type("Graph", (), {"stats": DictPayload({"vertex_count": 0})})(),
+        mwis_config=MwisConfig(),
+        mwis_stats=MwisStatsPayload(),
+        repair_config=RepairConfig(),
+        repair_result=RepairPayload(),
+        timing_seconds=timing,
+        budget_status=_budget_status(
+            budget_config=BudgetConfig(),
+            timing_seconds=timing,
+            stage_order=("candidate_generation",),
+            search_stage_budget_s=None,
+            refinement_only_budget_s=None,
+            refinement_only_budget_hit=False,
+        ),
+    )
+
+    assert set(status["execution_model"]) == {
+        "case_load",
+        "candidate_generation",
+        "graph_build",
+        "search",
+        "validation",
+        "repair",
+        "solution_write",
+    }
+    assert status["execution_model"]["candidate_generation"]["model"] == "single_threaded_python"
+    assert status["execution_model"]["graph_build"]["model"] == "single_threaded_python"
+    assert status["execution_model"]["search"]["budget_field"] == "time_limit_s"
+    assert status["budget"]["configured"]["total_time_budget_s"] is None
+    assert not status["budget"]["budget_hit"]
+    assert status["budget"]["refinement_only_time_limit_s"] is None
+    assert status["timing_seconds"]["accounted_total"] == pytest.approx(2.6)
+    assert status["timing_seconds"]["unaccounted_overhead"] == pytest.approx(0.2)
+    for key in (
+        "config_load",
+        "case_load",
+        "candidate_generation",
+        "graph_build",
+        "selection",
+        "search",
+        "repair",
+        "solution_write",
+        "total",
+    ):
+        assert key in status["timing_seconds"]
