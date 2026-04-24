@@ -40,6 +40,14 @@
       "evidence_type": "reproduced_solver",
       "runnable": true,
       "ci_smoke": true
+    },
+    {
+      "benchmark": "stereo_imaging",
+      "solver": "time_window_pruned_stereo_milp",
+      "path": "solvers/stereo_imaging/time_window_pruned_stereo_milp",
+      "evidence_type": "reproduced_solver",
+      "runnable": true,
+      "ci_smoke": true
     }
   ]
 }
