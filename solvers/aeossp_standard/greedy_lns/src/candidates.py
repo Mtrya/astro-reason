@@ -63,6 +63,8 @@ class CandidateSummary:
     skipped_geometry: int = 0
     skipped_initial_slew: int = 0
     skipped_cap: int = 0
+    candidate_precompute: dict[str, Any] = field(default_factory=dict)
+    geometry_cache: dict[str, int] = field(default_factory=dict)
 
     def as_dict(self) -> dict[str, Any]:
         return {
@@ -73,6 +75,8 @@ class CandidateSummary:
             "skipped_geometry": self.skipped_geometry,
             "skipped_initial_slew": self.skipped_initial_slew,
             "skipped_cap": self.skipped_cap,
+            "candidate_precompute": dict(sorted(self.candidate_precompute.items())),
+            "geometry_cache": dict(sorted(self.geometry_cache.items())),
         }
 
     def as_debug_dict(self, case: AeosspCase) -> dict[str, Any]:
@@ -114,6 +118,17 @@ class _SatelliteCandidateEvents:
     satellite_id: str
     events: list[_CandidateEvent]
     skipped_sensor_mismatch: int
+    geometry_cache: dict[str, int]
+
+
+@dataclass(frozen=True, slots=True)
+class _CandidatePrecompute:
+    sorted_satellite_ids: tuple[str, ...]
+    sorted_task_ids: tuple[str, ...]
+    start_offsets_by_task: dict[str, tuple[int, ...]]
+    compatible_task_ids_by_sensor: dict[str, tuple[str, ...]]
+    skipped_sensor_mismatch_by_satellite: dict[str, int]
+    summary: dict[str, Any]
 
 
 def _optional_positive_int(value: Any) -> int | None:
@@ -156,6 +171,72 @@ def _compute_utility(task: Task) -> float:
     if task.required_duration_s > 0:
         return task.weight / task.required_duration_s
     return float("inf")
+
+
+def _build_candidate_precompute(
+    case: AeosspCase,
+    config: CandidateConfig,
+) -> _CandidatePrecompute:
+    sorted_satellite_ids = tuple(sorted(case.satellites))
+    sorted_task_ids = tuple(sorted(case.tasks))
+    start_offsets_by_task = {
+        task_id: tuple(
+            start_offsets_for_task(
+                case,
+                case.tasks[task_id],
+                stride_multiplier=config.candidate_stride_multiplier,
+            )
+        )
+        for task_id in sorted_task_ids
+    }
+    sensor_types = sorted(
+        {
+            *(satellite.sensor_type for satellite in case.satellites.values()),
+            *(task.required_sensor_type for task in case.tasks.values()),
+        }
+    )
+    compatible_task_ids_by_sensor = {
+        sensor_type: tuple(
+            task_id
+            for task_id in sorted_task_ids
+            if case.tasks[task_id].required_sensor_type == sensor_type
+        )
+        for sensor_type in sensor_types
+    }
+    skipped_sensor_mismatch_by_satellite = {
+        satellite_id: sum(
+            len(start_offsets_by_task[task_id])
+            for task_id in sorted_task_ids
+            if case.tasks[task_id].required_sensor_type
+            != case.satellites[satellite_id].sensor_type
+        )
+        for satellite_id in sorted_satellite_ids
+    }
+    offset_counts = [len(offsets) for offsets in start_offsets_by_task.values()]
+    summary = {
+        "stride_multiplier": config.candidate_stride_multiplier,
+        "task_count": len(sorted_task_ids),
+        "satellite_count": len(sorted_satellite_ids),
+        "start_offset_task_count": len(start_offsets_by_task),
+        "nonempty_start_offset_task_count": sum(1 for count in offset_counts if count),
+        "total_start_offsets": sum(offset_counts),
+        "max_start_offsets_per_task": max(offset_counts, default=0),
+        "compatible_task_counts_by_sensor": {
+            sensor_type: len(task_ids)
+            for sensor_type, task_ids in sorted(compatible_task_ids_by_sensor.items())
+        },
+        "sensor_mismatch_start_offsets_by_satellite": dict(
+            sorted(skipped_sensor_mismatch_by_satellite.items())
+        ),
+    }
+    return _CandidatePrecompute(
+        sorted_satellite_ids=sorted_satellite_ids,
+        sorted_task_ids=sorted_task_ids,
+        start_offsets_by_task=start_offsets_by_task,
+        compatible_task_ids_by_sensor=compatible_task_ids_by_sensor,
+        skipped_sensor_mismatch_by_satellite=skipped_sensor_mismatch_by_satellite,
+        summary=summary,
+    )
 
 
 def _candidate_from_start(
@@ -206,25 +287,41 @@ def _empty_summary(case: AeosspCase) -> CandidateSummary:
     )
 
 
+def _geometry_cache_summary(propagation: PropagationContext | None) -> dict[str, int]:
+    if propagation is None or not hasattr(propagation, "cache_summary"):
+        return {}
+    return propagation.cache_summary()
+
+
+def _merge_geometry_cache_summaries(
+    summaries: list[dict[str, int]],
+) -> dict[str, int]:
+    merged: dict[str, int] = {}
+    for summary in summaries:
+        for key, value in summary.items():
+            merged[key] = merged.get(key, 0) + int(value)
+    return merged
+
+
 def _satellite_candidate_events(
     case: AeosspCase,
     config: CandidateConfig,
     satellite_id: str,
+    precompute: _CandidatePrecompute,
 ) -> _SatelliteCandidateEvents:
     satellite = case.satellites[satellite_id]
     step_s = float(min(case.mission.action_time_step_s, case.mission.geometry_sample_step_s))
     propagation = PropagationContext({satellite.satellite_id: satellite}, step_s=step_s)
     events: list[_CandidateEvent] = []
-    skipped_sensor_mismatch = 0
-    for task in sorted(case.tasks.values(), key=lambda item: item.task_id):
-        offsets = start_offsets_for_task(
-            case,
-            task,
-            stride_multiplier=config.candidate_stride_multiplier,
-        )
-        if not _sensor_matches(satellite, task):
-            skipped_sensor_mismatch += len(offsets)
-            continue
+    skipped_sensor_mismatch = precompute.skipped_sensor_mismatch_by_satellite[
+        satellite_id
+    ]
+    for task_id in precompute.compatible_task_ids_by_sensor.get(
+        satellite.sensor_type,
+        (),
+    ):
+        task = case.tasks[task_id]
+        offsets = precompute.start_offsets_by_task[task_id]
         for start_offset_s in offsets:
             start_time = case.mission.horizon_start + timedelta(seconds=start_offset_s)
             end_time = start_time + timedelta(seconds=task.required_duration_s)
@@ -278,6 +375,7 @@ def _satellite_candidate_events(
         satellite_id=satellite.satellite_id,
         events=events,
         skipped_sensor_mismatch=skipped_sensor_mismatch,
+        geometry_cache=_geometry_cache_summary(propagation),
     )
 
 
@@ -285,8 +383,13 @@ def _replay_candidate_events(
     case: AeosspCase,
     config: CandidateConfig,
     satellite_results: list[_SatelliteCandidateEvents],
+    precompute: _CandidatePrecompute,
 ) -> tuple[list[Candidate], CandidateSummary]:
     summary = _empty_summary(case)
+    summary.candidate_precompute = dict(precompute.summary)
+    summary.geometry_cache = _merge_geometry_cache_summaries(
+        [result.geometry_cache for result in satellite_results]
+    )
     candidates: list[Candidate] = []
     results_by_satellite = {
         result.satellite_id: result for result in satellite_results
@@ -332,29 +435,27 @@ def _generate_candidates_serial(
     config: CandidateConfig,
     *,
     propagation: PropagationContext | None = None,
+    precompute: _CandidatePrecompute | None = None,
 ) -> tuple[list[Candidate], CandidateSummary]:
+    precompute = precompute or _build_candidate_precompute(case, config)
     summary = _empty_summary(case)
+    summary.candidate_precompute = dict(precompute.summary)
     candidates: list[Candidate] = []
     if propagation is None:
         step_s = float(min(case.mission.action_time_step_s, case.mission.geometry_sample_step_s))
         propagation = PropagationContext(case.satellites, step_s=step_s)
 
-    for satellite in sorted(case.satellites.values(), key=lambda item: item.satellite_id):
-        for task in sorted(case.tasks.values(), key=lambda item: item.task_id):
-            if not _sensor_matches(satellite, task):
-                summary.skipped_sensor_mismatch += len(
-                    start_offsets_for_task(
-                        case,
-                        task,
-                        stride_multiplier=config.candidate_stride_multiplier,
-                    )
-                )
-                continue
-            for start_offset_s in start_offsets_for_task(
-                case,
-                task,
-                stride_multiplier=config.candidate_stride_multiplier,
-            ):
+    for satellite_id in precompute.sorted_satellite_ids:
+        satellite = case.satellites[satellite_id]
+        summary.skipped_sensor_mismatch += (
+            precompute.skipped_sensor_mismatch_by_satellite[satellite_id]
+        )
+        for task_id in precompute.compatible_task_ids_by_sensor.get(
+            satellite.sensor_type,
+            (),
+        ):
+            task = case.tasks[task_id]
+            for start_offset_s in precompute.start_offsets_by_task[task_id]:
                 if (
                     config.max_candidates is not None
                     and len(candidates) >= config.max_candidates
@@ -399,14 +500,16 @@ def _generate_candidates_serial(
                 summary.candidate_count += 1
                 summary.per_satellite_candidate_counts[satellite.satellite_id] += 1
                 summary.per_task_candidate_counts[task.task_id] += 1
+    summary.geometry_cache = _geometry_cache_summary(propagation)
     return candidates, summary
 
 
 def _generate_candidates_parallel(
     case: AeosspCase,
     config: CandidateConfig,
+    precompute: _CandidatePrecompute,
 ) -> tuple[list[Candidate], CandidateSummary]:
-    satellite_ids = sorted(case.satellites)
+    satellite_ids = list(precompute.sorted_satellite_ids)
     max_workers = min(config.candidate_workers, len(satellite_ids))
     with ProcessPoolExecutor(max_workers=max_workers) as executor:
         satellite_results = list(
@@ -415,9 +518,10 @@ def _generate_candidates_parallel(
                 [case] * len(satellite_ids),
                 [config] * len(satellite_ids),
                 satellite_ids,
+                [precompute] * len(satellite_ids),
             )
         )
-    return _replay_candidate_events(case, config, satellite_results)
+    return _replay_candidate_events(case, config, satellite_results, precompute)
 
 
 def generate_candidates(
@@ -427,6 +531,12 @@ def generate_candidates(
     propagation: PropagationContext | None = None,
 ) -> tuple[list[Candidate], CandidateSummary]:
     config = config or CandidateConfig()
+    precompute = _build_candidate_precompute(case, config)
     if config.candidate_workers <= 1 or len(case.satellites) <= 1:
-        return _generate_candidates_serial(case, config, propagation=propagation)
-    return _generate_candidates_parallel(case, config)
+        return _generate_candidates_serial(
+            case,
+            config,
+            propagation=propagation,
+            precompute=precompute,
+        )
+    return _generate_candidates_parallel(case, config, precompute)
