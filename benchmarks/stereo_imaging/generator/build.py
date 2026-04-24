@@ -26,6 +26,7 @@ LOOKUP_LAT_MAX = 90
 LOOKUP_LON_MIN = -179
 LOOKUP_LON_MAX = 180
 DEFAULT_MAX_GENERATION_ATTEMPTS_PER_CASE = 8
+MIN_TARGET_ELEVATION_M = 0.0
 
 
 def _validate_path_segment(value: object, label: str) -> str:
@@ -210,9 +211,10 @@ def _utc_iso(dt: datetime) -> str:
 
 def _horizon_for_case(seed: int, case_index: int, *, split_config: dict[str, Any]) -> tuple[str, str]:
     """Deterministic mission horizon per case (48 h)."""
+    del seed
     mission = _require_mapping(split_config.get("mission"), "mission")
     base = _parse_iso_utc(str(mission["base_horizon_start"])).astimezone(timezone.utc)
-    offset_hours = (seed % 1000) + case_index * _require_int(
+    offset_hours = case_index * _require_int(
         mission,
         "case_start_spacing_hours",
         "mission",
@@ -356,6 +358,15 @@ def bilinear_elevation_m(
     )
 
 
+def _target_elevation_m(lat: float, lon: float) -> float:
+    elevation_m = float(bilinear_elevation_m(lat, lon))
+    if elevation_m < MIN_TARGET_ELEVATION_M:
+        raise ValueError(
+            f"Target ({lat}, {lon}) has below-ellipsoid elevation {elevation_m:.3f} m"
+        )
+    return elevation_m
+
+
 def _lookup_metadata_payload() -> dict[str, Any]:
     elevation_items = [
         [lat_idx, lon_idx, round(float(value), 6)]
@@ -438,7 +449,7 @@ def _sample_urban_targets(
         ):
             continue
         try:
-            bilinear_elevation_m(lat, lon)
+            _target_elevation_m(lat, lon)
         except ValueError:
             continue
         used.add(key)
@@ -486,6 +497,10 @@ def _candidate_cells_by_scene(
             max_abs_latitude_deg=max_abs_latitude_deg,
         ):
             continue
+        try:
+            _target_elevation_m(float(lat_idx), float(lon_idx))
+        except ValueError:
+            continue
         candidates[scene].append(cell)
     return candidates
 
@@ -526,7 +541,10 @@ def _jitter_point_inside_cell(
             continue
         if lookup_scene_type(lat, lon) != scene:
             continue
-        bilinear_elevation_m(lat, lon)
+        try:
+            _target_elevation_m(lat, lon)
+        except ValueError:
+            continue
         return lat, lon
     raise RuntimeError(f"Could not sample a stable point inside scene cell {cell} ({scene})")
 
@@ -562,13 +580,16 @@ def _sample_non_urban_targets(
                 break
             if cell in used_cells:
                 continue
-            lat, lon = _jitter_point_inside_cell(
-                rng,
-                cell,
-                scene=scene,
-                non_urban_jitter_deg=non_urban_jitter_deg,
-                max_abs_latitude_deg=max_abs_latitude_deg,
-            )
+            try:
+                lat, lon = _jitter_point_inside_cell(
+                    rng,
+                    cell,
+                    scene=scene,
+                    non_urban_jitter_deg=non_urban_jitter_deg,
+                    max_abs_latitude_deg=max_abs_latitude_deg,
+                )
+            except RuntimeError:
+                continue
             key = (round(lat, 2), round(lon, 2))
             if key in used:
                 continue
@@ -602,7 +623,7 @@ def _finalize_targets(
     for target in raw:
         lat = float(target["latitude_deg"])
         lon = float(target["longitude_deg"])
-        elevation_m = float(bilinear_elevation_m(lat, lon))
+        elevation_m = _target_elevation_m(lat, lon)
         aoi_radius_m = round(rng.uniform(aoi_radius_min_m, aoi_radius_max_m), 1)
         out.append(
             {

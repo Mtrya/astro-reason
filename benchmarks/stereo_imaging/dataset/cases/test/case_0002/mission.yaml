@@ -1,6 +1,6 @@
 mission:
-  horizon_start: '2026-05-09T06:00:00Z'
-  horizon_end: '2026-05-11T06:00:00Z'
+  horizon_start: '2026-04-22T08:00:00Z'
+  horizon_end: '2026-04-24T08:00:00Z'
   allow_cross_satellite_stereo: true
   max_stereo_pair_separation_s: 3600.0
   validity_thresholds:

@@ -49,6 +49,47 @@ def test_generator_uses_benchmark_satellite_catalog_when_split_omits_catalog() -
     assert len(catalog) >= 20
     assert catalog[38012]["id"] == "sat_pleiades_1a"
     assert catalog[38755]["id"] == "sat_spot_6"
+    for norad_id in (29268, 40718, 41772, 38038, 40015, 41771):
+        assert norad_id in catalog
+
+
+def test_horizon_for_case_uses_configured_base_start() -> None:
+    split_config = {
+        "mission": {
+            "base_horizon_start": "2026-04-22T02:00:00Z",
+            "case_start_spacing_hours": 6,
+            "horizon_duration_s": 172800,
+        }
+    }
+
+    assert generator_build._horizon_for_case(
+        20260406,
+        0,
+        split_config=split_config,
+    ) == ("2026-04-22T02:00:00Z", "2026-04-24T02:00:00Z")
+    assert generator_build._horizon_for_case(
+        20260406,
+        1,
+        split_config=split_config,
+    ) == ("2026-04-22T08:00:00Z", "2026-04-24T08:00:00Z")
+
+
+def test_target_elevation_rejects_below_ellipsoid_cells(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(
+        generator_build,
+        "ELEVATION_GRID",
+        {
+            (0, 0): -10.0,
+            (1, 0): -10.0,
+            (0, 1): -10.0,
+            (1, 1): -10.0,
+        },
+    )
+
+    with pytest.raises(ValueError, match="below-ellipsoid"):
+        generator_build._target_elevation_m(0.5, 0.5)
 
 
 def _write_splits_yaml(path: Path, *, snapshot_epoch_utc: str = CELESTRAK_SNAPSHOT_EPOCH_UTC) -> None:

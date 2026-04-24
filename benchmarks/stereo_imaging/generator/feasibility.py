@@ -18,6 +18,7 @@ from ..verifier.engine import (
     _action_midpoint,
     _angle_between_deg,
     _boresight_azimuth_deg,
+    _boresight_ground_intercept_ecef_m,
     _boresight_unit_vector,
     _combined_off_nadir_deg,
     _datetime_to_epoch,
@@ -240,7 +241,15 @@ def _candidate_observation(
     action = ObservationAction(sat_id, target_id, start, end, off_along, off_across)
     mid = _action_midpoint(action)
     sat_pos, sat_vel = _satellite_state_ecef_m(sf_sat, mid)
-    slant = float(np.linalg.norm(target_pos - sat_pos))
+    boresight_ground = _boresight_ground_intercept_ecef_m(
+        sat_pos,
+        sat_vel,
+        off_along,
+        off_across,
+    )
+    if boresight_ground is None:
+        return None
+    slant = float(np.linalg.norm(boresight_ground - sat_pos))
     epoch = _datetime_to_epoch(mid)
     solar_el, solar_az = _solar_elevation_azimuth_deg(epoch, target_pos)
     derived = DerivedObservation(
@@ -253,7 +262,7 @@ def _candidate_observation(
         sat_position_ecef_m=sat_pos.tolist(),
         sat_velocity_ecef_mps=sat_vel.tolist(),
         boresight_off_nadir_deg=float(_combined_off_nadir_deg(off_along, off_across)),
-        boresight_azimuth_deg=float(_boresight_azimuth_deg(target_pos, target_pos)),
+        boresight_azimuth_deg=float(_boresight_azimuth_deg(target_pos, boresight_ground)),
         solar_elevation_deg=float(solar_el),
         solar_azimuth_deg=float(solar_az),
         effective_pixel_scale_m=slant * math.radians(sat_def.pixel_ifov_deg),
