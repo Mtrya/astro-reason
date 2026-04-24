@@ -24,6 +24,7 @@ class SelectionConfig:
     fixed_candidates: list[str] = field(default_factory=list)
     evaluation_sample_stride: int = 10
     latency_weight: float = 0.0
+    parallel_eval: bool = False  # ProcessPoolExecutor is often slower than sequential for small graphs
 
 
 def load_selection_config(config_dir: str | Path | None) -> SelectionConfig:
@@ -41,6 +42,7 @@ def load_selection_config(config_dir: str | Path | None) -> SelectionConfig:
         fixed_candidates=sel.get("fixed_candidates", []),
         evaluation_sample_stride=sel.get("evaluation_sample_stride", 10),
         latency_weight=sel.get("latency_weight", 0.0),
+        parallel_eval=sel.get("parallel_eval", False),
     )
 
 
@@ -159,20 +161,18 @@ def _compute_marginal_scores(
     selected_ids: set[str],
     remaining_candidates: list[str],
     sample_indices: list[int],
+    parallel_eval: bool = False,
 ) -> dict[str, dict[str, Any]]:
     """Compute marginal scores for all remaining candidates."""
     current_allowed = backbone_ids | selected_ids
     baseline = _evaluate_allowed_set(sample_graphs, demands, current_allowed, sample_indices)
 
-    # Evaluate each candidate
-    if len(remaining_candidates) == 1:
-        results = {
-            remaining_candidates[0]: _evaluate_allowed_set(
-                sample_graphs, demands,
-                current_allowed | {remaining_candidates[0]}, sample_indices
-            )
-        }
-    else:
+    # Evaluate each candidate.  Sequential evaluation is usually faster because
+    # the per-candidate work (Union-Find on ~30 nodes) is tiny compared to
+    # ProcessPoolExecutor fork/pickle/join overhead.  parallel_eval can be
+    # enabled for very large candidate libraries where the aggregate work
+    # outweighs the overhead.
+    if parallel_eval and len(remaining_candidates) > 1:
         with ProcessPoolExecutor() as executor:
             futures = {
                 executor.submit(
@@ -183,6 +183,14 @@ def _compute_marginal_scores(
                 for cid in remaining_candidates
             }
             results = {cid: f.result() for f, cid in futures.items()}
+    else:
+        results = {
+            cid: _evaluate_allowed_set(
+                sample_graphs, demands,
+                current_allowed | {cid}, sample_indices
+            )
+            for cid in remaining_candidates
+        }
 
     scores: dict[str, dict[str, Any]] = {}
     for cid in remaining_candidates:
@@ -261,7 +269,8 @@ def select_candidates(
 
         scores = _compute_marginal_scores(
             sample_graphs, case.demands,
-            backbone_ids, selected_ids, remaining, sample_indices
+            backbone_ids, selected_ids, remaining, sample_indices,
+            parallel_eval=config.parallel_eval,
         )
 
         # Pick best: highest total, then highest worst-demand, then deterministic id

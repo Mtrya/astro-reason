@@ -229,7 +229,7 @@ def sequential_rounding(
     Commodities are processed in decreasing weight order.  Edge capacities
     are updated after each fixation.  Node capacities in the instance are
     present but not consumed in this implementation (they are reserved for
-    future action-generation phases where degree caps must be respected at
+    future action-generation stages where degree caps must be respected at
     the action level).
 
     Returns (assignments, timing) where timing contains ``path_generation_s``

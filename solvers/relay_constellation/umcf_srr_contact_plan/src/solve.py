@@ -1,4 +1,4 @@
-"""Main solver entrypoint for UMCF/SRR contact-plan scaffold."""
+"""Main solver entrypoint for UMCF/SRR contact-plan solver."""
 
 from __future__ import annotations
 
@@ -54,7 +54,7 @@ def solve(
     solution_dir: str | Path,
     config_dir: str | Path = "",
 ) -> dict[str, Any]:
-    """Run the solver scaffold: parse, generate candidates, build graphs, select candidates, emit solution."""
+    """Run the solver: parse, generate candidates, build graphs, select candidates, emit solution."""
     t0 = time.perf_counter()
 
     # 1. Parse case
@@ -373,7 +373,7 @@ def solve(
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="UMCF/SRR contact-plan solver scaffold")
+    parser = argparse.ArgumentParser(description="UMCF/SRR contact-plan solver")
     parser.add_argument("--case-dir", required=True, help="Path to benchmark case directory")
     parser.add_argument("--config-dir", default="", help="Optional config directory")
     parser.add_argument("--solution-dir", default="solution", help="Output directory for solution artifacts")
