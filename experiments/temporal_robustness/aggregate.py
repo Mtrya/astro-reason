@@ -211,7 +211,21 @@ def _group_summary(rows: list[dict[str, Any]]) -> dict[str, Any]:
     }
 
 
-def _paired_deltas(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
+def _paired_split_family(config: dict[str, Any], config_path: Path) -> tuple[str, str]:
+    splits = config.get("splits")
+    if not isinstance(splits, list) or len(splits) != 2 or any(not isinstance(split, str) for split in splits):
+        raise SystemExit(
+            f"Temporal robustness aggregation requires exactly two configured splits: {config_path}"
+        )
+    return splits[0], splits[1]
+
+
+def _paired_deltas(
+    rows: list[dict[str, Any]],
+    *,
+    baseline_split: str,
+    shifted_split: str,
+) -> list[dict[str, Any]]:
     by_key = {
         (str(row["harness"]), str(row["split"]), str(row["case_id"])): row
         for row in rows
@@ -221,8 +235,8 @@ def _paired_deltas(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
     deltas: list[dict[str, Any]] = []
     for harness in harnesses:
         for case_id in case_ids:
-            baseline = by_key.get((harness, "test", case_id))
-            shifted = by_key.get((harness, "test_horizon_2022", case_id))
+            baseline = by_key.get((harness, baseline_split, case_id))
+            shifted = by_key.get((harness, shifted_split, case_id))
             row: dict[str, Any] = {
                 "harness": harness,
                 "case_id": case_id,
@@ -258,7 +272,8 @@ def main(argv: list[str] | None = None) -> int:
     config = _load_config(config_path)
     rows = _records(config, config_path)
     summary = _summary(rows)
-    deltas = _paired_deltas(rows)
+    baseline_split, shifted_split = _paired_split_family(config, config_path)
+    deltas = _paired_deltas(rows, baseline_split=baseline_split, shifted_split=shifted_split)
     aggregate_dir = _aggregate_dir(config, config_path)
     aggregate_dir.mkdir(parents=True, exist_ok=True)
     (aggregate_dir / "summary.json").write_text(

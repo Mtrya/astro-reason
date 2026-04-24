@@ -13,7 +13,14 @@ commands:
     opencode run --dangerously-skip-permissions "$(cat ~/PROMPT.md)"
 
 collect:
-  - source: /home/korolev/.config/opencode
-    target: results_root/session_logs
+  - source: /home/korolev/.config/opencode/sessions
+    target: results_root/session_logs/opencode/sessions
+    missing_ok: true
+  - source: /home/korolev/.config/opencode/history.jsonl
+    target: results_root/session_logs/opencode/history.jsonl
+    missing_ok: true
+  - source: /home/korolev/.config/opencode/log
+    target: results_root/session_logs/opencode/log
+    missing_ok: true
 
 forward_env_keys: []

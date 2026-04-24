@@ -249,11 +249,22 @@ def _batch_settings(data: dict[str, Any], path: Path) -> BatchSettings:
     )
 
 
+def _positive_int(value: Any, field: str, path: Path) -> int:
+    try:
+        parsed = int(value)
+    except (TypeError, ValueError) as exc:
+        raise SystemExit(f"{field} must be a positive integer: {path}") from exc
+    if parsed <= 0:
+        raise SystemExit(f"{field} must be a positive integer: {path}")
+    return parsed
+
+
 def load_family_config(path: Path) -> FamilyConfig:
     data = _load_yaml(path, "Family config")
     mode = _require_str(data, "mode", "Family config", path)
     if mode != "batch":
         raise SystemExit(f"Expected batch config, found mode={mode!r}: {path}")
+    timeout_seconds = _positive_int(data.get("timeout_seconds", 7200), "timeout_seconds", path)
     return FamilyConfig(
         name=_require_str(data, "name", "Family config", path),
         mode=mode,
@@ -261,7 +272,7 @@ def load_family_config(path: Path) -> FamilyConfig:
         splits=_string_tuple(data, "splits", "Family config", path),
         cases=_string_tuple(data, "cases", "Family config", path),
         harnesses=_string_tuple(data, "harnesses", "Family config", path),
-        timeout_seconds=int(data.get("timeout_seconds", 7200)),
+        timeout_seconds=timeout_seconds,
         batch=_batch_settings(data, path),
         resources=_resource_limits(data),
         results=_result_settings(data, path),
@@ -274,6 +285,7 @@ def load_interactive_config(path: Path) -> InteractiveConfig:
     mode = _require_str(data, "mode", "Interactive config", path)
     if mode != "interactive":
         raise SystemExit(f"Expected interactive config, found mode={mode!r}: {path}")
+    timeout_seconds = _positive_int(data.get("timeout_seconds", 7200), "timeout_seconds", path)
     return InteractiveConfig(
         name=_require_str(data, "name", "Interactive config", path),
         mode=mode,
@@ -281,7 +293,7 @@ def load_interactive_config(path: Path) -> InteractiveConfig:
         split=_require_str(data, "split", "Interactive config", path),
         case_id=_require_str(data, "case", "Interactive config", path),
         harnesses=_string_tuple(data, "harnesses", "Interactive config", path),
-        timeout_seconds=int(data.get("timeout_seconds", 7200)),
+        timeout_seconds=timeout_seconds,
         resources=_resource_limits(data),
         results=_result_settings(data, path),
         config_path=path.resolve(),
@@ -938,7 +950,7 @@ def _run_item_with_retries(item: RunItem, batch: BatchSettings) -> RunResult:
     for attempt in range(1, attempts + 1):
         try:
             result = _run_item(item)
-        except BaseException as exc:
+        except Exception as exc:
             output_dir = _output_dir(item)
             _write_runner_error(item, output_dir, exc)
             result = RunResult(overall_status="runner_error", skipped=False, output_dir=output_dir)
@@ -968,7 +980,7 @@ def _build_items(
         if max_concurrency_override <= 0:
             raise SystemExit("--max-concurrency must be positive")
         config = replace(config, batch=replace(config.batch, max_concurrency=max_concurrency_override))
-    effective_timeout = timeout_override or config.timeout_seconds
+    effective_timeout = _positive_int(timeout_override, "--timeout", config.config_path) if timeout_override is not None else config.timeout_seconds
     selected_splits = _select(config.splits, splits, "split")
     selected_cases = _select(config.cases, cases, "case")
     selected_harnesses = _select(config.harnesses, harnesses, "harness")
@@ -1105,7 +1117,7 @@ def _run_batch(args: argparse.Namespace) -> int:
             completed += 1
             try:
                 result = future.result()
-            except BaseException as exc:
+            except Exception as exc:
                 output_dir = _output_dir(item)
                 _write_runner_error(item, output_dir, exc)
                 result = RunResult(overall_status="runner_error", skipped=False, output_dir=output_dir)
@@ -1116,6 +1128,27 @@ def _run_batch(args: argparse.Namespace) -> int:
             )
     print("Status counts: " + ", ".join(f"{key}={value}" for key, value in sorted(status_counts.items())))
     return 0
+
+
+def _reject_profile_target_collisions(profiles: tuple[HarnessProfile, ...]) -> None:
+    for label, specs_getter in (
+        ("assemble", lambda profile: profile.assemble),
+        ("collect", lambda profile: profile.collect),
+    ):
+        owners_by_target: dict[str, list[str]] = {}
+        for profile in profiles:
+            for spec in specs_getter(profile):
+                owners_by_target.setdefault(spec.target.as_posix(), []).append(profile.harness)
+        collisions = {
+            target: owners
+            for target, owners in owners_by_target.items()
+            if len(owners) > 1
+        }
+        if collisions:
+            lines = [f"Interactive {label} targets collide across selected harnesses:"]
+            for target, owners in sorted(collisions.items()):
+                lines.append(f"- {target}: {', '.join(owners)}")
+            raise SystemExit("\n".join(lines))
 
 
 def _run_interactive(args: argparse.Namespace) -> int:
@@ -1132,8 +1165,10 @@ def _run_interactive(args: argparse.Namespace) -> int:
     runtimes = {profile.runtime for profile in profiles}
     if len(runtimes) != 1:
         raise SystemExit("Interactive mode requires selected harnesses to share one runtime.")
+    _reject_profile_target_collisions(profiles)
     harness_identity = profiles[0].harness if len(profiles) == 1 else "all_harnesses"
     _validate_cases(config.benchmark, (split,), (case_id,))
+    all_env_keys = tuple(sorted({key for profile in profiles for key in profile.forward_env_keys}))
     representative = RunItem(
         config_name=config.config_path.stem,
         config_path=config.config_path,
@@ -1141,8 +1176,8 @@ def _run_interactive(args: argparse.Namespace) -> int:
         split=split,
         case_id=case_id,
         harness=harness_identity,
-        profile=profiles[0],
-        timeout_seconds=args.timeout or config.timeout_seconds,
+        profile=replace(profiles[0], forward_env_keys=all_env_keys),
+        timeout_seconds=_positive_int(args.timeout, "--timeout", config.config_path) if args.timeout is not None else config.timeout_seconds,
         resources=config.resources,
         results_root=config.results.root,
     )
@@ -1159,6 +1194,8 @@ def _run_interactive(args: argparse.Namespace) -> int:
         shutil.rmtree(workspace_dir)
     if runtime_dir.exists():
         shutil.rmtree(runtime_dir)
+    if output_dir.exists():
+        shutil.rmtree(output_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
     roots = _prepare_roots(workspace_dir, runtime_dir, output_dir)
     identity = _build_container_identity(runtime_dir)
