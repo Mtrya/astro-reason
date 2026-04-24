@@ -267,13 +267,14 @@ def _build_status(
         "paper_fidelity": {
             "reproduced_behavior": [
                 "sparse infeasibility graph over candidate observations",
+                "safe solver-local weighted-MWIS reductions before component search",
                 "exact solving on tiny components",
                 "bounded local improvement with insertions and 2-swaps",
                 "deterministic recombination over a bounded population",
                 "optional incumbent refinement time budget",
             ],
             "approximated_behavior": [
-                "no external ReduMIS binary or kernelization rules",
+                "no external ReduMIS backend",
                 "weighted benchmark objective instead of pure collect count",
                 "solver-local battery validation and repair remains outside graph edges",
             ],

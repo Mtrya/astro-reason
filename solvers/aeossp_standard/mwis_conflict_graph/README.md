@@ -39,7 +39,7 @@ This reproduction keeps that structure and adapts it to `aeossp_standard`:
 - same-satellite overlap edge: two observations overlap in time
 - same-satellite transition edge: the later observation does not leave enough slew-plus-settle time after the earlier one
 
-For small connected components, the solver searches exactly. For larger components, it builds deterministic greedy seeds, improves them with bounded local search, and refines the best incumbents with bounded recombination.
+Before component search, the solver applies a small deterministic weighted-MWIS reduction pass for isolated vertices and strict weighted domination. For small reduced components, the solver searches exactly. For larger reduced components, it builds deterministic greedy seeds, improves them with bounded local search, and refines the best incumbents with bounded recombination.
 
 ## Benchmark Adaptation
 
@@ -119,7 +119,7 @@ Key knobs:
 
 Use `total_time_budget_s` as the main fair-run runtime knob. Candidate generation and graph construction are accounted for before selection starts, and the remaining budget is passed into MWIS refinement. `time_limit_s` remains backward-compatible as a refinement-only cap; when both are set, the earlier deadline wins. If the budget is reached, the solver returns the best incumbent found so far and still performs local validation and repair.
 
-For hard cases, tune refinement effort with `max_local_passes`, `population_size`, and `recombination_rounds` inside the total budget. `graph_workers` can enable satellite-scoped graph-build workers while preserving deterministic edge sets. `status.json` reports the graph-build execution model, the effective selection budget, the deadline source, whether selection began after the total budget was consumed, and compact per-component stop reasons.
+For hard cases, tune refinement effort with `max_local_passes`, `population_size`, and `recombination_rounds` inside the total budget. `graph_workers` can enable satellite-scoped graph-build workers while preserving deterministic edge sets. `status.json` reports the graph-build execution model, the effective selection budget, the deadline source, whether selection began after the total budget was consumed, reduction counts, and compact per-component stop reasons.
 
 Repair defaults to incremental affected-satellite validation after the initial full pass. Set `enable_incremental_repair: false` to force repeated full validation for comparison. Repair status reports objective impact, removals by reason, validation time by iteration, incremental/full validation counts, and fallback count.
 
@@ -143,6 +143,7 @@ These are useful for answering:
 - which search path produced the incumbent
 - whether a time budget stopped refinement
 - which stop reason each component reported
+- how much each component shrank under safe MWIS reductions
 - how much objective and validation time repair consumed
 - why a candidate was removed during local repair
 
@@ -201,7 +202,7 @@ If raw graph selection looks strong but repair removes many actions, inspect the
 ## Known Limitations
 
 - This is a reproduction of the paper's method family, not a claim to reproduce every runtime or every table from the paper.
-- The solver does not call an external ReduMIS binary and does not implement the paper's reduction rules.
+- The solver implements only a small safe weighted-MWIS reduction subset and does not call an external ReduMIS backend.
 - Battery feasibility is handled by solver-local validation and repair instead of being fully encoded as graph conflicts.
 - Full multi-case tuning may be more practical on a server than on a development laptop.
 

@@ -47,6 +47,9 @@ from solvers.aeossp_standard.mwis_conflict_graph.src.mwis import (  # noqa: E402
     solve_exact_component,
     validate_independent_set,
 )
+from solvers.aeossp_standard.mwis_conflict_graph.src.reduction import (  # noqa: E402
+    reduce_component,
+)
 from solvers.aeossp_standard.mwis_conflict_graph.src.solution_io import (  # noqa: E402
     candidates_to_actions,
 )
@@ -685,6 +688,170 @@ def test_exact_tiny_component_prefers_higher_total_weight() -> None:
     ) == {"b", "c"}
 
 
+def test_reduction_includes_isolated_nonnegative_vertices() -> None:
+    candidates = [
+        _candidate("isolated", task_id="task_isolated", weight=0.0),
+        _candidate("left", task_id="task_left", weight=3.0),
+        _candidate("right", task_id="task_right", weight=3.0),
+    ]
+    candidate_by_id = {candidate.candidate_id: candidate for candidate in candidates}
+    adjacency = {
+        "isolated": set(),
+        "left": {"right"},
+        "right": {"left"},
+    }
+
+    reduction = reduce_component(
+        ["isolated", "left", "right"],
+        candidate_by_id,
+        adjacency,
+    )
+
+    assert reduction.active_component == ["left", "right"]
+    assert reduction.included_ids == {"isolated"}
+    assert reduction.reconstruct({"right"}) == {"isolated", "right"}
+    assert reduction.stats.as_dict() == {
+        "original_component_size": 3,
+        "reduced_component_size": 2,
+        "included_by_reduction_count": 1,
+        "removed_by_reduction_count": 0,
+        "rule_counts": {"isolated_vertex_include": 1},
+    }
+
+
+def test_reduction_removes_strict_weighted_dominated_vertex() -> None:
+    candidates = [
+        _candidate("heavy", task_id="task_heavy", weight=5.0),
+        _candidate("light", task_id="task_light", weight=3.0),
+        _candidate("shared", task_id="task_shared", weight=2.0),
+        _candidate("outside", task_id="task_outside", weight=1.0),
+        _candidate("blocker", task_id="task_blocker", weight=1.0),
+    ]
+    candidate_by_id = {candidate.candidate_id: candidate for candidate in candidates}
+    adjacency = {
+        "heavy": {"light", "shared", "blocker"},
+        "light": {"heavy", "shared", "outside", "blocker"},
+        "shared": {"heavy", "light"},
+        "outside": {"light"},
+        "blocker": {"heavy", "light"},
+    }
+
+    reduction = reduce_component(
+        ["heavy", "light", "shared", "outside", "blocker"],
+        candidate_by_id,
+        adjacency,
+    )
+
+    assert "light" not in reduction.active_component
+    assert reduction.removed_ids == {"light"}
+    assert reduction.stats.rule_counts == {
+        "isolated_vertex_include": 1,
+        "strict_weighted_dominated_vertex_remove": 1,
+    }
+
+
+def test_reduction_keeps_equal_weight_dominated_vertex_for_tie_stability() -> None:
+    candidates = [
+        _candidate("alpha", task_id="task_alpha", weight=5.0),
+        _candidate("beta", task_id="task_beta", weight=5.0),
+        _candidate("shared", task_id="task_shared", weight=5.0),
+    ]
+    candidate_by_id = {candidate.candidate_id: candidate for candidate in candidates}
+    adjacency = {
+        "alpha": {"beta", "shared"},
+        "beta": {"alpha", "shared"},
+        "shared": {"alpha", "beta"},
+    }
+
+    reduction = reduce_component(
+        ["alpha", "beta", "shared"],
+        candidate_by_id,
+        adjacency,
+    )
+
+    assert reduction.active_component == ["alpha", "beta", "shared"]
+    assert reduction.removed_ids == set()
+    assert reduction.stats.removed_by_reduction_count == 0
+
+
+def test_reduced_exact_selection_matches_direct_exact_solution() -> None:
+    candidates = [
+        _candidate("isolated", task_id="task_isolated", weight=1.0, start_offset_s=5),
+        _candidate("heavy", task_id="task_heavy", weight=7.0, start_offset_s=10),
+        _candidate("light", task_id="task_light", weight=3.0, start_offset_s=15),
+        _candidate("shared", task_id="task_shared", weight=4.0, start_offset_s=20),
+        _candidate("tail", task_id="task_tail", weight=2.0, start_offset_s=25),
+    ]
+    candidate_by_id = {candidate.candidate_id: candidate for candidate in candidates}
+    adjacency = {
+        "isolated": set(),
+        "heavy": {"light", "shared"},
+        "light": {"heavy", "shared", "tail"},
+        "shared": {"heavy", "light"},
+        "tail": {"light"},
+    }
+    component = ["isolated", "heavy", "light", "shared", "tail"]
+
+    direct = solve_exact_component(
+        component,
+        candidate_by_id,
+        adjacency,
+        policy="weight_degree_end",
+    )
+    reduction = reduce_component(component, candidate_by_id, adjacency)
+    reduced = solve_exact_component(
+        reduction.active_component,
+        candidate_by_id,
+        adjacency,
+        policy="weight_degree_end",
+    )
+
+    assert reduction.reconstruct(reduced) == direct
+
+
+def test_reduced_exact_matches_direct_exact_on_small_generated_graphs() -> None:
+    graph_shapes = [
+        set(),
+        {("a", "b")},
+        {("a", "b"), ("b", "c")},
+        {("a", "b"), ("a", "c"), ("b", "c")},
+        {("a", "b"), ("a", "c"), ("b", "d"), ("c", "d")},
+    ]
+    weights = {
+        "a": 5.0,
+        "b": 3.0,
+        "c": 4.0,
+        "d": 2.0,
+    }
+    candidates = [
+        _candidate(candidate_id, task_id=f"task_{candidate_id}", weight=weight)
+        for candidate_id, weight in weights.items()
+    ]
+    candidate_by_id = {candidate.candidate_id: candidate for candidate in candidates}
+    component = ["a", "b", "c", "d"]
+
+    for edge_set in graph_shapes:
+        adjacency = {candidate_id: set() for candidate_id in component}
+        for left, right in edge_set:
+            adjacency[left].add(right)
+            adjacency[right].add(left)
+        direct = solve_exact_component(
+            component,
+            candidate_by_id,
+            adjacency,
+            policy="weight_degree_end",
+        )
+        reduction = reduce_component(component, candidate_by_id, adjacency)
+        reduced = solve_exact_component(
+            reduction.active_component,
+            candidate_by_id,
+            adjacency,
+            policy="weight_degree_end",
+        )
+
+        assert reduction.reconstruct(reduced) == direct
+
+
 def test_greedy_selection_is_deterministic_when_exact_disabled() -> None:
     candidates = [
         _candidate("late", task_id="task_late", start_offset_s=20, end_offset_s=30, weight=5.0),
@@ -713,6 +880,10 @@ def test_greedy_selection_is_deterministic_when_exact_disabled() -> None:
 
     assert [candidate.candidate_id for candidate in selected] == ["low", "early"]
     assert stats.independent_set_valid
+    assert stats.included_by_reduction_count == 1
+    assert stats.as_dict()["component_search"][0]["reduction_rule_counts"] == {
+        "isolated_vertex_include": 1,
+    }
 
 
 def test_mwis_config_allows_non_default_selection_policy() -> None:
@@ -906,8 +1077,12 @@ def test_time_budget_returns_valid_baseline_incumbent() -> None:
     assert stats.effective_time_limit_s == 0.0
     assert stats.deadline_source == "time_limit_s"
     assert stats.selection_started_after_deadline
-    assert stats.as_dict()["component_stop_reasons"]["time_limit"] == 2
-    assert stats.as_dict()["component_search"][0]["stop_reason"] == "time_limit"
+    assert stats.as_dict()["component_stop_reasons"]["time_limit"] == 1
+    assert stats.as_dict()["component_stop_reasons"]["exact"] == 1
+    assert stats.as_dict()["component_search"][0]["stop_reason"] == "exact"
+    assert stats.as_dict()["component_search"][0]["reduction_rule_counts"] == {
+        "isolated_vertex_include": 1,
+    }
 
 
 def test_total_budget_deadline_bounds_mwis_refinement() -> None:
