@@ -1,4 +1,4 @@
-"""Reproducible download and staging for stereo_imaging v3 source data."""
+"""Reproducible download and staging for stereo_imaging source data."""
 
 from __future__ import annotations
 
@@ -12,13 +12,13 @@ from typing import Any
 
 import kagglehub
 
-from . import cached_tles
+from . import satellite_catalog
 from .normalize import WORLD_CITIES_REQUIRED_COLUMNS, parse_tle_text
 
 CELESTRAK_EARTH_RESOURCES_URL = (
     "https://celestrak.org/NORAD/elements/gp.php?GROUP=resource&FORMAT=tle"
 )
-CELESTRAK_SNAPSHOT_EPOCH_UTC = "2026-04-06T00:00:00Z"
+CELESTRAK_SNAPSHOT_EPOCH_UTC = "2026-04-24T00:00:00Z"
 CELESTRAK_RAW_NAME = "earth_resources_raw.tle"
 CELESTRAK_CSV_NAME = "earth_resources.csv"
 
@@ -79,7 +79,7 @@ class SourceFetchResult:
 
 
 def download_celestrak(dest_dir: Path, *, force_download: bool) -> SourceFetchResult:
-    """Write normalized CelesTrak-format TLE CSV from `cached_tles` (no live HTTP fetch)."""
+    """Write normalized CelesTrak-format TLE CSV from the vendored satellite catalog."""
     del force_download  # Kept for API parity with `download_world_cities`; TLEs are always vendored.
 
     cele_dir = dest_dir / "celestrak"
@@ -87,7 +87,7 @@ def download_celestrak(dest_dir: Path, *, force_download: bool) -> SourceFetchRe
     csv_path = cele_dir / CELESTRAK_CSV_NAME
     cele_dir.mkdir(parents=True, exist_ok=True)
 
-    rows = list(cached_tles.CACHED_CELESTRAK_ROWS)
+    rows = list(satellite_catalog.CACHED_CELESTRAK_ROWS)
     lines: list[str] = []
     for row in rows:
         lines.extend([row["name"], row["tle_line1"], row["tle_line2"]])

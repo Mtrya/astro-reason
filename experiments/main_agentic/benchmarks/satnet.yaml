@@ -6,8 +6,8 @@ assemble:
     render: true
   - source: benchmarks/{benchmark}/dataset/cases/{split}/{case_id}
     target: /app/workspace/case
-  - source: benchmarks/{benchmark}/verifier.py
-    target: /app/workspace/verifier.py
+  - source: experiments/_fragments/opaque_verifiers/artifacts/{benchmark}/verifier
+    target: /app/workspace/verifier
   - source: experiments/_fragments/prompts/satnet/PROMPT.default.md
     target: /home/korolev/PROMPT.md
     render: true

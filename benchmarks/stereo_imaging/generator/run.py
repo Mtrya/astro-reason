@@ -74,7 +74,7 @@ def _write_provenance(
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(
         description=(
-            "Stereo imaging v3 generator: stage runtime sources (vendored CelesTrak-format TLEs; "
+            "Stereo imaging v4 generator: stage runtime sources (vendored CelesTrak-format TLEs; "
             "Kaggle world-cities when needed), then emit the canonical dataset "
             "(dataset/cases/<split>/, index.json, example_solution.json)."
         )
@@ -157,7 +157,7 @@ def main(argv: list[str] | None = None) -> int:
         source_config=config["source"],
         git_revision=rev,
     )
-    print(f"Canonical v3 dataset written under {dataset_dir / 'cases'}")
+    print(f"Canonical v4 dataset written under {dataset_dir / 'cases'}")
     print(f"Wrote {dataset_dir / 'index.json'} and {dataset_dir / 'example_solution.json'}")
     return 0
 

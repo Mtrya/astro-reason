@@ -5,6 +5,8 @@ assemble:
   - source: experiments/_fragments/configs/gemini_cli/.gemini
     target: /home/korolev/.gemini
     example: experiments/_fragments/configs/gemini_cli/.gemini.example
+  - source: .agents/skills/brahe
+    target: /home/korolev/.gemini/skills/brahe
 
 commands:
   headless_shell_command: >-
@@ -27,3 +29,4 @@ notes:
   - Gemini CLI spreads state across /home/korolev/.gemini/tmp, /home/korolev/.gemini/history, and /home/korolev/.gemini/antigravity; this profile collects the most run-relevant parts without copying the browser-profile cache.
   - Headless Gemini runs should pass --yolo explicitly; unlike Kimi print mode, Gemini headless mode does not imply blanket approval by default.
   - Gemini auth usually lives in environment variables or cached Google login state rather than in settings.json. If OAuth is used, the runner will likely need to mount more than settings.json.
+  - The Brahe skill is assembled into /home/korolev/.gemini/skills/brahe for native skill discovery.

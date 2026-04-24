@@ -1,0 +1,49 @@
+exposure: none
+
+workspace_verifier:
+  exposed: false
+  kind: none
+  location: Verifier is not exposed in this workspace.
+  command: No verifier helper is available in this workspace.
+
+assemble:
+  - source: experiments/_fragments/prompts/relay_constellation/README.verifier_exposure_none.md
+    target: /app/workspace/README.md
+    render: true
+  - source: benchmarks/{benchmark}/dataset/cases/{split}/{case_id}
+    target: /app/workspace/case
+  - source: experiments/_fragments/prompts/relay_constellation/PROMPT.default.md
+    target: /home/korolev/PROMPT.md
+    render: true
+  - source: experiments/_fragments/prompts/_shared/AGENTS.main_agentic.default.md
+    target: /app/workspace/AGENTS.md
+    render: true
+  - source: experiments/_fragments/configs/codex/.codex
+    target: /home/korolev/.codex
+    example: experiments/_fragments/configs/codex/.codex.example
+  - source: .agents/skills/brahe
+    target: /home/korolev/.codex/skills/brahe
+
+collect:
+  - source: /home/korolev/.codex/sessions
+    target: results_root/session_logs/sessions
+    missing_ok: true
+  - source: /home/korolev/.codex/session_index.jsonl
+    target: results_root/session_logs/session_index.jsonl
+    missing_ok: true
+  - source: /home/korolev/.codex/history.jsonl
+    target: results_root/session_logs/history.jsonl
+    missing_ok: true
+  - source: /home/korolev/.codex/log
+    target: results_root/session_logs/log
+    missing_ok: true
+
+forward_env_keys:
+  - AR_OPENAI_API_KEY
+
+commands:
+  headless_shell_command: >-
+    codex exec --dangerously-bypass-approvals-and-sandbox
+    --skip-git-repo-check
+    --cd /app/workspace
+    "$(cat ~/PROMPT.md)"
