@@ -1,18 +1,16 @@
-name: verifier_exposure
+name: temporal_robustness
 mode: batch
 
-benchmark: relay_constellation
-split: test
+benchmark: aeossp_standard
+splits:
+  - test
+  - test_horizon_2022
 cases:
   - case_0001
   - case_0002
   - case_0003
   - case_0004
   - case_0005
-exposures:
-  - transparent
-  - opaque
-  - none
 harnesses:
   - codex
   - opencode_dpsk
@@ -34,5 +32,5 @@ resources:
   shm_size: 16g
 
 results:
-  root: results/agent_runs/experiments/verifier_exposure
+  root: results/agent_runs/experiments/temporal_robustness
   aggregate_dir: summaries

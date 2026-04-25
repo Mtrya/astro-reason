@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Run the verifier-exposure ablation experiment."""
+"""Run the AEOSSP temporal robustness ablation."""
 
 from __future__ import annotations
 
@@ -28,26 +28,26 @@ INTERACTIVE_CONFIG = FAMILY_DIR / "configs" / "interactive.yaml"
 WORKSPACE_MOUNT = Path("/app/workspace")
 OUTPUT_MOUNT = Path("/app/run/output")
 CONTAINER_HOME = Path("/home/korolev")
-PLACEHOLDER_PATTERN = re.compile(r"\{([A-Za-z_][A-Za-z0-9_]*)\}")
+INTERACTIVE_WORKSPACES_ROOT = REPO_ROOT / ".runtime" / "interactive_workspaces"
 OPAQUE_ARTIFACT_ROOT = REPO_ROOT / "experiments" / "_fragments" / "opaque_verifiers" / "artifacts"
 OPAQUE_BUILD_SCRIPT = REPO_ROOT / "experiments" / "_fragments" / "opaque_verifiers" / "build.py"
-INTERACTIVE_WORKSPACES_ROOT = REPO_ROOT / ".runtime" / "interactive_workspaces"
+PLACEHOLDER_PATTERN = re.compile(r"\{([A-Za-z_][A-Za-z0-9_]*)\}")
 
 
 @dataclass(frozen=True)
 class AssembleSpec:
     source: Path
     target: Path
-    render: bool
-    missing_ok: bool
-    example: Path | None
+    render: bool = False
+    missing_ok: bool = False
+    example: Path | None = None
 
 
 @dataclass(frozen=True)
 class CollectSpec:
     source: Path
     target: Path
-    missing_ok: bool
+    missing_ok: bool = True
 
 
 @dataclass(frozen=True)
@@ -76,13 +76,12 @@ class FamilyConfig:
     name: str
     mode: str
     benchmark: str
-    split: str
+    splits: tuple[str, ...]
     cases: tuple[str, ...]
-    exposures: tuple[str, ...]
     harnesses: tuple[str, ...]
     timeout_seconds: int
-    resources: ResourceLimits
     batch: BatchSettings
+    resources: ResourceLimits
     results: ResultSettings
     config_path: Path
 
@@ -94,27 +93,11 @@ class InteractiveConfig:
     benchmark: str
     split: str
     case_id: str
-    exposure: str
     harnesses: tuple[str, ...]
     timeout_seconds: int
     resources: ResourceLimits
-    results_root: Path
+    results: ResultSettings
     config_path: Path
-
-
-@dataclass(frozen=True)
-class ExposureProfile:
-    exposure: str
-    runtime: str
-    verifier_exposed: bool
-    verifier_kind: str
-    verifier_location: str
-    verifier_command: str
-    assemble: tuple[AssembleSpec, ...]
-    collect: tuple[CollectSpec, ...]
-    forward_env_keys: tuple[str, ...]
-    headless_shell_command: str
-    profile_path: Path
 
 
 @dataclass(frozen=True)
@@ -139,14 +122,26 @@ class RunItem:
     config_name: str
     config_path: Path
     benchmark: str
-    harness: str
-    exposure: str
     split: str
     case_id: str
+    harness: str
+    profile: HarnessProfile
     timeout_seconds: int
     resources: ResourceLimits
     results_root: Path
-    profile: ExposureProfile
+
+
+@dataclass(frozen=True)
+class MountRoots:
+    workspace: Path
+    home: Path
+    output: Path
+
+
+@dataclass(frozen=True)
+class ContainerIdentity:
+    passwd_file: Path
+    group_file: Path
 
 
 @dataclass(frozen=True)
@@ -157,18 +152,17 @@ class RunResult:
 
 
 def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
-    parser = argparse.ArgumentParser(description="Run the verifier-exposure ablation")
-    parser.add_argument("--config", type=Path, help="Override the default config path.")
+    parser = argparse.ArgumentParser(description="Run the temporal robustness ablation")
+    parser.add_argument("--config", type=Path, help="Override the family config path.")
     parser.add_argument("--interactive", action="store_true", help="Prepare one interactive workspace.")
-    parser.add_argument("--exposure", action="append", default=[], help="Limit to an exposure tier.")
-    parser.add_argument("--case", action="append", default=[], help="Limit to a case id.")
-    parser.add_argument("--harness", action="append", default=[], help="Limit to a harness.")
-    parser.add_argument("--split", help="Override the configured split.")
-    parser.add_argument("--timeout", type=int, help="Override the configured timeout in seconds.")
+    parser.add_argument("--split", action="append", default=[], help="Limit to a split. May be repeated.")
+    parser.add_argument("--case", action="append", default=[], help="Limit to a case id. May be repeated.")
+    parser.add_argument("--harness", action="append", default=[], help="Limit to a harness. May be repeated.")
+    parser.add_argument("--timeout", type=int, help="Override configured timeout seconds.")
     parser.add_argument("--max-concurrency", type=int, help="Override batch.max_concurrency.")
     parser.add_argument("--rerun-status", action="append", default=[], help="Rerun stored statuses.")
-    parser.add_argument("--no-skip-completed", action="store_true", help="Run selected items regardless of stored status.")
-    parser.add_argument("--dry-run", action="store_true", help="Preview the selected work without executing it.")
+    parser.add_argument("--no-skip-completed", action="store_true", help="Run selected items regardless of status.")
+    parser.add_argument("--dry-run", action="store_true", help="Preview selected work without executing it.")
     return parser.parse_args(argv)
 
 
@@ -189,17 +183,22 @@ def _require_str(data: dict[str, Any], key: str, label: str, path: Path) -> str:
 
 
 def _string_tuple(data: dict[str, Any], key: str, label: str, path: Path) -> tuple[str, ...]:
-    value = data.get(key, [])
+    value = data.get(key)
     if not isinstance(value, list) or any(not isinstance(item, str) or not item for item in value):
         raise SystemExit(f"{label}.{key} must be a list of non-empty strings: {path}")
     return tuple(value)
 
 
-def _required_string_tuple(data: dict[str, Any], key: str, label: str, path: Path) -> tuple[str, ...]:
-    value = _string_tuple(data, key, label, path)
-    if not value:
-        raise SystemExit(f"{label}.{key} must contain at least one item: {path}")
-    return value
+def _repo_path(path_text: str) -> Path:
+    path = Path(path_text)
+    return path.resolve() if path.is_absolute() else (REPO_ROOT / path).resolve()
+
+
+def _container_path(path_text: str) -> Path:
+    path = Path(path_text)
+    if not path.is_absolute():
+        raise SystemExit(f"Container path must be absolute: {path_text}")
+    return path
 
 
 def _resource_limits(data: dict[str, Any]) -> ResourceLimits:
@@ -219,16 +218,14 @@ def _result_settings(data: dict[str, Any], path: Path) -> ResultSettings:
     raw = data.get("results")
     if not isinstance(raw, dict):
         raise SystemExit(f"results must be a mapping: {path}")
-    root = _resolve_repo_path(_require_str(raw, "root", "results", path))
+    root = _repo_path(_require_str(raw, "root", "results", path))
     aggregate_text = raw.get("aggregate_dir", "summaries")
     if not isinstance(aggregate_text, str) or not aggregate_text:
         raise SystemExit(f"results.aggregate_dir must be a non-empty string: {path}")
     aggregate_dir = Path(aggregate_text)
     if not aggregate_dir.is_absolute():
         aggregate_dir = root / aggregate_dir
-    else:
-        aggregate_dir = aggregate_dir.resolve()
-    return ResultSettings(root=root, aggregate_dir=aggregate_dir)
+    return ResultSettings(root=root, aggregate_dir=aggregate_dir.resolve())
 
 
 def _batch_settings(data: dict[str, Any], path: Path) -> BatchSettings:
@@ -238,14 +235,17 @@ def _batch_settings(data: dict[str, Any], path: Path) -> BatchSettings:
     max_concurrency = int(raw.get("max_concurrency", 1))
     max_retries = int(raw.get("max_retries", 0))
     if max_concurrency <= 0:
-        raise SystemExit(f"batch.max_concurrency must be positive: {path}")
+        raise SystemExit("batch.max_concurrency must be positive")
     if max_retries < 0:
-        raise SystemExit(f"batch.max_retries must be non-negative: {path}")
+        raise SystemExit("batch.max_retries must be non-negative")
+    retry_statuses = raw.get("retry_statuses", [])
+    if not isinstance(retry_statuses, list):
+        raise SystemExit("batch.retry_statuses must be a list")
     return BatchSettings(
         max_concurrency=max_concurrency,
         max_retries=max_retries,
         skip_completed=bool(raw.get("skip_completed", True)),
-        retry_statuses=tuple(str(item) for item in raw.get("retry_statuses", [])),
+        retry_statuses=tuple(str(item) for item in retry_statuses),
     )
 
 
@@ -261,83 +261,60 @@ def _positive_int(value: Any, field: str, path: Path) -> int:
 
 def load_family_config(path: Path) -> FamilyConfig:
     data = _load_yaml(path, "Family config")
-    results = _result_settings(data, path)
+    mode = _require_str(data, "mode", "Family config", path)
+    if mode != "batch":
+        raise SystemExit(f"Expected batch config, found mode={mode!r}: {path}")
+    timeout_seconds = _positive_int(data.get("timeout_seconds", 7200), "timeout_seconds", path)
     return FamilyConfig(
         name=_require_str(data, "name", "Family config", path),
-        mode=_require_str(data, "mode", "Family config", path),
+        mode=mode,
         benchmark=_require_str(data, "benchmark", "Family config", path),
-        split=_require_str(data, "split", "Family config", path),
+        splits=_string_tuple(data, "splits", "Family config", path),
         cases=_string_tuple(data, "cases", "Family config", path),
-        exposures=_string_tuple(data, "exposures", "Family config", path),
-        harnesses=_required_string_tuple(data, "harnesses", "Family config", path),
-        timeout_seconds=_positive_int(data.get("timeout_seconds", 7200), "timeout_seconds", path),
-        resources=_resource_limits(data),
+        harnesses=_string_tuple(data, "harnesses", "Family config", path),
+        timeout_seconds=timeout_seconds,
         batch=_batch_settings(data, path),
-        results=results,
+        resources=_resource_limits(data),
+        results=_result_settings(data, path),
         config_path=path.resolve(),
     )
 
 
 def load_interactive_config(path: Path) -> InteractiveConfig:
     data = _load_yaml(path, "Interactive config")
-    results_root = _result_settings(data, path).root
+    mode = _require_str(data, "mode", "Interactive config", path)
+    if mode != "interactive":
+        raise SystemExit(f"Expected interactive config, found mode={mode!r}: {path}")
+    timeout_seconds = _positive_int(data.get("timeout_seconds", 7200), "timeout_seconds", path)
     return InteractiveConfig(
         name=_require_str(data, "name", "Interactive config", path),
-        mode=_require_str(data, "mode", "Interactive config", path),
+        mode=mode,
         benchmark=_require_str(data, "benchmark", "Interactive config", path),
         split=_require_str(data, "split", "Interactive config", path),
         case_id=_require_str(data, "case", "Interactive config", path),
-        exposure=_require_str(data, "exposure", "Interactive config", path),
-        harnesses=_required_string_tuple(data, "harnesses", "Interactive config", path),
-        timeout_seconds=_positive_int(data.get("timeout_seconds", 3600), "timeout_seconds", path),
+        harnesses=_string_tuple(data, "harnesses", "Interactive config", path),
+        timeout_seconds=timeout_seconds,
         resources=_resource_limits(data),
-        results_root=results_root,
+        results=_result_settings(data, path),
         config_path=path.resolve(),
     )
 
 
-def _resolve_repo_path(path_text: str) -> Path:
-    path = Path(path_text)
-    if path.is_absolute():
-        return path
-    return (REPO_ROOT / path).resolve()
-
-
-def _parse_container_path(path_text: str) -> Path:
-    path = Path(path_text)
-    if not path.is_absolute():
-        raise SystemExit(f"Container target must be absolute: {path_text}")
-    return path
-
-
-def _render_template(value: str, replacements: dict[str, str]) -> str:
-    rendered = value
-    for key, replacement in replacements.items():
-        rendered = rendered.replace(f"{{{key}}}", replacement)
-    if "{" in rendered or "}" in rendered:
-        raise SystemExit(f"Unresolved placeholder in template: {value}")
-    return rendered
-
-
-def _parse_assemble(items: Any, path: Path, replacements: dict[str, str]) -> tuple[AssembleSpec, ...]:
+def _parse_assemble(items: Any, path: Path) -> tuple[AssembleSpec, ...]:
     if not isinstance(items, list):
         raise SystemExit(f"assemble must be a list: {path}")
     specs: list[AssembleSpec] = []
     for index, item in enumerate(items):
         if not isinstance(item, dict):
             raise SystemExit(f"assemble[{index}] must be a mapping: {path}")
-        source_text = _render_template(_require_str(item, "source", "assemble", path), replacements)
-        target_text = _render_template(_require_str(item, "target", "assemble", path), replacements)
         example_text = item.get("example")
         specs.append(
             AssembleSpec(
-                source=_resolve_repo_path(source_text),
-                target=_parse_container_path(target_text),
+                source=_repo_path(_require_str(item, "source", "assemble", path)),
+                target=_container_path(_require_str(item, "target", "assemble", path)),
                 render=bool(item.get("render", False)),
                 missing_ok=bool(item.get("missing_ok", False)),
-                example=_resolve_repo_path(_render_template(example_text, replacements))
-                if isinstance(example_text, str)
-                else None,
+                example=_repo_path(example_text) if isinstance(example_text, str) else None,
             )
         )
     return tuple(specs)
@@ -352,50 +329,12 @@ def _parse_collect(items: Any, path: Path) -> tuple[CollectSpec, ...]:
             raise SystemExit(f"collect[{index}] must be a mapping: {path}")
         specs.append(
             CollectSpec(
-                source=_parse_container_path(_require_str(item, "source", "collect", path)),
+                source=_container_path(_require_str(item, "source", "collect", path)),
                 target=Path(_require_str(item, "target", "collect", path)),
-                missing_ok=bool(item.get("missing_ok", False)),
+                missing_ok=bool(item.get("missing_ok", True)),
             )
         )
     return tuple(specs)
-
-
-def load_exposure_profile(
-    exposure: str,
-    *,
-    harness: str,
-    benchmark: str,
-    split: str,
-    case_id: str,
-) -> ExposureProfile:
-    path = FAMILY_DIR / "configs" / f"{exposure}.yaml"
-    data = _load_yaml(path, "Exposure profile")
-    profile_exposure = _require_str(data, "exposure", "Exposure profile", path)
-    if profile_exposure != exposure:
-        raise SystemExit(f"Exposure profile mismatch in {path}: {profile_exposure}")
-    verifier = data.get("workspace_verifier")
-    if not isinstance(verifier, dict):
-        raise SystemExit(f"workspace_verifier must be a mapping: {path}")
-    replacements = {
-        "benchmark": benchmark,
-        "split": split,
-        "case_id": case_id,
-        "exposure": exposure,
-    }
-    harness_profile = load_harness_profile(harness)
-    return ExposureProfile(
-        exposure=exposure,
-        runtime=harness_profile.runtime,
-        verifier_exposed=bool(verifier.get("exposed", False)),
-        verifier_kind=_require_str(verifier, "kind", "workspace_verifier", path),
-        verifier_location=_require_str(verifier, "location", "workspace_verifier", path),
-        verifier_command=_require_str(verifier, "command", "workspace_verifier", path),
-        assemble=(*_parse_assemble(data.get("assemble"), path, replacements), *harness_profile.assemble),
-        collect=harness_profile.collect,
-        forward_env_keys=harness_profile.forward_env_keys,
-        headless_shell_command=harness_profile.headless_shell_command,
-        profile_path=path.resolve(),
-    )
 
 
 def load_harness_profile(name: str) -> HarnessProfile:
@@ -413,7 +352,7 @@ def load_harness_profile(name: str) -> HarnessProfile:
     return HarnessProfile(
         harness=harness,
         runtime=_require_str(data, "runtime", "Harness profile", path),
-        assemble=_parse_assemble(data.get("assemble"), path, {}),
+        assemble=_parse_assemble(data.get("assemble"), path),
         collect=_parse_collect(data.get("collect", []), path),
         forward_env_keys=tuple(str(item) for item in forward_env_keys),
         headless_shell_command=_require_str(commands, "headless_shell_command", "commands", path),
@@ -424,10 +363,10 @@ def load_harness_profile(name: str) -> HarnessProfile:
 def load_runtime(name: str) -> RuntimeManifest:
     path = REPO_ROOT / "runtimes" / name / "runtime.yaml"
     data = _load_yaml(path, "Runtime manifest")
-    return RuntimeManifest(
-        name=_require_str(data, "name", "Runtime manifest", path),
-        image=_require_str(data, "image", "Runtime manifest", path),
-    )
+    runtime_name = _require_str(data, "name", "Runtime manifest", path)
+    if runtime_name != name:
+        raise SystemExit(f"Runtime manifest mismatch in {path}: {runtime_name}")
+    return RuntimeManifest(name=runtime_name, image=_require_str(data, "image", "Runtime manifest", path))
 
 
 def _select(configured: tuple[str, ...], requested: tuple[str, ...], label: str) -> tuple[str, ...]:
@@ -436,52 +375,141 @@ def _select(configured: tuple[str, ...], requested: tuple[str, ...], label: str)
     unknown = [item for item in requested if item not in configured]
     if unknown:
         raise SystemExit(f"Unknown {label}(s): {', '.join(unknown)}")
-    return tuple(item for item in configured if item in set(requested))
+    requested_set = set(requested)
+    return tuple(item for item in configured if item in requested_set)
 
 
 def _case_dir(benchmark: str, split: str, case_id: str) -> Path:
     return REPO_ROOT / "benchmarks" / benchmark / "dataset" / "cases" / split / case_id
 
 
-def _example_solution_name(benchmark: str, specs: tuple[AssembleSpec, ...]) -> str:
+def _validate_cases(benchmark: str, splits: tuple[str, ...], cases: tuple[str, ...]) -> None:
+    for split in splits:
+        for case_id in cases:
+            case_dir = _case_dir(benchmark, split, case_id)
+            if not case_dir.is_dir():
+                raise SystemExit(f"Case directory does not exist: {case_dir}")
+
+
+def _benchmark_assemble_specs(benchmark: str, split: str, case_id: str) -> tuple[AssembleSpec, ...]:
+    return (
+        AssembleSpec(
+            source=REPO_ROOT / "experiments" / "_fragments" / "prompts" / benchmark / "README.default.md",
+            target=WORKSPACE_MOUNT / "README.md",
+            render=True,
+        ),
+        AssembleSpec(source=_case_dir(benchmark, split, case_id), target=WORKSPACE_MOUNT / "case"),
+        AssembleSpec(
+            source=OPAQUE_ARTIFACT_ROOT / benchmark / "verifier",
+            target=WORKSPACE_MOUNT / "verifier",
+        ),
+        AssembleSpec(
+            source=REPO_ROOT / "experiments" / "_fragments" / "prompts" / benchmark / "PROMPT.default.md",
+            target=CONTAINER_HOME / "PROMPT.md",
+            render=True,
+        ),
+        AssembleSpec(
+            source=REPO_ROOT
+            / "experiments"
+            / "_fragments"
+            / "prompts"
+            / "_shared"
+            / "AGENTS.main_agentic.default.md",
+            target=WORKSPACE_MOUNT / "AGENTS.md",
+            render=True,
+        ),
+    )
+
+
+def _output_dir(item: RunItem) -> Path:
+    return item.results_root / item.config_name / item.split / item.benchmark / item.harness / item.case_id
+
+
+def _interactive_workspace_dir(config: InteractiveConfig, harness_identity: str, split: str, case_id: str) -> Path:
+    return (
+        INTERACTIVE_WORKSPACES_ROOT
+        / "experiments"
+        / "temporal_robustness"
+        / config.config_path.stem
+        / config.benchmark
+        / harness_identity
+        / split
+        / case_id
+    )
+
+
+def _interactive_output_dir(config: InteractiveConfig, harness_identity: str, split: str, case_id: str) -> Path:
+    return config.results.root / config.config_path.stem / split / config.benchmark / harness_identity / case_id
+
+
+def _relative(path: Path) -> str:
+    if path.is_relative_to(REPO_ROOT):
+        return path.relative_to(REPO_ROOT).as_posix()
+    return path.as_posix()
+
+
+def _opaque_benchmark(path: Path) -> str | None:
+    try:
+        relative = path.resolve().relative_to(OPAQUE_ARTIFACT_ROOT)
+    except ValueError:
+        return None
+    return relative.parts[0] if relative.parts else None
+
+
+def _opaque_rebuild_command(benchmark: str) -> str:
+    return (
+        "uv run python "
+        f"{OPAQUE_BUILD_SCRIPT.relative_to(REPO_ROOT).as_posix()} --benchmark {benchmark}"
+    )
+
+
+def _validate_opaque_artifact(path: Path) -> None:
+    benchmark = _opaque_benchmark(path)
+    if benchmark is None:
+        return
+    metadata_path = path.parent / "build.json"
+    if not metadata_path.exists():
+        raise SystemExit(
+            f"Opaque verifier metadata is missing: {metadata_path}. "
+            f"Rebuild it with: {_opaque_rebuild_command(benchmark)}"
+        )
+    try:
+        metadata = json.loads(metadata_path.read_text(encoding="utf-8"))
+    except json.JSONDecodeError as exc:
+        raise SystemExit(
+            f"Opaque verifier metadata is malformed: {metadata_path}. "
+            f"Rebuild it with: {_opaque_rebuild_command(benchmark)}"
+        ) from exc
+    if not isinstance(metadata, dict) or metadata.get("build_target") != "runtime_docker_image":
+        raise SystemExit(
+            f"Opaque verifier artifact is stale or host-built: {path}. "
+            f"Rebuild it with: {_opaque_rebuild_command(benchmark)}"
+        )
+
+
+def _example_solution_name(benchmark: str) -> str:
     dataset_dir = REPO_ROOT / "benchmarks" / benchmark / "dataset"
     for candidate in ("example_solution.json", "example_solution.yaml", "example_solution.yml"):
-        example = (dataset_dir / candidate).resolve()
-        if not example.exists():
-            continue
-        for spec in specs:
-            if spec.source == example:
-                try:
-                    return spec.target.relative_to(WORKSPACE_MOUNT).name
-                except ValueError:
-                    return example.name
+        if (dataset_dir / candidate).exists():
+            return candidate
     return "No example solution is provided for this workspace."
 
 
-def _template_context(
-    item: RunItem,
-    specs: tuple[AssembleSpec, ...],
-) -> dict[str, str]:
+def _template_context(item: RunItem) -> dict[str, str]:
     return {
         "benchmark": item.benchmark,
         "split": item.split,
         "case_id": item.case_id,
-        "exposure": item.exposure,
-        "example_solution_name": _example_solution_name(item.benchmark, specs),
-        "verifier_location": item.profile.verifier_location,
-        "verifier_command": item.profile.verifier_command,
+        "example_solution_name": _example_solution_name(item.benchmark),
+        "verifier_location": "verifier",
+        "verifier_command": "./verifier case/ solution.json",
     }
 
 
 def _safe_render(text: str, replacements: dict[str, str]) -> str:
-    missing: set[str] = set()
-
     def replace(match: re.Match[str]) -> str:
         key = match.group(1)
-        if key in replacements:
-            return replacements[key]
-        missing.add(key)
-        return match.group(0)
+        return replacements.get(key, match.group(0))
 
     return PLACEHOLDER_PATTERN.sub(replace, text)
 
@@ -499,10 +527,7 @@ def _copy_file_or_directory(source: Path, destination: Path, *, render: bool, co
         return
     destination.parent.mkdir(parents=True, exist_ok=True)
     if render:
-        destination.write_text(
-            _safe_render(source.read_text(encoding="utf-8"), context),
-            encoding="utf-8",
-        )
+        destination.write_text(_safe_render(source.read_text(encoding="utf-8"), context), encoding="utf-8")
     else:
         shutil.copy2(source, destination)
 
@@ -513,19 +538,6 @@ def _source_available(source: Path) -> bool:
     if source.is_dir():
         return any(source.iterdir())
     return True
-
-
-@dataclass(frozen=True)
-class MountRoots:
-    workspace: Path
-    home: Path
-    output: Path
-
-
-@dataclass(frozen=True)
-class ContainerIdentity:
-    passwd_file: Path
-    group_file: Path
 
 
 def _prepare_roots(workspace_dir: Path, runtime_dir: Path, output_dir: Path) -> MountRoots:
@@ -582,71 +594,20 @@ def _collect_target(target: Path, output_dir: Path) -> Path:
     raise SystemExit(f"Unsupported collect target root: {target}")
 
 
-def _relative(path: Path) -> str:
-    if path.is_relative_to(REPO_ROOT):
-        return path.relative_to(REPO_ROOT).as_posix()
-    return str(path)
-
-
-def _opaque_benchmark(path: Path) -> str | None:
-    try:
-        relative = path.resolve().relative_to(OPAQUE_ARTIFACT_ROOT)
-    except ValueError:
-        return None
-    return relative.parts[0] if relative.parts else None
-
-
-def _opaque_rebuild_command(benchmark: str) -> str:
-    return (
-        "uv run python "
-        f"{OPAQUE_BUILD_SCRIPT.relative_to(REPO_ROOT).as_posix()} --benchmark {benchmark}"
-    )
-
-
-def _validate_opaque_artifact(path: Path) -> None:
-    benchmark = _opaque_benchmark(path)
-    if benchmark is None:
-        return
-    metadata_path = path.parent / "build.json"
-    if not metadata_path.exists():
-        raise SystemExit(
-            f"Opaque verifier metadata is missing: {metadata_path}. "
-            f"Rebuild it with: {_opaque_rebuild_command(benchmark)}"
-        )
-    try:
-        metadata = json.loads(metadata_path.read_text(encoding="utf-8"))
-    except json.JSONDecodeError as exc:
-        raise SystemExit(
-            f"Opaque verifier metadata is malformed: {metadata_path}. "
-            f"Rebuild it with: {_opaque_rebuild_command(benchmark)}"
-        ) from exc
-    if not isinstance(metadata, dict) or metadata.get("build_target") != "runtime_docker_image":
-        raise SystemExit(
-            f"Opaque verifier artifact is stale or host-built: {path}. "
-            f"Rebuild it with: {_opaque_rebuild_command(benchmark)}"
-        )
-
-
-def _assemble_workspace(item: RunItem, roots: MountRoots) -> list[dict[str, Any]]:
+def _assemble_workspace(item: RunItem, roots: MountRoots, extra_specs: tuple[AssembleSpec, ...] = ()) -> list[dict[str, Any]]:
     records: list[dict[str, Any]] = []
-    context = _template_context(item, item.profile.assemble)
-    for spec in item.profile.assemble:
+    context = _template_context(item)
+    specs = (*_benchmark_assemble_specs(item.benchmark, item.split, item.case_id), *item.profile.assemble, *extra_specs)
+    for spec in specs:
         if not _source_available(spec.source):
             if spec.missing_ok:
-                records.append(
-                    {
-                        "source": _relative(spec.source),
-                        "target": spec.target.as_posix(),
-                        "present": False,
-                        "rendered": spec.render,
-                    }
-                )
+                records.append({"source": _relative(spec.source), "target": spec.target.as_posix(), "present": False})
                 continue
             opaque_benchmark = _opaque_benchmark(spec.source)
             if opaque_benchmark:
                 raise SystemExit(
-                    "Required opaque verifier artifact does not exist: "
-                    f"{spec.source}. Rebuild it with: {_opaque_rebuild_command(opaque_benchmark)}"
+                    f"Required opaque verifier artifact does not exist: {spec.source}. "
+                    f"Rebuild it with: {_opaque_rebuild_command(opaque_benchmark)}"
                 )
             example_note = f" Copy {spec.example} into place first." if spec.example else ""
             raise SystemExit(f"Required assemble source does not exist: {spec.source}.{example_note}")
@@ -664,16 +625,14 @@ def _assemble_workspace(item: RunItem, roots: MountRoots) -> list[dict[str, Any]
     return records
 
 
-def _collect_artifacts(profile: ExposureProfile, roots: MountRoots, output_dir: Path) -> list[dict[str, Any]]:
+def _collect_artifacts(profile: HarnessProfile, roots: MountRoots, output_dir: Path) -> list[dict[str, Any]]:
     records: list[dict[str, Any]] = []
     for spec in profile.collect:
         source = _container_to_host(spec.source, roots)
         target = _collect_target(spec.target, output_dir)
         if not source.exists():
             if spec.missing_ok:
-                records.append(
-                    {"source": spec.source.as_posix(), "target": spec.target.as_posix(), "present": False}
-                )
+                records.append({"source": spec.source.as_posix(), "target": spec.target.as_posix(), "present": False})
                 continue
             raise SystemExit(f"Required collected source does not exist: {source}")
         if target.exists():
@@ -782,6 +741,7 @@ def _run_capture(cmd: list[str], *, cwd: Path | None = None) -> tuple[int, str, 
             encoding="utf-8",
             errors="replace",
             cwd=cwd,
+            check=False,
         )
     except FileNotFoundError as exc:
         return 127, "", f"Failed to launch process: {exc}", False
@@ -793,15 +753,7 @@ def _external_verifier(item: RunItem, output_dir: Path, solution_present: bool) 
         return "no_solution", {"valid": False, "error": "No solution.json was produced."}
     case_dir = _case_dir(item.benchmark, item.split, item.case_id)
     solution = output_dir / "solution.json"
-    cmd = [
-        "uv",
-        "run",
-        "python",
-        "-m",
-        f"benchmarks.{item.benchmark}.verifier.run",
-        str(case_dir),
-        str(solution),
-    ]
+    cmd = ["uv", "run", "python", "-m", f"benchmarks.{item.benchmark}.verifier.run", str(case_dir), str(solution)]
     exit_code, stdout, stderr, launched = _run_capture(cmd, cwd=REPO_ROOT)
     (output_dir / "verifier_stdout.txt").write_text(stdout, encoding="utf-8")
     (output_dir / "verifier_stderr.txt").write_text(stderr, encoding="utf-8")
@@ -852,38 +804,6 @@ def _overall_status(agent_status: str, verifier_status: str, interactive: bool) 
     return "verifier_error"
 
 
-def _output_dir(item: RunItem) -> Path:
-    return (
-        item.results_root
-        / item.config_name
-        / item.exposure
-        / item.benchmark
-        / item.harness
-        / item.split
-        / item.case_id
-    )
-
-
-def _interactive_workspace_dir(
-    config: InteractiveConfig,
-    *,
-    exposure: str,
-    harness: str,
-    split: str,
-    case_id: str,
-) -> Path:
-    return (
-        INTERACTIVE_WORKSPACES_ROOT
-        / "experiments"
-        / "verifier_exposure"
-        / exposure
-        / config.benchmark
-        / harness
-        / split
-        / case_id
-    )
-
-
 def _write_run_json(
     item: RunItem,
     output_dir: Path,
@@ -901,19 +821,19 @@ def _write_run_json(
 ) -> None:
     payload = {
         "schema_version": 1,
-        "experiment": "verifier_exposure",
+        "experiment": "temporal_robustness",
         "mode": mode,
         "config": _relative(item.config_path),
-        "exposure": item.exposure,
         "benchmark": item.benchmark,
-        "harness": item.harness,
         "split": item.split,
         "case_id": item.case_id,
+        "harness": item.harness,
+        "runtime": item.profile.runtime,
         "workspace_verifier": {
-            "exposed": item.profile.verifier_exposed,
-            "kind": item.profile.verifier_kind,
-            "location": item.profile.verifier_location,
-            "command": item.profile.verifier_command,
+            "exposed": True,
+            "kind": "opaque_binary",
+            "location": "verifier",
+            "command": "./verifier case/ solution.json",
         },
         "start_time": start_time.isoformat(),
         "end_time": end_time.isoformat(),
@@ -922,18 +842,35 @@ def _write_run_json(
         "agent_status": agent_status,
         "verifier_status": verifier_status,
         "overall_status": overall_status,
-        "artifacts": {
-            "assemble": assembled,
-            "collect": collected,
-        },
+        "artifacts": {"assemble": assembled, "collect": collected},
         "verifier": verifier_result,
     }
     output_dir.mkdir(parents=True, exist_ok=True)
     (output_dir / "run.json").write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n", encoding="utf-8")
 
 
-def _existing_status(path: Path) -> tuple[str, str | None]:
-    run_json = path / "run.json"
+def _write_runner_error(item: RunItem, output_dir: Path, exc: BaseException) -> None:
+    now = datetime.now(timezone.utc)
+    output_dir.mkdir(parents=True, exist_ok=True)
+    (output_dir / "runner_error.txt").write_text(f"{type(exc).__name__}: {exc}\n", encoding="utf-8")
+    _write_run_json(
+        item,
+        output_dir,
+        mode="batch",
+        assembled=[],
+        collected=[],
+        start_time=now,
+        end_time=now,
+        agent_exit_code=127,
+        agent_status="runner_error",
+        verifier_status="error",
+        verifier_result={"valid": False, "error": f"{type(exc).__name__}: {exc}"},
+        overall_status="runner_error",
+    )
+
+
+def _existing_status(output_dir: Path) -> tuple[str, str | None]:
+    run_json = output_dir / "run.json"
     if not run_json.exists():
         return "missing_artifact", None
     try:
@@ -974,8 +911,8 @@ def _run_item(item: RunItem) -> RunResult:
         shutil.rmtree(output_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
     runtime = load_runtime(item.profile.runtime)
-    with tempfile.TemporaryDirectory(prefix="astroreason-verifier-exposure-workspace-") as workspace_tmp:
-        with tempfile.TemporaryDirectory(prefix="astroreason-verifier-exposure-runtime-") as runtime_tmp:
+    with tempfile.TemporaryDirectory(prefix="astroreason-temporal-workspace-") as workspace_tmp:
+        with tempfile.TemporaryDirectory(prefix="astroreason-temporal-runtime-") as runtime_tmp:
             workspace_dir = Path(workspace_tmp)
             runtime_dir = Path(runtime_tmp)
             roots = _prepare_roots(workspace_dir, runtime_dir, output_dir)
@@ -989,7 +926,7 @@ def _run_item(item: RunItem) -> RunResult:
             collected = _collect_artifacts(item.profile, roots, output_dir)
             agent_status = _agent_status(exit_code, launched, solution_present)
             verifier_status, verifier_result = _external_verifier(item, output_dir, solution_present)
-            overall_status = _overall_status(agent_status, verifier_status, interactive=False)
+            overall = _overall_status(agent_status, verifier_status, interactive=False)
             _write_run_json(
                 item,
                 output_dir,
@@ -1002,57 +939,69 @@ def _run_item(item: RunItem) -> RunResult:
                 agent_status=agent_status,
                 verifier_status=verifier_status,
                 verifier_result=verifier_result,
-                overall_status=overall_status,
+                overall_status=overall,
             )
-            return RunResult(overall_status=overall_status, skipped=False, output_dir=output_dir)
+    return RunResult(overall_status=overall, skipped=False, output_dir=output_dir)
+
+
+def _run_item_with_retries(item: RunItem, batch: BatchSettings) -> RunResult:
+    attempts = batch.max_retries + 1
+    last_result: RunResult | None = None
+    for attempt in range(1, attempts + 1):
+        try:
+            result = _run_item(item)
+        except Exception as exc:
+            output_dir = _output_dir(item)
+            _write_runner_error(item, output_dir, exc)
+            result = RunResult(overall_status="runner_error", skipped=False, output_dir=output_dir)
+        last_result = result
+        if result.overall_status not in batch.retry_statuses:
+            return result
+        if attempt < attempts:
+            print(
+                f"retry {item.split}/{item.harness}/{item.case_id}: "
+                f"{result.overall_status} (attempt {attempt}/{attempts})"
+            )
+    if last_result is None:
+        raise RuntimeError("Run finished without a result.")
+    return last_result
 
 
 def _build_items(
     config: FamilyConfig,
     *,
-    exposures: tuple[str, ...],
-    harnesses: tuple[str, ...],
+    splits: tuple[str, ...],
     cases: tuple[str, ...],
-    split: str,
-    timeout: int | None,
-    max_concurrency: int | None,
+    harnesses: tuple[str, ...],
+    timeout_override: int | None,
+    max_concurrency_override: int | None,
 ) -> tuple[FamilyConfig, tuple[RunItem, ...]]:
-    selected_exposures = _select(config.exposures, exposures, "exposure")
-    selected_harnesses = _select(config.harnesses, harnesses, "harness")
-    selected_cases = _select(config.cases, cases, "case")
-    if max_concurrency is not None:
-        if max_concurrency <= 0:
+    if max_concurrency_override is not None:
+        if max_concurrency_override <= 0:
             raise SystemExit("--max-concurrency must be positive")
-        config = replace(config, batch=replace(config.batch, max_concurrency=max_concurrency))
-    effective_timeout = (
-        _positive_int(timeout, "--timeout", config.config_path)
-        if timeout is not None
-        else config.timeout_seconds
-    )
+        config = replace(config, batch=replace(config.batch, max_concurrency=max_concurrency_override))
+    effective_timeout = _positive_int(timeout_override, "--timeout", config.config_path) if timeout_override is not None else config.timeout_seconds
+    selected_splits = _select(config.splits, splits, "split")
+    selected_cases = _select(config.cases, cases, "case")
+    selected_harnesses = _select(config.harnesses, harnesses, "harness")
+    _validate_cases(config.benchmark, selected_splits, selected_cases)
+    profiles = {harness: load_harness_profile(harness) for harness in selected_harnesses}
     items: list[RunItem] = []
-    for exposure in selected_exposures:
-        for case_id in selected_cases:
-            for harness in selected_harnesses:
-                profile = load_exposure_profile(
-                    exposure,
-                    harness=harness,
-                    benchmark=config.benchmark,
-                    split=split,
-                    case_id=case_id,
-                )
+    for split in selected_splits:
+        for harness in selected_harnesses:
+            for case_id in selected_cases:
                 items.append(
                     RunItem(
                         config_name=config.config_path.stem,
                         config_path=config.config_path,
                         benchmark=config.benchmark,
-                        harness=harness,
-                        exposure=exposure,
                         split=split,
                         case_id=case_id,
+                        harness=harness,
+                        profile=profiles[harness],
                         timeout_seconds=effective_timeout,
                         resources=config.resources,
                         results_root=config.results.root,
-                        profile=profile,
                     )
                 )
     return config, tuple(items)
@@ -1062,62 +1011,74 @@ def _missing_sources(items: tuple[RunItem, ...]) -> list[tuple[str, Path, Path |
     missing: list[tuple[str, Path, Path | None]] = []
     seen: set[Path] = set()
     for item in items:
-        for spec in item.profile.assemble:
-            if spec.source in seen or spec.missing_ok or _source_available(spec.source):
+        for spec in (*_benchmark_assemble_specs(item.benchmark, item.split, item.case_id), *item.profile.assemble):
+            if spec.source in seen or _source_available(spec.source) or spec.missing_ok:
                 continue
             seen.add(spec.source)
             missing.append((item.harness, spec.source, spec.example))
     return missing
 
 
-def _describe_items(items: tuple[RunItem, ...], config: FamilyConfig) -> str:
-    lines = [
-        f"Config: {config.config_path}",
-        "Mode: batch",
-        f"Benchmark: {config.benchmark}",
-        f"Harnesses: {', '.join(dict.fromkeys(item.harness for item in items))}",
-        f"Exposures: {', '.join(dict.fromkeys(item.exposure for item in items))}",
-        f"Cases: {', '.join(dict.fromkeys(item.case_id for item in items))}",
-        f"Run count: {len(items)}",
-        f"Max concurrency: {config.batch.max_concurrency}",
-    ]
+def _print_preview(config: FamilyConfig, items: tuple[RunItem, ...], *, rerun_statuses: tuple[str, ...], no_skip_completed: bool) -> None:
+    runnable = 0
+    skipped = 0
+    for item in items:
+        should_run, _ = _should_run(
+            item,
+            rerun_statuses=rerun_statuses,
+            no_skip_completed=no_skip_completed,
+            skip_completed=config.batch.skip_completed,
+            retry_statuses=config.batch.retry_statuses,
+        )
+        if should_run:
+            runnable += 1
+        else:
+            skipped += 1
+    print(f"Config: {_relative(config.config_path)}")
+    print("Mode: batch")
+    print(f"Benchmark: {config.benchmark}")
+    print(f"Splits: {', '.join(sorted({item.split for item in items}))}")
+    print(f"Harnesses: {', '.join(sorted({item.harness for item in items}))}")
+    print(f"Cases: {', '.join(sorted({item.case_id for item in items}))}")
+    print(f"Total planned items: {len(items)}")
+    print(f"Runnable now: {runnable}")
+    print(f"Skipped now: {skipped}")
+    print(f"Max concurrency: {config.batch.max_concurrency}")
     missing = _missing_sources(items)
     if missing:
-        lines.append("Missing assemble sources:")
+        print("Missing assemble sources:")
         for harness, source, example in missing:
             suffix = f" (example: {_relative(example)})" if example else ""
-            lines.append(f"  - {harness}: {_relative(source)}{suffix}")
+            print(f"  - {harness}: {_relative(source)}{suffix}")
     else:
-        lines.append("Missing assemble sources: none")
+        print("Missing assemble sources: none")
     for item in items:
-        output_dir = _output_dir(item)
-        artifact_state, status = _existing_status(output_dir)
-        status_text = status if status is not None else artifact_state
-        lines.append(
-            f"- {item.exposure}/{item.harness}/{item.case_id}: {status_text}; "
-            f"helper={item.profile.verifier_kind} ({item.profile.verifier_command}) "
-            f"-> {output_dir.relative_to(REPO_ROOT)}"
+        should_run, reason = _should_run(
+            item,
+            rerun_statuses=rerun_statuses,
+            no_skip_completed=no_skip_completed,
+            skip_completed=config.batch.skip_completed,
+            retry_statuses=config.batch.retry_statuses,
         )
-    return "\n".join(lines)
+        action = "run" if should_run else "skip"
+        print(f"  - {action}: {item.split}/{item.harness}/{item.case_id} ({reason})")
 
 
 def _run_batch(args: argparse.Namespace) -> int:
-    config = load_family_config((args.config or DEFAULT_CONFIG).resolve())
-    split = args.split or config.split
+    config_path = (args.config or DEFAULT_CONFIG).resolve()
+    config = load_family_config(config_path)
     config, items = _build_items(
         config,
-        exposures=tuple(args.exposure),
-        harnesses=tuple(args.harness),
+        splits=tuple(args.split),
         cases=tuple(args.case),
-        split=split,
-        timeout=args.timeout,
-        max_concurrency=args.max_concurrency,
+        harnesses=tuple(args.harness),
+        timeout_override=args.timeout,
+        max_concurrency_override=args.max_concurrency,
     )
+    rerun_statuses = tuple(args.rerun_status)
     if args.dry_run:
-        print(_describe_items(items, config))
+        _print_preview(config, items, rerun_statuses=rerun_statuses, no_skip_completed=args.no_skip_completed)
         return 0
-    if args.rerun_status and args.no_skip_completed:
-        raise SystemExit("--rerun-status and --no-skip-completed are mutually exclusive")
 
     missing = _missing_sources(items)
     if missing:
@@ -1127,134 +1088,139 @@ def _run_batch(args: argparse.Namespace) -> int:
             lines.append(f"- {harness}: {source}{suffix}")
         raise SystemExit("\n".join(lines))
 
-    pending: list[RunItem] = []
+    selected: list[RunItem] = []
+    skipped_results: list[RunResult] = []
     for item in items:
         should_run, reason = _should_run(
             item,
-            rerun_statuses=tuple(args.rerun_status),
+            rerun_statuses=rerun_statuses,
             no_skip_completed=args.no_skip_completed,
             skip_completed=config.batch.skip_completed,
             retry_statuses=config.batch.retry_statuses,
         )
         if should_run:
-            pending.append(item)
+            selected.append(item)
         else:
-            print(f"Skipping {item.exposure}/{item.harness}/{item.case_id}: {reason}")
+            artifact_state, status = _existing_status(_output_dir(item))
+            skipped_results.append(RunResult(overall_status=status or artifact_state, skipped=True, output_dir=_output_dir(item)))
+            print(f"skip {item.split}/{item.harness}/{item.case_id}: {reason}")
 
     status_counts: dict[str, int] = {}
+    for result in skipped_results:
+        status_counts[result.overall_status] = status_counts.get(result.overall_status, 0) + 1
+
     with concurrent.futures.ThreadPoolExecutor(max_workers=config.batch.max_concurrency) as executor:
-        futures = {executor.submit(_run_with_retries, item, config.batch): item for item in pending}
+        futures = {executor.submit(_run_item_with_retries, item, config.batch): item for item in selected}
+        completed = 0
         for future in concurrent.futures.as_completed(futures):
             item = futures[future]
+            completed += 1
             try:
                 result = future.result()
-                status = result.overall_status
             except Exception as exc:
-                status = "runner_error"
                 output_dir = _output_dir(item)
-                output_dir.mkdir(parents=True, exist_ok=True)
-                (output_dir / "runner_error.txt").write_text(f"{type(exc).__name__}: {exc}\n", encoding="utf-8")
-                print(f"Failed {item.exposure}/{item.harness}/{item.case_id}: {status} ({exc})")
-            else:
-                print(f"Finished {item.exposure}/{item.harness}/{item.case_id}: {status}")
-            status_counts[status] = status_counts.get(status, 0) + 1
-    if not pending:
-        print("No runs selected for execution.")
-    print("Status counts:", json.dumps(status_counts, sort_keys=True))
-    return 0 if not any(status != "success" for status in status_counts) else 1
+                _write_runner_error(item, output_dir, exc)
+                result = RunResult(overall_status="runner_error", skipped=False, output_dir=output_dir)
+            status_counts[result.overall_status] = status_counts.get(result.overall_status, 0) + 1
+            print(
+                f"[{completed}/{len(selected)}] {item.split}/{item.harness}/{item.case_id} "
+                f"-> {result.overall_status} ({_relative(result.output_dir)})"
+            )
+    print("Status counts: " + ", ".join(f"{key}={value}" for key, value in sorted(status_counts.items())))
+    return 0
 
 
-def _run_with_retries(item: RunItem, batch: BatchSettings) -> RunResult:
-    attempts = batch.max_retries + 1
-    last: RunResult | None = None
-    for attempt in range(1, attempts + 1):
-        print(f"Running {item.exposure}/{item.harness}/{item.case_id} (attempt {attempt}/{attempts})")
-        last = _run_item(item)
-        if last.overall_status not in batch.retry_statuses:
-            return last
-    if last is None:
-        raise SystemExit("No run result was produced")
-    return last
+def _reject_profile_target_collisions(profiles: tuple[HarnessProfile, ...]) -> None:
+    for label, specs_getter in (
+        ("assemble", lambda profile: profile.assemble),
+        ("collect", lambda profile: profile.collect),
+    ):
+        owners_by_target: dict[str, list[str]] = {}
+        for profile in profiles:
+            for spec in specs_getter(profile):
+                owners_by_target.setdefault(spec.target.as_posix(), []).append(profile.harness)
+        collisions = {
+            target: owners
+            for target, owners in owners_by_target.items()
+            if len(owners) > 1
+        }
+        if collisions:
+            lines = [f"Interactive {label} targets collide across selected harnesses:"]
+            for target, owners in sorted(collisions.items()):
+                lines.append(f"- {target}: {', '.join(owners)}")
+            raise SystemExit("\n".join(lines))
 
 
 def _run_interactive(args: argparse.Namespace) -> int:
-    config = load_interactive_config((args.config or INTERACTIVE_CONFIG).resolve())
-    exposure = args.exposure[-1] if args.exposure else config.exposure
-    case_id = args.case[-1] if args.case else config.case_id
-    split = args.split or config.split
-    harness = args.harness[-1] if args.harness else config.harnesses[0]
-    if harness not in config.harnesses:
-        raise SystemExit(f"Unknown harness: {harness}")
-    profile = load_exposure_profile(
-        exposure,
-        harness=harness,
-        benchmark=config.benchmark,
-        split=split,
-        case_id=case_id,
-    )
-    item = RunItem(
+    config_path = (args.config or INTERACTIVE_CONFIG).resolve()
+    config = load_interactive_config(config_path)
+    split = args.split[0] if args.split else config.split
+    if len(args.split) > 1:
+        raise SystemExit("Interactive mode accepts at most one --split.")
+    case_id = args.case[0] if args.case else config.case_id
+    if len(args.case) > 1:
+        raise SystemExit("Interactive mode accepts at most one --case.")
+    harnesses = _select(config.harnesses, tuple(args.harness), "harness")
+    profiles = tuple(load_harness_profile(harness) for harness in harnesses)
+    runtimes = {profile.runtime for profile in profiles}
+    if len(runtimes) != 1:
+        raise SystemExit("Interactive mode requires selected harnesses to share one runtime.")
+    _reject_profile_target_collisions(profiles)
+    harness_identity = profiles[0].harness if len(profiles) == 1 else "all_harnesses"
+    _validate_cases(config.benchmark, (split,), (case_id,))
+    all_env_keys = tuple(sorted({key for profile in profiles for key in profile.forward_env_keys}))
+    representative = RunItem(
         config_name=config.config_path.stem,
         config_path=config.config_path,
         benchmark=config.benchmark,
-        harness=harness,
-        exposure=exposure,
         split=split,
         case_id=case_id,
-        timeout_seconds=(
-            _positive_int(args.timeout, "--timeout", config.config_path)
-            if args.timeout is not None
-            else config.timeout_seconds
-        ),
+        harness=harness_identity,
+        profile=replace(profiles[0], forward_env_keys=all_env_keys),
+        timeout_seconds=_positive_int(args.timeout, "--timeout", config.config_path) if args.timeout is not None else config.timeout_seconds,
         resources=config.resources,
-        results_root=config.results_root,
-        profile=profile,
+        results_root=config.results.root,
     )
-    output_dir = _output_dir(item)
-    workspace_dir = _interactive_workspace_dir(
-        config,
-        exposure=exposure,
-        harness=harness,
-        split=split,
-        case_id=case_id,
-    )
-    runtime_dir = output_dir / "interactive_runtime"
+    extra_specs = tuple(spec for profile in profiles[1:] for spec in profile.assemble)
+    output_dir = _interactive_output_dir(config, harness_identity, split, case_id)
+    workspace_dir = _interactive_workspace_dir(config, harness_identity, split, case_id)
+    runtime_dir = workspace_dir.parent / f"{workspace_dir.name}.runtime"
     if args.dry_run:
-        print(f"Interactive exposure: {exposure}")
-        print(f"Interactive harness: {harness}")
-        print(f"Workspace: {workspace_dir}")
-        print(f"Output: {output_dir}")
-        print(f"Verifier helper: {profile.verifier_command}")
+        print(f"Interactive workspace: {_relative(workspace_dir)}")
+        print(f"Interactive output: {_relative(output_dir)}")
+        print(f"Harness configs assembled: {', '.join(harnesses)}")
         return 0
     if workspace_dir.exists():
         shutil.rmtree(workspace_dir)
     if runtime_dir.exists():
         shutil.rmtree(runtime_dir)
+    if output_dir.exists():
+        shutil.rmtree(output_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
-    runtime_dir.mkdir(parents=True, exist_ok=True)
     roots = _prepare_roots(workspace_dir, runtime_dir, output_dir)
     identity = _build_container_identity(runtime_dir)
-    assembled = _assemble_workspace(item, roots)
-    runtime = load_runtime(profile.runtime)
-    cmd = _build_docker_command(item, runtime, roots, identity, interactive=True)
+    assembled = _assemble_workspace(representative, roots, extra_specs=extra_specs)
+    runtime = load_runtime(next(iter(runtimes)))
+    cmd = _build_docker_command(representative, runtime, roots, identity, interactive=True)
     start = datetime.now(timezone.utc)
     try:
-        exit_code = subprocess.run(cmd, check=False).returncode
+        result = subprocess.run(cmd, check=False)
+        exit_code = result.returncode
         launched = True
     except FileNotFoundError as exc:
-        (output_dir / "agent_stderr.txt").write_text(
-            f"Failed to launch process: {exc}\n",
-            encoding="utf-8",
-        )
+        (output_dir / "agent_stderr.txt").write_text(f"Failed to launch process: {exc}\n", encoding="utf-8")
         exit_code = 127
         launched = False
     end = datetime.now(timezone.utc)
     solution_present = _copy_solution(workspace_dir, output_dir)
-    verifier_status, verifier_result = _external_verifier(item, output_dir, solution_present)
-    collected = _collect_artifacts(profile, roots, output_dir)
+    collected: list[dict[str, Any]] = []
+    for profile in profiles:
+        collected.extend(_collect_artifacts(profile, roots, output_dir))
     agent_status = _agent_status(exit_code, launched, solution_present)
-    overall_status = _overall_status(agent_status, verifier_status, interactive=True)
+    verifier_status, verifier_result = _external_verifier(representative, output_dir, solution_present)
+    overall = _overall_status(agent_status, verifier_status, interactive=True)
     _write_run_json(
-        item,
+        representative,
         output_dir,
         mode="interactive",
         assembled=assembled,
@@ -1265,10 +1231,11 @@ def _run_interactive(args: argparse.Namespace) -> int:
         agent_status=agent_status,
         verifier_status=verifier_status,
         verifier_result=verifier_result,
-        overall_status=overall_status,
+        overall_status=overall,
     )
-    print(f"Interactive workspace: {workspace_dir}")
-    print(f"Run metadata: {output_dir / 'run.json'}")
+    print(f"Interactive workspace: {_relative(workspace_dir)}")
+    print(f"Results written to {_relative(output_dir)}")
+    print(f"Run status: {overall}")
     return 0
 
 
