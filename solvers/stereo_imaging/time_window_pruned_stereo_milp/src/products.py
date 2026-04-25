@@ -60,6 +60,25 @@ def _product_time_separation_s(candidates: tuple[CandidateObservation, ...] | li
     return (max(midpoints) - min(midpoints)).total_seconds()
 
 
+def _midpoint_ordered_indices(
+    indices: list[int],
+    candidates: list[CandidateObservation],
+    midpoints: list[Any],
+) -> list[int]:
+    return sorted(
+        indices,
+        key=lambda idx: (
+            midpoints[idx],
+            candidates[idx].start,
+            candidates[idx].end,
+            candidates[idx].sat_id,
+            candidates[idx].access_interval_id,
+            candidates[idx].off_nadir_along_deg,
+            candidates[idx].off_nadir_across_deg,
+        ),
+    )
+
+
 def _stereo_pair_mode(
     mission: Mission,
     cand_i: CandidateObservation,
@@ -371,47 +390,49 @@ def enumerate_products(
 
         pair_results: dict[tuple[int, int], StereoPair] = {}
         midpoints = [_candidate_midpoint(cand) for cand in group_sorted]
-        for a_idx in range(len(valid_indices)):
-            for b_idx in range(a_idx + 1, len(valid_indices)):
-                i = valid_indices[a_idx]
-                j = valid_indices[b_idx]
+        midpoint_order = _midpoint_ordered_indices(valid_indices, group_sorted, midpoints)
+        for a_idx in range(len(midpoint_order)):
+            for b_idx in range(a_idx + 1, len(midpoint_order)):
+                i = midpoint_order[a_idx]
+                j = midpoint_order[b_idx]
                 if (midpoints[j] - midpoints[i]).total_seconds() - 1e-6 > mission.max_stereo_pair_separation_s:
                     break
+                left, right = (i, j) if i < j else (j, i)
                 summary.profiling["pair_policy_checks"] += 1
-                pair_mode = _stereo_pair_mode(mission, group_sorted[i], group_sorted[j])
+                pair_mode = _stereo_pair_mode(mission, group_sorted[left], group_sorted[right])
                 if pair_mode is None:
                     continue
                 pair = evaluate_pair(
-                    group_sorted[i],
-                    group_sorted[j],
-                    geos[i],
-                    geos[j],
+                    group_sorted[left],
+                    group_sorted[right],
+                    geos[left],
+                    geos[right],
                     target,
                     mission,
                     config,
                     pair_mode,
-                    sf_i=sat_sfs[group_sorted[i].sat_id],
-                    sf_j=sat_sfs[group_sorted[j].sat_id],
-                    sat_i=satellites[group_sorted[i].sat_id],
-                    sat_j=satellites[group_sorted[j].sat_id],
+                    sf_i=sat_sfs[group_sorted[left].sat_id],
+                    sf_j=sat_sfs[group_sorted[right].sat_id],
+                    sat_i=satellites[group_sorted[left].sat_id],
+                    sat_j=satellites[group_sorted[right].sat_id],
                     target_ecef=target_ecef,
                     strip_step_s=strip_step_s,
                     profile=summary.profiling,
                 )
                 pairs.append(pair)
                 summary.record_pair(pair)
-                pair_results[(i, j)] = pair
+                pair_results[(left, right)] = pair
 
         if len(valid_indices) >= 3:
-            for a_idx in range(len(valid_indices)):
-                for b_idx in range(a_idx + 1, len(valid_indices)):
-                    for c_idx in range(b_idx + 1, len(valid_indices)):
-                        i = valid_indices[a_idx]
-                        j = valid_indices[b_idx]
-                        k = valid_indices[c_idx]
+            for a_idx in range(len(midpoint_order)):
+                for b_idx in range(a_idx + 1, len(midpoint_order)):
+                    for c_idx in range(b_idx + 1, len(midpoint_order)):
+                        i = midpoint_order[a_idx]
+                        j = midpoint_order[b_idx]
+                        k = midpoint_order[c_idx]
                         if (midpoints[k] - midpoints[i]).total_seconds() - 1e-6 > mission.max_stereo_pair_separation_s:
                             break
-                        edge_keys = ((i, j), (i, k), (j, k))
+                        edge_keys = tuple(tuple(sorted(edge)) for edge in ((i, j), (i, k), (j, k)))
                         if any(edge not in pair_results for edge in edge_keys):
                             continue
                         tri = evaluate_tri(

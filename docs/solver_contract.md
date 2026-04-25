@@ -1,19 +1,20 @@
 # Solver Contract
 
-This document defines the initial public contract for `solvers/`.
+This document defines the public contract for `solvers/`.
 
-The contract is intentionally light. It gives experiments a stable way to call traditional methods without forcing every solver into the same language, package manager, or runtime model.
+The contract gives experiments a stable way to call traditional non-agentic methods without forcing every solver into the same language, package manager, or runtime model.
 
 ## Purpose
 
 `solvers/` owns reusable traditional non-agentic methods.
 
-Examples may eventually include:
+Examples include:
 
 - heuristic solvers
 - optimization-based baselines
 - reproducible classical pipelines
-- solver-local evaluation helpers
+- fixture-backed lookup baselines
+- citation-backed literature baselines
 
 Solvers consume benchmark case files and produce benchmark-shaped solution files. Benchmarks must not depend on solvers.
 
@@ -31,13 +32,15 @@ solvers/
 └── <benchmark>/
     └── <solver>/
         ├── README.md
-        ├── setup.sh
-        ├── solve.sh
-        ├── src/      # optional
-        └── assets/   # optional
+        ├── setup.sh          # required when repro_ci is true
+        ├── solve.sh          # required when repro_ci is true
+        ├── test.sh           # optional solver-local test entrypoint
+        ├── src/              # optional
+        ├── tests/            # optional solver-local tests
+        └── assets/           # optional
 ```
 
-`finished_solvers.json` is the repository-level registry for solvers that are ready to be used by experiments or discussed in reports.
+The path for a registered solver is derived from the registry fields: `solvers/<benchmark>/<solver>/`. The registry does not carry a separate `path` field.
 
 ## Runnable Solver Contract
 
@@ -48,11 +51,7 @@ Runnable solvers expose two shell entrypoints:
 ./solve.sh <case_dir> [config_dir] [solution_dir]
 ```
 
-`setup.sh` prepares solver-local dependencies. It may be a no-op.
-
-Python solvers may use the repository project environment when that is sufficient, but they are not limited to it. Solvers are encouraged to own a solver-local environment when they need additional PyPI packages or other dependencies that are not present globally. Solvers may also use their own package managers, compiled binaries, or other languages such as Rust, Julia, C++, or MiniZinc. Those choices should stay solver-local, be prepared by `setup.sh`, and be hidden behind `solve.sh`.
-
-Python solvers that create their own virtual environment may write a solver-local `.solver-env` handoff file after setup. The file should contain simple `KEY=VALUE` lines such as `SOLVER_VENV_DIR=/abs/path/to/.venv` and `SOLVER_PYTHON=/abs/path/to/.venv/bin/python`. `solve.sh` should still work directly after setup by reading this file, and experiment runners may pass those values into the solve subprocess.
+`setup.sh` prepares solver-local dependencies, build artifacts, or runtime state. It may be a no-op.
 
 `solve.sh` receives:
 
@@ -62,17 +61,93 @@ Python solvers that create their own virtual environment may write a solver-loca
 
 Experiments should usually pass both optional arguments explicitly. The solver should write its primary solution artifact into `solution_dir` and exit nonzero for unsupported cases or execution failures.
 
-Solver code may be Python, shell, C++, Julia, MiniZinc, Rust, or anything else. The shell entrypoints are the boundary.
+Solver code may be Python, shell, C, C++, Java, Kotlin, Julia, MiniZinc, Rust, or anything else. The shell entrypoints are the boundary.
 
-## Evidence Types
+## Setup Outputs
 
-The initial registry distinguishes:
+`setup.sh` may create or update solver-local outputs such as:
 
-- `reproduced_solver`: a runnable solver produces a solution for a case
-- `fixture_backed_lookup`: a runnable lookup emits a known reference solution
-- `citation_reported`: documented metrics copied from cited literature without a runnable solver
+- Python virtual environments under `.venv/`
+- a `.solver-env` file with simple `SOLVER_*=` assignments
+- C/C++ build directories and binaries
+- Rust `target/` artifacts and Cargo-managed dependencies
+- Java/Kotlin jars and Gradle/Maven outputs
+- Julia depots or instantiated project environments
+- MiniZinc model-local backends or availability checks
 
-Fixture-backed lookups and citation-reported entries must be labeled as such in reports. They are useful baselines, but they are not general solver claims.
+Generated setup outputs should stay solver-local and be ignored when they are machine-specific or reproducible build products.
+
+`.solver-env` is a convention, not a CI-enforced requirement. When present, it should be a simple handoff file for values such as:
+
+```text
+SOLVER_VENV_DIR=/abs/path/to/.venv
+SOLVER_PYTHON=/abs/path/to/.venv/bin/python
+```
+
+Experiment runners may read this file and pass `SOLVER_*` values into `solve.sh`, but solvers should still be directly runnable after `setup.sh`.
+
+## Solver-Local Tests
+
+`test.sh` is the optional solver-local test boundary.
+
+It may run any language-native test command, including `pytest`, `cargo test`, `ctest`, `mvn test`, `gradle test`, or Julia test runners. Test-only dependencies should be installed by the solver-local test flow or already be available in the solver's chosen environment.
+
+Top-level pytest must not collect solver-local tests. Repository-wide pytest is for benchmark and repository tooling tests. Solver tests should live under the solver directory and be reached through `test.sh`.
+
+## CI-Enforced Invariants
+
+`scripts/validate_solver_contract.py` enforces repository-wide invariants:
+
+- `solvers/finished_solvers.json` has the documented schema.
+- Each registry entry resolves to `solvers/<benchmark>/<solver>/`.
+- Each registered solver has `README.md`.
+- `repro_ci: true` entries have executable `setup.sh` and `solve.sh`.
+- `repro_ci: true` entries declare at least one case path.
+- Declared case paths and non-empty fixture paths exist.
+- Existing `test.sh` files are executable.
+- Top-level pytest is scoped away from solver-local tests.
+- Solver runtime code does not import or execute across `benchmarks/`, `experiments/`, `runtimes/`, or other solvers.
+- `repro_ci: true` entries run `setup.sh` and `solve.sh` on their declared cases.
+- Detected solver-local `test.sh` entrypoints run as part of solver contract validation.
+
+CI enforces boundaries and discoverability. It does not enforce a language, package manager, build system, or internal source layout.
+
+## Finished Solver Registry
+
+`solvers/finished_solvers.json` is a reproducibility and CI registry. It is not the evidence/reporting registry for experiments.
+
+Each entry has:
+
+```json
+{
+  "benchmark": "aeossp_standard",
+  "solver": "greedy_lns",
+  "repro_ci": false,
+  "repro_ci_reason": "too_expensive",
+  "case_and_fixture_paths": []
+}
+```
+
+For `repro_ci: true`, `case_and_fixture_paths` contains objects:
+
+```json
+{
+  "case_path": "benchmarks/spot5/dataset/cases/test/8",
+  "fixture_path": "solvers/spot5/reference_lookup/assets/solutions/8.spot_sol.txt"
+}
+```
+
+`fixture_path` may be an empty string when CI should only run setup/solve and not compare against a fixed output fixture.
+
+`repro_ci_reason` is recommended when `repro_ci` is false, but it is not enforced by CI. Useful values include:
+
+- `citation_based`
+- `too_expensive`
+- `requires_external_toolchain`
+- `requires_external_data`
+- `not_reproducible_yet`
+
+Experiment profiles own evidence type, verifier commands, result layout, solver-specific configs, and reporting metadata.
 
 ## Ownership Boundaries
 
@@ -96,11 +171,3 @@ Solvers must also not depend on those layers at runtime. Reading documented case
 Solver code should stay standalone. If similar behavior is needed in another solver, repeat the small amount of code or define a public file format instead of importing another solver's internals.
 
 If shared code is needed later, it should remain layer-local rather than introducing a repository-wide shared abstraction that weakens the benchmark and method boundaries.
-
-## What This Contract Does Not Promise Yet
-
-This document does not yet standardize:
-
-- solver result formats beyond benchmark-owned verifier contracts
-- per-language environment management
-- cross-solver shared libraries

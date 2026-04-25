@@ -790,6 +790,49 @@ class TestEvaluateTri:
 # ---------------------------------------------------------------------------
 
 class TestEnumerateProducts:
+    def test_midpoint_pruning_handles_nonmonotonic_midpoints(self, monkeypatch):
+        sat = _satellite(sat_id="sat_test")
+        target = _target()
+        mission = _mission(max_stereo_pair_separation_s=30.0)
+        config = {"overlap_grid_angles": 4, "overlap_grid_radii": 1}
+
+        monkeypatch.setattr("products.target_ecef_m", lambda t: np.array([0.0, 0.0, 0.0]))
+
+        def fake_precompute(cand, sf, sat, target):
+            angle = math.radians(cand.off_nadir_along_deg)
+            sp = np.array([math.sin(angle) * 7e6, 0.0, math.cos(angle) * 7e6])
+            return _CandidateGeometry(
+                sat_pos_m=sp,
+                boresight_ground_m=np.array([0.0, 0.0, 0.0]),
+                slant_range_m=1e6,
+                pixel_scale_m=1.0,
+                strip_polyline_en=[(0.0, -5000.0), (0.0, 5000.0)],
+                strip_half_width_m=1e6,
+            )
+
+        monkeypatch.setattr("products._precompute_candidate_geometry", fake_precompute)
+
+        c_anchor = _candidate(interval_id="same_pass", start_offset_s=0, end_offset_s=200, along=0.0)
+        c_long_later = _candidate(interval_id="same_pass", start_offset_s=110, end_offset_s=300, along=90.0)
+        c_within_1 = _candidate(interval_id="same_pass", start_offset_s=120, end_offset_s=122, along=10.0)
+        c_within_2 = _candidate(interval_id="same_pass", start_offset_s=121, end_offset_s=123, along=20.0)
+
+        pairs, tris, summary = enumerate_products(
+            [c_anchor, c_long_later, c_within_1, c_within_2],
+            {"sat_test": sat},
+            {"t1": target},
+            mission,
+            config,
+        )
+
+        pair_ids = {(p.candidate_i.start, p.candidate_j.start) for p in pairs}
+        assert (c_anchor.start, c_within_1.start) in pair_ids
+        assert (c_anchor.start, c_within_2.start) in pair_ids
+        assert (c_within_1.start, c_within_2.start) in pair_ids
+        assert len(tris) == 1
+        assert tris[0].valid is True
+        assert summary.total_pairs == 3
+
     def test_same_satellite_different_interval_is_rejected(self, monkeypatch):
         sat = _satellite(sat_id="sat_a")
         target = _target()

@@ -75,16 +75,14 @@ aggregation. Since traditional solvers are benchmark-specific, solver-backed
 experiment profiles may be solver-centered instead of using separate benchmark
 and method axes.
 
-Experiments should not assume that a solver runs in the repository's global or
-project Python environment. A solver may use PyPI packages, another package
-manager, compiled tools, or a solver-local virtual environment as long as those
-dependencies are prepared by `setup.sh` and hidden behind `solve.sh`.
-Experiment runners should call `setup.sh` before `solve.sh`, and should pass any
-solver-specific environment location through documented solver-owned knobs such
-as environment variables rather than installing method dependencies into the
-repository workspace. For Python solvers, a setup-produced `.solver-env` file
-with simple `SOLVER_*` assignments is an acceptable handoff mechanism between
-the setup subprocess and the solve subprocess.
+Experiments should not assume that a solver runs in the repository's project
+Python environment. A solver may prepare a Python virtual environment, compiled
+binary, language-native build output, or other solver-local runtime through
+`setup.sh`. If setup writes a solver-owned handoff file such as `.solver-env`,
+the experiment runner may read simple `SOLVER_*` assignments from that file and
+pass them into the `solve.sh` subprocess. Experiment profiles own evidence
+labels, verifier commands, solver-specific configs, and result layout; those
+fields do not belong in `solvers/finished_solvers.json`.
 
 ## Family Config
 
