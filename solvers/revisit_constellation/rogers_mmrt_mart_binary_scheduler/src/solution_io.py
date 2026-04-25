@@ -6,6 +6,7 @@ from pathlib import Path
 from typing import Any
 import json
 
+from .binary_scheduler import BinaryScheduleResult, selected_windows_to_actions
 from .case_io import RevisitCase, SolverConfig, iso_z
 from .design_models import DesignResult
 from .observation_windows import WindowEnumerationResult
@@ -39,6 +40,7 @@ def write_slot_solution(
     solution_dir: Path,
     slots: tuple[OrbitSlot, ...],
     selected_slot_indices: tuple[int, ...],
+    schedule_result: BinaryScheduleResult | None = None,
 ) -> Path:
     satellites = []
     for satellite_number, slot_index in enumerate(selected_slot_indices, start=1):
@@ -56,7 +58,12 @@ def write_slot_solution(
             }
         )
     path = solution_dir / "solution.json"
-    write_json(path, {"satellites": satellites, "actions": []})
+    actions = (
+        selected_windows_to_actions(schedule_result.selected_windows)
+        if schedule_result is not None
+        else []
+    )
+    write_json(path, {"satellites": satellites, "actions": actions})
     return path
 
 
@@ -69,6 +76,7 @@ def write_preprocessing_artifacts(
     matrix: VisibilityMatrix,
     design_result: DesignResult,
     window_result: WindowEnumerationResult,
+    schedule_result: BinaryScheduleResult,
     *,
     issue_88_url: str | None,
 ) -> None:
@@ -94,11 +102,24 @@ def write_preprocessing_artifacts(
             debug_dir / "observation_windows.jsonl",
             [window.to_record() for window in window_result.windows],
         )
+    write_json(debug_dir / "scheduler_model_summary.json", schedule_result.to_summary())
+    write_json(
+        debug_dir / "selected_windows.json",
+        {"selected_windows": [window.to_record() for window in schedule_result.selected_windows]},
+    )
+    write_json(
+        debug_dir / "rounding_or_fallback_summary.json",
+        schedule_result.rounding_summary
+        | {
+            "backend": schedule_result.backend,
+            "fallback_reason": schedule_result.fallback_reason,
+        },
+    )
 
     capacity = matrix.shape[0] * matrix.shape[1] * matrix.shape[2]
     status = {
         "solver": "rogers_mmrt_mart_binary_scheduler",
-        "phase": "phase_3_observation_window_enumeration",
+        "phase": "phase_4_binary_scheduler_and_relaxed_fallback",
         "case_dir": str(case.case_dir),
         "horizon_start": iso_z(case.horizon_start),
         "horizon_end": iso_z(case.horizon_end),
@@ -131,13 +152,20 @@ def write_preprocessing_artifacts(
         "window_conflict_edge_count": window_result.conflict_edge_count,
         "window_caps": window_result.caps,
         "window_capped": window_result.capped,
+        "scheduler_backend": schedule_result.backend,
+        "scheduler_fallback_reason": schedule_result.fallback_reason,
+        "scheduler_model_size": schedule_result.model_size,
+        "scheduler_selected_window_count": len(schedule_result.selected_windows),
+        "scheduler_selected_window_ids": list(schedule_result.selected_window_ids),
+        "scheduler_conflict_edge_count": schedule_result.conflict_edge_count,
+        "scheduler_transition_conflict_edge_count": schedule_result.transition_conflict_edge_count,
+        "scheduler_estimated_metrics": schedule_result.evaluation.to_dict(),
         "target_visibility_counts": target_visibility_counts(matrix, case.targets),
         "issue_88_exists": issue_88_url is not None,
         "issue_88_url": issue_88_url,
         "solution_note": (
-            "Phase 3 emits selected design satellites with enumerated candidate windows "
-            "and an empty schedule; "
-            "observation scheduling is out of scope."
+            "Phase 4 emits selected design satellites and scheduled observation actions. "
+            "Battery and full slew repair remain out of scope until Phase 5."
         ),
     }
     write_json(solution_dir / "status.json", status)

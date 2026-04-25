@@ -21,4 +21,11 @@ window_geometry_sample_step_sec: 10
 max_observation_windows: 5000
 max_windows_per_satellite_target: 100
 write_observation_windows: false
+scheduler_backend: auto
+scheduler_time_limit_sec: 10
+scheduler_max_backend_windows: 3000
+scheduler_max_backend_conflicts: 25000
+scheduler_max_exact_combinations: 20000
+scheduler_max_selected_windows: 200
+scheduler_min_transition_gap_sec: 0
 debug: false

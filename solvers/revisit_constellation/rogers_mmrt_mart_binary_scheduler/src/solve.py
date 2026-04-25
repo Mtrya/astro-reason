@@ -5,6 +5,7 @@ from __future__ import annotations
 import argparse
 from pathlib import Path
 
+from .binary_scheduler import schedule_observation_windows
 from .case_io import load_case, load_solver_config
 from .design_models import build_design_problem, select_design_slots
 from .observation_windows import enumerate_observation_windows
@@ -26,9 +27,12 @@ def solve(case_dir: Path, config_dir: str | None, solution_dir: Path) -> None:
     design_problem = build_design_problem(case, config, slots, matrix)
     design_result = select_design_slots(design_problem, config)
     window_result = enumerate_observation_windows(case, config, slots, design_result)
+    schedule_result = schedule_observation_windows(case, config, window_result)
 
     solution_dir.mkdir(parents=True, exist_ok=True)
-    write_slot_solution(solution_dir, slots, design_result.selected_slot_indices)
+    write_slot_solution(
+        solution_dir, slots, design_result.selected_slot_indices, schedule_result
+    )
     write_preprocessing_artifacts(
         solution_dir,
         case,
@@ -38,6 +42,7 @@ def solve(case_dir: Path, config_dir: str | None, solution_dir: Path) -> None:
         matrix,
         design_result,
         window_result,
+        schedule_result,
         issue_88_url=ISSUE_88_URL,
     )
 

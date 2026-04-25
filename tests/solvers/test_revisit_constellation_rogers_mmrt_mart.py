@@ -25,12 +25,19 @@ from solvers.revisit_constellation.rogers_mmrt_mart_binary_scheduler.src.case_io
     load_case,
     parse_iso_z,
 )
+from solvers.revisit_constellation.rogers_mmrt_mart_binary_scheduler.src.binary_scheduler import (  # noqa: E402
+    build_conflict_edges,
+    schedule_observation_windows,
+    selected_windows_to_actions,
+)
 from solvers.revisit_constellation.rogers_mmrt_mart_binary_scheduler.src.design_models import (  # noqa: E402
     DesignProblem,
     DesignResult,
     select_design_slots,
 )
 from solvers.revisit_constellation.rogers_mmrt_mart_binary_scheduler.src.observation_windows import (  # noqa: E402
+    ObservationWindow,
+    WindowEnumerationResult,
     enumerate_observation_windows,
 )
 from solvers.revisit_constellation.rogers_mmrt_mart_binary_scheduler.src.propagation import (  # noqa: E402
@@ -215,6 +222,21 @@ def _window_config(*, stride_sec: float = 20.0, sample_step_sec: float = 10.0) -
     )
 
 
+def _scheduler_config(
+    *,
+    backend: str = "fallback",
+    max_selected: int = 10,
+    max_exact_combinations: int = 1000,
+    transition_gap_sec: float = 0.0,
+) -> SolverConfig:
+    return SolverConfig(
+        scheduler_backend=backend,
+        scheduler_max_selected_windows=max_selected,
+        scheduler_max_exact_combinations=max_exact_combinations,
+        scheduler_min_transition_gap_sec=transition_gap_sec,
+    )
+
+
 def _design_result() -> DesignResult:
     return DesignResult(
         mode="hybrid",
@@ -225,6 +247,50 @@ def _design_result() -> DesignResult:
         objective={},
         target_stats=(),
         model_size={},
+    )
+
+
+def _manual_window(
+    window_id: str,
+    *,
+    start_offset_sec: int,
+    end_offset_sec: int,
+    target_id: str = "target_001",
+    satellite_id: str = "sat_001",
+    conflict_ids: tuple[str, ...] = (),
+    max_reduction: float = 0.0,
+    mean_reduction: float = 0.0,
+) -> ObservationWindow:
+    start = datetime(2025, 1, 1, 0, 0, tzinfo=UTC) + timedelta(seconds=start_offset_sec)
+    end = datetime(2025, 1, 1, 0, 0, tzinfo=UTC) + timedelta(seconds=end_offset_sec)
+    return ObservationWindow(
+        window_id=window_id,
+        satellite_id=satellite_id,
+        slot_id="slot_test",
+        slot_index=0,
+        target_id=target_id,
+        target_index=0,
+        start=start,
+        end=end,
+        midpoint=start + ((end - start) / 2),
+        duration_sec=(end - start).total_seconds(),
+        estimated_max_gap_reduction_hours=max_reduction,
+        estimated_mean_gap_reduction_hours=mean_reduction,
+        conflict_ids=conflict_ids,
+    )
+
+
+def _window_result(windows: tuple[ObservationWindow, ...]) -> WindowEnumerationResult:
+    return WindowEnumerationResult(
+        windows=windows,
+        candidate_count_by_satellite={"sat_001": len(windows)},
+        candidate_count_by_target={"target_001": len(windows)},
+        candidate_count_by_satellite_target={"sat_001|target_001": len(windows)},
+        zero_window_targets=(),
+        zero_window_satellites=(),
+        conflict_edge_count=sum(len(window.conflict_ids) for window in windows) // 2,
+        capped=False,
+        caps={},
     )
 
 
@@ -422,3 +488,87 @@ def test_observation_window_geometry_filter_rejects_range_violation() -> None:
     assert result.windows == ()
     assert result.zero_window_targets == ("target_001",)
     assert result.zero_window_satellites == ("sat_001",)
+
+
+def test_scheduler_excludes_conflicting_windows() -> None:
+    case = _window_case()
+    early = _manual_window(
+        "win_early",
+        start_offset_sec=0,
+        end_offset_sec=10,
+        conflict_ids=("win_late",),
+    )
+    late = _manual_window(
+        "win_late",
+        start_offset_sec=30,
+        end_offset_sec=40,
+        conflict_ids=("win_early",),
+    )
+
+    result = schedule_observation_windows(
+        case,
+        _scheduler_config(max_selected=2),
+        _window_result((early, late)),
+    )
+
+    assert len(result.selected_window_ids) == 1
+    assert set(result.selected_window_ids) <= {"win_early", "win_late"}
+    assert result.conflict_edge_count == 1
+
+
+def test_scheduler_chooses_window_with_better_gap_reduction() -> None:
+    case = _window_case()
+    edge = _manual_window("win_edge", start_offset_sec=0, end_offset_sec=10)
+    center = _manual_window("win_center", start_offset_sec=25, end_offset_sec=35)
+
+    result = schedule_observation_windows(
+        case,
+        _scheduler_config(max_selected=1),
+        _window_result((edge, center)),
+    )
+
+    assert result.selected_window_ids == ("win_center",)
+    assert result.evaluation.max_revisit_gap_hours == 0.5 / 60.0
+
+
+def test_scheduler_greedy_fallback_is_deterministic() -> None:
+    case = _window_case()
+    windows = (
+        _manual_window("win_00", start_offset_sec=0, end_offset_sec=10),
+        _manual_window("win_01", start_offset_sec=20, end_offset_sec=30),
+        _manual_window("win_02", start_offset_sec=40, end_offset_sec=50),
+    )
+    config = _scheduler_config(max_selected=2, max_exact_combinations=1)
+
+    first = schedule_observation_windows(case, config, _window_result(windows))
+    second = schedule_observation_windows(case, config, _window_result(windows))
+
+    assert first.backend == "greedy_fallback"
+    assert first.selected_window_ids == second.selected_window_ids
+    assert "greedy_fallback" in (first.fallback_reason or "")
+
+
+def test_scheduler_adds_transition_gap_conflicts() -> None:
+    first = _manual_window("win_first", start_offset_sec=0, end_offset_sec=10)
+    second = _manual_window("win_second", start_offset_sec=15, end_offset_sec=25)
+
+    edges, transition_count = build_conflict_edges((first, second), 10.0)
+
+    assert edges == frozenset({(0, 1)})
+    assert transition_count == 1
+
+
+def test_selected_windows_decode_to_action_schema() -> None:
+    window = _manual_window("win_action", start_offset_sec=0, end_offset_sec=10)
+
+    actions = selected_windows_to_actions((window,))
+
+    assert actions == [
+        {
+            "action_type": "observation",
+            "satellite_id": "sat_001",
+            "target_id": "target_001",
+            "start": "2025-01-01T00:00:00Z",
+            "end": "2025-01-01T00:00:10Z",
+        }
+    ]

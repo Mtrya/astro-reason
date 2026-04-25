@@ -10,7 +10,8 @@ The current implementation is intentionally limited to standalone design preproc
 - generate a sparse visibility matrix `V[t,j,p]`
 - select design slots with bounded MMRT, MART, threshold-first, or hybrid policies
 - enumerate feasible Cho-style observation windows for selected slots
-- write a benchmark-shaped `solution.json` with selected satellites and no actions
+- select a conflict-free schedule with binary, relaxed, exact, or greedy modes
+- write a benchmark-shaped `solution.json` with selected satellites and observation actions
 - write `status.json` and `model_prep/*` summaries
 
 It does not import benchmark internals and does not implement observation scheduling yet.
@@ -39,6 +40,9 @@ matching for larger cases.
 - `debug/selected_slots.json`
 - `debug/window_summary.json`
 - `debug/observation_windows.jsonl` when `write_observation_windows: true`
+- `debug/scheduler_model_summary.json`
+- `debug/selected_windows.json`
+- `debug/rounding_or_fallback_summary.json`
 
 Optional configuration can be provided with `config.yaml`, `config.yml`, or `config.json` in the config directory. Supported keys are:
 
@@ -65,4 +69,11 @@ Optional configuration can be provided with `config.yaml`, `config.yml`, or `con
 - `max_observation_windows`
 - `max_windows_per_satellite_target`
 - `write_observation_windows`
+- `scheduler_backend` (`auto`, `pulp_binary`, `pulp_relaxed`, or `fallback`)
+- `scheduler_time_limit_sec`
+- `scheduler_max_backend_windows`
+- `scheduler_max_backend_conflicts`
+- `scheduler_max_exact_combinations`
+- `scheduler_max_selected_windows`
+- `scheduler_min_transition_gap_sec`
 - `debug`

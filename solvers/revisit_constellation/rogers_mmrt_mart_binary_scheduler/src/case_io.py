@@ -101,6 +101,13 @@ class SolverConfig:
     max_observation_windows: int = 5000
     max_windows_per_satellite_target: int = 100
     write_observation_windows: bool = False
+    scheduler_backend: str = "auto"
+    scheduler_time_limit_sec: float = 10.0
+    scheduler_max_backend_windows: int = 3000
+    scheduler_max_backend_conflicts: int = 25000
+    scheduler_max_exact_combinations: int = 20000
+    scheduler_max_selected_windows: int = 200
+    scheduler_min_transition_gap_sec: float = 0.0
     debug: bool = False
 
 
@@ -403,6 +410,42 @@ def load_solver_config(config_dir: str | Path | None) -> SolverConfig:
                 SolverConfig.write_observation_windows,
             )
         ),
+        scheduler_backend=str(
+            payload.get("scheduler_backend", SolverConfig.scheduler_backend)
+        ),
+        scheduler_time_limit_sec=float(
+            payload.get("scheduler_time_limit_sec", SolverConfig.scheduler_time_limit_sec)
+        ),
+        scheduler_max_backend_windows=int(
+            payload.get(
+                "scheduler_max_backend_windows",
+                SolverConfig.scheduler_max_backend_windows,
+            )
+        ),
+        scheduler_max_backend_conflicts=int(
+            payload.get(
+                "scheduler_max_backend_conflicts",
+                SolverConfig.scheduler_max_backend_conflicts,
+            )
+        ),
+        scheduler_max_exact_combinations=int(
+            payload.get(
+                "scheduler_max_exact_combinations",
+                SolverConfig.scheduler_max_exact_combinations,
+            )
+        ),
+        scheduler_max_selected_windows=int(
+            payload.get(
+                "scheduler_max_selected_windows",
+                SolverConfig.scheduler_max_selected_windows,
+            )
+        ),
+        scheduler_min_transition_gap_sec=float(
+            payload.get(
+                "scheduler_min_transition_gap_sec",
+                SolverConfig.scheduler_min_transition_gap_sec,
+            )
+        ),
         debug=bool(payload.get("debug", SolverConfig.debug)),
     )
     if config.sample_step_sec <= 0.0:
@@ -445,4 +488,20 @@ def load_solver_config(config_dir: str | Path | None) -> SolverConfig:
         raise ValueError("max_observation_windows must be positive")
     if config.max_windows_per_satellite_target <= 0:
         raise ValueError("max_windows_per_satellite_target must be positive")
+    if config.scheduler_backend not in {"auto", "pulp_binary", "pulp_relaxed", "fallback"}:
+        raise ValueError(
+            "scheduler_backend must be one of auto, pulp_binary, pulp_relaxed, fallback"
+        )
+    if config.scheduler_time_limit_sec <= 0.0:
+        raise ValueError("scheduler_time_limit_sec must be positive")
+    if config.scheduler_max_backend_windows <= 0:
+        raise ValueError("scheduler_max_backend_windows must be positive")
+    if config.scheduler_max_backend_conflicts < 0:
+        raise ValueError("scheduler_max_backend_conflicts must be non-negative")
+    if config.scheduler_max_exact_combinations <= 0:
+        raise ValueError("scheduler_max_exact_combinations must be positive")
+    if config.scheduler_max_selected_windows <= 0:
+        raise ValueError("scheduler_max_selected_windows must be positive")
+    if config.scheduler_min_transition_gap_sec < 0.0:
+        raise ValueError("scheduler_min_transition_gap_sec must be non-negative")
     return config
