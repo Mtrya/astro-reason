@@ -1,0 +1,1310 @@
+from __future__ import annotations
+
+from datetime import UTC, datetime, timedelta
+from pathlib import Path
+import json
+import math
+import sys
+import time
+
+import brahe
+import numpy as np
+import pytest
+
+
+SOLVER_DIR = Path(__file__).resolve().parents[1]
+REPO_ROOT = Path(__file__).resolve().parents[4]
+sys.path.insert(0, str(SOLVER_DIR))
+
+from src.case_io import (  # noqa: E402
+    AttitudeModel,
+    ResourceModel,
+    RevisitCase,
+    SatelliteModel,
+    SensorModel,
+    SolverConfig,
+    Target,
+    iso_z,
+    load_case,
+    load_solver_config,
+    parse_iso_z,
+)
+from src.binary_scheduler import (  # noqa: E402
+    BinaryScheduleResult,
+    build_conflict_edges,
+    build_scheduler_constraint_model,
+    compare_scheduler_modes,
+    evaluate_schedule,
+    schedule_observation_windows,
+    selected_windows_to_actions,
+)
+from src.design_models import (  # noqa: E402
+    DesignProblem,
+    DesignResult,
+    compare_design_modes,
+    select_design_slots,
+)
+from src.observation_windows import (  # noqa: E402
+    ObservationWindow,
+    WindowEnumerationResult,
+    enumerate_observation_windows,
+)
+from src.propagation import (  # noqa: E402
+    datetime_to_epoch,
+    ensure_brahe_ready,
+)
+from src.slot_library import (  # noqa: E402
+    OrbitSlot,
+    build_slot_library,
+    slot_library_summary,
+    slots_to_records,
+)
+from src.solution_io import (  # noqa: E402
+    write_empty_solution,
+    write_preprocessing_artifacts,
+)
+from src.time_grid import (  # noqa: E402
+    build_time_grid,
+)
+from src.visibility_matrix import (  # noqa: E402
+    VisibilityMatrix,
+    build_visibility_matrix,
+)
+from src.validation import (  # noqa: E402
+    LocalValidationResult,
+    validate_and_repair_schedule,
+)
+
+
+CASE_DIR = (
+    REPO_ROOT
+    / "benchmarks"
+    / "revisit_constellation"
+    / "dataset"
+    / "cases"
+    / "test"
+    / "case_0001"
+)
+MU_EARTH_M3_S2 = 3.986004418e14
+
+
+def _small_config() -> SolverConfig:
+    return SolverConfig(
+        sample_step_sec=24 * 3600.0,
+        altitude_count=1,
+        inclination_deg=(50.0,),
+        raan_count=2,
+        phase_count=2,
+        max_slots=3,
+        write_visibility_matrix=True,
+    )
+
+
+def _design_config(
+    *,
+    mode: str,
+    backend: str = "fallback",
+    satellite_count: int | None = 1,
+    max_selected: int = 2,
+    exhaustive_max: int = 100,
+    max_backend_slots: int = 40,
+) -> SolverConfig:
+    return SolverConfig(
+        design_mode=mode,
+        design_backend=backend,
+        design_satellite_count=satellite_count,
+        design_max_selected_slots=max_selected,
+        design_max_backend_slots=max_backend_slots,
+        fallback_exhaustive_max_combinations=exhaustive_max,
+    )
+
+
+def _problem(
+    *,
+    shape: tuple[int, int, int],
+    visible: set[tuple[int, int, int]],
+    expected_hours: tuple[float, ...] = (8.0,),
+    fixed_count: int | None = 1,
+    max_selected: int = 2,
+) -> DesignProblem:
+    return DesignProblem(
+        matrix=VisibilityMatrix(shape=shape, visible=frozenset(visible)),
+        slot_ids=tuple(f"slot_{index}" for index in range(shape[1])),
+        target_ids=tuple(f"target_{index}" for index in range(shape[2])),
+        sample_step_sec=3600.0,
+        expected_revisit_hours=expected_hours,
+        max_selected_slots=max_selected,
+        fixed_satellite_count=fixed_count,
+    )
+
+
+def _target_ecef() -> tuple[float, float, float]:
+    position = np.asarray(
+        brahe.position_geodetic_to_ecef(
+            [0.0, 0.0, 0.0],
+            brahe.AngleFormat.DEGREES,
+        ),
+        dtype=float,
+    )
+    return tuple(float(item) for item in position)
+
+
+def _surface_eci_unit_vector(timestamp: datetime) -> np.ndarray:
+    ensure_brahe_ready()
+    epoch = datetime_to_epoch(timestamp)
+    eci_position = np.asarray(
+        brahe.position_ecef_to_eci(epoch, np.asarray(_target_ecef(), dtype=float)),
+        dtype=float,
+    )
+    return eci_position / np.linalg.norm(eci_position)
+
+
+def _orthogonal_unit_vector(vector: np.ndarray) -> np.ndarray:
+    tangent = np.cross(np.asarray([0.0, 0.0, 1.0]), vector)
+    if np.linalg.norm(tangent) < 1e-9:
+        tangent = np.cross(np.asarray([0.0, 1.0, 0.0]), vector)
+    return tangent / np.linalg.norm(tangent)
+
+
+def _overhead_slot(start: datetime) -> OrbitSlot:
+    radial_unit = _surface_eci_unit_vector(start)
+    radius_m = brahe.R_EARTH + 500000.0
+    position = radial_unit * radius_m
+    velocity = _orthogonal_unit_vector(radial_unit) * math.sqrt(MU_EARTH_M3_S2 / radius_m)
+    return OrbitSlot(
+        slot_id="slot_test",
+        altitude_m=500000.0,
+        inclination_deg=0.0,
+        raan_deg=0.0,
+        phase_deg=0.0,
+        state_eci_m_mps=tuple(float(item) for item in np.concatenate((position, velocity))),
+    )
+
+
+def _window_case(
+    *,
+    max_range_m: float = 1.0e9,
+    min_duration_sec: float = 20.0,
+    initial_battery_wh: float = 1000.0,
+    idle_discharge_rate_w: float = 1.0,
+    obs_discharge_rate_w: float = 1.0,
+    maneuver_discharge_rate_w: float = 1.0,
+) -> RevisitCase:
+    start = datetime(2025, 1, 1, 0, 0, tzinfo=UTC)
+    end = start + timedelta(seconds=60)
+    return RevisitCase(
+        case_dir=Path("."),
+        assets_path=Path("assets.json"),
+        mission_path=Path("mission.json"),
+        horizon_start=start,
+        horizon_end=end,
+        satellite_model=SatelliteModel(
+            model_name="test_bus",
+            sensor=SensorModel(
+                max_off_nadir_angle_deg=180.0,
+                max_range_m=max_range_m,
+                obs_discharge_rate_w=obs_discharge_rate_w,
+            ),
+            resource_model=ResourceModel(
+                battery_capacity_wh=1000.0,
+                initial_battery_wh=initial_battery_wh,
+                idle_discharge_rate_w=idle_discharge_rate_w,
+                sunlight_charge_rate_w=0.0,
+            ),
+            attitude_model=AttitudeModel(
+                max_slew_velocity_deg_per_sec=1.0,
+                max_slew_acceleration_deg_per_sec2=1.0,
+                settling_time_sec=1.0,
+                maneuver_discharge_rate_w=maneuver_discharge_rate_w,
+            ),
+            min_altitude_m=100000.0,
+            max_altitude_m=1000000.0,
+        ),
+        max_num_satellites=1,
+        targets=(
+            Target(
+                target_id="target_001",
+                name="Target",
+                latitude_deg=0.0,
+                longitude_deg=0.0,
+                altitude_m=0.0,
+                expected_revisit_period_hours=1.0,
+                min_elevation_deg=-90.0,
+                max_slant_range_m=max_range_m,
+                min_duration_sec=min_duration_sec,
+                ecef_position_m=_target_ecef(),
+            ),
+        ),
+    )
+
+
+def _two_target_window_case() -> RevisitCase:
+    case = _window_case(min_duration_sec=10.0)
+    second_position = np.asarray(
+        brahe.position_geodetic_to_ecef(
+            [80.0, 0.0, 0.0],
+            brahe.AngleFormat.DEGREES,
+        ),
+        dtype=float,
+    )
+    return RevisitCase(
+        case_dir=case.case_dir,
+        assets_path=case.assets_path,
+        mission_path=case.mission_path,
+        horizon_start=case.horizon_start,
+        horizon_end=case.horizon_start + timedelta(seconds=120),
+        satellite_model=case.satellite_model,
+        max_num_satellites=case.max_num_satellites,
+        targets=(
+            case.targets[0],
+            Target(
+                target_id="target_002",
+                name="Target 2",
+                latitude_deg=0.0,
+                longitude_deg=80.0,
+                altitude_m=0.0,
+                expected_revisit_period_hours=1.0,
+                min_elevation_deg=-90.0,
+                max_slant_range_m=1.0e9,
+                min_duration_sec=10.0,
+                ecef_position_m=tuple(float(item) for item in second_position),
+            ),
+        ),
+    )
+
+
+def _window_config(*, stride_sec: float = 20.0, sample_step_sec: float = 10.0) -> SolverConfig:
+    return SolverConfig(
+        window_stride_sec=stride_sec,
+        window_geometry_sample_step_sec=sample_step_sec,
+        max_observation_windows=20,
+        max_windows_per_satellite_target=20,
+    )
+
+
+def _scheduler_config(
+    *,
+    backend: str = "fallback",
+    max_selected: int = 10,
+    max_exact_combinations: int = 1000,
+    transition_gap_sec: float = 0.0,
+) -> SolverConfig:
+    return SolverConfig(
+        scheduler_backend=backend,
+        scheduler_max_selected_windows=max_selected,
+        scheduler_max_exact_combinations=max_exact_combinations,
+        scheduler_min_transition_gap_sec=transition_gap_sec,
+    )
+
+
+def _design_result() -> DesignResult:
+    return DesignResult(
+        mode="hybrid",
+        backend="fallback",
+        fallback_reason=None,
+        selected_slot_indices=(0,),
+        selected_slot_ids=("slot_test",),
+        objective={},
+        target_stats=(),
+        model_size={},
+    )
+
+
+def _design_result_for_slots(slot_indices: tuple[int, ...]) -> DesignResult:
+    return DesignResult(
+        mode="hybrid",
+        backend="fallback",
+        fallback_reason=None,
+        selected_slot_indices=slot_indices,
+        selected_slot_ids=tuple(f"slot_{index}" for index in slot_indices),
+        objective={},
+        target_stats=(),
+        model_size={},
+    )
+
+
+def _manual_window(
+    window_id: str,
+    *,
+    start_offset_sec: int,
+    end_offset_sec: int,
+    target_id: str = "target_001",
+    satellite_id: str = "sat_001",
+    conflict_ids: tuple[str, ...] = (),
+    max_reduction: float = 0.0,
+    mean_reduction: float = 0.0,
+) -> ObservationWindow:
+    start = datetime(2025, 1, 1, 0, 0, tzinfo=UTC) + timedelta(seconds=start_offset_sec)
+    end = datetime(2025, 1, 1, 0, 0, tzinfo=UTC) + timedelta(seconds=end_offset_sec)
+    return ObservationWindow(
+        window_id=window_id,
+        satellite_id=satellite_id,
+        slot_id="slot_test",
+        slot_index=0,
+        target_id=target_id,
+        target_index=0,
+        start=start,
+        end=end,
+        midpoint=start + ((end - start) / 2),
+        duration_sec=(end - start).total_seconds(),
+        estimated_max_gap_reduction_hours=max_reduction,
+        estimated_mean_gap_reduction_hours=mean_reduction,
+        conflict_ids=conflict_ids,
+    )
+
+
+def _window_result(windows: tuple[ObservationWindow, ...]) -> WindowEnumerationResult:
+    return WindowEnumerationResult(
+        windows=windows,
+        candidate_count_by_satellite={"sat_001": len(windows)},
+        candidate_count_by_target={"target_001": len(windows)},
+        candidate_count_by_satellite_target={"sat_001|target_001": len(windows)},
+        zero_window_targets=(),
+        zero_window_satellites=(),
+        conflict_edge_count=sum(len(window.conflict_ids) for window in windows) // 2,
+        capped=False,
+        caps={},
+    )
+
+
+def test_iso_z_timestamp_round_trip() -> None:
+    parsed = parse_iso_z("2025-07-17T12:00:00Z")
+
+    assert parsed.tzinfo is UTC
+    assert iso_z(parsed) == "2025-07-17T12:00:00Z"
+
+
+def test_load_case_parses_public_files() -> None:
+    case = load_case(CASE_DIR)
+
+    assert case.max_num_satellites == 18
+    assert case.satellite_model.sensor.max_off_nadir_angle_deg == 25.0
+    assert len(case.targets) == 23
+    assert case.targets[0].target_id == "target_001"
+    assert case.horizon_duration_sec == 48 * 3600.0
+
+
+def test_solver_config_parses_geometry_worker_count(tmp_path: Path) -> None:
+    config_dir = tmp_path / "config"
+    config_dir.mkdir()
+    (config_dir / "config.yaml").write_text(
+        "\n".join(
+            [
+                "geometry_worker_count: 2",
+                "run_policy: fair_reproduction",
+                "slot_library_mode: rgt_apc",
+                "scheduler_enable_slew_constraints: true",
+                "scheduler_enable_resource_constraints: true",
+                "scheduler_resource_margin_wh: 3.5",
+            ]
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+
+    config = load_solver_config(config_dir)
+
+    assert config.geometry_worker_count == 2
+    assert config.run_policy == "fair_reproduction"
+    assert config.slot_library_mode == "rgt_apc"
+    assert config.scheduler_enable_slew_constraints is True
+    assert config.scheduler_enable_resource_constraints is True
+    assert config.scheduler_resource_margin_wh == 3.5
+
+
+def test_solver_config_rejects_nonpositive_geometry_worker_count(tmp_path: Path) -> None:
+    config_dir = tmp_path / "config"
+    config_dir.mkdir()
+    (config_dir / "config.yaml").write_text("geometry_worker_count: 0\n", encoding="utf-8")
+
+    with pytest.raises(ValueError, match="geometry_worker_count must be positive"):
+        load_solver_config(config_dir)
+
+
+def test_solver_config_rejects_unknown_slot_library_mode(tmp_path: Path) -> None:
+    config_dir = tmp_path / "config"
+    config_dir.mkdir()
+    (config_dir / "config.yaml").write_text("slot_library_mode: mystery\n", encoding="utf-8")
+
+    with pytest.raises(ValueError, match="slot_library_mode must be one of"):
+        load_solver_config(config_dir)
+
+
+def test_fair_reproduction_profile_is_solver_config_directory() -> None:
+    config = load_solver_config(SOLVER_DIR / "profiles" / "fair_reproduction")
+
+    assert config.run_policy == "fair_reproduction"
+    assert config.slot_library_mode == "rgt_apc"
+    assert config.max_slots > SolverConfig.max_slots
+
+
+def test_time_grid_includes_horizon_end() -> None:
+    start = datetime(2025, 1, 1, 0, 0, tzinfo=UTC)
+    end = start + timedelta(seconds=100)
+
+    samples = build_time_grid(start, end, 30)
+
+    assert [sample.offset_sec for sample in samples] == [0.0, 30.0, 60.0, 90.0, 100.0]
+    assert samples[-1].instant == end
+
+
+def test_slot_library_filters_to_cap_and_stable_ids() -> None:
+    case = load_case(CASE_DIR)
+    slots = build_slot_library(case, _small_config())
+
+    assert len(slots) == 3
+    assert [slot.slot_id for slot in slots] == sorted(slot.slot_id for slot in slots)
+    assert [slot.slot_id for slot in slots] == [
+        "slot_a0675000_i0500_r00_u00",
+        "slot_a0675000_i0500_r00_u01",
+        "slot_a0675000_i0500_r01_u00",
+    ]
+    for slot in slots:
+        assert case.satellite_model.min_altitude_m <= slot.altitude_m <= case.satellite_model.max_altitude_m
+        assert len(slot.state_eci_m_mps) == 6
+
+
+def test_rgt_apc_slot_library_preserves_resonance_relation_with_valid_altitude() -> None:
+    case = load_case(CASE_DIR)
+    config = SolverConfig(
+        slot_library_mode="rgt_apc",
+        raan_count=4,
+        phase_count=2,
+        max_slots=8,
+    )
+
+    slots = build_slot_library(case, config)
+
+    assert len(slots) == 8
+    assert [slot.slot_id for slot in slots] == sorted(slot.slot_id for slot in slots)
+    assert slots[0].slot_id == "slot_rgt_a0850000_i1421_n07d01_r00_u00"
+    assert {slot.family for slot in slots} == {"rgt_apc"}
+    assert all(slot.altitude_m == case.satellite_model.max_altitude_m for slot in slots)
+    for slot in slots:
+        assert case.satellite_model.min_altitude_m <= slot.altitude_m <= case.satellite_model.max_altitude_m
+        apc_shift = 360.0 * (slot.apc_phase_index or 0) / config.phase_count
+        residual = (
+            config.rgt_resonance_numerator * slot.raan_deg
+            + config.rgt_resonance_denominator * slot.phase_deg
+            - config.rgt_phase_constant_deg
+            - apc_shift
+        ) % 360.0
+        assert residual == pytest.approx(0.0, abs=1.0e-9) or residual == pytest.approx(360.0, abs=1.0e-9)
+
+
+def test_heterogeneous_slot_library_keeps_rgt_family_first_under_cap() -> None:
+    case = load_case(CASE_DIR)
+    config = SolverConfig(
+        slot_library_mode="heterogeneous",
+        inclination_deg=(50.0,),
+        raan_count=2,
+        phase_count=2,
+        max_slots=5,
+    )
+
+    slots = build_slot_library(case, config)
+    summary = slot_library_summary(config, slots)
+
+    assert len(slots) == 5
+    assert [slot.family for slot in slots[:4]] == ["heterogeneous_rgt_apc"] * 4
+    assert slots[4].family == "heterogeneous_uniform"
+    assert summary["family_counts"] == {
+        "heterogeneous_rgt_apc": 4,
+        "heterogeneous_uniform": 1,
+    }
+
+
+def test_slot_records_include_family_provenance() -> None:
+    case = load_case(CASE_DIR)
+    slots = build_slot_library(
+        case,
+        SolverConfig(slot_library_mode="rgt_apc", raan_count=1, phase_count=1, max_slots=1),
+    )
+
+    record = slots_to_records(slots)[0]
+
+    assert record["family"] == "rgt_apc"
+    assert record["resonance"] == "7:1"
+    assert record["provenance"]["adaptation"] == "reference_altitude_clipped_to_case_bounds"
+
+
+def test_visibility_matrix_has_expected_dimensions() -> None:
+    case = load_case(CASE_DIR)
+    config = _small_config()
+    slots = build_slot_library(case, config)
+    samples = build_time_grid(case.horizon_start, case.horizon_end, config.sample_step_sec)
+
+    matrix = build_visibility_matrix(case, slots, samples)
+
+    assert matrix.shape == (3, 3, 23)
+    assert 0 <= matrix.visible_count <= 3 * 3 * 23
+    assert 0.0 <= matrix.density <= 1.0
+    assert matrix.visible == build_visibility_matrix(case, slots, samples).visible
+
+
+def test_visibility_matrix_parallel_matches_serial() -> None:
+    case = _window_case()
+    slots = (_overhead_slot(case.horizon_start), _overhead_slot(case.horizon_start))
+    samples = build_time_grid(case.horizon_start, case.horizon_end, 30.0)
+
+    serial = build_visibility_matrix(case, slots, samples, worker_count=1)
+    parallel = build_visibility_matrix(case, slots, samples, worker_count=2)
+
+    assert parallel.visible == serial.visible
+    assert parallel.shape == serial.shape
+    assert parallel.execution["mode"] == "parallel"
+    assert parallel.execution["actual_worker_count"] == 2
+
+
+def test_empty_solution_output_schema(tmp_path: Path) -> None:
+    solution_path = write_empty_solution(tmp_path)
+    payload = json.loads(solution_path.read_text(encoding="utf-8"))
+
+    assert payload == {"satellites": [], "actions": []}
+
+
+def test_mmrt_design_selects_slot_with_smallest_worst_gap() -> None:
+    problem = _problem(
+        shape=(6, 2, 1),
+        visible={
+            (2, 0, 0),
+            (1, 1, 0),
+            (4, 1, 0),
+        },
+    )
+
+    result = select_design_slots(problem, _design_config(mode="mmrt"))
+
+    assert result.selected_slot_ids == ("slot_1",)
+    assert result.objective["max_gap_samples"] == 2
+    assert result.to_summary()["backend_report"]["used_fallback"] is True
+
+
+def test_mmrt_design_required_pulp_backend_solves_tiny_model() -> None:
+    problem = _problem(
+        shape=(6, 2, 1),
+        visible={
+            (2, 0, 0),
+            (1, 1, 0),
+            (4, 1, 0),
+        },
+    )
+    config = SolverConfig(
+        design_mode="mmrt",
+        design_backend="pulp",
+        design_satellite_count=1,
+        design_max_selected_slots=1,
+    )
+
+    result = select_design_slots(problem, config)
+    report = result.to_summary()["backend_report"]
+
+    assert result.backend == "pulp"
+    assert result.fallback_reason is None
+    assert result.selected_slot_ids == ("slot_1",)
+    assert report["requested_backend"] == "pulp"
+    assert report["exact_required"] is True
+    assert report["solved"] is True
+    assert report["solved_with_milp_backend"] is True
+
+
+def test_mart_design_selects_slot_with_smallest_average_gap() -> None:
+    problem = _problem(
+        shape=(8, 2, 1),
+        visible={
+            (3, 0, 0),
+            (1, 1, 0),
+            (3, 1, 0),
+            (5, 1, 0),
+        },
+    )
+
+    result = select_design_slots(problem, _design_config(mode="mart"))
+
+    assert result.selected_slot_ids == ("slot_1",)
+    assert result.objective["sum_mean_gap_samples"] == 1.25
+
+
+def test_mart_design_required_pulp_backend_solves_tiny_model() -> None:
+    problem = _problem(
+        shape=(8, 2, 1),
+        visible={
+            (3, 0, 0),
+            (1, 1, 0),
+            (3, 1, 0),
+            (5, 1, 0),
+        },
+    )
+    config = SolverConfig(
+        design_mode="mart",
+        design_backend="pulp",
+        design_satellite_count=1,
+        design_max_selected_slots=1,
+    )
+
+    result = select_design_slots(problem, config)
+    report = result.to_summary()["backend_report"]
+
+    assert result.backend == "pulp"
+    assert result.fallback_reason is None
+    assert result.selected_slot_ids == ("slot_1",)
+    assert report["requested_backend"] == "pulp"
+    assert report["exact_required"] is True
+    assert report["solved"] is True
+    assert report["solved_with_milp_backend"] is True
+
+
+def test_required_design_backend_fails_loudly_when_model_is_out_of_bounds() -> None:
+    problem = _problem(
+        shape=(5, 3, 1),
+        visible={
+            (1, 0, 0),
+            (3, 1, 0),
+            (2, 2, 0),
+        },
+        fixed_count=1,
+        max_selected=1,
+    )
+    config = SolverConfig(
+        design_mode="mmrt",
+        design_backend="pulp",
+        design_satellite_count=1,
+        design_max_selected_slots=1,
+        design_max_backend_slots=1,
+    )
+
+    with pytest.raises(RuntimeError, match="slot_bound_exceeded"):
+        select_design_slots(problem, config)
+
+
+def test_threshold_first_finds_fewest_slots_satisfying_expected_gap() -> None:
+    problem = _problem(
+        shape=(6, 3, 1),
+        visible={
+            (2, 0, 0),
+            (4, 1, 0),
+            (0, 2, 0),
+        },
+        expected_hours=(2.0,),
+        fixed_count=None,
+        max_selected=3,
+    )
+    config = _design_config(
+        mode="threshold_first",
+        satellite_count=None,
+        max_selected=3,
+    )
+
+    result = select_design_slots(problem, config)
+
+    assert result.selected_slot_ids == ("slot_0", "slot_1")
+    assert result.objective["threshold_satisfied"] is True
+    assert result.objective["selected_count"] == 2
+
+
+def test_design_mode_comparison_records_fixed_n_mmrt_and_mart() -> None:
+    problem = _problem(
+        shape=(6, 3, 1),
+        visible={
+            (2, 0, 0),
+            (1, 1, 0),
+            (4, 1, 0),
+            (3, 2, 0),
+        },
+        fixed_count=None,
+        max_selected=2,
+    )
+    config = _design_config(mode="hybrid", satellite_count=None, max_selected=2)
+
+    records = compare_design_modes(problem, config)
+    by_mode = {record["mode"]: record for record in records}
+
+    assert tuple(by_mode) == ("mmrt", "mart", "threshold_first", "hybrid")
+    assert by_mode["mmrt"]["selected_slot_count"] == 2
+    assert by_mode["mart"]["selected_slot_count"] == 2
+    assert by_mode["threshold_first"]["backend_report"]["used_exhaustive_fallback"] is True
+
+
+def test_design_fallback_trigger_is_deterministic() -> None:
+    problem = _problem(
+        shape=(5, 3, 1),
+        visible={
+            (1, 0, 0),
+            (3, 1, 0),
+            (2, 2, 0),
+        },
+        fixed_count=1,
+        max_selected=1,
+    )
+    config = _design_config(
+        mode="mmrt",
+        backend="auto",
+        satellite_count=1,
+        max_selected=1,
+        max_backend_slots=1,
+    )
+
+    first = select_design_slots(problem, config)
+    second = select_design_slots(problem, config)
+
+    assert first.backend == "fallback"
+    assert first.fallback_reason is not None
+    assert "slot_bound_exceeded" in first.fallback_reason
+    assert first.selected_slot_ids == second.selected_slot_ids
+
+
+def test_observation_windows_with_gap_metadata_and_conflicts() -> None:
+    case = _window_case()
+    slots = (_overhead_slot(case.horizon_start),)
+
+    result = enumerate_observation_windows(case, _window_config(), slots, _design_result())
+
+    assert [window.window_id for window in result.windows] == [
+        "win_sat_001_target_001_20250101T000000Z",
+        "win_sat_001_target_001_20250101T000020Z",
+        "win_sat_001_target_001_20250101T000040Z",
+    ]
+    assert all(case.horizon_start <= window.start < window.end <= case.horizon_end for window in result.windows)
+    assert result.windows[0].midpoint == case.horizon_start + timedelta(seconds=10)
+    assert result.windows[0].estimated_max_gap_reduction_hours > 0.0
+    assert result.windows[0].estimated_mean_gap_reduction_hours == 0.5 / 60.0
+    assert result.conflict_edge_count == 0
+    assert result.candidate_count_by_satellite == {"sat_001": 3}
+    assert result.candidate_count_by_target == {"target_001": 3}
+
+
+def test_observation_windows_parallel_matches_serial_ids_and_conflicts() -> None:
+    case = _window_case()
+    slots = (_overhead_slot(case.horizon_start), _overhead_slot(case.horizon_start))
+    serial_config = SolverConfig(
+        window_stride_sec=10.0,
+        window_geometry_sample_step_sec=10.0,
+        max_observation_windows=20,
+        max_windows_per_satellite_target=20,
+        geometry_worker_count=1,
+    )
+    parallel_config = SolverConfig(
+        window_stride_sec=10.0,
+        window_geometry_sample_step_sec=10.0,
+        max_observation_windows=20,
+        max_windows_per_satellite_target=20,
+        geometry_worker_count=2,
+    )
+    design = _design_result_for_slots((0, 1))
+
+    serial = enumerate_observation_windows(case, serial_config, slots, design)
+    parallel = enumerate_observation_windows(case, parallel_config, slots, design)
+
+    assert [window.to_record() for window in parallel.windows] == [
+        window.to_record() for window in serial.windows
+    ]
+    assert parallel.candidate_count_by_satellite == serial.candidate_count_by_satellite
+    assert parallel.candidate_count_by_target == serial.candidate_count_by_target
+    assert parallel.conflict_edge_count == serial.conflict_edge_count
+    assert parallel.execution["mode"] == "parallel"
+
+
+def test_observation_window_conflicts_for_overlapping_same_satellite_windows() -> None:
+    case = _window_case()
+    slots = (_overhead_slot(case.horizon_start),)
+
+    result = enumerate_observation_windows(
+        case,
+        _window_config(stride_sec=10.0),
+        slots,
+        _design_result(),
+    )
+
+    first = result.windows[0]
+    assert result.conflict_edge_count > 0
+    assert "win_sat_001_target_001_20250101T000010Z" in first.conflict_ids
+
+
+def test_observation_window_geometry_filter_rejects_range_violation() -> None:
+    case = _window_case(max_range_m=1.0)
+    slots = (_overhead_slot(case.horizon_start),)
+
+    result = enumerate_observation_windows(case, _window_config(), slots, _design_result())
+
+    assert result.windows == ()
+    assert result.zero_window_targets == ("target_001",)
+    assert result.zero_window_satellites == ("sat_001",)
+
+
+def test_parallel_observation_windows_reports_caps_and_zero_windows() -> None:
+    case = _window_case()
+    slots = (_overhead_slot(case.horizon_start), _overhead_slot(case.horizon_start))
+    config = SolverConfig(
+        window_stride_sec=10.0,
+        window_geometry_sample_step_sec=10.0,
+        max_observation_windows=1,
+        max_windows_per_satellite_target=1,
+        geometry_worker_count=2,
+    )
+
+    result = enumerate_observation_windows(case, config, slots, _design_result_for_slots((0, 1)))
+
+    assert result.capped is True
+    assert len(result.windows) == 1
+    assert result.caps["geometry_worker_count"] == 2
+    assert result.zero_window_satellites == ("sat_002",)
+    assert result.execution["task_count"] == 2
+
+
+def test_scheduler_excludes_conflicting_windows() -> None:
+    case = _window_case()
+    early = _manual_window(
+        "win_early",
+        start_offset_sec=0,
+        end_offset_sec=10,
+        conflict_ids=("win_late",),
+    )
+    late = _manual_window(
+        "win_late",
+        start_offset_sec=30,
+        end_offset_sec=40,
+        conflict_ids=("win_early",),
+    )
+
+    result = schedule_observation_windows(
+        case,
+        _scheduler_config(max_selected=2),
+        _window_result((early, late)),
+    )
+
+    assert len(result.selected_window_ids) == 1
+    assert set(result.selected_window_ids) <= {"win_early", "win_late"}
+    assert result.conflict_edge_count == 1
+
+
+def test_scheduler_chooses_window_with_better_gap_reduction() -> None:
+    case = _window_case()
+    edge = _manual_window("win_edge", start_offset_sec=0, end_offset_sec=10)
+    center = _manual_window("win_center", start_offset_sec=25, end_offset_sec=35)
+
+    result = schedule_observation_windows(
+        case,
+        _scheduler_config(max_selected=1),
+        _window_result((edge, center)),
+    )
+
+    assert result.selected_window_ids == ("win_center",)
+    assert result.evaluation.max_revisit_gap_hours == 0.5 / 60.0
+
+
+def test_scheduler_required_pulp_binary_backend_solves_tiny_model() -> None:
+    case = _window_case()
+    edge = _manual_window("win_edge", start_offset_sec=0, end_offset_sec=10)
+    center = _manual_window(
+        "win_center",
+        start_offset_sec=25,
+        end_offset_sec=35,
+        max_reduction=1.0,
+    )
+
+    result = schedule_observation_windows(
+        case,
+        _scheduler_config(backend="pulp_binary", max_selected=1),
+        _window_result((edge, center)),
+    )
+    report = result.to_summary()["backend_report"]
+
+    assert result.backend == "pulp_binary"
+    assert result.fallback_reason is None
+    assert result.selected_window_ids == ("win_center",)
+    assert report["requested_backend"] == "pulp_binary"
+    assert report["exact_required"] is True
+    assert report["solved"] is True
+    assert report["solved_with_binary_milp"] is True
+
+
+def test_required_scheduler_backend_fails_loudly_when_model_is_out_of_bounds() -> None:
+    case = _window_case()
+    windows = (
+        _manual_window("win_00", start_offset_sec=0, end_offset_sec=10),
+        _manual_window("win_01", start_offset_sec=20, end_offset_sec=30),
+    )
+    config = SolverConfig(
+        scheduler_backend="pulp_binary",
+        scheduler_max_selected_windows=1,
+        scheduler_max_backend_windows=1,
+    )
+
+    with pytest.raises(RuntimeError, match="window_bound_exceeded"):
+        schedule_observation_windows(case, config, _window_result(windows))
+
+
+def test_scheduler_greedy_fallback_is_deterministic() -> None:
+    case = _window_case()
+    windows = (
+        _manual_window("win_00", start_offset_sec=0, end_offset_sec=10),
+        _manual_window("win_01", start_offset_sec=20, end_offset_sec=30),
+        _manual_window("win_02", start_offset_sec=40, end_offset_sec=50),
+    )
+    config = _scheduler_config(max_selected=2, max_exact_combinations=1)
+
+    first = schedule_observation_windows(case, config, _window_result(windows))
+    second = schedule_observation_windows(case, config, _window_result(windows))
+
+    assert first.backend == "greedy_fallback"
+    assert first.to_summary()["backend_report"]["used_greedy_fallback"] is True
+    assert first.selected_window_ids == second.selected_window_ids
+    assert "greedy_fallback" in (first.fallback_reason or "")
+
+
+def test_scheduler_adds_transition_gap_conflicts() -> None:
+    first = _manual_window("win_first", start_offset_sec=0, end_offset_sec=10)
+    second = _manual_window("win_second", start_offset_sec=15, end_offset_sec=25)
+
+    edges, transition_count = build_conflict_edges((first, second), 10.0)
+
+    assert edges == frozenset({(0, 1)})
+    assert transition_count == 1
+
+
+def test_scheduler_constraint_model_adds_slew_gap_conflicts() -> None:
+    case = _two_target_window_case()
+    slots = (_overhead_slot(case.horizon_start),)
+    first = _manual_window(
+        "win_first",
+        start_offset_sec=0,
+        end_offset_sec=10,
+        target_id="target_001",
+    )
+    second = _manual_window(
+        "win_second",
+        start_offset_sec=12,
+        end_offset_sec=22,
+        target_id="target_002",
+    )
+
+    model = build_scheduler_constraint_model(
+        case,
+        SolverConfig(scheduler_enable_slew_constraints=True),
+        (first, second),
+        slots,
+    )
+
+    assert model.edges == frozenset({(0, 1)})
+    assert model.edge_count_by_family["slew_gap"] == 1
+    assert model.summary["constraint_families"]["slew_gap"]["active"] is True
+
+
+def test_scheduler_selection_respects_slew_gap_constraints() -> None:
+    case = _two_target_window_case()
+    slots = (_overhead_slot(case.horizon_start),)
+    first = _manual_window(
+        "win_first",
+        start_offset_sec=0,
+        end_offset_sec=10,
+        target_id="target_001",
+        max_reduction=1.0,
+    )
+    second = _manual_window(
+        "win_second",
+        start_offset_sec=12,
+        end_offset_sec=22,
+        target_id="target_002",
+        max_reduction=1.0,
+    )
+
+    result = schedule_observation_windows(
+        case,
+        _scheduler_config(max_selected=2),
+        _window_result((first, second)),
+        slots,
+    )
+
+    assert len(result.selected_window_ids) == 1
+    assert result.constraint_summary["edge_count_by_family"]["slew_gap"] == 1
+    assert result.to_summary()["constraint_summary"]["constraint_families"]["slew_gap"]["active"] is True
+
+
+def test_scheduler_resource_prefix_limits_over_budget_selection() -> None:
+    case = _window_case(
+        min_duration_sec=10.0,
+        initial_battery_wh=1.5,
+        idle_discharge_rate_w=0.0,
+        obs_discharge_rate_w=360.0,
+        maneuver_discharge_rate_w=0.0,
+    )
+    first = _manual_window(
+        "win_first",
+        start_offset_sec=0,
+        end_offset_sec=10,
+        max_reduction=1.0,
+    )
+    second = _manual_window(
+        "win_second",
+        start_offset_sec=40,
+        end_offset_sec=50,
+        max_reduction=1.0,
+    )
+
+    result = schedule_observation_windows(
+        case,
+        _scheduler_config(max_selected=2),
+        _window_result((first, second)),
+    )
+
+    assert len(result.selected_window_ids) == 1
+    resource_family = result.constraint_summary["constraint_families"]["resource_prefix"]
+    assert resource_family["active"] is True
+    assert resource_family["constraint_count"] == 2
+
+
+def test_scheduler_greedy_fallback_respects_resource_constraints_deterministically() -> None:
+    case = _window_case(
+        min_duration_sec=10.0,
+        initial_battery_wh=1.5,
+        idle_discharge_rate_w=0.0,
+        obs_discharge_rate_w=360.0,
+        maneuver_discharge_rate_w=0.0,
+    )
+    windows = (
+        _manual_window("win_00", start_offset_sec=0, end_offset_sec=10, max_reduction=1.0),
+        _manual_window("win_01", start_offset_sec=20, end_offset_sec=30, max_reduction=1.0),
+        _manual_window("win_02", start_offset_sec=40, end_offset_sec=50, max_reduction=1.0),
+    )
+    config = _scheduler_config(max_selected=3, max_exact_combinations=1)
+
+    first = schedule_observation_windows(case, config, _window_result(windows))
+    second = schedule_observation_windows(case, config, _window_result(windows))
+
+    assert first.backend == "greedy_fallback"
+    assert len(first.selected_window_ids) == 1
+    assert first.selected_window_ids == second.selected_window_ids
+    assert first.rounding_summary["constraint_summary"]["constraint_families"]["resource_prefix"]["active"] is True
+
+
+def test_scheduler_mode_comparison_records_exact_and_greedy() -> None:
+    case = _window_case()
+    windows = (
+        _manual_window("win_00", start_offset_sec=0, end_offset_sec=10),
+        _manual_window("win_01", start_offset_sec=20, end_offset_sec=30),
+        _manual_window("win_02", start_offset_sec=40, end_offset_sec=50),
+    )
+    config = _scheduler_config(max_selected=2, max_exact_combinations=1000)
+    window_result = _window_result(windows)
+    current = schedule_observation_windows(case, config, window_result)
+
+    records = compare_scheduler_modes(case, config, window_result, current)
+    by_label = {record["label"]: record for record in records}
+
+    assert by_label["baseline_no_observations"]["available"] is True
+    assert by_label["bounded_exact_fallback"]["available"] is True
+    assert by_label["greedy_fallback"]["available"] is True
+    assert by_label["current"]["backend_report"]["used_exact_fallback"] is True
+
+
+def test_selected_windows_decode_to_action_schema() -> None:
+    window = _manual_window("win_action", start_offset_sec=0, end_offset_sec=10)
+
+    actions = selected_windows_to_actions((window,))
+
+    assert actions == [
+        {
+            "action_type": "observation",
+            "satellite_id": "sat_001",
+            "target_id": "target_001",
+            "start": "2025-01-01T00:00:00Z",
+            "end": "2025-01-01T00:00:10Z",
+        }
+    ]
+
+
+def test_local_validation_repair_drops_overlapping_low_value_window() -> None:
+    case = _window_case()
+    slots = (_overhead_slot(case.horizon_start),)
+    low = _manual_window(
+        "win_low",
+        start_offset_sec=0,
+        end_offset_sec=20,
+        max_reduction=0.1,
+        mean_reduction=0.1,
+    )
+    high = _manual_window(
+        "win_high",
+        start_offset_sec=10,
+        end_offset_sec=30,
+        max_reduction=0.5,
+        mean_reduction=0.5,
+    )
+    schedule = BinaryScheduleResult(
+        backend="test",
+        fallback_reason=None,
+        selected_window_ids=("win_low", "win_high"),
+        selected_window_indices=(0, 1),
+        selected_windows=(low, high),
+        evaluation=evaluate_schedule(case, (low, high), (0, 1)),
+        conflict_edge_count=1,
+        transition_conflict_edge_count=0,
+        model_size={},
+        rounding_summary={},
+    )
+
+    result = validate_and_repair_schedule(case, SolverConfig(), slots, schedule)
+
+    assert result.dropped_window_ids == ("win_low",)
+    assert [window.window_id for window in result.repaired_windows] == ["win_high"]
+    assert any(issue.issue_type == "overlap" for issue in result.issues)
+
+
+def test_local_validation_can_report_without_repair() -> None:
+    case = _window_case(max_range_m=1.0)
+    slots = (_overhead_slot(case.horizon_start),)
+    invalid = _manual_window("win_invalid", start_offset_sec=0, end_offset_sec=20)
+    schedule = BinaryScheduleResult(
+        backend="test",
+        fallback_reason=None,
+        selected_window_ids=("win_invalid",),
+        selected_window_indices=(0,),
+        selected_windows=(invalid,),
+        evaluation=evaluate_schedule(case, (invalid,), (0,)),
+        conflict_edge_count=0,
+        transition_conflict_edge_count=0,
+        model_size={},
+        rounding_summary={},
+    )
+    config = SolverConfig(local_repair_enabled=False)
+
+    result = validate_and_repair_schedule(case, config, slots, schedule)
+
+    assert result.repaired_windows == (invalid,)
+    assert result.dropped_window_ids == ()
+    assert result.repair_enabled is False
+    assert any(issue.issue_type == "geometry" for issue in result.issues)
+
+
+def test_preprocessing_artifacts_record_timing_and_backend_accounting(tmp_path: Path) -> None:
+    case = _window_case()
+    config = SolverConfig(write_visibility_matrix=False)
+    slots = (_overhead_slot(case.horizon_start),)
+    samples = build_time_grid(case.horizon_start, case.horizon_end, 60.0)
+    matrix = VisibilityMatrix(shape=(len(samples), len(slots), len(case.targets)), visible=frozenset())
+    design_result = DesignResult(
+        mode="mmrt",
+        backend="pulp",
+        fallback_reason=None,
+        selected_slot_indices=(0,),
+        selected_slot_ids=("slot_test",),
+        objective={"selected_count": 1},
+        target_stats=(),
+        model_size={"slots": 1, "time_samples": len(samples), "targets": 1},
+        backend_status={
+            "backend_name": "pulp_cbc",
+            "requested_backend": "auto",
+            "exact_required": False,
+            "available": True,
+            "attempted": True,
+            "solved": True,
+            "solver_status": "Optimal",
+            "failure_reason": None,
+            "fallback_reason": None,
+            "solved_with_milp_backend": True,
+        },
+    )
+    window_result = _window_result(())
+    schedule_result = BinaryScheduleResult(
+        backend="pulp_binary",
+        fallback_reason=None,
+        selected_window_ids=(),
+        selected_window_indices=(),
+        selected_windows=(),
+        evaluation=evaluate_schedule(case, (), ()),
+        conflict_edge_count=0,
+        transition_conflict_edge_count=0,
+        model_size={"windows": 0, "binary_variables": 0, "conflict_constraints": 0},
+        rounding_summary={},
+        backend_status={
+            "backend_name": "pulp_cbc",
+            "active_backend": "pulp_binary",
+            "requested_backend": "auto",
+            "exact_required": False,
+            "available": True,
+            "attempted": True,
+            "solved": True,
+            "solver_status": "Optimal",
+            "failure_reason": None,
+            "fallback_reason": None,
+            "solved_with_binary_milp": True,
+        },
+    )
+    validation_result = LocalValidationResult(
+        original_window_count=0,
+        repaired_windows=(),
+        dropped_window_ids=(),
+        issues=(),
+        repair_enabled=True,
+        estimated_metrics=schedule_result.evaluation.to_dict(),
+    )
+    run_accounting = {
+        "timing": {
+            "clock": "time.perf_counter",
+            "total_elapsed_sec": 0.25,
+            "stage_durations_sec": {
+                "case_config_loading": 0.01,
+                "slot_library_generation": 0.02,
+                "time_grid_generation": 0.03,
+                "visibility_matrix_generation": 0.04,
+                "design_solve": 0.05,
+                "observation_window_enumeration": 0.06,
+                "scheduler_solve": 0.07,
+                "local_validation_repair": 0.08,
+                "debug_comparisons": 0.09,
+            },
+        },
+        "run_policy": {"policy_name": "test_policy", "bounded": True},
+    }
+
+    write_preprocessing_artifacts(
+        tmp_path,
+        case,
+        config,
+        slots,
+        samples,
+        matrix,
+        design_result,
+        window_result,
+        schedule_result,
+        validation_result,
+        (),
+        (),
+        issue_88_url="https://github.com/Mtrya/astro-reason/issues/88",
+        run_accounting=run_accounting,
+        artifact_write_started_at=time.perf_counter(),
+    )
+
+    status = json.loads((tmp_path / "status.json").read_text(encoding="utf-8"))
+    reproduction = json.loads(
+        (tmp_path / "debug" / "reproduction_summary.json").read_text(encoding="utf-8")
+    )
+    design_summary = json.loads(
+        (tmp_path / "debug" / "design_model_summary.json").read_text(encoding="utf-8")
+    )
+    scheduler_summary = json.loads(
+        (tmp_path / "debug" / "scheduler_model_summary.json").read_text(encoding="utf-8")
+    )
+    required_stages = {
+        "case_config_loading",
+        "slot_library_generation",
+        "time_grid_generation",
+        "visibility_matrix_generation",
+        "design_solve",
+        "observation_window_enumeration",
+        "scheduler_solve",
+        "local_validation_repair",
+        "debug_comparisons",
+        "artifact_writing",
+    }
+    stages = status["timing"]["stage_durations_sec"]
+
+    assert required_stages <= set(stages)
+    assert all(isinstance(stages[name], int | float) and stages[name] >= 0.0 for name in required_stages)
+    assert status["run_policy"]["policy_name"] == "test_policy"
+    assert status["design_backend_accounting"]["backend_requested"] == "auto"
+    assert status["design_backend_accounting"]["backend_solved"] is True
+    assert status["scheduler_backend_accounting"]["configured_time_limit_sec"] == config.scheduler_time_limit_sec
+    assert reproduction["run_accounting"]["timing"]["stage_durations_sec"]["artifact_writing"] >= 0.0
+    assert design_summary["backend_accounting"]["model_size"]["slots"] == 1
+    assert scheduler_summary["backend_accounting"]["backend_solved"] is True

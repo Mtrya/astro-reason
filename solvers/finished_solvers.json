@@ -45,6 +45,17 @@
       "repro_ci": false,
       "repro_ci_reason": "too_expensive",
       "case_and_fixture_paths": []
+    },
+    {
+      "benchmark": "revisit_constellation",
+      "solver": "rogers_mmrt_mart_binary_scheduler",
+      "repro_ci": true,
+      "case_and_fixture_paths": [
+        {
+          "case_path": "benchmarks/revisit_constellation/dataset/cases/test/case_0001",
+          "fixture_path": ""
+        }
+      ]
     }
   ]
 }
