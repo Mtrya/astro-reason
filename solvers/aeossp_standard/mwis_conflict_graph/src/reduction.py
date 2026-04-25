@@ -92,7 +92,7 @@ def reduce_component(
             dominator_id = next(
                 (
                     candidate_id
-                    for candidate_id in sorted(active)
+                    for candidate_id in sorted(adjacency[dominated_id] & active)
                     if candidate_id != dominated_id
                     and _dominates(
                         candidate_id,

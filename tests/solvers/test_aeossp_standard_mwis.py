@@ -688,6 +688,67 @@ def test_exact_tiny_component_prefers_higher_total_weight() -> None:
     ) == {"b", "c"}
 
 
+def test_exact_component_matches_bruteforce_on_medium_graph() -> None:
+    candidates = [
+        _candidate(
+            f"v{index}",
+            task_id=f"task_{index}",
+            weight=float((index % 5) + 1),
+            end_offset_s=20 + index,
+        )
+        for index in range(10)
+    ]
+    candidate_by_id = {candidate.candidate_id: candidate for candidate in candidates}
+    component = [candidate.candidate_id for candidate in candidates]
+    edge_pairs = {
+        ("v0", "v1"),
+        ("v0", "v2"),
+        ("v1", "v3"),
+        ("v2", "v4"),
+        ("v3", "v5"),
+        ("v4", "v5"),
+        ("v5", "v6"),
+        ("v6", "v7"),
+        ("v7", "v8"),
+        ("v8", "v9"),
+    }
+    adjacency = {candidate_id: set() for candidate_id in component}
+    for left, right in edge_pairs:
+        adjacency[left].add(right)
+        adjacency[right].add(left)
+
+    best: set[str] = set()
+    for mask in range(1 << len(component)):
+        selected = {
+            candidate_id
+            for index, candidate_id in enumerate(component)
+            if mask & (1 << index)
+        }
+        if not validate_independent_set(selected, adjacency):
+            continue
+        selected_key = (
+            round(sum(candidate_by_id[candidate_id].task_weight for candidate_id in selected), 12),
+            len(selected),
+            -sum(candidate_by_id[candidate_id].end_offset_s for candidate_id in selected),
+            tuple(sorted(selected)),
+        )
+        best_key = (
+            round(sum(candidate_by_id[candidate_id].task_weight for candidate_id in best), 12),
+            len(best),
+            -sum(candidate_by_id[candidate_id].end_offset_s for candidate_id in best),
+            tuple(sorted(best)),
+        )
+        if selected_key > best_key:
+            best = selected
+
+    assert solve_exact_component(
+        component,
+        candidate_by_id,
+        adjacency,
+        policy="weight_degree_end",
+    ) == best
+
+
 def test_reduction_includes_isolated_nonnegative_vertices() -> None:
     candidates = [
         _candidate("isolated", task_id="task_isolated", weight=0.0),
@@ -1200,6 +1261,38 @@ def test_total_budget_deadline_bounds_mwis_refinement() -> None:
     assert stats.effective_time_limit_s == 0.0
     assert stats.deadline_source == "total_time_budget_s"
     assert stats.selection_started_after_deadline
+
+
+def test_total_budget_deadline_bounds_exact_component() -> None:
+    candidates = [
+        _candidate("early", task_id="task_early", weight=5.0, start_offset_s=10, end_offset_s=20),
+        _candidate("late", task_id="task_late", weight=5.0, start_offset_s=20, end_offset_s=30),
+    ]
+    adjacency = {
+        "early": {"late"},
+        "late": {"early"},
+    }
+    graph = type(
+        "ManualGraph",
+        (),
+        {
+            "adjacency": adjacency,
+            "stats": None,
+        },
+    )()
+
+    selected, stats = select_weighted_independent_set(
+        candidates,
+        graph,
+        MwisConfig(max_exact_component_size=2),
+        deadline=time.perf_counter() - 1.0,
+    )
+
+    assert [candidate.candidate_id for candidate in selected] == ["early"]
+    assert stats.time_limit_hit
+    assert stats.search_stop_reason == "time_limit"
+    assert stats.as_dict()["component_stop_reasons"]["time_limit"] == 1
+    assert stats.as_dict()["component_search"][0]["mode"] == "baseline_only"
 
 
 def test_local_validation_rejects_duplicate_tasks(monkeypatch) -> None:

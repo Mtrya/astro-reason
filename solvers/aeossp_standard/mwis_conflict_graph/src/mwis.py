@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from collections import Counter, defaultdict
 from dataclasses import asdict, dataclass, field
+from functools import lru_cache
 from itertools import combinations
 import time
 from typing import Any
@@ -73,6 +74,7 @@ class ComponentSearchStats:
     elapsed_s: float
     time_limit_hit: bool
     stop_reason: str
+    reduction_elapsed_s: float = 0.0
     included_by_reduction_count: int = 0
     removed_by_reduction_count: int = 0
     reduction_rule_counts: dict[str, int] = field(default_factory=dict)
@@ -108,6 +110,7 @@ class MwisStats:
     recombination_attempt_count: int
     recombination_win_count: int
     incumbent_source: str
+    reduction_elapsed_s: float = 0.0
     requested_backend: str = "internal_reduction"
     backend: str = "internal_reduction"
     backend_available: bool = True
@@ -144,6 +147,7 @@ class MwisStats:
             "recombination_attempt_count": self.recombination_attempt_count,
             "recombination_win_count": self.recombination_win_count,
             "incumbent_source": self.incumbent_source,
+            "reduction_elapsed_s": self.reduction_elapsed_s,
             "requested_backend": self.requested_backend,
             "backend": self.backend,
             "backend_available": self.backend_available,
@@ -169,6 +173,7 @@ class MwisStats:
                 "stop_reason": item.stop_reason,
                 "time_limit_hit": item.time_limit_hit,
                 "elapsed_s": item.elapsed_s,
+                "reduction_elapsed_s": item.reduction_elapsed_s,
                 "included_by_reduction_count": item.included_by_reduction_count,
                 "removed_by_reduction_count": item.removed_by_reduction_count,
                 "reduction_rule_counts": dict(sorted(item.reduction_rule_counts.items())),
@@ -191,6 +196,10 @@ class LocalImproveStats:
 class _PopulationEntry:
     selected: set[str]
     source: str
+
+
+class _ExactDeadlineReached(Exception):
+    """Raised internally when a bounded exact solve exhausts its deadline."""
 
 
 def greedy_priority(candidate: Candidate, degree: int, *, policy: str) -> tuple[Any, ...]:
@@ -259,6 +268,7 @@ def solve_exact_component(
     adjacency: dict[str, set[str]],
     *,
     policy: str,
+    deadline: float | None = None,
 ) -> set[str]:
     ordered = _ordered_component(
         component,
@@ -266,34 +276,70 @@ def solve_exact_component(
         adjacency,
         policy=policy,
     )
-    suffix_weight: list[float] = [0.0] * (len(ordered) + 1)
-    for index in range(len(ordered) - 1, -1, -1):
-        suffix_weight[index] = suffix_weight[index + 1] + candidate_by_id[ordered[index]].task_weight
+    index_by_id = {candidate_id: index for index, candidate_id in enumerate(ordered)}
+    adjacency_masks = [0] * len(ordered)
+    for candidate_id, index in index_by_id.items():
+        mask = 0
+        for neighbor_id in adjacency[candidate_id]:
+            neighbor_index = index_by_id.get(neighbor_id)
+            if neighbor_index is not None:
+                mask |= 1 << neighbor_index
+        adjacency_masks[index] = mask
+    closed_masks = [
+        adjacency_masks[index] | (1 << index)
+        for index in range(len(ordered))
+    ]
+    component_degrees = [
+        adjacency_masks[index].bit_count()
+        for index in range(len(ordered))
+    ]
+    full_mask = (1 << len(ordered)) - 1
 
-    best: set[str] = set()
+    @lru_cache(maxsize=None)
+    def selected_key(mask: int) -> tuple[Any, ...]:
+        selected_ids = [
+            ordered[index]
+            for index in range(len(ordered))
+            if mask & (1 << index)
+        ]
+        total_weight = sum(candidate_by_id[candidate_id].task_weight for candidate_id in selected_ids)
+        total_count = len(selected_ids)
+        total_completion = sum(candidate_by_id[candidate_id].end_offset_s for candidate_id in selected_ids)
+        return (
+            round(total_weight, 12),
+            total_count,
+            -total_completion,
+            tuple(sorted(selected_ids)),
+        )
 
-    def search(index: int, selected: set[str], blocked: set[str], current_weight: float) -> None:
-        nonlocal best
-        best_weight = sum(candidate_by_id[candidate_id].task_weight for candidate_id in best)
-        if current_weight + suffix_weight[index] < best_weight - 1.0e-9:
-            return
-        if index >= len(ordered):
-            if _is_better(selected, best, candidate_by_id):
-                best = set(selected)
-            return
+    @lru_cache(maxsize=None)
+    def search(mask: int) -> int:
+        if mask == 0:
+            return 0
+        if deadline is not None and time.perf_counter() >= deadline:
+            raise _ExactDeadlineReached
 
-        candidate_id = ordered[index]
-        if candidate_id not in blocked:
-            search(
-                index + 1,
-                selected | {candidate_id},
-                blocked | adjacency[candidate_id],
-                current_weight + candidate_by_id[candidate_id].task_weight,
-            )
-        search(index + 1, selected, blocked | {candidate_id}, current_weight)
+        branch_index = max(
+            (index for index in range(len(ordered)) if mask & (1 << index)),
+            key=lambda index: (
+                (adjacency_masks[index] & mask).bit_count(),
+                component_degrees[index],
+                ordered[index],
+            ),
+        )
+        branch_bit = 1 << branch_index
+        include_mask = branch_bit | search(mask & ~closed_masks[branch_index])
+        exclude_mask = search(mask & ~branch_bit)
+        if selected_key(include_mask) > selected_key(exclude_mask):
+            return include_mask
+        return exclude_mask
 
-    search(0, set(), set(), 0.0)
-    return best
+    selected_mask = search(full_mask)
+    return {
+        ordered[index]
+        for index in range(len(ordered))
+        if selected_mask & (1 << index)
+    }
 
 
 def solve_greedy_component(
@@ -344,10 +390,14 @@ def _find_best_one_improvement(
     selected: set[str],
     candidate_by_id: dict[str, Candidate],
     adjacency: dict[str, set[str]],
+    *,
+    deadline: float | None = None,
 ) -> str | None:
     best_candidate_id: str | None = None
     best_result: set[str] | None = None
     for candidate_id in component:
+        if deadline is not None and time.perf_counter() >= deadline:
+            raise _ExactDeadlineReached
         if candidate_id in selected:
             continue
         if adjacency[candidate_id] & selected:
@@ -365,6 +415,8 @@ def _find_best_two_improvement(
     selected: set[str],
     candidate_by_id: dict[str, Candidate],
     adjacency: dict[str, set[str]],
+    *,
+    deadline: float | None = None,
 ) -> tuple[str, str, str] | None:
     selected_conflicts: dict[str, set[str]] = {}
     free_candidates: list[str] = []
@@ -380,22 +432,45 @@ def _find_best_two_improvement(
             blocked_by[next(iter(conflicts))].append(candidate_id)
 
     best_move: tuple[str, str, str] | None = None
-    best_result: set[str] | None = None
+    best_key = _selected_key(selected, candidate_by_id)
+    selected_weight = sum(candidate_by_id[candidate_id].task_weight for candidate_id in selected)
+    selected_completion = sum(
+        candidate_by_id[candidate_id].end_offset_s for candidate_id in selected
+    )
+    selected_count = len(selected)
     for removed_id in sorted(selected):
+        if deadline is not None and time.perf_counter() >= deadline:
+            raise _ExactDeadlineReached
         eligible = sorted(set(free_candidates) | set(blocked_by.get(removed_id, [])))
         if len(eligible) < 2:
             continue
         for added_a, added_b in combinations(eligible, 2):
+            if deadline is not None and time.perf_counter() >= deadline:
+                raise _ExactDeadlineReached
             if removed_id not in (selected_conflicts[added_a] | selected_conflicts[added_b]):
                 continue
             if added_b in adjacency[added_a]:
                 continue
-            candidate_result = set(selected)
-            candidate_result.remove(removed_id)
-            candidate_result.add(added_a)
-            candidate_result.add(added_b)
-            if best_result is None or _is_better(candidate_result, best_result, candidate_by_id):
-                best_result = candidate_result
+            candidate_weight = (
+                selected_weight
+                - candidate_by_id[removed_id].task_weight
+                + candidate_by_id[added_a].task_weight
+                + candidate_by_id[added_b].task_weight
+            )
+            candidate_completion = (
+                selected_completion
+                - candidate_by_id[removed_id].end_offset_s
+                + candidate_by_id[added_a].end_offset_s
+                + candidate_by_id[added_b].end_offset_s
+            )
+            candidate_key = (
+                round(candidate_weight, 12),
+                selected_count + 1,
+                -candidate_completion,
+                tuple(sorted((selected - {removed_id}) | {added_a, added_b})),
+            )
+            if candidate_key > best_key:
+                best_key = candidate_key
                 best_move = (removed_id, added_a, added_b)
     return best_move
 
@@ -415,22 +490,32 @@ def _local_improve_component(
         if deadline is not None and time.perf_counter() >= deadline:
             stats.stop_reason = "time_limit"
             break
-        insertion = _find_best_one_improvement(
-            component,
-            improved,
-            candidate_by_id,
-            adjacency,
-        )
+        try:
+            insertion = _find_best_one_improvement(
+                component,
+                improved,
+                candidate_by_id,
+                adjacency,
+                deadline=deadline,
+            )
+        except _ExactDeadlineReached:
+            stats.stop_reason = "time_limit"
+            break
         if insertion is not None:
             improved.add(insertion)
             stats.improvement_count += 1
             continue
-        two_improvement = _find_best_two_improvement(
-            component,
-            improved,
-            candidate_by_id,
-            adjacency,
-        )
+        try:
+            two_improvement = _find_best_two_improvement(
+                component,
+                improved,
+                candidate_by_id,
+                adjacency,
+                deadline=deadline,
+            )
+        except _ExactDeadlineReached:
+            stats.stop_reason = "time_limit"
+            break
         if two_improvement is None:
             stats.stop_reason = "converged"
             break
@@ -542,10 +627,13 @@ def _apply_reduction_stats(
     stats: ComponentSearchStats,
     reduction: ReductionResult,
     candidate_by_id: dict[str, Candidate],
+    *,
+    reduction_elapsed_s: float,
 ) -> ComponentSearchStats:
     included_key = _selected_key(reduction.included_ids, candidate_by_id)
     stats.component_size = reduction.stats.original_component_size
     stats.reduced_component_size = reduction.stats.reduced_component_size
+    stats.reduction_elapsed_s = reduction_elapsed_s
     stats.baseline_weight += included_key[0]
     stats.baseline_count += reduction.stats.included_by_reduction_count
     stats.final_weight += included_key[0]
@@ -568,16 +656,35 @@ def _select_component_with_backend(
 ) -> tuple[set[str], ComponentSearchStats, bool]:
     if backend.backend not in {"internal_reduction", "fallback_python"}:
         raise RuntimeError(f"unsupported resolved MWIS backend: {backend.backend}")
+    reduction_start = time.perf_counter()
     reduction = reduce_component(component, candidate_by_id, adjacency)
+    reduction_elapsed_s = time.perf_counter() - reduction_start
     reduced_component = reduction.active_component
 
     if len(reduced_component) <= config.max_exact_component_size:
-        reduced_selected = solve_exact_component(
-            reduced_component,
-            candidate_by_id,
-            adjacency,
-            policy=config.selection_policy,
-        )
+        exact_start = time.perf_counter()
+        time_limit_hit = False
+        stop_reason = "exact"
+        incumbent_source = "exact"
+        try:
+            reduced_selected = solve_exact_component(
+                reduced_component,
+                candidate_by_id,
+                adjacency,
+                policy=config.selection_policy,
+                deadline=deadline,
+            )
+        except _ExactDeadlineReached:
+            reduced_selected = solve_greedy_component(
+                reduced_component,
+                candidate_by_id,
+                adjacency,
+                policy=config.selection_policy,
+            )
+            time_limit_hit = True
+            stop_reason = "time_limit"
+            incumbent_source = "deadline_greedy_fallback"
+        elapsed_s = time.perf_counter() - exact_start
         component_selected = reduction.reconstruct(reduced_selected)
         selected_key = _selected_key(component_selected, candidate_by_id)
         return (
@@ -586,9 +693,9 @@ def _select_component_with_backend(
                 component_index=component_index,
                 component_size=len(component),
                 reduced_component_size=len(reduced_component),
-                mode="exact",
-                baseline_source="exact",
-                incumbent_source="exact",
+                mode="exact" if not time_limit_hit else "baseline_only",
+                baseline_source=incumbent_source,
+                incumbent_source=incumbent_source,
                 baseline_weight=selected_key[0],
                 baseline_count=len(component_selected),
                 final_weight=selected_key[0],
@@ -598,14 +705,15 @@ def _select_component_with_backend(
                 successful_two_swap_count=0,
                 recombination_attempt_count=0,
                 recombination_win_count=0,
-                elapsed_s=0.0,
-                time_limit_hit=False,
-                stop_reason="exact",
+                elapsed_s=elapsed_s,
+                time_limit_hit=time_limit_hit,
+                stop_reason=stop_reason,
+                reduction_elapsed_s=reduction_elapsed_s,
                 included_by_reduction_count=reduction.stats.included_by_reduction_count,
                 removed_by_reduction_count=reduction.stats.removed_by_reduction_count,
                 reduction_rule_counts=dict(reduction.stats.rule_counts),
             ),
-            True,
+            not time_limit_hit,
         )
 
     reduced_selected, component_stats = _refine_large_component(
@@ -621,6 +729,7 @@ def _select_component_with_backend(
         component_stats,
         reduction,
         candidate_by_id,
+        reduction_elapsed_s=reduction_elapsed_s,
     )
     return component_selected, component_stats, False
 
@@ -954,6 +1063,7 @@ def select_weighted_independent_set(
         recombination_attempt_count=recombination_attempt_count,
         recombination_win_count=recombination_win_count,
         incumbent_source=_summarize_global_incumbent_source(component_sources),
+        reduction_elapsed_s=sum(item.reduction_elapsed_s for item in component_search),
         requested_backend=backend.requested_backend,
         backend=backend.backend,
         backend_available=backend.backend_available,
