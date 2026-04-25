@@ -9,9 +9,10 @@ import json
 from .binary_scheduler import BinaryScheduleResult, selected_windows_to_actions
 from .case_io import RevisitCase, SolverConfig, iso_z
 from .design_models import DesignResult
-from .observation_windows import WindowEnumerationResult
+from .observation_windows import ObservationWindow, WindowEnumerationResult
 from .slot_library import OrbitSlot, slots_to_records
 from .time_grid import TimeSample, time_grid_to_records
+from .validation import LocalValidationResult
 from .visibility_matrix import VisibilityMatrix, target_visibility_counts, visibility_to_sparse_records
 
 
@@ -41,6 +42,7 @@ def write_slot_solution(
     slots: tuple[OrbitSlot, ...],
     selected_slot_indices: tuple[int, ...],
     schedule_result: BinaryScheduleResult | None = None,
+    repaired_windows: tuple[ObservationWindow, ...] | None = None,
 ) -> Path:
     satellites = []
     for satellite_number, slot_index in enumerate(selected_slot_indices, start=1):
@@ -58,11 +60,12 @@ def write_slot_solution(
             }
         )
     path = solution_dir / "solution.json"
-    actions = (
-        selected_windows_to_actions(schedule_result.selected_windows)
-        if schedule_result is not None
-        else []
+    scheduled_windows = (
+        repaired_windows
+        if repaired_windows is not None
+        else (schedule_result.selected_windows if schedule_result is not None else ())
     )
+    actions = selected_windows_to_actions(tuple(scheduled_windows))
     write_json(path, {"satellites": satellites, "actions": actions})
     return path
 
@@ -77,6 +80,7 @@ def write_preprocessing_artifacts(
     design_result: DesignResult,
     window_result: WindowEnumerationResult,
     schedule_result: BinaryScheduleResult,
+    validation_result: LocalValidationResult,
     *,
     issue_88_url: str | None,
 ) -> None:
@@ -115,6 +119,7 @@ def write_preprocessing_artifacts(
             "fallback_reason": schedule_result.fallback_reason,
         },
     )
+    write_json(debug_dir / "validation_summary.json", validation_result.to_summary())
 
     capacity = matrix.shape[0] * matrix.shape[1] * matrix.shape[2]
     status = {
@@ -160,6 +165,10 @@ def write_preprocessing_artifacts(
         "scheduler_conflict_edge_count": schedule_result.conflict_edge_count,
         "scheduler_transition_conflict_edge_count": schedule_result.transition_conflict_edge_count,
         "scheduler_estimated_metrics": schedule_result.evaluation.to_dict(),
+        "local_validation_issue_count": len(validation_result.issues),
+        "local_repaired_window_count": len(validation_result.repaired_windows),
+        "local_dropped_window_ids": list(validation_result.dropped_window_ids),
+        "local_validation_metrics": validation_result.estimated_metrics,
         "target_visibility_counts": target_visibility_counts(matrix, case.targets),
         "issue_88_exists": issue_88_url is not None,
         "issue_88_url": issue_88_url,

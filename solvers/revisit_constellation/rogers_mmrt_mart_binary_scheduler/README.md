@@ -11,6 +11,7 @@ The current implementation is intentionally limited to standalone design preproc
 - select design slots with bounded MMRT, MART, threshold-first, or hybrid policies
 - enumerate feasible Cho-style observation windows for selected slots
 - select a conflict-free schedule with binary, relaxed, exact, or greedy modes
+- run solver-local validation and conservative repair on scheduled windows
 - write a benchmark-shaped `solution.json` with selected satellites and observation actions
 - write `status.json` and `model_prep/*` summaries
 
@@ -43,6 +44,7 @@ matching for larger cases.
 - `debug/scheduler_model_summary.json`
 - `debug/selected_windows.json`
 - `debug/rounding_or_fallback_summary.json`
+- `debug/validation_summary.json`
 
 Optional configuration can be provided with `config.yaml`, `config.yml`, or `config.json` in the config directory. Supported keys are:
 
@@ -76,4 +78,7 @@ Optional configuration can be provided with `config.yaml`, `config.yml`, or `con
 - `scheduler_max_exact_combinations`
 - `scheduler_max_selected_windows`
 - `scheduler_min_transition_gap_sec`
+- `local_repair_enabled`
+- `local_validation_geometry_sample_step_sec`
+- `local_battery_margin_wh`
 - `debug`

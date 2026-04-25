@@ -108,6 +108,9 @@ class SolverConfig:
     scheduler_max_exact_combinations: int = 20000
     scheduler_max_selected_windows: int = 200
     scheduler_min_transition_gap_sec: float = 0.0
+    local_repair_enabled: bool = True
+    local_validation_geometry_sample_step_sec: float = 10.0
+    local_battery_margin_wh: float = 0.0
     debug: bool = False
 
 
@@ -446,6 +449,18 @@ def load_solver_config(config_dir: str | Path | None) -> SolverConfig:
                 SolverConfig.scheduler_min_transition_gap_sec,
             )
         ),
+        local_repair_enabled=bool(
+            payload.get("local_repair_enabled", SolverConfig.local_repair_enabled)
+        ),
+        local_validation_geometry_sample_step_sec=float(
+            payload.get(
+                "local_validation_geometry_sample_step_sec",
+                SolverConfig.local_validation_geometry_sample_step_sec,
+            )
+        ),
+        local_battery_margin_wh=float(
+            payload.get("local_battery_margin_wh", SolverConfig.local_battery_margin_wh)
+        ),
         debug=bool(payload.get("debug", SolverConfig.debug)),
     )
     if config.sample_step_sec <= 0.0:
@@ -504,4 +519,8 @@ def load_solver_config(config_dir: str | Path | None) -> SolverConfig:
         raise ValueError("scheduler_max_selected_windows must be positive")
     if config.scheduler_min_transition_gap_sec < 0.0:
         raise ValueError("scheduler_min_transition_gap_sec must be non-negative")
+    if config.local_validation_geometry_sample_step_sec <= 0.0:
+        raise ValueError("local_validation_geometry_sample_step_sec must be positive")
+    if config.local_battery_margin_wh < 0.0:
+        raise ValueError("local_battery_margin_wh must be non-negative")
     return config

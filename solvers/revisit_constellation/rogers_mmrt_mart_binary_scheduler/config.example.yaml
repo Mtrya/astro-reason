@@ -28,4 +28,7 @@ scheduler_max_backend_conflicts: 25000
 scheduler_max_exact_combinations: 20000
 scheduler_max_selected_windows: 200
 scheduler_min_transition_gap_sec: 0
+local_repair_enabled: true
+local_validation_geometry_sample_step_sec: 10
+local_battery_margin_wh: 0
 debug: false

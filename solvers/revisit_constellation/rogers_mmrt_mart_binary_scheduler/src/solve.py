@@ -12,6 +12,7 @@ from .observation_windows import enumerate_observation_windows
 from .slot_library import build_slot_library
 from .solution_io import write_preprocessing_artifacts, write_slot_solution
 from .time_grid import build_time_grid
+from .validation import validate_and_repair_schedule
 from .visibility_matrix import build_visibility_matrix
 
 
@@ -28,10 +29,15 @@ def solve(case_dir: Path, config_dir: str | None, solution_dir: Path) -> None:
     design_result = select_design_slots(design_problem, config)
     window_result = enumerate_observation_windows(case, config, slots, design_result)
     schedule_result = schedule_observation_windows(case, config, window_result)
+    validation_result = validate_and_repair_schedule(case, config, slots, schedule_result)
 
     solution_dir.mkdir(parents=True, exist_ok=True)
     write_slot_solution(
-        solution_dir, slots, design_result.selected_slot_indices, schedule_result
+        solution_dir,
+        slots,
+        design_result.selected_slot_indices,
+        schedule_result,
+        validation_result.repaired_windows,
     )
     write_preprocessing_artifacts(
         solution_dir,
@@ -43,6 +49,7 @@ def solve(case_dir: Path, config_dir: str | None, solution_dir: Path) -> None:
         design_result,
         window_result,
         schedule_result,
+        validation_result,
         issue_88_url=ISSUE_88_URL,
     )
 

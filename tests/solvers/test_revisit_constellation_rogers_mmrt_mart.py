@@ -26,7 +26,9 @@ from solvers.revisit_constellation.rogers_mmrt_mart_binary_scheduler.src.case_io
     parse_iso_z,
 )
 from solvers.revisit_constellation.rogers_mmrt_mart_binary_scheduler.src.binary_scheduler import (  # noqa: E402
+    BinaryScheduleResult,
     build_conflict_edges,
+    evaluate_schedule,
     schedule_observation_windows,
     selected_windows_to_actions,
 )
@@ -57,6 +59,9 @@ from solvers.revisit_constellation.rogers_mmrt_mart_binary_scheduler.src.time_gr
 from solvers.revisit_constellation.rogers_mmrt_mart_binary_scheduler.src.visibility_matrix import (  # noqa: E402
     VisibilityMatrix,
     build_visibility_matrix,
+)
+from solvers.revisit_constellation.rogers_mmrt_mart_binary_scheduler.src.validation import (  # noqa: E402
+    validate_and_repair_schedule,
 )
 
 
@@ -572,3 +577,66 @@ def test_selected_windows_decode_to_action_schema() -> None:
             "end": "2025-01-01T00:00:10Z",
         }
     ]
+
+
+def test_local_validation_repair_drops_overlapping_low_value_window() -> None:
+    case = _window_case()
+    slots = (_overhead_slot(case.horizon_start),)
+    low = _manual_window(
+        "win_low",
+        start_offset_sec=0,
+        end_offset_sec=20,
+        max_reduction=0.1,
+        mean_reduction=0.1,
+    )
+    high = _manual_window(
+        "win_high",
+        start_offset_sec=10,
+        end_offset_sec=30,
+        max_reduction=0.5,
+        mean_reduction=0.5,
+    )
+    schedule = BinaryScheduleResult(
+        backend="test",
+        fallback_reason=None,
+        selected_window_ids=("win_low", "win_high"),
+        selected_window_indices=(0, 1),
+        selected_windows=(low, high),
+        evaluation=evaluate_schedule(case, (low, high), (0, 1)),
+        conflict_edge_count=1,
+        transition_conflict_edge_count=0,
+        model_size={},
+        rounding_summary={},
+    )
+
+    result = validate_and_repair_schedule(case, SolverConfig(), slots, schedule)
+
+    assert result.dropped_window_ids == ("win_low",)
+    assert [window.window_id for window in result.repaired_windows] == ["win_high"]
+    assert any(issue.issue_type == "overlap" for issue in result.issues)
+
+
+def test_local_validation_can_report_without_repair() -> None:
+    case = _window_case(max_range_m=1.0)
+    slots = (_overhead_slot(case.horizon_start),)
+    invalid = _manual_window("win_invalid", start_offset_sec=0, end_offset_sec=20)
+    schedule = BinaryScheduleResult(
+        backend="test",
+        fallback_reason=None,
+        selected_window_ids=("win_invalid",),
+        selected_window_indices=(0,),
+        selected_windows=(invalid,),
+        evaluation=evaluate_schedule(case, (invalid,), (0,)),
+        conflict_edge_count=0,
+        transition_conflict_edge_count=0,
+        model_size={},
+        rounding_summary={},
+    )
+    config = SolverConfig(local_repair_enabled=False)
+
+    result = validate_and_repair_schedule(case, config, slots, schedule)
+
+    assert result.repaired_windows == (invalid,)
+    assert result.dropped_window_ids == ()
+    assert result.repair_enabled is False
+    assert any(issue.issue_type == "geometry" for issue in result.issues)
