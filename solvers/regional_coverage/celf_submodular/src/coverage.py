@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import math
+from bisect import bisect_left, bisect_right
 from collections import Counter, defaultdict
 from dataclasses import dataclass
 from pathlib import Path
@@ -13,6 +14,7 @@ import yaml
 from candidates import StripCandidate
 from case_io import CoverageSample, RegionalCoverageCase
 from geometry import (
+    EARTH_RADIUS_M,
     PropagationContext,
     haversine_m,
     strip_centerline_and_half_width_m,
@@ -46,8 +48,11 @@ class CoverageRuntimeSummary:
     spatial_cell_count: int
     candidate_count: int
     candidate_sample_upper_bound: int
+    candidate_cell_range_visits: int
     candidate_cell_visits: int
+    candidate_empty_cell_skips: int
     candidate_bbox_sample_checks: int
+    candidate_centerline_latitude_prefilter_skips: int
     candidate_exact_distance_checks: int
 
     def as_dict(self) -> dict[str, Any]:
@@ -60,11 +65,21 @@ class CoverageRuntimeSummary:
             "spatial_cell_count": self.spatial_cell_count,
             "candidate_count": self.candidate_count,
             "candidate_sample_upper_bound": upper_bound,
+            "candidate_cell_range_visits": self.candidate_cell_range_visits,
             "candidate_cell_visits": self.candidate_cell_visits,
+            "candidate_empty_cell_skips": self.candidate_empty_cell_skips,
             "candidate_bbox_sample_checks": checked,
+            "candidate_centerline_latitude_prefilter_skips": (
+                self.candidate_centerline_latitude_prefilter_skips
+            ),
             "candidate_exact_distance_checks": self.candidate_exact_distance_checks,
             "bbox_prefilter_reduction_ratio": (
                 1.0 - (checked / upper_bound) if upper_bound > 0 else None
+            ),
+            "sparse_cell_skip_ratio": (
+                self.candidate_empty_cell_skips / self.candidate_cell_range_visits
+                if self.candidate_cell_range_visits > 0
+                else None
             ),
         }
 
@@ -93,8 +108,11 @@ class CoverageSummary:
 
 class CoverageStats:
     def __init__(self) -> None:
+        self.candidate_cell_range_visits = 0
         self.candidate_cell_visits = 0
+        self.candidate_empty_cell_skips = 0
         self.candidate_bbox_sample_checks = 0
+        self.candidate_centerline_latitude_prefilter_skips = 0
         self.candidate_exact_distance_checks = 0
 
 
@@ -102,6 +120,8 @@ class CoverageStats:
 class SpatialSampleIndex:
     bin_deg: float
     cells: dict[tuple[int, int], tuple[CoverageSample, ...]]
+    lon_cells: tuple[int, ...]
+    cells_by_lon: dict[int, tuple[tuple[int, tuple[CoverageSample, ...]], ...]]
 
     @property
     def cell_count(self) -> int:
@@ -125,7 +145,19 @@ class SpatialSampleIndex:
             key: tuple(sorted(values, key=lambda sample: sample.index))
             for key, values in grouped.items()
         }
-        return cls(bin_deg=bin_deg, cells=dict(sorted(cells.items())))
+        by_lon: dict[int, list[tuple[int, tuple[CoverageSample, ...]]]] = defaultdict(list)
+        for (lon_cell, lat_cell), samples_for_cell in cells.items():
+            by_lon[lon_cell].append((lat_cell, samples_for_cell))
+        cells_by_lon = {
+            lon_cell: tuple(sorted(lat_rows, key=lambda row: row[0]))
+            for lon_cell, lat_rows in by_lon.items()
+        }
+        return cls(
+            bin_deg=bin_deg,
+            cells=dict(sorted(cells.items())),
+            lon_cells=tuple(sorted(cells_by_lon)),
+            cells_by_lon=dict(sorted(cells_by_lon.items())),
+        )
 
 
 def load_coverage_mapping_config(config_dir: Path | None) -> CoverageMappingConfig:
@@ -177,6 +209,22 @@ def _iter_bbox_cells(
             yield (lon_cell, lat_cell)
 
 
+def _bbox_cell_ranges(
+    min_lon: float,
+    max_lon: float,
+    min_lat: float,
+    max_lat: float,
+    *,
+    bin_deg: float,
+) -> tuple[int, int, int, int]:
+    return (
+        math.floor(min_lon / bin_deg),
+        math.floor(max_lon / bin_deg),
+        math.floor(min_lat / bin_deg),
+        math.floor(max_lat / bin_deg),
+    )
+
+
 def build_coverage_sample_index(
     case: RegionalCoverageCase,
     config: CoverageMappingConfig,
@@ -205,6 +253,10 @@ def _expanded_bbox(
         min(lats) - lat_margin,
         max(lats) + lat_margin,
     )
+
+
+def _latitude_margin_deg(half_width_m: float) -> float:
+    return math.degrees(max(0.0, half_width_m) / EARTH_RADIUS_M)
 
 
 def _bbox_dict(points: tuple[tuple[float, float], ...]) -> dict[str, float] | None:
@@ -244,6 +296,7 @@ def sample_indices_near_centerline(
     if not centerline:
         return ()
     min_lon, max_lon, min_lat, max_lat = _expanded_bbox(centerline, half_width_m)
+    latitude_margin_deg = _latitude_margin_deg(half_width_m)
     covered: set[int] = set()
     for sample in samples:
         if stats is not None:
@@ -253,6 +306,10 @@ def sample_indices_near_centerline(
         if not (min_lon <= sample.longitude_deg <= max_lon):
             continue
         for lon, lat in centerline:
+            if abs(sample.latitude_deg - lat) > latitude_margin_deg:
+                if stats is not None:
+                    stats.candidate_centerline_latitude_prefilter_skips += 1
+                continue
             if stats is not None:
                 stats.candidate_exact_distance_checks += 1
             if haversine_m(lon, lat, sample.longitude_deg, sample.latitude_deg) <= half_width_m:
@@ -271,38 +328,56 @@ def sample_indices_near_centerline_indexed(
     if not centerline:
         return ()
     min_lon, max_lon, min_lat, max_lat = _expanded_bbox(centerline, half_width_m)
-    covered: set[int] = set()
-    seen_samples: set[int] = set()
-    for cell in _iter_bbox_cells(
+    latitude_margin_deg = _latitude_margin_deg(half_width_m)
+    lon_start, lon_end, lat_start, lat_end = _bbox_cell_ranges(
         min_lon,
         max_lon,
         min_lat,
         max_lat,
         bin_deg=sample_index.bin_deg,
-    ):
-        if stats is not None:
-            stats.candidate_cell_visits += 1
-        for sample in sample_index.cells.get(cell, ()):
-            if sample.index in seen_samples:
-                continue
-            seen_samples.add(sample.index)
-            if stats is not None:
-                stats.candidate_bbox_sample_checks += 1
-            if not (min_lat <= sample.latitude_deg <= max_lat):
-                continue
-            if not (min_lon <= sample.longitude_deg <= max_lon):
-                continue
-            for lon, lat in centerline:
+    )
+    covered: set[int] = set()
+    seen_samples: set[int] = set()
+    nonempty_cell_visits = 0
+    lon_index_start = bisect_left(sample_index.lon_cells, lon_start)
+    lon_index_end = bisect_right(sample_index.lon_cells, lon_end)
+    for lon_cell in sample_index.lon_cells[lon_index_start:lon_index_end]:
+        lat_rows = sample_index.cells_by_lon.get(lon_cell, ())
+        lat_cells = tuple(lat_cell for lat_cell, _ in lat_rows)
+        start_index = bisect_left(lat_cells, lat_start)
+        end_index = bisect_right(lat_cells, lat_end)
+        for _, samples in lat_rows[start_index:end_index]:
+            nonempty_cell_visits += 1
+            for sample in samples:
+                if sample.index in seen_samples:
+                    continue
+                seen_samples.add(sample.index)
                 if stats is not None:
-                    stats.candidate_exact_distance_checks += 1
-                if haversine_m(
-                    lon,
-                    lat,
-                    sample.longitude_deg,
-                    sample.latitude_deg,
-                ) <= half_width_m:
-                    covered.add(sample.index)
-                    break
+                    stats.candidate_bbox_sample_checks += 1
+                if not (min_lat <= sample.latitude_deg <= max_lat):
+                    continue
+                if not (min_lon <= sample.longitude_deg <= max_lon):
+                    continue
+                for lon, lat in centerline:
+                    if abs(sample.latitude_deg - lat) > latitude_margin_deg:
+                        if stats is not None:
+                            stats.candidate_centerline_latitude_prefilter_skips += 1
+                        continue
+                    if stats is not None:
+                        stats.candidate_exact_distance_checks += 1
+                    if haversine_m(
+                        lon,
+                        lat,
+                        sample.longitude_deg,
+                        sample.latitude_deg,
+                    ) <= half_width_m:
+                        covered.add(sample.index)
+                        break
+    if stats is not None:
+        range_cell_count = (lon_end - lon_start + 1) * (lat_end - lat_start + 1)
+        stats.candidate_cell_range_visits += range_cell_count
+        stats.candidate_cell_visits += nonempty_cell_visits
+        stats.candidate_empty_cell_skips += range_cell_count - nonempty_cell_visits
     return tuple(sorted(covered))
 
 
@@ -568,8 +643,13 @@ def build_candidate_coverage_with_runtime(
         spatial_cell_count=sample_index.cell_count if sample_index is not None else 0,
         candidate_count=len(candidates),
         candidate_sample_upper_bound=len(case.coverage_grid.samples) * len(candidates),
+        candidate_cell_range_visits=stats.candidate_cell_range_visits,
         candidate_cell_visits=stats.candidate_cell_visits,
+        candidate_empty_cell_skips=stats.candidate_empty_cell_skips,
         candidate_bbox_sample_checks=stats.candidate_bbox_sample_checks,
+        candidate_centerline_latitude_prefilter_skips=(
+            stats.candidate_centerline_latitude_prefilter_skips
+        ),
         candidate_exact_distance_checks=stats.candidate_exact_distance_checks,
     )
     return mapping, summary, runtime

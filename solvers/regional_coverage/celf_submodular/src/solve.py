@@ -11,7 +11,12 @@ from typing import Any
 
 from candidates import generate_candidates, load_candidate_config
 from case_io import load_case
-from celf import load_selection_config, run_celf_selection, sample_weight_lookup
+from celf import (
+    coverage_objective,
+    load_selection_config,
+    run_celf_selection,
+    sample_weight_lookup,
+)
 from coverage import (
     build_candidate_coverage_with_runtime,
     build_coverage_diagnostics,
@@ -52,7 +57,13 @@ def _round_seconds(value: float) -> float:
     return round(value, 6)
 
 
-def _reproduction_summary(*, celf_result, repair_result) -> dict[str, Any]:
+def _reproduction_summary(
+    *,
+    celf_result,
+    repair_result,
+    repair_objective_summary: dict[str, Any],
+) -> dict[str, Any]:
+    best_bound = celf_result.best.online_bound
     return {
         "source": {
             "primary_reference": "Leskovec et al. 2007, Sections 3 and 4",
@@ -65,6 +76,7 @@ def _reproduction_summary(*, celf_result, repair_result) -> dict[str, Any]:
             "cost_benefit_greedy": "LazyForward CB maximizes marginal gain divided by candidate cost",
             "celf_lazy_updates": "stale marginal gains are recomputed only when a candidate reaches the queue head",
             "cef_comparison": "unit-cost and cost-benefit variants are both run when configured, then the higher-reward result is kept",
+            "online_bound": "Leskovec Section 3.2 online bound is computed from marginal gains over the same fixed candidate set",
         },
         "benchmark_adaptations": {
             "node_mapping": "paper sensor/node -> timed regional-coverage strip candidate",
@@ -81,7 +93,7 @@ def _reproduction_summary(*, celf_result, repair_result) -> dict[str, Any]:
             "official_validation": "experiments/main_solver runs the benchmark verifier through CLI/file contracts",
         },
         "known_fidelity_limits": {
-            "no_online_bound": "Leskovec online optimality bounds are not implemented",
+            "online_bound_scope": "the online bound certifies only the fixed benchmark-adapted candidate set used by CELF, not the continuous satellite scheduling problem",
             "geometry_drift_risk": "solver-local coverage mapping may differ from verifier-derived WGS84 strip geometry",
             "repair_breaks_pure_set_selection": "post-selection repair can remove candidates and therefore is reported separately from paper-faithful CELF",
             "battery_duty_are_approximate": "solver-local battery and duty checks are conservative approximations, not a proof of verifier feasibility",
@@ -92,6 +104,17 @@ def _reproduction_summary(*, celf_result, repair_result) -> dict[str, Any]:
             "best_selected_before_repair": celf_result.best.accepted_count,
             "repaired_selected_count": len(repair_result.repaired_candidate_ids),
             "removed_by_repair": len(repair_result.removed_candidate_ids),
+            "repaired_objective_value": repair_objective_summary["repaired_objective_value"],
+            "repair_objective_loss": repair_objective_summary["repair_objective_loss"],
+            "repair_objective_loss_ratio": repair_objective_summary[
+                "repair_objective_loss_ratio"
+            ],
+            "fixed_set_online_upper_bound": (
+                best_bound.online_upper_bound if best_bound is not None else None
+            ),
+            "fixed_set_online_gap_ratio": (
+                best_bound.gap_ratio if best_bound is not None else None
+            ),
             "unit_cost_lazy_recomputation_ratio": (
                 celf_result.unit_cost.as_dict().get("lazy_recomputation_ratio")
                 if celf_result.unit_cost
@@ -120,11 +143,13 @@ def _build_status(
     selection_config,
     celf_result,
     repair_result,
+    repair_objective_summary,
     timing_seconds: dict[str, float],
 ) -> dict[str, Any]:
     reproduction_summary = _reproduction_summary(
         celf_result=celf_result,
         repair_result=repair_result,
+        repair_objective_summary=repair_objective_summary,
     )
     return {
         "status": "ok",
@@ -158,6 +183,7 @@ def _build_status(
         "celf_summary": celf_result.as_dict(),
         "feasibility_summary": feasibility_summary(repair_result),
         "repair_summary": repair_result.as_dict(),
+        "repair_objective_summary": repair_objective_summary,
         "reproduction_summary": reproduction_summary,
         "output_policy": {
             "solution_actions": len(repair_result.repaired_candidate_ids),
@@ -253,6 +279,29 @@ def run(case_dir: Path, config_dir: Path | None, solution_dir: Path) -> int:
     )
     timings["schedule_validation_and_repair"] = _round_seconds(time.perf_counter() - start)
     timings["schedule_repair"] = timings["schedule_validation_and_repair"]
+    repaired_objective = coverage_objective(
+        repair_result.repaired_candidate_ids,
+        coverage_by_candidate,
+        sample_weights,
+    )
+    pre_repair_objective = celf_result.best.objective_value
+    repair_loss = max(0.0, pre_repair_objective - repaired_objective)
+    repair_objective_summary = {
+        "scope": "solver_local_fixed_sample_objective",
+        "pre_repair_objective_value": pre_repair_objective,
+        "repaired_objective_value": repaired_objective,
+        "repair_objective_loss": repair_loss,
+        "repair_objective_loss_ratio": (
+            repair_loss / pre_repair_objective if pre_repair_objective > 0.0 else None
+        ),
+        "pre_repair_selected_count": len(celf_result.best.selected_candidate_ids),
+        "repaired_selected_count": len(repair_result.repaired_candidate_ids),
+        "removed_by_repair": len(repair_result.removed_candidate_ids),
+        "notes": [
+            "Repair happens after paper-faithful fixed-set CELF selection.",
+            "Official verifier score is benchmark-owned and may differ from this solver-local sample objective.",
+        ],
+    }
 
     start = time.perf_counter()
     solution_path = write_solution_from_candidates(
@@ -303,9 +352,14 @@ def run(case_dir: Path, config_dir: Path | None, solution_dir: Path) -> int:
         solution_dir / "debug" / "coverage_runtime_summary.json",
         coverage_runtime_summary.as_dict(),
     )
+    write_json(
+        solution_dir / "debug" / "repair_objective_summary.json",
+        repair_objective_summary,
+    )
     reproduction_summary = _reproduction_summary(
         celf_result=celf_result,
         repair_result=repair_result,
+        repair_objective_summary=repair_objective_summary,
     )
     write_reproduction_debug(solution_dir, reproduction_summary)
     timings["output"] = _round_seconds(time.perf_counter() - start)
@@ -324,6 +378,7 @@ def run(case_dir: Path, config_dir: Path | None, solution_dir: Path) -> int:
         selection_config=selection_config,
         celf_result=celf_result,
         repair_result=repair_result,
+        repair_objective_summary=repair_objective_summary,
         timing_seconds=timings,
     )
     write_json(solution_dir / "status.json", status)

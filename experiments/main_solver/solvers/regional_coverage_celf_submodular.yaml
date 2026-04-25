@@ -17,11 +17,18 @@ config:
     method: indexed
     spatial_bin_deg: 0.25
   selection:
+    compute_online_bounds: true
+    max_bound_order_debug: 50
     write_iteration_trace: true
     max_iteration_debug: 2000
 run_policies:
   smoke:
     description: Fast validity smoke with bounded debug artifacts.
+    quality_envelope:
+      level: contract_smoke
+      status: NOT_QUALITY_FAIR
+      claim: proves runnable verifier-valid solver contract only
+      non_humble_parameters: false
     cases:
       - test/case_0001
     config:
@@ -34,6 +41,8 @@ run_policies:
         method: indexed
         spatial_bin_deg: 0.25
       selection:
+        compute_online_bounds: true
+        max_bound_order_debug: 50
         write_iteration_trace: true
         max_iteration_debug: 2000
     quality_gates:
@@ -44,7 +53,16 @@ run_policies:
       max_solver_total_seconds: 30
       max_verifier_seconds: 60
   evaluation:
-    description: Larger fair fixed-candidate CELF evaluation envelope for Phase 4.
+    description: Promoted fixed-candidate CELF evaluation envelope with verifier and bound evidence.
+    quality_envelope:
+      level: reproduction
+      status: NOT_YET_QUALITY_FAIR
+      claim: faithful fixed-candidate CELF reproduction, but candidate cap remains humble for quality
+      non_humble_parameters: false
+      blocker_summary:
+        - 2048 candidates is small relative to the 85k-171k full candidate grids.
+        - Final artifacts have only 2-7 nonzero candidates per case.
+        - Larger caps improve score, then schedule-unaware repair becomes the next blocker.
     cases:
       - test/case_0001
       - test/case_0002
@@ -61,6 +79,8 @@ run_policies:
         method: indexed
         spatial_bin_deg: 0.25
       selection:
+        compute_online_bounds: true
+        max_bound_order_debug: 50
         write_iteration_trace: false
         max_iteration_debug: 500
     quality_gates:
@@ -72,6 +92,11 @@ run_policies:
       max_verifier_seconds: 90
   debug_diagnostics:
     description: Larger candidate coverage diagnostics with bounded CELF trace.
+    quality_envelope:
+      level: reproduction_debug
+      status: NOT_QUALITY_FAIR
+      claim: debug trace for reproduction diagnostics, not quality evidence
+      non_humble_parameters: false
     cases:
       - test/case_0001
     config:
@@ -84,6 +109,8 @@ run_policies:
         method: indexed
         spatial_bin_deg: 0.25
       selection:
+        compute_online_bounds: true
+        max_bound_order_debug: 100
         write_iteration_trace: true
         max_iteration_debug: 1000
     quality_gates:
@@ -92,6 +119,68 @@ run_policies:
       min_nonzero_candidate_count: 1
       min_repaired_actions: 1
       max_solver_total_seconds: 90
+      max_verifier_seconds: 90
+  quality_probe_32768:
+    description: Diagnostic quality-envelope probe with a larger fixed candidate cap on the smoke case.
+    quality_envelope:
+      level: quality_diagnostic
+      status: NOT_YET_QUALITY_FAIR
+      claim: tests whether candidate scaling materially improves official verifier score; not promotion evidence
+      non_humble_parameters: diagnostic_only
+      expected_blocker: schedule-unaware CELF may lose high-value actions during repair
+    cases:
+      - test/case_0001
+    config:
+      candidate_generation:
+        time_stride_s: 600
+        max_candidates_total: 32768
+        cap_strategy: balanced_stride
+        debug_candidate_limit: 10
+      coverage_mapping:
+        method: indexed
+        spatial_bin_deg: 0.25
+      selection:
+        compute_online_bounds: true
+        max_bound_order_debug: 20
+        write_iteration_trace: false
+        max_iteration_debug: 200
+    quality_gates:
+      requires_valid_verifier: true
+      min_candidate_count: 32768
+      min_nonzero_candidate_count: 50
+      min_repaired_actions: 20
+      max_solver_total_seconds: 90
+      max_verifier_seconds: 90
+  quality_probe_65536:
+    description: Larger diagnostic quality-envelope probe for candidate scaling limits on the smoke case.
+    quality_envelope:
+      level: quality_diagnostic
+      status: NOT_YET_QUALITY_FAIR
+      claim: tests upper candidate scaling before schedule-aware selection; not promotion evidence
+      non_humble_parameters: diagnostic_only
+      expected_blocker: coverage mapping runtime and schedule-unaware repair loss
+    cases:
+      - test/case_0001
+    config:
+      candidate_generation:
+        time_stride_s: 600
+        max_candidates_total: 65536
+        cap_strategy: balanced_stride
+        debug_candidate_limit: 5
+      coverage_mapping:
+        method: indexed
+        spatial_bin_deg: 0.25
+      selection:
+        compute_online_bounds: true
+        max_bound_order_debug: 10
+        write_iteration_trace: false
+        max_iteration_debug: 100
+    quality_gates:
+      requires_valid_verifier: true
+      min_candidate_count: 65536
+      min_nonzero_candidate_count: 100
+      min_repaired_actions: 20
+      max_solver_total_seconds: 120
       max_verifier_seconds: 90
 cases:
   - id: test/case_0001

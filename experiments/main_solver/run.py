@@ -416,6 +416,79 @@ def _quality_gate_assessment(payload: dict[str, Any], gates: dict[str, Any]) -> 
     }
 
 
+def _quality_envelope_diagnostics(payload: dict[str, Any]) -> dict[str, Any] | None:
+    policy_metadata = payload.get("run_policy_metadata")
+    if not isinstance(policy_metadata, dict):
+        return None
+    envelope = policy_metadata.get("quality_envelope")
+    if not isinstance(envelope, dict):
+        return None
+
+    solver_status = payload.get("solver_status")
+    if not isinstance(solver_status, dict):
+        return {
+            "declared": envelope,
+            "diagnostics_available": False,
+            "reason": "solver_status missing or malformed",
+        }
+
+    candidate_summary = solver_status.get("candidate_summary") or {}
+    coverage_summary = solver_status.get("coverage_summary") or {}
+    celf_summary = solver_status.get("celf_summary") or {}
+    repair_summary = solver_status.get("repair_summary") or {}
+    repair_objective = solver_status.get("repair_objective_summary") or {}
+    timing_seconds = solver_status.get("timing_seconds") or {}
+    verifier = payload.get("verifier") or {}
+    verifier_metrics = verifier.get("metrics") if isinstance(verifier, dict) else {}
+    if not isinstance(verifier_metrics, dict):
+        verifier_metrics = {}
+
+    candidate_count = coverage_summary.get("candidate_count")
+    zero_count = coverage_summary.get("zero_coverage_count")
+    nonzero_count = (
+        candidate_count - zero_count
+        if isinstance(candidate_count, int) and isinstance(zero_count, int)
+        else None
+    )
+    full_candidate_count = candidate_summary.get("full_candidate_count")
+    cap_fraction = (
+        candidate_count / full_candidate_count
+        if isinstance(candidate_count, int)
+        and isinstance(full_candidate_count, int)
+        and full_candidate_count > 0
+        else None
+    )
+    best = celf_summary.get("best") if isinstance(celf_summary, dict) else {}
+    if not isinstance(best, dict):
+        best = {}
+    repaired_ids = repair_summary.get("repaired_candidate_ids")
+    repaired_count = len(repaired_ids) if isinstance(repaired_ids, list) else None
+
+    return {
+        "declared": envelope,
+        "diagnostics_available": True,
+        "status": envelope.get("status"),
+        "level": envelope.get("level"),
+        "candidate_cap": candidate_count,
+        "full_candidate_count": full_candidate_count,
+        "candidate_cap_fraction": cap_fraction,
+        "nonzero_candidate_count": nonzero_count,
+        "unique_solver_sample_count": coverage_summary.get("unique_sample_count"),
+        "celf_selected_count": best.get("accepted_count"),
+        "repaired_action_count": repaired_count,
+        "repair_objective_loss_ratio": repair_objective.get("repair_objective_loss_ratio"),
+        "coverage_ratio": verifier_metrics.get("coverage_ratio"),
+        "weighted_coverage_ratio": verifier_metrics.get("weighted_coverage_ratio"),
+        "solver_total_seconds": timing_seconds.get("total"),
+        "coverage_mapping_seconds": timing_seconds.get("coverage_mapping"),
+        "interpretation": (
+            "No-timeout validity is not sufficient for a quality-fair optimization "
+            "envelope; candidate density, search depth, repair loss, and verifier "
+            "score must be inspected together."
+        ),
+    }
+
+
 def _run_runnable_job(
     job: Job,
     *,
@@ -495,6 +568,9 @@ def _run_runnable_job(
             payload,
             job.policy["quality_gates"],
         )
+    quality_envelope = _quality_envelope_diagnostics(payload)
+    if quality_envelope is not None:
+        payload["quality_envelope_diagnostics"] = quality_envelope
     payload["status"] = "verified" if verifier.get("valid") is True else "verification_failed"
     _write_json(result_dir / "run.json", payload)
     return payload

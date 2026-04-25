@@ -38,6 +38,9 @@ class PropagationContext:
             for satellite_id, satellite in satellites.items()
         }
         self._state_ecef_cache: dict[tuple[str, datetime], np.ndarray] = {}
+        self._ground_intercept_lonlat_cache: dict[
+            tuple[str, datetime, float], tuple[float, float] | None
+        ] = {}
 
     def state_ecef(self, satellite_id: str, instant: datetime) -> np.ndarray:
         key = (satellite_id, instant.astimezone(UTC))
@@ -50,6 +53,25 @@ class PropagationContext:
         ).reshape(6)
         self._state_ecef_cache[key] = state
         return state
+
+    def ground_intercept_lonlat(
+        self,
+        satellite_id: str,
+        instant: datetime,
+        roll_deg: float,
+    ) -> tuple[float, float] | None:
+        key = (
+            satellite_id,
+            instant.astimezone(UTC),
+            round(float(roll_deg), 9),
+        )
+        if key in self._ground_intercept_lonlat_cache:
+            return self._ground_intercept_lonlat_cache[key]
+        state_ecef = self.state_ecef(satellite_id, key[1])
+        hit = _ground_intercept_ecef_m(state_ecef[:3], state_ecef[3:], roll_deg)
+        lonlat = None if hit is None else _ecef_to_lonlat_deg(hit)
+        self._ground_intercept_lonlat_cache[key] = lonlat
+        return lonlat
 
 
 def ensure_brahe_ready() -> None:
@@ -270,20 +292,27 @@ def strip_centerline_and_half_width_m(
     centerline: list[tuple[float, float]] = []
     half_widths_m: list[float] = []
     for offset_s in offsets:
-        state_ecef = context.state_ecef(
+        instant = start + timedelta(seconds=offset_s)
+        center_lonlat = context.ground_intercept_lonlat(
             candidate.satellite_id,
-            start + timedelta(seconds=offset_s),
+            instant,
+            candidate.roll_deg,
         )
-        sat_pos_m = state_ecef[:3]
-        sat_vel_mps = state_ecef[3:]
-        center_hit = _ground_intercept_ecef_m(sat_pos_m, sat_vel_mps, candidate.roll_deg)
-        inner_hit = _ground_intercept_ecef_m(sat_pos_m, sat_vel_mps, signed_inner)
-        outer_hit = _ground_intercept_ecef_m(sat_pos_m, sat_vel_mps, signed_outer)
-        if center_hit is None or inner_hit is None or outer_hit is None:
+        inner_lonlat = context.ground_intercept_lonlat(
+            candidate.satellite_id,
+            instant,
+            signed_inner,
+        )
+        outer_lonlat = context.ground_intercept_lonlat(
+            candidate.satellite_id,
+            instant,
+            signed_outer,
+        )
+        if center_lonlat is None or inner_lonlat is None or outer_lonlat is None:
             return ((), 0.0)
-        centerline.append(_ecef_to_lonlat_deg(center_hit))
-        inner_lon, inner_lat = _ecef_to_lonlat_deg(inner_hit)
-        outer_lon, outer_lat = _ecef_to_lonlat_deg(outer_hit)
+        centerline.append(center_lonlat)
+        inner_lon, inner_lat = inner_lonlat
+        outer_lon, outer_lat = outer_lonlat
         half_widths_m.append(
             0.5 * haversine_m(inner_lon, inner_lat, outer_lon, outer_lat)
         )

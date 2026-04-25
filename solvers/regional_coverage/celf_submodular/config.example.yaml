@@ -10,8 +10,8 @@ candidate_generation:
   # symmetric about nadir and filtered by the public sensor edge-angle limits.
   roll_step_deg: 4.0
 
-  # Deterministic cap for smoke-speed candidate generation. Set to null for
-  # fuller sweeps after validating runtime and debug artifact size.
+  # Deterministic cap for direct smoke-speed candidate generation. The
+  # experiment-owned evaluation policy currently raises this to 2048.
   max_candidates_total: 512
   cap_strategy: balanced_stride
 
@@ -45,6 +45,12 @@ selection:
 
   # Candidates at or below this current marginal gain are not accepted.
   min_marginal_gain: 0.0
+
+  # Compute the Leskovec Section 3.2 online upper bound over the same fixed
+  # candidate set used by CELF. This is a finite-set certificate, not a bound
+  # on continuous satellite scheduling.
+  compute_online_bounds: true
+  max_bound_order_debug: 50
 
   # Iteration traces can be large when the candidate cap is raised.
   write_iteration_trace: true

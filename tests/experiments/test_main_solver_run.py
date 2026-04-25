@@ -13,6 +13,7 @@ from experiments.main_solver.run import (
     _result_dir,
     _load_yaml,
     _parse_json_verifier,
+    _quality_envelope_diagnostics,
     _select_jobs,
 )
 
@@ -92,6 +93,71 @@ def test_regional_coverage_celf_evaluation_policy_selects_all_cases() -> None:
         for job in jobs
     )
     assert all(job.solver_config["coverage_mapping"]["method"] == "indexed" for job in jobs)
+    assert all(
+        job.policy["quality_envelope"]["status"] == "NOT_YET_QUALITY_FAIR"
+        for job in jobs
+    )
+
+
+def test_regional_coverage_celf_quality_probe_uses_large_diagnostic_cap() -> None:
+    matrix = _load_yaml(DEFAULT_CONFIG)
+
+    jobs = _select_jobs(
+        matrix,
+        benchmark_filter="regional_coverage",
+        solver_filter="regional_coverage_celf_submodular",
+        case_filter=None,
+        policy_filter="quality_probe_32768",
+    )
+
+    assert [job.case_id for job in jobs] == ["test/case_0001"]
+    assert jobs[0].solver_config["candidate_generation"]["max_candidates_total"] == 32768
+    assert jobs[0].solver_config["candidate_generation"]["debug_candidate_limit"] == 10
+    assert jobs[0].solver_config["selection"]["write_iteration_trace"] is False
+    assert jobs[0].policy["quality_envelope"]["level"] == "quality_diagnostic"
+    assert jobs[0].policy["quality_envelope"]["status"] == "NOT_YET_QUALITY_FAIR"
+
+
+def test_quality_envelope_diagnostics_summarize_effective_search() -> None:
+    payload = {
+        "run_policy_metadata": {
+            "quality_envelope": {
+                "level": "quality_diagnostic",
+                "status": "NOT_YET_QUALITY_FAIR",
+            }
+        },
+        "solver_status": {
+            "candidate_summary": {"full_candidate_count": 1000},
+            "coverage_summary": {
+                "candidate_count": 100,
+                "zero_coverage_count": 75,
+                "unique_sample_count": 250,
+            },
+            "celf_summary": {"best": {"accepted_count": 64}},
+            "repair_summary": {"repaired_candidate_ids": ["a", "b"]},
+            "repair_objective_summary": {"repair_objective_loss_ratio": 0.4},
+            "timing_seconds": {"total": 12.0, "coverage_mapping": 10.5},
+        },
+        "verifier": {
+            "metrics": {
+                "coverage_ratio": 0.42,
+                "weighted_coverage_ratio": 0.41,
+            }
+        },
+    }
+
+    diagnostics = _quality_envelope_diagnostics(payload)
+
+    assert diagnostics["diagnostics_available"] is True
+    assert diagnostics["level"] == "quality_diagnostic"
+    assert diagnostics["status"] == "NOT_YET_QUALITY_FAIR"
+    assert diagnostics["candidate_cap"] == 100
+    assert diagnostics["full_candidate_count"] == 1000
+    assert diagnostics["candidate_cap_fraction"] == 0.1
+    assert diagnostics["nonzero_candidate_count"] == 25
+    assert diagnostics["repaired_action_count"] == 2
+    assert diagnostics["coverage_ratio"] == 0.42
+    assert "No-timeout validity is not sufficient" in diagnostics["interpretation"]
 
 
 def test_policy_result_directory_preserves_policy_artifacts(tmp_path: Path) -> None:

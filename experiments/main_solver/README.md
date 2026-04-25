@@ -57,7 +57,7 @@ uv run python experiments/main_solver/run.py \
     --case test/case_0001
 ```
 
-Run the regional-coverage CELF Phase 4 policy envelopes:
+Run the regional-coverage CELF policy envelopes:
 
 ```bash
 # Fast verifier smoke.
@@ -66,12 +66,25 @@ uv run python experiments/main_solver/run.py \
     --solver regional_coverage_celf_submodular \
     --policy smoke
 
-# Larger fair fixed-candidate evaluation envelope.
+# Larger fixed-candidate evaluation envelope with verifier and bound evidence.
 uv run python experiments/main_solver/run.py \
     --benchmark regional_coverage \
     --solver regional_coverage_celf_submodular \
     --policy evaluation
+
+# Diagnostic candidate-scaling probe. This is intentionally not promotion
+# evidence for a quality-fair optimization envelope.
+uv run python experiments/main_solver/run.py \
+    --benchmark regional_coverage \
+    --solver regional_coverage_celf_submodular \
+    --policy quality_probe_32768
 ```
+
+Policy metadata may include `quality_envelope` fields. These distinguish
+contract/smoke, reproduction, and quality-diagnostic envelopes. A solver
+finishing before timeout is not enough to call the optimization envelope fair;
+candidate density, search depth, repair loss, and verifier score must also be
+inspected.
 
 Materialize SatNet citation-backed rows:
 

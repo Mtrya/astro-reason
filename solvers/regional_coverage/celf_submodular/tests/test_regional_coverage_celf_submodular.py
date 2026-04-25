@@ -18,6 +18,8 @@ from candidates import StripCandidate  # noqa: E402
 from case_io import CoverageSample, iso_z, load_case, parse_iso_z  # noqa: E402
 from celf import (  # noqa: E402
     SelectionConfig,
+    coverage_objective,
+    fixed_set_online_bound,
     lazy_forward_selection,
     marginal_gain,
     naive_recomputation_bound,
@@ -26,6 +28,7 @@ from celf import (  # noqa: E402
 )
 from coverage import (  # noqa: E402
     CoverageMappingConfig,
+    CoverageStats,
     SpatialSampleIndex,
     build_candidate_coverage,
     build_candidate_coverage_with_runtime,
@@ -293,6 +296,34 @@ def test_indexed_coverage_sample_lookup_matches_simple_path() -> None:
     assert indexed == simple == (0, 1, 2)
 
 
+def test_indexed_coverage_skips_sparse_empty_bbox_cells() -> None:
+    samples = (
+        CoverageSample(0, "on_line", "region_a", 0.5, 0.0, 1.0),
+        CoverageSample(1, "far", "region_a", 2.0, 2.0, 1.0),
+    )
+    centerline = ((0.0, 0.0), (0.5, 0.0), (1.0, 0.0))
+    half_width_m = 1_000.0
+    sample_index = SpatialSampleIndex.build(samples, bin_deg=0.01)
+    stats = CoverageStats()
+
+    simple = sample_indices_near_centerline(centerline, samples, half_width_m)
+    indexed = sample_indices_near_centerline_indexed(
+        centerline,
+        sample_index,
+        half_width_m,
+        stats=stats,
+    )
+
+    assert indexed == simple == (0,)
+    assert stats.candidate_cell_range_visits > 100
+    assert stats.candidate_cell_visits == 1
+    assert stats.candidate_empty_cell_skips == (
+        stats.candidate_cell_range_visits - stats.candidate_cell_visits
+    )
+    assert stats.candidate_bbox_sample_checks == 1
+    assert stats.candidate_centerline_latitude_prefilter_skips == 0
+
+
 def test_indexed_candidate_coverage_matches_simple_path(tmp_path: Path) -> None:
     _write_case(tmp_path)
     initial_case = load_case(tmp_path)
@@ -357,6 +388,12 @@ def test_indexed_candidate_coverage_matches_simple_path(tmp_path: Path) -> None:
     assert indexed_summary.as_dict() == simple_summary.as_dict()
     assert indexed_runtime.as_dict()["method"] == "indexed"
     assert simple_runtime.as_dict()["method"] == "simple"
+    assert indexed_runtime.candidate_cell_range_visits >= indexed_runtime.candidate_cell_visits
+    assert indexed_runtime.candidate_empty_cell_skips >= 0
+    assert "sparse_cell_skip_ratio" in indexed_runtime.as_dict()
+    assert (
+        "candidate_centerline_latitude_prefilter_skips" in indexed_runtime.as_dict()
+    )
     assert indexed_runtime.candidate_bbox_sample_checks <= (
         len(case.coverage_grid.samples) * len(candidates)
     )
@@ -657,6 +694,122 @@ def test_naive_recomputation_bound_matches_simple_greedy_rounds() -> None:
     assert naive_recomputation_bound(5, 3, stop_reason="no_positive_gain") == 14
 
 
+def test_unit_cost_online_bound_is_hand_computable_on_fixed_set() -> None:
+    candidates = [
+        _candidate("selected", start_offset_s=0),
+        _candidate("best_remaining", start_offset_s=10),
+        _candidate("second_remaining", start_offset_s=20),
+    ]
+    coverage_by_candidate = {
+        "selected": (0,),
+        "best_remaining": (1,),
+        "second_remaining": (2,),
+    }
+    sample_weights = {0: 6.0, 1: 4.0, 2: 3.0}
+
+    bound = fixed_set_online_bound(
+        candidates,
+        coverage_by_candidate,
+        sample_weights,
+        selected_candidate_ids=("selected",),
+        budget=2.0,
+        policy="unit_cost",
+    )
+
+    assert bound.scope == "fixed_candidate_set_only"
+    assert bound.bound_type == "unit_cost"
+    assert bound.selected_reward == 6.0
+    assert bound.online_upper_bound == 10.0
+    assert bound.gap == 4.0
+    assert bound.gap_ratio == 0.4
+    assert [term.candidate_id for term in bound.ordering] == ["best_remaining"]
+
+
+def test_nonuniform_online_bound_allows_fractional_last_term() -> None:
+    candidates = [
+        _candidate("selected", start_offset_s=0, duration_s=10),
+        _candidate("dense", start_offset_s=10, duration_s=20),
+        _candidate("lean", start_offset_s=20, duration_s=10),
+    ]
+    coverage_by_candidate = {
+        "selected": (0,),
+        "dense": (1,),
+        "lean": (2,),
+    }
+    sample_weights = {0: 5.0, 1: 8.0, 2: 5.0}
+
+    bound = fixed_set_online_bound(
+        candidates,
+        coverage_by_candidate,
+        sample_weights,
+        selected_candidate_ids=("selected",),
+        budget=25.0,
+        policy="cost_benefit",
+        cost_mode="imaging_time",
+    )
+
+    assert bound.bound_type == "nonuniform_cost"
+    assert bound.selected_cost == 10.0
+    assert bound.residual_budget == 15.0
+    assert bound.ordering[0].candidate_id == "lean"
+    assert bound.ordering[0].selected_fraction == 1.0
+    assert bound.ordering[1].candidate_id == "dense"
+    assert bound.ordering[1].selected_fraction == 0.25
+    assert bound.online_upper_bound == 12.0
+    assert bound.fractional_term_used is True
+
+
+def test_online_bound_is_not_below_selected_reward_and_order_is_deterministic() -> None:
+    candidates = [
+        _candidate("later", start_offset_s=20),
+        _candidate("earlier_high_roll", start_offset_s=10, roll_deg=16.0),
+        _candidate("earlier_low_roll_z", start_offset_s=10, roll_deg=12.0),
+        _candidate("earlier_low_roll_a", start_offset_s=10, roll_deg=-12.0),
+    ]
+    coverage_by_candidate = {
+        "later": (0,),
+        "earlier_high_roll": (1,),
+        "earlier_low_roll_z": (2,),
+        "earlier_low_roll_a": (3,),
+    }
+    sample_weights = {0: 3.0, 1: 3.0, 2: 3.0, 3: 3.0}
+
+    first = fixed_set_online_bound(
+        candidates,
+        coverage_by_candidate,
+        sample_weights,
+        selected_candidate_ids=("later",),
+        budget=3.0,
+        policy="unit_cost",
+    )
+    second = fixed_set_online_bound(
+        candidates,
+        coverage_by_candidate,
+        sample_weights,
+        selected_candidate_ids=("later",),
+        budget=3.0,
+        policy="unit_cost",
+    )
+
+    assert first.online_upper_bound >= first.selected_reward
+    assert first.as_dict() == second.as_dict()
+    assert [term.candidate_id for term in first.ordering[:2]] == [
+        "earlier_low_roll_a",
+        "earlier_low_roll_z",
+    ]
+
+
+def test_repaired_objective_counts_unique_remaining_coverage() -> None:
+    coverage_by_candidate = {"keep": (0, 1), "drop": (1, 2)}
+    sample_weights = {0: 5.0, 1: 2.0, 2: 7.0}
+
+    pre_repair = coverage_objective(("keep", "drop"), coverage_by_candidate, sample_weights)
+    repaired = coverage_objective(("keep",), coverage_by_candidate, sample_weights)
+
+    assert pre_repair == 14.0
+    assert repaired == 7.0
+
+
 def test_cost_benefit_can_differ_from_unit_cost_when_costs_differ() -> None:
     candidates = [
         _candidate("long", start_offset_s=0, duration_s=90),
@@ -901,18 +1054,41 @@ def test_solver_writes_solution_status_and_repair_debug(tmp_path: Path) -> None:
         "method": "indexed",
         "spatial_bin_deg": 0.25,
     }
+    assert status["selection_config"]["compute_online_bounds"] is True
+    assert status["selection_config"]["max_bound_order_debug"] == 50
     assert status["coverage_runtime_summary"]["method"] == "indexed"
     assert status["coverage_runtime_summary"]["candidate_count"] == 3
     assert status["coverage_runtime_summary"]["sample_count"] == 2
     assert "bbox_prefilter_reduction_ratio" in status["coverage_runtime_summary"]
+    assert "candidate_cell_range_visits" in status["coverage_runtime_summary"]
+    assert "candidate_empty_cell_skips" in status["coverage_runtime_summary"]
+    assert (
+        "candidate_centerline_latitude_prefilter_skips"
+        in status["coverage_runtime_summary"]
+    )
+    assert "sparse_cell_skip_ratio" in status["coverage_runtime_summary"]
     assert status["coverage_diagnostics"]["candidate_count"] == 3
     assert "sample_bounds_by_region" in status["coverage_diagnostics"]
     assert "coverage_buckets" in status["coverage_diagnostics"]
     assert len(status["coverage_diagnostics"]["candidate_diagnostics"]) == 2
     assert "celf_summary" in status
+    assert status["celf_summary"]["best"]["online_bound"]["scope"] == (
+        "fixed_candidate_set_only"
+    )
+    assert status["celf_summary"]["best"]["online_bound"]["online_upper_bound"] >= (
+        status["celf_summary"]["best"]["online_bound"]["selected_reward"]
+    )
     assert status["phase"] == "phase_5_validation_tuning_and_reproduction_fidelity"
     assert "feasibility_summary" in status
+    assert status["repair_objective_summary"]["scope"] == (
+        "solver_local_fixed_sample_objective"
+    )
+    assert status["repair_objective_summary"]["repair_objective_loss"] == 0.0
     assert status["reproduction_summary"]["paper_faithful_elements"]["celf_lazy_updates"]
+    assert status["reproduction_summary"]["paper_faithful_elements"]["online_bound"]
+    assert (
+        status["reproduction_summary"]["known_fidelity_limits"]["online_bound_scope"]
+    )
     assert status["reproduction_summary"]["benchmark_adaptations"]["official_validation"]
     assert status["output_policy"]["satellite_repair_enabled"] is True
     assert status["output_policy"]["experiment_registration_enabled"] is True
@@ -927,5 +1103,6 @@ def test_solver_writes_solution_status_and_repair_debug(tmp_path: Path) -> None:
     assert (solution_dir / "debug" / "coverage_runtime_summary.json").is_file()
     assert (solution_dir / "debug" / "feasibility_summary.json").is_file()
     assert (solution_dir / "debug" / "repair_log.json").is_file()
+    assert (solution_dir / "debug" / "repair_objective_summary.json").is_file()
     assert (solution_dir / "debug" / "repaired_candidates.json").is_file()
     assert (solution_dir / "debug" / "reproduction_summary.json").is_file()
