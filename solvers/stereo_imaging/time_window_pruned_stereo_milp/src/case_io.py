@@ -72,7 +72,7 @@ _RUNTIME_PRESETS: dict[str, dict[str, Any]] = {
             "preserve_products": True,
         },
         "optimization": {
-            "backend": "auto",
+            "backend": "ortools",
             "time_limit_s": 1800,
             "greedy_max_repair_iterations": 10,
         },

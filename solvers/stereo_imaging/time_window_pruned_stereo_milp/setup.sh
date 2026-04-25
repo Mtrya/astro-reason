@@ -8,9 +8,18 @@ mkdir -p "${MPLCONFIGDIR}"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 VENV_DIR="${SOLVER_VENV_DIR:-${SCRIPT_DIR}/.venv}"
 PYTHON_BIN="${PYTHON:-python3}"
+ENV_FILE="${SCRIPT_DIR}/.solver-env"
+VENV_DIR="$("${PYTHON_BIN}" -c 'import pathlib, sys; print(pathlib.Path(sys.argv[1]).expanduser().resolve())' "${VENV_DIR}")"
 
 if [[ ! -x "${VENV_DIR}/bin/python" ]]; then
-    "${PYTHON_BIN}" -m venv --system-site-packages "${VENV_DIR}"
+    mkdir -p "$(dirname "${VENV_DIR}")"
+    "${PYTHON_BIN}" -m venv "${VENV_DIR}"
+fi
+
+if [[ -f "${VENV_DIR}/pyvenv.cfg" ]] && grep -qi '^include-system-site-packages *= *true' "${VENV_DIR}/pyvenv.cfg"; then
+    echo "solver environment at ${VENV_DIR} uses system site packages" >&2
+    echo "remove it or set SOLVER_VENV_DIR to a clean isolated environment, then rerun setup.sh" >&2
+    exit 2
 fi
 
 "${VENV_DIR}/bin/python" -m pip install -q -r "${SCRIPT_DIR}/requirements.txt"
@@ -22,11 +31,10 @@ install_backend() {
     if "${VENV_DIR}/bin/python" -m pip install -q "${package_spec}"; then
         echo "  ${label}: install ok"
     else
-        echo "  ${label}: install unavailable; continuing because the alternate exact backend may suffice" >&2
+        echo "  ${label}: install unavailable; exact OR-Tools mode will fail until it is installed" >&2
     fi
 }
 
-install_backend "pulp>=2.9" "PuLP"
 install_backend "ortools>=9.11" "OR-Tools"
 
 "${VENV_DIR}/bin/python" - <<'PY'
@@ -41,25 +49,17 @@ try:
 except Exception:
     ortools_ok = False
 
-try:
-    import pulp
-    pulp_ok = True
-except Exception:
-    pulp_ok = False
-
 print("time_window_pruned_stereo_milp setup ok")
 print("  Environment: solver-local .venv")
 if ortools_ok:
     print("  OR-Tools: available")
 else:
     print("  OR-Tools: not installed")
-if pulp_ok:
-    print("  PuLP: available")
-else:
-    print("  PuLP: not installed")
-if not (ortools_ok or pulp_ok):
-    raise SystemExit(
-        "Exact backend unavailable: install OR-Tools or PuLP in the solver-local environment. "
-        "Use optimization.backend=greedy only for intentional heuristic runs."
-    )
 PY
+
+{
+    printf 'SOLVER_VENV_DIR=%s\n' "${VENV_DIR}"
+    printf 'SOLVER_PYTHON=%s\n' "${VENV_DIR}/bin/python"
+} > "${ENV_FILE}"
+
+echo "  Environment handoff: ${ENV_FILE}"

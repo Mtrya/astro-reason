@@ -82,7 +82,9 @@ dependencies are prepared by `setup.sh` and hidden behind `solve.sh`.
 Experiment runners should call `setup.sh` before `solve.sh`, and should pass any
 solver-specific environment location through documented solver-owned knobs such
 as environment variables rather than installing method dependencies into the
-repository workspace.
+repository workspace. For Python solvers, a setup-produced `.solver-env` file
+with simple `SOLVER_*` assignments is an acceptable handoff mechanism between
+the setup subprocess and the solve subprocess.
 
 ## Family Config
 

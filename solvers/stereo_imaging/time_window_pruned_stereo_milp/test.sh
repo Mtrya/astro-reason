@@ -2,10 +2,11 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-CASE_DIR="${1:?usage: ./solve.sh <case_dir> [config_dir] [solution_dir]}"
-CONFIG_DIR="${2:-}"
-SOLUTION_DIR="${3:-solution}"
 ENV_FILE="${SCRIPT_DIR}/.solver-env"
+
+if [[ -z "${SOLVER_PYTHON:-}" && -z "${SOLVER_VENV_DIR:-}" && ! -x "${SCRIPT_DIR}/.venv/bin/python" ]]; then
+  "${SCRIPT_DIR}/setup.sh"
+fi
 
 if [[ -z "${SOLVER_PYTHON:-}" && -z "${SOLVER_VENV_DIR:-}" && -f "${ENV_FILE}" ]]; then
   while IFS= read -r line || [[ -n "${line}" ]]; do
@@ -37,11 +38,12 @@ if [[ ! -x "${PYTHON_BIN}" ]]; then
   exit 2
 fi
 
-: "${MPLCONFIGDIR:=/tmp/astroreason-matplotlib}"
-export MPLCONFIGDIR
-mkdir -p "${MPLCONFIGDIR}"
+if ! "${PYTHON_BIN}" - <<'PY'
+import pytest
+PY
+then
+  "${PYTHON_BIN}" -m pip install -q -r "${SCRIPT_DIR}/requirements-test.txt"
+fi
 
-PYTHONPATH="${SCRIPT_DIR}/src${PYTHONPATH:+:${PYTHONPATH}}" "${PYTHON_BIN}" "${SCRIPT_DIR}/src/solve.py" \
-  --case-dir "${CASE_DIR}" \
-  --config-dir "${CONFIG_DIR}" \
-  --solution-dir "${SOLUTION_DIR}"
+cd "${SCRIPT_DIR}"
+PYTHONPATH="${SCRIPT_DIR}/src${PYTHONPATH:+:${PYTHONPATH}}" "${PYTHON_BIN}" -m pytest tests "$@"

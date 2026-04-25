@@ -13,8 +13,9 @@ from pathlib import Path
 import numpy as np
 import pytest
 
-REPO_ROOT = Path(__file__).resolve().parents[2]
-SOLVER_DIR = REPO_ROOT / "solvers" / "stereo_imaging" / "time_window_pruned_stereo_milp" / "src"
+SOLVER_ROOT = Path(__file__).resolve().parents[1]
+REPO_ROOT = SOLVER_ROOT.parents[2]
+SOLVER_DIR = SOLVER_ROOT / "src"
 sys.path.insert(0, str(SOLVER_DIR))
 
 import candidates as candidate_module  # noqa: E402
@@ -304,7 +305,7 @@ class TestRuntimeModeConfig:
         assert config["runtime"]["mode"] == "thorough"
         assert config["_resolved_runtime_mode"] == "thorough"
         assert config["time_step_s"] == 30
-        assert config["optimization"]["backend"] == "auto"
+        assert config["optimization"]["backend"] == "ortools"
         assert config["optimization"]["time_limit_s"] == 1800
 
     def test_fast_mode_applies_preset(self, tmp_path):
@@ -322,7 +323,7 @@ class TestRuntimeModeConfig:
         (tmp_path / "config.yaml").write_text(
             "runtime:\n  mode: fast\n"
             "time_step_s: 42\n"
-            "optimization:\n  backend: auto\n  time_limit_s: 99\n",
+            "optimization:\n  backend: ortools\n  time_limit_s: 99\n",
             encoding="utf-8",
         )
 
@@ -330,7 +331,7 @@ class TestRuntimeModeConfig:
 
         assert config["runtime"]["mode"] == "fast"
         assert config["time_step_s"] == 42
-        assert config["optimization"]["backend"] == "auto"
+        assert config["optimization"]["backend"] == "ortools"
         assert config["optimization"]["time_limit_s"] == 99
 
 
@@ -528,7 +529,7 @@ class TestEvaluatePair:
         # Force target to origin so convergence equals the angle between sat vectors
         monkeypatch.setattr("products.target_ecef_m", lambda t: np.array([0.0, 0.0, 0.0]))
 
-        def fake_precompute(cand, sat, target, step):
+        def fake_precompute(cand, sf, sat, target):
             from products import _CandidateGeometry
             te = np.array([0.0, 0.0, 0.0])
             offset_s = (cand.start - base).total_seconds()
@@ -562,7 +563,7 @@ class TestEvaluatePair:
         # Force target to origin and give different sat positions for valid convergence
         monkeypatch.setattr("products.target_ecef_m", lambda t: np.array([0.0, 0.0, 0.0]))
 
-        def fake_precompute(cand, sat, target, step):
+        def fake_precompute(cand, sf, sat, target):
             from products import _CandidateGeometry
             te = np.array([0.0, 0.0, 0.0])
             # Use off_nadir_along_deg to select sat angle: 0 -> 0deg, 300 -> 10deg, 2000 -> 90deg
@@ -601,7 +602,7 @@ class TestEvaluatePair:
         config = {"overlap_grid_angles": 4, "overlap_grid_radii": 1}
         base = datetime(2026, 6, 18, 0, 0, 0, tzinfo=UTC)
 
-        def fake_precompute(cand, sat, target, step):
+        def fake_precompute(cand, sf, sat, target):
             from products import _CandidateGeometry
             te = np.array([0.0, 0.0, 6378137.0])
             offset_s = (cand.start - base).total_seconds()
@@ -628,7 +629,7 @@ class TestEvaluatePair:
 
         c3 = _candidate(start_offset_s=20)
         # make c3 have pixel_scale > 1.5
-        def fake_precompute2(cand, sat, target, step):
+        def fake_precompute2(cand, sf, sat, target):
             from products import _CandidateGeometry
             te = np.array([0.0, 0.0, 6378137.0])
             offset_s = (cand.start - base).total_seconds()
@@ -656,7 +657,7 @@ class TestEvaluatePair:
         mission = _mission()
         config = {"overlap_grid_angles": 4, "overlap_grid_radii": 1}
 
-        def fake_precompute(cand, sat, target, step):
+        def fake_precompute(cand, sf, sat, target):
             from products import _CandidateGeometry
             te = np.array([0.0, 0.0, 6378137.0])
             return _CandidateGeometry(
@@ -691,7 +692,7 @@ class TestEvaluateTri:
         config = {"overlap_grid_angles": 4, "overlap_grid_radii": 1}
         base = datetime(2026, 6, 18, 0, 0, 0, tzinfo=UTC)
 
-        def fake_precompute(cand, sat, target, step):
+        def fake_precompute(cand, sf, sat, target):
             from products import _CandidateGeometry
             te = np.array([0.0, 0.0, 6378137.0])
             offset_s = (cand.start - base).total_seconds()
@@ -725,7 +726,7 @@ class TestEvaluateTri:
         mission = _mission(near_nadir_anchor_max_off_nadir_deg=5.0)
         config = {"overlap_grid_angles": 4, "overlap_grid_radii": 1}
 
-        def fake_precompute(cand, sat, target, step):
+        def fake_precompute(cand, sf, sat, target):
             from products import _CandidateGeometry
             te = np.array([0.0, 0.0, 6378137.0])
             return _CandidateGeometry(
@@ -755,7 +756,7 @@ class TestEvaluateTri:
         config = {"overlap_grid_angles": 4, "overlap_grid_radii": 1}
         base = datetime(2026, 6, 18, 0, 0, 0, tzinfo=UTC)
 
-        def fake_precompute(cand, sat, target, step):
+        def fake_precompute(cand, sf, sat, target):
             from products import _CandidateGeometry
             te = np.array([0.0, 0.0, 6378137.0])
             offset_s = (cand.start - base).total_seconds()
@@ -794,7 +795,7 @@ class TestEnumerateProducts:
         mission = _mission()
         config = {"overlap_grid_angles": 4, "overlap_grid_radii": 1}
 
-        def fake_precompute(cand, sat, target, step):
+        def fake_precompute(cand, sf, sat, target):
             from products import _CandidateGeometry
             te = np.array([0.0, 0.0, 6378137.0])
             return _CandidateGeometry(
@@ -823,7 +824,7 @@ class TestEnumerateProducts:
         mission = _mission(allow_cross_satellite_stereo=True, max_stereo_pair_separation_s=30.0)
         config = {"overlap_grid_angles": 4, "overlap_grid_radii": 1}
 
-        def fake_precompute(cand, sat, target, step):
+        def fake_precompute(cand, sf, sat, target):
             from products import _CandidateGeometry
 
             te = np.array([0.0, 0.0, 6378137.0])
@@ -870,7 +871,7 @@ class TestEnumerateProducts:
         mission = _mission(allow_cross_satellite_stereo=False)
         config = {"overlap_grid_angles": 4, "overlap_grid_radii": 1}
 
-        def fake_precompute(cand, sat, target, step):
+        def fake_precompute(cand, sf, sat, target):
             from products import _CandidateGeometry
 
             te = np.array([0.0, 0.0, 6378137.0])
@@ -911,7 +912,7 @@ class TestEnumerateProducts:
         mission = _mission(allow_cross_satellite_stereo=True, max_stereo_pair_separation_s=10.0)
         config = {"overlap_grid_angles": 4, "overlap_grid_radii": 1}
 
-        def fake_precompute(cand, sat, target, step):
+        def fake_precompute(cand, sf, sat, target):
             from products import _CandidateGeometry
 
             te = np.array([0.0, 0.0, 6378137.0])
@@ -951,7 +952,7 @@ class TestEnumerateProducts:
         mission = _mission(allow_cross_satellite_stereo=True, max_stereo_pair_separation_s=40.0)
         config = {"overlap_grid_angles": 4, "overlap_grid_radii": 1}
 
-        def fake_precompute(cand, sat, target, step):
+        def fake_precompute(cand, sf, sat, target):
             from products import _CandidateGeometry
 
             te = np.array([0.0, 0.0, 6378137.0])
@@ -994,7 +995,7 @@ class TestEnumerateProducts:
         mission = _mission(allow_cross_satellite_stereo=True, max_stereo_pair_separation_s=40.0)
         config = {"overlap_grid_angles": 4, "overlap_grid_radii": 1}
 
-        def fake_precompute(cand, sat, target, step):
+        def fake_precompute(cand, sf, sat, target):
             from products import _CandidateGeometry
 
             te = np.array([0.0, 0.0, 6378137.0])
@@ -1145,7 +1146,7 @@ class TestScoreCandidates:
         config = {"overlap_grid_angles": 4, "overlap_grid_radii": 1}
         base = datetime(2026, 6, 18, 0, 0, 0, tzinfo=UTC)
 
-        def fake_precompute(cand, sat, target, step):
+        def fake_precompute(cand, sf, sat, target):
             from products import _CandidateGeometry
             te = np.array([0.0, 0.0, 6378137.0])
             offset_s = (cand.start - base).total_seconds()
@@ -1185,7 +1186,7 @@ class TestScoreCandidates:
         mission = _mission()
         config = {"overlap_grid_angles": 4, "overlap_grid_radii": 1}
 
-        def fake_precompute(cand, sat, target, step):
+        def fake_precompute(cand, sf, sat, target):
             from products import _CandidateGeometry
             te = np.array([0.0, 0.0, 6378137.0])
             return _CandidateGeometry(
@@ -1262,7 +1263,7 @@ class TestPruneCandidates:
             },
         }
 
-        def fake_precompute(cand, sat, target, step):
+        def fake_precompute(cand, sf, sat, target):
             from products import _CandidateGeometry
             te = np.array([0.0, 0.0, 6378137.0])
             return _CandidateGeometry(
@@ -1300,7 +1301,7 @@ class TestPruneCandidates:
             "pruning": {"enabled": False},
         }
 
-        def fake_precompute(cand, sat, target, step):
+        def fake_precompute(cand, sf, sat, target):
             from products import _CandidateGeometry
             te = np.array([0.0, 0.0, 6378137.0])
             return _CandidateGeometry(
@@ -1344,7 +1345,7 @@ class TestPruneCandidates:
             },
         }
 
-        def fake_precompute(cand, sat, target, step):
+        def fake_precompute(cand, sf, sat, target):
             from products import _CandidateGeometry
             te = np.array([0.0, 0.0, 6378137.0])
             return _CandidateGeometry(
@@ -1384,7 +1385,7 @@ class TestPruneCandidates:
             },
         }
 
-        def fake_precompute(cand, sat, target, step):
+        def fake_precompute(cand, sf, sat, target):
             from products import _CandidateGeometry
             te = np.array([0.0, 0.0, 6378137.0])
             return _CandidateGeometry(
@@ -1436,7 +1437,7 @@ class TestPruneCandidates:
             },
         }
 
-        def fake_precompute(cand, sat, target, step):
+        def fake_precompute(cand, sf, sat, target):
             from products import _CandidateGeometry
             te = np.array([0.0, 0.0, 6378137.0])
             return _CandidateGeometry(
@@ -1539,7 +1540,7 @@ class TestBuildMILP:
         }
         base = datetime(2026, 6, 18, 0, 0, 0, tzinfo=UTC)
 
-        def fake_precompute(cand, sat, target, step):
+        def fake_precompute(cand, sf, sat, target):
             from products import _CandidateGeometry
             te = np.array([0.0, 0.0, 6378137.0])
             offset_s = (cand.start - base).total_seconds()
@@ -1628,7 +1629,7 @@ class TestGreedyHeuristic:
         }
         base = datetime(2026, 6, 18, 0, 0, 0, tzinfo=UTC)
 
-        def fake_precompute(cand, sat, target, step):
+        def fake_precompute(cand, sf, sat, target):
             from products import _CandidateGeometry
             te = np.array([0.0, 0.0, 6378137.0])
             offset_s = (cand.start - base).total_seconds()
@@ -1667,7 +1668,7 @@ class TestGreedyHeuristic:
         }
         base = datetime(2026, 6, 18, 0, 0, 0, tzinfo=UTC)
 
-        def fake_precompute(cand, sat, target, step):
+        def fake_precompute(cand, sf, sat, target):
             from products import _CandidateGeometry
             te = np.array([0.0, 0.0, 6378137.0])
             offset_s = (cand.start - base).total_seconds()
@@ -1708,7 +1709,7 @@ class TestGreedyHeuristic:
         }
         base = datetime(2026, 6, 18, 0, 0, 0, tzinfo=UTC)
 
-        def fake_precompute(cand, sat, target, step):
+        def fake_precompute(cand, sf, sat, target):
             from products import _CandidateGeometry
             te = np.array([0.0, 0.0, 6378137.0])
             offset_s = (cand.start - base).total_seconds()
@@ -1796,8 +1797,19 @@ class TestSolveMILP:
         cands = [c1, c2]
         pairs = [_pair(c1, c2)]
 
-        with pytest.raises(BackendUnavailable, match="no exact optimization backend available"):
+        with pytest.raises(BackendUnavailable, match="OR-Tools exact backend unavailable"):
             solve_milp(cands, pairs, [], {"t1": target}, {"sat_test": sat}, mission, config)
+
+    def test_auto_backend_is_not_supported(self):
+        sat = _satellite()
+        target = _target()
+        mission = _mission()
+        c1 = _candidate(start_offset_s=0, end_offset_s=2)
+        c2 = _candidate(start_offset_s=20, end_offset_s=22)
+        config = {"optimization": {"backend": "auto"}}
+
+        with pytest.raises(ValueError, match="unknown optimization.backend"):
+            solve_milp([c1, c2], [_pair(c1, c2)], [], {"t1": target}, {"sat_test": sat}, mission, config)
 
     def test_greedy_backend_explicit(self, monkeypatch):
         sat = _satellite()
@@ -1810,7 +1822,7 @@ class TestSolveMILP:
         }
         base = datetime(2026, 6, 18, 0, 0, 0, tzinfo=UTC)
 
-        def fake_precompute(cand, sat, target, step):
+        def fake_precompute(cand, sf, sat, target):
             from products import _CandidateGeometry
             te = np.array([0.0, 0.0, 6378137.0])
             offset_s = (cand.start - base).total_seconds()
@@ -2172,13 +2184,13 @@ class TestDeterminism:
 
     @pytest.mark.timeout(300)
     @pytest.mark.skipif(
-        not (Path(__file__).resolve().parents[2] / "benchmarks" / "stereo_imaging" / "dataset" / "cases" / "test" / "case_0001").exists(),
+        not (REPO_ROOT / "benchmarks" / "stereo_imaging" / "dataset" / "cases" / "test" / "case_0001").exists(),
         reason="case_0001 dataset not present",
     )
     def test_three_runs_identical(self, tmp_path):
         import subprocess
 
-        repo_root = Path(__file__).resolve().parents[2]
+        repo_root = REPO_ROOT
         solver_dir = repo_root / "solvers" / "stereo_imaging" / "time_window_pruned_stereo_milp"
         case_dir = repo_root / "benchmarks" / "stereo_imaging" / "dataset" / "cases" / "test" / "case_0001"
         config_dir = tmp_path / "fast_config"
@@ -2235,13 +2247,13 @@ class TestDeterminism:
 
 class TestEndToEnd:
     @pytest.mark.skipif(
-        not (Path(__file__).resolve().parents[2] / "benchmarks" / "stereo_imaging" / "dataset" / "cases" / "test" / "case_0001").exists(),
+        not (REPO_ROOT / "benchmarks" / "stereo_imaging" / "dataset" / "cases" / "test" / "case_0001").exists(),
         reason="case_0001 dataset not present",
     )
     def test_smoke_case_0001(self, tmp_path):
         import subprocess
 
-        repo_root = Path(__file__).resolve().parents[2]
+        repo_root = REPO_ROOT
         solver_dir = repo_root / "solvers" / "stereo_imaging" / "time_window_pruned_stereo_milp"
         case_dir = repo_root / "benchmarks" / "stereo_imaging" / "dataset" / "cases" / "test" / "case_0001"
         config_dir = tmp_path / "fast_config"

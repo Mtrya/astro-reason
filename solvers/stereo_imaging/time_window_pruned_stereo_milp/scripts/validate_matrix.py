@@ -21,7 +21,7 @@ CASES_ROOT = REPO_ROOT / "benchmarks" / "stereo_imaging" / "dataset" / "cases" /
 CONFIG_MATRIX: list[dict[str, Any]] = [
     {
         "id": "default",
-        "description": "Default thorough config: pruning on, exact backend auto-discovery",
+        "description": "Default thorough config: pruning on, OR-Tools exact backend",
         "payload": {},
     },
     {

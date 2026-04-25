@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import re
 import shutil
 import subprocess
@@ -93,6 +94,7 @@ def _run_command(
     cwd: Path,
     stdout_path: Path,
     stderr_path: Path,
+    env: dict[str, str] | None = None,
 ) -> dict[str, Any]:
     stdout_path.parent.mkdir(parents=True, exist_ok=True)
     start = time.monotonic()
@@ -101,6 +103,7 @@ def _run_command(
             completed = subprocess.run(
                 command,
                 cwd=cwd,
+                env=env,
                 stdout=stdout_obj,
                 stderr=stderr_obj,
                 check=False,
@@ -117,6 +120,25 @@ def _run_command(
 
 def _script_command(solver_path: Path, script_path: Path) -> str:
     return f"./{script_path.relative_to(solver_path).as_posix()}"
+
+
+def _read_solver_env_file(solver_path: Path) -> dict[str, str]:
+    env_path = solver_path / ".solver-env"
+    if not env_path.exists():
+        return {}
+
+    values: dict[str, str] = {}
+    for line_number, raw_line in enumerate(env_path.read_text(encoding="utf-8").splitlines(), start=1):
+        line = raw_line.strip()
+        if not line or line.startswith("#"):
+            continue
+        if "=" not in line:
+            raise ValueError(f"malformed solver env line {line_number} in {env_path}")
+        key, value = line.split("=", 1)
+        if not re.fullmatch(r"SOLVER_[A-Z0-9_]*", key):
+            raise ValueError(f"unsupported solver env key {key!r} in {env_path}")
+        values[key] = value
+    return values
 
 
 def _run_setup(
@@ -138,6 +160,11 @@ def _run_setup(
         stdout_path=log_dir / "setup.stdout.log",
         stderr_path=log_dir / "setup.stderr.log",
     )
+    if result["returncode"] == 0:
+        solver_env = _read_solver_env_file(solver_path)
+        if solver_env:
+            result["solver_env_file"] = str(solver_path / ".solver-env")
+            result["solver_env"] = solver_env
     setup_cache[solver_id] = result
     return result
 
@@ -305,6 +332,8 @@ def _run_runnable_job(
 
     solver_path = REPO_ROOT / job.solver["solver_path"]
     solve_script = solver_path / job.solver.get("solve_script", "solve.sh")
+    solve_env = os.environ.copy()
+    solve_env.update(setup.get("solver_env", {}))
     solve = _run_command(
         [
             _script_command(solver_path, solve_script),
@@ -315,6 +344,7 @@ def _run_runnable_job(
         cwd=solver_path,
         stdout_path=log_dir / "solve.stdout.log",
         stderr_path=log_dir / "solve.stderr.log",
+        env=solve_env,
     )
     payload["solve"] = solve
     status_path = solution_dir / "status.json"

@@ -31,7 +31,7 @@ The paper decomposes agile Earth-observation scheduling with stereo constraints 
 
 The solver supports exact and heuristic optimization modes:
 
-- **Exact MILP** via OR-Tools CP-SAT or PuLP+CBC when installed.
+- **Exact MILP** via OR-Tools CP-SAT when installed.
 - **Deterministic greedy heuristic** only when `optimization.backend: greedy` is set explicitly.
 
 ## Benchmark Adaptation
@@ -55,11 +55,11 @@ That means this solver reproduces the paper's candidate-prune-optimize pipeline,
 ./solve.sh <case_dir> [config_dir] [solution_dir]
 ```
 
-`setup.sh` creates an ignored solver-local virtual environment at `.venv/`, installs solver dependencies from `requirements.txt`, and checks that `brahe`, `numpy`, `yaml`, and `skyfield` are importable there. Override the location with `SOLVER_VENV_DIR=/path/to/env` if you want to reuse a prepared per-solver environment.
+`setup.sh` creates an ignored isolated solver-local virtual environment at `.venv/`, installs solver dependencies from `requirements.txt`, and checks that `brahe`, `numpy`, `yaml`, and `skyfield` are importable there. Override the location with `SOLVER_VENV_DIR=/path/to/env` if you want to reuse a prepared per-solver environment. After setup, `.solver-env` records the absolute `SOLVER_VENV_DIR` and `SOLVER_PYTHON` paths used by direct solves and experiment runners.
 
 ### Backend installation
 
-The default `thorough` mode uses `optimization.backend: auto`, which requires at least one exact backend. Install one of the following PyPI packages in the solver-local environment:
+The default `thorough` mode uses `optimization.backend: ortools`, which requires OR-Tools in the solver-local environment:
 
 ```bash
 ./setup.sh
@@ -67,7 +67,7 @@ The default `thorough` mode uses `optimization.backend: auto`, which requires at
 SOLVER_VENV_DIR=/path/to/stereo-milp-env ./setup.sh
 ```
 
-`requirements.txt` contains the core solver runtime dependencies. `setup.sh` then attempts both exact backend packages, `pulp>=2.9` and `ortools>=9.11`, independently in the solver-local environment. Both are PyPI packages; neither is installed into the repository workspace. With a backend installed, set `backend: auto` (default) or explicitly `backend: ortools` / `backend: pulp`. If no exact backend is importable, `auto`, `ortools`, and `pulp` fail hard instead of silently switching to greedy. Use `backend: greedy` only for intentional heuristic sweeps.
+`requirements.txt` contains the core solver runtime dependencies. `setup.sh` then attempts to install `ortools>=9.11` in the solver-local environment. It is a PyPI package and is not installed into the repository workspace. Exact runs use `backend: ortools` and fail clearly when OR-Tools is unavailable instead of silently switching to greedy. Use `backend: greedy` only for intentional smoke or diagnostic runs.
 
 ## Runtime Modes
 
@@ -76,7 +76,7 @@ The solver exposes two documented runtime presets through `runtime.mode`:
 - `thorough`: denser benchmark-facing preset for public-case evaluation. This is the implicit default when no config is supplied.
 - `fast`: lighter heuristic preset for quicker sweeps and before/after runtime comparisons.
 
-The preset is applied first, then any user-specified knobs override it. `thorough` uses exact backend auto-discovery and fails when neither `ortools` nor `pulp` is installed. `fast` sets `optimization.backend: greedy` explicitly.
+The preset is applied first, then any user-specified knobs override it. `thorough` uses OR-Tools exact mode and fails when OR-Tools is unavailable. `fast` sets `optimization.backend: greedy` explicitly.
 
 `solve.sh` writes:
 
@@ -96,7 +96,7 @@ The solver pipeline is:
 4. Enumerate stereo pairs and tri-stereo sets, using cheap rejection filters before overlap geometry where safe.
 5. Optionally prune candidates with Kim-style time-window cluster capping.
 6. Build an abstract MILP with observation, pair, tri, and coverage variables linked by conflict constraints.
-7. Solve with OR-Tools, PuLP, or the explicitly requested deterministic greedy heuristic using coverage-first and best-per-target-quality semantics.
+7. Solve with OR-Tools, or the explicitly requested deterministic greedy heuristic, using coverage-first and best-per-target-quality semantics.
 8. Run solver-local conservative repair to remove any remaining transition or exclusivity violations, then recompute benchmark-shaped coverage and quality metrics.
 
 The repair stage is intentionally conservative. It keeps the solver standalone and reduces official verifier failures without claiming that all geometric approximations are exact.
@@ -195,6 +195,12 @@ uv run python experiments/main_solver/run.py \
   --case test/case_0001
 ```
 
+Solver-local tests:
+
+```bash
+./solvers/stereo_imaging/time_window_pruned_stereo_milp/test.sh
+```
+
 Aggregate experiment results:
 
 ```bash
@@ -221,7 +227,7 @@ If raw pair/tri selection looks strong but repair removes many observations, ins
 - Solar elevation and LOS checks are sampled at the observation midpoint.
 - Overlap fraction is estimated with a deterministic polar grid rather than Monte Carlo; values may differ by a few percent from the verifier.
 - If no valid stereo pairs or tri-stereo sets exist for a target (e.g. only one satellite accesses it, or slew time exceeds the gap between consecutive intervals), that target will remain uncovered.
-- Exact MILP requires solver-local `ortools` or `pulp`; missing exact libraries are reported as errors unless `optimization.backend: greedy` is explicitly selected.
+- Exact MILP requires solver-local `ortools`; missing OR-Tools is reported as an error unless `optimization.backend: greedy` is explicitly selected.
 
 ## Evidence Type
 

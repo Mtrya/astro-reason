@@ -107,16 +107,15 @@ pruning:
 # ---------------------------------------------------------------------------
 
 optimization:
-  # Backend selection: auto | ortools | pulp | greedy
-  # "auto" tries exact backends in order: ortools → pulp.
-  # If no exact backend is installed, auto fails hard instead of silently using
-  # the weaker heuristic. Set "greedy" explicitly for fast heuristic runs.
-  backend: auto
+  # Backend selection: ortools | greedy
+  # "ortools" is the exact reproduced-solver path. It fails clearly when
+  # OR-Tools is unavailable. Set "greedy" explicitly for fast smoke runs.
+  backend: ortools
 
   # MILP solver time limit (seconds).
   # 300s is realistic for the explicit greedy heuristic layer.
-  # 1800s (30 min) is recommended when an exact MILP backend is installed
-  # and you want better optimality on dense cases.
+  # 1800s (30 min) is recommended for OR-Tools exact runs when you want better
+  # optimality on dense cases.
   time_limit_s: 1800
 
   greedy_max_repair_iterations: 10

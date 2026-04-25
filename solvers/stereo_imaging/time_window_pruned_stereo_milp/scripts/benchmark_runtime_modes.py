@@ -70,7 +70,7 @@ RUNTIME_PAYLOADS: dict[str, dict[str, Any]] = {
             "preserve_products": True,
         },
         "optimization": {
-            "backend": "auto",
+            "backend": "ortools",
             "time_limit_s": 1800,
         },
         "debug": False,

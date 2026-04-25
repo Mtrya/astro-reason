@@ -52,6 +52,8 @@ Runnable solvers expose two shell entrypoints:
 
 Python solvers may use the repository project environment when that is sufficient, but they are not limited to it. Solvers are encouraged to own a solver-local environment when they need additional PyPI packages or other dependencies that are not present globally. Solvers may also use their own package managers, compiled binaries, or other languages such as Rust, Julia, C++, or MiniZinc. Those choices should stay solver-local, be prepared by `setup.sh`, and be hidden behind `solve.sh`.
 
+Python solvers that create their own virtual environment may write a solver-local `.solver-env` handoff file after setup. The file should contain simple `KEY=VALUE` lines such as `SOLVER_VENV_DIR=/abs/path/to/.venv` and `SOLVER_PYTHON=/abs/path/to/.venv/bin/python`. `solve.sh` should still work directly after setup by reading this file, and experiment runners may pass those values into the solve subprocess.
+
 `solve.sh` receives:
 
 - `case_dir`: required benchmark case directory

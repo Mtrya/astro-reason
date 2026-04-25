@@ -1,7 +1,7 @@
 """Abstract MILP formulation, conflict graph, and deterministic greedy heuristic.
 
-Backend-specific solvers (OR-Tools, PuLP) are pluggable via auto-discovery.
-The greedy heuristic is available only when explicitly selected.
+OR-Tools CP-SAT is the exact reproduced-solver backend. The greedy heuristic is
+available only when explicitly selected for smoke or diagnostic runs.
 """
 
 from __future__ import annotations
@@ -317,7 +317,7 @@ def solve_with_ortools(model: AbstractMILP, time_limit_s: float) -> tuple[list[i
     for ac in model.pair_activation_constraints:
         j = ac["pair_idx"]
         obs_indices = ac["obs_indices"]
-        cp.Add(y[j] >= cp_model.LinearExpr.Sum(x[i] for i in obs_indices) - (len(obs_indices) - 1))
+        cp.Add(y[j] >= cp_model.LinearExpr.Sum([x[i] for i in obs_indices]) - (len(obs_indices) - 1))
 
     # Tri links
     for lc in model.tri_link_constraints:
@@ -327,7 +327,7 @@ def solve_with_ortools(model: AbstractMILP, time_limit_s: float) -> tuple[list[i
     for ac in model.tri_activation_constraints:
         k = ac["tri_idx"]
         obs_indices = ac["obs_indices"]
-        cp.Add(z[k] >= cp_model.LinearExpr.Sum(x[i] for i in obs_indices) - (len(obs_indices) - 1))
+        cp.Add(z[k] >= cp_model.LinearExpr.Sum([x[i] for i in obs_indices]) - (len(obs_indices) - 1))
 
     for j in range(n_pair):
         cp.Add(sy[j] <= y[j])
@@ -374,96 +374,21 @@ def solve_with_ortools(model: AbstractMILP, time_limit_s: float) -> tuple[list[i
     start = time.perf_counter()
     status = solver.Solve(cp)
     elapsed = time.perf_counter() - start
+    status_name = solver.StatusName(status)
 
     if status not in (cp_model.OPTIMAL, cp_model.FEASIBLE):
-        raise RuntimeError(f"OR-Tools solve failed with status {status}")
+        raise RuntimeError(f"OR-Tools solve failed with status {status_name}")
 
     selected = [i for i in range(n_obs) if solver.Value(x[i]) == 1]
     obj_value = solver.ObjectiveValue() / _QUALITY_SCALE
 
     stats = {
-        "status": str(status),
+        "status": status_name,
         "objective_value": obj_value,
         "solve_time_s": elapsed,
         "optimality_gap": 0.0 if status == cp_model.OPTIMAL else None,
-    }
-    return selected, obj_value, stats
-
-
-def solve_with_pulp(model: AbstractMILP, time_limit_s: float) -> tuple[list[int], float, dict[str, Any]]:
-    """Try to solve with PuLP + CBC. Raise BackendUnavailable if pulp is not installed."""
-    try:
-        import pulp
-    except Exception as exc:
-        raise BackendUnavailable(f"pulp import failed: {exc}") from exc
-
-    prob = pulp.LpProblem("stereo_milp", pulp.LpMaximize)
-    n_obs = len(model.obs_vars)
-    n_pair = len(model.pair_vars)
-    n_tri = len(model.tri_vars)
-    n_tgt = len(model.target_coverage_vars)
-
-    x = [pulp.LpVariable(f"x_{i}", cat="Binary") for i in range(n_obs)]
-    y = [pulp.LpVariable(f"y_{j}", cat="Binary") for j in range(n_pair)]
-    z = [pulp.LpVariable(f"z_{k}", cat="Binary") for k in range(n_tri)]
-    w = [pulp.LpVariable(f"w_{m}", cat="Binary") for m in range(n_tgt)]
-    sy = [pulp.LpVariable(f"sy_{j}", cat="Binary") for j in range(n_pair)]
-    sz = [pulp.LpVariable(f"sz_{k}", cat="Binary") for k in range(n_tri)]
-
-    for lc in model.pair_link_constraints:
-        prob += y[lc["pair_idx"]] <= x[lc["obs_idx"]]
-    for ac in model.pair_activation_constraints:
-        obs_terms = [x[i] for i in ac["obs_indices"]]
-        prob += y[ac["pair_idx"]] >= pulp.lpSum(obs_terms) - (len(obs_terms) - 1)
-
-    for lc in model.tri_link_constraints:
-        prob += z[lc["tri_idx"]] <= x[lc["obs_idx"]]
-    for ac in model.tri_activation_constraints:
-        obs_terms = [x[i] for i in ac["obs_indices"]]
-        prob += z[ac["tri_idx"]] >= pulp.lpSum(obs_terms) - (len(obs_terms) - 1)
-
-    for j in range(n_pair):
-        prob += sy[j] <= y[j]
-    for k in range(n_tri):
-        prob += sz[k] <= z[k]
-
-    for tc in model.target_coverage_constraints:
-        m = tc["target_idx"]
-        score_terms = []
-        for prod_idx, is_tri in tc["products"]:
-            score_terms.append(sz[prod_idx] if is_tri else sy[prod_idx])
-        if score_terms:
-            prob += pulp.lpSum(score_terms) == w[m]
-        else:
-            prob += w[m] == 0
-
-    for cc in model.conflict_constraints:
-        ia, ib = cc["obs_indices"]
-        prob += x[ia] + x[ib] <= 1
-
-    # Objective
-    obj = model.coverage_bonus * pulp.lpSum(w)
-    for j, pv in enumerate(model.pair_vars):
-        obj += pv["pair"].q_pair * sy[j]
-    for k, tv in enumerate(model.tri_vars):
-        obj += tv["tri"].q_tri * sz[k]
-    prob += obj
-
-    start = time.perf_counter()
-    prob.solve(pulp.PULP_CBC_CMD(msg=False, timeLimit=time_limit_s))
-    elapsed = time.perf_counter() - start
-
-    if pulp.LpStatus[prob.status] not in ("Optimal", "Feasible"):
-        raise RuntimeError(f"PuLP solve failed with status {pulp.LpStatus[prob.status]}")
-
-    selected = [i for i in range(n_obs) if pulp.value(x[i]) == 1]
-    obj_value = pulp.value(prob.objective)
-
-    stats = {
-        "status": pulp.LpStatus[prob.status],
-        "objective_value": obj_value,
-        "solve_time_s": elapsed,
-        "optimality_gap": None,
+        "is_exact_backend": True,
+        "is_heuristic": False,
     }
     return selected, obj_value, stats
 
@@ -590,6 +515,9 @@ def solve_greedy_heuristic(
     objective_value = model.coverage_bonus * current_eval["covered_targets"] + current_eval["best_target_quality_sum"]
 
     stats = {
+        "status": "HEURISTIC",
+        "is_exact_backend": False,
+        "is_heuristic": True,
         "greedy_pass_products": len(selected_prod_indices),
         "selection_iterations": len(selected_prod_indices),
         "repair_iterations": 0,
@@ -608,14 +536,6 @@ def _solve_once(
     config: dict[str, Any],
 ) -> tuple[list[int] | None, float, dict[str, Any], str, bool, float]:
     """Try one solve without silently falling back to a weaker backend."""
-    tried: list[str] = []
-    selected_indices: list[int] | None = None
-    objective_value = 0.0
-    solve_stats: dict[str, Any] = {}
-    backend_used = "unknown"
-    timeout_reached = False
-    solve_time = 0.0
-
     solve_start = time.perf_counter()
 
     if backend == "greedy":
@@ -624,33 +544,21 @@ def _solve_once(
         solve_time = time.perf_counter() - solve_start
         return selected_indices, objective_value, solve_stats, backend_used, False, solve_time
 
-    if backend not in ("auto", "ortools", "pulp"):
+    if backend != "ortools":
         raise ValueError(f"unknown optimization.backend: {backend!r}")
 
-    if backend in ("auto", "ortools"):
-        try:
-            selected_indices, objective_value, solve_stats = solve_with_ortools(model, time_limit_s)
-            backend_used = "ortools"
-            solve_time = solve_stats.get("solve_time_s", 0.0)
-            timeout_reached = solve_stats.get("status") != "OPTIMAL"
-        except Exception as exc:
-            tried.append(f"ortools: {exc}")
-
-    if selected_indices is None and backend in ("auto", "pulp"):
-        try:
-            selected_indices, objective_value, solve_stats = solve_with_pulp(model, time_limit_s)
-            backend_used = "pulp"
-            solve_time = solve_stats.get("solve_time_s", 0.0)
-            timeout_reached = solve_stats.get("status") not in ("Optimal",)
-        except Exception as exc:
-            tried.append(f"pulp: {exc}")
-
-    if selected_indices is None:
-        tried_text = "; ".join(tried) if tried else "no exact backend was attempted"
+    try:
+        selected_indices, objective_value, solve_stats = solve_with_ortools(model, time_limit_s)
+    except BackendUnavailable as exc:
         raise BackendUnavailable(
-            f"no exact optimization backend available for optimization.backend={backend!r}: {tried_text}. "
-            "Install solver-local dependencies with ./setup.sh or set optimization.backend: greedy explicitly."
-        )
+            f"OR-Tools exact backend unavailable for optimization.backend='ortools': {exc}. "
+            "Install solver-local dependencies with ./setup.sh, or set optimization.backend: greedy "
+            "explicitly for smoke/diagnostic runs."
+        ) from exc
+
+    backend_used = "ortools"
+    solve_time = solve_stats.get("solve_time_s", 0.0)
+    timeout_reached = solve_stats.get("status") != "OPTIMAL"
 
     return selected_indices, objective_value, solve_stats, backend_used, timeout_reached, solve_time
 
@@ -679,7 +587,7 @@ def solve_milp(
 ) -> tuple[list[int], SolveSummary]:
     """Build the model, solve once, and report benchmark-aligned metrics."""
     opt_cfg = config.get("optimization", {})
-    backend = opt_cfg.get("backend", "auto")
+    backend = opt_cfg.get("backend", "ortools")
     time_limit_s = float(opt_cfg.get("time_limit_s", 300.0))
 
     # Build conflict graph once — conflicts depend only on candidates and satellites
