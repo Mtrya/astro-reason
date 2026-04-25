@@ -76,10 +76,10 @@ class FamilyConfig:
     name: str
     mode: str
     benchmark: str
-    harness: str
     split: str
     cases: tuple[str, ...]
     exposures: tuple[str, ...]
+    harnesses: tuple[str, ...]
     timeout_seconds: int
     resources: ResourceLimits
     batch: BatchSettings
@@ -92,10 +92,10 @@ class InteractiveConfig:
     name: str
     mode: str
     benchmark: str
-    harness: str
     split: str
     case_id: str
     exposure: str
+    harnesses: tuple[str, ...]
     timeout_seconds: int
     resources: ResourceLimits
     results_root: Path
@@ -105,10 +105,22 @@ class InteractiveConfig:
 @dataclass(frozen=True)
 class ExposureProfile:
     exposure: str
+    runtime: str
     verifier_exposed: bool
     verifier_kind: str
     verifier_location: str
     verifier_command: str
+    assemble: tuple[AssembleSpec, ...]
+    collect: tuple[CollectSpec, ...]
+    forward_env_keys: tuple[str, ...]
+    headless_shell_command: str
+    profile_path: Path
+
+
+@dataclass(frozen=True)
+class HarnessProfile:
+    harness: str
+    runtime: str
     assemble: tuple[AssembleSpec, ...]
     collect: tuple[CollectSpec, ...]
     forward_env_keys: tuple[str, ...]
@@ -150,6 +162,7 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--interactive", action="store_true", help="Prepare one interactive workspace.")
     parser.add_argument("--exposure", action="append", default=[], help="Limit to an exposure tier.")
     parser.add_argument("--case", action="append", default=[], help="Limit to a case id.")
+    parser.add_argument("--harness", action="append", default=[], help="Limit to a harness.")
     parser.add_argument("--split", help="Override the configured split.")
     parser.add_argument("--timeout", type=int, help="Override the configured timeout in seconds.")
     parser.add_argument("--max-concurrency", type=int, help="Override batch.max_concurrency.")
@@ -180,6 +193,13 @@ def _string_tuple(data: dict[str, Any], key: str, label: str, path: Path) -> tup
     if not isinstance(value, list) or any(not isinstance(item, str) or not item for item in value):
         raise SystemExit(f"{label}.{key} must be a list of non-empty strings: {path}")
     return tuple(value)
+
+
+def _required_string_tuple(data: dict[str, Any], key: str, label: str, path: Path) -> tuple[str, ...]:
+    value = _string_tuple(data, key, label, path)
+    if not value:
+        raise SystemExit(f"{label}.{key} must contain at least one item: {path}")
+    return value
 
 
 def _resource_limits(data: dict[str, Any]) -> ResourceLimits:
@@ -215,12 +235,28 @@ def _batch_settings(data: dict[str, Any], path: Path) -> BatchSettings:
     raw = data.get("batch", {})
     if not isinstance(raw, dict):
         raise SystemExit(f"batch must be a mapping: {path}")
+    max_concurrency = int(raw.get("max_concurrency", 1))
+    max_retries = int(raw.get("max_retries", 0))
+    if max_concurrency <= 0:
+        raise SystemExit(f"batch.max_concurrency must be positive: {path}")
+    if max_retries < 0:
+        raise SystemExit(f"batch.max_retries must be non-negative: {path}")
     return BatchSettings(
-        max_concurrency=int(raw.get("max_concurrency", 1)),
-        max_retries=int(raw.get("max_retries", 0)),
+        max_concurrency=max_concurrency,
+        max_retries=max_retries,
         skip_completed=bool(raw.get("skip_completed", True)),
         retry_statuses=tuple(str(item) for item in raw.get("retry_statuses", [])),
     )
+
+
+def _positive_int(value: Any, field: str, path: Path) -> int:
+    try:
+        parsed = int(value)
+    except (TypeError, ValueError) as exc:
+        raise SystemExit(f"{field} must be a positive integer: {path}") from exc
+    if parsed <= 0:
+        raise SystemExit(f"{field} must be a positive integer: {path}")
+    return parsed
 
 
 def load_family_config(path: Path) -> FamilyConfig:
@@ -230,11 +266,11 @@ def load_family_config(path: Path) -> FamilyConfig:
         name=_require_str(data, "name", "Family config", path),
         mode=_require_str(data, "mode", "Family config", path),
         benchmark=_require_str(data, "benchmark", "Family config", path),
-        harness=_require_str(data, "harness", "Family config", path),
         split=_require_str(data, "split", "Family config", path),
         cases=_string_tuple(data, "cases", "Family config", path),
         exposures=_string_tuple(data, "exposures", "Family config", path),
-        timeout_seconds=int(data.get("timeout_seconds", 7200)),
+        harnesses=_required_string_tuple(data, "harnesses", "Family config", path),
+        timeout_seconds=_positive_int(data.get("timeout_seconds", 7200), "timeout_seconds", path),
         resources=_resource_limits(data),
         batch=_batch_settings(data, path),
         results=results,
@@ -249,11 +285,11 @@ def load_interactive_config(path: Path) -> InteractiveConfig:
         name=_require_str(data, "name", "Interactive config", path),
         mode=_require_str(data, "mode", "Interactive config", path),
         benchmark=_require_str(data, "benchmark", "Interactive config", path),
-        harness=_require_str(data, "harness", "Interactive config", path),
         split=_require_str(data, "split", "Interactive config", path),
         case_id=_require_str(data, "case", "Interactive config", path),
         exposure=_require_str(data, "exposure", "Interactive config", path),
-        timeout_seconds=int(data.get("timeout_seconds", 3600)),
+        harnesses=_required_string_tuple(data, "harnesses", "Interactive config", path),
+        timeout_seconds=_positive_int(data.get("timeout_seconds", 3600), "timeout_seconds", path),
         resources=_resource_limits(data),
         results_root=results_root,
         config_path=path.resolve(),
@@ -327,6 +363,7 @@ def _parse_collect(items: Any, path: Path) -> tuple[CollectSpec, ...]:
 def load_exposure_profile(
     exposure: str,
     *,
+    harness: str,
     benchmark: str,
     split: str,
     case_id: str,
@@ -345,18 +382,40 @@ def load_exposure_profile(
         "case_id": case_id,
         "exposure": exposure,
     }
-    commands = data.get("commands")
-    if not isinstance(commands, dict):
-        raise SystemExit(f"commands must be a mapping: {path}")
+    harness_profile = load_harness_profile(harness)
     return ExposureProfile(
         exposure=exposure,
+        runtime=harness_profile.runtime,
         verifier_exposed=bool(verifier.get("exposed", False)),
         verifier_kind=_require_str(verifier, "kind", "workspace_verifier", path),
         verifier_location=_require_str(verifier, "location", "workspace_verifier", path),
         verifier_command=_require_str(verifier, "command", "workspace_verifier", path),
-        assemble=_parse_assemble(data.get("assemble"), path, replacements),
+        assemble=(*_parse_assemble(data.get("assemble"), path, replacements), *harness_profile.assemble),
+        collect=harness_profile.collect,
+        forward_env_keys=harness_profile.forward_env_keys,
+        headless_shell_command=harness_profile.headless_shell_command,
+        profile_path=path.resolve(),
+    )
+
+
+def load_harness_profile(name: str) -> HarnessProfile:
+    path = FAMILY_DIR / "harnesses" / f"{name}.yaml"
+    data = _load_yaml(path, "Harness profile")
+    harness = _require_str(data, "harness", "Harness profile", path)
+    if harness != name:
+        raise SystemExit(f"Harness profile mismatch in {path}: {harness}")
+    commands = data.get("commands")
+    if not isinstance(commands, dict):
+        raise SystemExit(f"commands must be a mapping: {path}")
+    forward_env_keys = data.get("forward_env_keys", [])
+    if not isinstance(forward_env_keys, list):
+        raise SystemExit(f"forward_env_keys must be a list: {path}")
+    return HarnessProfile(
+        harness=harness,
+        runtime=_require_str(data, "runtime", "Harness profile", path),
+        assemble=_parse_assemble(data.get("assemble"), path, {}),
         collect=_parse_collect(data.get("collect", []), path),
-        forward_env_keys=tuple(str(item) for item in data.get("forward_env_keys", [])),
+        forward_env_keys=tuple(str(item) for item in forward_env_keys),
         headless_shell_command=_require_str(commands, "headless_shell_command", "commands", path),
         profile_path=path.resolve(),
     )
@@ -446,6 +505,14 @@ def _copy_file_or_directory(source: Path, destination: Path, *, render: bool, co
         )
     else:
         shutil.copy2(source, destination)
+
+
+def _source_available(source: Path) -> bool:
+    if not source.exists():
+        return False
+    if source.is_dir():
+        return any(source.iterdir())
+    return True
 
 
 @dataclass(frozen=True)
@@ -564,7 +631,7 @@ def _assemble_workspace(item: RunItem, roots: MountRoots) -> list[dict[str, Any]
     records: list[dict[str, Any]] = []
     context = _template_context(item, item.profile.assemble)
     for spec in item.profile.assemble:
-        if not spec.source.exists():
+        if not _source_available(spec.source):
             if spec.missing_ok:
                 records.append(
                     {
@@ -746,6 +813,8 @@ def _external_verifier(item: RunItem, output_dir: Path, solution_present: bool) 
         return "error", {"valid": False, "error": "Verifier emitted malformed JSON.", "exit_code": exit_code}
     if not isinstance(parsed, dict) or not isinstance(parsed.get("valid"), bool):
         return "error", {"valid": False, "error": "Verifier JSON did not contain boolean valid.", "raw": parsed}
+    if exit_code not in (0, 1):
+        return "error", {"valid": False, "error": stderr.strip() or "Verifier exited unexpectedly.", "raw": parsed}
     if parsed["valid"]:
         return "valid", parsed
     return "invalid", parsed
@@ -799,6 +868,7 @@ def _interactive_workspace_dir(
     config: InteractiveConfig,
     *,
     exposure: str,
+    harness: str,
     split: str,
     case_id: str,
 ) -> Path:
@@ -808,7 +878,7 @@ def _interactive_workspace_dir(
         / "verifier_exposure"
         / exposure
         / config.benchmark
-        / config.harness
+        / harness
         / split
         / case_id
     )
@@ -903,7 +973,7 @@ def _run_item(item: RunItem) -> RunResult:
     if output_dir.exists():
         shutil.rmtree(output_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
-    runtime = load_runtime("base")
+    runtime = load_runtime(item.profile.runtime)
     with tempfile.TemporaryDirectory(prefix="astroreason-verifier-exposure-workspace-") as workspace_tmp:
         with tempfile.TemporaryDirectory(prefix="astroreason-verifier-exposure-runtime-") as runtime_tmp:
             workspace_dir = Path(workspace_tmp)
@@ -941,42 +1011,63 @@ def _build_items(
     config: FamilyConfig,
     *,
     exposures: tuple[str, ...],
+    harnesses: tuple[str, ...],
     cases: tuple[str, ...],
     split: str,
     timeout: int | None,
     max_concurrency: int | None,
 ) -> tuple[FamilyConfig, tuple[RunItem, ...]]:
     selected_exposures = _select(config.exposures, exposures, "exposure")
+    selected_harnesses = _select(config.harnesses, harnesses, "harness")
     selected_cases = _select(config.cases, cases, "case")
     if max_concurrency is not None:
         if max_concurrency <= 0:
             raise SystemExit("--max-concurrency must be positive")
         config = replace(config, batch=replace(config.batch, max_concurrency=max_concurrency))
+    effective_timeout = (
+        _positive_int(timeout, "--timeout", config.config_path)
+        if timeout is not None
+        else config.timeout_seconds
+    )
     items: list[RunItem] = []
     for exposure in selected_exposures:
         for case_id in selected_cases:
-            profile = load_exposure_profile(
-                exposure,
-                benchmark=config.benchmark,
-                split=split,
-                case_id=case_id,
-            )
-            items.append(
-                RunItem(
-                    config_name=config.config_path.stem,
-                    config_path=config.config_path,
+            for harness in selected_harnesses:
+                profile = load_exposure_profile(
+                    exposure,
+                    harness=harness,
                     benchmark=config.benchmark,
-                    harness=config.harness,
-                    exposure=exposure,
                     split=split,
                     case_id=case_id,
-                    timeout_seconds=timeout or config.timeout_seconds,
-                    resources=config.resources,
-                    results_root=config.results.root,
-                    profile=profile,
                 )
-            )
+                items.append(
+                    RunItem(
+                        config_name=config.config_path.stem,
+                        config_path=config.config_path,
+                        benchmark=config.benchmark,
+                        harness=harness,
+                        exposure=exposure,
+                        split=split,
+                        case_id=case_id,
+                        timeout_seconds=effective_timeout,
+                        resources=config.resources,
+                        results_root=config.results.root,
+                        profile=profile,
+                    )
+                )
     return config, tuple(items)
+
+
+def _missing_sources(items: tuple[RunItem, ...]) -> list[tuple[str, Path, Path | None]]:
+    missing: list[tuple[str, Path, Path | None]] = []
+    seen: set[Path] = set()
+    for item in items:
+        for spec in item.profile.assemble:
+            if spec.source in seen or spec.missing_ok or _source_available(spec.source):
+                continue
+            seen.add(spec.source)
+            missing.append((item.harness, spec.source, spec.example))
+    return missing
 
 
 def _describe_items(items: tuple[RunItem, ...], config: FamilyConfig) -> str:
@@ -984,18 +1075,26 @@ def _describe_items(items: tuple[RunItem, ...], config: FamilyConfig) -> str:
         f"Config: {config.config_path}",
         "Mode: batch",
         f"Benchmark: {config.benchmark}",
-        f"Harness: {config.harness}",
+        f"Harnesses: {', '.join(dict.fromkeys(item.harness for item in items))}",
         f"Exposures: {', '.join(dict.fromkeys(item.exposure for item in items))}",
         f"Cases: {', '.join(dict.fromkeys(item.case_id for item in items))}",
         f"Run count: {len(items)}",
         f"Max concurrency: {config.batch.max_concurrency}",
     ]
+    missing = _missing_sources(items)
+    if missing:
+        lines.append("Missing assemble sources:")
+        for harness, source, example in missing:
+            suffix = f" (example: {_relative(example)})" if example else ""
+            lines.append(f"  - {harness}: {_relative(source)}{suffix}")
+    else:
+        lines.append("Missing assemble sources: none")
     for item in items:
         output_dir = _output_dir(item)
         artifact_state, status = _existing_status(output_dir)
         status_text = status if status is not None else artifact_state
         lines.append(
-            f"- {item.exposure}/{item.case_id}: {status_text}; "
+            f"- {item.exposure}/{item.harness}/{item.case_id}: {status_text}; "
             f"helper={item.profile.verifier_kind} ({item.profile.verifier_command}) "
             f"-> {output_dir.relative_to(REPO_ROOT)}"
         )
@@ -1008,6 +1107,7 @@ def _run_batch(args: argparse.Namespace) -> int:
     config, items = _build_items(
         config,
         exposures=tuple(args.exposure),
+        harnesses=tuple(args.harness),
         cases=tuple(args.case),
         split=split,
         timeout=args.timeout,
@@ -1018,6 +1118,14 @@ def _run_batch(args: argparse.Namespace) -> int:
         return 0
     if args.rerun_status and args.no_skip_completed:
         raise SystemExit("--rerun-status and --no-skip-completed are mutually exclusive")
+
+    missing = _missing_sources(items)
+    if missing:
+        lines = ["Missing required assemble sources:"]
+        for harness, source, example in missing:
+            suffix = f" Copy {_relative(example)} into place first." if example else ""
+            lines.append(f"- {harness}: {source}{suffix}")
+        raise SystemExit("\n".join(lines))
 
     pending: list[RunItem] = []
     for item in items:
@@ -1031,7 +1139,7 @@ def _run_batch(args: argparse.Namespace) -> int:
         if should_run:
             pending.append(item)
         else:
-            print(f"Skipping {item.exposure}/{item.case_id}: {reason}")
+            print(f"Skipping {item.exposure}/{item.harness}/{item.case_id}: {reason}")
 
     status_counts: dict[str, int] = {}
     with concurrent.futures.ThreadPoolExecutor(max_workers=config.batch.max_concurrency) as executor:
@@ -1041,14 +1149,14 @@ def _run_batch(args: argparse.Namespace) -> int:
             try:
                 result = future.result()
                 status = result.overall_status
-            except BaseException as exc:
+            except Exception as exc:
                 status = "runner_error"
                 output_dir = _output_dir(item)
                 output_dir.mkdir(parents=True, exist_ok=True)
                 (output_dir / "runner_error.txt").write_text(f"{type(exc).__name__}: {exc}\n", encoding="utf-8")
-                print(f"Failed {item.exposure}/{item.case_id}: {status} ({exc})")
+                print(f"Failed {item.exposure}/{item.harness}/{item.case_id}: {status} ({exc})")
             else:
-                print(f"Finished {item.exposure}/{item.case_id}: {status}")
+                print(f"Finished {item.exposure}/{item.harness}/{item.case_id}: {status}")
             status_counts[status] = status_counts.get(status, 0) + 1
     if not pending:
         print("No runs selected for execution.")
@@ -1060,7 +1168,7 @@ def _run_with_retries(item: RunItem, batch: BatchSettings) -> RunResult:
     attempts = batch.max_retries + 1
     last: RunResult | None = None
     for attempt in range(1, attempts + 1):
-        print(f"Running {item.exposure}/{item.case_id} (attempt {attempt}/{attempts})")
+        print(f"Running {item.exposure}/{item.harness}/{item.case_id} (attempt {attempt}/{attempts})")
         last = _run_item(item)
         if last.overall_status not in batch.retry_statuses:
             return last
@@ -1074,16 +1182,29 @@ def _run_interactive(args: argparse.Namespace) -> int:
     exposure = args.exposure[-1] if args.exposure else config.exposure
     case_id = args.case[-1] if args.case else config.case_id
     split = args.split or config.split
-    profile = load_exposure_profile(exposure, benchmark=config.benchmark, split=split, case_id=case_id)
+    harness = args.harness[-1] if args.harness else config.harnesses[0]
+    if harness not in config.harnesses:
+        raise SystemExit(f"Unknown harness: {harness}")
+    profile = load_exposure_profile(
+        exposure,
+        harness=harness,
+        benchmark=config.benchmark,
+        split=split,
+        case_id=case_id,
+    )
     item = RunItem(
         config_name=config.config_path.stem,
         config_path=config.config_path,
         benchmark=config.benchmark,
-        harness=config.harness,
+        harness=harness,
         exposure=exposure,
         split=split,
         case_id=case_id,
-        timeout_seconds=args.timeout or config.timeout_seconds,
+        timeout_seconds=(
+            _positive_int(args.timeout, "--timeout", config.config_path)
+            if args.timeout is not None
+            else config.timeout_seconds
+        ),
         resources=config.resources,
         results_root=config.results_root,
         profile=profile,
@@ -1092,12 +1213,14 @@ def _run_interactive(args: argparse.Namespace) -> int:
     workspace_dir = _interactive_workspace_dir(
         config,
         exposure=exposure,
+        harness=harness,
         split=split,
         case_id=case_id,
     )
     runtime_dir = output_dir / "interactive_runtime"
     if args.dry_run:
         print(f"Interactive exposure: {exposure}")
+        print(f"Interactive harness: {harness}")
         print(f"Workspace: {workspace_dir}")
         print(f"Output: {output_dir}")
         print(f"Verifier helper: {profile.verifier_command}")
@@ -1111,7 +1234,7 @@ def _run_interactive(args: argparse.Namespace) -> int:
     roots = _prepare_roots(workspace_dir, runtime_dir, output_dir)
     identity = _build_container_identity(runtime_dir)
     assembled = _assemble_workspace(item, roots)
-    runtime = load_runtime("base")
+    runtime = load_runtime(profile.runtime)
     cmd = _build_docker_command(item, runtime, roots, identity, interactive=True)
     start = datetime.now(timezone.utc)
     try:
