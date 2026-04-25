@@ -10,10 +10,7 @@ SOLUTION_DIR="${3:-solution}"
 export MPLCONFIGDIR
 mkdir -p "${MPLCONFIGDIR}"
 
-REPO_ROOT="$(cd "${SCRIPT_DIR}/../../.." && pwd)"
-
-PYTHONPATH="${REPO_ROOT}${PYTHONPATH:+:${PYTHONPATH}}" python -m solvers.revisit_constellation.rgt_apc_gap_constructive.src.solve \
+PYTHONPATH="${SCRIPT_DIR}${PYTHONPATH:+:${PYTHONPATH}}" python -m src.solve \
   --case-dir "${CASE_DIR}" \
   --config-dir "${CONFIG_DIR}" \
   --solution-dir "${SOLUTION_DIR}"
-

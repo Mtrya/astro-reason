@@ -234,6 +234,10 @@ On the official smoke case, the experiment-owned verifier has passed with 18 sat
 - Battery feasibility is handled by conservative solver-local validation and repair, while the benchmark verifier remains authoritative.
 - Full public-case sweeps are slower than the focused smoke because visibility sampling dominates runtime.
 
-## Evidence Type
+## Evidence And Registry Status
 
-This solver is registered in `experiments/main_solver` and `solvers/finished_solvers.json` with `evidence_type: reproduced_solver`.
+`experiments/main_solver` records this as `evidence_type: reproduced_solver`.
+`solvers/finished_solvers.json` records only solver-contract CI metadata; the
+solver is registered there with `repro_ci: false` because full reproduction runs
+are comparatively expensive, while solver-local tests are exposed through
+`test.sh`.

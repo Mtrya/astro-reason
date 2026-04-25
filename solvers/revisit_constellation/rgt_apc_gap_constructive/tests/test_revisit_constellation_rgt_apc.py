@@ -10,24 +10,25 @@ import pytest
 import yaml
 
 
-REPO_ROOT = Path(__file__).resolve().parents[2]
-sys.path.insert(0, str(REPO_ROOT))
+SOLVER_DIR = Path(__file__).resolve().parents[1]
+REPO_ROOT = Path(__file__).resolve().parents[4]
+sys.path.insert(0, str(SOLVER_DIR))
 
-from solvers.revisit_constellation.rgt_apc_gap_constructive.src.case_io import (  # noqa: E402
+from src.case_io import (  # noqa: E402
     load_case,
     load_solver_config,
 )
-from solvers.revisit_constellation.rgt_apc_gap_constructive.src.gaps import (  # noqa: E402
+from src.gaps import (  # noqa: E402
     gap_improvement,
     score_observation_timelines,
 )
-from solvers.revisit_constellation.rgt_apc_gap_constructive.src.orbit_library import (  # noqa: E402
+from src.orbit_library import (  # noqa: E402
     OrbitCandidate,
     OrbitLibraryConfig,
     generate_orbit_library,
     initial_orbit_bounds,
 )
-from solvers.revisit_constellation.rgt_apc_gap_constructive.src.scheduling import (  # noqa: E402
+from src.scheduling import (  # noqa: E402
     SchedulingConfig,
     ScheduledObservation,
     build_observation_options,
@@ -35,19 +36,19 @@ from solvers.revisit_constellation.rgt_apc_gap_constructive.src.scheduling impor
     schedule_observations,
     validate_schedule_local,
 )
-from solvers.revisit_constellation.rgt_apc_gap_constructive.src.selection import (  # noqa: E402
+from src.selection import (  # noqa: E402
     SelectionConfig,
     select_satellites_greedy,
 )
-from solvers.revisit_constellation.rgt_apc_gap_constructive.src.solution_io import (  # noqa: E402
+from src.solution_io import (  # noqa: E402
     write_empty_solution,
 )
-from solvers.revisit_constellation.rgt_apc_gap_constructive.src.time_grid import (  # noqa: E402
+from src.time_grid import (  # noqa: E402
     horizon_sample_times,
     iso_z,
     parse_iso_z,
 )
-from solvers.revisit_constellation.rgt_apc_gap_constructive.src.visibility import (  # noqa: E402
+from src.visibility import (  # noqa: E402
     VisibilityConfig,
     VisibilitySample,
     VisibilityWindow,
