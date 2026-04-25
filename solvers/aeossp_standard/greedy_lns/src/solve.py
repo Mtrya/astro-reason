@@ -150,7 +150,7 @@ def _execution_model(
     satellite_count: int,
 ) -> dict[str, dict[str, Any]]:
     search_effective_workers = (
-        min(local_search_config.local_search_workers, local_search_config.restart_count + 1)
+        min(local_search_config.local_search_workers, local_search_config.restart_count)
         if local_search_config.local_search_workers > 1
         and local_search_config.restart_count > 0
         else 1
