@@ -17,6 +17,7 @@ config:
     method: indexed
     spatial_bin_deg: 0.25
   selection:
+    schedule_aware: true
     compute_online_bounds: true
     max_bound_order_debug: 50
     write_iteration_trace: true
@@ -41,6 +42,7 @@ run_policies:
         method: indexed
         spatial_bin_deg: 0.25
       selection:
+        schedule_aware: true
         compute_online_bounds: true
         max_bound_order_debug: 50
         write_iteration_trace: true
@@ -57,12 +59,12 @@ run_policies:
     quality_envelope:
       level: reproduction
       status: NOT_YET_QUALITY_FAIR
-      claim: faithful fixed-candidate CELF reproduction, but candidate cap remains humble for quality
+      claim: faithful fixed-candidate CELF reproduction, but candidate cap remains humble for quality evidence
       non_humble_parameters: false
       blocker_summary:
         - 2048 candidates is small relative to the 85k-171k full candidate grids.
-        - Final artifacts have only 2-7 nonzero candidates per case.
-        - Larger caps improve score, then schedule-unaware repair becomes the next blocker.
+        - Historical evaluation artifacts have only 2-7 nonzero candidates per case.
+        - Larger schedule-aware quality probes improve score, but remain below the documented quality target on case_0001.
     cases:
       - test/case_0001
       - test/case_0002
@@ -79,6 +81,7 @@ run_policies:
         method: indexed
         spatial_bin_deg: 0.25
       selection:
+        schedule_aware: true
         compute_online_bounds: true
         max_bound_order_debug: 50
         write_iteration_trace: false
@@ -109,6 +112,7 @@ run_policies:
         method: indexed
         spatial_bin_deg: 0.25
       selection:
+        schedule_aware: true
         compute_online_bounds: true
         max_bound_order_debug: 100
         write_iteration_trace: true
@@ -121,13 +125,13 @@ run_policies:
       max_solver_total_seconds: 90
       max_verifier_seconds: 90
   quality_probe_32768:
-    description: Diagnostic quality-envelope probe with a larger fixed candidate cap on the smoke case.
+    description: Schedule-aware quality-envelope probe with a larger fixed candidate cap on the smoke case.
     quality_envelope:
       level: quality_diagnostic
       status: NOT_YET_QUALITY_FAIR
-      claim: tests whether candidate scaling materially improves official verifier score; not promotion evidence
+      claim: schedule-aware fixed-candidate probe; verifier-valid but still below the documented quality target
       non_humble_parameters: diagnostic_only
-      expected_blocker: schedule-unaware CELF may lose high-value actions during repair
+      expected_blocker: schedule-aware CELF may still be limited by fixed candidate density and geometry drift
     cases:
       - test/case_0001
     config:
@@ -140,6 +144,7 @@ run_policies:
         method: indexed
         spatial_bin_deg: 0.25
       selection:
+        schedule_aware: true
         compute_online_bounds: true
         max_bound_order_debug: 20
         write_iteration_trace: false
@@ -152,13 +157,13 @@ run_policies:
       max_solver_total_seconds: 90
       max_verifier_seconds: 90
   quality_probe_65536:
-    description: Larger diagnostic quality-envelope probe for candidate scaling limits on the smoke case.
+    description: Larger schedule-aware quality-envelope probe for candidate scaling limits on the smoke case.
     quality_envelope:
       level: quality_diagnostic
       status: NOT_YET_QUALITY_FAIR
-      claim: tests upper candidate scaling before schedule-aware selection; not promotion evidence
+      claim: strongest current schedule-aware probe; verifier-valid but still below the documented quality target
       non_humble_parameters: diagnostic_only
-      expected_blocker: coverage mapping runtime and schedule-unaware repair loss
+      expected_blocker: coverage mapping runtime plus remaining fixed-candidate schedule/geometry limits
     cases:
       - test/case_0001
     config:
@@ -171,6 +176,7 @@ run_policies:
         method: indexed
         spatial_bin_deg: 0.25
       selection:
+        schedule_aware: true
         compute_online_bounds: true
         max_bound_order_debug: 10
         write_iteration_trace: false

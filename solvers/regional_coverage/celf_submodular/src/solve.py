@@ -23,7 +23,7 @@ from coverage import (
     build_coverage_sample_index,
     load_coverage_mapping_config,
 )
-from schedule import feasibility_summary, repair_schedule
+from schedule import feasibility_summary, repair_schedule, validate_schedule
 from solution_io import (
     write_candidate_debug,
     write_celf_debug,
@@ -45,6 +45,24 @@ def _selection_costs(case, candidates, cost_mode: str) -> dict[str, float] | Non
             candidate.duration_s * satellite.power.imaging_power_w / 3600.0
         )
     return costs
+
+
+def _schedule_feasibility_check(case, candidates_by_id):
+    def check(
+        selected_candidate_ids: tuple[str, ...],
+        candidate_id: str,
+    ) -> tuple[bool, str]:
+        report = validate_schedule(
+            case,
+            candidates_by_id,
+            (*selected_candidate_ids, candidate_id),
+        )
+        if report.valid:
+            return (True, "feasible")
+        issue_type = report.issues[0].issue_type if report.issues else "unknown"
+        return (False, issue_type)
+
+    return check
 
 
 def _config_dir(value: str) -> Path | None:
@@ -89,13 +107,15 @@ def _reproduction_summary(
                 "transition_burden",
             ],
             "candidate_geometry": "solver-local Brahe SGP4/WGS84 strip approximation; official geometry remains benchmark-owned",
-            "schedule_repair": "same-satellite overlap, slew, action-cap, battery, and duty checks are deterministic benchmark adaptations after fixed-set CELF selection",
+            "schedule_aware_selection": "when enabled, CELF accepts only candidates that keep the current fixed-candidate schedule solver-local feasible",
+            "schedule_repair": "same-satellite overlap, slew, action-cap, battery, and duty checks remain a deterministic safety net after fixed-set CELF selection",
             "official_validation": "experiments/main_solver runs the benchmark verifier through CLI/file contracts",
         },
         "known_fidelity_limits": {
             "online_bound_scope": "the online bound certifies only the fixed benchmark-adapted candidate set used by CELF, not the continuous satellite scheduling problem",
             "geometry_drift_risk": "solver-local coverage mapping may differ from verifier-derived WGS84 strip geometry",
-            "repair_breaks_pure_set_selection": "post-selection repair can remove candidates and therefore is reported separately from paper-faithful CELF",
+            "schedule_feasibility_is_benchmark_adaptation": "schedule-aware acceptance is a benchmark adaptation layered onto fixed-set CELF, not a continuous-schedule optimality claim",
+            "repair_breaks_pure_set_selection": "post-selection repair can still remove candidates and therefore is reported separately from paper-faithful CELF",
             "battery_duty_are_approximate": "solver-local battery and duty checks are conservative approximations, not a proof of verifier feasibility",
         },
         "selection_audit": {
@@ -153,7 +173,7 @@ def _build_status(
     )
     return {
         "status": "ok",
-        "phase": "phase_5_validation_tuning_and_reproduction_fidelity",
+        "phase": "phase_9_schedule_aware_celf_selection",
         "case_dir": str(case.case_dir),
         "config_dir": str(config_dir) if config_dir is not None else None,
         "solution": str(solution_path),
@@ -250,6 +270,7 @@ def run(case_dir: Path, config_dir: Path | None, solution_dir: Path) -> int:
     sample_weights = sample_weight_lookup(
         tuple(sample.weight_m2 for sample in case.coverage_grid.samples)
     )
+    candidates_by_id = {candidate.candidate_id: candidate for candidate in candidates}
     celf_result = run_celf_selection(
         candidates,
         coverage_by_candidate,
@@ -257,6 +278,7 @@ def run(case_dir: Path, config_dir: Path | None, solution_dir: Path) -> int:
         max_actions_total=case.manifest.max_actions_total,
         config=selection_config,
         cost_by_candidate=_selection_costs(case, candidates, selection_config.cost_mode),
+        feasibility_check=_schedule_feasibility_check(case, candidates_by_id),
     )
     timings["celf_selection"] = _round_seconds(time.perf_counter() - start)
     timings["celf_unit_cost_selection"] = celf_result.timing_seconds.get(
@@ -269,7 +291,6 @@ def run(case_dir: Path, config_dir: Path | None, solution_dir: Path) -> int:
     )
 
     start = time.perf_counter()
-    candidates_by_id = {candidate.candidate_id: candidate for candidate in candidates}
     repair_result = repair_schedule(
         case,
         candidates_by_id,
@@ -298,7 +319,7 @@ def run(case_dir: Path, config_dir: Path | None, solution_dir: Path) -> int:
         "repaired_selected_count": len(repair_result.repaired_candidate_ids),
         "removed_by_repair": len(repair_result.removed_candidate_ids),
         "notes": [
-            "Repair happens after paper-faithful fixed-set CELF selection.",
+            "Repair is a safety net after schedule-aware fixed-set CELF selection.",
             "Official verifier score is benchmark-owned and may differ from this solver-local sample objective.",
         ],
     }

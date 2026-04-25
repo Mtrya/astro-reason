@@ -4,9 +4,10 @@ from __future__ import annotations
 
 import heapq
 import time
+from collections import Counter
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Literal
+from typing import Any, Callable, Literal
 
 import yaml
 
@@ -15,6 +16,7 @@ from candidates import StripCandidate
 
 SelectionPolicy = Literal["unit_cost", "cost_benefit"]
 CostMode = Literal["action_count", "imaging_time", "estimated_energy", "transition_burden"]
+FeasibilityCheck = Callable[[tuple[str, ...], str], tuple[bool, str]]
 
 
 @dataclass(frozen=True, slots=True)
@@ -24,6 +26,7 @@ class SelectionConfig:
     cost_mode: CostMode = "action_count"
     budget: float | None = None
     min_marginal_gain: float = 0.0
+    schedule_aware: bool = True
     compute_online_bounds: bool = True
     max_bound_order_debug: int = 50
     write_iteration_trace: bool = True
@@ -36,6 +39,7 @@ class SelectionConfig:
             "cost_mode": self.cost_mode,
             "budget": self.budget,
             "min_marginal_gain": self.min_marginal_gain,
+            "schedule_aware": self.schedule_aware,
             "compute_online_bounds": self.compute_online_bounds,
             "max_bound_order_debug": self.max_bound_order_debug,
             "write_iteration_trace": self.write_iteration_trace,
@@ -57,9 +61,10 @@ class SelectionStep:
     priority_score: float
     cost: float
     covered_sample_count: int
+    skip_reason: str | None = None
 
     def as_dict(self) -> dict[str, Any]:
-        return {
+        payload = {
             "policy": self.policy,
             "event": self.event,
             "candidate_id": self.candidate_id,
@@ -70,6 +75,9 @@ class SelectionStep:
             "cost": self.cost,
             "covered_sample_count": self.covered_sample_count,
         }
+        if self.skip_reason is not None:
+            payload["skip_reason"] = self.skip_reason
+        return payload
 
 
 @dataclass(frozen=True, slots=True)
@@ -159,6 +167,8 @@ class SelectionResult:
     accepted_count: int
     rejected_nonpositive_count: int
     skipped_over_budget_count: int
+    skipped_infeasible_count: int
+    infeasible_skip_counts: dict[str, int]
     stop_reason: str
     iterations: tuple[SelectionStep, ...]
     online_bound: OnlineBoundResult | None = None
@@ -194,6 +204,8 @@ class SelectionResult:
             "accepted_count": self.accepted_count,
             "rejected_nonpositive_count": self.rejected_nonpositive_count,
             "skipped_over_budget_count": self.skipped_over_budget_count,
+            "skipped_infeasible_count": self.skipped_infeasible_count,
+            "infeasible_skip_counts": self.infeasible_skip_counts,
             "stop_reason": self.stop_reason,
             "online_bound": self.online_bound.as_dict() if self.online_bound else None,
         }
@@ -257,6 +269,9 @@ def load_selection_config(config_dir: Path | None) -> SelectionConfig:
         ),
         min_marginal_gain=float(
             section.get("min_marginal_gain", DEFAULT_SELECTION_CONFIG.min_marginal_gain)
+        ),
+        schedule_aware=bool(
+            section.get("schedule_aware", DEFAULT_SELECTION_CONFIG.schedule_aware)
         ),
         write_iteration_trace=bool(
             section.get(
@@ -360,6 +375,12 @@ def _priority_tuple(
 
 def _score(policy: SelectionPolicy, marginal: float, cost: float) -> float:
     return marginal if policy == "unit_cost" else marginal / cost
+
+
+def _default_feasibility_check(
+    selected_candidate_ids: tuple[str, ...], candidate_id: str
+) -> tuple[bool, str]:
+    return (True, "feasible")
 
 
 def fixed_set_online_bound(
@@ -514,6 +535,7 @@ def lazy_forward_selection(
     max_iteration_debug: int = 2_000,
     compute_online_bound: bool = True,
     max_bound_order_debug: int = 50,
+    feasibility_check: FeasibilityCheck | None = None,
 ) -> SelectionResult:
     if budget <= 0.0:
         return SelectionResult(
@@ -530,6 +552,8 @@ def lazy_forward_selection(
             accepted_count=0,
             rejected_nonpositive_count=0,
             skipped_over_budget_count=0,
+            skipped_infeasible_count=0,
+            infeasible_skip_counts={},
             stop_reason="zero_budget",
             iterations=(),
         )
@@ -540,6 +564,8 @@ def lazy_forward_selection(
     }
     heap: list[tuple[float, float, float, int, float, str, int, float]] = []
     skipped_over_budget = 0
+    skipped_infeasible = 0
+    infeasible_skip_counts: Counter[str] = Counter()
     for candidate in candidates:
         cost = costs[candidate.candidate_id]
         if cost <= 0.0:
@@ -572,6 +598,7 @@ def lazy_forward_selection(
     rejected_nonpositive = 0
     iterations: list[SelectionStep] = []
     stop_reason = "candidate_queue_exhausted"
+    check_feasible = feasibility_check or _default_feasibility_check
 
     while heap:
         entry = heapq.heappop(heap)
@@ -589,6 +616,26 @@ def lazy_forward_selection(
             if marginal <= min_marginal_gain:
                 stop_reason = "no_positive_gain"
                 break
+            feasible, infeasible_reason = check_feasible(tuple(selected_ids), candidate_id)
+            if not feasible:
+                skipped_infeasible += 1
+                infeasible_skip_counts[infeasible_reason] += 1
+                if len(iterations) < max_iteration_debug:
+                    iterations.append(
+                        SelectionStep(
+                            policy=policy,
+                            event="skip_infeasible",
+                            candidate_id=candidate_id,
+                            selected_count=len(selected_ids),
+                            budget_used=budget_used,
+                            marginal_gain=marginal,
+                            priority_score=_score(policy, marginal, cost),
+                            cost=cost,
+                            covered_sample_count=len(covered_samples),
+                            skip_reason=infeasible_reason,
+                        )
+                    )
+                continue
             selected_ids.append(candidate_id)
             selected_id_set.add(candidate_id)
             budget_used += cost
@@ -692,6 +739,8 @@ def lazy_forward_selection(
         accepted_count=len(selected_ids),
         rejected_nonpositive_count=rejected_nonpositive,
         skipped_over_budget_count=skipped_over_budget,
+        skipped_infeasible_count=skipped_infeasible,
+        infeasible_skip_counts=dict(sorted(infeasible_skip_counts.items())),
         stop_reason=stop_reason,
         iterations=tuple(iterations),
         online_bound=online_bound,
@@ -807,6 +856,8 @@ def naive_forward_selection(
         accepted_count=len(selected_ids),
         rejected_nonpositive_count=0,
         skipped_over_budget_count=skipped_over_budget,
+        skipped_infeasible_count=0,
+        infeasible_skip_counts={},
         stop_reason=stop_reason,
         iterations=tuple(iterations),
         online_bound=online_bound,
@@ -821,6 +872,7 @@ def run_celf_selection(
     max_actions_total: int | None,
     config: SelectionConfig,
     cost_by_candidate: dict[str, float] | None = None,
+    feasibility_check: FeasibilityCheck | None = None,
 ) -> CelfRunResult:
     budget = config.budget
     if budget is None:
@@ -843,6 +895,7 @@ def run_celf_selection(
             max_iteration_debug=config.max_iteration_debug,
             compute_online_bound=config.compute_online_bounds,
             max_bound_order_debug=config.max_bound_order_debug,
+            feasibility_check=feasibility_check if config.schedule_aware else None,
         )
         timings["unit_cost_selection"] = round(time.perf_counter() - start, 6)
         results.append(unit)
@@ -860,6 +913,7 @@ def run_celf_selection(
             max_iteration_debug=config.max_iteration_debug,
             compute_online_bound=config.compute_online_bounds,
             max_bound_order_debug=config.max_bound_order_debug,
+            feasibility_check=feasibility_check if config.schedule_aware else None,
         )
         timings["cost_benefit_selection"] = round(time.perf_counter() - start, 6)
         results.append(cost_benefit)

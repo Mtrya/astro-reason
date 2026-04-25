@@ -654,6 +654,198 @@ def test_lazy_and_naive_unit_cost_greedy_agree_on_fixed_candidates() -> None:
     assert lazy.as_dict()["lazy_recomputation_ratio"] < 1.0
 
 
+def _schedule_check(case, candidates_by_id):
+    def check(selected_candidate_ids: tuple[str, ...], candidate_id: str):
+        report = validate_schedule(
+            case,
+            candidates_by_id,
+            (*selected_candidate_ids, candidate_id),
+        )
+        if report.valid:
+            return (True, "feasible")
+        return (False, report.issues[0].issue_type)
+
+    return check
+
+
+def test_schedule_aware_celf_skips_overlapping_candidate_before_repair(
+    tmp_path: Path,
+) -> None:
+    _write_case(tmp_path)
+    case = load_case(tmp_path)
+    candidates = [
+        _candidate("best", start_offset_s=0, duration_s=20, roll_deg=12.0),
+        _candidate("overlap", start_offset_s=10, duration_s=20, roll_deg=12.0),
+        _candidate("later", start_offset_s=30, duration_s=10, roll_deg=12.0),
+    ]
+    candidates_by_id = {candidate.candidate_id: candidate for candidate in candidates}
+    coverage_by_candidate = {"best": (0,), "overlap": (1,), "later": (2,)}
+    sample_weights = {0: 10.0, 1: 9.0, 2: 8.0}
+
+    unaware = lazy_forward_selection(
+        candidates,
+        coverage_by_candidate,
+        sample_weights,
+        budget=3.0,
+        policy="unit_cost",
+        compute_online_bound=False,
+    )
+    aware = lazy_forward_selection(
+        candidates,
+        coverage_by_candidate,
+        sample_weights,
+        budget=3.0,
+        policy="unit_cost",
+        compute_online_bound=False,
+        feasibility_check=_schedule_check(case, candidates_by_id),
+    )
+
+    unaware_repair = repair_schedule(
+        case,
+        candidates_by_id,
+        unaware.selected_candidate_ids,
+        coverage_by_candidate,
+        sample_weights,
+    )
+    aware_repair = repair_schedule(
+        case,
+        candidates_by_id,
+        aware.selected_candidate_ids,
+        coverage_by_candidate,
+        sample_weights,
+    )
+
+    assert unaware.selected_candidate_ids == ("best", "overlap", "later")
+    assert unaware_repair.removed_candidate_ids
+    assert aware.selected_candidate_ids == ("best", "later")
+    assert aware.skipped_infeasible_count == 1
+    assert aware.infeasible_skip_counts == {"overlap": 1}
+    assert aware_repair.removed_candidate_ids == ()
+    unaware_loss = unaware.objective_value - coverage_objective(
+        unaware_repair.repaired_candidate_ids,
+        coverage_by_candidate,
+        sample_weights,
+    )
+    aware_loss = aware.objective_value - coverage_objective(
+        aware_repair.repaired_candidate_ids,
+        coverage_by_candidate,
+        sample_weights,
+    )
+    assert unaware_loss > 0.0
+    assert aware_loss == 0.0
+    assert aware.objective_value == coverage_objective(
+        aware_repair.repaired_candidate_ids,
+        coverage_by_candidate,
+        sample_weights,
+    )
+
+
+def test_schedule_aware_celf_skips_slew_infeasible_candidate(tmp_path: Path) -> None:
+    _write_case(tmp_path)
+    case = load_case(tmp_path)
+    candidates = [
+        _candidate("first", start_offset_s=0, duration_s=10, roll_deg=12.0),
+        _candidate("slew_bad", start_offset_s=20, duration_s=10, roll_deg=-18.0),
+        _candidate("slew_ok", start_offset_s=20, duration_s=10, roll_deg=12.0),
+    ]
+    candidates_by_id = {candidate.candidate_id: candidate for candidate in candidates}
+    coverage_by_candidate = {"first": (0,), "slew_bad": (1,), "slew_ok": (2,)}
+    sample_weights = {0: 10.0, 1: 9.0, 2: 8.0}
+
+    aware = lazy_forward_selection(
+        candidates,
+        coverage_by_candidate,
+        sample_weights,
+        budget=3.0,
+        policy="unit_cost",
+        compute_online_bound=False,
+        feasibility_check=_schedule_check(case, candidates_by_id),
+    )
+
+    assert aware.selected_candidate_ids == ("first", "slew_ok")
+    assert aware.skipped_infeasible_count == 1
+    assert aware.infeasible_skip_counts == {"slew_gap": 1}
+    assert validate_schedule(case, candidates_by_id, aware.selected_candidate_ids).valid
+
+
+def test_schedule_aware_celf_handles_action_cap_as_feasibility(
+    tmp_path: Path,
+) -> None:
+    _write_case(tmp_path)
+    case = load_case(tmp_path)
+    object.__setattr__(case.manifest, "max_actions_total", 1)
+    candidates = [
+        _candidate("first", start_offset_s=0, duration_s=10, roll_deg=12.0),
+        _candidate("second", start_offset_s=30, duration_s=10, roll_deg=12.0),
+    ]
+    candidates_by_id = {candidate.candidate_id: candidate for candidate in candidates}
+
+    aware = lazy_forward_selection(
+        candidates,
+        {"first": (0,), "second": (1,)},
+        {0: 10.0, 1: 9.0},
+        budget=2.0,
+        policy="unit_cost",
+        compute_online_bound=False,
+        feasibility_check=_schedule_check(case, candidates_by_id),
+    )
+
+    assert aware.selected_candidate_ids == ("first",)
+    assert aware.skipped_infeasible_count == 1
+    assert aware.infeasible_skip_counts == {"action_cap": 1}
+
+
+def test_schedule_aware_celf_skips_battery_risk_conservatively(
+    tmp_path: Path,
+) -> None:
+    _write_case(tmp_path)
+    case = load_case(tmp_path)
+    sat_a = case.satellites["sat_a"]
+    object.__setattr__(
+        sat_a,
+        "power",
+        type(sat_a.power)(
+            battery_capacity_wh=10.0,
+            initial_battery_wh=0.008,
+            idle_power_w=sat_a.power.idle_power_w,
+            imaging_power_w=sat_a.power.imaging_power_w,
+            slew_power_w=sat_a.power.slew_power_w,
+            sunlit_charge_power_w=sat_a.power.sunlit_charge_power_w,
+            imaging_duty_limit_s_per_orbit=sat_a.power.imaging_duty_limit_s_per_orbit,
+        ),
+    )
+    candidates = [
+        _candidate("first", start_offset_s=0, duration_s=10, roll_deg=12.0),
+        _candidate("battery_bad", start_offset_s=30, duration_s=10, roll_deg=12.0),
+        StripCandidate(
+            candidate_id="other_sat",
+            satellite_id="sat_b",
+            start_offset_s=0,
+            start_time="2025-07-17T00:00:00Z",
+            duration_s=10,
+            roll_deg=12.0,
+            theta_inner_deg=10.0,
+            theta_outer_deg=14.0,
+        ),
+    ]
+    candidates_by_id = {candidate.candidate_id: candidate for candidate in candidates}
+
+    aware = lazy_forward_selection(
+        candidates,
+        {"first": (0,), "battery_bad": (1,), "other_sat": (2,)},
+        {0: 10.0, 1: 9.0, 2: 8.0},
+        budget=3.0,
+        policy="unit_cost",
+        compute_online_bound=False,
+        feasibility_check=_schedule_check(case, candidates_by_id),
+    )
+
+    assert aware.selected_candidate_ids == ("first", "other_sat")
+    assert aware.skipped_infeasible_count == 1
+    assert aware.infeasible_skip_counts == {"battery_risk": 1}
+    assert validate_schedule(case, candidates_by_id, aware.selected_candidate_ids).valid
+
+
 def test_lazy_and_naive_cost_benefit_greedy_agree_on_fixed_candidates() -> None:
     candidates = [
         _candidate("large_slow", start_offset_s=0, duration_s=40),
@@ -1078,7 +1270,7 @@ def test_solver_writes_solution_status_and_repair_debug(tmp_path: Path) -> None:
     assert status["celf_summary"]["best"]["online_bound"]["online_upper_bound"] >= (
         status["celf_summary"]["best"]["online_bound"]["selected_reward"]
     )
-    assert status["phase"] == "phase_5_validation_tuning_and_reproduction_fidelity"
+    assert status["phase"] == "phase_9_schedule_aware_celf_selection"
     assert "feasibility_summary" in status
     assert status["repair_objective_summary"]["scope"] == (
         "solver_local_fixed_sample_objective"

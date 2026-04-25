@@ -46,6 +46,11 @@ selection:
   # Candidates at or below this current marginal gain are not accepted.
   min_marginal_gain: 0.0
 
+  # When true, CELF accepts only candidates that keep the current fixed
+  # candidate schedule solver-local feasible. Post-selection repair remains a
+  # safety net, not the primary feasibility mechanism.
+  schedule_aware: true
+
   # Compute the Leskovec Section 3.2 online upper bound over the same fixed
   # candidate set used by CELF. This is a finite-set certificate, not a bound
   # on continuous satellite scheduling.

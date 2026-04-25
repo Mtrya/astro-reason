@@ -72,19 +72,28 @@ uv run python experiments/main_solver/run.py \
     --solver regional_coverage_celf_submodular \
     --policy evaluation
 
-# Diagnostic candidate-scaling probe. This is intentionally not promotion
-# evidence for a quality-fair optimization envelope.
+# Schedule-aware diagnostic candidate-scaling probes. These are intentionally
+# not promotion evidence for a quality-fair optimization envelope while the
+# verified coverage metrics remain below the documented quality target.
 uv run python experiments/main_solver/run.py \
     --benchmark regional_coverage \
     --solver regional_coverage_celf_submodular \
     --policy quality_probe_32768
+
+uv run python experiments/main_solver/run.py \
+    --benchmark regional_coverage \
+    --solver regional_coverage_celf_submodular \
+    --policy quality_probe_65536
 ```
 
 Policy metadata may include `quality_envelope` fields. These distinguish
 contract/smoke, reproduction, and quality-diagnostic envelopes. A solver
 finishing before timeout is not enough to call the optimization envelope fair;
 candidate density, search depth, repair loss, and verifier score must also be
-inspected.
+inspected. For `regional_coverage_celf_submodular`, the current quality probes
+are verifier-valid and schedule-aware, but still documented as
+`NOT_YET_QUALITY_FAIR` because the best official quality metric remains below
+the documented quality target.
 
 Materialize SatNet citation-backed rows:
 
