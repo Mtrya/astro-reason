@@ -1,0 +1,13 @@
+orbit_library:
+  max_candidates: 18
+  max_rgt_days: 3
+  min_revolutions_per_day: 10
+  max_revolutions_per_day: 18
+  phase_slot_count: 18
+  fallback_altitude_count: 3
+
+visibility:
+  sample_step_sec: 120.0
+  max_windows: null
+  keep_samples_per_window: 6
+
