@@ -225,6 +225,14 @@ def main(argv: list[str] | None = None) -> int:
             [round_info.as_dict() for round_info in selection_result.rounds],
         )
         write_json(
+            solution_dir / "debug" / "target_coverage.json",
+            selection_result.target_coverage,
+        )
+        write_json(
+            solution_dir / "debug" / "candidate_coverage.json",
+            selection_result.candidate_coverage,
+        )
+        write_json(
             solution_dir / "debug" / "scheduling_decisions.json",
             [decision.as_dict() for decision in scheduling_result.decisions],
         )
@@ -239,6 +247,10 @@ def main(argv: list[str] | None = None) -> int:
         write_json(
             solution_dir / "debug" / "repair_steps.json",
             [step.as_dict() for step in scheduling_result.repair_steps],
+        )
+        write_json(
+            solution_dir / "debug" / "local_search_moves.json",
+            [move.as_dict() for move in scheduling_result.local_search_moves],
         )
         write_json(
             solution_dir / "debug" / "scheduling_summary.json",

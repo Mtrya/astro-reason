@@ -42,6 +42,7 @@ from src.scheduling import (  # noqa: E402
     _opportunity_cost,
     build_option_conflict_index,
     build_observation_options,
+    local_search_schedule_deterministic,
     repair_schedule_deterministic,
     schedule_observations,
     validate_schedule_local,
@@ -262,6 +263,19 @@ def _scheduled(
     )
 
 
+def _scheduled_from_option(option) -> ScheduledObservation:
+    return ScheduledObservation(
+        option_id=option.option_id,
+        window_id=option.window_id,
+        satellite_id=option.satellite_id,
+        target_id=option.target_id,
+        start=option.start,
+        end=option.end,
+        midpoint=option.midpoint,
+        quality_score=option.quality_score,
+    )
+
+
 def test_iso_z_parsing_formatting_and_horizon_grid() -> None:
     start = parse_iso_z("2025-07-17T12:00:00Z", field_name="start")
     end = parse_iso_z("2025-07-17T12:10:00Z", field_name="end")
@@ -311,6 +325,55 @@ def test_generate_orbit_library_filters_altitude_bounds_and_stable_ids(tmp_path:
         perigee_m, apogee_m = initial_orbit_bounds(candidate)
         assert case.satellite_model.min_altitude_m <= perigee_m <= case.satellite_model.max_altitude_m
         assert case.satellite_model.min_altitude_m <= apogee_m <= case.satellite_model.max_altitude_m
+
+
+def test_target_diversified_orbit_library_separates_candidate_cap_from_satellite_cap(
+    tmp_path: Path,
+) -> None:
+    case = load_case(_case_dir(tmp_path))
+    config = OrbitLibraryConfig(
+        max_candidates=8,
+        search_mode="target_diversified",
+        max_rgt_days=1,
+        min_revolutions_per_day=10,
+        max_revolutions_per_day=18,
+        phase_slot_count=4,
+    )
+
+    library = generate_orbit_library(case, config)
+
+    assert case.max_num_satellites == 4
+    assert len(library.candidates) == 8
+    assert len(library.candidates) > case.max_num_satellites
+    assert library.caps["candidate_cap"] == 8
+    assert library.caps["candidate_cap_is_independent_of_case_satellite_cap"] is True
+    assert library.caps["candidate_count_capped"] is True
+
+
+def test_target_diversified_orbit_library_interleaves_phases_and_inclinations(
+    tmp_path: Path,
+) -> None:
+    case = load_case(_wide_visibility_case_dir(tmp_path))
+    config = OrbitLibraryConfig(
+        max_candidates=8,
+        search_mode="target_diversified",
+        max_rgt_days=1,
+        min_revolutions_per_day=10,
+        max_revolutions_per_day=18,
+        phase_slot_count=4,
+    )
+
+    library = generate_orbit_library(case, config)
+
+    assert [candidate.phase_slot_index for candidate in library.candidates[:4]] == [
+        0,
+        0,
+        0,
+        0,
+    ]
+    assert len({candidate.inclination_deg for candidate in library.candidates[:4]}) == 4
+    assert len({candidate.phase_slot_index for candidate in library.candidates}) >= 2
+    assert library.caps["phase_slot_order_prefix"][:2] == [0, 2]
 
 
 def test_group_visible_samples_into_min_duration_windows() -> None:
@@ -366,12 +429,16 @@ def test_config_example_loads_all_solver_component_configs(tmp_path: Path) -> No
     selection_config = SelectionConfig.from_mapping(payload)
     scheduling_config = SchedulingConfig.from_mapping(payload)
 
-    assert orbit_config.max_candidates == 18
+    assert orbit_config.max_candidates == 36
+    assert orbit_config.search_mode == "target_diversified"
     assert visibility_config.sample_step_sec == 120.0
     assert visibility_config.worker_count is None
+    assert selection_config.max_selected_satellites == 18
     assert selection_config.require_positive_improvement is True
     assert scheduling_config.enable_repair is True
     assert scheduling_config.repair_max_iterations == 3
+    assert scheduling_config.enable_local_search is True
+    assert scheduling_config.local_search_max_iterations == 4
 
 
 def test_propagation_cache_state_grid_matches_scalar_states(tmp_path: Path) -> None:
@@ -611,9 +678,46 @@ def test_greedy_selection_respects_case_and_config_caps(tmp_path: Path) -> None:
 
     assert len(config_capped.selected_candidate_ids) == 2
     assert config_capped.caps["selected_satellite_limit"] == 2
+    assert config_capped.caps["candidate_pool_exceeds_selected_limit"] is True
     assert config_capped.caps["stopped_by_limit"] is True
     assert len(case_capped.selected_candidate_ids) == case.max_num_satellites
     assert case_capped.caps["selected_satellite_limit"] == case.max_num_satellites
+
+
+def test_selection_records_candidate_and_target_coverage_diagnostics(tmp_path: Path) -> None:
+    case = load_case(_scheduler_case_dir(tmp_path))
+    candidates = [
+        _candidate("sat_a"),
+        _candidate("sat_b"),
+        _candidate("sat_c"),
+    ]
+    windows = [
+        _window("sat_a", "target_001", case.horizon_start, 10),
+        _window("sat_b", "target_002", case.horizon_start, 20),
+    ]
+
+    result = select_satellites_greedy(
+        case=case,
+        candidates=candidates,
+        windows=windows,
+        config=SelectionConfig(max_selected_satellites=1),
+    )
+
+    coverage_by_target = {
+        row["target_id"]: row for row in result.target_coverage
+    }
+    assert coverage_by_target["target_001"]["coverage_status"] == "selected_covered"
+    assert coverage_by_target["target_002"]["coverage_status"] == "candidate_only"
+    assert coverage_by_target["target_002"]["candidate_count"] == 1
+    assert result.caps["target_coverage_status_counts"] == {
+        "candidate_only": 1,
+        "selected_covered": 1,
+    }
+    coverage_by_candidate = {
+        row["candidate_id"]: row for row in result.candidate_coverage
+    }
+    assert coverage_by_candidate["sat_a"]["selected"] is True
+    assert coverage_by_candidate["sat_c"]["target_count"] == 0
 
 
 def test_greedy_selection_uses_deterministic_candidate_id_ties(tmp_path: Path) -> None:
@@ -892,12 +996,15 @@ def test_scheduler_records_reproduction_fidelity_mode_comparison(tmp_path: Path)
         "fifo",
         "constructive",
         "repaired",
+        "local_search",
     ]
     assert entries["no_op"]["action_count"] == 0
     assert entries["fifo"]["scheduled_option_ids"] == ["sat_a_target_001_10"]
     assert entries["constructive"]["scheduled_option_ids"] == ["sat_b_target_002_30"]
     assert entries["repaired"]["action_count"] == len(result.scheduled_observations)
+    assert entries["local_search"]["action_count"] == len(result.scheduled_observations)
     assert result.debug_summary["mode_comparison_compact"][0]["mode"] == "no_op"
+    assert result.debug_summary["mode_comparison_compact"][-1]["mode"] == "local_search"
     assert result.debug_summary["high_gap_target_count"] == len(
         result.validation_report.high_gap_target_ids
     )
@@ -911,6 +1018,8 @@ def test_scheduler_records_reproduction_fidelity_mode_comparison(tmp_path: Path)
     assert result.caps["incremental_gap_state_enabled"] is True
     assert result.caps["conflict_index"]["enabled"] is True
     assert result.caps["conflict_index"]["option_count"] == 3
+    assert result.caps["local_search_enabled"] is True
+    assert "local_search_counts" in result.debug_summary
 
 
 def test_baseline_evidence_records_target_reasons_and_timing(tmp_path: Path) -> None:
@@ -997,6 +1106,7 @@ def test_baseline_evidence_records_target_reasons_and_timing(tmp_path: Path) -> 
         "fifo",
         "constructive",
         "repaired",
+        "local_search",
     ]
 
 
@@ -1106,6 +1216,105 @@ def test_repair_inserts_high_gap_target_option_deterministically(tmp_path: Path)
     assert report.score.target_gap_summary["target_002"].observation_count == 1
 
 
+def test_local_search_swaps_to_reduce_high_gap_target(tmp_path: Path) -> None:
+    case = load_case(_gap_case_dir(tmp_path, expected_revisit_period_hours=0.4))
+    windows = [
+        _window("sat_c", "target_001", case.horizon_start, 5),
+        _window("sat_a", "target_001", case.horizon_start, 30),
+    ]
+    config = SchedulingConfig(
+        max_actions=1,
+        transition_gap_sec=0.0,
+        enforce_simple_energy_budget=False,
+        enable_repair=False,
+        enable_local_search=True,
+        local_search_max_iterations=1,
+    )
+    options, rejected = build_observation_options(
+        case=case,
+        selected_candidate_ids={"sat_a", "sat_c"},
+        selected_candidates=None,
+        windows=windows,
+        config=config,
+    )
+    assert rejected == []
+    by_id = {option.option_id: option for option in options}
+    scheduled = [_scheduled_from_option(by_id["sat_c_target_001_5"])]
+    before = score_observation_timelines(
+        case,
+        {"target_001": [scheduled[0].midpoint]},
+    )
+    conflict_index = build_option_conflict_index(
+        case=case,
+        options=options,
+        transition_gap_sec=0.0,
+        propagation=None,
+    )
+
+    searched, moves, report = local_search_schedule_deterministic(
+        case=case,
+        scheduled=scheduled,
+        options=options,
+        selected_candidate_ids=["sat_a", "sat_c"],
+        config=config,
+        transition_gap_sec=0.0,
+        conflict_index=conflict_index,
+        propagation=None,
+    )
+
+    assert searched[0].option_id == "sat_a_target_001_30"
+    assert moves[0].accepted is True
+    assert moves[0].action == "swap"
+    assert report.score.max_revisit_gap_hours < before.max_revisit_gap_hours
+
+
+def test_local_search_uses_deterministic_swap_ties(tmp_path: Path) -> None:
+    case = load_case(_gap_case_dir(tmp_path, expected_revisit_period_hours=0.4))
+    windows = [
+        _window("sat_c", "target_001", case.horizon_start, 5),
+        _window("sat_b", "target_001", case.horizon_start, 30),
+        _window("sat_a", "target_001", case.horizon_start, 30),
+    ]
+    config = SchedulingConfig(
+        max_actions=1,
+        transition_gap_sec=0.0,
+        enforce_simple_energy_budget=False,
+        enable_repair=False,
+        enable_local_search=True,
+        local_search_max_iterations=1,
+    )
+    options, _ = build_observation_options(
+        case=case,
+        selected_candidate_ids={"sat_a", "sat_b", "sat_c"},
+        selected_candidates=None,
+        windows=windows,
+        config=config,
+    )
+    by_id = {option.option_id: option for option in options}
+    scheduled = [_scheduled_from_option(by_id["sat_c_target_001_5"])]
+    conflict_index = build_option_conflict_index(
+        case=case,
+        options=options,
+        transition_gap_sec=0.0,
+        propagation=None,
+    )
+
+    searched, moves, _ = local_search_schedule_deterministic(
+        case=case,
+        scheduled=scheduled,
+        options=options,
+        selected_candidate_ids=["sat_a", "sat_b", "sat_c"],
+        config=config,
+        transition_gap_sec=0.0,
+        conflict_index=conflict_index,
+        propagation=None,
+    )
+
+    assert searched[0].option_id == "sat_a_target_001_30"
+    assert moves[0].inserted_observation is not None
+    assert moves[0].inserted_observation.satellite_id == "sat_a"
+
+
 def test_solve_sh_smoke_writes_selected_solution_status_and_debug(tmp_path: Path) -> None:
     case_dir = _case_dir(tmp_path)
     config_dir = tmp_path / "config"
@@ -1160,6 +1369,8 @@ def test_solve_sh_smoke_writes_selected_solution_status_and_debug(tmp_path: Path
     assert status["visibility"]["candidate_target_pair_count"] == 1
     assert status["selection"]["selected_candidate_count"] == len(solution["satellites"])
     assert status["scheduling"]["action_count"] == len(solution["actions"])
+    assert status["selection"]["target_coverage"][0]["target_id"] == "target_001"
+    assert status["selection"]["candidate_coverage"][0]["candidate_id"]
     assert status["baseline_evidence"]["version"] == 1
     assert status["baseline_evidence"]["counts"]["target_count"] == 1
     assert status["baseline_evidence"]["counts"]["candidate_count"] == 1
@@ -1172,6 +1383,7 @@ def test_solve_sh_smoke_writes_selected_solution_status_and_debug(tmp_path: Path
         "fifo",
         "constructive",
         "repaired",
+        "local_search",
     ]
     assert status["reproduction_fidelity"]["paper_adaptation_notes"]["issue"].endswith(
         "/issues/87"
@@ -1180,10 +1392,13 @@ def test_solve_sh_smoke_writes_selected_solution_status_and_debug(tmp_path: Path
     assert (solution_dir / "debug" / "orbit_candidates.json").exists()
     assert (solution_dir / "debug" / "visibility_windows.json").exists()
     assert (solution_dir / "debug" / "selection_rounds.json").exists()
+    assert (solution_dir / "debug" / "target_coverage.json").exists()
+    assert (solution_dir / "debug" / "candidate_coverage.json").exists()
     assert (solution_dir / "debug" / "scheduling_decisions.json").exists()
     assert (solution_dir / "debug" / "scheduling_rejections.json").exists()
     assert (solution_dir / "debug" / "local_validation.json").exists()
     assert (solution_dir / "debug" / "repair_steps.json").exists()
+    assert (solution_dir / "debug" / "local_search_moves.json").exists()
     assert (solution_dir / "debug" / "scheduling_summary.json").exists()
     assert (solution_dir / "debug" / "baseline_summary.json").exists()
     assert (solution_dir / "debug" / "mode_comparison.json").exists()

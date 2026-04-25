@@ -47,12 +47,12 @@ The solver is standalone. It reads `assets.json` and `mission.json`, writes a be
 The pipeline is:
 
 1. Load the public `revisit_constellation` case files.
-2. Generate deterministic circular RGT/APC-style candidate satellites inside the case altitude and satellite-count bounds.
+2. Generate a deterministic circular RGT/APC-style candidate pool inside the case altitude bounds.
 3. Sample candidate-target access profiles and group visible samples into observation opportunities.
-4. Greedily select satellites by benchmark-style marginal improvement to revisit-gap timelines.
+4. Greedily select the output satellites from that pool by benchmark-style marginal improvement to revisit-gap timelines plus deterministic coverage-diversity ties.
 5. Build observation actions with Mercado-style freshness, assignment flexibility, and opportunity-cost priorities.
-6. Run solver-local validation and deterministic insertion/removal repair.
-7. Emit the repaired schedule as `solution.json` and retain no-op, FIFO, constructive, and repaired mode comparisons as debug evidence.
+6. Run solver-local validation, deterministic insertion/removal repair, and bounded high-gap local search.
+7. Emit the local-search schedule as `solution.json` and retain no-op, FIFO, constructive, repaired, and local-search mode comparisons as debug evidence.
 
 The final action set contains only `observation` actions. Satellite states are Cartesian GCRF states at mission start.
 
@@ -67,7 +67,7 @@ The benchmark differs from the papers in several important ways:
 - Opportunity cost is the quality-weighted freshness profit of locally conflicting options that would be blocked by choosing an observation.
 - The benchmark's hard validity rules require geometry, non-overlap, slew/settle, and battery feasibility. The solver checks these locally and then relies on official experiment-owned verification for the authoritative result.
 
-APC visibility/access timelines are not final scheduled observations. They are candidate opportunities. The emitted `solution.json` uses the repaired constructive schedule.
+APC visibility/access timelines are not final scheduled observations. They are candidate opportunities. The emitted `solution.json` uses the local-search schedule after repair.
 
 ## Solver Contract
 
@@ -86,20 +86,22 @@ APC visibility/access timelines are not final scheduled observations. They are c
 
 ## RGT/APC Orbit Library
 
-The orbit library enumerates circular RGT-style base orbits from integer revolution/day ratios and expands them into deterministic phase slots. Candidates are filtered against the case's initial-orbit altitude bounds and capped by both `max_candidates` and `max_num_satellites`.
+The orbit library enumerates circular RGT-style base orbits from integer revolution/day ratios and expands them into deterministic phase slots. Candidates are filtered against the case's initial-orbit altitude bounds and capped by `orbit_library.max_candidates`, which is intentionally separate from the benchmark's final satellite-output cap.
+
+The default `target_diversified` search mode ranks the candidate pool by target-derived inclination bands and balanced RAAN/mean-anomaly phase slots before falling back to nearby RGT ratios. This keeps the Lee-style APC idea of shifted access profiles while avoiding the earlier smoke-only behavior where the first base orbit exhausted the whole candidate cap. `legacy_base_first` is available for direct comparison with the earlier enumeration.
 
 When no RGT candidate survives the altitude bounds, the solver falls back to a small deterministic circular-altitude grid. This fallback is reported in `status.json`; it is a robustness path, not a claim of APC optimality.
 
 ## Gap-Aware Satellite Selection
 
-Candidate satellites are selected greedily. Each round adds the candidate whose opportunity timeline most improves the benchmark-shaped score:
+Candidate satellites are selected greedily from the larger candidate pool. Each round adds the candidate whose opportunity timeline most improves the benchmark-shaped score:
 
 - threshold violation count
 - capped maximum revisit gap
 - raw maximum revisit gap
 - mean revisit gap
 
-All gap calculations are boundary-inclusive and use observation midpoints, matching the benchmark scoring convention.
+All gap calculations are boundary-inclusive and use observation midpoints, matching the benchmark scoring convention. When scores tie, the selector uses deterministic diversity ties: new target coverage, total target coverage, new latitude-band coverage, phase spread from already selected satellites, and finally candidate ID.
 
 ## Constructive Scheduling And Repair
 
@@ -112,7 +114,7 @@ The scheduler first builds one observation option per visibility window, anchore
 
 Solver-local validation checks unknown references, duration, sampled geometry, same-satellite overlap, required slew/settle gaps, and conservative battery risk.
 
-Repair is deterministic. It removes locally invalid or risky observations with the lowest score damage, then tries to insert feasible observations for high-gap targets. The emitted solution uses the repaired mode. The no-op, FIFO, and unrepaired constructive modes are retained only for reproduction-fidelity diagnostics.
+Repair is deterministic. It removes locally invalid or risky observations with the lowest score damage, then tries to insert feasible observations for high-gap targets. A bounded local-search pass then considers deterministic high-gap insertions and one-for-one swaps. Moves are accepted only when they improve the benchmark-shaped priority order: threshold violations, capped maximum gap, raw maximum gap, and mean gap. The emitted solution uses the local-search mode. The no-op, FIFO, unrepaired constructive, and repaired modes are retained only for reproduction-fidelity diagnostics.
 
 ## Configuration
 
@@ -126,6 +128,7 @@ See [config.example.yaml](./config.example.yaml) for a complete example.
 Key knobs:
 
 - `orbit_library.max_candidates`
+- `orbit_library.search_mode`
 - `orbit_library.max_rgt_days`
 - `orbit_library.min_revolutions_per_day`
 - `orbit_library.max_revolutions_per_day`
@@ -145,6 +148,10 @@ Key knobs:
 - `scheduling.enforce_simple_energy_budget`
 - `scheduling.enable_repair`
 - `scheduling.repair_max_iterations`
+- `scheduling.enable_local_search`
+- `scheduling.local_search_max_iterations`
+- `scheduling.local_search_options_per_target`
+- `scheduling.local_search_removals_per_option`
 
 Lower visibility sample steps improve opportunity fidelity but increase runtime. `visibility.worker_count: null` auto-selects a bounded candidate-parallel worker count; use `1` for serial deterministic visibility construction. `transition_gap_sec: null` uses a conservative case-derived bang-coast-bang slew/settle gap during option conflict checks.
 
@@ -155,13 +162,16 @@ Every run writes:
 - `debug/orbit_candidates.json`: generated candidate satellite states
 - `debug/visibility_windows.json`: sampled candidate-target access windows
 - `debug/selection_rounds.json`: greedy satellite-selection rounds and marginal improvements
+- `debug/target_coverage.json`: target-level candidate and selected coverage before scheduling
+- `debug/candidate_coverage.json`: candidate-level target/opportunity coverage diagnostics
 - `debug/scheduling_decisions.json`: constructive scheduling decisions, priorities, scores, and improvements
 - `debug/scheduling_rejections.json`: skipped options and solver-local reasons
 - `debug/local_validation.json`: final local hard-validity and high-gap report
 - `debug/repair_steps.json`: deterministic removal/insertion repair log
+- `debug/local_search_moves.json`: accepted and rejected bounded local-search moves
 - `debug/scheduling_summary.json`: compact option, action, rejection, repair, high-gap, and mode counts
 - `debug/baseline_summary.json`: compact profiling, mode, target coverage, and high-gap evidence for future-phase comparisons
-- `debug/mode_comparison.json`: solver-local no-op, FIFO, constructive, and repaired comparison metrics
+- `debug/mode_comparison.json`: solver-local no-op, FIFO, constructive, repaired, and local-search comparison metrics
 - `debug/adaptation_notes.json`: paper concepts mapped to benchmark mechanics
 
 These artifacts are intended to answer:
@@ -169,8 +179,8 @@ These artifacts are intended to answer:
 - whether candidate coverage exists before scheduling
 - which satellites improved the revisit timeline
 - why a target remained high-gap or unobserved
-- whether repair changed the constructive solution
-- how FIFO/no-op compare with the constructive and repaired modes
+- whether repair or local search changed the constructive solution
+- how FIFO/no-op compare with the constructive, repaired, and local-search modes
 - which paper components are reproduced and which are benchmark adaptations
 
 ## Running It
@@ -225,7 +235,7 @@ What matters here is:
 - repair does not collapse the schedule
 - high-gap and unobserved targets are visible in debug summaries
 
-On the official smoke case, the experiment-owned verifier has passed with 18 satellites, 238 observation actions, and no hard-validity violations. Some targets remain high-gap because the bounded RGT/APC candidate grid does not cover every target frequently enough under the benchmark geometry and resource rules.
+On the official smoke case, the experiment-owned verifier has passed with 18 satellites, 260 observation actions, and no hard-validity violations. The target-diversified candidate pool gives all 23 smoke targets scheduled observations. All targets still remain high-gap against the 8 h revisit threshold, so reported quality should be read as a valid adapted reproduction baseline rather than a solved benchmark optimum.
 
 ## Known Limitations
 
@@ -234,7 +244,7 @@ On the official smoke case, the experiment-owned verifier has passed with 18 sat
 - The solver uses circular RGT-style or fallback circular candidates only; it may miss asymmetric non-RGT or elliptical designs that score better.
 - Visibility windows are sampled, so very short opportunities can be missed or approximated.
 - Battery feasibility is handled by conservative solver-local validation and repair, while the benchmark verifier remains authoritative.
-- Full public-case sweeps are slower than the focused smoke because visibility sampling dominates runtime.
+- Full public-case sweeps are slower than the focused smoke because visibility sampling dominates runtime. The experiment-owned fair profile records public-case timing and validity evidence outside the solver registry.
 
 ## Evidence And Registry Status
 

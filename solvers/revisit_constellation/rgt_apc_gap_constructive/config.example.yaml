@@ -1,7 +1,11 @@
 # Deterministic RGT/APC candidate-library controls.
 orbit_library:
-  # Maximum candidate satellites emitted by the library before case satellite caps.
-  max_candidates: 18
+  # Maximum candidate satellites evaluated before final satellite selection.
+  # This is intentionally separate from the benchmark satellite-output cap.
+  max_candidates: 36
+  # target_diversified interleaves target-driven inclinations and balanced phase slots.
+  # legacy_base_first preserves the earlier base-orbit-first enumeration.
+  search_mode: target_diversified
   # Search RGT ratios up to this many Greenwich days.
   max_rgt_days: 3
   # Inclusive bounds on revolutions per day considered for circular RGT candidates.
@@ -26,8 +30,10 @@ visibility:
 
 # Greedy satellite selection by benchmark-shaped gap improvement.
 selection:
-  # Optional cap below the benchmark's max_num_satellites.
-  max_selected_satellites: null
+  # Optional cap below the benchmark's max_num_satellites. Keep this separate
+  # from orbit_library.max_candidates so the solver can evaluate a broader
+  # APC candidate pool than it emits.
+  max_selected_satellites: 18
   # Stop adding satellites when the next candidate has no positive gap improvement.
   require_positive_improvement: true
 
@@ -49,3 +55,11 @@ scheduling:
   enable_repair: true
   # Maximum repair iterations. Each iteration removes one risky observation or inserts one high-gap observation.
   repair_max_iterations: 3
+  # Run deterministic high-gap insertion/swap local search after repair.
+  enable_local_search: true
+  # Maximum accepted local-search iterations.
+  local_search_max_iterations: 4
+  # Per high-gap target, only this many unscheduled options are considered each iteration.
+  local_search_options_per_target: 4
+  # Per candidate insertion, only this many low-damage removals are considered.
+  local_search_removals_per_option: 8

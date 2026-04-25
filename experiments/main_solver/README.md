@@ -57,6 +57,22 @@ uv run python experiments/main_solver/run.py \
     --case test/case_0001
 ```
 
+Run the RGT/APC constructive public-case fair profile:
+
+```bash
+uv run python experiments/main_solver/run.py \
+    --benchmark revisit_constellation \
+    --solver revisit_constellation_rgt_apc_gap_constructive
+```
+
+The `revisit_constellation_rgt_apc_gap_constructive` solver profile embeds the
+experiment-owned `fair_public_reproduction` config. It uses a deterministic
+target-diversified RGT/APC candidate pool, bounded candidate-parallel visibility
+generation, greedy gap-aware satellite selection, constructive scheduling,
+repair, and bounded local search. The profile is intentionally not promoted to
+`repro_ci: true`; solver CI remains contract-focused, while this experiment owns
+the verifier command, run policy, and result artifacts.
+
 Materialize SatNet citation-backed rows:
 
 ```bash

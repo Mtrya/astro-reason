@@ -37,6 +37,10 @@ class SchedulingConfig:
     enforce_simple_energy_budget: bool = True
     enable_repair: bool = True
     repair_max_iterations: int = 3
+    enable_local_search: bool = True
+    local_search_max_iterations: int = 4
+    local_search_options_per_target: int = 4
+    local_search_removals_per_option: int = 8
 
     @classmethod
     def from_mapping(cls, payload: dict[str, Any]) -> "SchedulingConfig":
@@ -61,6 +65,10 @@ class SchedulingConfig:
             enforce_simple_energy_budget=bool(raw.get("enforce_simple_energy_budget", True)),
             enable_repair=bool(raw.get("enable_repair", True)),
             repair_max_iterations=int(raw.get("repair_max_iterations", 3)),
+            enable_local_search=bool(raw.get("enable_local_search", True)),
+            local_search_max_iterations=int(raw.get("local_search_max_iterations", 4)),
+            local_search_options_per_target=int(raw.get("local_search_options_per_target", 4)),
+            local_search_removals_per_option=int(raw.get("local_search_removals_per_option", 8)),
         )
 
     def selected_action_limit(self, option_count: int) -> int:
@@ -85,6 +93,10 @@ class SchedulingConfig:
             "enforce_simple_energy_budget": self.enforce_simple_energy_budget,
             "enable_repair": self.enable_repair,
             "repair_max_iterations": self.repair_max_iterations,
+            "enable_local_search": self.enable_local_search,
+            "local_search_max_iterations": self.local_search_max_iterations,
+            "local_search_options_per_target": self.local_search_options_per_target,
+            "local_search_removals_per_option": self.local_search_removals_per_option,
         }
 
 
@@ -180,6 +192,7 @@ class SchedulingResult:
     rejected_options: list[dict[str, Any]]
     validation_report: "LocalValidationReport"
     repair_steps: list["RepairStep"]
+    local_search_moves: list["LocalSearchMove"]
     mode_comparison: dict[str, Any]
     debug_summary: dict[str, Any]
     caps: dict[str, Any]
@@ -193,6 +206,10 @@ class SchedulingResult:
             "rejected_option_count": len(self.rejected_options),
             "validation": self.validation_report.as_dict(),
             "repair_step_count": len(self.repair_steps),
+            "local_search_move_count": len(self.local_search_moves),
+            "local_search_accepted_move_count": len(
+                [move for move in self.local_search_moves if move.accepted]
+            ),
             "mode_comparison": self.mode_comparison,
             "debug_summary": self.debug_summary,
             "caps": self.caps,
@@ -261,6 +278,44 @@ class RepairStep:
                 if self.inserted_observation is None
                 else self.inserted_observation.as_dict()
             ),
+        }
+
+
+@dataclass(frozen=True, slots=True)
+class LocalSearchMove:
+    iteration: int
+    action: str
+    accepted: bool
+    reason: str
+    score_before: GapScore
+    score_after: GapScore
+    improvement: GapImprovement
+    tie_key: tuple[Any, ...]
+    removed_observation: ScheduledObservation | None = None
+    inserted_observation: ScheduledObservation | None = None
+    blocked_reason: str | None = None
+
+    def as_dict(self) -> dict[str, Any]:
+        return {
+            "iteration": self.iteration,
+            "action": self.action,
+            "accepted": self.accepted,
+            "reason": self.reason,
+            "score_before": self.score_before.as_dict(),
+            "score_after": self.score_after.as_dict(),
+            "improvement": self.improvement.as_dict(),
+            "tie_key": [str(item) for item in self.tie_key],
+            "removed_observation": (
+                None
+                if self.removed_observation is None
+                else self.removed_observation.as_dict()
+            ),
+            "inserted_observation": (
+                None
+                if self.inserted_observation is None
+                else self.inserted_observation.as_dict()
+            ),
+            "blocked_reason": self.blocked_reason,
         }
 
 
@@ -897,6 +952,28 @@ def _repair_counts(steps: list[RepairStep]) -> dict[str, dict[str, int]]:
     }
 
 
+def _local_search_counts(moves: list[LocalSearchMove]) -> dict[str, Any]:
+    accepted_by_action: dict[str, int] = {}
+    rejected_by_reason: dict[str, int] = {}
+    blocked_by_reason: dict[str, int] = {}
+    for move in moves:
+        if move.accepted:
+            accepted_by_action[move.action] = accepted_by_action.get(move.action, 0) + 1
+        else:
+            rejected_by_reason[move.reason] = rejected_by_reason.get(move.reason, 0) + 1
+            if move.blocked_reason is not None:
+                blocked_by_reason[move.blocked_reason] = (
+                    blocked_by_reason.get(move.blocked_reason, 0) + 1
+                )
+    return {
+        "accepted": sum(1 for move in moves if move.accepted),
+        "rejected": sum(1 for move in moves if not move.accepted),
+        "accepted_by_action": dict(sorted(accepted_by_action.items())),
+        "rejected_by_reason": dict(sorted(rejected_by_reason.items())),
+        "blocked_by_reason": dict(sorted(blocked_by_reason.items())),
+    }
+
+
 def _schedule_fifo_baseline(
     *,
     case: RevisitCase,
@@ -961,6 +1038,7 @@ def build_mode_comparison(
     options: list[ObservationOption],
     constructive: list[ScheduledObservation],
     repaired: list[ScheduledObservation],
+    local_search: list[ScheduledObservation],
     selected_candidate_ids: list[str],
     config: SchedulingConfig,
     transition_gap_sec: float,
@@ -1003,6 +1081,13 @@ def build_mode_comparison(
         transition_gap_sec=transition_gap_sec,
         propagation=propagation,
     )
+    local_search_report = validate_schedule_local(
+        case=case,
+        scheduled=local_search,
+        selected_candidate_ids=selected_candidate_ids,
+        transition_gap_sec=transition_gap_sec,
+        propagation=propagation,
+    )
     no_op_score = no_op_report.score
     fifo_score = fifo_report.score
     entries = [
@@ -1038,6 +1123,14 @@ def build_mode_comparison(
             no_op_score=no_op_score,
             fifo_score=fifo_score,
         ),
+        _mode_entry(
+            mode="local_search",
+            description="Repaired schedule after deterministic high-gap insertion/swap local search.",
+            scheduled=local_search,
+            report=local_search_report,
+            no_op_score=no_op_score,
+            fifo_score=fifo_score,
+        ),
     ]
     return {
         "mode_order": [entry["mode"] for entry in entries],
@@ -1061,6 +1154,11 @@ def build_mode_comparison(
             )["mode"],
             "constructive_action_delta_vs_fifo": len(constructive) - len(fifo),
             "repaired_action_delta_vs_constructive": len(repaired) - len(constructive),
+            "local_search_action_delta_vs_repaired": len(local_search) - len(repaired),
+            "local_search_improvement_vs_repaired": _score_delta_dict(
+                repaired_report.score,
+                local_search_report.score,
+            ),
         },
     }
 
@@ -1073,7 +1171,9 @@ def build_debug_summary(
     rejected_options: list[dict[str, Any]],
     validation_report: LocalValidationReport,
     repair_steps: list[RepairStep],
+    local_search_moves: list[LocalSearchMove],
     mode_comparison: dict[str, Any],
+    high_gap_blockers: list[dict[str, Any]],
 ) -> dict[str, Any]:
     score = validation_report.score
     observed_target_ids = sorted(
@@ -1130,6 +1230,9 @@ def build_debug_summary(
         ),
         "repair_step_count": len(repair_steps),
         "repair_counts": _repair_counts(repair_steps),
+        "local_search_move_count": len(local_search_moves),
+        "local_search_counts": _local_search_counts(local_search_moves),
+        "local_search_high_gap_blockers": high_gap_blockers[:10],
         "local_valid": validation_report.is_valid,
         "local_issue_count": len(validation_report.issues),
         "local_issue_reason_counts": _reason_counts(
@@ -1443,6 +1546,417 @@ def _insert_high_gap_observation(
     return None
 
 
+def _move_key(
+    *,
+    action_rank: int,
+    improvement: GapImprovement,
+    target_gap_hours: float,
+    inserted: ScheduledObservation | None,
+    removed: ScheduledObservation | None,
+) -> tuple[Any, ...]:
+    inserted_key = (
+        inserted.start,
+        inserted.satellite_id,
+        inserted.target_id,
+        inserted.option_id,
+    ) if inserted is not None else (
+        datetime.max,
+        "",
+        "",
+        "",
+    )
+    removed_key = (
+        removed.start,
+        removed.satellite_id,
+        removed.target_id,
+        removed.option_id,
+    ) if removed is not None else (
+        datetime.max,
+        "",
+        "",
+        "",
+    )
+    return (
+        -improvement.threshold_violation_reduction,
+        -improvement.capped_max_revisit_gap_reduction_hours,
+        -improvement.max_revisit_gap_reduction_hours,
+        -improvement.mean_revisit_gap_reduction_hours,
+        -target_gap_hours,
+        action_rank,
+        *inserted_key,
+        *removed_key,
+    )
+
+
+def _ranked_local_search_targets(score: GapScore) -> list[str]:
+    return [
+        target_id
+        for target_id, target_score in sorted(
+            score.target_gap_summary.items(),
+            key=lambda item: (
+                not item[1].threshold_violated,
+                -item[1].max_revisit_gap_hours,
+                item[0],
+            ),
+        )
+    ]
+
+
+def _ranked_candidate_options_for_target(
+    *,
+    options: list[ObservationOption],
+    consumed_option_ids: set[str],
+    target_id: str,
+    limit: int,
+) -> list[ObservationOption]:
+    candidates = [
+        option
+        for option in options
+        if option.target_id == target_id and option.option_id not in consumed_option_ids
+    ]
+    candidates.sort(
+        key=lambda option: (
+            option.start,
+            option.satellite_id,
+            option.target_id,
+            option.window_id,
+        )
+    )
+    return candidates[: max(0, limit)]
+
+
+def _ranked_removal_candidates(
+    *,
+    case: RevisitCase,
+    scheduled: list[ScheduledObservation],
+    score_before: GapScore,
+    inserted_option: ObservationOption,
+    limit: int,
+) -> list[ScheduledObservation]:
+    ranked: list[tuple[tuple[Any, ...], ScheduledObservation]] = []
+    for observation in scheduled:
+        score_after_removal = score_observation_timelines(
+            case,
+            _timelines_from_schedule(
+                [item for item in scheduled if item is not observation]
+            ),
+        )
+        damage = gap_improvement(score_after_removal, score_before)
+        conflict_priority = 0 if observation.satellite_id == inserted_option.satellite_id else 1
+        same_target_priority = 1 if observation.target_id == inserted_option.target_id else 0
+        ranked.append(
+            (
+                (
+                    conflict_priority,
+                    same_target_priority,
+                    damage.threshold_violation_reduction,
+                    damage.capped_max_revisit_gap_reduction_hours,
+                    damage.max_revisit_gap_reduction_hours,
+                    damage.mean_revisit_gap_reduction_hours,
+                    observation.start,
+                    observation.satellite_id,
+                    observation.target_id,
+                    observation.option_id,
+                ),
+                observation,
+            )
+        )
+    ranked.sort(key=lambda item: item[0])
+    return [item[1] for item in ranked[: max(0, limit)]]
+
+
+def _target_counts_without(
+    scheduled: list[ScheduledObservation],
+    removed: ScheduledObservation | None,
+) -> dict[str, int]:
+    counts: dict[str, int] = {}
+    for observation in scheduled:
+        if removed is not None and observation is removed:
+            continue
+        counts[observation.target_id] = counts.get(observation.target_id, 0) + 1
+    return counts
+
+
+def _local_search_blocker_summary(
+    *,
+    case: RevisitCase,
+    final_report: LocalValidationReport,
+    options: list[ObservationOption],
+    scheduled: list[ScheduledObservation],
+    moves: list[LocalSearchMove],
+) -> list[dict[str, Any]]:
+    options_by_target: dict[str, list[ObservationOption]] = {}
+    scheduled_ids = {observation.option_id for observation in scheduled}
+    for option in options:
+        options_by_target.setdefault(option.target_id, []).append(option)
+    rejected_by_target: dict[str, dict[str, int]] = {}
+    for move in moves:
+        if move.accepted or move.inserted_observation is None:
+            continue
+        target_id = move.inserted_observation.target_id
+        reason = move.blocked_reason or move.reason
+        target_reasons = rejected_by_target.setdefault(target_id, {})
+        target_reasons[reason] = target_reasons.get(reason, 0) + 1
+    rows: list[dict[str, Any]] = []
+    for target_id in final_report.high_gap_target_ids:
+        target_options = options_by_target.get(target_id, [])
+        unscheduled_count = sum(
+            1 for option in target_options if option.option_id not in scheduled_ids
+        )
+        if not target_options:
+            reason = "no_options"
+        elif unscheduled_count == 0:
+            reason = "all_options_already_scheduled"
+        elif rejected_by_target.get(target_id):
+            reason = "no_positive_or_feasible_move"
+        else:
+            reason = "bounded_search_not_attempted"
+        target_score = final_report.score.target_gap_summary[target_id]
+        rows.append(
+            {
+                "target_id": target_id,
+                "reason": reason,
+                "max_revisit_gap_hours": target_score.max_revisit_gap_hours,
+                "expected_revisit_period_hours": target_score.expected_revisit_period_hours,
+                "option_count": len(target_options),
+                "unscheduled_option_count": unscheduled_count,
+                "move_rejection_reason_counts": dict(
+                    sorted(rejected_by_target.get(target_id, {}).items())
+                ),
+            }
+        )
+    rows.sort(
+        key=lambda item: (
+            -float(item["max_revisit_gap_hours"]),
+            str(item["target_id"]),
+        )
+    )
+    return rows
+
+
+def local_search_schedule_deterministic(
+    *,
+    case: RevisitCase,
+    scheduled: list[ScheduledObservation],
+    options: list[ObservationOption],
+    selected_candidate_ids: list[str],
+    config: SchedulingConfig,
+    transition_gap_sec: float,
+    conflict_index: OptionConflictIndex,
+    propagation: PropagationCache | None,
+) -> tuple[list[ScheduledObservation], list[LocalSearchMove], LocalValidationReport]:
+    searched = sorted(
+        list(scheduled),
+        key=lambda item: (item.start, item.satellite_id, item.target_id, item.option_id),
+    )
+    moves: list[LocalSearchMove] = []
+    action_limit = config.selected_action_limit(len(options))
+
+    for iteration in range(max(0, config.local_search_max_iterations)):
+        report = validate_schedule_local(
+            case=case,
+            scheduled=searched,
+            selected_candidate_ids=selected_candidate_ids,
+            transition_gap_sec=transition_gap_sec,
+            propagation=propagation,
+        )
+        score_before = report.score
+        consumed_option_ids = {observation.option_id for observation in searched}
+        ranked_moves: list[
+            tuple[
+                tuple[Any, ...],
+                str,
+                ScheduledObservation | None,
+                ScheduledObservation | None,
+                GapScore,
+                GapImprovement,
+            ]
+        ] = []
+        iteration_rejections: list[LocalSearchMove] = []
+        for target_id in _ranked_local_search_targets(score_before):
+            target_gap_hours = score_before.target_gap_summary[target_id].max_revisit_gap_hours
+            target_options = _ranked_candidate_options_for_target(
+                options=options,
+                consumed_option_ids=consumed_option_ids,
+                target_id=target_id,
+                limit=config.local_search_options_per_target,
+            )
+            for option in target_options:
+                inserted = _as_scheduled(option)
+                target_counts = _target_counts_without(searched, None)
+                if len(searched) < action_limit:
+                    feasible, blocked_reason = _base_feasible_indexed(
+                        case=case,
+                        option=option,
+                        scheduled=searched,
+                        target_counts=target_counts,
+                        config=config,
+                        transition_gap_sec=transition_gap_sec,
+                        conflict_index=conflict_index,
+                    )
+                    if feasible:
+                        score_after = score_observation_timelines(
+                            case,
+                            _timelines_from_schedule([*searched, inserted]),
+                        )
+                        improvement = gap_improvement(score_before, score_after)
+                        key = _move_key(
+                            action_rank=0,
+                            improvement=improvement,
+                            target_gap_hours=target_gap_hours,
+                            inserted=inserted,
+                            removed=None,
+                        )
+                        if improvement.is_positive:
+                            ranked_moves.append(
+                                (key, "insert", None, inserted, score_after, improvement)
+                            )
+                        else:
+                            iteration_rejections.append(
+                                LocalSearchMove(
+                                    iteration=iteration,
+                                    action="insert",
+                                    accepted=False,
+                                    reason="non_positive_gap_improvement",
+                                    score_before=score_before,
+                                    score_after=score_after,
+                                    improvement=improvement,
+                                    tie_key=key,
+                                    inserted_observation=inserted,
+                                )
+                            )
+                    else:
+                        iteration_rejections.append(
+                            LocalSearchMove(
+                                iteration=iteration,
+                                action="insert",
+                                accepted=False,
+                                reason="infeasible",
+                                score_before=score_before,
+                                score_after=score_before,
+                                improvement=gap_improvement(score_before, score_before),
+                                tie_key=("insert", option.option_id),
+                                inserted_observation=inserted,
+                                blocked_reason=blocked_reason,
+                            )
+                        )
+                for removed in _ranked_removal_candidates(
+                    case=case,
+                    scheduled=searched,
+                    score_before=score_before,
+                    inserted_option=option,
+                    limit=config.local_search_removals_per_option,
+                ):
+                    if removed.option_id == option.option_id:
+                        continue
+                    candidate_schedule = [
+                        observation for observation in searched if observation is not removed
+                    ]
+                    target_counts = _target_counts_without(searched, removed)
+                    feasible, blocked_reason = _base_feasible_indexed(
+                        case=case,
+                        option=option,
+                        scheduled=candidate_schedule,
+                        target_counts=target_counts,
+                        config=config,
+                        transition_gap_sec=transition_gap_sec,
+                        conflict_index=conflict_index,
+                    )
+                    if not feasible:
+                        iteration_rejections.append(
+                            LocalSearchMove(
+                                iteration=iteration,
+                                action="swap",
+                                accepted=False,
+                                reason="infeasible",
+                                score_before=score_before,
+                                score_after=score_before,
+                                improvement=gap_improvement(score_before, score_before),
+                                tie_key=("swap", option.option_id, removed.option_id),
+                                removed_observation=removed,
+                                inserted_observation=inserted,
+                                blocked_reason=blocked_reason,
+                            )
+                        )
+                        continue
+                    candidate_schedule.append(inserted)
+                    candidate_schedule.sort(
+                        key=lambda item: (
+                            item.start,
+                            item.satellite_id,
+                            item.target_id,
+                            item.option_id,
+                        )
+                    )
+                    score_after = score_observation_timelines(
+                        case,
+                        _timelines_from_schedule(candidate_schedule),
+                    )
+                    improvement = gap_improvement(score_before, score_after)
+                    key = _move_key(
+                        action_rank=1,
+                        improvement=improvement,
+                        target_gap_hours=target_gap_hours,
+                        inserted=inserted,
+                        removed=removed,
+                    )
+                    if improvement.is_positive:
+                        ranked_moves.append(
+                            (key, "swap", removed, inserted, score_after, improvement)
+                        )
+                    else:
+                        iteration_rejections.append(
+                            LocalSearchMove(
+                                iteration=iteration,
+                                action="swap",
+                                accepted=False,
+                                reason="non_positive_gap_improvement",
+                                score_before=score_before,
+                                score_after=score_after,
+                                improvement=improvement,
+                                tie_key=key,
+                                removed_observation=removed,
+                                inserted_observation=inserted,
+                            )
+                        )
+        if not ranked_moves:
+            moves.extend(iteration_rejections)
+            break
+        ranked_moves.sort(key=lambda item: item[0])
+        key, action, removed, inserted, score_after, improvement = ranked_moves[0]
+        if removed is not None:
+            searched = [observation for observation in searched if observation is not removed]
+        if inserted is not None:
+            searched.append(inserted)
+        searched.sort(
+            key=lambda item: (item.start, item.satellite_id, item.target_id, item.option_id)
+        )
+        moves.append(
+            LocalSearchMove(
+                iteration=iteration,
+                action=action,
+                accepted=True,
+                reason="improves_gap_score",
+                score_before=score_before,
+                score_after=score_after,
+                improvement=improvement,
+                tie_key=key,
+                removed_observation=removed,
+                inserted_observation=inserted,
+            )
+        )
+        moves.extend(iteration_rejections)
+
+    final_report = validate_schedule_local(
+        case=case,
+        scheduled=searched,
+        selected_candidate_ids=selected_candidate_ids,
+        transition_gap_sec=transition_gap_sec,
+        propagation=propagation,
+    )
+    return searched, moves, final_report
+
+
 def repair_schedule_deterministic(
     *,
     case: RevisitCase,
@@ -1684,6 +2198,7 @@ def schedule_observations(
         propagation=propagation,
     )
     constructive_scheduled = list(scheduled)
+    repaired_scheduled = list(scheduled)
     repair_steps: list[RepairStep] = []
     if config.enable_repair:
         scheduled, repair_steps, validation_report = repair_schedule_deterministic(
@@ -1695,15 +2210,40 @@ def schedule_observations(
             transition_gap_sec=transition_gap_sec,
             propagation=propagation,
         )
+        repaired_scheduled = list(scheduled)
         final_score = score_observation_timelines(
             case,
             _timelines_from_schedule(scheduled),
         )
+    local_search_moves: list[LocalSearchMove] = []
+    if config.enable_local_search:
+        scheduled, local_search_moves, validation_report = local_search_schedule_deterministic(
+            case=case,
+            scheduled=scheduled,
+            options=options,
+            selected_candidate_ids=selected_candidate_ids,
+            config=config,
+            transition_gap_sec=transition_gap_sec,
+            conflict_index=conflict_index,
+            propagation=propagation,
+        )
+        final_score = score_observation_timelines(
+            case,
+            _timelines_from_schedule(scheduled),
+        )
+    high_gap_blockers = _local_search_blocker_summary(
+        case=case,
+        final_report=validation_report,
+        options=options,
+        scheduled=scheduled,
+        moves=local_search_moves,
+    )
     mode_comparison = build_mode_comparison(
         case=case,
         options=options,
         constructive=constructive_scheduled,
-        repaired=scheduled,
+        repaired=repaired_scheduled,
+        local_search=scheduled,
         selected_candidate_ids=selected_candidate_ids,
         config=config,
         transition_gap_sec=transition_gap_sec,
@@ -1716,7 +2256,9 @@ def schedule_observations(
         rejected_options=rejected,
         validation_report=validation_report,
         repair_steps=repair_steps,
+        local_search_moves=local_search_moves,
         mode_comparison=mode_comparison,
+        high_gap_blockers=high_gap_blockers,
     )
     actions = [
         observation.as_action_dict()
@@ -1734,6 +2276,7 @@ def schedule_observations(
         rejected_options=rejected,
         validation_report=validation_report,
         repair_steps=repair_steps,
+        local_search_moves=local_search_moves,
         mode_comparison=mode_comparison,
         debug_summary=debug_summary,
         caps={
@@ -1743,6 +2286,7 @@ def schedule_observations(
             "selected_candidate_count": len(selected_candidate_ids),
             "transition_gap_sec": transition_gap_sec,
             "incremental_gap_state_enabled": True,
+            "local_search_enabled": config.enable_local_search,
             "conflict_index": conflict_index.as_debug_dict(),
             "stopped_by_action_limit": len(scheduled) >= action_limit,
             "stopped_by_no_eligible_option": len(scheduled) < action_limit,
