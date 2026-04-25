@@ -1,0 +1,71 @@
+id: revisit_constellation_rgt_apc_gap_constructive
+benchmark: revisit_constellation
+solver: rgt_apc_gap_constructive
+solver_path: solvers/revisit_constellation/rgt_apc_gap_constructive
+evidence_type: reproduced_solver
+runnable: true
+setup_script: setup.sh
+solve_script: solve.sh
+solution_filename: solution.json
+evaluation_policy:
+  profile: fair_public_reproduction
+  purpose: "Faithful RGT/APC constructive reproduction adapted to revisit_constellation public cases."
+  compute_envelope:
+    expected_smoke_wall_time_seconds: 120
+    expected_public_case_wall_time_seconds: 900
+    visibility_worker_count: auto_bounded_to_8
+    deterministic: true
+  notes:
+    - "Experiment-owned profile; solver registry remains CI/contract metadata only."
+    - "RGT/APC candidate pool is broader than the final satellite cap."
+    - "Official validity is established only through the experiment-owned verifier command below."
+config:
+  orbit_library:
+    max_candidates: 36
+    search_mode: target_diversified
+    max_rgt_days: 3
+    min_revolutions_per_day: 10
+    max_revolutions_per_day: 18
+    phase_slot_count: null
+    fallback_altitude_count: 3
+  visibility:
+    sample_step_sec: 120.0
+    max_windows: null
+    keep_samples_per_window: 6
+    worker_count: null
+  selection:
+    max_selected_satellites: null
+    require_positive_improvement: true
+  scheduling:
+    max_actions: null
+    max_actions_per_target: null
+    observation_margin_sec: 0.0
+    transition_gap_sec: null
+    require_positive_gap_improvement: true
+    enforce_simple_energy_budget: true
+    enable_repair: true
+    repair_max_iterations: 3
+    enable_local_search: true
+    local_search_max_iterations: 4
+    local_search_options_per_target: 4
+    local_search_removals_per_option: 8
+cases:
+  - id: test/case_0001
+    case_dir: benchmarks/revisit_constellation/dataset/cases/test/case_0001
+  - id: test/case_0002
+    case_dir: benchmarks/revisit_constellation/dataset/cases/test/case_0002
+  - id: test/case_0003
+    case_dir: benchmarks/revisit_constellation/dataset/cases/test/case_0003
+  - id: test/case_0004
+    case_dir: benchmarks/revisit_constellation/dataset/cases/test/case_0004
+  - id: test/case_0005
+    case_dir: benchmarks/revisit_constellation/dataset/cases/test/case_0005
+verifier:
+  command:
+    - uv
+    - run
+    - python
+    - -m
+    - benchmarks.revisit_constellation.verifier.run
+    - "{case_dir}"
+    - "{solution_path}"

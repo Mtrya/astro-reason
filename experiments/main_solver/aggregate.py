@@ -41,6 +41,69 @@ def _metric(payload: dict[str, Any], key: str) -> Any:
     return reported.get(key)
 
 
+def _solver_status(payload: dict[str, Any]) -> dict[str, Any]:
+    solver_status = payload.get("solver_status")
+    return solver_status if isinstance(solver_status, dict) else {}
+
+
+def _solver_count(payload: dict[str, Any], key: str) -> Any:
+    baseline = _solver_status(payload).get("baseline_evidence")
+    if not isinstance(baseline, dict):
+        return None
+    counts = baseline.get("counts")
+    if not isinstance(counts, dict):
+        return None
+    return counts.get(key)
+
+
+def _execution_duration(payload: dict[str, Any], section: str) -> Any:
+    value = payload.get(section)
+    if not isinstance(value, dict):
+        return None
+    if section == "verifier":
+        value = value.get("execution")
+        if not isinstance(value, dict):
+            return None
+    return value.get("duration_seconds")
+
+
+def _revisit_metric(payload: dict[str, Any], key: str) -> Any:
+    value = _metric(payload, key)
+    if value is not None:
+        return value
+    verifier = payload.get("verifier")
+    if not isinstance(verifier, dict):
+        return None
+    metrics = verifier.get("metrics")
+    if not isinstance(metrics, dict):
+        return None
+    target_summary = metrics.get("target_gap_summary")
+    if not isinstance(target_summary, dict) or not target_summary:
+        return None
+    if key == "max_revisit_gap_hours":
+        return max(
+            item.get("max_revisit_gap_hours", 0.0)
+            for item in target_summary.values()
+            if isinstance(item, dict)
+        )
+    if key == "mean_revisit_gap_hours":
+        values = [
+            item.get("mean_revisit_gap_hours", 0.0)
+            for item in target_summary.values()
+            if isinstance(item, dict)
+        ]
+        return (sum(values) / len(values)) if values else None
+    if key == "threshold_violation_count":
+        return sum(
+            1
+            for item in target_summary.values()
+            if isinstance(item, dict)
+            and item.get("max_revisit_gap_hours", 0.0)
+            > item.get("expected_revisit_period_hours", 0.0)
+        )
+    return None
+
+
 def _rows(results_root: Path) -> list[dict[str, Any]]:
     rows: list[dict[str, Any]] = []
     for run_path in sorted(results_root.glob("*/*/*/run.json")):
@@ -65,6 +128,27 @@ def _rows(results_root: Path) -> list[dict[str, Any]]:
                 "PC": _metric(payload, "PC"),
                 "u_rms": _metric(payload, "u_rms"),
                 "u_max": _metric(payload, "u_max"),
+                "num_satellites": _revisit_metric(payload, "num_satellites"),
+                "capped_max_revisit_gap_hours": _revisit_metric(
+                    payload,
+                    "capped_max_revisit_gap_hours",
+                ),
+                "max_revisit_gap_hours": _revisit_metric(payload, "max_revisit_gap_hours"),
+                "mean_revisit_gap_hours": _revisit_metric(payload, "mean_revisit_gap_hours"),
+                "threshold_violation_count": _revisit_metric(
+                    payload,
+                    "threshold_violation_count",
+                ),
+                "selected_satellite_count": _solver_count(
+                    payload,
+                    "selected_satellite_count",
+                ),
+                "action_count": _solver_count(payload, "action_count"),
+                "observed_target_count": _solver_count(payload, "observed_target_count"),
+                "unobserved_target_count": _solver_count(payload, "unobserved_target_count"),
+                "high_gap_target_count": _solver_count(payload, "high_gap_target_count"),
+                "solve_duration_seconds": _execution_duration(payload, "solve"),
+                "verifier_duration_seconds": _execution_duration(payload, "verifier"),
                 "parse_error": payload.get("parse_error"),
                 "raw_text": payload.get("raw_text"),
                 "run_json": str(run_path),
@@ -94,6 +178,18 @@ def _write_csv(path: Path, rows: list[dict[str, Any]]) -> None:
         "PC",
         "u_rms",
         "u_max",
+        "num_satellites",
+        "capped_max_revisit_gap_hours",
+        "max_revisit_gap_hours",
+        "mean_revisit_gap_hours",
+        "threshold_violation_count",
+        "selected_satellite_count",
+        "action_count",
+        "observed_target_count",
+        "unobserved_target_count",
+        "high_gap_target_count",
+        "solve_duration_seconds",
+        "verifier_duration_seconds",
         "parse_error",
         "raw_text",
         "run_json",

@@ -1,0 +1,65 @@
+# Deterministic RGT/APC candidate-library controls.
+orbit_library:
+  # Maximum candidate satellites evaluated before final satellite selection.
+  # This is intentionally separate from the benchmark satellite-output cap.
+  max_candidates: 36
+  # target_diversified interleaves target-driven inclinations and balanced phase slots.
+  # legacy_base_first preserves the earlier base-orbit-first enumeration.
+  search_mode: target_diversified
+  # Search RGT ratios up to this many Greenwich days.
+  max_rgt_days: 3
+  # Inclusive bounds on revolutions per day considered for circular RGT candidates.
+  min_revolutions_per_day: 10
+  max_revolutions_per_day: 18
+  # Number of phase slots along each retained base RGT orbit.
+  # Use null to let the solver choose enough slots for the case satellite cap.
+  phase_slot_count: 18
+  # Number of circular-altitude fallback shells if no bounded RGT candidate survives.
+  fallback_altitude_count: 3
+
+# Solver-local access-profile sampling.
+visibility:
+  # Seconds between visibility samples. Smaller values improve fidelity and cost runtime.
+  sample_step_sec: 120.0
+  # Optional global cap on visibility windows after deterministic ordering.
+  max_windows: null
+  # Number of representative samples retained in each debug visibility window.
+  keep_samples_per_window: 6
+  # Null auto-selects a bounded worker count. Use 1 for serial deterministic runs.
+  worker_count: null
+
+# Greedy satellite selection by benchmark-shaped gap improvement.
+selection:
+  # Optional cap below the benchmark's max_num_satellites. Keep this separate
+  # from orbit_library.max_candidates so the solver can evaluate a broader
+  # APC candidate pool than it emits.
+  max_selected_satellites: 18
+  # Stop adding satellites when the next candidate has no positive gap improvement.
+  require_positive_improvement: true
+
+# Constructive scheduling, local validation, and repair.
+scheduling:
+  # Optional cap on emitted observation actions.
+  max_actions: null
+  # Optional cap on observations per target.
+  max_actions_per_target: null
+  # Margin trimmed from each visibility window before placing an observation.
+  observation_margin_sec: 0.0
+  # Null uses a conservative case-derived slew/settle gap for option conflicts.
+  transition_gap_sec: null
+  # Reject locally feasible observations that do not improve benchmark-shaped gaps.
+  require_positive_gap_improvement: true
+  # Apply the conservative solver-local battery risk screen.
+  enforce_simple_energy_budget: true
+  # Run deterministic insertion/removal repair after constructive scheduling.
+  enable_repair: true
+  # Maximum repair iterations. Each iteration removes one risky observation or inserts one high-gap observation.
+  repair_max_iterations: 3
+  # Run deterministic high-gap insertion/swap local search after repair.
+  enable_local_search: true
+  # Maximum accepted local-search iterations.
+  local_search_max_iterations: 4
+  # Per high-gap target, only this many unscheduled options are considered each iteration.
+  local_search_options_per_target: 4
+  # Per candidate insertion, only this many low-damage removals are considered.
+  local_search_removals_per_option: 8

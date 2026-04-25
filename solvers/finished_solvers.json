@@ -45,6 +45,13 @@
       "repro_ci": false,
       "repro_ci_reason": "too_expensive",
       "case_and_fixture_paths": []
+    },
+    {
+      "benchmark": "revisit_constellation",
+      "solver": "rgt_apc_gap_constructive",
+      "repro_ci": false,
+      "repro_ci_reason": "too_expensive",
+      "case_and_fixture_paths": []
     }
   ]
 }
