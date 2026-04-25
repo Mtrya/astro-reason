@@ -537,6 +537,44 @@ def test_scheduler_uses_deterministic_window_ties(tmp_path: Path) -> None:
     assert result.final_score.target_gap_summary["target_001"].observation_count == 1
 
 
+def test_scheduler_records_reproduction_fidelity_mode_comparison(tmp_path: Path) -> None:
+    case = load_case(_scheduler_case_dir(tmp_path))
+    windows = [
+        _window("sat_a", "target_001", case.horizon_start, 10),
+        _window("sat_a", "target_001", case.horizon_start, 40),
+        _window("sat_b", "target_002", case.horizon_start, 30),
+    ]
+
+    result = schedule_observations(
+        case=case,
+        selected_candidate_ids=["sat_a", "sat_b"],
+        windows=windows,
+        config=SchedulingConfig(
+            max_actions=1,
+            transition_gap_sec=0.0,
+            enforce_simple_energy_budget=False,
+            enable_repair=True,
+            repair_max_iterations=1,
+        ),
+    )
+
+    entries = {entry["mode"]: entry for entry in result.mode_comparison["entries"]}
+    assert result.mode_comparison["mode_order"] == [
+        "no_op",
+        "fifo",
+        "constructive",
+        "repaired",
+    ]
+    assert entries["no_op"]["action_count"] == 0
+    assert entries["fifo"]["scheduled_option_ids"] == ["sat_a_target_001_10"]
+    assert entries["constructive"]["scheduled_option_ids"] == ["sat_b_target_002_30"]
+    assert entries["repaired"]["action_count"] == len(result.scheduled_observations)
+    assert result.debug_summary["mode_comparison_compact"][0]["mode"] == "no_op"
+    assert result.debug_summary["high_gap_target_count"] == len(
+        result.validation_report.high_gap_target_ids
+    )
+
+
 def test_local_validation_reports_overlap_high_gap_and_battery_risk(tmp_path: Path) -> None:
     overlap_case = load_case(_gap_case_dir(tmp_path))
     overlapping = [
@@ -691,12 +729,21 @@ def test_solve_sh_smoke_writes_selected_solution_status_and_debug(tmp_path: Path
     assert isinstance(solution["actions"], list)
     assert isinstance(solution["satellites"], list)
     status = json.loads((solution_dir / "status.json").read_text(encoding="utf-8"))
-    assert status["status"] == "phase_3_constructive_schedule_generated"
+    assert status["status"] == "phase_6_reproduction_fidelity_validated"
     assert status["target_count"] == 1
     assert status["orbit_library"]["candidate_count"] == 1
     assert status["visibility"]["candidate_target_pair_count"] == 1
     assert status["selection"]["selected_candidate_count"] == len(solution["satellites"])
     assert status["scheduling"]["action_count"] == len(solution["actions"])
+    assert status["reproduction_fidelity"]["mode_comparison"]["mode_order"] == [
+        "no_op",
+        "fifo",
+        "constructive",
+        "repaired",
+    ]
+    assert status["reproduction_fidelity"]["paper_adaptation_notes"]["issue"].endswith(
+        "/issues/87"
+    )
     assert status["selection"]["final_score"]["target_gap_summary"]["target_001"]
     assert (solution_dir / "debug" / "orbit_candidates.json").exists()
     assert (solution_dir / "debug" / "visibility_windows.json").exists()
@@ -705,6 +752,9 @@ def test_solve_sh_smoke_writes_selected_solution_status_and_debug(tmp_path: Path
     assert (solution_dir / "debug" / "scheduling_rejections.json").exists()
     assert (solution_dir / "debug" / "local_validation.json").exists()
     assert (solution_dir / "debug" / "repair_steps.json").exists()
+    assert (solution_dir / "debug" / "scheduling_summary.json").exists()
+    assert (solution_dir / "debug" / "mode_comparison.json").exists()
+    assert (solution_dir / "debug" / "adaptation_notes.json").exists()
 
 
 def test_solver_source_does_not_import_benchmark_or_experiment_internals() -> None:

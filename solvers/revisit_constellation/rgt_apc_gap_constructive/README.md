@@ -2,7 +2,7 @@
 
 Runnable reproduced-solver scaffold for `revisit_constellation`.
 
-The solver currently parses public `assets.json` and `mission.json` files, builds a deterministic RGT/APC-style candidate satellite library, samples target visibility opportunities, scores those opportunities with benchmark-style midpoint revisit gaps, greedily selects satellites by marginal gap improvement, constructs observation actions using Mercado-style freshness, flexibility, and opportunity-cost priorities, and writes debug artifacts:
+The solver currently parses public `assets.json` and `mission.json` files, builds a deterministic RGT/APC-style candidate satellite library, samples target visibility opportunities, scores those opportunities with benchmark-style midpoint revisit gaps, greedily selects satellites by marginal gap improvement, constructs observation actions using Mercado-style freshness, flexibility, and opportunity-cost priorities, compares no-op/FIFO/constructive/repaired scheduling modes, and writes debug artifacts:
 
 ```bash
 ./solvers/revisit_constellation/rgt_apc_gap_constructive/setup.sh
@@ -23,8 +23,11 @@ Outputs:
 - `debug/scheduling_rejections.json`: skipped options with solver-local reasons
 - `debug/local_validation.json`: solver-local hard-validity and high-gap report
 - `debug/repair_steps.json`: deterministic insertion/removal repair actions
+- `debug/scheduling_summary.json`: compact counts for options, actions, rejections, repair, high-gap targets, and mode metrics
+- `debug/mode_comparison.json`: solver-local no-op, FIFO, constructive, and repaired comparison metrics
+- `debug/adaptation_notes.json`: Lee/Mercado paper concepts mapped to the benchmark contract
 
-Later phases tune solver-local repair against official verifier outcomes.
+The emitted `solution.json` uses the repaired mode. No-op, FIFO, and unrepaired constructive modes are retained as reproduction-fidelity diagnostics only; official validity remains experiment-owned.
 
 Experiment-owned smoke verification:
 

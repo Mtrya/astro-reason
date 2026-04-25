@@ -174,6 +174,8 @@ class SchedulingResult:
     rejected_options: list[dict[str, Any]]
     validation_report: "LocalValidationReport"
     repair_steps: list["RepairStep"]
+    mode_comparison: dict[str, Any]
+    debug_summary: dict[str, Any]
     caps: dict[str, Any]
 
     def as_status_dict(self) -> dict[str, Any]:
@@ -185,6 +187,8 @@ class SchedulingResult:
             "rejected_option_count": len(self.rejected_options),
             "validation": self.validation_report.as_dict(),
             "repair_step_count": len(self.repair_steps),
+            "mode_comparison": self.mode_comparison,
+            "debug_summary": self.debug_summary,
             "caps": self.caps,
         }
 
@@ -686,6 +690,275 @@ def _as_scheduled(option: ObservationOption) -> ScheduledObservation:
         midpoint=option.midpoint,
         quality_score=option.quality_score,
     )
+
+
+def _score_delta_dict(before: GapScore, after: GapScore) -> dict[str, float | int]:
+    return gap_improvement(before, after).as_dict()
+
+
+def _target_gap_rank(score: GapScore) -> list[dict[str, Any]]:
+    return [
+        {
+            "target_id": target_id,
+            **target_score.as_dict(),
+            "threshold_violated": target_score.threshold_violated,
+        }
+        for target_id, target_score in sorted(
+            score.target_gap_summary.items(),
+            key=lambda item: (
+                -item[1].max_revisit_gap_hours,
+                item[0],
+            ),
+        )
+    ]
+
+
+def _reason_counts(items: list[dict[str, Any]], key: str = "reason") -> dict[str, int]:
+    counts: dict[str, int] = {}
+    for item in items:
+        value = item.get(key)
+        if isinstance(value, str):
+            counts[value] = counts.get(value, 0) + 1
+    return dict(sorted(counts.items()))
+
+
+def _repair_counts(steps: list[RepairStep]) -> dict[str, dict[str, int]]:
+    by_action: dict[str, int] = {}
+    by_reason: dict[str, int] = {}
+    for step in steps:
+        by_action[step.action] = by_action.get(step.action, 0) + 1
+        by_reason[step.reason] = by_reason.get(step.reason, 0) + 1
+    return {
+        "by_action": dict(sorted(by_action.items())),
+        "by_reason": dict(sorted(by_reason.items())),
+    }
+
+
+def _schedule_fifo_baseline(
+    *,
+    case: RevisitCase,
+    options: list[ObservationOption],
+    config: SchedulingConfig,
+    transition_gap_sec: float,
+    propagation: PropagationCache | None,
+) -> list[ScheduledObservation]:
+    scheduled: list[ScheduledObservation] = []
+    action_limit = config.selected_action_limit(len(options))
+    for option in options:
+        if len(scheduled) >= action_limit:
+            break
+        feasible, _ = _base_feasible(
+            case=case,
+            option=option,
+            scheduled=scheduled,
+            config=config,
+            transition_gap_sec=transition_gap_sec,
+            propagation=propagation,
+        )
+        if feasible:
+            scheduled.append(_as_scheduled(option))
+    return sorted(scheduled, key=lambda item: (item.start, item.satellite_id, item.target_id))
+
+
+def _mode_entry(
+    *,
+    mode: str,
+    description: str,
+    scheduled: list[ScheduledObservation],
+    report: LocalValidationReport,
+    no_op_score: GapScore,
+    fifo_score: GapScore | None,
+) -> dict[str, Any]:
+    observed_target_ids = sorted(
+        target_id
+        for target_id, target_score in report.score.target_gap_summary.items()
+        if target_score.observation_count > 0
+    )
+    entry: dict[str, Any] = {
+        "mode": mode,
+        "description": description,
+        "action_count": len(scheduled),
+        "scheduled_option_ids": [observation.option_id for observation in scheduled],
+        "observed_target_count": len(observed_target_ids),
+        "observed_target_ids": observed_target_ids,
+        "local_valid": report.is_valid,
+        "local_issue_count": len(report.issues),
+        "high_gap_target_count": len(report.high_gap_target_ids),
+        "score": report.score.as_dict(),
+        "improvement_vs_no_op": _score_delta_dict(no_op_score, report.score),
+    }
+    if fifo_score is not None:
+        entry["improvement_vs_fifo"] = _score_delta_dict(fifo_score, report.score)
+    return entry
+
+
+def build_mode_comparison(
+    *,
+    case: RevisitCase,
+    options: list[ObservationOption],
+    constructive: list[ScheduledObservation],
+    repaired: list[ScheduledObservation],
+    selected_candidate_ids: list[str],
+    config: SchedulingConfig,
+    transition_gap_sec: float,
+    propagation: PropagationCache | None,
+) -> dict[str, Any]:
+    no_op: list[ScheduledObservation] = []
+    fifo = _schedule_fifo_baseline(
+        case=case,
+        options=options,
+        config=config,
+        transition_gap_sec=transition_gap_sec,
+        propagation=propagation,
+    )
+    no_op_report = validate_schedule_local(
+        case=case,
+        scheduled=no_op,
+        selected_candidate_ids=selected_candidate_ids,
+        transition_gap_sec=transition_gap_sec,
+        propagation=propagation,
+        check_geometry=False,
+    )
+    fifo_report = validate_schedule_local(
+        case=case,
+        scheduled=fifo,
+        selected_candidate_ids=selected_candidate_ids,
+        transition_gap_sec=transition_gap_sec,
+        propagation=propagation,
+    )
+    constructive_report = validate_schedule_local(
+        case=case,
+        scheduled=constructive,
+        selected_candidate_ids=selected_candidate_ids,
+        transition_gap_sec=transition_gap_sec,
+        propagation=propagation,
+    )
+    repaired_report = validate_schedule_local(
+        case=case,
+        scheduled=repaired,
+        selected_candidate_ids=selected_candidate_ids,
+        transition_gap_sec=transition_gap_sec,
+        propagation=propagation,
+    )
+    no_op_score = no_op_report.score
+    fifo_score = fifo_report.score
+    entries = [
+        _mode_entry(
+            mode="no_op",
+            description="Selected constellation with no observation actions.",
+            scheduled=no_op,
+            report=no_op_report,
+            no_op_score=no_op_score,
+            fifo_score=fifo_score,
+        ),
+        _mode_entry(
+            mode="fifo",
+            description="Earliest feasible opportunity first, using the same local feasibility checks.",
+            scheduled=fifo,
+            report=fifo_report,
+            no_op_score=no_op_score,
+            fifo_score=fifo_score,
+        ),
+        _mode_entry(
+            mode="constructive",
+            description="Mercado-style freshness, flexibility, and opportunity-cost construction before repair.",
+            scheduled=constructive,
+            report=constructive_report,
+            no_op_score=no_op_score,
+            fifo_score=fifo_score,
+        ),
+        _mode_entry(
+            mode="repaired",
+            description="Constructive schedule after deterministic insertion/removal repair.",
+            scheduled=repaired,
+            report=repaired_report,
+            no_op_score=no_op_score,
+            fifo_score=fifo_score,
+        ),
+    ]
+    return {
+        "mode_order": [entry["mode"] for entry in entries],
+        "entries": entries,
+        "summary": {
+            "best_by_mean_gap": min(
+                entries,
+                key=lambda entry: (
+                    entry["score"]["mean_revisit_gap_hours"],
+                    entry["score"]["capped_max_revisit_gap_hours"],
+                    entry["mode"],
+                ),
+            )["mode"],
+            "best_by_capped_max_gap": min(
+                entries,
+                key=lambda entry: (
+                    entry["score"]["capped_max_revisit_gap_hours"],
+                    entry["score"]["mean_revisit_gap_hours"],
+                    entry["mode"],
+                ),
+            )["mode"],
+            "constructive_action_delta_vs_fifo": len(constructive) - len(fifo),
+            "repaired_action_delta_vs_constructive": len(repaired) - len(constructive),
+        },
+    }
+
+
+def build_debug_summary(
+    *,
+    options: list[ObservationOption],
+    scheduled: list[ScheduledObservation],
+    decisions: list[SchedulingDecision],
+    rejected_options: list[dict[str, Any]],
+    validation_report: LocalValidationReport,
+    repair_steps: list[RepairStep],
+    mode_comparison: dict[str, Any],
+) -> dict[str, Any]:
+    score = validation_report.score
+    observed_target_ids = sorted(
+        target_id
+        for target_id, target_score in score.target_gap_summary.items()
+        if target_score.observation_count > 0
+    )
+    high_gap_rank = [
+        item for item in _target_gap_rank(score) if item["threshold_violated"]
+    ]
+    compact_modes = [
+        {
+            "mode": entry["mode"],
+            "action_count": entry["action_count"],
+            "local_valid": entry["local_valid"],
+            "local_issue_count": entry["local_issue_count"],
+            "observed_target_count": entry["observed_target_count"],
+            "high_gap_target_count": entry["high_gap_target_count"],
+            "capped_max_revisit_gap_hours": entry["score"][
+                "capped_max_revisit_gap_hours"
+            ],
+            "mean_revisit_gap_hours": entry["score"]["mean_revisit_gap_hours"],
+        }
+        for entry in mode_comparison["entries"]
+    ]
+    return {
+        "option_count": len(options),
+        "action_count": len(scheduled),
+        "decision_count": len(decisions),
+        "rejection_reason_counts": _reason_counts(rejected_options),
+        "repair_step_count": len(repair_steps),
+        "repair_counts": _repair_counts(repair_steps),
+        "local_valid": validation_report.is_valid,
+        "local_issue_count": len(validation_report.issues),
+        "local_issue_reason_counts": _reason_counts(
+            [issue.as_dict() for issue in validation_report.issues]
+        ),
+        "observed_target_count": len(observed_target_ids),
+        "observed_target_ids": observed_target_ids,
+        "unobserved_target_ids": [
+            target_id
+            for target_id, target_score in score.target_gap_summary.items()
+            if target_score.observation_count == 0
+        ],
+        "high_gap_target_count": len(validation_report.high_gap_target_ids),
+        "top_high_gap_targets": high_gap_rank[:10],
+        "mode_comparison_compact": compact_modes,
+    }
 
 
 def validate_schedule_local(
@@ -1210,6 +1483,7 @@ def schedule_observations(
         transition_gap_sec=transition_gap_sec,
         propagation=propagation,
     )
+    constructive_scheduled = list(scheduled)
     repair_steps: list[RepairStep] = []
     if config.enable_repair:
         scheduled, repair_steps, validation_report = repair_schedule_deterministic(
@@ -1225,6 +1499,25 @@ def schedule_observations(
             case,
             _timelines_from_schedule(scheduled),
         )
+    mode_comparison = build_mode_comparison(
+        case=case,
+        options=options,
+        constructive=constructive_scheduled,
+        repaired=scheduled,
+        selected_candidate_ids=selected_candidate_ids,
+        config=config,
+        transition_gap_sec=transition_gap_sec,
+        propagation=propagation,
+    )
+    debug_summary = build_debug_summary(
+        options=options,
+        scheduled=scheduled,
+        decisions=decisions,
+        rejected_options=rejected,
+        validation_report=validation_report,
+        repair_steps=repair_steps,
+        mode_comparison=mode_comparison,
+    )
     actions = [
         observation.as_action_dict()
         for observation in sorted(
@@ -1241,6 +1534,8 @@ def schedule_observations(
         rejected_options=rejected,
         validation_report=validation_report,
         repair_steps=repair_steps,
+        mode_comparison=mode_comparison,
+        debug_summary=debug_summary,
         caps={
             **config.as_status_dict(),
             "action_limit": action_limit,

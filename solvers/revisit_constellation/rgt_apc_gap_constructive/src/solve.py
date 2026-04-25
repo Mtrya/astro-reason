@@ -16,6 +16,39 @@ from .solution_io import write_json, write_solution
 from .visibility import VisibilityConfig, build_visibility_library
 
 
+def _paper_adaptation_notes() -> dict:
+    return {
+        "issue": "https://github.com/Mtrya/astro-reason/issues/87",
+        "method_lineage": [
+            {
+                "source": "Lee et al. 2020 APC/RGT",
+                "paper_concept": "Seed-satellite access profile, constellation pattern vector, and coverage timeline under repeating ground-track/common-ground-track structure.",
+                "benchmark_adaptation": "Generate bounded circular RGT/APC candidate phase slots and score their sampled target visibility timelines by benchmark revisit-gap metrics instead of solving Lee's BILP coverage-satisfaction model.",
+            },
+            {
+                "source": "Mercado-Martinez et al. 2025 constructive AEOSSP",
+                "paper_concept": "Rank targets by freshness/AoI, assignment flexibility, and opportunity cost; refine with insertion/removal local search.",
+                "benchmark_adaptation": "Use boundary-inclusive midpoint revisit gaps as freshness, remaining feasible observation options as flexibility, conflict profit as opportunity cost, and deterministic high-gap insertion/removal repair under solver-local hard-validity checks.",
+            },
+        ],
+        "benchmark_contract_mapping": {
+            "coverage_timeline": "Target observation midpoint timelines scored with capped max, raw max, mean revisit gap, and threshold violation count.",
+            "access_profile": "Solver-local visibility windows sampled from candidate satellite states to benchmark targets.",
+            "observation_profit": "Quality-weighted freshness proxy using off-nadir/range/elevation and current target gap.",
+            "temporal_constraints": "Same-satellite overlap and bang-coast-bang slew/settle feasibility approximated locally before official experiment verification.",
+            "energy_constraints": "Conservative solver-local battery risk screen; official resource truth remains the benchmark verifier.",
+            "local_search": "Deterministic repair removes invalid or risky scheduled observations and inserts feasible observations for high-gap targets.",
+        },
+        "comparison_modes": {
+            "no_op": "Selected constellation only, no observation actions.",
+            "fifo": "Earliest feasible visibility opportunity first.",
+            "constructive": "Freshness/flexibility/opportunity-cost schedule before repair.",
+            "repaired": "Final solver output after deterministic repair.",
+        },
+        "official_verification_boundary": "The solver records local metrics only. Official validity and metrics are produced by experiments/main_solver through the benchmark verifier executable.",
+    }
+
+
 def _build_status(
     *,
     case_dir: Path,
@@ -33,8 +66,8 @@ def _build_status(
     timing_seconds: dict[str, float],
 ) -> dict:
     return {
-        "status": "phase_3_constructive_schedule_generated",
-        "phase": 3,
+        "status": "phase_6_reproduction_fidelity_validated",
+        "phase": 6,
         "case_dir": str(case_dir),
         "config_dir": str(config_dir) if config_dir is not None else None,
         "solution": str(solution_path),
@@ -52,6 +85,11 @@ def _build_status(
         "visibility": visibility_library.as_status_dict(),
         "selection": selection_result.as_status_dict(),
         "scheduling": scheduling_result.as_status_dict(),
+        "reproduction_fidelity": {
+            "mode_comparison": scheduling_result.mode_comparison,
+            "debug_summary": scheduling_result.debug_summary,
+            "paper_adaptation_notes": _paper_adaptation_notes(),
+        },
         "timing_seconds": timing_seconds,
         "reproduction_notes": {
             "method_reference": "Lee et al. 2020 APC / RGT pattern plus Mercado-Martinez et al. 2025 freshness constructive scheduling",
@@ -64,11 +102,14 @@ def _build_status(
                 "greedy_gap_aware_satellite_selection": True,
                 "freshness_flexibility_opportunity_cost_scheduling": True,
                 "solver_local_validation_and_repair": True,
+                "fifo_no_op_constructive_repaired_comparison": True,
+                "paper_vs_benchmark_adaptation_notes": True,
             },
             "components_deferred": {
-                "full_verifier_equivalent_energy_repair": "phase 5",
+                "full_verifier_equivalent_energy_repair": "future tuning against official verifier traces",
             },
-            "action_output_reason": "Phase 3 emits constructive observation actions from selected visibility opportunities.",
+            "action_output_reason": "The emitted solution uses the repaired mode; no-op, FIFO, and unrepaired constructive modes are recorded as solver-local debug comparisons.",
+            "paper_adaptation_summary": _paper_adaptation_notes(),
         },
     }
 
@@ -186,6 +227,18 @@ def main(argv: list[str] | None = None) -> int:
         write_json(
             solution_dir / "debug" / "repair_steps.json",
             [step.as_dict() for step in scheduling_result.repair_steps],
+        )
+        write_json(
+            solution_dir / "debug" / "scheduling_summary.json",
+            scheduling_result.debug_summary,
+        )
+        write_json(
+            solution_dir / "debug" / "mode_comparison.json",
+            scheduling_result.mode_comparison,
+        )
+        write_json(
+            solution_dir / "debug" / "adaptation_notes.json",
+            _paper_adaptation_notes(),
         )
     except Exception as exc:
         traceback_text = traceback.format_exc()
