@@ -48,6 +48,7 @@ from solvers.aeossp_standard.greedy_lns.src.insertion import (  # noqa: E402
 from solvers.aeossp_standard.greedy_lns.src.local_search import (  # noqa: E402
     LocalSearchConfig,
     LocalSearchResult,
+    _component_objective_upper_bound,
     _exact_reinsertion_stats,
     _marginal_profit,
     _recompute_component,
@@ -805,6 +806,82 @@ def test_marginal_profit_internal_alternative() -> None:
     assert _marginal_profit(b, scheduled) == 3.0
 
 
+def test_component_objective_upper_bound_accounts_for_external_alternative() -> None:
+    external = _candidate(
+        "external",
+        satellite_id="sat_b",
+        task_id="task_x",
+        weight=4.0,
+    )
+    replacement = _candidate(
+        "replacement",
+        satellite_id="sat_a",
+        task_id="task_x",
+        weight=6.0,
+    )
+    additive = _candidate(
+        "additive",
+        satellite_id="sat_a",
+        task_id="task_y",
+        weight=3.0,
+    )
+    component = Component(
+        satellite_id="sat_a",
+        component_id="sat_a::replacement",
+        candidates=(replacement, additive),
+    )
+
+    assert _component_objective_upper_bound(component, {"task_x": external}) == 9.0
+
+
+def test_local_search_skips_component_with_no_objective_upside(monkeypatch) -> None:
+    incumbent = _candidate(
+        "incumbent",
+        satellite_id="sat_a",
+        task_id="task_x",
+        weight=5.0,
+    )
+    weaker = _candidate(
+        "weaker",
+        satellite_id="sat_a",
+        task_id="task_x",
+        weight=3.0,
+    )
+    case = _case_for_candidates([incumbent, weaker])
+
+    monkeypatch.setattr("solvers.aeossp_standard.greedy_lns.src.local_search.build_component_index", lambda *args, **kwargs: type("Idx", (), {
+        "components": [
+            Component(
+                satellite_id="sat_a",
+                component_id="sat_a::weaker",
+                candidates=(weaker,),
+            )
+        ],
+        "stats": type("Stats", (), {"component_count": 1, "largest_component_size": 1})(),
+    })())
+    monkeypatch.setattr("solvers.aeossp_standard.greedy_lns.src.local_search.PropagationContext", lambda *args, **kwargs: None)
+    monkeypatch.setattr("solvers.aeossp_standard.greedy_lns.src.local_search.TransitionVectorCache", lambda *args, **kwargs: None)
+
+    def fail_recompute(*args, **kwargs):
+        raise AssertionError("component with no objective upside should be pruned")
+
+    monkeypatch.setattr("solvers.aeossp_standard.greedy_lns.src.local_search._recompute_component", fail_recompute)
+
+    result = local_search(
+        case,
+        [incumbent, weaker],
+        [incumbent],
+        config=LocalSearchConfig(max_local_search_iterations=2),
+    )
+
+    assert result.stats.moves_attempted == 1
+    assert result.stats.moves_accepted == 0
+    assert result.stats.components_pruned_by_objective_bound == 1
+    assert result.stats.starts[0].components_pruned_by_objective_bound == 1
+    assert result.stats.final_objective == 5.0
+    assert [candidate.candidate_id for candidate in result.candidates] == ["incumbent"]
+
+
 def test_local_search_accepted_improving_move(monkeypatch) -> None:
     low = _candidate("low", satellite_id="sat_a", task_id="task_x", start_offset_s=10, end_offset_s=20, weight=1.0)
     high = _candidate("high", satellite_id="sat_a", task_id="task_x", start_offset_s=10, end_offset_s=20, weight=5.0)
@@ -1192,6 +1269,76 @@ def test_exact_reinsertion_finds_better_bounded_component(monkeypatch) -> None:
     assert exact_stats["components_solved_exactly"] == 1
     assert exact_stats["components_fell_back_to_greedy"] == 0
     assert exact_stats["subsets_evaluated"] == 8
+
+
+def test_exact_reinsertion_uses_component_local_trial_state(monkeypatch) -> None:
+    external = _candidate(
+        "external",
+        satellite_id="sat_b",
+        task_id="task_x",
+        start_offset_s=10,
+        end_offset_s=20,
+        weight=4.0,
+    )
+    replacement = _candidate(
+        "replacement",
+        satellite_id="sat_a",
+        task_id="task_x",
+        start_offset_s=10,
+        end_offset_s=20,
+        weight=6.0,
+    )
+    additive = _candidate(
+        "additive",
+        satellite_id="sat_a",
+        task_id="task_y",
+        start_offset_s=25,
+        end_offset_s=35,
+        weight=3.0,
+    )
+    case = _case_for_candidates([external, replacement, additive])
+    component = Component(
+        satellite_id="sat_a",
+        component_id="sat_a::replacement",
+        candidates=(replacement, additive),
+    )
+    by_satellite = _by_satellite([external])
+    scheduled_tasks = {external.task_id: external}
+    config = LocalSearchConfig(enable_exact_reinsertion=True, max_exact_component_size=2)
+    exact_stats = _exact_reinsertion_stats(config)
+
+    monkeypatch.setattr("solvers.aeossp_standard.greedy_lns.src.local_search.initial_slew_feasible", lambda **kwargs: True)
+    monkeypatch.setattr("solvers.aeossp_standard.greedy_lns.src.local_search.transition_result", lambda *args, **kwargs: type("R", (), {"feasible": True})())
+
+    def fail_full_state_copy(*args, **kwargs):
+        raise AssertionError("exact reinsertion should not copy the full schedule per subset")
+
+    monkeypatch.setattr("solvers.aeossp_standard.greedy_lns.src.local_search._copy_state", fail_full_state_copy)
+
+    new_weight, failures = _recompute_component(
+        case,
+        component,
+        by_satellite,
+        scheduled_tasks,
+        propagation=None,
+        vector_cache=None,
+        exact_config=config,
+        exact_stats=exact_stats,
+    )
+
+    assert failures == 0
+    assert new_weight == 9.0
+    assert [candidate.candidate_id for candidate in by_satellite["sat_a"]] == [
+        "replacement",
+        "additive",
+    ]
+    assert by_satellite["sat_b"] == []
+    assert scheduled_tasks == {
+        "task_x": replacement,
+        "task_y": additive,
+    }
+    assert exact_stats["components_solved_exactly"] == 1
+    assert exact_stats["subsets_evaluated"] == 4
 
 
 def test_exact_reinsertion_disabled_preserves_greedy_component_order(monkeypatch) -> None:

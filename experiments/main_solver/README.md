@@ -89,8 +89,10 @@ The AEOSSP standard Greedy-LNS profile uses `total_time_budget_s: 300` with
 quality-preserving search enabled: eight restarts, stochastic component
 ordering with a fixed seed, bounded exact reinsertion, battery guardrails,
 satellite-scoped candidate workers, and deterministic restart-wave local-search
-workers. Each connected-component descent remains sequential, but independent
-restart starts can run in process-pool waves.
+workers. Each connected-component descent remains sequential because accepted
+component moves mutate the incumbent, but independent restart starts can run in
+process-pool waves. Status artifacts report exact-reinsertion work and
+objective-bound component pruning.
 
 The AEOSSP standard MWIS profile uses `total_time_budget_s: 300` as the public
 fair-run envelope while keeping the stronger refinement profile enabled:
@@ -100,3 +102,20 @@ backend. Candidate generation, graph build, reduction, search, and repair remain
 reported separately so the status artifacts show how much budget reached each
 solver stage. A run longer than the nominal envelope should be interpreted with
 the status timing and repair-impact artifacts rather than by wall clock alone.
+
+## AEOSSP Public Evidence Snapshot
+
+The current public AEOSSP standard evidence set contains five public `test`
+cases for each solver profile. All ten runs verify through the benchmark
+verifier and all repair summaries report `objective_removed_by_repair: 0`.
+
+| Solver | Cases | Avg WCR | Avg CR | Avg TAT | Avg PC | Avg total s | Avg candidate s | Avg graph s | Avg search s | Avg repair s |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
+| `aeossp_standard_greedy_lns` | 5 | 0.681622 | 0.721229 | 1128.286 | 18496.574 | 136.936 | 46.977 | 0.000 | 88.147 | 0.707 |
+| `aeossp_standard_mwis_conflict_graph` | 5 | 0.758178 | 0.789535 | 1017.821 | 19795.164 | 109.599 | 37.995 | 3.695 | 62.643 | 4.708 |
+
+Interpret the timing columns as reproducibility evidence, not as fixed
+benchmarks for every workstation. The important contract is that both solvers
+run under explicit multi-minute, quality-preserving profiles, report visible
+stage timing and execution models, and preserve final benchmark validity without
+destructive repair on the public cases.
