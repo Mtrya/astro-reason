@@ -16,6 +16,18 @@ venv.bak/
 .codex
 roadmap/
 
+# Solver-local setup/build artifacts
+solvers/**/.solver-env
+solvers/**/.venv/
+solvers/**/build/
+solvers/**/target/
+solvers/**/.gradle/
+solvers/**/.m2/
+solvers/**/.julia/
+solvers/**/.minizinc/
+solvers/**/solution/
+solvers/**/debug/
+
 # Benchmark intermediates or outputs
 benchmarks/*/dataset/source_data
 benchmarks/*/visualizer/plots

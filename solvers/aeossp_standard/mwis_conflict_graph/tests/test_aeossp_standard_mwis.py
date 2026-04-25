@@ -9,7 +9,7 @@ import numpy as np
 import pytest
 
 
-REPO_ROOT = Path(__file__).resolve().parents[2]
+REPO_ROOT = Path(__file__).resolve().parents[4]
 sys.path.insert(0, str(REPO_ROOT))
 
 from solvers.aeossp_standard.mwis_conflict_graph.src.candidates import (  # noqa: E402
