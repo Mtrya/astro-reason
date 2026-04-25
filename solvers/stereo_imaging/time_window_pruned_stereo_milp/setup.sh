@@ -15,6 +15,20 @@ fi
 
 "${VENV_DIR}/bin/python" -m pip install -q -r "${SCRIPT_DIR}/requirements.txt"
 
+install_backend() {
+    local package_spec="$1"
+    local label="$2"
+
+    if "${VENV_DIR}/bin/python" -m pip install -q "${package_spec}"; then
+        echo "  ${label}: install ok"
+    else
+        echo "  ${label}: install unavailable; continuing because the alternate exact backend may suffice" >&2
+    fi
+}
+
+install_backend "pulp>=2.9" "PuLP"
+install_backend "ortools>=9.11" "OR-Tools"
+
 "${VENV_DIR}/bin/python" - <<'PY'
 import brahe
 import numpy
@@ -44,6 +58,8 @@ if pulp_ok:
 else:
     print("  PuLP: not installed")
 if not (ortools_ok or pulp_ok):
-    print("  Exact backend unavailable: default thorough runs will fail until OR-Tools or PuLP is installed")
-    print("  Use optimization.backend=greedy only for intentional heuristic runs")
+    raise SystemExit(
+        "Exact backend unavailable: install OR-Tools or PuLP in the solver-local environment. "
+        "Use optimization.backend=greedy only for intentional heuristic runs."
+    )
 PY

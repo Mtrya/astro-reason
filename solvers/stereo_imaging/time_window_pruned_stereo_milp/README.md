@@ -67,7 +67,7 @@ The default `thorough` mode uses `optimization.backend: auto`, which requires at
 SOLVER_VENV_DIR=/path/to/stereo-milp-env ./setup.sh
 ```
 
-`requirements.txt` currently requests `ortools>=9.11` and `pulp>=2.9`; both are PyPI packages and are installed into the solver-local environment, not into the repository workspace. With a backend installed, set `backend: auto` (default) or explicitly `backend: ortools` / `backend: pulp`. If no exact backend is importable, `auto`, `ortools`, and `pulp` fail hard instead of silently switching to greedy. Use `backend: greedy` only for intentional heuristic sweeps.
+`requirements.txt` contains the core solver runtime dependencies. `setup.sh` then attempts both exact backend packages, `pulp>=2.9` and `ortools>=9.11`, independently in the solver-local environment. Both are PyPI packages; neither is installed into the repository workspace. With a backend installed, set `backend: auto` (default) or explicitly `backend: ortools` / `backend: pulp`. If no exact backend is importable, `auto`, `ortools`, and `pulp` fail hard instead of silently switching to greedy. Use `backend: greedy` only for intentional heuristic sweeps.
 
 ## Runtime Modes
 
