@@ -32,6 +32,7 @@ from src.case_io import (  # noqa: E402
 from src.binary_scheduler import (  # noqa: E402
     BinaryScheduleResult,
     build_conflict_edges,
+    build_scheduler_constraint_model,
     compare_scheduler_modes,
     evaluate_schedule,
     schedule_observation_windows,
@@ -55,6 +56,8 @@ from src.propagation import (  # noqa: E402
 from src.slot_library import (  # noqa: E402
     OrbitSlot,
     build_slot_library,
+    slot_library_summary,
+    slots_to_records,
 )
 from src.solution_io import (  # noqa: E402
     write_empty_solution,
@@ -178,7 +181,15 @@ def _overhead_slot(start: datetime) -> OrbitSlot:
     )
 
 
-def _window_case(*, max_range_m: float = 1.0e9, min_duration_sec: float = 20.0) -> RevisitCase:
+def _window_case(
+    *,
+    max_range_m: float = 1.0e9,
+    min_duration_sec: float = 20.0,
+    initial_battery_wh: float = 1000.0,
+    idle_discharge_rate_w: float = 1.0,
+    obs_discharge_rate_w: float = 1.0,
+    maneuver_discharge_rate_w: float = 1.0,
+) -> RevisitCase:
     start = datetime(2025, 1, 1, 0, 0, tzinfo=UTC)
     end = start + timedelta(seconds=60)
     return RevisitCase(
@@ -192,19 +203,19 @@ def _window_case(*, max_range_m: float = 1.0e9, min_duration_sec: float = 20.0) 
             sensor=SensorModel(
                 max_off_nadir_angle_deg=180.0,
                 max_range_m=max_range_m,
-                obs_discharge_rate_w=1.0,
+                obs_discharge_rate_w=obs_discharge_rate_w,
             ),
             resource_model=ResourceModel(
                 battery_capacity_wh=1000.0,
-                initial_battery_wh=1000.0,
-                idle_discharge_rate_w=1.0,
+                initial_battery_wh=initial_battery_wh,
+                idle_discharge_rate_w=idle_discharge_rate_w,
                 sunlight_charge_rate_w=0.0,
             ),
             attitude_model=AttitudeModel(
                 max_slew_velocity_deg_per_sec=1.0,
                 max_slew_acceleration_deg_per_sec2=1.0,
                 settling_time_sec=1.0,
-                maneuver_discharge_rate_w=1.0,
+                maneuver_discharge_rate_w=maneuver_discharge_rate_w,
             ),
             min_altitude_m=100000.0,
             max_altitude_m=1000000.0,
@@ -222,6 +233,41 @@ def _window_case(*, max_range_m: float = 1.0e9, min_duration_sec: float = 20.0) 
                 max_slant_range_m=max_range_m,
                 min_duration_sec=min_duration_sec,
                 ecef_position_m=_target_ecef(),
+            ),
+        ),
+    )
+
+
+def _two_target_window_case() -> RevisitCase:
+    case = _window_case(min_duration_sec=10.0)
+    second_position = np.asarray(
+        brahe.position_geodetic_to_ecef(
+            [80.0, 0.0, 0.0],
+            brahe.AngleFormat.DEGREES,
+        ),
+        dtype=float,
+    )
+    return RevisitCase(
+        case_dir=case.case_dir,
+        assets_path=case.assets_path,
+        mission_path=case.mission_path,
+        horizon_start=case.horizon_start,
+        horizon_end=case.horizon_start + timedelta(seconds=120),
+        satellite_model=case.satellite_model,
+        max_num_satellites=case.max_num_satellites,
+        targets=(
+            case.targets[0],
+            Target(
+                target_id="target_002",
+                name="Target 2",
+                latitude_deg=0.0,
+                longitude_deg=80.0,
+                altitude_m=0.0,
+                expected_revisit_period_hours=1.0,
+                min_elevation_deg=-90.0,
+                max_slant_range_m=1.0e9,
+                min_duration_sec=10.0,
+                ecef_position_m=tuple(float(item) for item in second_position),
             ),
         ),
     )
@@ -341,11 +387,29 @@ def test_load_case_parses_public_files() -> None:
 def test_solver_config_parses_geometry_worker_count(tmp_path: Path) -> None:
     config_dir = tmp_path / "config"
     config_dir.mkdir()
-    (config_dir / "config.yaml").write_text("geometry_worker_count: 2\n", encoding="utf-8")
+    (config_dir / "config.yaml").write_text(
+        "\n".join(
+            [
+                "geometry_worker_count: 2",
+                "run_policy: fair_reproduction",
+                "slot_library_mode: rgt_apc",
+                "scheduler_enable_slew_constraints: true",
+                "scheduler_enable_resource_constraints: true",
+                "scheduler_resource_margin_wh: 3.5",
+            ]
+        )
+        + "\n",
+        encoding="utf-8",
+    )
 
     config = load_solver_config(config_dir)
 
     assert config.geometry_worker_count == 2
+    assert config.run_policy == "fair_reproduction"
+    assert config.slot_library_mode == "rgt_apc"
+    assert config.scheduler_enable_slew_constraints is True
+    assert config.scheduler_enable_resource_constraints is True
+    assert config.scheduler_resource_margin_wh == 3.5
 
 
 def test_solver_config_rejects_nonpositive_geometry_worker_count(tmp_path: Path) -> None:
@@ -355,6 +419,23 @@ def test_solver_config_rejects_nonpositive_geometry_worker_count(tmp_path: Path)
 
     with pytest.raises(ValueError, match="geometry_worker_count must be positive"):
         load_solver_config(config_dir)
+
+
+def test_solver_config_rejects_unknown_slot_library_mode(tmp_path: Path) -> None:
+    config_dir = tmp_path / "config"
+    config_dir.mkdir()
+    (config_dir / "config.yaml").write_text("slot_library_mode: mystery\n", encoding="utf-8")
+
+    with pytest.raises(ValueError, match="slot_library_mode must be one of"):
+        load_solver_config(config_dir)
+
+
+def test_fair_reproduction_profile_is_solver_config_directory() -> None:
+    config = load_solver_config(SOLVER_DIR / "profiles" / "fair_reproduction")
+
+    assert config.run_policy == "fair_reproduction"
+    assert config.slot_library_mode == "rgt_apc"
+    assert config.max_slots > SolverConfig.max_slots
 
 
 def test_time_grid_includes_horizon_end() -> None:
@@ -381,6 +462,70 @@ def test_slot_library_filters_to_cap_and_stable_ids() -> None:
     for slot in slots:
         assert case.satellite_model.min_altitude_m <= slot.altitude_m <= case.satellite_model.max_altitude_m
         assert len(slot.state_eci_m_mps) == 6
+
+
+def test_rgt_apc_slot_library_preserves_resonance_relation_with_valid_altitude() -> None:
+    case = load_case(CASE_DIR)
+    config = SolverConfig(
+        slot_library_mode="rgt_apc",
+        raan_count=4,
+        phase_count=2,
+        max_slots=8,
+    )
+
+    slots = build_slot_library(case, config)
+
+    assert len(slots) == 8
+    assert [slot.slot_id for slot in slots] == sorted(slot.slot_id for slot in slots)
+    assert slots[0].slot_id == "slot_rgt_a0850000_i1421_n07d01_r00_u00"
+    assert {slot.family for slot in slots} == {"rgt_apc"}
+    assert all(slot.altitude_m == case.satellite_model.max_altitude_m for slot in slots)
+    for slot in slots:
+        assert case.satellite_model.min_altitude_m <= slot.altitude_m <= case.satellite_model.max_altitude_m
+        apc_shift = 360.0 * (slot.apc_phase_index or 0) / config.phase_count
+        residual = (
+            config.rgt_resonance_numerator * slot.raan_deg
+            + config.rgt_resonance_denominator * slot.phase_deg
+            - config.rgt_phase_constant_deg
+            - apc_shift
+        ) % 360.0
+        assert residual == pytest.approx(0.0, abs=1.0e-9) or residual == pytest.approx(360.0, abs=1.0e-9)
+
+
+def test_heterogeneous_slot_library_keeps_rgt_family_first_under_cap() -> None:
+    case = load_case(CASE_DIR)
+    config = SolverConfig(
+        slot_library_mode="heterogeneous",
+        inclination_deg=(50.0,),
+        raan_count=2,
+        phase_count=2,
+        max_slots=5,
+    )
+
+    slots = build_slot_library(case, config)
+    summary = slot_library_summary(config, slots)
+
+    assert len(slots) == 5
+    assert [slot.family for slot in slots[:4]] == ["heterogeneous_rgt_apc"] * 4
+    assert slots[4].family == "heterogeneous_uniform"
+    assert summary["family_counts"] == {
+        "heterogeneous_rgt_apc": 4,
+        "heterogeneous_uniform": 1,
+    }
+
+
+def test_slot_records_include_family_provenance() -> None:
+    case = load_case(CASE_DIR)
+    slots = build_slot_library(
+        case,
+        SolverConfig(slot_library_mode="rgt_apc", raan_count=1, phase_count=1, max_slots=1),
+    )
+
+    record = slots_to_records(slots)[0]
+
+    assert record["family"] == "rgt_apc"
+    assert record["resonance"] == "7:1"
+    assert record["provenance"]["adaptation"] == "reference_altitude_clipped_to_case_bounds"
 
 
 def test_visibility_matrix_has_expected_dimensions() -> None:
@@ -815,6 +960,121 @@ def test_scheduler_adds_transition_gap_conflicts() -> None:
 
     assert edges == frozenset({(0, 1)})
     assert transition_count == 1
+
+
+def test_scheduler_constraint_model_adds_slew_gap_conflicts() -> None:
+    case = _two_target_window_case()
+    slots = (_overhead_slot(case.horizon_start),)
+    first = _manual_window(
+        "win_first",
+        start_offset_sec=0,
+        end_offset_sec=10,
+        target_id="target_001",
+    )
+    second = _manual_window(
+        "win_second",
+        start_offset_sec=12,
+        end_offset_sec=22,
+        target_id="target_002",
+    )
+
+    model = build_scheduler_constraint_model(
+        case,
+        SolverConfig(scheduler_enable_slew_constraints=True),
+        (first, second),
+        slots,
+    )
+
+    assert model.edges == frozenset({(0, 1)})
+    assert model.edge_count_by_family["slew_gap"] == 1
+    assert model.summary["constraint_families"]["slew_gap"]["active"] is True
+
+
+def test_scheduler_selection_respects_slew_gap_constraints() -> None:
+    case = _two_target_window_case()
+    slots = (_overhead_slot(case.horizon_start),)
+    first = _manual_window(
+        "win_first",
+        start_offset_sec=0,
+        end_offset_sec=10,
+        target_id="target_001",
+        max_reduction=1.0,
+    )
+    second = _manual_window(
+        "win_second",
+        start_offset_sec=12,
+        end_offset_sec=22,
+        target_id="target_002",
+        max_reduction=1.0,
+    )
+
+    result = schedule_observation_windows(
+        case,
+        _scheduler_config(max_selected=2),
+        _window_result((first, second)),
+        slots,
+    )
+
+    assert len(result.selected_window_ids) == 1
+    assert result.constraint_summary["edge_count_by_family"]["slew_gap"] == 1
+    assert result.to_summary()["constraint_summary"]["constraint_families"]["slew_gap"]["active"] is True
+
+
+def test_scheduler_resource_prefix_limits_over_budget_selection() -> None:
+    case = _window_case(
+        min_duration_sec=10.0,
+        initial_battery_wh=1.5,
+        idle_discharge_rate_w=0.0,
+        obs_discharge_rate_w=360.0,
+        maneuver_discharge_rate_w=0.0,
+    )
+    first = _manual_window(
+        "win_first",
+        start_offset_sec=0,
+        end_offset_sec=10,
+        max_reduction=1.0,
+    )
+    second = _manual_window(
+        "win_second",
+        start_offset_sec=40,
+        end_offset_sec=50,
+        max_reduction=1.0,
+    )
+
+    result = schedule_observation_windows(
+        case,
+        _scheduler_config(max_selected=2),
+        _window_result((first, second)),
+    )
+
+    assert len(result.selected_window_ids) == 1
+    resource_family = result.constraint_summary["constraint_families"]["resource_prefix"]
+    assert resource_family["active"] is True
+    assert resource_family["constraint_count"] == 2
+
+
+def test_scheduler_greedy_fallback_respects_resource_constraints_deterministically() -> None:
+    case = _window_case(
+        min_duration_sec=10.0,
+        initial_battery_wh=1.5,
+        idle_discharge_rate_w=0.0,
+        obs_discharge_rate_w=360.0,
+        maneuver_discharge_rate_w=0.0,
+    )
+    windows = (
+        _manual_window("win_00", start_offset_sec=0, end_offset_sec=10, max_reduction=1.0),
+        _manual_window("win_01", start_offset_sec=20, end_offset_sec=30, max_reduction=1.0),
+        _manual_window("win_02", start_offset_sec=40, end_offset_sec=50, max_reduction=1.0),
+    )
+    config = _scheduler_config(max_selected=3, max_exact_combinations=1)
+
+    first = schedule_observation_windows(case, config, _window_result(windows))
+    second = schedule_observation_windows(case, config, _window_result(windows))
+
+    assert first.backend == "greedy_fallback"
+    assert len(first.selected_window_ids) == 1
+    assert first.selected_window_ids == second.selected_window_ids
+    assert first.rounding_summary["constraint_summary"]["constraint_families"]["resource_prefix"]["active"] is True
 
 
 def test_scheduler_mode_comparison_records_exact_and_greedy() -> None:

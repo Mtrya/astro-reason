@@ -43,8 +43,9 @@ class RunProfiler:
                 "stage_durations_sec": dict(self.stage_durations_sec),
             },
             "run_policy": {
-                "policy_name": "ci_smoke_defaults",
-                "bounded": True,
+                "policy_name": config.run_policy,
+                "bounded": config.run_policy in {"smoke", "bounded"},
+                "slot_library_mode": config.slot_library_mode,
                 "sample_step_sec": config.sample_step_sec,
                 "window_stride_sec": config.window_stride_sec,
                 "window_geometry_sample_step_sec": config.window_geometry_sample_step_sec,
@@ -56,6 +57,9 @@ class RunProfiler:
                 "scheduler_time_limit_sec": config.scheduler_time_limit_sec,
                 "design_backend": config.design_backend,
                 "scheduler_backend": config.scheduler_backend,
+                "scheduler_enable_slew_constraints": config.scheduler_enable_slew_constraints,
+                "scheduler_enable_resource_constraints": config.scheduler_enable_resource_constraints,
+                "scheduler_resource_margin_wh": config.scheduler_resource_margin_wh,
                 "write_visibility_matrix": config.write_visibility_matrix,
                 "write_observation_windows": config.write_observation_windows,
             },
@@ -84,13 +88,13 @@ def solve(case_dir: Path, config_dir: str | None, solution_dir: Path) -> None:
     with profiler.stage("observation_window_enumeration"):
         window_result = enumerate_observation_windows(case, config, slots, design_result)
     with profiler.stage("scheduler_solve"):
-        schedule_result = schedule_observation_windows(case, config, window_result)
+        schedule_result = schedule_observation_windows(case, config, window_result, slots)
     with profiler.stage("local_validation_repair"):
         validation_result = validate_and_repair_schedule(case, config, slots, schedule_result)
     with profiler.stage("debug_comparisons"):
         design_mode_comparison = compare_design_modes(design_problem, config)
         scheduler_mode_comparison = compare_scheduler_modes(
-            case, config, window_result, schedule_result
+            case, config, window_result, schedule_result, slots
         )
 
     solution_dir.mkdir(parents=True, exist_ok=True)

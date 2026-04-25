@@ -1,9 +1,16 @@
+run_policy: smoke
+slot_library_mode: circular_grid
 sample_step_sec: 7200
 altitude_count: 1
 inclination_deg: [55.0, 97.6]
 raan_count: 4
 phase_count: 2
 max_slots: 16
+rgt_resonance_numerator: 7
+rgt_resonance_denominator: 1
+rgt_reference_semi_major_axis_m: 11546320
+rgt_reference_inclination_deg: 142.14
+rgt_phase_constant_deg: 0
 geometry_worker_count: 1
 write_visibility_matrix: true
 design_mode: mmrt
@@ -29,6 +36,9 @@ scheduler_max_backend_conflicts: 25000
 scheduler_max_exact_combinations: 20000
 scheduler_max_selected_windows: 200
 scheduler_min_transition_gap_sec: 0
+scheduler_enable_slew_constraints: true
+scheduler_enable_resource_constraints: true
+scheduler_resource_margin_wh: 0
 local_repair_enabled: true
 local_validation_geometry_sample_step_sec: 10
 local_battery_margin_wh: 0

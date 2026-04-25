@@ -11,7 +11,7 @@ from .binary_scheduler import BinaryScheduleResult, selected_windows_to_actions
 from .case_io import RevisitCase, SolverConfig, iso_z
 from .design_models import DesignResult
 from .observation_windows import ObservationWindow, WindowEnumerationResult
-from .slot_library import OrbitSlot, slots_to_records
+from .slot_library import OrbitSlot, slot_library_summary, slots_to_records
 from .time_grid import TimeSample, time_grid_to_records
 from .validation import LocalValidationResult
 from .visibility_matrix import VisibilityMatrix, target_visibility_counts, visibility_to_sparse_records
@@ -161,7 +161,14 @@ def write_preprocessing_artifacts(
     )
     design_backend_accounting = design_summary["backend_accounting"]
     scheduler_backend_accounting = scheduler_summary["backend_accounting"]
-    write_json(prep_dir / "slots.json", {"slots": slots_to_records(slots)})
+    slot_summary = slot_library_summary(config, slots)
+    write_json(
+        prep_dir / "slots.json",
+        {
+            "slot_library": slot_summary,
+            "slots": slots_to_records(slots),
+        },
+    )
     write_json(prep_dir / "time_grid.json", {"samples": time_grid_to_records(samples)})
     if config.write_visibility_matrix:
         write_json(prep_dir / "visibility_matrix.json", visibility_to_sparse_records(matrix))
@@ -214,17 +221,23 @@ def write_preprocessing_artifacts(
             "url": issue_88_url,
         },
         "active_configuration": {
+            "run_policy": config.run_policy,
+            "slot_library_mode": config.slot_library_mode,
             "design_mode": design_result.mode,
             "design_backend": design_result.backend,
             "design_fallback_reason": design_result.fallback_reason,
             "scheduler_backend": schedule_result.backend,
             "scheduler_fallback_reason": schedule_result.fallback_reason,
             "local_repair_enabled": validation_result.repair_enabled,
+            "scheduler_enable_slew_constraints": config.scheduler_enable_slew_constraints,
+            "scheduler_enable_resource_constraints": config.scheduler_enable_resource_constraints,
         },
         "design_backend_report": design_result.to_summary()["backend_report"],
         "scheduler_backend_report": schedule_result.to_summary()["backend_report"],
+        "slot_library": slot_summary,
         "design_backend_accounting": design_backend_accounting,
         "scheduler_backend_accounting": scheduler_backend_accounting,
+        "scheduler_constraint_summary": schedule_result.constraint_summary,
         "visibility_execution": matrix.execution,
         "window_execution": window_result.execution,
         "run_accounting": completed_run_accounting,
@@ -248,6 +261,9 @@ def write_preprocessing_artifacts(
         "horizon_end": iso_z(case.horizon_end),
         "sample_step_sec": config.sample_step_sec,
         "slot_count": len(slots),
+        "run_policy_name": config.run_policy,
+        "slot_library_mode": config.slot_library_mode,
+        "slot_library": slot_summary,
         "target_count": len(case.targets),
         "time_sample_count": len(samples),
         "visibility_shape": list(matrix.shape),
@@ -285,6 +301,7 @@ def write_preprocessing_artifacts(
         "scheduler_backend_report": schedule_result.to_summary()["backend_report"],
         "scheduler_backend_accounting": scheduler_backend_accounting,
         "scheduler_model_size": schedule_result.model_size,
+        "scheduler_constraint_summary": schedule_result.constraint_summary,
         "scheduler_selected_window_count": len(schedule_result.selected_windows),
         "scheduler_selected_window_ids": list(schedule_result.selected_window_ids),
         "scheduler_conflict_edge_count": schedule_result.conflict_edge_count,

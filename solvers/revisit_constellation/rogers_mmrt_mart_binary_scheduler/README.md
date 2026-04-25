@@ -34,7 +34,7 @@ a Cho-style binary observation scheduler.
 
 The source issue for this solver is
 [`#88`](https://github.com/Mtrya/astro-reason/issues/88). It was rechecked as
-open before promotion.
+open on 2026-04-26.
 
 The solver is standalone. It reads public benchmark case files and writes a
 benchmark solution JSON, but it does not import or execute benchmark,
@@ -75,7 +75,9 @@ resources. The adaptation is therefore explicit:
 - Cho-style feasible task windows become benchmark observation actions.
 - Same-satellite overlaps are encoded as scheduler conflicts.
 - Optional transition-gap conflicts can be added with `scheduler_min_transition_gap_sec`.
-- Slew, sampled geometry, and a conservative battery approximation are checked again in solver-local validation and repair.
+- Same-satellite slew and conservative resource-prefix constraints are modeled
+  in the binary scheduler before solver-local validation and repair.
+- Sampled geometry, slew, and battery are checked again in solver-local validation and repair.
 - Official validity and final metrics are still determined only by the benchmark verifier through `experiments/main_solver`.
 
 This means the solver reproduces the Rogers MMRT/MART design family and the
@@ -156,7 +158,7 @@ Key knobs:
 - design: `design_mode`, `design_backend`, `design_satellite_count`, `design_max_selected_slots`
 - design bounds: `design_max_backend_slots`, `design_max_backend_time_samples`, `design_max_backend_variables`, `design_max_backend_constraints`
 - window enumeration: `window_stride_sec`, `window_geometry_sample_step_sec`, `max_observation_windows`, `max_windows_per_satellite_target`
-- scheduling: `scheduler_backend`, `scheduler_time_limit_sec`, `scheduler_max_exact_combinations`, `scheduler_max_selected_windows`
+- scheduling: `scheduler_backend`, `scheduler_time_limit_sec`, `scheduler_max_exact_combinations`, `scheduler_max_selected_windows`, `scheduler_min_transition_gap_sec`, `scheduler_enable_slew_constraints`, `scheduler_enable_resource_constraints`, `scheduler_resource_margin_wh`
 - local validation: `local_repair_enabled`, `local_validation_geometry_sample_step_sec`, `local_battery_margin_wh`
 - diagnostics: `write_observation_windows`, `debug`
 
@@ -214,12 +216,41 @@ Aggregate experiment results:
 uv run python experiments/main_solver/aggregate.py
 ```
 
-## Sanity Baseline
+## Evaluation Status
 
-On the public smoke case, official verification should pass before considering
-the solver promotable. In the promotion smoke run, the tuned default selected
-four satellites, scheduled 19 observation actions, required no local repair
-drops, and the official verifier reported `is_valid: true`.
+The latest evidence pass was run on 2026-04-26 after the scheduler-constraint
+work. The smoke profile is benchmark-valid on all five public cases, with PuLP
+solving both the bounded MMRT design model and binary scheduler model exactly.
+The fair RGT/APC profile is not yet benchmark-valid.
+
+Smoke profile, through `experiments/main_solver`, using
+`run_policy: smoke` and `slot_library_mode: circular_grid`:
+
+| Case | Valid | Satellites | Observations | Capped max gap (h) | Solve time (s) | Backend behavior |
+| --- | --- | ---: | ---: | ---: | ---: | --- |
+| `test/case_0001` | yes | 4 | 15 | 48.0 | 42.046 | design PuLP exact, scheduler PuLP exact |
+| `test/case_0002` | yes | 4 | 10 | 48.0 | 41.811 | design PuLP exact, scheduler PuLP exact |
+| `test/case_0003` | yes | 4 | 17 | 48.0 | 41.628 | design PuLP exact, scheduler PuLP exact |
+| `test/case_0004` | yes | 4 | 10 | 48.0 | 41.348 | design PuLP exact, scheduler PuLP exact |
+| `test/case_0005` | yes | 4 | 17 | 48.0 | 41.112 | design PuLP exact, scheduler PuLP exact |
+
+Fair profile, run directly against the same public cases with
+`profiles/fair_reproduction/config.yaml`, using `run_policy:
+fair_reproduction` and `slot_library_mode: rgt_apc`:
+
+| Case | Valid | Selected windows | Solve time (s) | Backend behavior | Blocking verifier error |
+| --- | --- | ---: | ---: | --- | --- |
+| `test/case_0001` | no | 69 | 269.794 | design PuLP exact, scheduler PuLP exact | selected RGT/APC states exceed max apogee by numerical tolerance |
+| `test/case_0002` | no | 68 | 259.843 | design PuLP exact, scheduler PuLP exact | selected RGT/APC states exceed max apogee by numerical tolerance |
+| `test/case_0003` | no | 75 | 272.187 | design PuLP exact, scheduler PuLP exact | selected RGT/APC states exceed max apogee by numerical tolerance |
+| `test/case_0004` | no | 48 | 244.630 | design PuLP exact, scheduler PuLP exact | selected RGT/APC states exceed max apogee by numerical tolerance |
+| `test/case_0005` | no | 53 | 259.483 | design PuLP exact, scheduler PuLP exact | selected RGT/APC states exceed max apogee by numerical tolerance |
+
+The current status against the stricter bridge target, "faithful reproduction
+adapted to the benchmark with fair optimization and compute envelope", is
+`NOT_YET`. The fair profile runs the exact backends and broader slot library,
+but its emitted satellites are invalid. The smoke profile is valid but remains
+score-limited by many targets with no feasible windows under the bounded grid.
 
 Useful checks:
 
@@ -232,11 +263,12 @@ Useful checks:
 ## Known Limitations
 
 - This is a reproduced solver adapted to the benchmark, not a claim to reproduce every Rogers table or runtime.
-- The finite slot library is a bounded circular-orbit library, not the full common-RGT/APC construction from the Rogers examples.
+- The smoke finite slot library is a bounded circular-orbit library, not the full common-RGT/APC construction from the Rogers examples.
+- The fair RGT/APC profile currently clips the Rogers reference orbit to the case max altitude; official verification shows selected states can land infinitesimally above the allowed apogee bound, so the fair profile is not yet valid.
 - Cho evidence is limited to public paper metadata and summary notes; no clean full transcript was available.
-- PuLP is optional and absent in the default project environment used for smoke verification, so debug artifacts may show exact or greedy fallback rather than MILP solves.
+- PuLP is optional, but the latest smoke and fair evidence runs used solver-local PuLP/CBC and reported exact design and scheduler solves.
 - The design-stage MMRT/MART objective optimizes access timelines, while final benchmark metrics depend on scheduled actions after slew and battery checks.
-- Battery feasibility is handled by conservative local validation and repair rather than a full integrated energy MILP.
+- Scheduler resources use conservative prefix constraints rather than a full benchmark-equivalent energy MILP.
 - Public smoke cases can remain max-gap limited by targets with no feasible windows under the current bounded slot grid.
 
 ## Evidence Type

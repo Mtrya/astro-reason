@@ -7,8 +7,20 @@ import importlib.util
 from itertools import combinations
 import math
 
+import brahe
+import numpy as np
+
 from .case_io import RevisitCase, SolverConfig, iso_z
-from .observation_windows import ObservationWindow, WindowEnumerationResult
+from .observation_windows import (
+    ObservationWindow,
+    WindowEnumerationResult,
+    _angle_between_deg,
+)
+from .propagation import datetime_to_epoch, ensure_brahe_ready, force_model_config
+from .slot_library import OrbitSlot
+
+
+NUMERICAL_EPS = 1.0e-9
 
 
 @dataclass(frozen=True)
@@ -66,6 +78,7 @@ class BinaryScheduleResult:
     model_size: dict[str, int]
     rounding_summary: dict[str, object]
     backend_status: dict[str, object] = field(default_factory=dict)
+    constraint_summary: dict[str, object] = field(default_factory=dict)
 
     def to_summary(self) -> dict[str, object]:
         backend_report = (
@@ -84,8 +97,39 @@ class BinaryScheduleResult:
             "conflict_edge_count": self.conflict_edge_count,
             "transition_conflict_edge_count": self.transition_conflict_edge_count,
             "model_size": self.model_size,
+            "constraint_summary": self.constraint_summary,
             "rounding_summary": self.rounding_summary,
         }
+
+
+@dataclass(frozen=True)
+class ResourcePrefixConstraint:
+    satellite_id: str
+    checkpoint_index: int
+    checkpoint_window_id: str
+    prefix_costs_wh: tuple[tuple[int, float], ...]
+    idle_energy_wh: float
+    available_wh: float
+
+    def to_summary(self) -> dict[str, object]:
+        return {
+            "satellite_id": self.satellite_id,
+            "checkpoint_window_id": self.checkpoint_window_id,
+            "checkpoint_index": self.checkpoint_index,
+            "prefix_window_count": len(self.prefix_costs_wh),
+            "idle_energy_wh": self.idle_energy_wh,
+            "selected_window_energy_wh": sum(cost for _index, cost in self.prefix_costs_wh),
+            "available_wh": self.available_wh,
+        }
+
+
+@dataclass(frozen=True)
+class SchedulerConstraintModel:
+    edges: frozenset[tuple[int, int]]
+    transition_edge_count: int
+    edge_count_by_family: dict[str, int]
+    resource_prefix_constraints: tuple[ResourcePrefixConstraint, ...]
+    summary: dict[str, object]
 
 
 def _scheduler_backend_report(backend: str, fallback_reason: str | None) -> dict[str, object]:
@@ -187,6 +231,277 @@ def build_conflict_edges(
     return frozenset(edges), transition_edges
 
 
+def _slew_time_sec(angle_deg: float, max_velocity: float, max_accel: float) -> float:
+    angle_deg = max(0.0, angle_deg)
+    if angle_deg <= NUMERICAL_EPS:
+        return 0.0
+    if max_velocity <= 0.0 or max_accel <= 0.0:
+        return math.inf
+    ramp_time = max_velocity / max_accel
+    triangular_threshold = (max_velocity * max_velocity) / max_accel
+    if angle_deg <= triangular_threshold:
+        return 2.0 * math.sqrt(angle_deg / max_accel)
+    return (2.0 * ramp_time) + ((angle_deg - triangular_threshold) / max_velocity)
+
+
+def _target_vector_eci(
+    target_ecef_m: tuple[float, float, float],
+    propagator: brahe.NumericalOrbitPropagator,
+    instant,
+) -> np.ndarray:
+    epoch = datetime_to_epoch(instant)
+    satellite_state = np.asarray(propagator.state_eci(epoch), dtype=float)
+    target_eci = np.asarray(
+        brahe.position_ecef_to_eci(epoch, np.asarray(target_ecef_m, dtype=float)),
+        dtype=float,
+    )
+    return target_eci - satellite_state[:3]
+
+
+def _propagators_by_satellite(
+    case: RevisitCase,
+    slots: tuple[OrbitSlot, ...],
+    windows: tuple[ObservationWindow, ...],
+) -> dict[str, brahe.NumericalOrbitPropagator]:
+    ensure_brahe_ready()
+    start_epoch = datetime_to_epoch(case.horizon_start)
+    end_epoch = datetime_to_epoch(case.horizon_end)
+    force_config = force_model_config()
+    propagators: dict[str, brahe.NumericalOrbitPropagator] = {}
+    for window in windows:
+        if window.satellite_id in propagators:
+            continue
+        if window.slot_index < 0 or window.slot_index >= len(slots):
+            continue
+        slot = slots[window.slot_index]
+        propagator = brahe.NumericalOrbitPropagator.from_eci(
+            start_epoch,
+            np.asarray(slot.state_eci_m_mps, dtype=float),
+            force_config=force_config,
+        )
+        propagator.propagate_to(end_epoch)
+        propagators[window.satellite_id] = propagator
+    return propagators
+
+
+def _add_edge(
+    edges: set[tuple[int, int]],
+    counts: dict[str, int],
+    left_index: int,
+    right_index: int,
+    family: str,
+) -> None:
+    if left_index == right_index:
+        return
+    edge = tuple(sorted((left_index, right_index)))
+    counts[family] = counts.get(family, 0) + 1
+    edges.add(edge)
+
+
+def _resource_cost_wh(case: RevisitCase, window: ObservationWindow) -> float:
+    sensor = case.satellite_model.sensor
+    attitude = case.satellite_model.attitude_model
+    observation_wh = (sensor.obs_discharge_rate_w * window.duration_sec) / 3600.0
+    maneuver_guard_wh = (
+        attitude.maneuver_discharge_rate_w * attitude.settling_time_sec
+    ) / 3600.0
+    return observation_wh + maneuver_guard_wh
+
+
+def _build_resource_prefix_constraints(
+    case: RevisitCase,
+    config: SolverConfig,
+    windows: tuple[ObservationWindow, ...],
+) -> tuple[ResourcePrefixConstraint, ...]:
+    resource = case.satellite_model.resource_model
+    available_wh = resource.initial_battery_wh - config.scheduler_resource_margin_wh
+    if available_wh < 0.0:
+        available_wh = 0.0
+    by_satellite: dict[str, list[tuple[int, ObservationWindow]]] = {}
+    for index, window in enumerate(windows):
+        by_satellite.setdefault(window.satellite_id, []).append((index, window))
+
+    constraints: list[ResourcePrefixConstraint] = []
+    for satellite_id, indexed_windows in sorted(by_satellite.items()):
+        ordered = sorted(indexed_windows, key=lambda item: (item[1].end, item[1].window_id))
+        for checkpoint_index, checkpoint in ordered:
+            prefix_costs = tuple(
+                (index, _resource_cost_wh(case, window))
+                for index, window in ordered
+                if window.end <= checkpoint.end
+            )
+            idle_energy_wh = (
+                resource.idle_discharge_rate_w
+                * max(0.0, (checkpoint.end - case.horizon_start).total_seconds())
+            ) / 3600.0
+            constraints.append(
+                ResourcePrefixConstraint(
+                    satellite_id=satellite_id,
+                    checkpoint_index=checkpoint_index,
+                    checkpoint_window_id=checkpoint.window_id,
+                    prefix_costs_wh=prefix_costs,
+                    idle_energy_wh=idle_energy_wh,
+                    available_wh=available_wh,
+                )
+            )
+    return tuple(constraints)
+
+
+def build_scheduler_constraint_model(
+    case: RevisitCase,
+    config: SolverConfig,
+    windows: tuple[ObservationWindow, ...],
+    slots: tuple[OrbitSlot, ...] = (),
+) -> SchedulerConstraintModel:
+    id_to_index = {window.window_id: index for index, window in enumerate(windows)}
+    edges: set[tuple[int, int]] = set()
+    counts: dict[str, int] = {
+        "same_satellite_overlap": 0,
+        "duplicate_target_overlap": 0,
+        "transition_gap": 0,
+        "slew_gap": 0,
+    }
+
+    for left_index, window in enumerate(windows):
+        for conflict_id in window.conflict_ids:
+            right_index = id_to_index.get(conflict_id)
+            if right_index is None or right_index <= left_index:
+                continue
+            right = windows[right_index]
+            if window.satellite_id == right.satellite_id and _overlap(window, right):
+                family = "same_satellite_overlap"
+            elif window.target_id == right.target_id and _overlap(window, right):
+                family = "duplicate_target_overlap"
+            else:
+                family = "enumerated_conflict"
+            _add_edge(edges, counts, left_index, right_index, family)
+
+    transition_edges = 0
+    for left_index, left in enumerate(windows):
+        for right_index in range(left_index + 1, len(windows)):
+            right = windows[right_index]
+            if left.satellite_id != right.satellite_id or _overlap(left, right):
+                continue
+            if config.scheduler_min_transition_gap_sec > 0.0:
+                gap_sec = min(
+                    abs((right.start - left.end).total_seconds()),
+                    abs((left.start - right.end).total_seconds()),
+                )
+                if gap_sec < config.scheduler_min_transition_gap_sec:
+                    before = len(edges)
+                    _add_edge(edges, counts, left_index, right_index, "transition_gap")
+                    if len(edges) > before:
+                        transition_edges += 1
+
+    slew_omission_reason: str | None = None
+    slew_pair_checks = 0
+    if config.scheduler_enable_slew_constraints:
+        if not slots:
+            slew_omission_reason = "slots_not_provided"
+        else:
+            target_by_id = {target.target_id: target for target in case.targets}
+            propagators = _propagators_by_satellite(case, slots, windows)
+            attitude = case.satellite_model.attitude_model
+            max_required_gap = (
+                _slew_time_sec(
+                    180.0,
+                    attitude.max_slew_velocity_deg_per_sec,
+                    attitude.max_slew_acceleration_deg_per_sec2,
+                )
+                + attitude.settling_time_sec
+            )
+            for left_index, left in enumerate(windows):
+                for right_index in range(left_index + 1, len(windows)):
+                    right = windows[right_index]
+                    if left.satellite_id != right.satellite_id or _overlap(left, right):
+                        continue
+                    earlier, later = (left, right) if left.start <= right.start else (right, left)
+                    actual_gap = (later.start - earlier.end).total_seconds()
+                    if actual_gap + NUMERICAL_EPS >= max_required_gap:
+                        continue
+                    propagator = propagators.get(earlier.satellite_id)
+                    earlier_target = target_by_id.get(earlier.target_id)
+                    later_target = target_by_id.get(later.target_id)
+                    if propagator is None or earlier_target is None or later_target is None:
+                        continue
+                    slew_pair_checks += 1
+                    earlier_vector = _target_vector_eci(
+                        earlier_target.ecef_position_m, propagator, earlier.midpoint
+                    )
+                    later_vector = _target_vector_eci(
+                        later_target.ecef_position_m, propagator, later.midpoint
+                    )
+                    angle = _angle_between_deg(earlier_vector, later_vector)
+                    required_gap = _slew_time_sec(
+                        angle,
+                        attitude.max_slew_velocity_deg_per_sec,
+                        attitude.max_slew_acceleration_deg_per_sec2,
+                    ) + attitude.settling_time_sec
+                    if actual_gap + NUMERICAL_EPS < required_gap:
+                        _add_edge(edges, counts, left_index, right_index, "slew_gap")
+
+    resource_constraints: tuple[ResourcePrefixConstraint, ...] = ()
+    resource_omission_reason: str | None = None
+    if config.scheduler_enable_resource_constraints:
+        resource_constraints = _build_resource_prefix_constraints(case, config, windows)
+    else:
+        resource_omission_reason = "disabled_by_config"
+
+    summary = {
+        "adaptation": (
+            "Scheduler constraints are conservative benchmark-local approximations. "
+            "Slew conflicts use target vectors at observation midpoints; resource "
+            "prefix constraints ignore sunlight credit and add a fixed settling "
+            "maneuver-energy guard per selected window."
+        ),
+        "constraint_families": {
+            "same_satellite_overlap": {
+                "active": True,
+                "edge_count": counts.get("same_satellite_overlap", 0),
+            },
+            "duplicate_target_overlap": {
+                "active": True,
+                "edge_count": counts.get("duplicate_target_overlap", 0),
+            },
+            "transition_gap": {
+                "active": config.scheduler_min_transition_gap_sec > 0.0,
+                "edge_count": counts.get("transition_gap", 0),
+                "min_transition_gap_sec": config.scheduler_min_transition_gap_sec,
+            },
+            "slew_gap": {
+                "active": config.scheduler_enable_slew_constraints and slew_omission_reason is None,
+                "edge_count": counts.get("slew_gap", 0),
+                "pair_checks": slew_pair_checks,
+                "omission_reason": slew_omission_reason,
+            },
+            "resource_prefix": {
+                "active": config.scheduler_enable_resource_constraints,
+                "constraint_count": len(resource_constraints),
+                "margin_wh": config.scheduler_resource_margin_wh,
+                "omission_reason": resource_omission_reason,
+            },
+        },
+        "edge_count_by_family": dict(sorted(counts.items())),
+        "total_conflict_edges": len(edges),
+        "resource_prefix_constraint_count": len(resource_constraints),
+        "resource_prefix_constraints_preview": [
+            constraint.to_summary() for constraint in resource_constraints[:10]
+        ],
+        "bounded_omissions": [
+            reason
+            for reason in (slew_omission_reason, resource_omission_reason)
+            if reason is not None
+        ],
+    }
+    return SchedulerConstraintModel(
+        edges=frozenset(edges),
+        transition_edge_count=transition_edges,
+        edge_count_by_family=dict(sorted(counts.items())),
+        resource_prefix_constraints=resource_constraints,
+        summary=summary,
+    )
+
+
 def evaluate_schedule(
     case: RevisitCase,
     windows: tuple[ObservationWindow, ...],
@@ -263,6 +578,46 @@ def _independent(candidate: tuple[int, ...], edges: frozenset[tuple[int, int]]) 
     return not any(left in selected and right in selected for left, right in edges)
 
 
+def _resource_prefix_feasible(
+    candidate: tuple[int, ...],
+    constraints: tuple[ResourcePrefixConstraint, ...],
+) -> bool:
+    selected = set(candidate)
+    for constraint in constraints:
+        if constraint.checkpoint_index not in selected:
+            continue
+        energy_wh = constraint.idle_energy_wh + sum(
+            cost for index, cost in constraint.prefix_costs_wh if index in selected
+        )
+        if energy_wh > constraint.available_wh + NUMERICAL_EPS:
+            return False
+    return True
+
+
+def _resource_constraint_big_m(
+    constraints: tuple[ResourcePrefixConstraint, ...],
+) -> float:
+    if not constraints:
+        return 0.0
+    largest_activity = max(
+        constraint.idle_energy_wh
+        + sum(cost for _index, cost in constraint.prefix_costs_wh)
+        + max(0.0, constraint.available_wh)
+        for constraint in constraints
+    )
+    return max(1.0, largest_activity)
+
+
+def _constraint_feasible(
+    candidate: tuple[int, ...],
+    constraint_model: SchedulerConstraintModel,
+) -> bool:
+    return _independent(candidate, constraint_model.edges) and _resource_prefix_feasible(
+        candidate,
+        constraint_model.resource_prefix_constraints,
+    )
+
+
 def _combination_count(window_count: int, max_selected: int) -> int:
     return sum(math.comb(window_count, size) for size in range(0, max_selected + 1))
 
@@ -270,7 +625,7 @@ def _combination_count(window_count: int, max_selected: int) -> int:
 def _exact_schedule(
     case: RevisitCase,
     windows: tuple[ObservationWindow, ...],
-    edges: frozenset[tuple[int, int]],
+    constraint_model: SchedulerConstraintModel,
     max_selected: int,
     max_combinations: int,
 ) -> tuple[tuple[int, ...] | None, int]:
@@ -283,7 +638,7 @@ def _exact_schedule(
     best_key = _schedule_key(case, windows, best)
     for size in range(1, min(max_selected, window_count) + 1):
         for candidate in combinations(range(window_count), size):
-            if not _independent(candidate, edges):
+            if not _constraint_feasible(candidate, constraint_model):
                 continue
             key = _schedule_key(case, windows, candidate)
             if key < best_key:
@@ -295,14 +650,14 @@ def _exact_schedule(
 def _greedy_schedule(
     case: RevisitCase,
     windows: tuple[ObservationWindow, ...],
-    edges: frozenset[tuple[int, int]],
+    constraint_model: SchedulerConstraintModel,
     max_selected: int,
     seed_order: tuple[int, ...] | None = None,
 ) -> tuple[int, ...]:
     selected: tuple[int, ...] = ()
     remaining = list(seed_order if seed_order is not None else range(len(windows)))
     edge_lookup = {index: set() for index in range(len(windows))}
-    for left, right in edges:
+    for left, right in constraint_model.edges:
         edge_lookup[left].add(right)
         edge_lookup[right].add(left)
 
@@ -314,6 +669,11 @@ def _greedy_schedule(
             if any(index in edge_lookup[selected_index] for selected_index in selected):
                 continue
             candidate = tuple(sorted((*selected, index)))
+            if not _resource_prefix_feasible(
+                candidate,
+                constraint_model.resource_prefix_constraints,
+            ):
+                continue
             key = _schedule_key(case, windows, candidate)
             if key >= current_key:
                 continue
@@ -334,7 +694,7 @@ def _greedy_schedule(
 
 def _try_pulp_binary(
     windows: tuple[ObservationWindow, ...],
-    edges: frozenset[tuple[int, int]],
+    constraint_model: SchedulerConstraintModel,
     config: SolverConfig,
 ) -> tuple[tuple[int, ...] | None, str | None, dict[str, object]]:
     if config.scheduler_backend not in {"auto", "pulp_binary"}:
@@ -357,7 +717,7 @@ def _try_pulp_binary(
             solved=False,
             failure_reason=reason,
         )
-    if len(edges) > config.scheduler_max_backend_conflicts:
+    if len(constraint_model.edges) > config.scheduler_max_backend_conflicts:
         reason = "conflict_bound_exceeded"
         return None, reason, _scheduler_backend_status(
             requested_backend=config.scheduler_backend,
@@ -394,8 +754,15 @@ def _try_pulp_binary(
 
     model = pulp.LpProblem("rogers_binary_scheduler", pulp.LpMaximize)
     x = [pulp.LpVariable(f"z_{index}", cat="Binary") for index in range(len(windows))]
-    for left, right in edges:
+    for left, right in constraint_model.edges:
         model += x[left] + x[right] <= 1
+    big_m = _resource_constraint_big_m(constraint_model.resource_prefix_constraints)
+    for constraint in constraint_model.resource_prefix_constraints:
+        model += (
+            pulp.lpSum(cost * x[index] for index, cost in constraint.prefix_costs_wh)
+            + (constraint.idle_energy_wh * x[constraint.checkpoint_index])
+            <= constraint.available_wh + (big_m * (1 - x[constraint.checkpoint_index]))
+        )
     model += pulp.lpSum(x) <= config.scheduler_max_selected_windows
     model += pulp.lpSum(_window_profit(window) * x[index] for index, window in enumerate(windows))
     try:
@@ -436,7 +803,7 @@ def _try_pulp_binary(
 
 def _try_pulp_relaxed(
     windows: tuple[ObservationWindow, ...],
-    edges: frozenset[tuple[int, int]],
+    constraint_model: SchedulerConstraintModel,
     config: SolverConfig,
 ) -> tuple[tuple[int, ...] | None, dict[str, object], str | None, dict[str, object]]:
     if config.scheduler_backend not in {"auto", "pulp_relaxed"}:
@@ -459,7 +826,7 @@ def _try_pulp_relaxed(
             solved=False,
             failure_reason=reason,
         )
-    if len(edges) > config.scheduler_max_backend_conflicts:
+    if len(constraint_model.edges) > config.scheduler_max_backend_conflicts:
         reason = "conflict_bound_exceeded"
         return None, {}, reason, _scheduler_backend_status(
             requested_backend=config.scheduler_backend,
@@ -499,8 +866,15 @@ def _try_pulp_relaxed(
         pulp.LpVariable(f"z_{index}", lowBound=0.0, upBound=1.0, cat="Continuous")
         for index in range(len(windows))
     ]
-    for left, right in edges:
+    for left, right in constraint_model.edges:
         model += x[left] + x[right] <= 1.0
+    big_m = _resource_constraint_big_m(constraint_model.resource_prefix_constraints)
+    for constraint in constraint_model.resource_prefix_constraints:
+        model += (
+            pulp.lpSum(cost * x[index] for index, cost in constraint.prefix_costs_wh)
+            + (constraint.idle_energy_wh * x[constraint.checkpoint_index])
+            <= constraint.available_wh + (big_m * (1.0 - x[constraint.checkpoint_index]))
+        )
     model += pulp.lpSum(x) <= config.scheduler_max_selected_windows
     model += pulp.lpSum(_window_profit(window) * x[index] for index, window in enumerate(windows))
     try:
@@ -550,16 +924,21 @@ def schedule_observation_windows(
     case: RevisitCase,
     config: SolverConfig,
     window_result: WindowEnumerationResult,
+    slots: tuple[OrbitSlot, ...] = (),
 ) -> BinaryScheduleResult:
     windows = window_result.windows
     max_selected = min(config.scheduler_max_selected_windows, len(windows))
-    edges, transition_edges = build_conflict_edges(
-        windows, config.scheduler_min_transition_gap_sec
+    constraint_model = build_scheduler_constraint_model(
+        case,
+        config,
+        windows,
+        slots,
     )
     model_size = {
         "windows": len(windows),
         "binary_variables": len(windows),
-        "conflict_constraints": len(edges),
+        "conflict_constraints": len(constraint_model.edges),
+        "resource_prefix_constraints": len(constraint_model.resource_prefix_constraints),
         "max_selected_windows": max_selected,
     }
 
@@ -569,7 +948,11 @@ def schedule_observation_windows(
     rounding_summary: dict[str, object] = {}
     backend_status: dict[str, object] = {}
 
-    selected, fallback_reason, backend_status = _try_pulp_binary(windows, edges, config)
+    selected, fallback_reason, backend_status = _try_pulp_binary(
+        windows,
+        constraint_model,
+        config,
+    )
     if selected is None:
         if config.scheduler_backend == "pulp_binary":
             raise RuntimeError(
@@ -582,7 +965,7 @@ def schedule_observation_windows(
             exact, combination_count = _exact_schedule(
                 case,
                 windows,
-                edges,
+                constraint_model,
                 max_selected,
                 config.scheduler_max_exact_combinations,
             )
@@ -606,12 +989,18 @@ def schedule_observation_windows(
             )
         else:
             relaxed_order, relaxed_summary, relaxed_reason, relaxed_status = _try_pulp_relaxed(
-                windows, edges, config
+                windows,
+                constraint_model,
+                config,
             )
             if relaxed_order is not None:
                 backend = "relaxed_rounding"
                 selected = _greedy_schedule(
-                    case, windows, edges, max_selected, seed_order=relaxed_order
+                    case,
+                    windows,
+                    constraint_model,
+                    max_selected,
+                    seed_order=relaxed_order,
                 )
                 fallback_reason = (
                     f"{fallback_reason or 'binary_backend_unavailable'};"
@@ -638,7 +1027,7 @@ def schedule_observation_windows(
                         f"{relaxed_reason or 'unknown_failure'}"
                     )
                 backend = "greedy_fallback"
-                selected = _greedy_schedule(case, windows, edges, max_selected)
+                selected = _greedy_schedule(case, windows, constraint_model, max_selected)
                 fallback_reason = (
                     f"{fallback_reason or 'binary_backend_unavailable'};"
                     f"exact_combinations_{combination_count}_exceeded;"
@@ -669,11 +1058,13 @@ def schedule_observation_windows(
         selected_window_indices=selected,
         selected_windows=selected_windows,
         evaluation=evaluation,
-        conflict_edge_count=len(edges),
-        transition_conflict_edge_count=transition_edges,
+        conflict_edge_count=len(constraint_model.edges),
+        transition_conflict_edge_count=constraint_model.transition_edge_count,
         model_size=model_size,
-        rounding_summary=rounding_summary,
+        rounding_summary=rounding_summary
+        | {"constraint_summary": constraint_model.summary},
         backend_status=backend_status,
+        constraint_summary=constraint_model.summary,
     )
 
 
@@ -716,18 +1107,19 @@ def compare_scheduler_modes(
     config: SolverConfig,
     window_result: WindowEnumerationResult,
     current_result: BinaryScheduleResult,
+    slots: tuple[OrbitSlot, ...] = (),
 ) -> tuple[dict[str, object], ...]:
     windows = window_result.windows
     max_selected = min(config.scheduler_max_selected_windows, len(windows))
-    edges, _ = build_conflict_edges(windows, config.scheduler_min_transition_gap_sec)
+    constraint_model = build_scheduler_constraint_model(case, config, windows, slots)
     exact, exact_count = _exact_schedule(
         case,
         windows,
-        edges,
+        constraint_model,
         max_selected,
         config.scheduler_max_exact_combinations,
     )
-    greedy = _greedy_schedule(case, windows, edges, max_selected)
+    greedy = _greedy_schedule(case, windows, constraint_model, max_selected)
     records = [
         _comparison_record(
             "baseline_no_observations",

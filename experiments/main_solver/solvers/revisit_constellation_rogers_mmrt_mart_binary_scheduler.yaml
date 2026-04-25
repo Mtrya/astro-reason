@@ -7,6 +7,9 @@ runnable: true
 setup_script: setup.sh
 solve_script: solve.sh
 solution_filename: solution.json
+config:
+  run_policy: smoke
+  slot_library_mode: circular_grid
 cases:
   - id: test/case_0001
     case_dir: benchmarks/revisit_constellation/dataset/cases/test/case_0001

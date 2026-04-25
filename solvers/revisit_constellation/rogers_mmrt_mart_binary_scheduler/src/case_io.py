@@ -78,12 +78,19 @@ class RevisitCase:
 
 @dataclass(frozen=True)
 class SolverConfig:
+    run_policy: str = "smoke"
+    slot_library_mode: str = "circular_grid"
     sample_step_sec: float = 7200.0
     altitude_count: int = 1
     inclination_deg: tuple[float, ...] = (55.0, 97.6)
     raan_count: int = 4
     phase_count: int = 2
     max_slots: int = 16
+    rgt_resonance_numerator: int = 7
+    rgt_resonance_denominator: int = 1
+    rgt_reference_semi_major_axis_m: float = 11546320.0
+    rgt_reference_inclination_deg: float = 142.14
+    rgt_phase_constant_deg: float = 0.0
     geometry_worker_count: int = 1
     write_visibility_matrix: bool = True
     design_mode: str = "mmrt"
@@ -109,6 +116,9 @@ class SolverConfig:
     scheduler_max_exact_combinations: int = 20000
     scheduler_max_selected_windows: int = 200
     scheduler_min_transition_gap_sec: float = 0.0
+    scheduler_enable_slew_constraints: bool = True
+    scheduler_enable_resource_constraints: bool = True
+    scheduler_resource_margin_wh: float = 0.0
     local_repair_enabled: bool = True
     local_validation_geometry_sample_step_sec: float = 10.0
     local_battery_margin_wh: float = 0.0
@@ -338,12 +348,46 @@ def load_solver_config(config_dir: str | Path | None) -> SolverConfig:
     else:
         raise ValueError("inclination_deg must be numeric or a list of numbers")
     config = SolverConfig(
+        run_policy=str(payload.get("run_policy", SolverConfig.run_policy)),
+        slot_library_mode=str(
+            payload.get("slot_library_mode", SolverConfig.slot_library_mode)
+        ),
         sample_step_sec=float(payload.get("sample_step_sec", SolverConfig.sample_step_sec)),
         altitude_count=int(payload.get("altitude_count", SolverConfig.altitude_count)),
         inclination_deg=inclinations,
         raan_count=int(payload.get("raan_count", SolverConfig.raan_count)),
         phase_count=int(payload.get("phase_count", SolverConfig.phase_count)),
         max_slots=int(payload.get("max_slots", SolverConfig.max_slots)),
+        rgt_resonance_numerator=int(
+            payload.get(
+                "rgt_resonance_numerator",
+                SolverConfig.rgt_resonance_numerator,
+            )
+        ),
+        rgt_resonance_denominator=int(
+            payload.get(
+                "rgt_resonance_denominator",
+                SolverConfig.rgt_resonance_denominator,
+            )
+        ),
+        rgt_reference_semi_major_axis_m=float(
+            payload.get(
+                "rgt_reference_semi_major_axis_m",
+                SolverConfig.rgt_reference_semi_major_axis_m,
+            )
+        ),
+        rgt_reference_inclination_deg=float(
+            payload.get(
+                "rgt_reference_inclination_deg",
+                SolverConfig.rgt_reference_inclination_deg,
+            )
+        ),
+        rgt_phase_constant_deg=float(
+            payload.get(
+                "rgt_phase_constant_deg",
+                SolverConfig.rgt_phase_constant_deg,
+            )
+        ),
         geometry_worker_count=int(
             payload.get("geometry_worker_count", SolverConfig.geometry_worker_count)
         ),
@@ -453,6 +497,24 @@ def load_solver_config(config_dir: str | Path | None) -> SolverConfig:
                 SolverConfig.scheduler_min_transition_gap_sec,
             )
         ),
+        scheduler_enable_slew_constraints=bool(
+            payload.get(
+                "scheduler_enable_slew_constraints",
+                SolverConfig.scheduler_enable_slew_constraints,
+            )
+        ),
+        scheduler_enable_resource_constraints=bool(
+            payload.get(
+                "scheduler_enable_resource_constraints",
+                SolverConfig.scheduler_enable_resource_constraints,
+            )
+        ),
+        scheduler_resource_margin_wh=float(
+            payload.get(
+                "scheduler_resource_margin_wh",
+                SolverConfig.scheduler_resource_margin_wh,
+            )
+        ),
         local_repair_enabled=bool(
             payload.get("local_repair_enabled", SolverConfig.local_repair_enabled)
         ),
@@ -469,12 +531,27 @@ def load_solver_config(config_dir: str | Path | None) -> SolverConfig:
     )
     if config.sample_step_sec <= 0.0:
         raise ValueError("sample_step_sec must be positive")
+    if config.run_policy not in {"smoke", "bounded", "fair_reproduction"}:
+        raise ValueError("run_policy must be one of smoke, bounded, fair_reproduction")
+    if config.slot_library_mode not in {"circular_grid", "rgt_apc", "heterogeneous"}:
+        raise ValueError(
+            "slot_library_mode must be one of circular_grid, rgt_apc, heterogeneous"
+        )
     if config.altitude_count <= 0:
         raise ValueError("altitude_count must be positive")
     if config.raan_count <= 0 or config.phase_count <= 0:
         raise ValueError("raan_count and phase_count must be positive")
     if config.max_slots <= 0:
         raise ValueError("max_slots must be positive")
+    if config.rgt_resonance_numerator <= 0 or config.rgt_resonance_denominator <= 0:
+        raise ValueError("RGT resonance numerator and denominator must be positive")
+    if config.rgt_reference_semi_major_axis_m <= brahe.R_EARTH:
+        raise ValueError("rgt_reference_semi_major_axis_m must exceed Earth radius")
+    if (
+        config.rgt_reference_inclination_deg < 0.0
+        or config.rgt_reference_inclination_deg > 180.0
+    ):
+        raise ValueError("rgt_reference_inclination_deg must be within [0, 180]")
     if config.geometry_worker_count <= 0:
         raise ValueError("geometry_worker_count must be positive")
     if not config.inclination_deg:
@@ -525,6 +602,8 @@ def load_solver_config(config_dir: str | Path | None) -> SolverConfig:
         raise ValueError("scheduler_max_selected_windows must be positive")
     if config.scheduler_min_transition_gap_sec < 0.0:
         raise ValueError("scheduler_min_transition_gap_sec must be non-negative")
+    if config.scheduler_resource_margin_wh < 0.0:
+        raise ValueError("scheduler_resource_margin_wh must be non-negative")
     if config.local_validation_geometry_sample_step_sec <= 0.0:
         raise ValueError("local_validation_geometry_sample_step_sec must be positive")
     if config.local_battery_margin_wh < 0.0:
