@@ -48,6 +48,7 @@ from milp_model import (  # noqa: E402
     build_milp,
     solve_greedy_heuristic,
     solve_milp,
+    solve_with_ortools,
 )
 from repair import repair_solution  # noqa: E402
 from pruning import (  # noqa: E402
@@ -1781,6 +1782,39 @@ class TestGreedyHeuristic:
 
 
 class TestSolveMILP:
+    def test_ortools_exact_suppresses_redundant_observation(self):
+        pytest.importorskip("ortools.sat.python.cp_model")
+
+        sat = _satellite()
+        target = _target()
+        mission = _mission()
+        config = {"optimization": {"backend": "ortools", "time_limit_s": 30.0}}
+
+        c1 = _candidate(start_offset_s=0, end_offset_s=10)
+        c2 = _candidate(start_offset_s=100, end_offset_s=110)
+        redundant = _candidate(target_id="unused", start_offset_s=200, end_offset_s=210)
+        model = build_milp(
+            [c1, c2, redundant],
+            [_pair(c1, c2, target_id="t1", q_pair=0.9)],
+            [],
+            {"t1": target},
+            {"sat_test": sat},
+            mission,
+            config,
+            prebuilt_conflicts={},
+        )
+
+        selected, objective_value, stats = solve_with_ortools(model, time_limit_s=30.0)
+        evaluation = _evaluate_solution(model, selected)
+
+        assert selected == [0, 1]
+        assert objective_value == pytest.approx(model.coverage_bonus + 0.9)
+        assert evaluation["covered_targets"] == 1
+        assert evaluation["best_target_quality_sum"] == pytest.approx(0.9)
+        assert stats["tie_break_status"] in {"OPTIMAL", "FEASIBLE"}
+        assert stats["tie_break_selected_observations"] == 2
+        assert stats["is_exact_backend"] is True
+
     def test_exact_backend_missing_fails_hard(self, monkeypatch):
         sat = _satellite()
         target = _target()

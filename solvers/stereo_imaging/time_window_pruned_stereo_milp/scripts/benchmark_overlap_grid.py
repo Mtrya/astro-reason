@@ -2,19 +2,13 @@
 
 from __future__ import annotations
 
+import argparse
 import json
 import sys
 import time
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
-
-from candidates import generate_candidates
-from case_io import load_case, load_solver_config
-from products import enumerate_products
-
-REPO_ROOT = Path(__file__).resolve().parents[4]
-CASES_ROOT = REPO_ROOT / "benchmarks" / "stereo_imaging" / "dataset" / "cases" / "test"
 
 CONFIGS = [
     {"id": "8x3", "overlap_grid_angles": 8, "overlap_grid_radii": 3},
@@ -24,11 +18,13 @@ CONFIGS = [
 ]
 
 
-def run(case_name: str):
-    case_dir = CASES_ROOT / case_name
-    if not case_dir.exists():
-        print(f"Case not found: {case_dir}")
-        return
+def run(case_dir: Path):
+    from candidates import generate_candidates
+    from case_io import load_case, load_solver_config
+    from products import enumerate_products
+
+    if not case_dir.is_dir():
+        raise FileNotFoundError(f"case directory not found: {case_dir}")
 
     mission, satellites, targets = load_case(case_dir)
     base_cfg = load_solver_config(None)
@@ -59,7 +55,8 @@ def run(case_name: str):
         })
 
     out = {
-        "case": case_name,
+        "case": case_dir.name,
+        "case_dir": str(case_dir),
         "candidates": len(candidates),
         "results": results,
     }
@@ -67,5 +64,7 @@ def run(case_name: str):
 
 
 if __name__ == "__main__":
-    case = sys.argv[1] if len(sys.argv) > 1 else "case_0001"
-    run(case)
+    parser = argparse.ArgumentParser(description="Benchmark overlap grid settings for one explicit case directory.")
+    parser.add_argument("case_dir")
+    parsed = parser.parse_args()
+    run(Path(parsed.case_dir).resolve())

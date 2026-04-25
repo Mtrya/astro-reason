@@ -1,14 +1,15 @@
-"""Validation matrix for the stereo MILP solver.
+"""Solver-local validation matrix for the stereo MILP solver.
 
-Runs the solver across multiple configs and cases, invokes the benchmark
-verifier, and writes a structured JSON report.
+Runs the solver across multiple configs and caller-provided cases, then records
+solver-local status metrics. Official benchmark verification is owned by
+experiments/main_solver.
 """
 
 from __future__ import annotations
 
+import argparse
 import json
 import subprocess
-import sys
 import time
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
@@ -16,7 +17,6 @@ from typing import Any
 
 REPO_ROOT = Path(__file__).resolve().parents[4]
 SOLVER_DIR = REPO_ROOT / "solvers" / "stereo_imaging" / "time_window_pruned_stereo_milp"
-CASES_ROOT = REPO_ROOT / "benchmarks" / "stereo_imaging" / "dataset" / "cases" / "test"
 
 CONFIG_MATRIX: list[dict[str, Any]] = [
     {
@@ -46,20 +46,11 @@ CONFIG_MATRIX: list[dict[str, Any]] = [
     },
 ]
 
-CASES = [
-    "case_0001",
-    "case_0002",
-    "case_0003",
-    "case_0004",
-    "case_0005",
-]
-
-
 @dataclass
 class RunResult:
     case: str
     config_id: str
-    valid: bool
+    solved: bool
     coverage_ratio: float
     normalized_quality: float
     selected_observations: int
@@ -121,45 +112,41 @@ def _run_solver(case_dir: Path, config_payload: dict[str, Any], solution_dir: Pa
     return status
 
 
-def _run_verifier(case_dir: Path, solution_path: Path) -> dict[str, Any]:
-    proc = subprocess.run(
-        [
-            sys.executable,
-            "-m",
-            "benchmarks.stereo_imaging.verifier.run",
-            str(case_dir),
-            str(solution_path),
-            "--compact",
-        ],
-        cwd=REPO_ROOT,
-        capture_output=True,
-        text=True,
-    )
-    if proc.returncode not in {0, 1}:
-        return {"error": f"verifier failed: {proc.stderr}"}
-    try:
-        return json.loads(proc.stdout)
-    except json.JSONDecodeError as exc:
-        return {"error": f"verifier output not JSON: {exc}"}
-
-
 def main() -> int:
     from datetime import datetime, timezone
+
+    parser = argparse.ArgumentParser(description="Run solver-local config/case matrix and record status metrics.")
+    parser.add_argument(
+        "--case-dir",
+        action="append",
+        required=True,
+        help="Case directory to solve. Repeat for multiple cases.",
+    )
+    parser.add_argument(
+        "--config",
+        action="append",
+        choices=[cfg["id"] for cfg in CONFIG_MATRIX],
+        help="Config id to run. Repeat to select multiple configs. Defaults to all configs.",
+    )
+    parser.add_argument("--output", default=str(SOLVER_DIR / "VALIDATION_REPORT.json"))
+    args = parser.parse_args()
+
+    selected_configs = [cfg for cfg in CONFIG_MATRIX if not args.config or cfg["id"] in set(args.config)]
+    case_dirs = [Path(value).resolve() for value in args.case_dir]
 
     report = ValidationReport(
         generated_at=datetime.now(timezone.utc).isoformat(),
         solver_dir=str(SOLVER_DIR),
-        cases=CASES,
-        configs=[c["id"] for c in CONFIG_MATRIX],
+        cases=[str(path) for path in case_dirs],
+        configs=[c["id"] for c in selected_configs],
     )
 
-    for case in CASES:
-        case_dir = CASES_ROOT / case
-        if not case_dir.exists():
-            print(f"SKIP: case not found {case_dir}")
-            continue
+    for case_dir in case_dirs:
+        if not case_dir.is_dir():
+            raise FileNotFoundError(f"case directory not found: {case_dir}")
+        case = case_dir.name
 
-        for cfg in CONFIG_MATRIX:
+        for cfg in selected_configs:
             config_id = cfg["id"]
             print(f"Running {case} / {config_id} ...", end=" ", flush=True)
             solution_dir = Path("/tmp") / "stereo_validation" / case / config_id
@@ -175,7 +162,7 @@ def main() -> int:
                     RunResult(
                         case=case,
                         config_id=config_id,
-                        valid=False,
+                        solved=False,
                         coverage_ratio=0.0,
                         normalized_quality=0.0,
                         selected_observations=0,
@@ -193,43 +180,16 @@ def main() -> int:
                 )
                 continue
 
-            solution_path = solution_dir / "solution.json"
-            verifier = _run_verifier(case_dir, solution_path)
-            if "error" in verifier:
-                print(f"VERIFIER_ERROR: {verifier['error']}")
-                report.results.append(
-                    RunResult(
-                        case=case,
-                        config_id=config_id,
-                        valid=False,
-                        coverage_ratio=0.0,
-                        normalized_quality=0.0,
-                        selected_observations=0,
-                        total_pairs=0,
-                        valid_pairs=0,
-                        total_tris=0,
-                        valid_tris=0,
-                        pre_candidates=0,
-                        post_candidates=0,
-                        backend_used="unknown",
-                        total_runtime_s=status.get("elapsed", 0.0),
-                        solver_status="error",
-                        error=verifier["error"],
-                    )
-                )
-                continue
-
             solve_summary = status.get("solve_summary", {})
             product_counts = status.get("product_counts", {})
             pruning_summary = status.get("pruning_summary", {})
-            metrics = verifier.get("metrics", {})
 
             result = RunResult(
                 case=case,
                 config_id=config_id,
-                valid=verifier.get("valid", False),
-                coverage_ratio=metrics.get("coverage_ratio", 0.0),
-                normalized_quality=metrics.get("normalized_quality", 0.0),
+                solved=status.get("status") == "solved",
+                coverage_ratio=solve_summary.get("coverage_ratio", 0.0),
+                normalized_quality=solve_summary.get("normalized_quality", 0.0),
                 selected_observations=solve_summary.get("selected_observations", 0),
                 total_pairs=product_counts.get("total_pairs", 0),
                 valid_pairs=product_counts.get("valid_pairs", 0),
@@ -243,7 +203,7 @@ def main() -> int:
             )
             report.results.append(result)
             print(
-                f"valid={result.valid} "
+                f"solved={result.solved} "
                 f"candidates={result.pre_candidates}/{result.post_candidates} "
                 f"pairs={result.valid_pairs}/{result.total_pairs} "
                 f"tris={result.valid_tris}/{result.total_tris} "
@@ -251,7 +211,7 @@ def main() -> int:
                 f"time={result.total_runtime_s:.1f}s"
             )
 
-    report_path = SOLVER_DIR / "VALIDATION_REPORT.json"
+    report_path = Path(args.output).resolve()
     with report_path.open("w", encoding="utf-8") as fh:
         json.dump(report.as_dict(), fh, indent=2)
     print(f"\nWrote validation report to {report_path}")

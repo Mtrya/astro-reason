@@ -226,7 +226,7 @@ If raw pair/tri selection looks strong but repair removes many observations, ins
 - Access intervals are found with coarse time-step search rather than exact SGP4 root-finding; minor drift relative to exact propagation is expected.
 - Solar elevation and LOS checks are sampled at the observation midpoint.
 - Overlap fraction is estimated with a deterministic polar grid rather than Monte Carlo; values may differ by a few percent from the verifier.
-- The OR-Tools MILP optimizes coverage and best-per-target quality but does not yet penalize redundant feasible observations that do not improve the benchmark score.
+- The OR-Tools MILP uses a secondary deterministic tie-break to remove redundant feasible observations after coverage and best-per-target quality are fixed.
 - If no valid stereo pairs or tri-stereo sets exist for a target (e.g. only one satellite accesses it, or slew time exceeds the gap between consecutive intervals), that target will remain uncovered.
 - Exact MILP requires solver-local `ortools`; missing OR-Tools is reported as an error unless `optimization.backend: greedy` is explicitly selected.
 

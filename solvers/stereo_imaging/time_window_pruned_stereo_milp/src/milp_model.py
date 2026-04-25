@@ -365,7 +365,8 @@ def solve_with_ortools(model: AbstractMILP, time_limit_s: float) -> tuple[list[i
         q = int(round(tv["tri"].q_tri * _QUALITY_SCALE))
         obj_terms.append(q * sz[k])
 
-    cp.Maximize(cp_model.LinearExpr.Sum(obj_terms))
+    primary_objective = cp_model.LinearExpr.Sum(obj_terms)
+    cp.Maximize(primary_objective)
 
     solver = cp_model.CpSolver()
     solver.parameters.max_time_in_seconds = time_limit_s
@@ -373,19 +374,51 @@ def solve_with_ortools(model: AbstractMILP, time_limit_s: float) -> tuple[list[i
 
     start = time.perf_counter()
     status = solver.Solve(cp)
-    elapsed = time.perf_counter() - start
+    primary_elapsed = time.perf_counter() - start
     status_name = solver.StatusName(status)
 
     if status not in (cp_model.OPTIMAL, cp_model.FEASIBLE):
         raise RuntimeError(f"OR-Tools solve failed with status {status_name}")
 
-    selected = [i for i in range(n_obs) if solver.Value(x[i]) == 1]
-    obj_value = solver.ObjectiveValue() / _QUALITY_SCALE
+    primary_status_name = status_name
+    primary_objective_value = int(round(solver.ObjectiveValue()))
+    primary_selected = [i for i in range(n_obs) if solver.Value(x[i]) == 1]
+    selected = list(primary_selected)
+    tie_break_status_name = "NOT_RUN"
+    tie_break_elapsed = 0.0
+
+    # Secondary lexicographic pass: preserve benchmark coverage/quality exactly,
+    # then minimize selected observations so free feasible actions are suppressed.
+    if n_obs > 0:
+        cp.Add(primary_objective == primary_objective_value)
+        cp.Minimize(cp_model.LinearExpr.Sum(x))
+        remaining_time_s = max(0.01, time_limit_s - primary_elapsed)
+        solver.parameters.max_time_in_seconds = remaining_time_s
+        tie_start = time.perf_counter()
+        tie_status = solver.Solve(cp)
+        tie_break_elapsed = time.perf_counter() - tie_start
+        tie_break_status_name = solver.StatusName(tie_status)
+        if tie_status in (cp_model.OPTIMAL, cp_model.FEASIBLE):
+            selected = [i for i in range(n_obs) if solver.Value(x[i]) == 1]
+            if status == cp_model.OPTIMAL:
+                status = tie_status
+                status_name = tie_break_status_name
+
+    elapsed = primary_elapsed + tie_break_elapsed
+    obj_value = primary_objective_value / _QUALITY_SCALE
 
     stats = {
         "status": status_name,
+        "primary_status": primary_status_name,
         "objective_value": obj_value,
         "solve_time_s": elapsed,
+        "primary_solve_time_s": primary_elapsed,
+        "tie_break_status": tie_break_status_name,
+        "tie_break_solve_time_s": tie_break_elapsed,
+        "tie_break_primary_objective_value": primary_objective_value,
+        "tie_break_primary_selected_observations": len(primary_selected),
+        "tie_break_selected_observations": len(selected),
+        "tie_break_removed_observations": max(0, len(primary_selected) - len(selected)),
         "optimality_gap": 0.0 if status == cp_model.OPTIMAL else None,
         "is_exact_backend": True,
         "is_heuristic": False,

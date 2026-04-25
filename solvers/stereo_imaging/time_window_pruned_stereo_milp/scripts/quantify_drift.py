@@ -2,17 +2,12 @@
 
 from __future__ import annotations
 
+import argparse
 import json
 import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
-
-from candidates import find_access_intervals
-from case_io import load_case
-
-REPO_ROOT = Path(__file__).resolve().parents[4]
-CASES_ROOT = REPO_ROOT / "benchmarks" / "stereo_imaging" / "dataset" / "cases" / "test"
 
 
 def _intervals_to_dict(intervals):
@@ -22,11 +17,12 @@ def _intervals_to_dict(intervals):
     ]
 
 
-def run(case_name: str):
-    case_dir = CASES_ROOT / case_name
-    if not case_dir.exists():
-        print(f"Case not found: {case_dir}")
-        return
+def run(case_dir: Path):
+    from candidates import find_access_intervals
+    from case_io import load_case
+
+    if not case_dir.is_dir():
+        raise FileNotFoundError(f"case directory not found: {case_dir}")
 
     mission, satellites, targets = load_case(case_dir)
 
@@ -55,7 +51,8 @@ def run(case_name: str):
             })
 
     out = {
-        "case": case_name,
+        "case": case_dir.name,
+        "case_dir": str(case_dir),
         "summary": {
             "pairs_checked": len(satellites) * len(targets),
             "pairs_with_access": len(results),
@@ -68,5 +65,7 @@ def run(case_name: str):
 
 
 if __name__ == "__main__":
-    case = sys.argv[1] if len(sys.argv) > 1 else "case_0001"
-    run(case)
+    parser = argparse.ArgumentParser(description="Compare solver-local access intervals for one explicit case directory.")
+    parser.add_argument("case_dir")
+    parsed = parser.parse_args()
+    run(Path(parsed.case_dir).resolve())

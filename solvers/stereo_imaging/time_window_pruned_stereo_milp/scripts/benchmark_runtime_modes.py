@@ -1,4 +1,4 @@
-"""Benchmark runtime modes across the public stereo_imaging test cases."""
+"""Benchmark solver runtime modes across caller-provided cases."""
 
 from __future__ import annotations
 
@@ -16,7 +16,6 @@ import yaml
 
 REPO_ROOT = Path(__file__).resolve().parents[4]
 DEFAULT_SOLVER_DIR = REPO_ROOT / "solvers" / "stereo_imaging" / "time_window_pruned_stereo_milp"
-CASES_ROOT = REPO_ROOT / "benchmarks" / "stereo_imaging" / "dataset" / "cases" / "test"
 
 RUNTIME_PAYLOADS: dict[str, dict[str, Any]] = {
     "fast": {
@@ -112,27 +111,34 @@ def _run_case(solver_dir: Path, case_dir: Path, mode: str) -> dict[str, Any]:
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description="Benchmark fast/thorough runtime modes on public stereo cases.")
+    parser = argparse.ArgumentParser(description="Benchmark fast/thorough runtime modes on explicit stereo case directories.")
     parser.add_argument("--solver-dir", default=str(DEFAULT_SOLVER_DIR))
     parser.add_argument("--output", default="")
-    parser.add_argument("--cases", nargs="*", default=sorted(p.name for p in CASES_ROOT.iterdir() if p.is_dir()))
+    parser.add_argument(
+        "--case-dir",
+        action="append",
+        required=True,
+        help="Case directory to run. Repeat for multiple cases.",
+    )
     parser.add_argument("--modes", nargs="*", default=["fast", "thorough"])
     args = parser.parse_args()
 
     solver_dir = Path(args.solver_dir).resolve()
+    case_dirs = [Path(value).resolve() for value in args.case_dir]
     results = []
-    for case_name in args.cases:
-        case_dir = CASES_ROOT / case_name
+    for case_dir in case_dirs:
+        if not case_dir.is_dir():
+            raise FileNotFoundError(f"case directory not found: {case_dir}")
         for mode in args.modes:
             if mode not in RUNTIME_PAYLOADS:
                 raise ValueError(f"unsupported mode: {mode}")
-            print(f"running {case_name} / {mode} with solver={solver_dir}")
+            print(f"running {case_dir} / {mode} with solver={solver_dir}")
             results.append(_run_case(solver_dir, case_dir, mode))
 
     payload = {
         "generated_at": datetime.now(timezone.utc).isoformat(),
         "solver_dir": str(solver_dir),
-        "cases": args.cases,
+        "case_dirs": [str(path) for path in case_dirs],
         "modes": args.modes,
         "results": results,
     }
