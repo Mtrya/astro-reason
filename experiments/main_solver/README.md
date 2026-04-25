@@ -23,7 +23,8 @@ experiments/main_solver/
 ```
 
 Each solver profile carries the benchmark name, case list or reported metrics,
-and executable verifier command when the solver is runnable.
+executable verifier command when the solver is runnable, and optional
+solver-owned config written to each job's `config/config.yaml`.
 
 ## Evidence Types
 
@@ -81,3 +82,21 @@ rows include reported metrics and provenance instead of execution logs.
 
 Benchmark verifiers are consumed as executables. The runner does not import
 benchmark-internal functions, classes, or modules.
+
+## AEOSSP Fair Profiles
+
+The AEOSSP standard Greedy-LNS profile uses `total_time_budget_s: 300` with
+quality-preserving search enabled: eight restarts, stochastic component
+ordering with a fixed seed, bounded exact reinsertion, battery guardrails,
+satellite-scoped candidate workers, and deterministic restart-wave local-search
+workers. Each connected-component descent remains sequential, but independent
+restart starts can run in process-pool waves.
+
+The AEOSSP standard MWIS profile uses `total_time_budget_s: 300` as the public
+fair-run envelope while keeping the stronger refinement profile enabled:
+sixteen local passes, population size eight, twenty-four recombination rounds,
+satellite-scoped candidate and graph workers, and the internal reduction-backed
+backend. Candidate generation, graph build, reduction, search, and repair remain
+reported separately so the status artifacts show how much budget reached each
+solver stage. A run longer than the nominal envelope should be interpreted with
+the status timing and repair-impact artifacts rather than by wall clock alone.

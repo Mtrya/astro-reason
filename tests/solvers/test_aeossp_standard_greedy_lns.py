@@ -1005,18 +1005,80 @@ def test_local_search_slices_budget_across_configured_starts(monkeypatch) -> Non
     ]
 
 
+def test_local_search_parallel_restart_waves_are_deterministic(monkeypatch) -> None:
+    a = _candidate("a", satellite_id="sat_a", task_id="task_a", start_offset_s=10, end_offset_s=20, weight=5.0)
+    case = _case_for_candidates([a])
+    executor_workers: list[int] = []
+
+    class FakeFuture:
+        def __init__(self, result):
+            self._result = result
+
+        def result(self):
+            return self._result
+
+    class FakeExecutor:
+        def __init__(self, max_workers: int):
+            executor_workers.append(max_workers)
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, exc_type, exc, tb):
+            return False
+
+        def submit(self, fn, *args, **kwargs):
+            return FakeFuture(fn(*args, **kwargs))
+
+    monkeypatch.setattr("solvers.aeossp_standard.greedy_lns.src.local_search.ProcessPoolExecutor", FakeExecutor)
+    monkeypatch.setattr("solvers.aeossp_standard.greedy_lns.src.local_search.build_component_index", lambda *args, **kwargs: type("Idx", (), {
+        "components": [],
+        "stats": type("Stats", (), {"component_count": 0, "largest_component_size": 0})(),
+    })())
+    monkeypatch.setattr("solvers.aeossp_standard.greedy_lns.src.local_search.PropagationContext", lambda *args, **kwargs: None)
+    monkeypatch.setattr("solvers.aeossp_standard.greedy_lns.src.local_search.TransitionVectorCache", lambda *args, **kwargs: None)
+
+    config = LocalSearchConfig(
+        max_local_search_iterations=1,
+        max_local_search_time_s=12.0,
+        restart_count=3,
+        local_search_workers=2,
+        random_seed=42,
+        stochastic_ordering=True,
+    )
+    result1 = local_search(case, [a], [a], config=config)
+    result2 = local_search(case, [a], [a], config=config)
+
+    assert executor_workers == [2, 2]
+    assert result1.stats.run_policy["parallel_restart_policy"] == "process_pool_restart_waves"
+    assert result1.stats.run_policy["effective_local_search_workers"] == 2
+    assert result1.stats.run_policy["per_start_time_slice_s"] == pytest.approx(3.0)
+    assert result1.stats.restarts_executed == 3
+    assert [start.start_index for start in result1.stats.starts] == [0, 1, 2, 3]
+    assert [start.perturbation_removals for start in result1.stats.starts] == [0, 1, 1, 1]
+    assert [item.candidate_id for item in result1.candidates] == ["a"]
+    assert [item.candidate_id for item in result1.candidates] == [
+        item.candidate_id for item in result2.candidates
+    ]
+    assert [start.seed for start in result1.stats.starts] == [
+        start.seed for start in result2.stats.starts
+    ]
+
+
 def test_local_search_config_parses_exact_reinsertion_knobs() -> None:
     config = LocalSearchConfig.from_mapping(
         {
             "enable_exact_reinsertion": True,
             "max_exact_component_size": 4,
             "exact_subproblem_timeout_s": 0.25,
+            "local_search_workers": 3,
         }
     )
 
     assert config.enable_exact_reinsertion
     assert config.max_exact_component_size == 4
     assert config.exact_subproblem_timeout_s == pytest.approx(0.25)
+    assert config.local_search_workers == 3
 
 
 def test_battery_guard_config_parses_flat_knobs() -> None:
@@ -1392,6 +1454,7 @@ def test_status_payload_reports_execution_model_and_timing_schema(tmp_path: Path
         solution_path=tmp_path / "solution.json",
         case=case,
         candidate_config=CandidateConfig(candidate_workers=2),
+        local_search_config=LocalSearchConfig(local_search_workers=2, restart_count=2),
         candidate_summary=CandidateSummary(),
         insertion_result=DictPayload({"selected_count": 0}),
         local_search_result=DictPayload({
@@ -1458,6 +1521,10 @@ def test_status_payload_reports_execution_model_and_timing_schema(tmp_path: Path
     assert status["execution_model"]["candidate_generation"]["parallelism_scope"] == "satellite"
     assert status["execution_model"]["candidate_generation"]["configured_workers"] == 2
     assert status["execution_model"]["candidate_generation"]["effective_workers"] == 2
+    assert status["execution_model"]["search"]["model"] == "process_pool_python"
+    assert status["execution_model"]["search"]["parallelism_scope"] == "restart_waves"
+    assert status["execution_model"]["search"]["configured_workers"] == 2
+    assert status["execution_model"]["search"]["effective_workers"] == 2
     assert status["execution_model"]["search"]["budget_field"] == "max_local_search_time_s"
     assert status["execution_model"]["graph_build"]["model"] == "not_applicable"
     assert "candidate_precompute" in status
