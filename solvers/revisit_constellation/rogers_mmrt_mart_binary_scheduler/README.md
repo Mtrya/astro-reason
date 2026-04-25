@@ -1,17 +1,24 @@
 # Rogers MMRT/MART Binary Scheduler
 
-This is the Phase 1 scaffold for a reproduced `revisit_constellation` solver based on Rogers MMRT/MART constellation-design models followed by a later binary observation scheduler.
+This is the Phase 2 scaffold for a reproduced `revisit_constellation` solver based on Rogers MMRT/MART constellation-design models followed by a later binary observation scheduler.
 
-The current implementation is intentionally limited to standalone preprocessing:
+The current implementation is intentionally limited to standalone design preprocessing:
 
 - parse public `assets.json` and `mission.json`
 - build a deterministic finite circular-orbit slot library
 - propagate slots with Brahe J2 dynamics
 - generate a sparse visibility matrix `V[t,j,p]`
-- write an empty benchmark-shaped `solution.json`
+- select design slots with bounded MMRT, MART, threshold-first, or hybrid policies
+- write a benchmark-shaped `solution.json` with selected satellites and no actions
 - write `status.json` and `model_prep/*` summaries
 
-It does not import benchmark internals and does not implement MMRT/MART optimization or scheduling yet.
+It does not import benchmark internals and does not implement observation scheduling yet.
+
+The design models operate on access timelines, following Rogers' MMRT/MART layer before
+the later Cho-style action scheduler. If PuLP is available and the model is within
+configured size limits, the solver can use it for bounded MILP design models. Otherwise
+it falls back deterministically to exact enumeration for tiny cases and greedy objective
+matching for larger cases.
 
 ## Contract
 
@@ -27,6 +34,8 @@ It does not import benchmark internals and does not implement MMRT/MART optimiza
 - `model_prep/slots.json`
 - `model_prep/time_grid.json`
 - `model_prep/visibility_matrix.json`
+- `debug/design_model_summary.json`
+- `debug/selected_slots.json`
 
 Optional configuration can be provided with `config.yaml`, `config.yml`, or `config.json` in the config directory. Supported keys are:
 
@@ -37,3 +46,15 @@ Optional configuration can be provided with `config.yaml`, `config.yml`, or `con
 - `phase_count` (default `2`)
 - `max_slots` (default `16`)
 - `write_visibility_matrix`
+- `design_mode` (`hybrid`, `threshold_first`, `mmrt`, or `mart`)
+- `design_backend` (`auto`, `pulp`, or `fallback`)
+- `design_threshold_metric` (`mmrt` or `mart`)
+- `design_satellite_count`
+- `design_max_selected_slots`
+- `design_time_limit_sec`
+- `design_max_backend_slots`
+- `design_max_backend_time_samples`
+- `design_max_backend_variables`
+- `design_max_backend_constraints`
+- `fallback_exhaustive_max_combinations`
+- `debug`

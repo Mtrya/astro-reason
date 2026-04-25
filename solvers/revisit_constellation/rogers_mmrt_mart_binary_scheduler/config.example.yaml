@@ -5,3 +5,15 @@ raan_count: 4
 phase_count: 2
 max_slots: 16
 write_visibility_matrix: true
+design_mode: hybrid
+design_backend: auto
+design_threshold_metric: mmrt
+design_satellite_count:
+design_max_selected_slots: 4
+design_time_limit_sec: 10
+design_max_backend_slots: 40
+design_max_backend_time_samples: 200
+design_max_backend_variables: 20000
+design_max_backend_constraints: 50000
+fallback_exhaustive_max_combinations: 20000
+debug: false

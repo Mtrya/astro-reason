@@ -85,6 +85,18 @@ class SolverConfig:
     phase_count: int = 2
     max_slots: int = 16
     write_visibility_matrix: bool = True
+    design_mode: str = "hybrid"
+    design_backend: str = "auto"
+    design_threshold_metric: str = "mmrt"
+    design_satellite_count: int | None = None
+    design_max_selected_slots: int = 4
+    design_time_limit_sec: float = 10.0
+    design_max_backend_slots: int = 40
+    design_max_backend_time_samples: int = 200
+    design_max_backend_variables: int = 20000
+    design_max_backend_constraints: int = 50000
+    fallback_exhaustive_max_combinations: int = 20000
+    debug: bool = False
 
 
 def iso_z(value: datetime) -> str:
@@ -319,6 +331,50 @@ def load_solver_config(config_dir: str | Path | None) -> SolverConfig:
         write_visibility_matrix=bool(
             payload.get("write_visibility_matrix", SolverConfig.write_visibility_matrix)
         ),
+        design_mode=str(payload.get("design_mode", SolverConfig.design_mode)),
+        design_backend=str(payload.get("design_backend", SolverConfig.design_backend)),
+        design_threshold_metric=str(
+            payload.get("design_threshold_metric", SolverConfig.design_threshold_metric)
+        ),
+        design_satellite_count=(
+            None
+            if payload.get("design_satellite_count") is None
+            else int(payload["design_satellite_count"])
+        ),
+        design_max_selected_slots=int(
+            payload.get("design_max_selected_slots", SolverConfig.design_max_selected_slots)
+        ),
+        design_time_limit_sec=float(
+            payload.get("design_time_limit_sec", SolverConfig.design_time_limit_sec)
+        ),
+        design_max_backend_slots=int(
+            payload.get("design_max_backend_slots", SolverConfig.design_max_backend_slots)
+        ),
+        design_max_backend_time_samples=int(
+            payload.get(
+                "design_max_backend_time_samples",
+                SolverConfig.design_max_backend_time_samples,
+            )
+        ),
+        design_max_backend_variables=int(
+            payload.get(
+                "design_max_backend_variables",
+                SolverConfig.design_max_backend_variables,
+            )
+        ),
+        design_max_backend_constraints=int(
+            payload.get(
+                "design_max_backend_constraints",
+                SolverConfig.design_max_backend_constraints,
+            )
+        ),
+        fallback_exhaustive_max_combinations=int(
+            payload.get(
+                "fallback_exhaustive_max_combinations",
+                SolverConfig.fallback_exhaustive_max_combinations,
+            )
+        ),
+        debug=bool(payload.get("debug", SolverConfig.debug)),
     )
     if config.sample_step_sec <= 0.0:
         raise ValueError("sample_step_sec must be positive")
@@ -330,4 +386,26 @@ def load_solver_config(config_dir: str | Path | None) -> SolverConfig:
         raise ValueError("max_slots must be positive")
     if not config.inclination_deg:
         raise ValueError("at least one inclination is required")
+    if config.design_mode not in {"mmrt", "mart", "threshold_first", "hybrid"}:
+        raise ValueError("design_mode must be one of mmrt, mart, threshold_first, hybrid")
+    if config.design_backend not in {"auto", "pulp", "fallback"}:
+        raise ValueError("design_backend must be one of auto, pulp, fallback")
+    if config.design_threshold_metric not in {"mmrt", "mart"}:
+        raise ValueError("design_threshold_metric must be one of mmrt, mart")
+    if config.design_satellite_count is not None and config.design_satellite_count < 0:
+        raise ValueError("design_satellite_count must be non-negative when set")
+    if config.design_max_selected_slots < 0:
+        raise ValueError("design_max_selected_slots must be non-negative")
+    if config.design_time_limit_sec <= 0.0:
+        raise ValueError("design_time_limit_sec must be positive")
+    if config.design_max_backend_slots <= 0:
+        raise ValueError("design_max_backend_slots must be positive")
+    if config.design_max_backend_time_samples <= 0:
+        raise ValueError("design_max_backend_time_samples must be positive")
+    if config.design_max_backend_variables <= 0:
+        raise ValueError("design_max_backend_variables must be positive")
+    if config.design_max_backend_constraints <= 0:
+        raise ValueError("design_max_backend_constraints must be positive")
+    if config.fallback_exhaustive_max_combinations <= 0:
+        raise ValueError("fallback_exhaustive_max_combinations must be positive")
     return config

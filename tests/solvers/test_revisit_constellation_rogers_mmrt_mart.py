@@ -15,6 +15,10 @@ from solvers.revisit_constellation.rogers_mmrt_mart_binary_scheduler.src.case_io
     load_case,
     parse_iso_z,
 )
+from solvers.revisit_constellation.rogers_mmrt_mart_binary_scheduler.src.design_models import (  # noqa: E402
+    DesignProblem,
+    select_design_slots,
+)
 from solvers.revisit_constellation.rogers_mmrt_mart_binary_scheduler.src.slot_library import (  # noqa: E402
     build_slot_library,
 )
@@ -25,6 +29,7 @@ from solvers.revisit_constellation.rogers_mmrt_mart_binary_scheduler.src.time_gr
     build_time_grid,
 )
 from solvers.revisit_constellation.rogers_mmrt_mart_binary_scheduler.src.visibility_matrix import (  # noqa: E402
+    VisibilityMatrix,
     build_visibility_matrix,
 )
 
@@ -49,6 +54,43 @@ def _small_config() -> SolverConfig:
         phase_count=2,
         max_slots=3,
         write_visibility_matrix=True,
+    )
+
+
+def _design_config(
+    *,
+    mode: str,
+    satellite_count: int | None = 1,
+    max_selected: int = 2,
+    exhaustive_max: int = 100,
+    max_backend_slots: int = 40,
+) -> SolverConfig:
+    return SolverConfig(
+        design_mode=mode,
+        design_backend="auto",
+        design_satellite_count=satellite_count,
+        design_max_selected_slots=max_selected,
+        design_max_backend_slots=max_backend_slots,
+        fallback_exhaustive_max_combinations=exhaustive_max,
+    )
+
+
+def _problem(
+    *,
+    shape: tuple[int, int, int],
+    visible: set[tuple[int, int, int]],
+    expected_hours: tuple[float, ...] = (8.0,),
+    fixed_count: int | None = 1,
+    max_selected: int = 2,
+) -> DesignProblem:
+    return DesignProblem(
+        matrix=VisibilityMatrix(shape=shape, visible=frozenset(visible)),
+        slot_ids=tuple(f"slot_{index}" for index in range(shape[1])),
+        target_ids=tuple(f"target_{index}" for index in range(shape[2])),
+        sample_step_sec=3600.0,
+        expected_revisit_hours=expected_hours,
+        max_selected_slots=max_selected,
+        fixed_satellite_count=fixed_count,
     )
 
 
@@ -115,3 +157,87 @@ def test_empty_solution_output_schema(tmp_path: Path) -> None:
 
     assert payload == {"satellites": [], "actions": []}
 
+
+def test_mmrt_design_selects_slot_with_smallest_worst_gap() -> None:
+    problem = _problem(
+        shape=(6, 2, 1),
+        visible={
+            (2, 0, 0),
+            (1, 1, 0),
+            (4, 1, 0),
+        },
+    )
+
+    result = select_design_slots(problem, _design_config(mode="mmrt"))
+
+    assert result.selected_slot_ids == ("slot_1",)
+    assert result.objective["max_gap_samples"] == 2
+
+
+def test_mart_design_selects_slot_with_smallest_average_gap() -> None:
+    problem = _problem(
+        shape=(8, 2, 1),
+        visible={
+            (3, 0, 0),
+            (1, 1, 0),
+            (3, 1, 0),
+            (5, 1, 0),
+        },
+    )
+
+    result = select_design_slots(problem, _design_config(mode="mart"))
+
+    assert result.selected_slot_ids == ("slot_1",)
+    assert result.objective["sum_mean_gap_samples"] == 1.25
+
+
+def test_threshold_first_finds_fewest_slots_satisfying_expected_gap() -> None:
+    problem = _problem(
+        shape=(6, 3, 1),
+        visible={
+            (2, 0, 0),
+            (4, 1, 0),
+            (0, 2, 0),
+        },
+        expected_hours=(2.0,),
+        fixed_count=None,
+        max_selected=3,
+    )
+    config = _design_config(
+        mode="threshold_first",
+        satellite_count=None,
+        max_selected=3,
+    )
+
+    result = select_design_slots(problem, config)
+
+    assert result.selected_slot_ids == ("slot_0", "slot_1")
+    assert result.objective["threshold_satisfied"] is True
+    assert result.objective["selected_count"] == 2
+
+
+def test_design_fallback_trigger_is_deterministic() -> None:
+    problem = _problem(
+        shape=(5, 3, 1),
+        visible={
+            (1, 0, 0),
+            (3, 1, 0),
+            (2, 2, 0),
+        },
+        fixed_count=1,
+        max_selected=1,
+    )
+    config = _design_config(
+        mode="mmrt",
+        satellite_count=1,
+        max_selected=1,
+        max_backend_slots=1,
+    )
+
+    first = select_design_slots(problem, config)
+    second = select_design_slots(problem, config)
+
+    assert first.backend == "fallback"
+    assert first.fallback_reason is not None
+    assert "slot_bound_exceeded" in first.fallback_reason
+    assert first.selected_slot_ids == second.selected_slot_ids

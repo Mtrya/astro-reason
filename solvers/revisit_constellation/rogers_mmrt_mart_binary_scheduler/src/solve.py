@@ -1,4 +1,4 @@
-"""Phase 1 entrypoint for Rogers MMRT/MART solver preprocessing."""
+"""Phase 2 entrypoint for Rogers MMRT/MART solver preprocessing."""
 
 from __future__ import annotations
 
@@ -6,8 +6,9 @@ import argparse
 from pathlib import Path
 
 from .case_io import load_case, load_solver_config
+from .design_models import build_design_problem, select_design_slots
 from .slot_library import build_slot_library
-from .solution_io import write_empty_solution, write_preprocessing_artifacts
+from .solution_io import write_preprocessing_artifacts, write_slot_solution
 from .time_grid import build_time_grid
 from .visibility_matrix import build_visibility_matrix
 
@@ -21,9 +22,11 @@ def solve(case_dir: Path, config_dir: str | None, solution_dir: Path) -> None:
     slots = build_slot_library(case, config)
     samples = build_time_grid(case.horizon_start, case.horizon_end, config.sample_step_sec)
     matrix = build_visibility_matrix(case, slots, samples)
+    design_problem = build_design_problem(case, config, slots, matrix)
+    design_result = select_design_slots(design_problem, config)
 
     solution_dir.mkdir(parents=True, exist_ok=True)
-    write_empty_solution(solution_dir)
+    write_slot_solution(solution_dir, slots, design_result.selected_slot_indices)
     write_preprocessing_artifacts(
         solution_dir,
         case,
@@ -31,6 +34,7 @@ def solve(case_dir: Path, config_dir: str | None, solution_dir: Path) -> None:
         slots,
         samples,
         matrix,
+        design_result,
         issue_88_url=ISSUE_88_URL,
     )
 
@@ -46,4 +50,3 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
-
