@@ -13,10 +13,12 @@ from candidates import generate_candidates, load_candidate_config
 from case_io import load_case
 from celf import load_selection_config, run_celf_selection, sample_weight_lookup
 from coverage import build_candidate_coverage
+from schedule import feasibility_summary, repair_schedule
 from solution_io import (
     write_candidate_debug,
     write_celf_debug,
     write_json,
+    write_repair_debug,
     write_solution_from_candidates,
 )
 
@@ -53,11 +55,12 @@ def _build_status(
     coverage_summary,
     selection_config,
     celf_result,
+    repair_result,
     timing_seconds: dict[str, float],
 ) -> dict[str, Any]:
     return {
         "status": "ok",
-        "phase": "phase_2_celf_selection_core",
+        "phase": "phase_3_sequence_feasibility_and_repair",
         "case_dir": str(case.case_dir),
         "config_dir": str(config_dir) if config_dir is not None else None,
         "solution": str(solution_path),
@@ -82,14 +85,17 @@ def _build_status(
         "candidate_summary": candidate_summary.as_dict(),
         "coverage_summary": coverage_summary.as_dict(),
         "celf_summary": celf_result.as_dict(),
+        "feasibility_summary": feasibility_summary(repair_result),
+        "repair_summary": repair_result.as_dict(),
         "output_policy": {
-            "solution_actions": celf_result.best.accepted_count,
-            "empty_solution_only": celf_result.best.accepted_count == 0,
+            "solution_actions": len(repair_result.repaired_candidate_ids),
+            "empty_solution_only": len(repair_result.repaired_candidate_ids) == 0,
             "selection_deferred_to_phase": None,
-            "sequence_feasibility_deferred_to_phase": 3,
-            "satellite_repair_enabled": False,
+            "sequence_feasibility_deferred_to_phase": None,
+            "satellite_repair_enabled": True,
             "experiment_registration_enabled": False,
             "coverage_geometry": "solver-local circular-orbit approximation",
+            "battery_and_duty_checks": "approximate_solver_local",
         },
         "timing_seconds": timing_seconds,
     }
@@ -130,8 +136,18 @@ def run(case_dir: Path, config_dir: Path | None, solution_dir: Path) -> int:
 
     start = time.perf_counter()
     candidates_by_id = {candidate.candidate_id: candidate for candidate in candidates}
+    repair_result = repair_schedule(
+        case,
+        candidates_by_id,
+        celf_result.best.selected_candidate_ids,
+        coverage_by_candidate,
+        sample_weights,
+    )
+    timings["schedule_repair"] = _round_seconds(time.perf_counter() - start)
+
+    start = time.perf_counter()
     solution_path = write_solution_from_candidates(
-        solution_dir, candidates_by_id, celf_result.best.selected_candidate_ids
+        solution_dir, candidates_by_id, repair_result.repaired_candidate_ids
     )
     write_candidate_debug(
         solution_dir,
@@ -147,6 +163,14 @@ def run(case_dir: Path, config_dir: Path | None, solution_dir: Path) -> int:
         }
         for candidate_id in celf_result.best.selected_candidate_ids
     ]
+    repaired_candidates = [
+        {
+            **candidates_by_id[candidate_id].as_dict(),
+            "covered_sample_indices": list(coverage_by_candidate.get(candidate_id, ())),
+            "covered_sample_count": len(coverage_by_candidate.get(candidate_id, ())),
+        }
+        for candidate_id in repair_result.repaired_candidate_ids
+    ]
     iteration_rows = []
     for result in (celf_result.unit_cost, celf_result.cost_benefit):
         if result is not None:
@@ -158,6 +182,12 @@ def run(case_dir: Path, config_dir: Path | None, solution_dir: Path) -> int:
         iteration_rows=iteration_rows,
         selected_candidates=selected_candidates,
         write_iterations=selection_config.write_iteration_trace,
+    )
+    write_repair_debug(
+        solution_dir,
+        feasibility_summary=feasibility_summary(repair_result),
+        repair_log=[event.as_dict() for event in repair_result.repair_log],
+        repaired_candidates=repaired_candidates,
     )
     timings["output"] = _round_seconds(time.perf_counter() - start)
     timings["total"] = _round_seconds(time.perf_counter() - total_start)
@@ -171,6 +201,7 @@ def run(case_dir: Path, config_dir: Path | None, solution_dir: Path) -> int:
         coverage_summary=coverage_summary,
         selection_config=selection_config,
         celf_result=celf_result,
+        repair_result=repair_result,
         timing_seconds=timings,
     )
     write_json(solution_dir / "status.json", status)

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import math
 import sys
 from pathlib import Path
 
@@ -22,7 +23,14 @@ from celf import (  # noqa: E402
     run_celf_selection,
 )
 from coverage import sample_indices_near_centerline  # noqa: E402
+from schedule import (  # noqa: E402
+    repair_schedule,
+    required_gap_s,
+    slew_time_s,
+    validate_schedule,
+)
 from solve import run  # noqa: E402
+from solution_io import write_solution_from_candidates  # noqa: E402
 
 
 TLE_LINE1 = "1 44389U 19038C   25198.19039474  .00015630  00000-0  49052-3 0  9999"
@@ -313,7 +321,128 @@ def test_run_celf_selection_keeps_higher_reward_variant() -> None:
     assert result.best.selected_candidate_ids == ("expensive",)
 
 
-def test_phase1_solver_writes_empty_solution_and_status(tmp_path: Path) -> None:
+def test_roll_slew_time_matches_public_trapezoidal_formula(tmp_path: Path) -> None:
+    _write_case(tmp_path)
+    case = load_case(tmp_path)
+    satellite = case.satellites["sat_a"]
+
+    triangular = slew_time_s(1.0, satellite)
+    trapezoidal = slew_time_s(40.0, satellite)
+
+    assert triangular == 2.0 * (1.0 / 0.5) ** 0.5
+    assert trapezoidal == (40.0 / 1.0) + (1.0 / 0.5)
+
+
+def test_overlap_detection_is_half_open_per_satellite(tmp_path: Path) -> None:
+    _write_case(tmp_path)
+    case = load_case(tmp_path)
+    overlap = _candidate("overlap", start_offset_s=5, duration_s=10)
+    previous = _candidate("previous", start_offset_s=0, duration_s=10)
+    other_satellite = _candidate("other", start_offset_s=5, duration_s=10)
+    other_satellite = StripCandidate(
+        **{**other_satellite.as_dict(), "satellite_id": "sat_b"}
+    )
+    candidates_by_id = {
+        candidate.candidate_id: candidate
+        for candidate in (previous, overlap, other_satellite)
+    }
+
+    report = validate_schedule(
+        case, candidates_by_id, ("previous", "overlap", "other")
+    )
+
+    assert report.valid is False
+    assert any(issue.issue_type == "overlap" for issue in report.issues)
+    assert not any(
+        issue.issue_type == "overlap" and "other" in issue.candidate_ids
+        for issue in report.issues
+    )
+
+
+def test_slew_gap_validation_accepts_exact_boundary(tmp_path: Path) -> None:
+    _write_case(tmp_path)
+    case = load_case(tmp_path)
+    first = _candidate("first", start_offset_s=0, duration_s=10, roll_deg=12.0)
+    satellite = case.satellites["sat_a"]
+    gap = required_gap_s(
+        first,
+        _candidate("probe", start_offset_s=0, duration_s=10, roll_deg=-12.0),
+        satellite,
+    )
+    second_start = first.start_offset_s + first.duration_s + math.ceil(gap)
+    second = _candidate("second", start_offset_s=second_start, duration_s=10, roll_deg=-12.0)
+    candidates_by_id = {"first": first, "second": second}
+
+    report = validate_schedule(case, candidates_by_id, ("first", "second"))
+
+    assert not any(issue.issue_type == "slew_gap" for issue in report.issues)
+
+
+def test_deterministic_repair_removes_lower_loss_conflicting_candidate(tmp_path: Path) -> None:
+    _write_case(tmp_path)
+    case = load_case(tmp_path)
+    keep = _candidate("keep", start_offset_s=0, duration_s=20, roll_deg=12.0)
+    drop = _candidate("drop", start_offset_s=10, duration_s=10, roll_deg=12.0)
+    candidates_by_id = {"keep": keep, "drop": drop}
+    coverage_by_candidate = {"keep": (0, 1), "drop": (1,)}
+    sample_weights = {0: 10.0, 1: 1.0}
+
+    result = repair_schedule(
+        case,
+        candidates_by_id,
+        ("keep", "drop"),
+        coverage_by_candidate,
+        sample_weights,
+    )
+
+    assert result.before.valid is False
+    assert result.after.valid is True
+    assert result.repaired_candidate_ids == ("keep",)
+    assert result.removed_candidate_ids == ("drop",)
+    assert result.repair_log[0].reason == "overlap"
+
+
+def test_repair_enforces_action_cap_deterministically(tmp_path: Path) -> None:
+    _write_case(tmp_path)
+    case = load_case(tmp_path)
+    object.__setattr__(case.manifest, "max_actions_total", 1)
+    first = _candidate("first", start_offset_s=0, duration_s=10)
+    second = _candidate("second", start_offset_s=30, duration_s=10)
+    candidates_by_id = {"first": first, "second": second}
+    coverage_by_candidate = {"first": (0,), "second": (1,)}
+    sample_weights = {0: 5.0, 1: 1.0}
+
+    result = repair_schedule(
+        case,
+        candidates_by_id,
+        ("first", "second"),
+        coverage_by_candidate,
+        sample_weights,
+    )
+
+    assert result.after.valid is True
+    assert result.repaired_candidate_ids == ("first",)
+    assert result.removed_candidate_ids == ("second",)
+
+
+def test_solution_output_schema_has_only_public_action_fields(tmp_path: Path) -> None:
+    candidate = _candidate("public", start_offset_s=0, duration_s=10, roll_deg=12.0)
+
+    write_solution_from_candidates(tmp_path, {"public": candidate}, ("public",))
+
+    solution = json.loads((tmp_path / "solution.json").read_text(encoding="utf-8"))
+    assert list(solution) == ["actions"]
+    assert set(solution["actions"][0]) == {
+        "type",
+        "satellite_id",
+        "start_time",
+        "duration_s",
+        "roll_deg",
+    }
+    assert solution["actions"][0]["type"] == "strip_observation"
+
+
+def test_solver_writes_solution_status_and_repair_debug(tmp_path: Path) -> None:
     case_dir = tmp_path / "case"
     config_dir = tmp_path / "config"
     solution_dir = tmp_path / "solution"
@@ -347,6 +476,11 @@ def test_phase1_solver_writes_empty_solution_and_status(tmp_path: Path) -> None:
     }
     assert status["candidate_summary"]["candidate_count"] == 3
     assert "celf_summary" in status
-    assert status["output_policy"]["satellite_repair_enabled"] is False
+    assert status["phase"] == "phase_3_sequence_feasibility_and_repair"
+    assert "feasibility_summary" in status
+    assert status["output_policy"]["satellite_repair_enabled"] is True
     assert len(debug) == 2
     assert (solution_dir / "debug" / "celf_summary.json").is_file()
+    assert (solution_dir / "debug" / "feasibility_summary.json").is_file()
+    assert (solution_dir / "debug" / "repair_log.json").is_file()
+    assert (solution_dir / "debug" / "repaired_candidates.json").is_file()

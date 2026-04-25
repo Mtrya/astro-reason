@@ -82,3 +82,16 @@ def write_celf_debug(
     write_json(debug_dir / "selected_candidates.json", selected_candidates)
     if write_iterations:
         write_jsonl(debug_dir / "celf_iterations.jsonl", iteration_rows)
+
+
+def write_repair_debug(
+    solution_dir: Path,
+    *,
+    feasibility_summary: dict[str, Any],
+    repair_log: list[dict[str, Any]],
+    repaired_candidates: list[dict[str, Any]],
+) -> None:
+    debug_dir = solution_dir / "debug"
+    write_json(debug_dir / "feasibility_summary.json", feasibility_summary)
+    write_json(debug_dir / "repair_log.json", repair_log)
+    write_json(debug_dir / "repaired_candidates.json", repaired_candidates)

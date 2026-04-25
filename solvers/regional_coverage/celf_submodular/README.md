@@ -1,16 +1,16 @@
 # Regional Coverage CELF Submodular Solver
 
-Phase 2 scaffold for issue #82.
+Phase 3 scaffold for issue #82.
 
 This solver reads only public `regional_coverage` case files, enumerates
 deterministic strip candidates on the public action grid, maps those candidates
 to coverage-grid sample indices using solver-local approximate geometry, and
-selects candidates with unit-cost and cost-benefit CELF lazy forward selection.
+selects candidates with unit-cost and cost-benefit CELF lazy forward selection,
+then applies deterministic solver-local schedule repair.
 
-Same-satellite sequence repair, battery/duty repair, experiment registration,
-and verifier-guided validation are intentionally deferred to later roadmap
-phases. The selected `solution.json` is therefore a paper-faithful fixed-set
-selection attempt, not yet a repaired satellite schedule.
+Experiment registration and verifier-guided validation are intentionally
+deferred to later roadmap phases. The repaired `solution.json` includes only
+public `strip_observation` action fields.
 
 ## Entrypoints
 
@@ -53,7 +53,16 @@ The solver writes:
 - `debug/celf_summary.json`
 - `debug/celf_iterations.jsonl`
 - `debug/selected_candidates.json`
+- `debug/feasibility_summary.json`
+- `debug/repair_log.json`
+- `debug/repaired_candidates.json`
 
 CELF uses fixed candidate coverage sets and the unique weighted sample objective.
 The debug summary records true marginal recomputations so later phases can
-compare lazy and naive behavior without mixing in schedule repair.
+compare lazy and naive behavior.
+
+The repair pass locally checks action caps, public candidate shape rules,
+same-satellite half-open interval overlap, the benchmark bang-coast-bang slew
+formula plus settling, and approximate battery/duty risk. It removes conflicting
+candidates deterministically by lowest estimated unique coverage loss, then
+higher energy burden, duration, start offset, and candidate id.
