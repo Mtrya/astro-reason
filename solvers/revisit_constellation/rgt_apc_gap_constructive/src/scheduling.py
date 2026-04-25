@@ -1,0 +1,647 @@
+"""Constructive freshness-aware observation scheduling."""
+
+from __future__ import annotations
+
+from dataclasses import dataclass
+from datetime import datetime, timedelta
+from typing import Any
+import math
+
+from .case_io import RevisitCase, Target
+from .gaps import GapImprovement, GapScore, gap_improvement, score_observation_timelines
+from .orbit_library import OrbitCandidate
+from .propagation import PropagationCache
+from .time_grid import iso_z
+from .visibility import VisibilityWindow, _geometry_sample
+
+
+NUMERICAL_EPS = 1.0e-9
+
+
+@dataclass(frozen=True, slots=True)
+class SchedulingConfig:
+    max_actions: int | None = None
+    max_actions_per_target: int | None = None
+    observation_margin_sec: float = 0.0
+    transition_gap_sec: float | None = None
+    require_positive_gap_improvement: bool = True
+    enforce_simple_energy_budget: bool = True
+
+    @classmethod
+    def from_mapping(cls, payload: dict[str, Any]) -> "SchedulingConfig":
+        raw = payload.get("scheduling", payload)
+        if not isinstance(raw, dict):
+            raise ValueError("scheduling config must be a mapping/object")
+        max_actions = raw.get("max_actions")
+        max_actions_per_target = raw.get("max_actions_per_target")
+        transition_gap_sec = raw.get("transition_gap_sec")
+        return cls(
+            max_actions=(None if max_actions is None else int(max_actions)),
+            max_actions_per_target=(
+                None if max_actions_per_target is None else int(max_actions_per_target)
+            ),
+            observation_margin_sec=float(raw.get("observation_margin_sec", 0.0)),
+            transition_gap_sec=(
+                None if transition_gap_sec is None else float(transition_gap_sec)
+            ),
+            require_positive_gap_improvement=bool(
+                raw.get("require_positive_gap_improvement", True)
+            ),
+            enforce_simple_energy_budget=bool(raw.get("enforce_simple_energy_budget", True)),
+        )
+
+    def selected_action_limit(self, option_count: int) -> int:
+        configured = option_count if self.max_actions is None else self.max_actions
+        return max(0, min(configured, option_count))
+
+    def transition_gap_for_case(self, case: RevisitCase) -> float:
+        if self.transition_gap_sec is not None:
+            return max(0.0, self.transition_gap_sec)
+        sensor = case.satellite_model.sensor
+        attitude = case.satellite_model.attitude_model
+        conservative_angle_deg = min(180.0, 2.0 * sensor.max_off_nadir_angle_deg)
+        return _slew_time_sec(conservative_angle_deg, attitude) + attitude.settling_time_sec
+
+    def as_status_dict(self) -> dict[str, Any]:
+        return {
+            "max_actions": self.max_actions,
+            "max_actions_per_target": self.max_actions_per_target,
+            "observation_margin_sec": self.observation_margin_sec,
+            "transition_gap_sec": self.transition_gap_sec,
+            "require_positive_gap_improvement": self.require_positive_gap_improvement,
+            "enforce_simple_energy_budget": self.enforce_simple_energy_budget,
+        }
+
+
+@dataclass(frozen=True, slots=True)
+class ObservationOption:
+    option_id: str
+    window_id: str
+    satellite_id: str
+    target_id: str
+    start: datetime
+    end: datetime
+    midpoint: datetime
+    quality_score: float
+    window: VisibilityWindow
+
+    def as_dict(self) -> dict[str, Any]:
+        return {
+            "option_id": self.option_id,
+            "window_id": self.window_id,
+            "satellite_id": self.satellite_id,
+            "target_id": self.target_id,
+            "start": iso_z(self.start),
+            "end": iso_z(self.end),
+            "midpoint": iso_z(self.midpoint),
+            "quality_score": self.quality_score,
+        }
+
+
+@dataclass(frozen=True, slots=True)
+class ScheduledObservation:
+    option_id: str
+    window_id: str
+    satellite_id: str
+    target_id: str
+    start: datetime
+    end: datetime
+    midpoint: datetime
+    quality_score: float
+
+    def as_action_dict(self) -> dict[str, str]:
+        return {
+            "action_type": "observation",
+            "satellite_id": self.satellite_id,
+            "target_id": self.target_id,
+            "start": iso_z(self.start),
+            "end": iso_z(self.end),
+        }
+
+    def as_dict(self) -> dict[str, Any]:
+        return {
+            "option_id": self.option_id,
+            "window_id": self.window_id,
+            "satellite_id": self.satellite_id,
+            "target_id": self.target_id,
+            "start": iso_z(self.start),
+            "end": iso_z(self.end),
+            "midpoint": iso_z(self.midpoint),
+            "quality_score": self.quality_score,
+        }
+
+
+@dataclass(frozen=True, slots=True)
+class SchedulingDecision:
+    round_index: int
+    selected_option: ScheduledObservation
+    target_freshness_hours: float
+    target_flexibility: int
+    opportunity_cost: float
+    score_before: GapScore
+    score_after: GapScore
+    improvement: GapImprovement
+
+    def as_dict(self) -> dict[str, Any]:
+        return {
+            "round_index": self.round_index,
+            "selected_option": self.selected_option.as_dict(),
+            "target_freshness_hours": self.target_freshness_hours,
+            "target_flexibility": self.target_flexibility,
+            "opportunity_cost": self.opportunity_cost,
+            "score_before": self.score_before.as_dict(),
+            "score_after": self.score_after.as_dict(),
+            "improvement": self.improvement.as_dict(),
+        }
+
+
+@dataclass(frozen=True, slots=True)
+class SchedulingResult:
+    actions: list[dict[str, str]]
+    scheduled_observations: list[ScheduledObservation]
+    initial_score: GapScore
+    final_score: GapScore
+    decisions: list[SchedulingDecision]
+    rejected_options: list[dict[str, Any]]
+    caps: dict[str, Any]
+
+    def as_status_dict(self) -> dict[str, Any]:
+        return {
+            "action_count": len(self.actions),
+            "initial_score": self.initial_score.as_dict(),
+            "final_score": self.final_score.as_dict(),
+            "decision_count": len(self.decisions),
+            "rejected_option_count": len(self.rejected_options),
+            "caps": self.caps,
+        }
+
+
+def _slew_time_sec(angle_deg: float, attitude_model: Any) -> float:
+    angle_deg = max(0.0, angle_deg)
+    if angle_deg <= NUMERICAL_EPS:
+        return 0.0
+    max_velocity = attitude_model.max_slew_velocity_deg_per_sec
+    max_accel = attitude_model.max_slew_acceleration_deg_per_sec2
+    if max_velocity <= 0.0 or max_accel <= 0.0:
+        return math.inf
+    ramp_time = max_velocity / max_accel
+    triangular_threshold = (max_velocity * max_velocity) / max_accel
+    if angle_deg <= triangular_threshold:
+        return 2.0 * math.sqrt(angle_deg / max_accel)
+    cruise_angle = angle_deg - triangular_threshold
+    return (2.0 * ramp_time) + (cruise_angle / max_velocity)
+
+
+def _option_interval(
+    horizon_start: datetime,
+    window: VisibilityWindow,
+    target: Target,
+    margin_sec: float,
+) -> tuple[datetime, datetime] | None:
+    available_start = window.start + timedelta(seconds=margin_sec)
+    available_end = window.end - timedelta(seconds=margin_sec)
+    duration = timedelta(seconds=target.min_duration_sec)
+    if available_end - available_start + timedelta(seconds=NUMERICAL_EPS) < duration:
+        return None
+    if window.samples:
+        best_sample = min(
+            window.samples,
+            key=lambda sample: (
+                sample.off_nadir_deg,
+                sample.slant_range_m,
+                -sample.elevation_deg,
+                sample.offset_sec,
+            ),
+        )
+        anchor = horizon_start + timedelta(seconds=best_sample.offset_sec)
+    else:
+        anchor = window.midpoint
+    start = anchor - (duration / 2)
+    end = start + duration
+    if start < available_start:
+        start = available_start
+        end = start + duration
+    if end > available_end:
+        end = available_end
+        start = end - duration
+    if start < window.start or end > window.end or end <= start:
+        return None
+    return start, end
+
+
+def _action_sample_times(start: datetime, end: datetime, step_sec: float = 10.0) -> list[datetime]:
+    if end <= start:
+        return [start]
+    points = [start]
+    current = start
+    delta = timedelta(seconds=step_sec)
+    while current + delta < end:
+        current = current + delta
+        points.append(current)
+    return points
+
+
+def _geometry_interval_visible(
+    *,
+    case: RevisitCase,
+    option: ObservationOption,
+    propagation: PropagationCache,
+) -> bool:
+    target = case.targets[option.target_id]
+    return all(
+        _geometry_sample(
+            case=case,
+            target=target,
+            propagation=propagation,
+            candidate_id=option.satellite_id,
+            instant=instant,
+        ).visible
+        for instant in _action_sample_times(option.start, option.end)
+    )
+
+
+def _quality_score(window: VisibilityWindow) -> float:
+    off_nadir_quality = 1.0 / (1.0 + max(0.0, window.min_off_nadir_deg))
+    range_quality = 1.0 / (1.0 + (max(0.0, window.min_slant_range_m) / 1.0e7))
+    elevation_quality = 1.0 + (max(0.0, window.max_elevation_deg) / 180.0)
+    return off_nadir_quality * range_quality * elevation_quality
+
+
+def build_observation_options(
+    *,
+    case: RevisitCase,
+    selected_candidate_ids: set[str],
+    selected_candidates: list[OrbitCandidate] | None,
+    windows: list[VisibilityWindow],
+    config: SchedulingConfig,
+) -> tuple[list[ObservationOption], list[dict[str, Any]]]:
+    options: list[ObservationOption] = []
+    rejected: list[dict[str, Any]] = []
+    propagation = (
+        None
+        if selected_candidates is None
+        else PropagationCache(selected_candidates, case.horizon_start, case.horizon_end)
+    )
+    for window in windows:
+        if window.candidate_id not in selected_candidate_ids:
+            continue
+        target = case.targets[window.target_id]
+        interval = _option_interval(
+            case.horizon_start,
+            window,
+            target,
+            config.observation_margin_sec,
+        )
+        if interval is None:
+            rejected.append(
+                {
+                    "window_id": window.window_id,
+                    "satellite_id": window.candidate_id,
+                    "target_id": window.target_id,
+                    "reason": "window_shorter_than_required_observation_duration",
+                }
+            )
+            continue
+        start, end = interval
+        option = ObservationOption(
+            option_id=window.window_id,
+            window_id=window.window_id,
+            satellite_id=window.candidate_id,
+            target_id=window.target_id,
+            start=start,
+            end=end,
+            midpoint=start + ((end - start) / 2),
+            quality_score=_quality_score(window),
+            window=window,
+        )
+        if propagation is not None and not _geometry_interval_visible(
+            case=case,
+            option=option,
+            propagation=propagation,
+        ):
+            rejected.append(
+                {
+                    **option.as_dict(),
+                    "reason": "geometry_infeasible_at_10s_samples",
+                }
+            )
+            continue
+        options.append(option)
+    options.sort(
+        key=lambda option: (
+            option.start,
+            option.satellite_id,
+            option.target_id,
+            option.window_id,
+        )
+    )
+    return options, rejected
+
+
+def _timelines_from_schedule(
+    scheduled: list[ScheduledObservation],
+) -> dict[str, list[datetime]]:
+    timelines: dict[str, list[datetime]] = {}
+    for observation in scheduled:
+        timelines.setdefault(observation.target_id, []).append(observation.midpoint)
+    return timelines
+
+
+def _target_counts(scheduled: list[ScheduledObservation]) -> dict[str, int]:
+    counts: dict[str, int] = {}
+    for observation in scheduled:
+        counts[observation.target_id] = counts.get(observation.target_id, 0) + 1
+    return counts
+
+
+def _intervals_conflict(
+    left: ObservationOption | ScheduledObservation,
+    right: ObservationOption | ScheduledObservation,
+    transition_gap_sec: float,
+) -> bool:
+    if left.satellite_id != right.satellite_id:
+        return False
+    transition_gap = timedelta(seconds=transition_gap_sec)
+    if left.end <= right.start:
+        return left.end + transition_gap > right.start
+    if right.end <= left.start:
+        return right.end + transition_gap > left.start
+    return True
+
+
+def _simple_energy_feasible(
+    *,
+    case: RevisitCase,
+    candidate: ObservationOption,
+    scheduled: list[ScheduledObservation],
+    transition_gap_sec: float,
+) -> bool:
+    resource = case.satellite_model.resource_model
+    sensor = case.satellite_model.sensor
+    attitude = case.satellite_model.attitude_model
+    horizon_hours = case.horizon_duration_sec / 3600.0
+    satellite_observations = [
+        observation
+        for observation in scheduled
+        if observation.satellite_id == candidate.satellite_id
+    ]
+    total_observation_sec = sum(
+        (observation.end - observation.start).total_seconds()
+        for observation in satellite_observations
+    ) + (candidate.end - candidate.start).total_seconds()
+    action_count = len(satellite_observations) + 1
+    maneuver_sec = max(0, action_count - 1) * transition_gap_sec
+    required_wh = (
+        resource.idle_discharge_rate_w * horizon_hours
+        + sensor.obs_discharge_rate_w * (total_observation_sec / 3600.0)
+        + attitude.maneuver_discharge_rate_w * (maneuver_sec / 3600.0)
+    )
+    return required_wh <= resource.initial_battery_wh + NUMERICAL_EPS
+
+
+def _base_feasible(
+    *,
+    case: RevisitCase,
+    option: ObservationOption,
+    scheduled: list[ScheduledObservation],
+    config: SchedulingConfig,
+    transition_gap_sec: float,
+) -> tuple[bool, str | None]:
+    for observation in scheduled:
+        if _intervals_conflict(option, observation, transition_gap_sec):
+            return False, "satellite_interval_or_transition_conflict"
+    target_counts = _target_counts(scheduled)
+    if (
+        config.max_actions_per_target is not None
+        and target_counts.get(option.target_id, 0) >= config.max_actions_per_target
+    ):
+        return False, "target_action_cap_reached"
+    if config.enforce_simple_energy_budget and not _simple_energy_feasible(
+        case=case,
+        candidate=option,
+        scheduled=scheduled,
+        transition_gap_sec=transition_gap_sec,
+    ):
+        return False, "simple_energy_budget_exceeded"
+    return True, None
+
+
+def _score_with_option(
+    case: RevisitCase,
+    scheduled: list[ScheduledObservation],
+    option: ObservationOption,
+) -> tuple[GapScore, GapImprovement]:
+    before = score_observation_timelines(case, _timelines_from_schedule(scheduled))
+    after_timelines = _timelines_from_schedule(
+        [
+            *scheduled,
+            ScheduledObservation(
+                option_id=option.option_id,
+                window_id=option.window_id,
+                satellite_id=option.satellite_id,
+                target_id=option.target_id,
+                start=option.start,
+                end=option.end,
+                midpoint=option.midpoint,
+                quality_score=option.quality_score,
+            ),
+        ]
+    )
+    after = score_observation_timelines(case, after_timelines)
+    return after, gap_improvement(before, after)
+
+
+def _option_profit(
+    option: ObservationOption,
+    score: GapScore,
+    horizon_hours: float,
+) -> float:
+    target_score = score.target_gap_summary[option.target_id]
+    freshness = target_score.max_revisit_gap_hours / max(horizon_hours, NUMERICAL_EPS)
+    return option.quality_score * freshness
+
+
+def _opportunity_cost(
+    *,
+    option: ObservationOption,
+    remaining_options: list[ObservationOption],
+    score: GapScore,
+    horizon_hours: float,
+    transition_gap_sec: float,
+) -> float:
+    cost = 0.0
+    for other in remaining_options:
+        if other.option_id == option.option_id:
+            continue
+        if _intervals_conflict(option, other, transition_gap_sec):
+            cost += _option_profit(other, score, horizon_hours)
+    return cost
+
+
+def _as_scheduled(option: ObservationOption) -> ScheduledObservation:
+    return ScheduledObservation(
+        option_id=option.option_id,
+        window_id=option.window_id,
+        satellite_id=option.satellite_id,
+        target_id=option.target_id,
+        start=option.start,
+        end=option.end,
+        midpoint=option.midpoint,
+        quality_score=option.quality_score,
+    )
+
+
+def schedule_observations(
+    *,
+    case: RevisitCase,
+    selected_candidate_ids: list[str],
+    selected_candidates: list[OrbitCandidate] | None = None,
+    windows: list[VisibilityWindow],
+    config: SchedulingConfig,
+) -> SchedulingResult:
+    options, rejected = build_observation_options(
+        case=case,
+        selected_candidate_ids=set(selected_candidate_ids),
+        selected_candidates=selected_candidates,
+        windows=windows,
+        config=config,
+    )
+    transition_gap_sec = config.transition_gap_for_case(case)
+    action_limit = config.selected_action_limit(len(options))
+    scheduled: list[ScheduledObservation] = []
+    consumed_option_ids: set[str] = set()
+    decisions: list[SchedulingDecision] = []
+    initial_score = score_observation_timelines(case, {})
+    horizon_hours = case.horizon_duration_sec / 3600.0
+
+    while len(scheduled) < action_limit:
+        current_score = score_observation_timelines(case, _timelines_from_schedule(scheduled))
+        remaining_options = [
+            option for option in options if option.option_id not in consumed_option_ids
+        ]
+        feasible_by_target: dict[str, list[ObservationOption]] = {}
+        for option in remaining_options:
+            feasible, reason = _base_feasible(
+                case=case,
+                option=option,
+                scheduled=scheduled,
+                config=config,
+                transition_gap_sec=transition_gap_sec,
+            )
+            if not feasible:
+                rejected.append(
+                    {
+                        **option.as_dict(),
+                        "reason": reason or "infeasible",
+                        "round_index": len(decisions),
+                    }
+                )
+                consumed_option_ids.add(option.option_id)
+                continue
+            _, improvement = _score_with_option(case, scheduled, option)
+            if config.require_positive_gap_improvement and not improvement.is_positive:
+                rejected.append(
+                    {
+                        **option.as_dict(),
+                        "reason": "non_positive_gap_improvement",
+                        "round_index": len(decisions),
+                    }
+                )
+                consumed_option_ids.add(option.option_id)
+                continue
+            feasible_by_target.setdefault(option.target_id, []).append(option)
+
+        if not feasible_by_target:
+            break
+
+        target_id = min(
+            feasible_by_target,
+            key=lambda candidate_target: (
+                -current_score.target_gap_summary[
+                    candidate_target
+                ].max_revisit_gap_hours,
+                len(feasible_by_target[candidate_target]),
+                candidate_target,
+            ),
+        )
+        target_options = feasible_by_target[target_id]
+        target_freshness = current_score.target_gap_summary[
+            target_id
+        ].max_revisit_gap_hours
+        target_flexibility = len(target_options)
+
+        ranked_options: list[
+            tuple[
+                tuple[float, int, float, float, float, datetime, str, str, str],
+                ObservationOption,
+                GapScore,
+                GapImprovement,
+                float,
+            ]
+        ] = []
+        for option in target_options:
+            after_score, improvement = _score_with_option(case, scheduled, option)
+            opportunity_cost = _opportunity_cost(
+                option=option,
+                remaining_options=remaining_options,
+                score=current_score,
+                horizon_hours=horizon_hours,
+                transition_gap_sec=transition_gap_sec,
+            )
+            key = (
+                opportunity_cost,
+                -improvement.threshold_violation_reduction,
+                -improvement.capped_max_revisit_gap_reduction_hours,
+                -improvement.max_revisit_gap_reduction_hours,
+                -improvement.mean_revisit_gap_reduction_hours,
+                option.start,
+                option.satellite_id,
+                option.target_id,
+                option.window_id,
+            )
+            ranked_options.append((key, option, after_score, improvement, opportunity_cost))
+
+        ranked_options.sort(key=lambda item: item[0])
+        _, selected_option, after_score, improvement, opportunity_cost = ranked_options[0]
+        selected = _as_scheduled(selected_option)
+        scheduled.append(selected)
+        scheduled.sort(key=lambda item: (item.start, item.satellite_id, item.target_id))
+        consumed_option_ids.add(selected_option.option_id)
+        decisions.append(
+            SchedulingDecision(
+                round_index=len(decisions),
+                selected_option=selected,
+                target_freshness_hours=target_freshness,
+                target_flexibility=target_flexibility,
+                opportunity_cost=opportunity_cost,
+                score_before=current_score,
+                score_after=after_score,
+                improvement=improvement,
+            )
+        )
+
+    final_score = score_observation_timelines(case, _timelines_from_schedule(scheduled))
+    actions = [
+        observation.as_action_dict()
+        for observation in sorted(
+            scheduled,
+            key=lambda item: (item.start, item.satellite_id, item.target_id),
+        )
+    ]
+    return SchedulingResult(
+        actions=actions,
+        scheduled_observations=scheduled,
+        initial_score=initial_score,
+        final_score=final_score,
+        decisions=decisions,
+        rejected_options=rejected,
+        caps={
+            **config.as_status_dict(),
+            "action_limit": action_limit,
+            "option_count": len(options),
+            "selected_candidate_count": len(selected_candidate_ids),
+            "transition_gap_sec": transition_gap_sec,
+            "stopped_by_action_limit": len(scheduled) >= action_limit,
+            "stopped_by_no_eligible_option": len(scheduled) < action_limit,
+        },
+    )

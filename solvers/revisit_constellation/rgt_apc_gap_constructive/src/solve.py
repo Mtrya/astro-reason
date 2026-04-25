@@ -1,4 +1,4 @@
-"""Solver entrypoint for RGT/APC candidate, visibility, and gap selection."""
+"""Solver entrypoint for RGT/APC gap-aware construction."""
 
 from __future__ import annotations
 
@@ -10,6 +10,7 @@ from pathlib import Path
 
 from .case_io import load_case, load_solver_config
 from .orbit_library import OrbitLibraryConfig, generate_orbit_library
+from .scheduling import SchedulingConfig, schedule_observations
 from .selection import SelectionConfig, select_satellites_greedy
 from .solution_io import write_json, write_solution
 from .visibility import VisibilityConfig, build_visibility_library
@@ -24,14 +25,16 @@ def _build_status(
     orbit_config: OrbitLibraryConfig,
     visibility_config: VisibilityConfig,
     selection_config: SelectionConfig,
+    scheduling_config: SchedulingConfig,
     orbit_library,
     visibility_library,
     selection_result,
+    scheduling_result,
     timing_seconds: dict[str, float],
 ) -> dict:
     return {
-        "status": "phase_2_gap_selection_solution_generated",
-        "phase": 2,
+        "status": "phase_3_constructive_schedule_generated",
+        "phase": 3,
         "case_dir": str(case_dir),
         "config_dir": str(config_dir) if config_dir is not None else None,
         "solution": str(solution_path),
@@ -40,16 +43,18 @@ def _build_status(
         "max_num_satellites": case.max_num_satellites,
         "horizon_duration_sec": case.horizon_duration_sec,
         "satellite_output_count": len(selection_result.selected_candidate_ids),
-        "action_output_count": 0,
+        "action_output_count": len(scheduling_result.actions),
         "orbit_library_config": orbit_config.as_status_dict(),
         "visibility_config": visibility_config.as_status_dict(),
         "selection_config": selection_config.as_status_dict(),
+        "scheduling_config": scheduling_config.as_status_dict(),
         "orbit_library": orbit_library.as_status_dict(),
         "visibility": visibility_library.as_status_dict(),
         "selection": selection_result.as_status_dict(),
+        "scheduling": scheduling_result.as_status_dict(),
         "timing_seconds": timing_seconds,
         "reproduction_notes": {
-            "method_reference": "Lee et al. 2020 APC / RGT common-ground-track constellation pattern",
+            "method_reference": "Lee et al. 2020 APC / RGT pattern plus Mercado-Martinez et al. 2025 freshness constructive scheduling",
             "components_reproduced_this_phase": {
                 "public_case_parsing": True,
                 "bounded_rgt_apc_candidate_states": True,
@@ -57,19 +62,19 @@ def _build_status(
                 "opportunity_window_grouping": True,
                 "benchmark_style_gap_scoring": True,
                 "greedy_gap_aware_satellite_selection": True,
+                "freshness_flexibility_opportunity_cost_scheduling": True,
             },
             "components_deferred": {
-                "constructive_observation_scheduling": "phase 3",
                 "slew_battery_repair": "phase 4",
             },
-            "action_output_reason": "Phase 2 selects satellites from visibility opportunities; action scheduling is deferred.",
+            "action_output_reason": "Phase 3 emits constructive observation actions from selected visibility opportunities.",
         },
     }
 
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(
-        description="Build RGT/APC-style candidate and visibility artifacts and emit an empty revisit solution."
+        description="Build RGT/APC-style candidates and a gap-aware revisit schedule."
     )
     parser.add_argument("--case-dir", required=True)
     parser.add_argument("--config-dir", default="")
@@ -88,6 +93,7 @@ def main(argv: list[str] | None = None) -> int:
         orbit_config = OrbitLibraryConfig.from_mapping(config_payload, case)
         visibility_config = VisibilityConfig.from_mapping(config_payload)
         selection_config = SelectionConfig.from_mapping(config_payload)
+        scheduling_config = SchedulingConfig.from_mapping(config_payload)
 
         orbit_start = time.perf_counter()
         orbit_library = generate_orbit_library(case, orbit_config)
@@ -110,18 +116,30 @@ def main(argv: list[str] | None = None) -> int:
         )
         selection_end = time.perf_counter()
 
+        scheduling_start = time.perf_counter()
+        scheduling_result = schedule_observations(
+            case=case,
+            selected_candidate_ids=selection_result.selected_candidate_ids,
+            selected_candidates=selection_result.selected_candidates,
+            windows=visibility_library.windows,
+            config=scheduling_config,
+        )
+        scheduling_end = time.perf_counter()
+
         solution_path = write_solution(
             solution_dir,
             satellites=[
                 candidate.as_solution_satellite()
                 for candidate in selection_result.selected_candidates
             ],
+            actions=scheduling_result.actions,
         )
         total_end = time.perf_counter()
         timing_seconds = {
             "orbit_library": orbit_end - orbit_start,
             "visibility": visibility_end - visibility_start,
             "selection": selection_end - selection_start,
+            "scheduling": scheduling_end - scheduling_start,
             "total": total_end - total_start,
         }
         status = _build_status(
@@ -132,9 +150,11 @@ def main(argv: list[str] | None = None) -> int:
             orbit_config=orbit_config,
             visibility_config=visibility_config,
             selection_config=selection_config,
+            scheduling_config=scheduling_config,
             orbit_library=orbit_library,
             visibility_library=visibility_library,
             selection_result=selection_result,
+            scheduling_result=scheduling_result,
             timing_seconds=timing_seconds,
         )
         write_json(solution_dir / "status.json", status)
@@ -149,6 +169,14 @@ def main(argv: list[str] | None = None) -> int:
         write_json(
             solution_dir / "debug" / "selection_rounds.json",
             [round_info.as_dict() for round_info in selection_result.rounds],
+        )
+        write_json(
+            solution_dir / "debug" / "scheduling_decisions.json",
+            [decision.as_dict() for decision in scheduling_result.decisions],
+        )
+        write_json(
+            solution_dir / "debug" / "scheduling_rejections.json",
+            scheduling_result.rejected_options,
         )
     except Exception as exc:
         traceback_text = traceback.format_exc()

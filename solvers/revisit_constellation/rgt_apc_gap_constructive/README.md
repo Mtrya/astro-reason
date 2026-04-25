@@ -1,8 +1,8 @@
 # RGT/APC Gap-Constructive Solver
 
-Phase 2 solver scaffold for `revisit_constellation`.
+Phase 3 solver scaffold for `revisit_constellation`.
 
-The solver currently parses public `assets.json` and `mission.json` files, builds a deterministic RGT/APC-style candidate satellite library, samples target visibility opportunities, scores those opportunities with benchmark-style midpoint revisit gaps, greedily selects satellites by marginal gap improvement, and writes debug artifacts:
+The solver currently parses public `assets.json` and `mission.json` files, builds a deterministic RGT/APC-style candidate satellite library, samples target visibility opportunities, scores those opportunities with benchmark-style midpoint revisit gaps, greedily selects satellites by marginal gap improvement, constructs observation actions using Mercado-style freshness, flexibility, and opportunity-cost priorities, and writes debug artifacts:
 
 ```bash
 ./solvers/revisit_constellation/rgt_apc_gap_constructive/setup.sh
@@ -14,10 +14,12 @@ The solver currently parses public `assets.json` and `mission.json` files, build
 
 Outputs:
 
-- `solution.json`: selected `satellites` and an empty `actions` array
-- `status.json`: case metadata, candidate counts, visibility-window counts, selection scores, caps, and timings
+- `solution.json`: selected `satellites` and constructive `observation` actions
+- `status.json`: case metadata, candidate counts, visibility-window counts, selection and scheduling scores, caps, and timings
 - `debug/orbit_candidates.json`: generated candidate states at mission start
 - `debug/visibility_windows.json`: sampled candidate-target visibility opportunities
 - `debug/selection_rounds.json`: greedy satellite-selection marginal improvements
+- `debug/scheduling_decisions.json`: constructive observation decisions and marginal gap improvements
+- `debug/scheduling_rejections.json`: skipped options with solver-local reasons
 
-Later phases add constructive observation scheduling and solver-local slew/battery repair.
+Later phases add solver-local slew/battery repair and validation tuning.

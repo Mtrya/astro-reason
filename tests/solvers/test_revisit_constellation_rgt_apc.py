@@ -26,6 +26,10 @@ from solvers.revisit_constellation.rgt_apc_gap_constructive.src.orbit_library im
     generate_orbit_library,
     initial_orbit_bounds,
 )
+from solvers.revisit_constellation.rgt_apc_gap_constructive.src.scheduling import (  # noqa: E402
+    SchedulingConfig,
+    schedule_observations,
+)
 from solvers.revisit_constellation.rgt_apc_gap_constructive.src.selection import (  # noqa: E402
     SelectionConfig,
     select_satellites_greedy,
@@ -115,6 +119,27 @@ def _gap_case_dir(tmp_path: Path, *, expected_revisit_period_hours: float = 0.4)
     return case_dir
 
 
+def _scheduler_case_dir(tmp_path: Path) -> Path:
+    case_dir = tmp_path / "scheduler_case"
+    mission = _mission_payload(expected_revisit_period_hours=0.4)
+    mission["targets"].append(
+        {
+            "id": "target_002",
+            "name": "Second Target",
+            "latitude_deg": 1.0,
+            "longitude_deg": 1.0,
+            "altitude_m": 0.0,
+            "expected_revisit_period_hours": 0.4,
+            "min_elevation_deg": 10.0,
+            "max_slant_range_m": 1800000.0,
+            "min_duration_sec": 30.0,
+        }
+    )
+    _write_json(case_dir / "assets.json", _assets_payload())
+    _write_json(case_dir / "mission.json", mission)
+    return case_dir
+
+
 def _candidate(candidate_id: str) -> OrbitCandidate:
     return OrbitCandidate(
         candidate_id=candidate_id,
@@ -134,7 +159,14 @@ def _candidate(candidate_id: str) -> OrbitCandidate:
     )
 
 
-def _window(candidate_id: str, target_id: str, start: datetime, minutes: int) -> VisibilityWindow:
+def _window(
+    candidate_id: str,
+    target_id: str,
+    start: datetime,
+    minutes: int,
+    *,
+    off_nadir_deg: float = 2.0,
+) -> VisibilityWindow:
     window_start = start + timedelta(minutes=minutes)
     window_end = window_start + timedelta(seconds=60)
     return VisibilityWindow(
@@ -147,7 +179,7 @@ def _window(candidate_id: str, target_id: str, start: datetime, minutes: int) ->
         duration_sec=60.0,
         max_elevation_deg=50.0,
         min_slant_range_m=700000.0,
-        min_off_nadir_deg=2.0,
+        min_off_nadir_deg=off_nadir_deg,
         sample_count=1,
         samples=(),
     )
@@ -337,6 +369,110 @@ def test_greedy_selection_uses_deterministic_candidate_id_ties(tmp_path: Path) -
     assert result.selected_candidate_ids == ["sat_a"]
 
 
+def test_scheduler_prioritizes_lower_flexibility_when_freshness_ties(tmp_path: Path) -> None:
+    case = load_case(_scheduler_case_dir(tmp_path))
+    windows = [
+        _window("sat_a", "target_001", case.horizon_start, 10),
+        _window("sat_a", "target_001", case.horizon_start, 40),
+        _window("sat_b", "target_002", case.horizon_start, 30),
+    ]
+
+    result = schedule_observations(
+        case=case,
+        selected_candidate_ids=["sat_a", "sat_b"],
+        windows=windows,
+        config=SchedulingConfig(
+            max_actions=1,
+            transition_gap_sec=0.0,
+            enforce_simple_energy_budget=False,
+        ),
+    )
+
+    assert result.scheduled_observations[0].target_id == "target_002"
+    assert result.decisions[0].target_flexibility == 1
+    assert result.actions[0]["action_type"] == "observation"
+
+
+def test_scheduler_prioritizes_staler_target_after_freshness_update(tmp_path: Path) -> None:
+    case = load_case(_scheduler_case_dir(tmp_path))
+    windows = [
+        _window("sat_a", "target_001", case.horizon_start, 10),
+        _window("sat_b", "target_001", case.horizon_start, 50),
+        _window("sat_c", "target_002", case.horizon_start, 20),
+        _window("sat_d", "target_002", case.horizon_start, 40),
+    ]
+
+    result = schedule_observations(
+        case=case,
+        selected_candidate_ids=["sat_a", "sat_b", "sat_c", "sat_d"],
+        windows=windows,
+        config=SchedulingConfig(
+            max_actions=2,
+            transition_gap_sec=0.0,
+            enforce_simple_energy_budget=False,
+        ),
+    )
+
+    assert [decision.selected_option.target_id for decision in result.decisions] == [
+        "target_001",
+        "target_002",
+    ]
+    second_score = result.decisions[1].score_before.target_gap_summary
+    assert second_score["target_002"].max_revisit_gap_hours > second_score[
+        "target_001"
+    ].max_revisit_gap_hours
+
+
+def test_scheduler_uses_lower_opportunity_cost_within_target(tmp_path: Path) -> None:
+    case = load_case(_scheduler_case_dir(tmp_path))
+    windows = [
+        _window("sat_a", "target_001", case.horizon_start, 10),
+        _window("sat_a", "target_001", case.horizon_start, 40),
+        _window("sat_a", "target_002", case.horizon_start, 10, off_nadir_deg=0.1),
+        _window("sat_b", "target_002", case.horizon_start, 20),
+        _window("sat_c", "target_002", case.horizon_start, 30),
+        _window("sat_d", "target_002", case.horizon_start, 50),
+    ]
+
+    result = schedule_observations(
+        case=case,
+        selected_candidate_ids=["sat_a", "sat_b", "sat_c", "sat_d"],
+        windows=windows,
+        config=SchedulingConfig(
+            max_actions=1,
+            transition_gap_sec=0.0,
+            enforce_simple_energy_budget=False,
+        ),
+    )
+
+    first = result.scheduled_observations[0]
+    assert first.target_id == "target_001"
+    assert first.window_id == "sat_a_target_001_40"
+    assert result.decisions[0].opportunity_cost == pytest.approx(0.0)
+
+
+def test_scheduler_uses_deterministic_window_ties(tmp_path: Path) -> None:
+    case = load_case(_gap_case_dir(tmp_path))
+    windows = [
+        _window("sat_b", "target_001", case.horizon_start, 30),
+        _window("sat_a", "target_001", case.horizon_start, 30),
+    ]
+
+    result = schedule_observations(
+        case=case,
+        selected_candidate_ids=["sat_a", "sat_b"],
+        windows=windows,
+        config=SchedulingConfig(
+            max_actions=1,
+            transition_gap_sec=0.0,
+            enforce_simple_energy_budget=False,
+        ),
+    )
+
+    assert result.scheduled_observations[0].satellite_id == "sat_a"
+    assert result.final_score.target_gap_summary["target_001"].observation_count == 1
+
+
 def test_solve_sh_smoke_writes_selected_solution_status_and_debug(tmp_path: Path) -> None:
     case_dir = _case_dir(tmp_path)
     config_dir = tmp_path / "config"
@@ -355,6 +491,10 @@ def test_solve_sh_smoke_writes_selected_solution_status_and_debug(tmp_path: Path
                     "sample_step_sec": 600.0,
                     "max_windows": 5,
                     "keep_samples_per_window": 2,
+                },
+                "scheduling": {
+                    "transition_gap_sec": 0.0,
+                    "enforce_simple_energy_budget": False,
                 },
             },
             sort_keys=True,
@@ -378,18 +518,21 @@ def test_solve_sh_smoke_writes_selected_solution_status_and_debug(tmp_path: Path
 
     assert result.returncode == 0, result.stderr
     solution = json.loads((solution_dir / "solution.json").read_text(encoding="utf-8"))
-    assert solution["actions"] == []
+    assert isinstance(solution["actions"], list)
     assert isinstance(solution["satellites"], list)
     status = json.loads((solution_dir / "status.json").read_text(encoding="utf-8"))
-    assert status["status"] == "phase_2_gap_selection_solution_generated"
+    assert status["status"] == "phase_3_constructive_schedule_generated"
     assert status["target_count"] == 1
     assert status["orbit_library"]["candidate_count"] == 1
     assert status["visibility"]["candidate_target_pair_count"] == 1
     assert status["selection"]["selected_candidate_count"] == len(solution["satellites"])
+    assert status["scheduling"]["action_count"] == len(solution["actions"])
     assert status["selection"]["final_score"]["target_gap_summary"]["target_001"]
     assert (solution_dir / "debug" / "orbit_candidates.json").exists()
     assert (solution_dir / "debug" / "visibility_windows.json").exists()
     assert (solution_dir / "debug" / "selection_rounds.json").exists()
+    assert (solution_dir / "debug" / "scheduling_decisions.json").exists()
+    assert (solution_dir / "debug" / "scheduling_rejections.json").exists()
 
 
 def test_solver_source_does_not_import_benchmark_or_experiment_internals() -> None:
