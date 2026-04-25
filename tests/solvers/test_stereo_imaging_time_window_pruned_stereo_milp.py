@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import json
 import math
+import os
+import shlex
 import sys
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
@@ -15,8 +17,11 @@ REPO_ROOT = Path(__file__).resolve().parents[2]
 SOLVER_DIR = REPO_ROOT / "solvers" / "stereo_imaging" / "time_window_pruned_stereo_milp" / "src"
 sys.path.insert(0, str(SOLVER_DIR))
 
+import candidates as candidate_module  # noqa: E402
+import products as product_module  # noqa: E402
 from models import (  # noqa: E402
     CandidateObservation,
+    CandidateSummary,
     Mission,
     QualityModel,
     Satellite,
@@ -25,6 +30,7 @@ from models import (  # noqa: E402
     ValidityThresholds,
 )
 from products import (  # noqa: E402
+    _CandidateGeometry,
     _pair_geom_quality,
     _precompute_candidate_geometry,
     _stereo_pair_mode,
@@ -33,11 +39,13 @@ from products import (  # noqa: E402
     evaluate_tri,
     enumerate_products,
 )
-from case_io import load_case as solver_load_case  # noqa: E402
+from case_io import load_case as solver_load_case, load_solver_config  # noqa: E402
 from milp_model import (  # noqa: E402
+    BackendUnavailable,
+    _evaluate_solution,
     build_conflict_graph,
     build_milp,
-    solve_greedy_fallback,
+    solve_greedy_heuristic,
     solve_milp,
 )
 from repair import repair_solution  # noqa: E402
@@ -51,6 +59,21 @@ from pruning import (  # noqa: E402
     compute_lambda_lb,
     prune_candidates,
 )
+
+
+def _prepared_solver_env(tmp_path: Path) -> dict[str, str]:
+    """Point solve.sh at the current test interpreter as a prepared solver env."""
+    env_dir = tmp_path / "solver_env"
+    bin_dir = env_dir / "bin"
+    bin_dir.mkdir(parents=True, exist_ok=True)
+    python_shim = bin_dir / "python"
+    if not python_shim.exists():
+        python_shim.write_text(
+            f"#!/usr/bin/env bash\nexec {shlex.quote(sys.executable)} \"$@\"\n",
+            encoding="utf-8",
+        )
+        python_shim.chmod(0o755)
+    return {**os.environ, "SOLVER_VENV_DIR": str(env_dir)}
 
 
 def _satellite(
@@ -149,6 +172,28 @@ def _candidate(
         combined_off_nadir_deg=math.degrees(
             math.atan(math.sqrt(math.tan(math.radians(along)) ** 2 + math.tan(math.radians(across)) ** 2))
         ),
+    )
+
+
+def _pair(
+    candidate_i: CandidateObservation,
+    candidate_j: CandidateObservation,
+    *,
+    target_id: str | None = None,
+    q_pair: float = 0.8,
+) -> StereoPair:
+    return StereoPair(
+        target_id=target_id or candidate_i.target_id,
+        candidate_i=candidate_i,
+        candidate_j=candidate_j,
+        convergence_deg=10.0,
+        overlap_fraction=0.9,
+        pixel_scale_ratio=1.0,
+        valid=True,
+        q_geom=q_pair,
+        q_overlap=q_pair,
+        q_res=q_pair,
+        q_pair=q_pair,
     )
 
 
@@ -252,6 +297,43 @@ class TestContractAlignment:
         assert tri.access_interval_id == "__multiple_intervals__"
 
 
+class TestRuntimeModeConfig:
+    def test_default_mode_is_thorough(self):
+        config = load_solver_config(None)
+
+        assert config["runtime"]["mode"] == "thorough"
+        assert config["_resolved_runtime_mode"] == "thorough"
+        assert config["time_step_s"] == 30
+        assert config["optimization"]["backend"] == "auto"
+        assert config["optimization"]["time_limit_s"] == 1800
+
+    def test_fast_mode_applies_preset(self, tmp_path):
+        (tmp_path / "config.yaml").write_text("runtime:\n  mode: fast\n", encoding="utf-8")
+
+        config = load_solver_config(tmp_path)
+
+        assert config["runtime"]["mode"] == "fast"
+        assert config["time_step_s"] == 60
+        assert config["sample_stride_s"] == 60
+        assert config["overlap_grid_angles"] == 4
+        assert config["optimization"]["backend"] == "greedy"
+
+    def test_explicit_overrides_win_over_preset(self, tmp_path):
+        (tmp_path / "config.yaml").write_text(
+            "runtime:\n  mode: fast\n"
+            "time_step_s: 42\n"
+            "optimization:\n  backend: auto\n  time_limit_s: 99\n",
+            encoding="utf-8",
+        )
+
+        config = load_solver_config(tmp_path)
+
+        assert config["runtime"]["mode"] == "fast"
+        assert config["time_step_s"] == 42
+        assert config["optimization"]["backend"] == "auto"
+        assert config["optimization"]["time_limit_s"] == 99
+
+
 class TestPairPolicy:
     def test_stereo_pair_mode_accepts_same_satellite_same_pass(self):
         mission = _mission()
@@ -287,6 +369,147 @@ class TestPairPolicy:
         c2 = _candidate(sat_id="sat_b", interval_id="j1", start_offset_s=20, end_offset_s=30)
 
         assert _stereo_pair_mode(mission, c1, c2) is None
+
+
+def _stub_geo(
+    sat_pos_m: np.ndarray,
+    *,
+    slant_range_m: float = 700000.0,
+    pixel_scale: float = 1.0,
+) -> _CandidateGeometry:
+    return _CandidateGeometry(
+        sat_pos_m=np.asarray(sat_pos_m, dtype=float),
+        boresight_ground_m=np.asarray([6378137.0, 0.0, 0.0], dtype=float),
+        slant_range_m=slant_range_m,
+        pixel_scale_m=pixel_scale,
+    )
+
+
+class TestGeometryShortCircuits:
+    def test_pair_skips_overlap_when_convergence_already_fails(self, monkeypatch):
+        monkeypatch.setattr(product_module, "overlap_fraction_grid", lambda *args, **kwargs: (_ for _ in ()).throw(AssertionError("overlap should not run")))
+
+        target = _target()
+        mission = _mission()
+        sat = _satellite()
+        c1 = _candidate()
+        c2 = _candidate(start_offset_s=20, end_offset_s=30)
+        target_ecef = np.asarray([6378137.0, 0.0, 0.0], dtype=float)
+
+        pair = evaluate_pair(
+            c1,
+            c2,
+            _stub_geo([7000000.0, 0.0, 0.0], pixel_scale=1.0),
+            _stub_geo([7000000.0, 0.0, 0.0], pixel_scale=1.0),
+            target,
+            mission,
+            {"overlap_grid_angles": 4, "overlap_grid_radii": 1},
+            "same_satellite_same_pass",
+            sf_i=object(),
+            sf_j=object(),
+            sat_i=sat,
+            sat_j=sat,
+            target_ecef=target_ecef,
+            strip_step_s=8.0,
+        )
+
+        assert pair.valid is False
+        assert pair.overlap_fraction == pytest.approx(0.0)
+
+    def test_pair_skips_overlap_when_pixel_scale_already_fails(self, monkeypatch):
+        monkeypatch.setattr(product_module, "overlap_fraction_grid", lambda *args, **kwargs: (_ for _ in ()).throw(AssertionError("overlap should not run")))
+
+        target = _target()
+        mission = _mission()
+        sat = _satellite()
+        c1 = _candidate()
+        c2 = _candidate(start_offset_s=20, end_offset_s=30)
+        target_ecef = np.asarray([6378137.0, 0.0, 0.0], dtype=float)
+
+        pair = evaluate_pair(
+            c1,
+            c2,
+            _stub_geo([7000000.0, 0.0, 0.0], pixel_scale=1.0),
+            _stub_geo([6950000.0, 800000.0, 0.0], pixel_scale=2.0),
+            target,
+            mission,
+            {"overlap_grid_angles": 4, "overlap_grid_radii": 1},
+            "same_satellite_same_pass",
+            sf_i=object(),
+            sf_j=object(),
+            sat_i=sat,
+            sat_j=sat,
+            target_ecef=target_ecef,
+            strip_step_s=8.0,
+        )
+
+        assert pair.valid is False
+        assert pair.pixel_scale_ratio > mission.validity_thresholds.max_pixel_scale_ratio
+
+    def test_tri_skips_overlap_without_anchor(self, monkeypatch):
+        monkeypatch.setattr(product_module, "tri_overlap_fraction_grid", lambda *args, **kwargs: (_ for _ in ()).throw(AssertionError("tri overlap should not run")))
+
+        target = _target()
+        mission = _mission(near_nadir_anchor_max_off_nadir_deg=5.0)
+        sat = _satellite()
+        c1 = _candidate(along=20.0)
+        c2 = _candidate(start_offset_s=20, end_offset_s=30, along=22.0)
+        c3 = _candidate(start_offset_s=40, end_offset_s=50, along=24.0)
+        pair_results = {
+            (0, 1): _pair(c1, c2, q_pair=0.8),
+            (0, 2): _pair(c1, c3, q_pair=0.7),
+            (1, 2): _pair(c2, c3, q_pair=0.6),
+        }
+
+        tri = evaluate_tri(
+            (c1, c2, c3),
+            (_stub_geo([7000000.0, 0.0, 0.0]), _stub_geo([6950000.0, 800000.0, 0.0]), _stub_geo([6900000.0, -900000.0, 0.0])),
+            pair_results,
+            (0, 1, 2),
+            target,
+            mission,
+            {"overlap_grid_angles": 4, "overlap_grid_radii": 1},
+            sfs=(object(), object(), object()),
+            sats=(sat, sat, sat),
+            target_ecef=np.asarray([6378137.0, 0.0, 0.0], dtype=float),
+            strip_step_s=8.0,
+        )
+
+        assert tri.valid is False
+        assert tri.common_overlap_fraction == pytest.approx(0.0)
+        assert tri.has_anchor is False
+
+    def test_tri_skips_overlap_with_only_one_valid_pair(self, monkeypatch):
+        monkeypatch.setattr(product_module, "tri_overlap_fraction_grid", lambda *args, **kwargs: (_ for _ in ()).throw(AssertionError("tri overlap should not run")))
+
+        target = _target()
+        mission = _mission()
+        sat = _satellite()
+        c1 = _candidate(across=2.0)
+        c2 = _candidate(start_offset_s=20, end_offset_s=30, across=3.0)
+        c3 = _candidate(start_offset_s=40, end_offset_s=50, across=12.0)
+        pair_results = {
+            (0, 1): _pair(c1, c2, q_pair=0.8),
+            (0, 2): StereoPair(target_id="t1", candidate_i=c1, candidate_j=c3, convergence_deg=10.0, overlap_fraction=0.0, pixel_scale_ratio=1.0, valid=False, q_geom=0.0, q_overlap=0.0, q_res=0.0, q_pair=0.0),
+            (1, 2): StereoPair(target_id="t1", candidate_i=c2, candidate_j=c3, convergence_deg=10.0, overlap_fraction=0.0, pixel_scale_ratio=1.0, valid=False, q_geom=0.0, q_overlap=0.0, q_res=0.0, q_pair=0.0),
+        }
+
+        tri = evaluate_tri(
+            (c1, c2, c3),
+            (_stub_geo([7000000.0, 0.0, 0.0]), _stub_geo([6950000.0, 800000.0, 0.0]), _stub_geo([6900000.0, -900000.0, 0.0])),
+            pair_results,
+            (0, 1, 2),
+            target,
+            mission,
+            {"overlap_grid_angles": 4, "overlap_grid_radii": 1},
+            sfs=(object(), object(), object()),
+            sats=(sat, sat, sat),
+            target_ecef=np.asarray([6378137.0, 0.0, 0.0], dtype=float),
+            strip_step_s=8.0,
+        )
+
+        assert tri.valid is False
+        assert tri.common_overlap_fraction == pytest.approx(0.0)
 
 
 # ---------------------------------------------------------------------------
@@ -1244,7 +1467,7 @@ class TestPruneCandidates:
 
 
 # ---------------------------------------------------------------------------
-# MILP / conflict / greedy fallback tests
+# MILP / conflict / greedy heuristic tests
 # ---------------------------------------------------------------------------
 
 class TestConflictGraph:
@@ -1313,7 +1536,6 @@ class TestBuildMILP:
         config = {
             "overlap_grid_angles": 4,
             "overlap_grid_radii": 1,
-            "optimization": {"coverage_weight": 1000.0},
         }
         base = datetime(2026, 6, 18, 0, 0, 0, tzinfo=UTC)
 
@@ -1348,22 +1570,54 @@ class TestBuildMILP:
         assert len(model.target_coverage_vars) == 1
         # Pair links: 2 per pair = 6
         assert len(model.pair_link_constraints) == 6
+        assert len(model.pair_activation_constraints) == 3
         # Tri links: 3 per tri = 3
         assert len(model.tri_link_constraints) == 3
+        assert len(model.tri_activation_constraints) == 1
         # Coverage constraint: 1
         assert len(model.target_coverage_constraints) == 1
 
-    def test_coverage_weight_in_objective(self):
+    def test_coverage_bonus_is_lexicographic(self):
+        sat = _satellite()
+        target_a = _target(target_id="t1")
+        target_b = _target(target_id="t2")
+        mission = _mission()
+        config = {}
+        cands = [_candidate(start_offset_s=0)]
+        model = build_milp(cands, [], [], {"t1": target_a, "t2": target_b}, {"sat_test": sat}, mission, config)
+        assert model.coverage_bonus == pytest.approx(3.0)
+
+    def test_evaluate_solution_uses_best_per_target_quality(self):
         sat = _satellite()
         target = _target()
         mission = _mission()
-        config = {"optimization": {"coverage_weight": 500.0}}
-        cands = [_candidate(start_offset_s=0)]
-        model = build_milp(cands, [], [], {"t1": target}, {"sat_test": sat}, mission, config)
-        assert model.coverage_weight == 500.0
+        c1 = _candidate(start_offset_s=0, end_offset_s=10)
+        c2 = _candidate(start_offset_s=20, end_offset_s=30)
+        c3 = _candidate(start_offset_s=40, end_offset_s=50)
+        c4 = _candidate(start_offset_s=60, end_offset_s=70)
+
+        high = _pair(c1, c2, q_pair=0.9)
+        low = _pair(c3, c4, q_pair=0.6)
+        model = build_milp(
+            [c1, c2, c3, c4],
+            [high, low],
+            [],
+            {"t1": target},
+            {"sat_test": sat},
+            mission,
+            {},
+        )
+
+        evaluation = _evaluate_solution(model, [0, 1, 2, 3])
+
+        assert evaluation["selected_pairs"] == 2
+        assert evaluation["covered_targets"] == 1
+        assert evaluation["best_target_quality_sum"] == pytest.approx(0.9)
+        assert evaluation["normalized_quality"] == pytest.approx(0.9)
+        assert evaluation["per_target_best_score"] == {"t1": pytest.approx(0.9)}
 
 
-class TestGreedyFallback:
+class TestGreedyHeuristic:
     def test_selects_single_valid_pair(self, monkeypatch):
         sat = _satellite()
         target = _target()
@@ -1371,7 +1625,6 @@ class TestGreedyFallback:
         config = {
             "overlap_grid_angles": 4,
             "overlap_grid_radii": 1,
-            "optimization": {"greedy_coverage_augment": False},
         }
         base = datetime(2026, 6, 18, 0, 0, 0, tzinfo=UTC)
 
@@ -1399,7 +1652,7 @@ class TestGreedyFallback:
         pairs, tris, _ = enumerate_products(cands, {"sat_test": sat}, {"t1": target}, mission, config)
 
         model = build_milp(cands, pairs, tris, {"t1": target}, {"sat_test": sat}, mission, config)
-        selected, obj, stats = solve_greedy_fallback(model, config)
+        selected, obj, stats = solve_greedy_heuristic(model, config)
 
         assert len(selected) == 2
         assert obj > 0
@@ -1411,7 +1664,6 @@ class TestGreedyFallback:
         config = {
             "overlap_grid_angles": 4,
             "overlap_grid_radii": 1,
-            "optimization": {"greedy_coverage_augment": False},
         }
         base = datetime(2026, 6, 18, 0, 0, 0, tzinfo=UTC)
 
@@ -1441,7 +1693,7 @@ class TestGreedyFallback:
         pairs, tris, _ = enumerate_products(cands, {"sat_test": sat}, {"t1": target}, mission, config)
 
         model = build_milp(cands, pairs, tris, {"t1": target}, {"sat_test": sat}, mission, config)
-        selected, obj, stats = solve_greedy_fallback(model, config)
+        selected, obj, stats = solve_greedy_heuristic(model, config)
 
         # Should select at least one pair (2 observations)
         assert len(selected) >= 2
@@ -1453,7 +1705,6 @@ class TestGreedyFallback:
         config = {
             "overlap_grid_angles": 4,
             "overlap_grid_radii": 1,
-            "optimization": {"greedy_coverage_augment": False},
         }
         base = datetime(2026, 6, 18, 0, 0, 0, tzinfo=UTC)
 
@@ -1481,52 +1732,72 @@ class TestGreedyFallback:
         pairs, tris, _ = enumerate_products(cands, {"sat_test": sat}, {"t1": target}, mission, config)
 
         model = build_milp(cands, pairs, tris, {"t1": target}, {"sat_test": sat}, mission, config)
-        r1, _, _ = solve_greedy_fallback(model, config)
-        r2, _, _ = solve_greedy_fallback(model, config)
+        r1, _, _ = solve_greedy_heuristic(model, config)
+        r2, _, _ = solve_greedy_heuristic(model, config)
         assert r1 == r2
+
+    def test_prefers_new_target_over_redundant_same_target_quality(self):
+        sat_a = _satellite("sat_a")
+        sat_b = _satellite("sat_b")
+        mission = _mission()
+        target1 = _target("t1")
+        target2 = _target("t2")
+        config = {}
+
+        a1 = _candidate(sat_id="sat_a", target_id="t1", interval_id="sat_a::t1::0", start_offset_s=0, end_offset_s=10)
+        a2 = _candidate(sat_id="sat_b", target_id="t1", interval_id="sat_b::t1::0", start_offset_s=20, end_offset_s=30)
+        b1 = _candidate(sat_id="sat_a", target_id="t1", interval_id="sat_a::t1::1", start_offset_s=40, end_offset_s=50)
+        b2 = _candidate(sat_id="sat_b", target_id="t1", interval_id="sat_b::t1::1", start_offset_s=60, end_offset_s=70)
+        c1 = _candidate(sat_id="sat_a", target_id="t2", interval_id="sat_a::t2::0", start_offset_s=80, end_offset_s=90)
+        c2 = _candidate(sat_id="sat_b", target_id="t2", interval_id="sat_b::t2::0", start_offset_s=100, end_offset_s=110)
+
+        pairs = [
+            _pair(a1, a2, target_id="t1", q_pair=0.9),
+            _pair(b1, b2, target_id="t1", q_pair=0.6),
+            _pair(c1, c2, target_id="t2", q_pair=0.55),
+        ]
+        model = build_milp(
+            [a1, a2, b1, b2, c1, c2],
+            pairs,
+            [],
+            {"t1": target1, "t2": target2},
+            {"sat_a": sat_a, "sat_b": sat_b},
+            mission,
+            config,
+            prebuilt_conflicts={(2, 4): "overlap"},
+        )
+
+        selected, _, _ = solve_greedy_heuristic(model, config)
+        evaluation = _evaluate_solution(model, selected)
+
+        assert selected == [0, 1, 4, 5]
+        assert evaluation["covered_targets"] == 2
+        assert evaluation["best_target_quality_sum"] == pytest.approx(1.45)
+        assert evaluation["per_target_best_score"] == {
+            "t1": pytest.approx(0.9),
+            "t2": pytest.approx(0.55),
+        }
 
 
 class TestSolveMILP:
-    def test_fallback_when_no_backend(self, monkeypatch):
+    def test_exact_backend_missing_fails_hard(self, monkeypatch):
         sat = _satellite()
         target = _target()
         mission = _mission()
-        config = {
-            "overlap_grid_angles": 4,
-            "overlap_grid_radii": 1,
-            "optimization": {"backend": "ortools", "greedy_coverage_augment": False},
-        }
-        base = datetime(2026, 6, 18, 0, 0, 0, tzinfo=UTC)
+        config = {"optimization": {"backend": "ortools"}}
 
-        def fake_precompute(cand, sat, target, step):
-            from products import _CandidateGeometry
-            te = np.array([0.0, 0.0, 6378137.0])
-            offset_s = (cand.start - base).total_seconds()
-            angle = math.radians(offset_s)
-            sp = np.array([math.sin(angle) * 7e6, 0.0, math.cos(angle) * 7e6])
-            return _CandidateGeometry(
-                sat_pos_m=sp,
-                boresight_ground_m=te,
-                slant_range_m=1e6,
-                pixel_scale_m=1.0,
-                strip_polyline_en=[(0.0, -5000.0), (0.0, 5000.0)],
-                strip_half_width_m=1e6,
-            )
+        def fake_ortools(model, time_limit_s):
+            raise BackendUnavailable("ortools import failed")
 
-        monkeypatch.setattr("products._precompute_candidate_geometry", fake_precompute)
+        monkeypatch.setattr("milp_model.solve_with_ortools", fake_ortools)
 
-        # Use large gap to avoid slew conflict
         c1 = _candidate(start_offset_s=0, end_offset_s=2)
         c2 = _candidate(start_offset_s=20, end_offset_s=22)
         cands = [c1, c2]
-        pairs, tris, _ = enumerate_products(cands, {"sat_test": sat}, {"t1": target}, mission, config)
+        pairs = [_pair(c1, c2)]
 
-        selected, summary = solve_milp(cands, pairs, tris, {"t1": target}, {"sat_test": sat}, mission, config)
-
-        assert summary.backend_used == "greedy_fallback"
-        assert summary.fallback_reason is not None
-        assert "ortools" in summary.fallback_reason
-        assert len(selected) == 2
+        with pytest.raises(BackendUnavailable, match="no exact optimization backend available"):
+            solve_milp(cands, pairs, [], {"t1": target}, {"sat_test": sat}, mission, config)
 
     def test_greedy_backend_explicit(self, monkeypatch):
         sat = _satellite()
@@ -1535,7 +1806,7 @@ class TestSolveMILP:
         config = {
             "overlap_grid_angles": 4,
             "overlap_grid_radii": 1,
-            "optimization": {"backend": "greedy", "greedy_coverage_augment": False},
+            "optimization": {"backend": "greedy"},
         }
         base = datetime(2026, 6, 18, 0, 0, 0, tzinfo=UTC)
 
@@ -1564,12 +1835,54 @@ class TestSolveMILP:
 
         selected, summary = solve_milp(cands, pairs, tris, {"t1": target}, {"sat_test": sat}, mission, config)
 
-        assert summary.backend_used == "greedy_fallback"
-        # When backend is explicitly "greedy", fallback_reason should be None (not a fallback)
-        assert summary.fallback_reason is None
+        assert summary.backend_used == "greedy"
         assert len(selected) == 2
         assert summary.selected_pairs == 1
         assert summary.covered_targets == 1
+        assert summary.coverage_ratio == pytest.approx(1.0)
+        assert summary.best_target_quality_sum == pytest.approx(summary.objective_quality)
+        assert summary.normalized_quality == pytest.approx(summary.best_target_quality_sum)
+
+    def test_summary_reports_best_per_target_scores(self):
+        sat_a = _satellite("sat_a")
+        sat_b = _satellite("sat_b")
+        mission = _mission()
+        target1 = _target("t1")
+        target2 = _target("t2")
+        config = {"optimization": {"backend": "greedy"}}
+
+        a1 = _candidate(sat_id="sat_a", target_id="t1", interval_id="sat_a::t1::0", start_offset_s=0, end_offset_s=10)
+        a2 = _candidate(sat_id="sat_b", target_id="t1", interval_id="sat_b::t1::0", start_offset_s=20, end_offset_s=30)
+        b1 = _candidate(sat_id="sat_a", target_id="t1", interval_id="sat_a::t1::1", start_offset_s=40, end_offset_s=50)
+        b2 = _candidate(sat_id="sat_b", target_id="t1", interval_id="sat_b::t1::1", start_offset_s=60, end_offset_s=70)
+        c1 = _candidate(sat_id="sat_a", target_id="t2", interval_id="sat_a::t2::0", start_offset_s=80, end_offset_s=90)
+        c2 = _candidate(sat_id="sat_b", target_id="t2", interval_id="sat_b::t2::0", start_offset_s=100, end_offset_s=110)
+
+        pairs = [
+            _pair(a1, a2, target_id="t1", q_pair=0.9),
+            _pair(b1, b2, target_id="t1", q_pair=0.6),
+            _pair(c1, c2, target_id="t2", q_pair=0.55),
+        ]
+
+        selected, summary = solve_milp(
+            [a1, a2, b1, b2, c1, c2],
+            pairs,
+            [],
+            {"t1": target1, "t2": target2},
+            {"sat_a": sat_a, "sat_b": sat_b},
+            mission,
+            config,
+        )
+
+        assert selected == [0, 1, 4, 5]
+        assert summary.covered_targets == 2
+        assert summary.coverage_ratio == pytest.approx(1.0)
+        assert summary.best_target_quality_sum == pytest.approx(1.45)
+        assert summary.normalized_quality == pytest.approx(0.725)
+        assert summary.per_target_best_score == {
+            "t1": pytest.approx(0.9),
+            "t2": pytest.approx(0.55),
+        }
 
 
 # ---------------------------------------------------------------------------
@@ -1708,6 +2021,36 @@ class TestRepair:
         assert len(repaired) == 4
         assert log.post_repair_covered_targets == 2
 
+    def test_prefers_higher_best_target_quality_when_coverage_ties(self):
+        sat_a = _satellite("sat_a")
+        sat_b = _satellite("sat_b")
+        target = _target("t1")
+        mission = _mission()
+        config = {"overlap_grid_angles": 4, "overlap_grid_radii": 1}
+
+        high_a = _candidate(sat_id="sat_a", target_id="t1", interval_id="sat_a::t1::0", start_offset_s=0, end_offset_s=10)
+        low_a = _candidate(sat_id="sat_a", target_id="t1", interval_id="sat_a::t1::1", start_offset_s=5, end_offset_s=15)
+        high_b = _candidate(sat_id="sat_b", target_id="t1", interval_id="sat_b::t1::0", start_offset_s=20, end_offset_s=30)
+        low_b = _candidate(sat_id="sat_b", target_id="t1", interval_id="sat_b::t1::1", start_offset_s=40, end_offset_s=50)
+
+        repaired, log = repair_solution(
+            [high_a, low_a, high_b, low_b],
+            [
+                _pair(high_a, high_b, target_id="t1", q_pair=0.9),
+                _pair(low_a, low_b, target_id="t1", q_pair=0.5),
+            ],
+            [],
+            {"sat_a": sat_a, "sat_b": sat_b},
+            {"t1": target},
+            mission,
+            config,
+        )
+
+        assert high_a in repaired
+        assert low_a not in repaired
+        assert log.post_repair_covered_targets == 1
+        assert log.post_repair_best_target_quality_sum == pytest.approx(0.9)
+
     def test_deterministic(self, monkeypatch):
         sat = _satellite()
         target = _target()
@@ -1753,6 +2096,80 @@ class TestRepair:
 # ---------------------------------------------------------------------------
 
 class TestDeterminism:
+    def test_candidate_generation_parallel_path_matches_sequential(self, monkeypatch):
+        class FakePool:
+            def __init__(self, processes):
+                self.processes = processes
+
+            def __enter__(self):
+                return self
+
+            def __exit__(self, exc_type, exc, tb):
+                return False
+
+            def starmap(self, func, args):
+                return [func(*arg) for arg in args]
+
+        def fake_worker(
+            sat,
+            target_list,
+            mission,
+            time_step_s,
+            sample_stride_s,
+            max_candidates_per_interval,
+            along_samples,
+            across_samples,
+            use_target_centered,
+            steering_spread_deg,
+        ):
+            del mission, time_step_s, sample_stride_s, max_candidates_per_interval
+            del along_samples, across_samples, use_target_centered, steering_spread_deg
+            target = target_list[0]
+            cand = _candidate(
+                sat_id=sat.id,
+                target_id=target.id,
+                interval_id=f"{sat.id}::{target.id}::0",
+                start_offset_s=0 if sat.id == "sat_a" else 20,
+                end_offset_s=10 if sat.id == "sat_a" else 30,
+            )
+            summary = CandidateSummary()
+            summary.record(True, sat.id, target.id, cand.access_interval_id)
+            summary.profiling = {
+                "satellite_workers": 1,
+                "state_batch_build_s": 0.0,
+                "access_interval_search_s": 0.0,
+                "candidate_sampling_s": 0.0,
+                "solar_checks": 0,
+                "candidates_emitted": 1,
+                "total_s": 0.0,
+            }
+            return [cand], [], summary
+
+        monkeypatch.setattr(candidate_module, "Pool", FakePool)
+        monkeypatch.setattr(candidate_module.os, "cpu_count", lambda: 4)
+        monkeypatch.setattr(candidate_module, "_generate_candidates_for_satellite", fake_worker)
+
+        mission = _mission()
+        satellites = {"sat_a": _satellite("sat_a"), "sat_b": _satellite("sat_b")}
+        targets = {"t1": _target()}
+
+        seq_candidates, seq_rejections, seq_summary = candidate_module.generate_candidates(
+            mission,
+            satellites,
+            targets,
+            {"parallel_candidate_generation": False},
+        )
+        par_candidates, par_rejections, par_summary = candidate_module.generate_candidates(
+            mission,
+            satellites,
+            targets,
+            {"parallel_candidate_generation": True},
+        )
+
+        assert seq_candidates == par_candidates
+        assert seq_rejections == par_rejections
+        assert seq_summary.as_dict() == par_summary.as_dict()
+
     @pytest.mark.timeout(300)
     @pytest.mark.skipif(
         not (Path(__file__).resolve().parents[2] / "benchmarks" / "stereo_imaging" / "dataset" / "cases" / "test" / "case_0001").exists(),
@@ -1764,7 +2181,21 @@ class TestDeterminism:
         repo_root = Path(__file__).resolve().parents[2]
         solver_dir = repo_root / "solvers" / "stereo_imaging" / "time_window_pruned_stereo_milp"
         case_dir = repo_root / "benchmarks" / "stereo_imaging" / "dataset" / "cases" / "test" / "case_0001"
-        config_dir = solver_dir / "config.example.yaml"
+        config_dir = tmp_path / "fast_config"
+        config_dir.mkdir()
+        (config_dir / "config.json").write_text(
+            json.dumps(
+                {
+                    "runtime": {"mode": "fast"},
+                    "debug": False,
+                    "time_step_s": 120,
+                    "sample_stride_s": 120,
+                    "max_candidates_per_interval": 1,
+                    "optimization": {"backend": "greedy"},
+                }
+            ),
+            encoding="utf-8",
+        )
 
         statuses: list[dict[str, Any]] = []
         for i in range(3):
@@ -1777,6 +2208,7 @@ class TestDeterminism:
                     str(solution_dir),
                 ],
                 cwd=solver_dir,
+                env=_prepared_solver_env(tmp_path),
                 capture_output=True,
                 text=True,
             )
@@ -1812,7 +2244,21 @@ class TestEndToEnd:
         repo_root = Path(__file__).resolve().parents[2]
         solver_dir = repo_root / "solvers" / "stereo_imaging" / "time_window_pruned_stereo_milp"
         case_dir = repo_root / "benchmarks" / "stereo_imaging" / "dataset" / "cases" / "test" / "case_0001"
-        config_dir = solver_dir / "config.example.yaml"
+        config_dir = tmp_path / "fast_config"
+        config_dir.mkdir()
+        (config_dir / "config.json").write_text(
+            json.dumps(
+                {
+                    "runtime": {"mode": "fast"},
+                    "debug": False,
+                    "time_step_s": 120,
+                    "sample_stride_s": 120,
+                    "max_candidates_per_interval": 1,
+                    "optimization": {"backend": "greedy"},
+                }
+            ),
+            encoding="utf-8",
+        )
 
         solution_dir = tmp_path / "solution"
         result = subprocess.run(
@@ -1823,6 +2269,7 @@ class TestEndToEnd:
                 str(solution_dir),
             ],
             cwd=solver_dir,
+            env=_prepared_solver_env(tmp_path),
             capture_output=True,
             text=True,
         )
@@ -1848,3 +2295,8 @@ class TestEndToEnd:
         assert status["status"] == "solved"
         assert status["solver_version"] == "time_window_pruned_stereo_milp"
         assert "repair_summary" in status
+        assert status["profiling"]["runtime_mode"] == "fast"
+        assert status["solve_summary"]["backend_used"] == "greedy"
+        assert "candidate_generation" in status["profiling"]
+        assert "product_enumeration" in status["profiling"]
+        assert "solve" in status["profiling"]

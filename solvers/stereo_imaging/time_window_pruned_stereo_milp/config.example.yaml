@@ -1,6 +1,18 @@
 # Example config for the time-window-pruned stereo MILP solver.
 # Copy this file to config.yaml and modify values to override defaults.
-# The solver runs safely without any config file using built-in defaults.
+# Without a config file, the solver uses built-in thorough defaults.
+
+# ---------------------------------------------------------------------------
+# Runtime policy presets
+# ---------------------------------------------------------------------------
+
+# Runtime mode presets:
+# - thorough: denser benchmark-facing run policy; this is also the implicit default
+# - fast: lighter heuristic baseline for quicker public-case sweeps
+#
+# User-specified knobs below override the selected preset rather than replacing it.
+runtime:
+  mode: thorough
 
 # ---------------------------------------------------------------------------
 # Candidate generation
@@ -42,6 +54,9 @@ steering_across_samples: 1
 # slightly different view angles.
 # Default: 2.0.
 steering_grid_spread_deg: 2.0
+
+# Parallelize candidate generation per satellite when true.
+parallel_candidate_generation: true
 
 # ---------------------------------------------------------------------------
 # Product geometry approximation
@@ -88,37 +103,22 @@ pruning:
   preserve_products: true
 
 # ---------------------------------------------------------------------------
-# Optimization backend and fallback
+# Optimization backend
 # ---------------------------------------------------------------------------
 
 optimization:
   # Backend selection: auto | ortools | pulp | greedy
-  # "auto" tries ortools → pulp → greedy fallback.
-  # "greedy" skips MILP and uses deterministic greedy directly.
+  # "auto" tries exact backends in order: ortools → pulp.
+  # If no exact backend is installed, auto fails hard instead of silently using
+  # the weaker heuristic. Set "greedy" explicitly for fast heuristic runs.
   backend: auto
 
   # MILP solver time limit (seconds).
-  # 300s is realistic for the greedy fallback / heuristic layer.
+  # 300s is realistic for the explicit greedy heuristic layer.
   # 1800s (30 min) is recommended when an exact MILP backend is installed
   # and you want better optimality on dense cases.
-  time_limit_s: 300
+  time_limit_s: 1800
 
-  # Lexicographic big-M weight: coverage_weight * covered_targets + quality.
-  # Must be larger than the maximum possible sum of quality terms.
-  # Default: 1000.0.  With <= 100 targets and quality <= 1.0, this is safe.
-  coverage_weight: 1000.0
-
-  # If the MILP backend times out, fall back to greedy.
-  fallback_on_timeout: true
-
-  # Multi-lambda restart heuristic: run the solver with multiple coverage weights
-  # and keep the result with the highest coverage (tie-break on quality).
-  # Set to null or [] to disable (single run with coverage_weight).
-  # Default: [100.0, 500.0, 1000.0, 2000.0]
-  multi_lambda_restarts: [100.0, 500.0, 1000.0, 2000.0]
-
-  # Greedy fallback knobs
-  greedy_coverage_augment: true
   greedy_max_repair_iterations: 10
 
 # ---------------------------------------------------------------------------

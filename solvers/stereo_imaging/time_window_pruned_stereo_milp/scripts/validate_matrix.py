@@ -21,7 +21,7 @@ CASES_ROOT = REPO_ROOT / "benchmarks" / "stereo_imaging" / "dataset" / "cases" /
 CONFIG_MATRIX: list[dict[str, Any]] = [
     {
         "id": "default",
-        "description": "Default config: pruning on, greedy fallback",
+        "description": "Default thorough config: pruning on, exact backend auto-discovery",
         "payload": {},
     },
     {
@@ -40,8 +40,8 @@ CONFIG_MATRIX: list[dict[str, Any]] = [
         "payload": {"steering_along_samples": 5, "steering_across_samples": 5},
     },
     {
-        "id": "forced_fallback",
-        "description": "Forced greedy fallback, no pruning",
+        "id": "explicit_greedy",
+        "description": "Explicit greedy heuristic, no pruning",
         "payload": {"pruning": {"enabled": False}, "optimization": {"backend": "greedy"}},
     },
 ]
@@ -70,7 +70,6 @@ class RunResult:
     pre_candidates: int
     post_candidates: int
     backend_used: str
-    fallback_reason: str | None
     total_runtime_s: float
     solver_status: str
     error: str | None = None
@@ -187,7 +186,6 @@ def main() -> int:
                         pre_candidates=0,
                         post_candidates=0,
                         backend_used="unknown",
-                        fallback_reason=None,
                         total_runtime_s=status.get("elapsed", 0.0),
                         solver_status="error",
                         error=status["error"],
@@ -214,7 +212,6 @@ def main() -> int:
                         pre_candidates=0,
                         post_candidates=0,
                         backend_used="unknown",
-                        fallback_reason=None,
                         total_runtime_s=status.get("elapsed", 0.0),
                         solver_status="error",
                         error=verifier["error"],
@@ -241,7 +238,6 @@ def main() -> int:
                 pre_candidates=pruning_summary.get("pre_candidates", 0),
                 post_candidates=pruning_summary.get("post_candidates", 0),
                 backend_used=solve_summary.get("backend_used", "unknown"),
-                fallback_reason=solve_summary.get("fallback_reason"),
                 total_runtime_s=status.get("elapsed", 0.0),
                 solver_status=status.get("status", "unknown"),
             )

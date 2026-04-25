@@ -27,25 +27,24 @@ The paper decomposes agile Earth-observation scheduling with stereo constraints 
 - **Tri-stereo set**: three candidates on the same target with sufficient common overlap and a near-nadir anchor requirement, with product metadata widened so later phases can model the benchmark's full constituent-pair rules.
 - **Conflict graph**: edges encode same-satellite temporal overlap and insufficient slew-plus-settle gap.
 - **Coverage**: each target is covered when at least one valid pair or tri-stereo set containing that target is selected.
-- **Objective**: lexicographic maximize covered targets, then total pair/tri quality.
+- **Objective**: lexicographic maximize covered targets, then best-per-target stereo quality.
 
-The solver supports two optimization backends:
+The solver supports exact and heuristic optimization modes:
 
 - **Exact MILP** via OR-Tools CP-SAT or PuLP+CBC when installed.
-- **Deterministic greedy fallback** when no MILP backend is available (default in the project environment).
-
-A multi-lambda restart heuristic optionally runs the optimizer with several coverage-weight values and keeps the result with the highest coverage (tie-break on quality).
+- **Deterministic greedy heuristic** only when `optimization.backend: greedy` is set explicitly.
 
 ## Benchmark Adaptation
 
 The benchmark differs from the paper in a few important ways:
 
-- The benchmark ranks by valid first, then coverage ratio and normalized quality, so the solver uses weighted coverage-plus-quality selection rather than pure collect count.
+- The benchmark ranks by valid first, then coverage ratio and normalized quality, so the solver uses coverage-first, best-per-target-quality selection rather than additive duplicate-product quality.
 - Access intervals are found with a coarse time-step search rather than exact SGP4 root-finding; minor drift relative to exact propagation is expected.
 - Solar elevation and LOS checks are sampled at the observation midpoint.
 - Overlap fraction is estimated with a deterministic polar grid rather than Monte Carlo; values may differ by a few percent from the verifier.
-- The benchmark now allows both same-satellite same-pass stereo and mission-bounded cross-satellite stereo. This solver's Phase 1 contract alignment widens mission parsing and product metadata to represent those modes; full benchmark-faithful enumeration and enforcement still land in later phases.
-- Candidate generation is vectorized with batched skyfield propagation and parallelized over `(satellite, target)` pairs for speed.
+- The benchmark now allows both same-satellite same-pass stereo and mission-bounded cross-satellite stereo, and the solver now enumerates those benchmark product modes directly in its product layer.
+- Candidate generation is batched per satellite so one horizon propagation pass is reused across all targets for that satellite, then parallelized over satellites for speed.
+- Product enumeration uses lazy strip-geometry construction and safe early rejection on convergence, pixel-scale, anchor, and constituent-pair checks before paying for overlap evaluation.
 
 That means this solver reproduces the paper's candidate-prune-optimize pipeline, while remaining faithful to the benchmark's public validity contract.
 
@@ -56,19 +55,28 @@ That means this solver reproduces the paper's candidate-prune-optimize pipeline,
 ./solve.sh <case_dir> [config_dir] [solution_dir]
 ```
 
-`setup.sh` checks that `brahe`, `numpy`, `yaml`, and `skyfield` are available and optionally installs solver-local dependencies (`ortools`, `pulp`) from `requirements.txt`.
+`setup.sh` creates an ignored solver-local virtual environment at `.venv/`, installs solver dependencies from `requirements.txt`, and checks that `brahe`, `numpy`, `yaml`, and `skyfield` are importable there. Override the location with `SOLVER_VENV_DIR=/path/to/env` if you want to reuse a prepared per-solver environment.
 
 ### Backend installation
 
-The solver works out of the box with a deterministic greedy fallback. To use the exact MILP formulation, install one of the following backends:
+The default `thorough` mode uses `optimization.backend: auto`, which requires at least one exact backend. Install one of the following PyPI packages in the solver-local environment:
 
 ```bash
-pip install ortools>=9.11
+./setup.sh
 # or
-pip install pulp>=2.9
+SOLVER_VENV_DIR=/path/to/stereo-milp-env ./setup.sh
 ```
 
-`setup.sh` will attempt to install both automatically when `pip` is available. With a backend installed, set `backend: auto` (default) or explicitly `backend: ortools` / `backend: pulp`. Increase `time_limit_s` to 1800 or more for exact solves on dense cases.
+`requirements.txt` currently requests `ortools>=9.11` and `pulp>=2.9`; both are PyPI packages and are installed into the solver-local environment, not into the repository workspace. With a backend installed, set `backend: auto` (default) or explicitly `backend: ortools` / `backend: pulp`. If no exact backend is importable, `auto`, `ortools`, and `pulp` fail hard instead of silently switching to greedy. Use `backend: greedy` only for intentional heuristic sweeps.
+
+## Runtime Modes
+
+The solver exposes two documented runtime presets through `runtime.mode`:
+
+- `thorough`: denser benchmark-facing preset for public-case evaluation. This is the implicit default when no config is supplied.
+- `fast`: lighter heuristic preset for quicker sweeps and before/after runtime comparisons.
+
+The preset is applied first, then any user-specified knobs override it. `thorough` uses exact backend auto-discovery and fails when neither `ortools` nor `pulp` is installed. `fast` sets `optimization.backend: greedy` explicitly.
 
 `solve.sh` writes:
 
@@ -83,13 +91,13 @@ The primary solution artifact is one JSON object with a top-level `actions` arra
 The solver pipeline is:
 
 1. Load `mission.yaml`, `satellites.yaml`, and `targets.yaml`.
-2. Find access intervals for each `(satellite, target)` with coarse time-step search.
-3. Generate candidate observations by sampling start times and steering angles inside each interval, applying cheap local prechecks.
-4. Enumerate stereo pairs and tri-stereo sets, checking convergence, overlap, and pixel-scale validity.
+2. Build batched satellite state series and find access intervals for each target with coarse time-step search.
+3. Generate candidate observations by sampling start times and steering angles inside each interval, applying cheap local prechecks with cached midpoint state.
+4. Enumerate stereo pairs and tri-stereo sets, using cheap rejection filters before overlap geometry where safe.
 5. Optionally prune candidates with Kim-style time-window cluster capping.
 6. Build an abstract MILP with observation, pair, tri, and coverage variables linked by conflict constraints.
-7. Solve with OR-Tools, PuLP, or deterministic greedy fallback.
-8. Run solver-local conservative repair to remove any remaining transition or exclusivity violations, then augment coverage with the best valid product for uncovered targets.
+7. Solve with OR-Tools, PuLP, or the explicitly requested deterministic greedy heuristic using coverage-first and best-per-target-quality semantics.
+8. Run solver-local conservative repair to remove any remaining transition or exclusivity violations, then recompute benchmark-shaped coverage and quality metrics.
 
 The repair stage is intentionally conservative. It keeps the solver standalone and reduces official verifier failures without claiming that all geometric approximations are exact.
 
@@ -108,9 +116,11 @@ See [config.example.yaml](./config.example.yaml) for a commented example.
 
 Key knobs:
 
+- `runtime.mode`
 - `time_step_s`
 - `sample_stride_s`
 - `max_candidates_per_interval`
+- `parallel_candidate_generation`
 - `steering_along_samples`
 - `steering_across_samples`
 - `steering_grid_spread_deg`
@@ -121,12 +131,11 @@ Key knobs:
 - `pruning.enabled`
 - `optimization.backend`
 - `optimization.time_limit_s`
-- `optimization.coverage_weight`
-- `optimization.multi_lambda_restarts`
-- `optimization.greedy_coverage_augment`
 - `debug`
 
 `time_limit_s` only bounds the MILP or greedy solve step. It does not cap candidate generation, product enumeration, or local validation. If the time budget is reached, the solver returns the best incumbent found so far and still performs repair.
+
+`status.json` also includes a `profiling` section with stage counters for candidate generation, product enumeration, and solve/model-build work, so runtime tuning can be compared without ad hoc logging.
 
 ## Debug Artifacts
 
@@ -137,13 +146,21 @@ When `debug: true`, the solver writes:
 - `debug/pruning_summary.json`
 - `debug/repair_log.json`
 
+`status.json` is the primary timing artifact for Phase 4 work:
+
+- `timing_seconds` keeps coarse wall-clock stage totals
+- `profiling.runtime_mode` records which preset ran
+- `profiling.candidate_generation` reports batched-state, access-search, sampling, and solar-check counts
+- `profiling.product_enumeration` reports midpoint-geometry, strip-geometry, and overlap-evaluation counts
+- `profiling.solve` reports conflict-graph, model-build, and backend details
+
 These are useful for answering:
 
 - why a target has zero candidates
 - how many valid pairs and tri-stereo sets were found
 - whether pruning removed viable candidates
 - why a candidate was removed during repair
-- which backend was used and whether it fell back
+- which backend was selected
 
 ## Running It
 
@@ -204,7 +221,7 @@ If raw pair/tri selection looks strong but repair removes many observations, ins
 - Solar elevation and LOS checks are sampled at the observation midpoint.
 - Overlap fraction is estimated with a deterministic polar grid rather than Monte Carlo; values may differ by a few percent from the verifier.
 - If no valid stereo pairs or tri-stereo sets exist for a target (e.g. only one satellite accesses it, or slew time exceeds the gap between consecutive intervals), that target will remain uncovered.
-- The exact MILP backend is not installed in the base project environment; the deterministic greedy fallback is the default active path.
+- Exact MILP requires solver-local `ortools` or `pulp`; missing exact libraries are reported as errors unless `optimization.backend: greedy` is explicitly selected.
 
 ## Evidence Type
 

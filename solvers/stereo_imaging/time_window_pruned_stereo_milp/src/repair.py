@@ -28,7 +28,7 @@ from models import (
     Target,
     TriStereoSet,
 )
-from milp_model import _min_slew_time_s
+from milp_model import _min_slew_time_s, evaluate_realized_products
 
 _NUMERICAL_EPS = 1e-9
 _SLEW_SAFETY_BUFFER_S = 0.5
@@ -53,79 +53,40 @@ def _boresight_angle_at_boundary(
     return angle_between_deg(b0, b1)
 
 
-def _compute_coverage(
-    selected_set: set[CandidateObservation],
-    pairs: list[StereoPair],
-    tris: list[TriStereoSet],
-) -> set[str]:
-    """Set of target_ids covered by at least one valid selected pair or tri."""
-    covered: set[str] = set()
-    for p in pairs:
-        if p.valid and p.candidate_i in selected_set and p.candidate_j in selected_set:
-            covered.add(p.target_id)
-    for t in tris:
-        if t.valid and all(c in selected_set for c in t.candidates):
-            covered.add(t.target_id)
-    return covered
-
-
-def _obs_product_metrics(
-    obs: CandidateObservation,
-    selected_set: set[CandidateObservation],
-    pairs: list[StereoPair],
-    tris: list[TriStereoSet],
-) -> tuple[int, float]:
-    """Return (product_count, quality_sum) for *obs* among selected products."""
-    count = 0
-    quality = 0.0
-    for p in pairs:
-        if p.valid and p.candidate_i in selected_set and p.candidate_j in selected_set:
-            if obs is p.candidate_i or obs is p.candidate_j:
-                count += 1
-                quality += p.q_pair
-    for t in tris:
-        if t.valid and all(c in selected_set for c in t.candidates):
-            if obs in t.candidates:
-                count += 1
-                quality += t.q_tri
-    return count, quality
-
-
 def _choose_removal(
     a: CandidateObservation,
     b: CandidateObservation,
     selected_set: set[CandidateObservation],
     pairs: list[StereoPair],
     tris: list[TriStereoSet],
+    target_ids: set[str],
 ) -> CandidateObservation:
     """Choose which of *a* or *b* to remove.
 
     Preference order:
     1. Minimise coverage loss.
-    2. Keep the observation involved in more products.
-    3. Keep the observation with higher total product quality.
-    4. Keep the observation with earlier start time (deterministic tie-break).
+    2. Minimise loss in benchmark best-per-target quality sum.
+    3. Keep the observation with earlier start time (deterministic tie-break).
     """
-    current_coverage = _compute_coverage(selected_set, pairs, tris)
-    loss_a = current_coverage - _compute_coverage(selected_set - {a}, pairs, tris)
-    loss_b = current_coverage - _compute_coverage(selected_set - {b}, pairs, tris)
+    current_eval = evaluate_realized_products(selected_set, pairs, tris, target_ids)
+    eval_a = evaluate_realized_products(selected_set - {a}, pairs, tris, target_ids)
+    eval_b = evaluate_realized_products(selected_set - {b}, pairs, tris, target_ids)
 
-    if len(loss_a) < len(loss_b):
+    coverage_loss_a = current_eval["covered_targets"] - eval_a["covered_targets"]
+    coverage_loss_b = current_eval["covered_targets"] - eval_b["covered_targets"]
+
+    if coverage_loss_a < coverage_loss_b:
         return a
-    if len(loss_b) < len(loss_a):
+    if coverage_loss_b < coverage_loss_a:
         return b
 
-    count_a, q_a = _obs_product_metrics(a, selected_set, pairs, tris)
-    count_b, q_b = _obs_product_metrics(b, selected_set, pairs, tris)
+    quality_loss_a = current_eval["best_target_quality_sum"] - eval_a["best_target_quality_sum"]
+    quality_loss_b = current_eval["best_target_quality_sum"] - eval_b["best_target_quality_sum"]
 
-    if count_a > count_b:
-        return b
-    if count_b > count_a:
+    if quality_loss_a + 1e-9 < quality_loss_b:
         return a
-    if q_a > q_b:
+    if quality_loss_b + 1e-9 < quality_loss_a:
         return b
-    if q_b > q_a:
-        return a
     if a.start > b.start:
         return a
     return b
@@ -161,6 +122,7 @@ def _repair_overlaps(
     candidates: list[CandidateObservation],
     pairs: list[StereoPair],
     tris: list[TriStereoSet],
+    target_ids: set[str],
 ) -> tuple[list[CandidateObservation], list[dict[str, Any]]]:
     """Iteratively remove overlapping same-satellite observations."""
     removed: list[dict[str, Any]] = []
@@ -179,7 +141,7 @@ def _repair_overlaps(
                 b = obs_list[i + 1]
                 if b.start < a.end:
                     selected_set = set(current)
-                    to_remove = _choose_removal(a, b, selected_set, pairs, tris)
+                    to_remove = _choose_removal(a, b, selected_set, pairs, tris, target_ids)
                     current.remove(to_remove)
                     removed.append(
                         {
@@ -207,6 +169,7 @@ def _repair_slew(
     pairs: list[StereoPair],
     tris: list[TriStereoSet],
     satellites: dict[str, Satellite],
+    target_ids: set[str],
 ) -> tuple[list[CandidateObservation], list[dict[str, Any]]]:
     """Iteratively remove same-satellite observations with insufficient slew/settle gap."""
     removed: list[dict[str, Any]] = []
@@ -233,7 +196,7 @@ def _repair_slew(
                 need = sat.settling_time_s + _min_slew_time_s(delta_deg, sat) + _SLEW_SAFETY_BUFFER_S
                 if gap + 1e-6 < need:
                     selected_set = set(current)
-                    to_remove = _choose_removal(a, b, selected_set, pairs, tris)
+                    to_remove = _choose_removal(a, b, selected_set, pairs, tris, target_ids)
                     current.remove(to_remove)
                     removed.append(
                         {
@@ -270,46 +233,41 @@ def repair_solution(
 
     Returns the repaired candidate list and an auditable repair log.
     """
-    del targets, mission  # reserved for future target-priority rules
+    del mission  # reserved for future target-priority rules
+    target_ids = set(targets.keys())
+    target_ids.update(p.target_id for p in pairs if p.valid)
+    target_ids.update(t.target_id for t in tris if t.valid)
 
     # Pre-repair metrics
     pre_set = set(selected_candidates)
-    pre_pairs = sum(
-        1 for p in pairs if p.valid and p.candidate_i in pre_set and p.candidate_j in pre_set
-    )
-    pre_tris = sum(
-        1 for t in tris if t.valid and all(c in pre_set for c in t.candidates)
-    )
-    pre_coverage = len(_compute_coverage(pre_set, pairs, tris))
+    pre_eval = evaluate_realized_products(pre_set, pairs, tris, target_ids)
 
     # Step 1: deduplicate
     candidates, removed_dedup = _deduplicate(selected_candidates)
 
     # Step 2: overlap removal
-    candidates, removed_overlap = _repair_overlaps(candidates, pairs, tris)
+    candidates, removed_overlap = _repair_overlaps(candidates, pairs, tris, target_ids)
 
     # Step 3: slew/settle removal
-    candidates, removed_slew = _repair_slew(candidates, pairs, tris, satellites)
+    candidates, removed_slew = _repair_slew(candidates, pairs, tris, satellites, target_ids)
 
     # Post-repair metrics
     post_set = set(candidates)
-    post_pairs = sum(
-        1 for p in pairs if p.valid and p.candidate_i in post_set and p.candidate_j in post_set
-    )
-    post_tris = sum(
-        1 for t in tris if t.valid and all(c in post_set for c in t.candidates)
-    )
-    post_coverage = len(_compute_coverage(post_set, pairs, tris))
+    post_eval = evaluate_realized_products(post_set, pairs, tris, target_ids)
 
     log = RepairLog(
         removed_observations=removed_dedup + removed_overlap + removed_slew,
         pre_repair_obs_count=len(selected_candidates),
         post_repair_obs_count=len(candidates),
-        pre_repair_pairs=pre_pairs,
-        post_repair_pairs=post_pairs,
-        pre_repair_tris=pre_tris,
-        post_repair_tris=post_tris,
-        pre_repair_covered_targets=pre_coverage,
-        post_repair_covered_targets=post_coverage,
+        pre_repair_pairs=pre_eval["selected_pairs"],
+        post_repair_pairs=post_eval["selected_pairs"],
+        pre_repair_tris=pre_eval["selected_tris"],
+        post_repair_tris=post_eval["selected_tris"],
+        pre_repair_covered_targets=pre_eval["covered_targets"],
+        post_repair_covered_targets=post_eval["covered_targets"],
+        pre_repair_best_target_quality_sum=pre_eval["best_target_quality_sum"],
+        post_repair_best_target_quality_sum=post_eval["best_target_quality_sum"],
+        pre_repair_normalized_quality=pre_eval["normalized_quality"],
+        post_repair_normalized_quality=post_eval["normalized_quality"],
     )
     return candidates, log

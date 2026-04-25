@@ -1,7 +1,7 @@
-"""Abstract MILP formulation, conflict graph, and deterministic greedy fallback.
+"""Abstract MILP formulation, conflict graph, and deterministic greedy heuristic.
 
 Backend-specific solvers (OR-Tools, PuLP) are pluggable via auto-discovery.
-When no backend is available, the deterministic greedy fallback runs.
+The greedy heuristic is available only when explicitly selected.
 """
 
 from __future__ import annotations
@@ -9,7 +9,7 @@ from __future__ import annotations
 import math
 import time
 from dataclasses import dataclass, field
-from typing import Any
+from typing import Any, Iterable
 
 from geometry import (
     angle_between_deg,
@@ -29,6 +29,7 @@ from models import (
 
 _NUMERICAL_EPS = 1e-9
 _SLEW_SAFETY_BUFFER_S = 0.5
+_QUALITY_SCALE = 1000
 
 
 # ---------------------------------------------------------------------------
@@ -147,15 +148,64 @@ class AbstractMILP:
     tri_vars: list[dict[str, Any]] = field(default_factory=list)
     target_coverage_vars: list[dict[str, Any]] = field(default_factory=list)
     pair_link_constraints: list[dict[str, Any]] = field(default_factory=list)
+    pair_activation_constraints: list[dict[str, Any]] = field(default_factory=list)
     tri_link_constraints: list[dict[str, Any]] = field(default_factory=list)
+    tri_activation_constraints: list[dict[str, Any]] = field(default_factory=list)
     target_coverage_constraints: list[dict[str, Any]] = field(default_factory=list)
     conflict_constraints: list[dict[str, Any]] = field(default_factory=list)
-    coverage_weight: float = 1000.0
-    objective_quality_terms: list[tuple[float, int, str]] = field(default_factory=list)
+    coverage_bonus: float = 0.0
 
 
 def _candidate_index_map(candidates: list[CandidateObservation]) -> dict[CandidateObservation, int]:
     return {c: i for i, c in enumerate(candidates)}
+
+
+def _coverage_bonus(n_targets: int) -> float:
+    return float(max(1, n_targets) + 1)
+
+
+def evaluate_realized_products(
+    selected_set: set[CandidateObservation],
+    pairs: list[StereoPair],
+    tris: list[TriStereoSet],
+    target_ids: Iterable[str],
+) -> dict[str, Any]:
+    """Evaluate realized products with benchmark best-per-target semantics."""
+    target_id_set = set(target_ids)
+    target_id_set.update(p.target_id for p in pairs if p.valid)
+    target_id_set.update(t.target_id for t in tris if t.valid)
+    ordered_target_ids = sorted(target_id_set)
+
+    per_target_best_score = {tid: 0.0 for tid in ordered_target_ids}
+    selected_pairs = 0
+    selected_tris = 0
+
+    for p in pairs:
+        if p.valid and p.candidate_i in selected_set and p.candidate_j in selected_set:
+            selected_pairs += 1
+            if p.q_pair > per_target_best_score[p.target_id]:
+                per_target_best_score[p.target_id] = p.q_pair
+
+    for t in tris:
+        if t.valid and all(c in selected_set for c in t.candidates):
+            selected_tris += 1
+            if t.q_tri > per_target_best_score[t.target_id]:
+                per_target_best_score[t.target_id] = t.q_tri
+
+    covered_targets = sum(1 for score in per_target_best_score.values() if score > 0.0)
+    best_target_quality_sum = sum(per_target_best_score.values())
+    n_targets = len(ordered_target_ids)
+    normalized_quality = best_target_quality_sum / n_targets if n_targets else 0.0
+
+    return {
+        "selected_pairs": selected_pairs,
+        "selected_tris": selected_tris,
+        "covered_targets": covered_targets,
+        "coverage_ratio": covered_targets / n_targets if n_targets else 0.0,
+        "best_target_quality_sum": best_target_quality_sum,
+        "normalized_quality": normalized_quality,
+        "per_target_best_score": per_target_best_score,
+    }
 
 
 def build_milp(
@@ -169,15 +219,12 @@ def build_milp(
     prebuilt_conflicts: dict[tuple[int, int], str] | None = None,
 ) -> AbstractMILP:
     """Construct the abstract MILP from candidates, products, and conflicts."""
-    opt_cfg = config.get("optimization", {})
-    coverage_weight = float(opt_cfg.get("coverage_weight", 1000.0))
-
     cand_index = _candidate_index_map(candidates)
 
     def _find_obs_index(cand: CandidateObservation) -> int:
         return cand_index[cand]
 
-    model = AbstractMILP(coverage_weight=coverage_weight)
+    model = AbstractMILP(coverage_bonus=_coverage_bonus(len(targets)))
 
     # Observation variables
     for i, c in enumerate(candidates):
@@ -200,7 +247,7 @@ def build_milp(
         model.pair_vars.append({"idx": j, "pair": p, "obs_indices": [i1, i2]})
         model.pair_link_constraints.append({"type": "pair_link", "pair_idx": j, "obs_idx": i1})
         model.pair_link_constraints.append({"type": "pair_link", "pair_idx": j, "obs_idx": i2})
-        model.objective_quality_terms.append((p.q_pair, j, "pair"))
+        model.pair_activation_constraints.append({"type": "pair_active", "pair_idx": j, "obs_indices": [i1, i2]})
 
     # Tri variables and link constraints (only valid tris)
     valid_tris = [t for t in tris if t.valid]
@@ -209,7 +256,7 @@ def build_milp(
         model.tri_vars.append({"idx": k, "tri": t, "obs_indices": obs_indices})
         for oi in obs_indices:
             model.tri_link_constraints.append({"type": "tri_link", "tri_idx": k, "obs_idx": oi})
-        model.objective_quality_terms.append((t.q_tri, k, "tri"))
+        model.tri_activation_constraints.append({"type": "tri_active", "tri_idx": k, "obs_indices": obs_indices})
 
     # Target coverage variables and constraints
     # Build lookup: target_id -> list of (pair_idx or tri_idx, is_tri)
@@ -255,37 +302,49 @@ def solve_with_ortools(model: AbstractMILP, time_limit_s: float) -> tuple[list[i
     n_tri = len(model.tri_vars)
     n_tgt = len(model.target_coverage_vars)
 
-    # Scale quality to integers (CP-SAT requires integer coefficients)
-    scale = 1000
-
     x = [cp.NewBoolVar(f"x_{i}") for i in range(n_obs)]
     y = [cp.NewBoolVar(f"y_{j}") for j in range(n_pair)]
     z = [cp.NewBoolVar(f"z_{k}") for k in range(n_tri)]
     w = [cp.NewBoolVar(f"w_{m}") for m in range(n_tgt)]
+    sy = [cp.NewBoolVar(f"sy_{j}") for j in range(n_pair)]
+    sz = [cp.NewBoolVar(f"sz_{k}") for k in range(n_tri)]
 
     # Pair links
     for lc in model.pair_link_constraints:
         j = lc["pair_idx"]
         i = lc["obs_idx"]
         cp.Add(y[j] <= x[i])
+    for ac in model.pair_activation_constraints:
+        j = ac["pair_idx"]
+        obs_indices = ac["obs_indices"]
+        cp.Add(y[j] >= cp_model.LinearExpr.Sum(x[i] for i in obs_indices) - (len(obs_indices) - 1))
 
     # Tri links
     for lc in model.tri_link_constraints:
         k = lc["tri_idx"]
         i = lc["obs_idx"]
         cp.Add(z[k] <= x[i])
+    for ac in model.tri_activation_constraints:
+        k = ac["tri_idx"]
+        obs_indices = ac["obs_indices"]
+        cp.Add(z[k] >= cp_model.LinearExpr.Sum(x[i] for i in obs_indices) - (len(obs_indices) - 1))
 
-    # Target coverage
+    for j in range(n_pair):
+        cp.Add(sy[j] <= y[j])
+    for k in range(n_tri):
+        cp.Add(sz[k] <= z[k])
+
+    # Coverage and per-target best-product choice
     for tc in model.target_coverage_constraints:
         m = tc["target_idx"]
-        terms: list[Any] = []
+        score_terms: list[Any] = []
         for prod_idx, is_tri in tc["products"]:
             if is_tri:
-                terms.append(z[prod_idx])
+                score_terms.append(sz[prod_idx])
             else:
-                terms.append(y[prod_idx])
-        if terms:
-            cp.Add(w[m] <= cp_model.LinearExpr.Sum(terms))
+                score_terms.append(sy[prod_idx])
+        if score_terms:
+            cp.Add(w[m] == cp_model.LinearExpr.Sum(score_terms))
         else:
             cp.Add(w[m] == 0)
 
@@ -294,17 +353,17 @@ def solve_with_ortools(model: AbstractMILP, time_limit_s: float) -> tuple[list[i
         ia, ib = cc["obs_indices"]
         cp.Add(x[ia] + x[ib] <= 1)
 
-    # Objective: coverage_weight * sum(w) + scale * (sum(q_pair * y) + sum(q_tri * z))
-    coverage_weight = int(model.coverage_weight * scale)
+    # Objective: lexicographic coverage bonus plus best-per-target product quality.
+    coverage_bonus = int(round(model.coverage_bonus * _QUALITY_SCALE))
     obj_terms: list[Any] = []
     for m in range(n_tgt):
-        obj_terms.append(coverage_weight * w[m])
+        obj_terms.append(coverage_bonus * w[m])
     for j, pv in enumerate(model.pair_vars):
-        q = int(round(pv["pair"].q_pair * scale))
-        obj_terms.append(q * y[j])
+        q = int(round(pv["pair"].q_pair * _QUALITY_SCALE))
+        obj_terms.append(q * sy[j])
     for k, tv in enumerate(model.tri_vars):
-        q = int(round(tv["tri"].q_tri * scale))
-        obj_terms.append(q * z[k])
+        q = int(round(tv["tri"].q_tri * _QUALITY_SCALE))
+        obj_terms.append(q * sz[k])
 
     cp.Maximize(cp_model.LinearExpr.Sum(obj_terms))
 
@@ -320,7 +379,7 @@ def solve_with_ortools(model: AbstractMILP, time_limit_s: float) -> tuple[list[i
         raise RuntimeError(f"OR-Tools solve failed with status {status}")
 
     selected = [i for i in range(n_obs) if solver.Value(x[i]) == 1]
-    obj_value = solver.ObjectiveValue() / scale
+    obj_value = solver.ObjectiveValue() / _QUALITY_SCALE
 
     stats = {
         "status": str(status),
@@ -348,20 +407,33 @@ def solve_with_pulp(model: AbstractMILP, time_limit_s: float) -> tuple[list[int]
     y = [pulp.LpVariable(f"y_{j}", cat="Binary") for j in range(n_pair)]
     z = [pulp.LpVariable(f"z_{k}", cat="Binary") for k in range(n_tri)]
     w = [pulp.LpVariable(f"w_{m}", cat="Binary") for m in range(n_tgt)]
+    sy = [pulp.LpVariable(f"sy_{j}", cat="Binary") for j in range(n_pair)]
+    sz = [pulp.LpVariable(f"sz_{k}", cat="Binary") for k in range(n_tri)]
 
     for lc in model.pair_link_constraints:
         prob += y[lc["pair_idx"]] <= x[lc["obs_idx"]]
+    for ac in model.pair_activation_constraints:
+        obs_terms = [x[i] for i in ac["obs_indices"]]
+        prob += y[ac["pair_idx"]] >= pulp.lpSum(obs_terms) - (len(obs_terms) - 1)
 
     for lc in model.tri_link_constraints:
         prob += z[lc["tri_idx"]] <= x[lc["obs_idx"]]
+    for ac in model.tri_activation_constraints:
+        obs_terms = [x[i] for i in ac["obs_indices"]]
+        prob += z[ac["tri_idx"]] >= pulp.lpSum(obs_terms) - (len(obs_terms) - 1)
+
+    for j in range(n_pair):
+        prob += sy[j] <= y[j]
+    for k in range(n_tri):
+        prob += sz[k] <= z[k]
 
     for tc in model.target_coverage_constraints:
         m = tc["target_idx"]
-        terms = []
+        score_terms = []
         for prod_idx, is_tri in tc["products"]:
-            terms.append(z[prod_idx] if is_tri else y[prod_idx])
-        if terms:
-            prob += w[m] <= pulp.lpSum(terms)
+            score_terms.append(sz[prod_idx] if is_tri else sy[prod_idx])
+        if score_terms:
+            prob += pulp.lpSum(score_terms) == w[m]
         else:
             prob += w[m] == 0
 
@@ -370,11 +442,11 @@ def solve_with_pulp(model: AbstractMILP, time_limit_s: float) -> tuple[list[int]
         prob += x[ia] + x[ib] <= 1
 
     # Objective
-    obj = model.coverage_weight * pulp.lpSum(w)
+    obj = model.coverage_bonus * pulp.lpSum(w)
     for j, pv in enumerate(model.pair_vars):
-        obj += pv["pair"].q_pair * y[j]
+        obj += pv["pair"].q_pair * sy[j]
     for k, tv in enumerate(model.tri_vars):
-        obj += tv["tri"].q_tri * z[k]
+        obj += tv["tri"].q_tri * sz[k]
     prob += obj
 
     start = time.perf_counter()
@@ -397,22 +469,14 @@ def solve_with_pulp(model: AbstractMILP, time_limit_s: float) -> tuple[list[int]
 
 
 # ---------------------------------------------------------------------------
-# Greedy fallback
+# Greedy heuristic
 # ---------------------------------------------------------------------------
 
-def solve_greedy_fallback(
+def solve_greedy_heuristic(
     model: AbstractMILP, config: dict[str, Any]
 ) -> tuple[list[int], float, dict[str, Any]]:
-    """Deterministic greedy product selection with conflict repair.
-
-    1. Sort valid products by quality (desc) with deterministic tie-breakers.
-    2. Greedily select products whose observations don't conflict.
-    3. Repair any remaining conflicts per satellite.
-    4. Optional coverage-augmenting pass.
-    """
-    opt_cfg = config.get("optimization", {})
-    coverage_augment = bool(opt_cfg.get("greedy_coverage_augment", True))
-    max_repair_iter = int(opt_cfg.get("greedy_max_repair_iterations", 10))
+    """Deterministic greedy selection using coverage gain, then best-target gain."""
+    del config
 
     n_obs = len(model.obs_vars)
 
@@ -423,14 +487,9 @@ def solve_greedy_fallback(
         conflict_neighbors[ia].add(ib)
         conflict_neighbors[ib].add(ia)
 
-    # Build per-observation satellite lookup
-    obs_sat = [model.obs_vars[i]["cand"].sat_id for i in range(n_obs)]
-
-    # Build target coverage lookup from model constraints
-    target_coverage_map: dict[str, list[tuple[int, bool]]] = {}
-    for tc in model.target_coverage_constraints:
-        tid = tc["target_id"]
-        target_coverage_map[tid] = tc["products"]
+    target_ids = [tv["target_id"] for tv in model.target_coverage_vars]
+    pair_products = [pv["pair"] for pv in model.pair_vars]
+    tri_products = [tv["tri"] for tv in model.tri_vars]
 
     # Products with their constituent observation indices
     products: list[dict[str, Any]] = []
@@ -463,15 +522,8 @@ def solve_greedy_fallback(
             "start": tv["tri"].candidates[0].start,
         })
 
-    # Pre-build obs -> product indices mapping for efficient repair
-    obs_to_products: dict[int, set[int]] = {i: set() for i in range(n_obs)}
-    for pi, prod in enumerate(products):
-        for oi in prod["obs_indices"]:
-            obs_to_products[oi].add(pi)
-
-    # Sort by quality desc, then deterministic tie-breakers
+    # Stable deterministic scan order for ties.
     products.sort(key=lambda p: (
-        -p["quality"],
         p["target_id"],
         p["sat_id"],
         p["interval_id"],
@@ -481,9 +533,11 @@ def solve_greedy_fallback(
     ))
 
     selected_obs: set[int] = set()
-    selected_prod_indices: set[int] = set()
+    selected_prod_indices: list[int] = []
 
     def _can_add_obs(obs_idx: int) -> bool:
+        if obs_idx in selected_obs:
+            return True
         for other in selected_obs:
             if obs_idx == other:
                 continue
@@ -491,90 +545,54 @@ def solve_greedy_fallback(
                 return False
         return True
 
-    # Greedy pass
-    for pi, prod in enumerate(products):
-        obs_idxs = prod["obs_indices"]
-        if all(_can_add_obs(oi) for oi in obs_idxs):
-            for oi in obs_idxs:
-                selected_obs.add(oi)
-            selected_prod_indices.add(pi)
+    def _evaluate_obs_indices(obs_indices: set[int]) -> dict[str, Any]:
+        return evaluate_realized_products(
+            {model.obs_vars[i]["cand"] for i in obs_indices},
+            pair_products,
+            tri_products,
+            target_ids,
+        )
 
-    # Conflict repair pass
-    for _ in range(max_repair_iter):
-        removed = False
-        # Per satellite, sort by start time and scan adjacent conflicts
-        sat_obs: dict[str, list[int]] = {}
-        for oi in selected_obs:
-            sid = obs_sat[oi]
-            sat_obs.setdefault(sid, []).append(oi)
+    current_eval = _evaluate_obs_indices(selected_obs)
+    while True:
+        best_choice: tuple[int, dict[str, Any], int, float] | None = None
+        for pi, prod in enumerate(products):
+            if not all(_can_add_obs(oi) for oi in prod["obs_indices"]):
+                continue
+            candidate_obs = selected_obs | set(prod["obs_indices"])
+            candidate_eval = _evaluate_obs_indices(candidate_obs)
+            coverage_gain = candidate_eval["covered_targets"] - current_eval["covered_targets"]
+            quality_gain = candidate_eval["best_target_quality_sum"] - current_eval["best_target_quality_sum"]
+            if coverage_gain < 0 or quality_gain < -_NUMERICAL_EPS:
+                continue
+            if coverage_gain == 0 and quality_gain <= _NUMERICAL_EPS:
+                continue
+            if best_choice is None:
+                best_choice = (pi, candidate_eval, coverage_gain, quality_gain)
+                continue
+            _, _, best_coverage_gain, best_quality_gain = best_choice
+            if coverage_gain > best_coverage_gain:
+                best_choice = (pi, candidate_eval, coverage_gain, quality_gain)
+                continue
+            if coverage_gain == best_coverage_gain and quality_gain > best_quality_gain + _NUMERICAL_EPS:
+                best_choice = (pi, candidate_eval, coverage_gain, quality_gain)
 
-        for sid, ois in sat_obs.items():
-            ois_sorted = sorted(ois, key=lambda i: model.obs_vars[i]["cand"].start)
-            for a in range(len(ois_sorted) - 1):
-                ia = ois_sorted[a]
-                ib = ois_sorted[a + 1]
-                if ib in conflict_neighbors.get(ia, set()):
-                    # Remove the one that participates in fewer products
-                    # Count how many selected products each observation participates in
-                    def _obs_value(oi: int) -> tuple[int, float]:
-                        count = 0
-                        q_sum = 0.0
-                        for p_idx in obs_to_products[oi]:
-                            if p_idx in selected_prod_indices:
-                                count += 1
-                                q_sum += products[p_idx]["quality"]
-                        return (count, q_sum)
-
-                    va = _obs_value(ia)
-                    vb = _obs_value(ib)
-                    if va < vb or (va == vb and ia > ib):
-                        to_remove = ia
-                    else:
-                        to_remove = ib
-
-                    selected_obs.discard(to_remove)
-                    # Remove products that are no longer fully covered
-                    for p_idx in obs_to_products[to_remove]:
-                        if p_idx in selected_prod_indices:
-                            if not all(oi in selected_obs for oi in products[p_idx]["obs_indices"]):
-                                selected_prod_indices.discard(p_idx)
-                    removed = True
-                    break
-            if removed:
-                break
-        if not removed:
+        if best_choice is None:
             break
 
-    # Coverage-augmenting pass
-    if coverage_augment:
-        covered_targets = {products[pi]["target_id"] for pi in selected_prod_indices}
-
-        for tid in sorted(target_coverage_map.keys()):
-            if tid in covered_targets:
-                continue
-            # Try to add the best valid product for this target
-            target_prods = [p for p in products if p["target_id"] == tid]
-            target_prods.sort(key=lambda p: (-p["quality"], p["start"].isoformat(), p["idx"]))
-            for tp in target_prods:
-                if all(_can_add_obs(oi) for oi in tp["obs_indices"]):
-                    for oi in tp["obs_indices"]:
-                        selected_obs.add(oi)
-                    selected_prod_indices.add(products.index(tp))
-                    covered_targets.add(tid)
-                    break
+        pi, candidate_eval, _, _ = best_choice
+        for oi in products[pi]["obs_indices"]:
+            selected_obs.add(oi)
+        selected_prod_indices.append(pi)
+        current_eval = candidate_eval
 
     selected_indices = sorted(selected_obs)
-
-    # Approximate objective value
-    covered_targets = {products[pi]["target_id"] for pi in selected_prod_indices}
-    obj_coverage = len(covered_targets)
-    obj_quality = sum(products[pi]["quality"] for pi in selected_prod_indices)
-    objective_value = model.coverage_weight * obj_coverage + obj_quality
+    objective_value = model.coverage_bonus * current_eval["covered_targets"] + current_eval["best_target_quality_sum"]
 
     stats = {
         "greedy_pass_products": len(selected_prod_indices),
-        "coverage_augment": coverage_augment,
-        "repair_iterations": max_repair_iter,
+        "selection_iterations": len(selected_prod_indices),
+        "repair_iterations": 0,
     }
     return selected_indices, objective_value, stats
 
@@ -588,18 +606,26 @@ def _solve_once(
     backend: str,
     time_limit_s: float,
     config: dict[str, Any],
-) -> tuple[list[int] | None, float, dict[str, Any], str | None, str, bool, float]:
-    """Try one solve. Returns (selected_indices, obj_value, stats, fallback_reason, backend_used, timeout_reached, solve_time)."""
+) -> tuple[list[int] | None, float, dict[str, Any], str, bool, float]:
+    """Try one solve without silently falling back to a weaker backend."""
     tried: list[str] = []
     selected_indices: list[int] | None = None
     objective_value = 0.0
     solve_stats: dict[str, Any] = {}
-    fallback_reason: str | None = None
     backend_used = "unknown"
     timeout_reached = False
     solve_time = 0.0
 
     solve_start = time.perf_counter()
+
+    if backend == "greedy":
+        selected_indices, objective_value, solve_stats = solve_greedy_heuristic(model, config)
+        backend_used = "greedy"
+        solve_time = time.perf_counter() - solve_start
+        return selected_indices, objective_value, solve_stats, backend_used, False, solve_time
+
+    if backend not in ("auto", "ortools", "pulp"):
+        raise ValueError(f"unknown optimization.backend: {backend!r}")
 
     if backend in ("auto", "ortools"):
         try:
@@ -620,42 +646,26 @@ def _solve_once(
             tried.append(f"pulp: {exc}")
 
     if selected_indices is None:
-        if backend == "greedy":
-            fallback_reason = None
-        else:
-            fallback_reason = "; ".join(tried) if tried else "no_backend_available"
-        selected_indices, objective_value, solve_stats = solve_greedy_fallback(model, config)
-        backend_used = "greedy_fallback"
-        solve_time = time.perf_counter() - solve_start
-        timeout_reached = False
+        tried_text = "; ".join(tried) if tried else "no exact backend was attempted"
+        raise BackendUnavailable(
+            f"no exact optimization backend available for optimization.backend={backend!r}: {tried_text}. "
+            "Install solver-local dependencies with ./setup.sh or set optimization.backend: greedy explicitly."
+        )
 
-    return selected_indices, objective_value, solve_stats, fallback_reason, backend_used, timeout_reached, solve_time
+    return selected_indices, objective_value, solve_stats, backend_used, timeout_reached, solve_time
 
 
 def _evaluate_solution(
     model: AbstractMILP,
     selected_indices: list[int],
-) -> tuple[int, int, int, float]:
-    """Return (covered_targets, selected_pairs, selected_tris, quality)."""
-    selected_obs_set = set(selected_indices)
-    selected_pairs = 0
-    selected_tris = 0
-    covered_targets: set[str] = set()
-    obj_quality = 0.0
-
-    for pv in model.pair_vars:
-        if all(oi in selected_obs_set for oi in pv["obs_indices"]):
-            selected_pairs += 1
-            covered_targets.add(pv["pair"].target_id)
-            obj_quality += pv["pair"].q_pair
-
-    for tv in model.tri_vars:
-        if all(oi in selected_obs_set for oi in tv["obs_indices"]):
-            selected_tris += 1
-            covered_targets.add(tv["tri"].target_id)
-            obj_quality += tv["tri"].q_tri
-
-    return len(covered_targets), selected_pairs, selected_tris, obj_quality
+) -> dict[str, Any]:
+    """Evaluate a selected observation set under benchmark ranking semantics."""
+    return evaluate_realized_products(
+        {model.obs_vars[i]["cand"] for i in selected_indices},
+        [pv["pair"] for pv in model.pair_vars],
+        [tv["tri"] for tv in model.tri_vars],
+        [tv["target_id"] for tv in model.target_coverage_vars],
+    )
 
 
 def solve_milp(
@@ -667,77 +677,52 @@ def solve_milp(
     mission: Mission,
     config: dict[str, Any],
 ) -> tuple[list[int], SolveSummary]:
-    """Build model, try backends, optionally run multi-lambda restarts, fall back to greedy."""
+    """Build the model, solve once, and report benchmark-aligned metrics."""
     opt_cfg = config.get("optimization", {})
     backend = opt_cfg.get("backend", "auto")
     time_limit_s = float(opt_cfg.get("time_limit_s", 300.0))
-    multi_lambda = opt_cfg.get("multi_lambda_restarts", None)
-    if multi_lambda is None:
-        # Default: single run with coverage_weight = 1000
-        multi_lambda = [float(opt_cfg.get("coverage_weight", 1000.0))]
-    elif isinstance(multi_lambda, (list, tuple)) and len(multi_lambda) == 0:
-        multi_lambda = [float(opt_cfg.get("coverage_weight", 1000.0))]
 
     # Build conflict graph once — conflicts depend only on candidates and satellites
+    conflict_start = time.perf_counter()
     prebuilt_conflicts = build_conflict_graph(candidates, satellites)
-
-    best_result: tuple[list[int], float, dict[str, Any], str | None, str, bool, float] | None = None
-    best_coverage = -1
-    best_quality = -1.0
-
-    for cw in multi_lambda:
-        # Build a fresh model with this coverage weight
-        cfg_copy = dict(config)
-        opt_copy = dict(opt_cfg)
-        opt_copy["coverage_weight"] = cw
-        cfg_copy["optimization"] = opt_copy
-        model = build_milp(
-            candidates, pairs, tris, targets, satellites, mission, cfg_copy,
-            prebuilt_conflicts=prebuilt_conflicts,
-        )
-
-        selected_indices, objective_value, solve_stats, fallback_reason, backend_used, timeout_reached, solve_time = _solve_once(
-            model, backend, time_limit_s, cfg_copy
-        )
-
-        covered, sel_pairs, sel_tris, quality = _evaluate_solution(model, selected_indices)
-
-        # Lexicographic comparison: maximize coverage, then quality
-        if covered > best_coverage or (covered == best_coverage and quality > best_quality):
-            best_coverage = covered
-            best_quality = quality
-            best_result = (selected_indices, objective_value, solve_stats, fallback_reason, backend_used, timeout_reached, solve_time)
-
-    assert best_result is not None
-    selected_indices, objective_value, solve_stats, fallback_reason, backend_used, timeout_reached, solve_time = best_result
-
-    # Re-evaluate with the winning model (rebuild for final stats)
-    cfg_copy = dict(config)
-    opt_copy = dict(opt_cfg)
-    opt_copy["coverage_weight"] = opt_cfg.get("coverage_weight", 1000.0)
-    cfg_copy["optimization"] = opt_copy
-    final_model = build_milp(
-        candidates, pairs, tris, targets, satellites, mission, cfg_copy,
+    conflict_time = time.perf_counter() - conflict_start
+    model_build_start = time.perf_counter()
+    model = build_milp(
+        candidates, pairs, tris, targets, satellites, mission, config,
         prebuilt_conflicts=prebuilt_conflicts,
     )
-    covered, sel_pairs, sel_tris, quality = _evaluate_solution(final_model, selected_indices)
+    model_build_time = time.perf_counter() - model_build_start
+    selected_indices, objective_value, solve_stats, backend_used, timeout_reached, solve_time = _solve_once(
+        model, backend, time_limit_s, config
+    )
+    evaluation = _evaluate_solution(model, selected_indices)
 
     summary = SolveSummary(
         backend_used=backend_used,
-        fallback_reason=fallback_reason,
-        n_obs_vars=len(final_model.obs_vars),
-        n_pair_vars=len(final_model.pair_vars),
-        n_tri_vars=len(final_model.tri_vars),
-        n_conflict_constraints=len(final_model.conflict_constraints),
-        n_coverage_constraints=len(final_model.target_coverage_constraints),
+        n_obs_vars=len(model.obs_vars),
+        n_pair_vars=len(model.pair_vars),
+        n_tri_vars=len(model.tri_vars),
+        n_conflict_constraints=len(model.conflict_constraints),
+        n_coverage_constraints=len(model.target_coverage_constraints),
         selected_observations=len(selected_indices),
-        selected_pairs=sel_pairs,
-        selected_tris=sel_tris,
-        covered_targets=covered,
-        objective_coverage=covered,
-        objective_quality=quality,
+        selected_pairs=evaluation["selected_pairs"],
+        selected_tris=evaluation["selected_tris"],
+        covered_targets=evaluation["covered_targets"],
+        coverage_ratio=evaluation["coverage_ratio"],
+        objective_coverage=evaluation["covered_targets"],
+        objective_quality=evaluation["best_target_quality_sum"],
+        best_target_quality_sum=evaluation["best_target_quality_sum"],
+        normalized_quality=evaluation["normalized_quality"],
+        per_target_best_score=evaluation["per_target_best_score"],
         solve_time_s=solve_time,
         timeout_reached=timeout_reached,
+        profiling={
+            "conflict_graph_s": conflict_time,
+            "model_build_s": model_build_time,
+            "backend_requested": backend,
+            "backend_used": backend_used,
+            "backend_stats": dict(solve_stats),
+        },
     )
 
     return selected_indices, summary

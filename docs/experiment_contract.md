@@ -75,6 +75,15 @@ aggregation. Since traditional solvers are benchmark-specific, solver-backed
 experiment profiles may be solver-centered instead of using separate benchmark
 and method axes.
 
+Experiments should not assume that a solver runs in the repository's global or
+project Python environment. A solver may use PyPI packages, another package
+manager, compiled tools, or a solver-local virtual environment as long as those
+dependencies are prepared by `setup.sh` and hidden behind `solve.sh`.
+Experiment runners should call `setup.sh` before `solve.sh`, and should pass any
+solver-specific environment location through documented solver-owned knobs such
+as environment variables rather than installing method dependencies into the
+repository workspace.
+
 ## Family Config
 
 Experiment families may keep one or more runner-owned YAML config files under `configs/`.

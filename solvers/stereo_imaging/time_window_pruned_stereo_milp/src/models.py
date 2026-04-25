@@ -125,6 +125,7 @@ class CandidateSummary:
     by_target: dict[str, dict[str, int]] = field(default_factory=dict)
     by_interval: dict[str, dict[str, int]] = field(default_factory=dict)
     by_reason: dict[str, int] = field(default_factory=dict)
+    profiling: dict[str, Any] = field(default_factory=dict)
 
     def record(self, accepted: bool, sat_id: str, target_id: str, interval_id: str, reason: str | None = None) -> None:
         self.total_generated += 1
@@ -267,6 +268,7 @@ class ProductSummary:
     valid_multi_satellite_tris: int = 0
     by_target: dict[str, dict[str, Any]] = field(default_factory=dict)
     approximation_flags: dict[str, Any] = field(default_factory=dict)
+    profiling: dict[str, Any] = field(default_factory=dict)
 
     def record_pair(self, pair: StereoPair) -> None:
         self.total_pairs += 1
@@ -348,7 +350,6 @@ class PruningSummary:
 @dataclass
 class SolveSummary:
     backend_used: str
-    fallback_reason: str | None
     n_obs_vars: int = 0
     n_pair_vars: int = 0
     n_tri_vars: int = 0
@@ -358,15 +359,19 @@ class SolveSummary:
     selected_pairs: int = 0
     selected_tris: int = 0
     covered_targets: int = 0
+    coverage_ratio: float = 0.0
     objective_coverage: int = 0
     objective_quality: float = 0.0
+    best_target_quality_sum: float = 0.0
+    normalized_quality: float = 0.0
+    per_target_best_score: dict[str, float] = field(default_factory=dict)
     solve_time_s: float = 0.0
     timeout_reached: bool = False
+    profiling: dict[str, Any] = field(default_factory=dict)
 
     def as_dict(self) -> dict[str, Any]:
         return {
             "backend_used": self.backend_used,
-            "fallback_reason": self.fallback_reason,
             "n_obs_vars": self.n_obs_vars,
             "n_pair_vars": self.n_pair_vars,
             "n_tri_vars": self.n_tri_vars,
@@ -376,8 +381,12 @@ class SolveSummary:
             "selected_pairs": self.selected_pairs,
             "selected_tris": self.selected_tris,
             "covered_targets": self.covered_targets,
+            "coverage_ratio": self.coverage_ratio,
             "objective_coverage": self.objective_coverage,
             "objective_quality": self.objective_quality,
+            "best_target_quality_sum": self.best_target_quality_sum,
+            "normalized_quality": self.normalized_quality,
+            "per_target_best_score": dict(self.per_target_best_score),
             "solve_time_s": self.solve_time_s,
             "timeout_reached": self.timeout_reached,
         }
@@ -394,6 +403,10 @@ class RepairLog:
     post_repair_tris: int = 0
     pre_repair_covered_targets: int = 0
     post_repair_covered_targets: int = 0
+    pre_repair_best_target_quality_sum: float = 0.0
+    post_repair_best_target_quality_sum: float = 0.0
+    pre_repair_normalized_quality: float = 0.0
+    post_repair_normalized_quality: float = 0.0
 
     def as_dict(self) -> dict[str, Any]:
         return {
@@ -406,4 +419,8 @@ class RepairLog:
             "post_repair_tris": self.post_repair_tris,
             "pre_repair_covered_targets": self.pre_repair_covered_targets,
             "post_repair_covered_targets": self.post_repair_covered_targets,
+            "pre_repair_best_target_quality_sum": self.pre_repair_best_target_quality_sum,
+            "post_repair_best_target_quality_sum": self.post_repair_best_target_quality_sum,
+            "pre_repair_normalized_quality": self.pre_repair_normalized_quality,
+            "post_repair_normalized_quality": self.post_repair_normalized_quality,
         }

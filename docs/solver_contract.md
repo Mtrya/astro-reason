@@ -50,7 +50,7 @@ Runnable solvers expose two shell entrypoints:
 
 `setup.sh` prepares solver-local dependencies. It may be a no-op.
 
-The default expectation is that repository Python solvers run under the project environment, such as the project `uv` environment. Solvers may still use their own environments, package managers, compiled binaries, or other languages such as Rust, Julia, C++, or MiniZinc. Those choices should stay solver-local and be hidden behind `setup.sh` and `solve.sh`.
+Python solvers may use the repository project environment when that is sufficient, but they are not limited to it. Solvers are encouraged to own a solver-local environment when they need additional PyPI packages or other dependencies that are not present globally. Solvers may also use their own package managers, compiled binaries, or other languages such as Rust, Julia, C++, or MiniZinc. Those choices should stay solver-local, be prepared by `setup.sh`, and be hidden behind `solve.sh`.
 
 `solve.sh` receives:
 

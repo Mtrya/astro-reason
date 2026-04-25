@@ -14,7 +14,7 @@ from case_io import load_case, load_solver_config
 from models import CandidateObservation, PruningSummary, RepairLog, SolveSummary
 from products import enumerate_products
 from pruning import prune_candidates
-from milp_model import solve_milp
+from milp_model import evaluate_realized_products, solve_milp
 from repair import repair_solution
 
 
@@ -87,7 +87,7 @@ def main(argv: list[str] | None = None) -> int:
             )
         pruning_end = time.perf_counter()
 
-        # MILP solve or greedy fallback
+        # MILP solve or explicitly requested greedy heuristic
         solve_start = time.perf_counter()
         selected_indices, solve_summary = solve_milp(
             candidates, pairs, tris, targets, satellites, mission, config_payload
@@ -103,36 +103,25 @@ def main(argv: list[str] | None = None) -> int:
         )
         repair_end = time.perf_counter()
 
-        # Recompute solve_summary with post-repair counts
-        post_set = set(repaired_candidates)
-        post_pairs = sum(
-            1 for p in pairs if p.valid and p.candidate_i in post_set and p.candidate_j in post_set
-        )
-        post_tris = sum(
-            1 for t in tris if t.valid and all(c in post_set for c in t.candidates)
-        )
-        post_coverage = set()
-        post_quality = 0.0
-        for p in pairs:
-            if p.valid and p.candidate_i in post_set and p.candidate_j in post_set:
-                post_coverage.add(p.target_id)
-                post_quality += p.q_pair
-        for t in tris:
-            if t.valid and all(c in post_set for c in t.candidates):
-                post_coverage.add(t.target_id)
-                post_quality += t.q_tri
+        # Recompute solve_summary with post-repair benchmark metrics.
+        post_eval = evaluate_realized_products(set(repaired_candidates), pairs, tris, targets.keys())
 
         solve_summary.selected_observations = len(repaired_candidates)
-        solve_summary.selected_pairs = post_pairs
-        solve_summary.selected_tris = post_tris
-        solve_summary.covered_targets = len(post_coverage)
-        solve_summary.objective_coverage = len(post_coverage)
-        solve_summary.objective_quality = post_quality
+        solve_summary.selected_pairs = post_eval["selected_pairs"]
+        solve_summary.selected_tris = post_eval["selected_tris"]
+        solve_summary.covered_targets = post_eval["covered_targets"]
+        solve_summary.coverage_ratio = post_eval["coverage_ratio"]
+        solve_summary.objective_coverage = post_eval["covered_targets"]
+        solve_summary.objective_quality = post_eval["best_target_quality_sum"]
+        solve_summary.best_target_quality_sum = post_eval["best_target_quality_sum"]
+        solve_summary.normalized_quality = post_eval["normalized_quality"]
+        solve_summary.per_target_best_score = post_eval["per_target_best_score"]
 
         solution = {"actions": [_candidate_to_action(c) for c in repaired_candidates]}
         solution_path = solution_dir / "solution.json"
         _write_json(solution_path, solution)
 
+        total_elapsed = time.perf_counter() - total_start
         status = {
             "status": "solved",
             "solver_version": "time_window_pruned_stereo_milp",
@@ -152,7 +141,22 @@ def main(argv: list[str] | None = None) -> int:
                 "pruning": pruning_end - pruning_start,
                 "solve": solve_end - solve_start,
                 "repair": repair_end - repair_start,
-                "total": time.perf_counter() - total_start,
+                "total": total_elapsed,
+            },
+            "profiling": {
+                "runtime_mode": config_payload.get("_resolved_runtime_mode", "thorough"),
+                "candidate_generation": {
+                    "total_s": candidate_end - candidate_start,
+                    **dict(candidate_summary.profiling),
+                },
+                "product_enumeration": {
+                    "total_s": product_end - product_start,
+                    **dict(product_summary.profiling),
+                },
+                "solve": {
+                    "total_s": solve_end - solve_start,
+                    **dict(solve_summary.profiling),
+                },
             },
             "approximation_flags": {
                 "access_intervals": "coarse_time_step_approximate",

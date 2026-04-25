@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from copy import deepcopy
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
@@ -15,6 +16,91 @@ from models import (
     Target,
     ValidityThresholds,
 )
+
+_DEFAULT_RUNTIME_MODE = "thorough"
+
+_RUNTIME_PRESETS: dict[str, dict[str, Any]] = {
+    "fast": {
+        "runtime": {"mode": "fast"},
+        "time_step_s": 60,
+        "sample_stride_s": 60,
+        "max_candidates_per_interval": 8,
+        "use_target_centered_steering": True,
+        "steering_along_samples": 1,
+        "steering_across_samples": 1,
+        "steering_grid_spread_deg": 2.0,
+        "strip_sample_step_s": 10.0,
+        "overlap_grid_angles": 4,
+        "overlap_grid_radii": 1,
+        "parallel_candidate_generation": True,
+        "pruning": {
+            "enabled": True,
+            "cluster_gap_s": "auto",
+            "max_candidates_per_cluster": "auto",
+            "min_candidates_per_cluster": 2,
+            "max_total_candidates": 5000,
+            "preserve_anchors": True,
+            "preserve_products": True,
+        },
+        "optimization": {
+            "backend": "greedy",
+            "time_limit_s": 300,
+            "greedy_max_repair_iterations": 10,
+        },
+        "debug": True,
+    },
+    "thorough": {
+        "runtime": {"mode": "thorough"},
+        "time_step_s": 30,
+        "sample_stride_s": 30,
+        "max_candidates_per_interval": 20,
+        "use_target_centered_steering": True,
+        "steering_along_samples": 1,
+        "steering_across_samples": 1,
+        "steering_grid_spread_deg": 2.0,
+        "strip_sample_step_s": 8.0,
+        "overlap_grid_angles": 8,
+        "overlap_grid_radii": 3,
+        "parallel_candidate_generation": True,
+        "pruning": {
+            "enabled": True,
+            "cluster_gap_s": "auto",
+            "max_candidates_per_cluster": "auto",
+            "min_candidates_per_cluster": 2,
+            "max_total_candidates": 10000,
+            "preserve_anchors": True,
+            "preserve_products": True,
+        },
+        "optimization": {
+            "backend": "auto",
+            "time_limit_s": 1800,
+            "greedy_max_repair_iterations": 10,
+        },
+        "debug": True,
+    },
+}
+
+
+def _deep_merge(base: dict[str, Any], overrides: dict[str, Any]) -> dict[str, Any]:
+    merged = deepcopy(base)
+    for key, value in overrides.items():
+        if isinstance(value, dict) and isinstance(merged.get(key), dict):
+            merged[key] = _deep_merge(merged[key], value)
+        else:
+            merged[key] = deepcopy(value)
+    return merged
+
+
+def _resolve_runtime_config(raw_config: dict[str, Any]) -> dict[str, Any]:
+    runtime_cfg = raw_config.get("runtime", {})
+    mode = runtime_cfg.get("mode", _DEFAULT_RUNTIME_MODE) if isinstance(runtime_cfg, dict) else _DEFAULT_RUNTIME_MODE
+    if mode not in _RUNTIME_PRESETS:
+        raise ValueError(f"unknown runtime.mode: {mode!r}")
+    resolved = _deep_merge(_RUNTIME_PRESETS[mode], raw_config)
+    resolved.setdefault("runtime", {})
+    resolved["runtime"]["mode"] = mode
+    resolved["_resolved_runtime_mode"] = mode
+    return resolved
 
 
 def _parse_iso_strict(value: str) -> datetime:
@@ -94,7 +180,14 @@ def load_case(case_dir: Path) -> tuple[Mission, dict[str, Satellite], dict[str, 
 def load_solver_config(config_dir: Path | None) -> dict[str, Any]:
     """Read optional solver config from a directory."""
     if config_dir is None:
-        return {}
+        return _resolve_runtime_config({})
+    if config_dir.is_file():
+        if config_dir.suffix == ".json":
+            import json
+            with config_dir.open("r", encoding="utf-8") as fh:
+                return _resolve_runtime_config(dict(json.load(fh)))
+        with config_dir.open("r", encoding="utf-8") as fh:
+            return _resolve_runtime_config(dict(yaml.safe_load(fh) or {}))
     candidates = [
         "config.yaml",
         "config.yml",
@@ -109,7 +202,7 @@ def load_solver_config(config_dir: Path | None) -> dict[str, Any]:
             if p.suffix == ".json":
                 import json
                 with p.open("r", encoding="utf-8") as fh:
-                    return dict(json.load(fh))
+                    return _resolve_runtime_config(dict(json.load(fh)))
             with p.open("r", encoding="utf-8") as fh:
-                return dict(yaml.safe_load(fh) or {})
-    return {}
+                return _resolve_runtime_config(dict(yaml.safe_load(fh) or {}))
+    return _resolve_runtime_config({})

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+import time
 from typing import Any
 
 import numpy as np
@@ -38,14 +39,14 @@ _SCENE_GEOM_BANDS_DEG: dict[str, tuple[float, float]] = {
 _NUMERICAL_EPS = 1e-9
 
 
-@dataclass(frozen=True)
+@dataclass
 class _CandidateGeometry:
     sat_pos_m: np.ndarray
     boresight_ground_m: np.ndarray
     slant_range_m: float
     pixel_scale_m: float
-    strip_polyline_en: list[tuple[float, float]]
-    strip_half_width_m: float
+    strip_polyline_en: list[tuple[float, float]] | None = None
+    strip_half_width_m: float | None = None
 
 
 def _candidate_midpoint(cand: CandidateObservation):
@@ -99,11 +100,10 @@ def _tri_bonus_R(pair_ok: list[bool], has_anchor: bool) -> float:
 
 def _precompute_candidate_geometry(
     cand: CandidateObservation,
+    sf: Any,
     sat: Satellite,
     target: Target,
-    strip_step_s: float,
 ) -> _CandidateGeometry | None:
-    sf = make_earth_satellite(sat)
     te = target_ecef_m(target)
     mid = cand.start + (cand.end - cand.start) / 2
     sp, sv = satellite_state_ecef_m(sf, mid)
@@ -112,16 +112,39 @@ def _precompute_candidate_geometry(
         gp = te
     slant = float(np.linalg.norm(gp - sp))
     ps = pixel_scale_m(sat, slant, cand.combined_off_nadir_deg)
-    poly = strip_polyline_en(sf, te, cand.start, cand.end, strip_step_s, cand.off_nadir_along_deg, cand.off_nadir_across_deg)
-    half_w = slant * np.tan(np.radians(sat.half_cross_track_fov_deg))
     return _CandidateGeometry(
         sat_pos_m=sp,
         boresight_ground_m=gp,
         slant_range_m=slant,
         pixel_scale_m=ps,
-        strip_polyline_en=poly,
-        strip_half_width_m=float(half_w),
     )
+
+
+def _ensure_strip_geometry(
+    cand: CandidateObservation,
+    geo: _CandidateGeometry,
+    sf: Any,
+    sat: Satellite,
+    target_ecef: np.ndarray,
+    strip_step_s: float,
+    profile: dict[str, Any] | None = None,
+) -> _CandidateGeometry:
+    if geo.strip_polyline_en is not None and geo.strip_half_width_m is not None:
+        return geo
+    start = time.perf_counter()
+    geo.strip_polyline_en = strip_polyline_en(
+        sf,
+        target_ecef,
+        cand.start,
+        cand.end,
+        strip_step_s,
+        cand.off_nadir_along_deg,
+        cand.off_nadir_across_deg,
+    )
+    geo.strip_half_width_m = geo.slant_range_m * np.tan(np.radians(sat.half_cross_track_fov_deg))
+    if profile is not None:
+        profile["strip_geometry_s"] = profile.get("strip_geometry_s", 0.0) + (time.perf_counter() - start)
+    return geo
 
 
 def evaluate_pair(
@@ -133,32 +156,45 @@ def evaluate_pair(
     mission: Mission,
     config: dict[str, Any],
     pair_mode: str,
+    *,
+    sf_i: Any,
+    sf_j: Any,
+    sat_i: Satellite,
+    sat_j: Satellite,
+    target_ecef: np.ndarray,
+    strip_step_s: float,
+    profile: dict[str, Any] | None = None,
 ) -> StereoPair:
-    te = target_ecef_m(target)
-    ui = (geo_i.sat_pos_m - te) / np.linalg.norm(geo_i.sat_pos_m - te)
-    uj = (geo_j.sat_pos_m - te) / np.linalg.norm(geo_j.sat_pos_m - te)
+    ui = (geo_i.sat_pos_m - target_ecef) / np.linalg.norm(geo_i.sat_pos_m - target_ecef)
+    uj = (geo_j.sat_pos_m - target_ecef) / np.linalg.norm(geo_j.sat_pos_m - target_ecef)
     gamma = angle_between_deg(ui, uj)
 
     ps_ratio = max(geo_i.pixel_scale_m, geo_j.pixel_scale_m) / min(geo_i.pixel_scale_m, geo_j.pixel_scale_m)
 
-    n_angles = int(config.get("overlap_grid_angles", 8))
-    n_radii = int(config.get("overlap_grid_radii", 3))
-    overlap = overlap_fraction_grid(
-        target.aoi_radius_m,
-        geo_i.strip_polyline_en,
-        geo_i.strip_half_width_m,
-        geo_j.strip_polyline_en,
-        geo_j.strip_half_width_m,
-        n_angles,
-        n_radii,
-    )
-
     vt = mission.validity_thresholds
-    valid = (
+    overlap = 0.0
+    geometry_ok = (
         vt.min_convergence_deg - 1e-6 <= gamma <= vt.max_convergence_deg + 1e-6
-        and overlap + 1e-6 >= vt.min_overlap_fraction
         and ps_ratio <= vt.max_pixel_scale_ratio + 1e-6
     )
+    if geometry_ok:
+        geo_i = _ensure_strip_geometry(cand_i, geo_i, sf_i, sat_i, target_ecef, strip_step_s, profile=profile)
+        geo_j = _ensure_strip_geometry(cand_j, geo_j, sf_j, sat_j, target_ecef, strip_step_s, profile=profile)
+        if profile is not None:
+            profile["pair_overlap_evals"] = profile.get("pair_overlap_evals", 0) + 1
+        n_angles = int(config.get("overlap_grid_angles", 8))
+        n_radii = int(config.get("overlap_grid_radii", 3))
+        overlap = overlap_fraction_grid(
+            target.aoi_radius_m,
+            geo_i.strip_polyline_en or [],
+            float(geo_i.strip_half_width_m or 0.0),
+            geo_j.strip_polyline_en or [],
+            float(geo_j.strip_half_width_m or 0.0),
+            n_angles,
+            n_radii,
+        )
+
+    valid = geometry_ok and overlap + 1e-6 >= vt.min_overlap_fraction
 
     q_geom = _pair_geom_quality(gamma, target.scene_type)
     q_overlap = min(1.0, overlap / 0.95)
@@ -194,17 +230,13 @@ def evaluate_tri(
     target: Target,
     mission: Mission,
     config: dict[str, Any],
+    *,
+    sfs: tuple[Any, Any, Any],
+    sats: tuple[Satellite, Satellite, Satellite],
+    target_ecef: np.ndarray,
+    strip_step_s: float,
+    profile: dict[str, Any] | None = None,
 ) -> TriStereoSet:
-    n_angles = int(config.get("overlap_grid_angles", 8))
-    n_radii = int(config.get("overlap_grid_radii", 3))
-    common_overlap = tri_overlap_fraction_grid(
-        target.aoi_radius_m,
-        [geos[k].strip_polyline_en for k in range(3)],
-        [geos[k].strip_half_width_m for k in range(3)],
-        n_angles,
-        n_radii,
-    )
-
     i, j, k = indices
     pair_keys = [(i, j), (i, k), (j, k)]
     pair_flags = []
@@ -225,11 +257,31 @@ def evaluate_tri(
         for m in range(3)
     )
 
-    valid = (
-        common_overlap + 1e-6 >= vt.min_overlap_fraction
-        and sum(pair_flags) >= 2
-        and has_anchor
-    )
+    common_overlap = 0.0
+    if sum(pair_flags) >= 2 and has_anchor:
+        for idx, geo in enumerate(geos):
+            _ensure_strip_geometry(
+                cands[idx],
+                geo,
+                sfs[idx],
+                sats[idx],
+                target_ecef,
+                strip_step_s,
+                profile=profile,
+            )
+        if profile is not None:
+            profile["tri_overlap_evals"] = profile.get("tri_overlap_evals", 0) + 1
+        n_angles = int(config.get("overlap_grid_angles", 8))
+        n_radii = int(config.get("overlap_grid_radii", 3))
+        common_overlap = tri_overlap_fraction_grid(
+            target.aoi_radius_m,
+            [geos[idx].strip_polyline_en or [] for idx in range(3)],
+            [float(geos[idx].strip_half_width_m or 0.0) for idx in range(3)],
+            n_angles,
+            n_radii,
+        )
+
+    valid = common_overlap + 1e-6 >= vt.min_overlap_fraction and sum(pair_flags) >= 2 and has_anchor
 
     beta = mission.quality_model.tri_stereo_bonus_by_scene.get(target.scene_type, 0.0)
     r = _tri_bonus_R(pair_flags, has_anchor)
@@ -257,6 +309,7 @@ def enumerate_products(
     mission: Mission,
     config: dict[str, Any],
 ) -> tuple[list[StereoPair], list[TriStereoSet], ProductSummary]:
+    total_start = time.perf_counter()
     strip_step_s = float(config.get("strip_sample_step_s", 8.0))
 
     groups: dict[str, list[CandidateObservation]] = {}
@@ -275,11 +328,23 @@ def enumerate_products(
         "pair_policy": "benchmark_same_pass_or_cross_satellite_with_midpoint_bound",
         "note": "Overlap is grid-approximated; pixel scale includes off-nadir secant correction.",
     }
+    summary.profiling = {
+        "total_s": 0.0,
+        "midpoint_geometry_s": 0.0,
+        "strip_geometry_s": 0.0,
+        "pair_policy_checks": 0,
+        "pair_overlap_evals": 0,
+        "tri_overlap_evals": 0,
+        "pairs_emitted": 0,
+        "tris_emitted": 0,
+    }
+    sat_sfs = {sid: make_earth_satellite(sat) for sid, sat in satellites.items()}
 
     for target_id, group in groups.items():
         if len(group) < 2:
             continue
         target = targets[target_id]
+        target_ecef = target_ecef_m(target)
         group_sorted = sorted(
             group,
             key=lambda c: (
@@ -291,27 +356,47 @@ def enumerate_products(
                 c.off_nadir_across_deg,
             ),
         )
+        target_midpoint_start = time.perf_counter()
         geos = [
-            _precompute_candidate_geometry(c, satellites[c.sat_id], target, strip_step_s)
-            if c.sat_id in satellites
+            _precompute_candidate_geometry(c, sat_sfs[c.sat_id], satellites[c.sat_id], target)
+            if c.sat_id in satellites and c.sat_id in sat_sfs
             else None
             for c in group_sorted
         ]
+        summary.profiling["midpoint_geometry_s"] += time.perf_counter() - target_midpoint_start
         # skip any candidate whose geometry failed (None)
         valid_indices = [idx for idx, g in enumerate(geos) if g is not None]
         if len(valid_indices) < 2:
             continue
 
         pair_results: dict[tuple[int, int], StereoPair] = {}
+        midpoints = [_candidate_midpoint(cand) for cand in group_sorted]
         for a_idx in range(len(valid_indices)):
             for b_idx in range(a_idx + 1, len(valid_indices)):
                 i = valid_indices[a_idx]
                 j = valid_indices[b_idx]
+                if (midpoints[j] - midpoints[i]).total_seconds() - 1e-6 > mission.max_stereo_pair_separation_s:
+                    break
+                summary.profiling["pair_policy_checks"] += 1
                 pair_mode = _stereo_pair_mode(mission, group_sorted[i], group_sorted[j])
                 if pair_mode is None:
                     continue
                 pair = evaluate_pair(
-                    group_sorted[i], group_sorted[j], geos[i], geos[j], target, mission, config, pair_mode
+                    group_sorted[i],
+                    group_sorted[j],
+                    geos[i],
+                    geos[j],
+                    target,
+                    mission,
+                    config,
+                    pair_mode,
+                    sf_i=sat_sfs[group_sorted[i].sat_id],
+                    sf_j=sat_sfs[group_sorted[j].sat_id],
+                    sat_i=satellites[group_sorted[i].sat_id],
+                    sat_j=satellites[group_sorted[j].sat_id],
+                    target_ecef=target_ecef,
+                    strip_step_s=strip_step_s,
+                    profile=summary.profiling,
                 )
                 pairs.append(pair)
                 summary.record_pair(pair)
@@ -324,6 +409,8 @@ def enumerate_products(
                         i = valid_indices[a_idx]
                         j = valid_indices[b_idx]
                         k = valid_indices[c_idx]
+                        if (midpoints[k] - midpoints[i]).total_seconds() - 1e-6 > mission.max_stereo_pair_separation_s:
+                            break
                         edge_keys = ((i, j), (i, k), (j, k))
                         if any(edge not in pair_results for edge in edge_keys):
                             continue
@@ -335,8 +422,24 @@ def enumerate_products(
                             target,
                             mission,
                             config,
+                            sfs=(
+                                sat_sfs[group_sorted[i].sat_id],
+                                sat_sfs[group_sorted[j].sat_id],
+                                sat_sfs[group_sorted[k].sat_id],
+                            ),
+                            sats=(
+                                satellites[group_sorted[i].sat_id],
+                                satellites[group_sorted[j].sat_id],
+                                satellites[group_sorted[k].sat_id],
+                            ),
+                            target_ecef=target_ecef,
+                            strip_step_s=strip_step_s,
+                            profile=summary.profiling,
                         )
                         tris.append(tri)
                         summary.record_tri(tri)
 
+    summary.profiling["pairs_emitted"] = len(pairs)
+    summary.profiling["tris_emitted"] = len(tris)
+    summary.profiling["total_s"] = time.perf_counter() - total_start
     return pairs, tris, summary
