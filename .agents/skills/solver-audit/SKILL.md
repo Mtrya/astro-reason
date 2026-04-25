@@ -5,7 +5,7 @@ description: Audit a solver against the fixed target of faithful reproduction ad
 
 # Solver Audit
 
-The target claim is fixed: **faithful reproduction adapted to the benchmark**.
+The target claim is fixed: **faithful reproduction adapted to the benchmark with fair optimization and compute envelope**.
 
 The audit identifies what blocks that target today, especially when the blocker is insufficient computation, weak implementation, or an unfair runtime envelope. You focus on two main aspects:
 1. whether the code, the control flow is correct
@@ -117,7 +117,7 @@ Required structure:
 # Solver Audit: <solver-name>
 
 ## Bottom Line
-- Target claim: faithful reproduction adapted to the benchmark
+- Target claim: faithful reproduction adapted to the benchmark with fair optimization and compute envelope
 - Status: <READY / NOT_YET>
 - Compute status: <FAIR_TO_EVALUATE / UNDERPROVISIONED / OPTIMIZATION_BLOCKED / BOTH>
 - Headline blockers:
