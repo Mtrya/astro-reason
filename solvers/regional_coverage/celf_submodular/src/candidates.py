@@ -94,12 +94,15 @@ def load_candidate_config(config_dir: Path | None) -> CandidateConfig:
     section = raw.get("candidate_generation", raw)
     if not isinstance(section, dict):
         raise ValueError(f"{path}: candidate_generation must be a mapping")
+    max_candidates_raw = section.get(
+        "max_candidates_total", DEFAULT_CANDIDATE_CONFIG.max_candidates_total
+    )
     return CandidateConfig(
         time_stride_s=int(section.get("time_stride_s", DEFAULT_CANDIDATE_CONFIG.time_stride_s)),
         roll_step_deg=float(section.get("roll_step_deg", DEFAULT_CANDIDATE_CONFIG.roll_step_deg)),
         max_candidates_total=(
-            int(section["max_candidates_total"])
-            if section.get("max_candidates_total") is not None
+            int(max_candidates_raw)
+            if max_candidates_raw is not None
             else None
         ),
         duration_values_s=(

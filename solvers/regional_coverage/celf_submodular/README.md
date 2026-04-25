@@ -66,3 +66,18 @@ same-satellite half-open interval overlap, the benchmark bang-coast-bang slew
 formula plus settling, and approximate battery/duty risk. It removes conflicting
 candidates deterministically by lowest estimated unique coverage loss, then
 higher energy burden, duration, start offset, and candidate id.
+
+## Main Solver Smoke
+
+Official smoke verification through `main_solver`:
+
+```bash
+uv run python experiments/main_solver/run.py \
+  --benchmark regional_coverage \
+  --solver regional_coverage_celf_submodular \
+  --case test/case_0001
+```
+
+This solver is registered in `experiments/main_solver` with
+`evidence_type: reproduced_solver`. Current Phase 4 smoke verification passes on
+`test/case_0001`; broader tuning and non-smoke verification remain Phase 5 work.

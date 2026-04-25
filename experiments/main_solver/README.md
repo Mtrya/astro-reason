@@ -53,6 +53,15 @@ uv run python experiments/main_solver/run.py \
     --case test/8
 ```
 
+Run the regional-coverage CELF smoke case:
+
+```bash
+uv run python experiments/main_solver/run.py \
+    --benchmark regional_coverage \
+    --solver regional_coverage_celf_submodular \
+    --case test/case_0001
+```
+
 Materialize SatNet citation-backed rows:
 
 ```bash

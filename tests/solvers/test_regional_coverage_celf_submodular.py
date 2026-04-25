@@ -12,7 +12,7 @@ REPO_ROOT = Path(__file__).resolve().parents[2]
 SOLVER_SRC = REPO_ROOT / "solvers" / "regional_coverage" / "celf_submodular" / "src"
 sys.path.insert(0, str(SOLVER_SRC))
 
-from candidates import CandidateConfig, generate_candidates  # noqa: E402
+from candidates import CandidateConfig, generate_candidates, load_candidate_config  # noqa: E402
 from candidates import StripCandidate  # noqa: E402
 from case_io import CoverageSample, iso_z, load_case, parse_iso_z  # noqa: E402
 from celf import (  # noqa: E402
@@ -185,6 +185,15 @@ def test_candidate_generation_is_grid_aligned_filtered_and_stable(tmp_path: Path
     assert candidates[0].candidate_id == "sat_a|dur=0010|roll=-018.000|start=0000000"
     assert candidates[1].candidate_id == "sat_a|dur=0010|roll=-018.000|start=0000010"
     assert candidates[-1].candidate_id == "sat_b|dur=0020|roll=+012.000|start=0000020"
+
+
+def test_empty_experiment_config_uses_candidate_defaults(tmp_path: Path) -> None:
+    (tmp_path / "config.yaml").write_text("{}\n", encoding="utf-8")
+
+    config = load_candidate_config(tmp_path)
+
+    assert config.max_candidates_total == 512
+    assert config.time_stride_s == 600
 
 
 def test_coverage_sample_indexing_is_duplicate_free() -> None:
