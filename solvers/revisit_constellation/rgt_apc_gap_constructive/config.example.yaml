@@ -11,3 +11,6 @@ visibility:
   max_windows: null
   keep_samples_per_window: 6
 
+selection:
+  max_selected_satellites: null
+  require_positive_improvement: true

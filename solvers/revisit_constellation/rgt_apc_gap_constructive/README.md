@@ -1,8 +1,8 @@
-# RGT/APC Gap-Constructive Solver Scaffold
+# RGT/APC Gap-Constructive Solver
 
-Phase 1 scaffold for `revisit_constellation`.
+Phase 2 solver scaffold for `revisit_constellation`.
 
-The solver currently parses public `assets.json` and `mission.json` files, builds a deterministic RGT/APC-style candidate satellite library, samples target visibility opportunities, writes debug artifacts, and intentionally emits an empty benchmark solution:
+The solver currently parses public `assets.json` and `mission.json` files, builds a deterministic RGT/APC-style candidate satellite library, samples target visibility opportunities, scores those opportunities with benchmark-style midpoint revisit gaps, greedily selects satellites by marginal gap improvement, and writes debug artifacts:
 
 ```bash
 ./solvers/revisit_constellation/rgt_apc_gap_constructive/setup.sh
@@ -14,10 +14,10 @@ The solver currently parses public `assets.json` and `mission.json` files, build
 
 Outputs:
 
-- `solution.json`: empty `satellites` and `actions` arrays
-- `status.json`: case metadata, candidate counts, visibility-window counts, caps, and timings
+- `solution.json`: selected `satellites` and an empty `actions` array
+- `status.json`: case metadata, candidate counts, visibility-window counts, selection scores, caps, and timings
 - `debug/orbit_candidates.json`: generated candidate states at mission start
 - `debug/visibility_windows.json`: sampled candidate-target visibility opportunities
+- `debug/selection_rounds.json`: greedy satellite-selection marginal improvements
 
-Later phases add gap-aware constellation selection, constructive observation scheduling, and solver-local repair.
-
+Later phases add constructive observation scheduling and solver-local slew/battery repair.

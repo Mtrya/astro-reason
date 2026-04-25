@@ -1,4 +1,4 @@
-"""Phase-1 solver entrypoint for RGT/APC candidate and visibility construction."""
+"""Solver entrypoint for RGT/APC candidate, visibility, and gap selection."""
 
 from __future__ import annotations
 
@@ -10,7 +10,8 @@ from pathlib import Path
 
 from .case_io import load_case, load_solver_config
 from .orbit_library import OrbitLibraryConfig, generate_orbit_library
-from .solution_io import write_empty_solution, write_json
+from .selection import SelectionConfig, select_satellites_greedy
+from .solution_io import write_json, write_solution
 from .visibility import VisibilityConfig, build_visibility_library
 
 
@@ -22,13 +23,15 @@ def _build_status(
     case,
     orbit_config: OrbitLibraryConfig,
     visibility_config: VisibilityConfig,
+    selection_config: SelectionConfig,
     orbit_library,
     visibility_library,
+    selection_result,
     timing_seconds: dict[str, float],
 ) -> dict:
     return {
-        "status": "phase_1_scaffold_solution_generated",
-        "phase": 1,
+        "status": "phase_2_gap_selection_solution_generated",
+        "phase": 2,
         "case_dir": str(case_dir),
         "config_dir": str(config_dir) if config_dir is not None else None,
         "solution": str(solution_path),
@@ -36,12 +39,14 @@ def _build_status(
         "target_count": len(case.targets),
         "max_num_satellites": case.max_num_satellites,
         "horizon_duration_sec": case.horizon_duration_sec,
-        "satellite_output_count": 0,
+        "satellite_output_count": len(selection_result.selected_candidate_ids),
         "action_output_count": 0,
         "orbit_library_config": orbit_config.as_status_dict(),
         "visibility_config": visibility_config.as_status_dict(),
+        "selection_config": selection_config.as_status_dict(),
         "orbit_library": orbit_library.as_status_dict(),
         "visibility": visibility_library.as_status_dict(),
+        "selection": selection_result.as_status_dict(),
         "timing_seconds": timing_seconds,
         "reproduction_notes": {
             "method_reference": "Lee et al. 2020 APC / RGT common-ground-track constellation pattern",
@@ -50,13 +55,14 @@ def _build_status(
                 "bounded_rgt_apc_candidate_states": True,
                 "access_profile_visibility_sampling": True,
                 "opportunity_window_grouping": True,
+                "benchmark_style_gap_scoring": True,
+                "greedy_gap_aware_satellite_selection": True,
             },
             "components_deferred": {
-                "gap_aware_satellite_selection": "phase 2",
                 "constructive_observation_scheduling": "phase 3",
                 "slew_battery_repair": "phase 4",
             },
-            "empty_output_reason": "Phase 1 intentionally emits no selected satellites or actions.",
+            "action_output_reason": "Phase 2 selects satellites from visibility opportunities; action scheduling is deferred.",
         },
     }
 
@@ -81,6 +87,7 @@ def main(argv: list[str] | None = None) -> int:
 
         orbit_config = OrbitLibraryConfig.from_mapping(config_payload, case)
         visibility_config = VisibilityConfig.from_mapping(config_payload)
+        selection_config = SelectionConfig.from_mapping(config_payload)
 
         orbit_start = time.perf_counter()
         orbit_library = generate_orbit_library(case, orbit_config)
@@ -94,11 +101,27 @@ def main(argv: list[str] | None = None) -> int:
         )
         visibility_end = time.perf_counter()
 
-        solution_path = write_empty_solution(solution_dir)
+        selection_start = time.perf_counter()
+        selection_result = select_satellites_greedy(
+            case=case,
+            candidates=orbit_library.candidates,
+            windows=visibility_library.windows,
+            config=selection_config,
+        )
+        selection_end = time.perf_counter()
+
+        solution_path = write_solution(
+            solution_dir,
+            satellites=[
+                candidate.as_solution_satellite()
+                for candidate in selection_result.selected_candidates
+            ],
+        )
         total_end = time.perf_counter()
         timing_seconds = {
             "orbit_library": orbit_end - orbit_start,
             "visibility": visibility_end - visibility_start,
+            "selection": selection_end - selection_start,
             "total": total_end - total_start,
         }
         status = _build_status(
@@ -108,8 +131,10 @@ def main(argv: list[str] | None = None) -> int:
             case=case,
             orbit_config=orbit_config,
             visibility_config=visibility_config,
+            selection_config=selection_config,
             orbit_library=orbit_library,
             visibility_library=visibility_library,
+            selection_result=selection_result,
             timing_seconds=timing_seconds,
         )
         write_json(solution_dir / "status.json", status)
@@ -120,6 +145,10 @@ def main(argv: list[str] | None = None) -> int:
         write_json(
             solution_dir / "debug" / "visibility_windows.json",
             [window.as_dict() for window in visibility_library.windows],
+        )
+        write_json(
+            solution_dir / "debug" / "selection_rounds.json",
+            [round_info.as_dict() for round_info in selection_result.rounds],
         )
     except Exception as exc:
         traceback_text = traceback.format_exc()
@@ -140,4 +169,3 @@ def main(argv: list[str] | None = None) -> int:
 
 if __name__ == "__main__":
     raise SystemExit(main())
-

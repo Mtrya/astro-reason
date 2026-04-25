@@ -20,3 +20,13 @@ def write_empty_solution(solution_dir: Path) -> Path:
     write_json(path, {"satellites": [], "actions": []})
     return path
 
+
+def write_solution(
+    solution_dir: Path,
+    *,
+    satellites: list[dict[str, Any]],
+    actions: list[dict[str, Any]] | None = None,
+) -> Path:
+    path = solution_dir / "solution.json"
+    write_json(path, {"satellites": satellites, "actions": actions or []})
+    return path

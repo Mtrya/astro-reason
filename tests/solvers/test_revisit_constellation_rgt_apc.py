@@ -16,10 +16,19 @@ sys.path.insert(0, str(REPO_ROOT))
 from solvers.revisit_constellation.rgt_apc_gap_constructive.src.case_io import (  # noqa: E402
     load_case,
 )
+from solvers.revisit_constellation.rgt_apc_gap_constructive.src.gaps import (  # noqa: E402
+    gap_improvement,
+    score_observation_timelines,
+)
 from solvers.revisit_constellation.rgt_apc_gap_constructive.src.orbit_library import (  # noqa: E402
+    OrbitCandidate,
     OrbitLibraryConfig,
     generate_orbit_library,
     initial_orbit_bounds,
+)
+from solvers.revisit_constellation.rgt_apc_gap_constructive.src.selection import (  # noqa: E402
+    SelectionConfig,
+    select_satellites_greedy,
 )
 from solvers.revisit_constellation.rgt_apc_gap_constructive.src.solution_io import (  # noqa: E402
     write_empty_solution,
@@ -31,6 +40,7 @@ from solvers.revisit_constellation.rgt_apc_gap_constructive.src.time_grid import
 )
 from solvers.revisit_constellation.rgt_apc_gap_constructive.src.visibility import (  # noqa: E402
     VisibilitySample,
+    VisibilityWindow,
     group_visible_samples,
 )
 
@@ -68,7 +78,7 @@ def _assets_payload(*, min_altitude_m: float = 500000.0, max_altitude_m: float =
     }
 
 
-def _mission_payload() -> dict:
+def _mission_payload(*, expected_revisit_period_hours: float = 8.0) -> dict:
     return {
         "horizon_start": "2025-07-17T12:00:00Z",
         "horizon_end": "2025-07-17T13:00:00Z",
@@ -79,7 +89,7 @@ def _mission_payload() -> dict:
                 "latitude_deg": 0.0,
                 "longitude_deg": 0.0,
                 "altitude_m": 0.0,
-                "expected_revisit_period_hours": 8.0,
+                "expected_revisit_period_hours": expected_revisit_period_hours,
                 "min_elevation_deg": 10.0,
                 "max_slant_range_m": 1800000.0,
                 "min_duration_sec": 30.0,
@@ -93,6 +103,54 @@ def _case_dir(tmp_path: Path) -> Path:
     _write_json(case_dir / "assets.json", _assets_payload())
     _write_json(case_dir / "mission.json", _mission_payload())
     return case_dir
+
+
+def _gap_case_dir(tmp_path: Path, *, expected_revisit_period_hours: float = 0.4) -> Path:
+    case_dir = tmp_path / "gap_case"
+    _write_json(case_dir / "assets.json", _assets_payload())
+    _write_json(
+        case_dir / "mission.json",
+        _mission_payload(expected_revisit_period_hours=expected_revisit_period_hours),
+    )
+    return case_dir
+
+
+def _candidate(candidate_id: str) -> OrbitCandidate:
+    return OrbitCandidate(
+        candidate_id=candidate_id,
+        source="unit",
+        semi_major_axis_m=7000000.0,
+        eccentricity=0.0,
+        inclination_deg=53.0,
+        raan_deg=0.0,
+        argument_of_perigee_deg=0.0,
+        mean_anomaly_deg=0.0,
+        altitude_m=600000.0,
+        period_ratio_np=None,
+        period_ratio_nd=None,
+        phase_slot_index=0,
+        phase_slot_count=1,
+        state_eci_m_mps=(7000000.0, 0.0, 0.0, 0.0, 7500.0, 0.0),
+    )
+
+
+def _window(candidate_id: str, target_id: str, start: datetime, minutes: int) -> VisibilityWindow:
+    window_start = start + timedelta(minutes=minutes)
+    window_end = window_start + timedelta(seconds=60)
+    return VisibilityWindow(
+        window_id=f"{candidate_id}_{target_id}_{minutes}",
+        candidate_id=candidate_id,
+        target_id=target_id,
+        start=window_start,
+        end=window_end,
+        midpoint=window_start + timedelta(seconds=30),
+        duration_sec=60.0,
+        max_elevation_deg=50.0,
+        min_slant_range_m=700000.0,
+        min_off_nadir_deg=2.0,
+        sample_count=1,
+        samples=(),
+    )
 
 
 def test_iso_z_parsing_formatting_and_horizon_grid() -> None:
@@ -184,7 +242,102 @@ def test_empty_solution_schema(tmp_path: Path) -> None:
     }
 
 
-def test_solve_sh_smoke_writes_empty_solution_status_and_debug(tmp_path: Path) -> None:
+def test_gap_score_matches_boundary_inclusive_benchmark_metrics(tmp_path: Path) -> None:
+    case = load_case(_gap_case_dir(tmp_path, expected_revisit_period_hours=0.4))
+    midpoint = case.horizon_start + timedelta(minutes=30)
+
+    score = score_observation_timelines(
+        case,
+        {"target_001": [midpoint, midpoint]},
+    )
+
+    target_score = score.target_gap_summary["target_001"]
+    assert target_score.observation_count == 1
+    assert target_score.max_revisit_gap_hours == pytest.approx(0.5)
+    assert target_score.mean_revisit_gap_hours == pytest.approx(0.5)
+    assert score.threshold_violation_count == 1
+    assert score.capped_max_revisit_gap_hours == pytest.approx(0.5)
+
+
+def test_gap_improvement_uses_benchmark_style_caps_and_mean(tmp_path: Path) -> None:
+    case = load_case(_gap_case_dir(tmp_path, expected_revisit_period_hours=0.6))
+    before = score_observation_timelines(case, {})
+    after = score_observation_timelines(
+        case,
+        {
+            "target_001": [
+                case.horizon_start + timedelta(minutes=20),
+                case.horizon_start + timedelta(minutes=40),
+            ]
+        },
+    )
+
+    improvement = gap_improvement(before, after)
+
+    assert before.threshold_violation_count == 1
+    assert after.threshold_violation_count == 0
+    assert improvement.threshold_violation_reduction == 1
+    assert improvement.capped_max_revisit_gap_reduction_hours == pytest.approx(0.4)
+    assert improvement.max_revisit_gap_reduction_hours == pytest.approx(2.0 / 3.0)
+    assert improvement.mean_revisit_gap_reduction_hours == pytest.approx(2.0 / 3.0)
+
+
+def test_greedy_selection_respects_case_and_config_caps(tmp_path: Path) -> None:
+    case = load_case(_gap_case_dir(tmp_path))
+    candidates = [
+        _candidate("sat_a"),
+        _candidate("sat_b"),
+        _candidate("sat_c"),
+        _candidate("sat_d"),
+        _candidate("sat_e"),
+    ]
+    windows = [
+        _window("sat_a", "target_001", case.horizon_start, 15),
+        _window("sat_b", "target_001", case.horizon_start, 30),
+        _window("sat_c", "target_001", case.horizon_start, 45),
+        _window("sat_d", "target_001", case.horizon_start, 5),
+        _window("sat_e", "target_001", case.horizon_start, 55),
+    ]
+
+    config_capped = select_satellites_greedy(
+        case=case,
+        candidates=candidates,
+        windows=windows,
+        config=SelectionConfig(max_selected_satellites=2),
+    )
+    case_capped = select_satellites_greedy(
+        case=case,
+        candidates=candidates,
+        windows=windows,
+        config=SelectionConfig(max_selected_satellites=99),
+    )
+
+    assert len(config_capped.selected_candidate_ids) == 2
+    assert config_capped.caps["selected_satellite_limit"] == 2
+    assert config_capped.caps["stopped_by_limit"] is True
+    assert len(case_capped.selected_candidate_ids) == case.max_num_satellites
+    assert case_capped.caps["selected_satellite_limit"] == case.max_num_satellites
+
+
+def test_greedy_selection_uses_deterministic_candidate_id_ties(tmp_path: Path) -> None:
+    case = load_case(_gap_case_dir(tmp_path))
+    candidates = [_candidate("sat_b"), _candidate("sat_a")]
+    windows = [
+        _window("sat_b", "target_001", case.horizon_start, 30),
+        _window("sat_a", "target_001", case.horizon_start, 30),
+    ]
+
+    result = select_satellites_greedy(
+        case=case,
+        candidates=candidates,
+        windows=windows,
+        config=SelectionConfig(max_selected_satellites=1),
+    )
+
+    assert result.selected_candidate_ids == ["sat_a"]
+
+
+def test_solve_sh_smoke_writes_selected_solution_status_and_debug(tmp_path: Path) -> None:
     case_dir = _case_dir(tmp_path)
     config_dir = tmp_path / "config"
     config_dir.mkdir()
@@ -224,17 +377,19 @@ def test_solve_sh_smoke_writes_empty_solution_status_and_debug(tmp_path: Path) -
     )
 
     assert result.returncode == 0, result.stderr
-    assert json.loads((solution_dir / "solution.json").read_text(encoding="utf-8")) == {
-        "actions": [],
-        "satellites": [],
-    }
+    solution = json.loads((solution_dir / "solution.json").read_text(encoding="utf-8"))
+    assert solution["actions"] == []
+    assert isinstance(solution["satellites"], list)
     status = json.loads((solution_dir / "status.json").read_text(encoding="utf-8"))
-    assert status["status"] == "phase_1_scaffold_solution_generated"
+    assert status["status"] == "phase_2_gap_selection_solution_generated"
     assert status["target_count"] == 1
     assert status["orbit_library"]["candidate_count"] == 1
     assert status["visibility"]["candidate_target_pair_count"] == 1
+    assert status["selection"]["selected_candidate_count"] == len(solution["satellites"])
+    assert status["selection"]["final_score"]["target_gap_summary"]["target_001"]
     assert (solution_dir / "debug" / "orbit_candidates.json").exists()
     assert (solution_dir / "debug" / "visibility_windows.json").exists()
+    assert (solution_dir / "debug" / "selection_rounds.json").exists()
 
 
 def test_solver_source_does_not_import_benchmark_or_experiment_internals() -> None:
