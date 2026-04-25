@@ -1,61 +1,61 @@
 {
-  "version": 1,
   "solvers": [
     {
       "benchmark": "spot5",
       "solver": "reference_lookup",
-      "path": "solvers/spot5/reference_lookup",
-      "evidence_type": "fixture_backed_lookup",
-      "runnable": true,
-      "ci_smoke": true
+      "repro_ci": true,
+      "case_and_fixture_paths": [
+        {
+          "case_path": "benchmarks/spot5/dataset/cases/test/8",
+          "fixture_path": "solvers/spot5/reference_lookup/assets/solutions/8.spot_sol.txt"
+        }
+      ]
     },
     {
       "benchmark": "satnet",
       "solver": "milp_claudet2022",
-      "path": "solvers/satnet/milp_claudet2022",
-      "evidence_type": "citation_reported",
-      "runnable": false,
-      "ci_smoke": false
+      "repro_ci": false,
+      "repro_ci_reason": "citation_based",
+      "case_and_fixture_paths": []
     },
     {
       "benchmark": "satnet",
       "solver": "rl_ppo_goh2021",
-      "path": "solvers/satnet/rl_ppo_goh2021",
-      "evidence_type": "citation_reported",
-      "runnable": false,
-      "ci_smoke": false
+      "repro_ci": false,
+      "repro_ci_reason": "citation_based",
+      "case_and_fixture_paths": []
     },
     {
       "benchmark": "aeossp_standard",
       "solver": "mwis_conflict_graph",
-      "path": "solvers/aeossp_standard/mwis_conflict_graph",
-      "evidence_type": "reproduced_solver",
-      "runnable": true,
-      "ci_smoke": true
+      "repro_ci": false,
+      "repro_ci_reason": "too_expensive",
+      "case_and_fixture_paths": []
     },
     {
       "benchmark": "aeossp_standard",
       "solver": "greedy_lns",
-      "path": "solvers/aeossp_standard/greedy_lns",
-      "evidence_type": "reproduced_solver",
-      "runnable": true,
-      "ci_smoke": true
+      "repro_ci": false,
+      "repro_ci_reason": "too_expensive",
+      "case_and_fixture_paths": []
     },
     {
       "benchmark": "stereo_imaging",
       "solver": "cp_local_search_stereo_insertion",
-      "path": "solvers/stereo_imaging/cp_local_search_stereo_insertion",
-      "evidence_type": "reproduced_solver",
-      "runnable": true,
-      "ci_smoke": true
+      "repro_ci": false,
+      "repro_ci_reason": "too_expensive",
+      "case_and_fixture_paths": []
     },
     {
       "benchmark": "revisit_constellation",
       "solver": "rogers_mmrt_mart_binary_scheduler",
-      "path": "solvers/revisit_constellation/rogers_mmrt_mart_binary_scheduler",
-      "evidence_type": "reproduced_solver",
-      "runnable": true,
-      "ci_smoke": true
+      "repro_ci": true,
+      "case_and_fixture_paths": [
+        {
+          "case_path": "benchmarks/revisit_constellation/dataset/cases/test/case_0001",
+          "fixture_path": ""
+        }
+      ]
     }
   ]
 }

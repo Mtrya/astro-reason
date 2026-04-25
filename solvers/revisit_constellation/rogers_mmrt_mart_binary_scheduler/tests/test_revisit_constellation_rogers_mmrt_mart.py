@@ -10,10 +10,11 @@ import brahe
 import numpy as np
 
 
-REPO_ROOT = Path(__file__).resolve().parents[2]
-sys.path.insert(0, str(REPO_ROOT))
+SOLVER_DIR = Path(__file__).resolve().parents[1]
+REPO_ROOT = Path(__file__).resolve().parents[4]
+sys.path.insert(0, str(SOLVER_DIR))
 
-from solvers.revisit_constellation.rogers_mmrt_mart_binary_scheduler.src.case_io import (  # noqa: E402
+from src.case_io import (  # noqa: E402
     AttitudeModel,
     ResourceModel,
     RevisitCase,
@@ -25,7 +26,7 @@ from solvers.revisit_constellation.rogers_mmrt_mart_binary_scheduler.src.case_io
     load_case,
     parse_iso_z,
 )
-from solvers.revisit_constellation.rogers_mmrt_mart_binary_scheduler.src.binary_scheduler import (  # noqa: E402
+from src.binary_scheduler import (  # noqa: E402
     BinaryScheduleResult,
     build_conflict_edges,
     compare_scheduler_modes,
@@ -33,36 +34,36 @@ from solvers.revisit_constellation.rogers_mmrt_mart_binary_scheduler.src.binary_
     schedule_observation_windows,
     selected_windows_to_actions,
 )
-from solvers.revisit_constellation.rogers_mmrt_mart_binary_scheduler.src.design_models import (  # noqa: E402
+from src.design_models import (  # noqa: E402
     DesignProblem,
     DesignResult,
     compare_design_modes,
     select_design_slots,
 )
-from solvers.revisit_constellation.rogers_mmrt_mart_binary_scheduler.src.observation_windows import (  # noqa: E402
+from src.observation_windows import (  # noqa: E402
     ObservationWindow,
     WindowEnumerationResult,
     enumerate_observation_windows,
 )
-from solvers.revisit_constellation.rogers_mmrt_mart_binary_scheduler.src.propagation import (  # noqa: E402
+from src.propagation import (  # noqa: E402
     datetime_to_epoch,
     ensure_brahe_ready,
 )
-from solvers.revisit_constellation.rogers_mmrt_mart_binary_scheduler.src.slot_library import (  # noqa: E402
+from src.slot_library import (  # noqa: E402
     OrbitSlot,
     build_slot_library,
 )
-from solvers.revisit_constellation.rogers_mmrt_mart_binary_scheduler.src.solution_io import (  # noqa: E402
+from src.solution_io import (  # noqa: E402
     write_empty_solution,
 )
-from solvers.revisit_constellation.rogers_mmrt_mart_binary_scheduler.src.time_grid import (  # noqa: E402
+from src.time_grid import (  # noqa: E402
     build_time_grid,
 )
-from solvers.revisit_constellation.rogers_mmrt_mart_binary_scheduler.src.visibility_matrix import (  # noqa: E402
+from src.visibility_matrix import (  # noqa: E402
     VisibilityMatrix,
     build_visibility_matrix,
 )
-from solvers.revisit_constellation.rogers_mmrt_mart_binary_scheduler.src.validation import (  # noqa: E402
+from src.validation import (  # noqa: E402
     validate_and_repair_schedule,
 )
 
