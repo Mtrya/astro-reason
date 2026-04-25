@@ -132,6 +132,13 @@ Candidate-generation knobs:
 - `roll_values_deg`: optional explicit roll values
 - `debug_candidate_limit`: number of candidates copied to `candidate_debug.json`
 
+Coverage-mapping knobs:
+
+- `method`: `indexed` builds a sparse solver-local grid over public coverage
+  samples; `simple` scans all samples and is kept for debugging/equivalence
+  tests
+- `spatial_bin_deg`: longitude/latitude bin size used by the indexed mapper
+
 Selection knobs:
 
 - `run_unit_cost`: run the CELF unit-cost greedy variant
@@ -155,6 +162,8 @@ The solver writes:
 
 - `debug/candidate_summary.json`: candidate counts, active caps, per-satellite,
   per-roll, and per-duration histograms
+- `debug/coverage_runtime_summary.json`: coverage mapping execution model,
+  spatial-index size, sample-check counters, and prefilter reduction ratio
 - `debug/celf_summary.json`: algorithm metadata, selected ids, objective value,
   covered sample count, true marginal recomputations, estimated naive
   recomputation bound, lazy savings, stale pops, and CEF comparison result

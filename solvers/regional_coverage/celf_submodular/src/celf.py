@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import heapq
+import time
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Literal
@@ -131,12 +132,14 @@ class CelfRunResult:
     cost_benefit: SelectionResult | None
     cost_mode: CostMode
     candidate_count: int
+    timing_seconds: dict[str, float]
 
     def as_dict(self) -> dict[str, Any]:
         return {
             "best_policy": self.best_policy,
             "cost_mode": self.cost_mode,
             "candidate_count": self.candidate_count,
+            "timing_seconds": self.timing_seconds,
             "algorithm": {
                 "paper": "Leskovec et al. CELF / CEF lazy forward selection",
                 "unit_cost_variant": self.unit_cost is not None,
@@ -563,7 +566,9 @@ def run_celf_selection(
     results: list[SelectionResult] = []
     unit = None
     cost_benefit = None
+    timings: dict[str, float] = {}
     if config.run_unit_cost:
+        start = time.perf_counter()
         unit = lazy_forward_selection(
             candidates,
             coverage_by_candidate,
@@ -575,8 +580,10 @@ def run_celf_selection(
             min_marginal_gain=config.min_marginal_gain,
             max_iteration_debug=config.max_iteration_debug,
         )
+        timings["unit_cost_selection"] = round(time.perf_counter() - start, 6)
         results.append(unit)
     if config.run_cost_benefit:
+        start = time.perf_counter()
         cost_benefit = lazy_forward_selection(
             candidates,
             coverage_by_candidate,
@@ -588,9 +595,11 @@ def run_celf_selection(
             min_marginal_gain=config.min_marginal_gain,
             max_iteration_debug=config.max_iteration_debug,
         )
+        timings["cost_benefit_selection"] = round(time.perf_counter() - start, 6)
         results.append(cost_benefit)
     if not results:
         raise ValueError("selection config disables both unit-cost and cost-benefit CELF")
+    timings["total_selection"] = round(sum(timings.values()), 6)
     best = results[0]
     for result in results[1:]:
         if _result_better(result, best):
@@ -602,4 +611,5 @@ def run_celf_selection(
         cost_benefit=cost_benefit,
         cost_mode=config.cost_mode,
         candidate_count=len(candidates),
+        timing_seconds=timings,
     )

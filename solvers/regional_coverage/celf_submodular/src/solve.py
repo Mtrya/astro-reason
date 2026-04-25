@@ -12,7 +12,12 @@ from typing import Any
 from candidates import generate_candidates, load_candidate_config
 from case_io import load_case
 from celf import load_selection_config, run_celf_selection, sample_weight_lookup
-from coverage import build_candidate_coverage, build_coverage_diagnostics
+from coverage import (
+    build_candidate_coverage_with_runtime,
+    build_coverage_diagnostics,
+    build_coverage_sample_index,
+    load_coverage_mapping_config,
+)
 from schedule import feasibility_summary, repair_schedule
 from solution_io import (
     write_candidate_debug,
@@ -108,8 +113,10 @@ def _build_status(
     solution_path: Path,
     candidate_config,
     candidate_summary,
+    coverage_mapping_config,
     coverage_summary,
     coverage_diagnostics,
+    coverage_runtime_summary,
     selection_config,
     celf_result,
     repair_result,
@@ -142,10 +149,12 @@ def _build_status(
             "sample_count": len(case.coverage_grid.samples),
         },
         "candidate_config": candidate_config.as_status_dict(),
+        "coverage_mapping_config": coverage_mapping_config.as_status_dict(),
         "selection_config": selection_config.as_status_dict(),
         "candidate_summary": candidate_summary.as_dict(),
         "coverage_summary": coverage_summary.as_dict(),
         "coverage_diagnostics": coverage_diagnostics,
+        "coverage_runtime_summary": coverage_runtime_summary.as_dict(),
         "celf_summary": celf_result.as_dict(),
         "feasibility_summary": feasibility_summary(repair_result),
         "repair_summary": repair_result.as_dict(),
@@ -172,6 +181,7 @@ def run(case_dir: Path, config_dir: Path | None, solution_dir: Path) -> int:
     start = time.perf_counter()
     case = load_case(case_dir)
     candidate_config = load_candidate_config(config_dir)
+    coverage_mapping_config = load_coverage_mapping_config(config_dir)
     selection_config = load_selection_config(config_dir)
     timings["case_loading"] = _round_seconds(time.perf_counter() - start)
 
@@ -180,14 +190,35 @@ def run(case_dir: Path, config_dir: Path | None, solution_dir: Path) -> int:
     timings["candidate_generation"] = _round_seconds(time.perf_counter() - start)
 
     start = time.perf_counter()
-    coverage_by_candidate, coverage_summary = build_candidate_coverage(case, candidates)
+    sample_index = build_coverage_sample_index(case, coverage_mapping_config)
+    timings["coverage_index_construction"] = _round_seconds(time.perf_counter() - start)
+
+    start = time.perf_counter()
+    (
+        coverage_by_candidate,
+        coverage_summary,
+        coverage_runtime_summary,
+    ) = build_candidate_coverage_with_runtime(
+        case,
+        candidates,
+        config=coverage_mapping_config,
+        sample_index=sample_index,
+    )
+    timings["candidate_coverage_mapping"] = _round_seconds(time.perf_counter() - start)
+
+    start = time.perf_counter()
     coverage_diagnostics = build_coverage_diagnostics(
         case,
         candidates,
         coverage_by_candidate,
         limit=candidate_config.debug_candidate_limit,
     )
-    timings["coverage_mapping"] = _round_seconds(time.perf_counter() - start)
+    timings["coverage_diagnostics"] = _round_seconds(time.perf_counter() - start)
+    timings["coverage_mapping"] = _round_seconds(
+        timings["coverage_index_construction"]
+        + timings["candidate_coverage_mapping"]
+        + timings["coverage_diagnostics"]
+    )
 
     start = time.perf_counter()
     sample_weights = sample_weight_lookup(
@@ -202,6 +233,14 @@ def run(case_dir: Path, config_dir: Path | None, solution_dir: Path) -> int:
         cost_by_candidate=_selection_costs(case, candidates, selection_config.cost_mode),
     )
     timings["celf_selection"] = _round_seconds(time.perf_counter() - start)
+    timings["celf_unit_cost_selection"] = celf_result.timing_seconds.get(
+        "unit_cost_selection",
+        0.0,
+    )
+    timings["celf_cost_benefit_selection"] = celf_result.timing_seconds.get(
+        "cost_benefit_selection",
+        0.0,
+    )
 
     start = time.perf_counter()
     candidates_by_id = {candidate.candidate_id: candidate for candidate in candidates}
@@ -212,7 +251,8 @@ def run(case_dir: Path, config_dir: Path | None, solution_dir: Path) -> int:
         coverage_by_candidate,
         sample_weights,
     )
-    timings["schedule_repair"] = _round_seconds(time.perf_counter() - start)
+    timings["schedule_validation_and_repair"] = _round_seconds(time.perf_counter() - start)
+    timings["schedule_repair"] = timings["schedule_validation_and_repair"]
 
     start = time.perf_counter()
     solution_path = write_solution_from_candidates(
@@ -259,6 +299,10 @@ def run(case_dir: Path, config_dir: Path | None, solution_dir: Path) -> int:
         repaired_candidates=repaired_candidates,
     )
     write_coverage_diagnostics(solution_dir, coverage_diagnostics)
+    write_json(
+        solution_dir / "debug" / "coverage_runtime_summary.json",
+        coverage_runtime_summary.as_dict(),
+    )
     reproduction_summary = _reproduction_summary(
         celf_result=celf_result,
         repair_result=repair_result,
@@ -273,8 +317,10 @@ def run(case_dir: Path, config_dir: Path | None, solution_dir: Path) -> int:
         solution_path=solution_path,
         candidate_config=candidate_config,
         candidate_summary=candidate_summary,
+        coverage_mapping_config=coverage_mapping_config,
         coverage_summary=coverage_summary,
         coverage_diagnostics=coverage_diagnostics,
+        coverage_runtime_summary=coverage_runtime_summary,
         selection_config=selection_config,
         celf_result=celf_result,
         repair_result=repair_result,

@@ -25,8 +25,13 @@ from celf import (  # noqa: E402
     run_celf_selection,
 )
 from coverage import (  # noqa: E402
+    CoverageMappingConfig,
+    SpatialSampleIndex,
     build_candidate_coverage,
+    build_candidate_coverage_with_runtime,
     build_coverage_diagnostics,
+    load_coverage_mapping_config,
+    sample_indices_near_centerline_indexed,
     sample_indices_near_centerline,
 )
 from geometry import strip_centerline_and_half_width_m  # noqa: E402
@@ -246,10 +251,13 @@ def test_empty_experiment_config_uses_candidate_defaults(tmp_path: Path) -> None
     (tmp_path / "config.yaml").write_text("{}\n", encoding="utf-8")
 
     config = load_candidate_config(tmp_path)
+    coverage_config = load_coverage_mapping_config(tmp_path)
 
     assert config.max_candidates_total == 512
     assert config.time_stride_s == 600
     assert config.cap_strategy == "balanced_stride"
+    assert coverage_config.method == "indexed"
+    assert coverage_config.spatial_bin_deg == 0.25
 
 
 def test_coverage_sample_indexing_is_duplicate_free() -> None:
@@ -262,6 +270,171 @@ def test_coverage_sample_indexing_is_duplicate_free() -> None:
     covered = sample_indices_near_centerline(((0.0, 0.0), (0.0, 0.0)), samples, 2_000.0)
 
     assert covered == (0, 1)
+
+
+def test_indexed_coverage_sample_lookup_matches_simple_path() -> None:
+    samples = (
+        CoverageSample(0, "west", "region_a", -0.02, 0.0, 1.0),
+        CoverageSample(1, "center", "region_a", 0.0, 0.0, 1.0),
+        CoverageSample(2, "east", "region_a", 0.02, 0.0, 1.0),
+        CoverageSample(3, "north_far", "region_a", 0.0, 1.0, 1.0),
+    )
+    centerline = ((-0.03, 0.0), (0.0, 0.0), (0.03, 0.0))
+    half_width_m = 3_000.0
+    sample_index = SpatialSampleIndex.build(samples, bin_deg=0.01)
+
+    simple = sample_indices_near_centerline(centerline, samples, half_width_m)
+    indexed = sample_indices_near_centerline_indexed(
+        centerline,
+        sample_index,
+        half_width_m,
+    )
+
+    assert indexed == simple == (0, 1, 2)
+
+
+def test_indexed_candidate_coverage_matches_simple_path(tmp_path: Path) -> None:
+    _write_case(tmp_path)
+    initial_case = load_case(tmp_path)
+    candidates, _ = generate_candidates(
+        initial_case,
+        CandidateConfig(
+            time_stride_s=10,
+            duration_values_s=(20,),
+            roll_values_deg=(12.0,),
+            max_candidates_total=2,
+        ),
+    )
+    centerline, _ = strip_centerline_and_half_width_m(
+        initial_case.manifest,
+        initial_case.satellites[candidates[0].satellite_id],
+        candidates[0],
+    )
+    lon_deg, lat_deg = centerline[len(centerline) // 2]
+    (tmp_path / "coverage_grid.json").write_text(
+        json.dumps(
+            {
+                "grid_version": 1,
+                "sample_spacing_m": 5000.0,
+                "regions": [
+                    {
+                        "region_id": "region_a",
+                        "total_weight_m2": 8.0,
+                        "samples": [
+                            {
+                                "sample_id": "on_strip",
+                                "longitude_deg": lon_deg,
+                                "latitude_deg": lat_deg,
+                                "weight_m2": 7.0,
+                            },
+                            {
+                                "sample_id": "far",
+                                "longitude_deg": lon_deg + 10.0,
+                                "latitude_deg": lat_deg + 10.0,
+                                "weight_m2": 1.0,
+                            },
+                        ],
+                    }
+                ],
+            }
+        ),
+        encoding="utf-8",
+    )
+    case = load_case(tmp_path)
+
+    simple_mapping, simple_summary, simple_runtime = build_candidate_coverage_with_runtime(
+        case,
+        candidates,
+        config=CoverageMappingConfig(method="simple"),
+    )
+    indexed_mapping, indexed_summary, indexed_runtime = build_candidate_coverage_with_runtime(
+        case,
+        candidates,
+        config=CoverageMappingConfig(method="indexed", spatial_bin_deg=0.25),
+    )
+
+    assert indexed_mapping == simple_mapping
+    assert indexed_summary.as_dict() == simple_summary.as_dict()
+    assert indexed_runtime.as_dict()["method"] == "indexed"
+    assert simple_runtime.as_dict()["method"] == "simple"
+    assert indexed_runtime.candidate_bbox_sample_checks <= (
+        len(case.coverage_grid.samples) * len(candidates)
+    )
+
+
+def test_indexed_mapping_and_celf_selection_are_deterministic(tmp_path: Path) -> None:
+    _write_case(tmp_path)
+    initial_case = load_case(tmp_path)
+    candidates, _ = generate_candidates(
+        initial_case,
+        CandidateConfig(
+            time_stride_s=10,
+            duration_values_s=(20,),
+            roll_values_deg=(12.0,),
+            max_candidates_total=3,
+        ),
+    )
+    centerline, _ = strip_centerline_and_half_width_m(
+        initial_case.manifest,
+        initial_case.satellites[candidates[0].satellite_id],
+        candidates[0],
+    )
+    lon_deg, lat_deg = centerline[len(centerline) // 2]
+    (tmp_path / "coverage_grid.json").write_text(
+        json.dumps(
+            {
+                "grid_version": 1,
+                "sample_spacing_m": 5000.0,
+                "regions": [
+                    {
+                        "region_id": "region_a",
+                        "total_weight_m2": 9.0,
+                        "samples": [
+                            {
+                                "sample_id": "on_strip",
+                                "longitude_deg": lon_deg,
+                                "latitude_deg": lat_deg,
+                                "weight_m2": 9.0,
+                            }
+                        ],
+                    }
+                ],
+            }
+        ),
+        encoding="utf-8",
+    )
+    case = load_case(tmp_path)
+    config = CoverageMappingConfig(method="indexed", spatial_bin_deg=0.25)
+
+    first_mapping, first_summary, first_runtime = build_candidate_coverage_with_runtime(
+        case,
+        candidates,
+        config=config,
+    )
+    second_mapping, second_summary, second_runtime = build_candidate_coverage_with_runtime(
+        case,
+        candidates,
+        config=config,
+    )
+    first_selection = lazy_forward_selection(
+        candidates,
+        first_mapping,
+        {0: 9.0},
+        budget=1.0,
+        policy="unit_cost",
+    )
+    second_selection = lazy_forward_selection(
+        candidates,
+        second_mapping,
+        {0: 9.0},
+        budget=1.0,
+        policy="unit_cost",
+    )
+
+    assert first_mapping == second_mapping
+    assert first_summary.as_dict() == second_summary.as_dict()
+    assert first_runtime.as_dict() == second_runtime.as_dict()
+    assert first_selection.selected_candidate_ids == second_selection.selected_candidate_ids
 
 
 def test_solver_local_geometry_can_produce_nonzero_candidate_coverage(tmp_path: Path) -> None:
@@ -702,7 +875,11 @@ def test_solver_writes_solution_status_and_repair_debug(tmp_path: Path) -> None:
                     "roll_values_deg": [12.0],
                     "max_candidates_total": 3,
                     "debug_candidate_limit": 2,
-                }
+                },
+                "coverage_mapping": {
+                    "method": "indexed",
+                    "spatial_bin_deg": 0.25,
+                },
             }
         ),
         encoding="utf-8",
@@ -720,6 +897,14 @@ def test_solver_writes_solution_status_and_repair_debug(tmp_path: Path) -> None:
         "sample_count": 2,
     }
     assert status["candidate_summary"]["candidate_count"] == 3
+    assert status["coverage_mapping_config"] == {
+        "method": "indexed",
+        "spatial_bin_deg": 0.25,
+    }
+    assert status["coverage_runtime_summary"]["method"] == "indexed"
+    assert status["coverage_runtime_summary"]["candidate_count"] == 3
+    assert status["coverage_runtime_summary"]["sample_count"] == 2
+    assert "bbox_prefilter_reduction_ratio" in status["coverage_runtime_summary"]
     assert status["coverage_diagnostics"]["candidate_count"] == 3
     assert "sample_bounds_by_region" in status["coverage_diagnostics"]
     assert "coverage_buckets" in status["coverage_diagnostics"]
@@ -731,9 +916,15 @@ def test_solver_writes_solution_status_and_repair_debug(tmp_path: Path) -> None:
     assert status["reproduction_summary"]["benchmark_adaptations"]["official_validation"]
     assert status["output_policy"]["satellite_repair_enabled"] is True
     assert status["output_policy"]["experiment_registration_enabled"] is True
+    assert "coverage_index_construction" in status["timing_seconds"]
+    assert "candidate_coverage_mapping" in status["timing_seconds"]
+    assert "celf_unit_cost_selection" in status["timing_seconds"]
+    assert "celf_cost_benefit_selection" in status["timing_seconds"]
+    assert "schedule_validation_and_repair" in status["timing_seconds"]
     assert len(debug) == 2
     assert (solution_dir / "debug" / "celf_summary.json").is_file()
     assert (solution_dir / "debug" / "coverage_diagnostics.json").is_file()
+    assert (solution_dir / "debug" / "coverage_runtime_summary.json").is_file()
     assert (solution_dir / "debug" / "feasibility_summary.json").is_file()
     assert (solution_dir / "debug" / "repair_log.json").is_file()
     assert (solution_dir / "debug" / "repaired_candidates.json").is_file()

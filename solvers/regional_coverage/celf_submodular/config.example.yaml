@@ -23,6 +23,14 @@ candidate_generation:
   # Number of generated candidates copied to root-level candidate_debug.json.
   debug_candidate_limit: 50
 
+coverage_mapping:
+  # indexed builds a solver-local sparse grid over public coverage samples.
+  # simple keeps the direct scan path for debugging and equivalence tests.
+  method: indexed
+
+  # Longitude/latitude bin size in degrees for the indexed mapping path.
+  spatial_bin_deg: 0.25
+
 selection:
   # CELF/CEF runs both variants by default and keeps the higher objective value.
   run_unit_cost: true
