@@ -81,11 +81,12 @@ uv run python experiments/main_solver/aggregate.py
 ```
 
 The latest regional-coverage CP/local-search comparison verifies all fifteen
-jobs. Greedy-only, local-search, and CP-enabled modes currently have the same
-average official weighted coverage ratio, `0.2270705015379178`, while the
-CP-enabled profile records `75` OR-Tools CP-SAT calls and `22` improving local
-repairs across the five public cases. Those CP repairs do not yet lift the final
-official score over greedy-only under the current bounded envelope.
+jobs under the dense reproduction envelope. Average official weighted coverage
+is `0.8961799799329526` for greedy-only, `0.8983754575177383` for local search,
+and `0.9013044997801305` for CP-enabled local search. The CP-enabled profile
+records `214` OR-Tools CP-SAT calls and `57` improving local repairs across the
+five public cases. Candidate generation uses deterministic process-pool
+parallelism with `candidate_workers: 8`.
 
 ## Result Layout
 

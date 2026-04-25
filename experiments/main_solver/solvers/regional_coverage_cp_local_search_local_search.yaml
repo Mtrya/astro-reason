@@ -8,6 +8,12 @@ setup_script: setup.sh
 solve_script: solve.sh
 solution_filename: solution.json
 config:
+  candidate_stride_s: 120
+  roll_samples_per_side: 7
+  max_candidates_per_satellite: 20000
+  include_zero_coverage_candidates: false
+  candidate_debug_limit: 500
+  candidate_workers: 8
   cp_enabled: false
   search_restart_count: 3
   search_run_seeds:

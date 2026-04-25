@@ -232,6 +232,43 @@ def test_candidate_generation_fingerprint_is_stable_after_state_caching() -> Non
     assert first_summary.as_dict() == second_summary.as_dict()
 
 
+def test_parallel_candidate_generation_matches_serial_fingerprint() -> None:
+    case = load_case(CASE_DIR)
+    serial_config = SolverConfig(
+        candidate_stride_s=7200,
+        roll_samples_per_side=3,
+        max_candidates_per_satellite=4,
+        max_zero_coverage_candidates_per_satellite=4,
+        candidate_workers=1,
+    )
+    parallel_config = replace(serial_config, candidate_workers=2)
+
+    serial_candidates, serial_summary = generate_candidates(case, serial_config)
+    parallel_candidates, parallel_summary = generate_candidates(case, parallel_config)
+
+    def fingerprint(candidates: list[Candidate]) -> list[tuple[str, tuple[str, ...], float]]:
+        return [
+            (
+                candidate.candidate_id,
+                tuple(sorted(candidate.coverage_sample_ids)),
+                candidate.base_coverage_weight_m2,
+            )
+            for candidate in candidates
+        ]
+
+    serial_payload = serial_summary.as_dict()
+    parallel_payload = parallel_summary.as_dict()
+    serial_payload.pop("execution_model")
+    serial_payload.pop("worker_count")
+    parallel_payload.pop("execution_model")
+    parallel_payload.pop("worker_count")
+
+    assert fingerprint(parallel_candidates) == fingerprint(serial_candidates)
+    assert parallel_payload == serial_payload
+    assert parallel_summary.execution_model == "process_pool"
+    assert parallel_summary.worker_count == 2
+
+
 def test_candidate_generation_reuses_roll_independent_sampled_states() -> None:
     case = load_case(CASE_DIR)
     config = SolverConfig(

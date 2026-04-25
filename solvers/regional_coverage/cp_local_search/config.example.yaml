@@ -20,6 +20,12 @@
 #
 # Current reproduction comparison envelope:
 #
+# candidate_stride_s: 120
+# roll_samples_per_side: 7
+# max_candidates_per_satellite: 20000
+# include_zero_coverage_candidates: false
+# candidate_debug_limit: 500
+# candidate_workers: 8
 # search_restart_count: 3
 # search_run_seeds: [0, 1, 2]
 # greedy_random_choice_probability: 0.05
@@ -36,9 +42,8 @@
 # cp_max_conflicts: 2048
 # cp_time_limit_s: 0.25
 #
-# These settings are intentionally still bounded. They are useful for audited
-# comparison, not proof that the final faithful-reproduction compute envelope
-# has been reached.
+# These settings are bounded but now reflect the public fair reproduction
+# envelope used by experiments/main_solver.
 
 # ---------------------------------------------------------------------------
 # Candidate generation
@@ -49,6 +54,9 @@
 # include_zero_coverage_candidates: true
 # max_zero_coverage_candidates_per_satellite: 8
 # candidate_debug_limit: 250
+# candidate_workers: 1
+# candidate_workers can be raised to 16 on machines where that is a fair
+# compute envelope for reproduction runs.
 
 # ---------------------------------------------------------------------------
 # Search restarts

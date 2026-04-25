@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from concurrent.futures import ProcessPoolExecutor
 from dataclasses import dataclass, field
 from datetime import UTC, datetime, timedelta
 import math
@@ -65,6 +66,8 @@ class Candidate:
 
 @dataclass(slots=True)
 class CandidateSummary:
+    execution_model: str = "serial"
+    worker_count: int = 1
     candidate_count: int = 0
     zero_coverage_candidate_count: int = 0
     positive_coverage_candidate_count: int = 0
@@ -96,6 +99,8 @@ class CandidateSummary:
 
     def as_dict(self) -> dict[str, Any]:
         return {
+            "execution_model": self.execution_model,
+            "worker_count": self.worker_count,
             "candidate_count": self.candidate_count,
             "zero_coverage_candidate_count": self.zero_coverage_candidate_count,
             "positive_coverage_candidate_count": self.positive_coverage_candidate_count,
@@ -152,24 +157,30 @@ def generate_candidates(
     config: SolverConfig,
     coverage_index: CoverageIndex | None = None,
 ) -> tuple[list[Candidate], CandidateSummary]:
-    index = coverage_index or CoverageIndex.from_case(case)
     summary = CandidateSummary()
     candidates: list[Candidate] = []
+    satellite_ids = sorted(case.satellites)
+    worker_count = min(config.candidate_workers, max(1, len(satellite_ids)))
+    summary.worker_count = worker_count
+    summary.execution_model = "serial" if worker_count == 1 else "process_pool"
 
-    for satellite_id, satellite in sorted(case.satellites.items()):
-        summary.per_satellite_grid_roll_candidate_counts[satellite_id] = 0
-        summary.per_satellite_evaluated_candidate_counts[satellite_id] = 0
-        summary.per_satellite_discarded_candidate_counts[satellite_id] = 0
-        summary.per_satellite_discarded_zero_coverage_cap_counts[satellite_id] = 0
-        summary.per_satellite_skipped_satellite_cap_counts[satellite_id] = 0
-        summary.per_satellite_propagated_window_counts[satellite_id] = 0
-        summary.per_satellite_propagated_state_sample_counts[satellite_id] = 0
-        summary.per_satellite_cached_state_sample_use_counts[satellite_id] = 0
-        summary.per_satellite_candidate_counts[satellite_id] = 0
-        summary.per_satellite_zero_coverage_counts[satellite_id] = 0
-        summary.per_satellite_positive_coverage_counts[satellite_id] = 0
-        sat_candidates = _generate_for_satellite(case, satellite, config, index, summary)
-        candidates.extend(sat_candidates)
+    if worker_count == 1:
+        index = coverage_index or CoverageIndex.from_case(case)
+        for satellite_id in satellite_ids:
+            satellite = case.satellites[satellite_id]
+            _initialise_satellite_summary(summary, satellite_id)
+            sat_candidates = _generate_for_satellite(case, satellite, config, index, summary)
+            candidates.extend(sat_candidates)
+    else:
+        tasks = tuple((case, satellite_id, config) for satellite_id in satellite_ids)
+        with ProcessPoolExecutor(max_workers=worker_count) as executor:
+            for sat_candidates, sat_summary in executor.map(
+                _generate_satellite_worker,
+                tasks,
+                chunksize=1,
+            ):
+                _merge_summary(summary, sat_summary)
+                candidates.extend(sat_candidates)
 
     candidates.sort(key=candidate_sort_key)
     summary.candidate_count = len(candidates)
@@ -184,6 +195,68 @@ def generate_candidates(
         summary.cached_state_sample_use_count - summary.propagated_state_sample_count,
     )
     return candidates, summary
+
+
+def _generate_satellite_worker(
+    task: tuple[RegionalCoverageCase, str, SolverConfig],
+) -> tuple[list[Candidate], CandidateSummary]:
+    case, satellite_id, config = task
+    satellite = case.satellites[satellite_id]
+    index = CoverageIndex.from_case(case)
+    summary = CandidateSummary(execution_model="process_pool", worker_count=1)
+    _initialise_satellite_summary(summary, satellite_id)
+    candidates = _generate_for_satellite(case, satellite, config, index, summary)
+    return candidates, summary
+
+
+def _initialise_satellite_summary(summary: CandidateSummary, satellite_id: str) -> None:
+    summary.per_satellite_grid_roll_candidate_counts[satellite_id] = 0
+    summary.per_satellite_evaluated_candidate_counts[satellite_id] = 0
+    summary.per_satellite_discarded_candidate_counts[satellite_id] = 0
+    summary.per_satellite_discarded_zero_coverage_cap_counts[satellite_id] = 0
+    summary.per_satellite_skipped_satellite_cap_counts[satellite_id] = 0
+    summary.per_satellite_propagated_window_counts[satellite_id] = 0
+    summary.per_satellite_propagated_state_sample_counts[satellite_id] = 0
+    summary.per_satellite_cached_state_sample_use_counts[satellite_id] = 0
+    summary.per_satellite_candidate_counts[satellite_id] = 0
+    summary.per_satellite_zero_coverage_counts[satellite_id] = 0
+    summary.per_satellite_positive_coverage_counts[satellite_id] = 0
+
+
+def _merge_summary(target: CandidateSummary, source: CandidateSummary) -> None:
+    target.grid_roll_candidate_count += source.grid_roll_candidate_count
+    target.evaluated_candidate_count += source.evaluated_candidate_count
+    target.evaluated_zero_coverage_count += source.evaluated_zero_coverage_count
+    target.evaluated_positive_coverage_count += source.evaluated_positive_coverage_count
+    target.discarded_candidate_count += source.discarded_candidate_count
+    target.discarded_zero_coverage_candidate_count += source.discarded_zero_coverage_candidate_count
+    target.discarded_zero_coverage_cap_count += source.discarded_zero_coverage_cap_count
+    target.propagated_window_count += source.propagated_window_count
+    target.propagated_state_sample_count += source.propagated_state_sample_count
+    target.cached_state_sample_use_count += source.cached_state_sample_use_count
+    target.cached_state_sample_reuse_count += source.cached_state_sample_reuse_count
+    target.skipped_roll_band += source.skipped_roll_band
+    target.skipped_satellite_cap += source.skipped_satellite_cap
+    target.max_candidate_weight_m2 = max(
+        target.max_candidate_weight_m2,
+        source.max_candidate_weight_m2,
+    )
+    for field_name in (
+        "per_satellite_grid_roll_candidate_counts",
+        "per_satellite_evaluated_candidate_counts",
+        "per_satellite_discarded_candidate_counts",
+        "per_satellite_discarded_zero_coverage_cap_counts",
+        "per_satellite_skipped_satellite_cap_counts",
+        "per_satellite_propagated_window_counts",
+        "per_satellite_propagated_state_sample_counts",
+        "per_satellite_cached_state_sample_use_counts",
+        "per_satellite_candidate_counts",
+        "per_satellite_zero_coverage_counts",
+        "per_satellite_positive_coverage_counts",
+    ):
+        target_map = getattr(target, field_name)
+        for key, value in getattr(source, field_name).items():
+            target_map[key] = target_map.get(key, 0) + value
 
 
 def roll_values_for_satellite(satellite: Satellite, samples_per_side: int) -> list[float]:

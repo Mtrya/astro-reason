@@ -116,6 +116,7 @@ class SolverConfig:
     max_zero_coverage_candidates_per_satellite: int = 8
     include_zero_coverage_candidates: bool = True
     candidate_debug_limit: int = 250
+    candidate_workers: int = 1
 
     @classmethod
     def from_mapping(cls, payload: dict[str, Any] | None) -> "SolverConfig":
@@ -137,6 +138,7 @@ class SolverConfig:
             candidate_debug_limit=_non_negative_int(
                 payload.get("candidate_debug_limit", 250), "candidate_debug_limit"
             ),
+            candidate_workers=_positive_int(payload.get("candidate_workers", 1), "candidate_workers"),
         )
 
     def as_dict(self) -> dict[str, Any]:
@@ -147,6 +149,7 @@ class SolverConfig:
             "max_zero_coverage_candidates_per_satellite": self.max_zero_coverage_candidates_per_satellite,
             "include_zero_coverage_candidates": self.include_zero_coverage_candidates,
             "candidate_debug_limit": self.candidate_debug_limit,
+            "candidate_workers": self.candidate_workers,
         }
 
 
