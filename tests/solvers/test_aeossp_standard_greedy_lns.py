@@ -1651,7 +1651,7 @@ def test_status_payload_reports_execution_model_and_timing_schema(tmp_path: Path
         solution_path=tmp_path / "solution.json",
         case=case,
         candidate_config=CandidateConfig(candidate_workers=2),
-        local_search_config=LocalSearchConfig(local_search_workers=2, restart_count=2),
+        local_search_config=LocalSearchConfig(local_search_workers=8, restart_count=2),
         candidate_summary=CandidateSummary(),
         insertion_result=DictPayload({"selected_count": 0}),
         local_search_result=DictPayload({
@@ -1720,7 +1720,7 @@ def test_status_payload_reports_execution_model_and_timing_schema(tmp_path: Path
     assert status["execution_model"]["candidate_generation"]["effective_workers"] == 2
     assert status["execution_model"]["search"]["model"] == "process_pool_python"
     assert status["execution_model"]["search"]["parallelism_scope"] == "restart_waves"
-    assert status["execution_model"]["search"]["configured_workers"] == 2
+    assert status["execution_model"]["search"]["configured_workers"] == 8
     assert status["execution_model"]["search"]["effective_workers"] == 2
     assert status["execution_model"]["search"]["budget_field"] == "max_local_search_time_s"
     assert status["execution_model"]["graph_build"]["model"] == "not_applicable"
