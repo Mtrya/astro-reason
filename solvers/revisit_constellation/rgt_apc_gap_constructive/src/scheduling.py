@@ -11,7 +11,13 @@ import brahe
 import numpy as np
 
 from .case_io import RevisitCase, Target
-from .gaps import GapImprovement, GapScore, gap_improvement, score_observation_timelines
+from .gaps import (
+    GapImprovement,
+    GapScore,
+    IncrementalGapState,
+    gap_improvement,
+    score_observation_timelines,
+)
 from .orbit_library import OrbitCandidate
 from .propagation import PropagationCache, datetime_to_epoch
 from .time_grid import iso_z
@@ -494,6 +500,135 @@ def _intervals_conflict(
     return True
 
 
+@dataclass(frozen=True, slots=True)
+class OptionConflictIndex:
+    option_by_id: dict[str, ObservationOption]
+    option_ids: tuple[str, ...]
+    target_option_ids: dict[str, tuple[str, ...]]
+    timing_conflict_reasons: dict[str, dict[str, str]]
+    opportunity_conflicts: dict[str, tuple[str, ...]]
+
+    @property
+    def timing_conflict_edge_count(self) -> int:
+        return sum(len(items) for items in self.timing_conflict_reasons.values()) // 2
+
+    @property
+    def opportunity_cost_edge_count(self) -> int:
+        return sum(len(items) for items in self.opportunity_conflicts.values()) // 2
+
+    @property
+    def target_option_counts(self) -> dict[str, int]:
+        return {
+            target_id: len(option_ids)
+            for target_id, option_ids in sorted(self.target_option_ids.items())
+        }
+
+    def first_timing_conflict_reason(
+        self,
+        option_id: str,
+        scheduled: list[ScheduledObservation],
+    ) -> str | None:
+        conflicts = self.timing_conflict_reasons.get(option_id, {})
+        for observation in scheduled:
+            reason = conflicts.get(observation.option_id)
+            if reason is not None:
+                return reason
+        return None
+
+    def opportunity_cost(
+        self,
+        *,
+        option: ObservationOption,
+        remaining_option_ids: set[str],
+        score: GapScore,
+        horizon_hours: float,
+    ) -> float:
+        conflict_ids = set(self.opportunity_conflicts.get(option.option_id, ()))
+        cost = 0.0
+        for other_id in self.option_ids:
+            if other_id in remaining_option_ids and other_id in conflict_ids:
+                cost += _option_profit(
+                    self.option_by_id[other_id],
+                    score,
+                    horizon_hours,
+                )
+        return cost
+
+    def as_debug_dict(self) -> dict[str, Any]:
+        reason_counts: dict[str, int] = {}
+        for option_id, conflicts in self.timing_conflict_reasons.items():
+            for other_id, reason in conflicts.items():
+                if option_id < other_id:
+                    reason_counts[reason] = reason_counts.get(reason, 0) + 1
+        return {
+            "enabled": True,
+            "option_count": len(self.option_ids),
+            "target_option_counts": self.target_option_counts,
+            "timing_conflict_edge_count": self.timing_conflict_edge_count,
+            "opportunity_cost_edge_count": self.opportunity_cost_edge_count,
+            "timing_conflict_reason_counts": dict(sorted(reason_counts.items())),
+        }
+
+
+def build_option_conflict_index(
+    *,
+    case: RevisitCase,
+    options: list[ObservationOption],
+    transition_gap_sec: float,
+    propagation: PropagationCache | None,
+) -> OptionConflictIndex:
+    option_by_id = {option.option_id: option for option in options}
+    option_ids = tuple(option.option_id for option in options)
+    target_option_ids: dict[str, list[str]] = {}
+    timing_conflict_reasons: dict[str, dict[str, str]] = {
+        option.option_id: {}
+        for option in options
+    }
+    opportunity_conflicts: dict[str, list[str]] = {
+        option.option_id: []
+        for option in options
+    }
+    for option in options:
+        target_option_ids.setdefault(option.target_id, []).append(option.option_id)
+    for left_index, left in enumerate(options):
+        for right in options[left_index + 1:]:
+            if left.satellite_id != right.satellite_id:
+                continue
+            issue = _timing_conflict_issue(
+                case=case,
+                left=left,
+                right=right,
+                propagation=propagation,
+                fallback_transition_gap_sec=transition_gap_sec,
+            )
+            if issue is not None:
+                timing_conflict_reasons[left.option_id][right.option_id] = issue.reason
+                timing_conflict_reasons[right.option_id][left.option_id] = issue.reason
+            if _intervals_conflict(left, right, transition_gap_sec):
+                opportunity_conflicts[left.option_id].append(right.option_id)
+                opportunity_conflicts[right.option_id].append(left.option_id)
+    option_order_index = {
+        option_id: index
+        for index, option_id in enumerate(option_ids)
+    }
+    return OptionConflictIndex(
+        option_by_id=option_by_id,
+        option_ids=option_ids,
+        target_option_ids={
+            target_id: tuple(option_ids)
+            for target_id, option_ids in sorted(target_option_ids.items())
+        },
+        timing_conflict_reasons={
+            option_id: dict(sorted(conflicts.items()))
+            for option_id, conflicts in sorted(timing_conflict_reasons.items())
+        },
+        opportunity_conflicts={
+            option_id: tuple(sorted(conflicts, key=lambda item: option_order_index[item]))
+            for option_id, conflicts in opportunity_conflicts.items()
+        },
+    )
+
+
 def _timing_conflict_issue(
     *,
     case: RevisitCase,
@@ -612,6 +747,34 @@ def _base_feasible(
         if issue is not None:
             return False, issue.reason
     target_counts = _target_counts(scheduled)
+    if (
+        config.max_actions_per_target is not None
+        and target_counts.get(option.target_id, 0) >= config.max_actions_per_target
+    ):
+        return False, "target_action_cap_reached"
+    if config.enforce_simple_energy_budget and not _simple_energy_feasible(
+        case=case,
+        candidate=option,
+        scheduled=scheduled,
+        transition_gap_sec=transition_gap_sec,
+    ):
+        return False, "simple_energy_budget_exceeded"
+    return True, None
+
+
+def _base_feasible_indexed(
+    *,
+    case: RevisitCase,
+    option: ObservationOption,
+    scheduled: list[ScheduledObservation],
+    target_counts: dict[str, int],
+    config: SchedulingConfig,
+    transition_gap_sec: float,
+    conflict_index: OptionConflictIndex,
+) -> tuple[bool, str | None]:
+    reason = conflict_index.first_timing_conflict_reason(option.option_id, scheduled)
+    if reason is not None:
+        return False, reason
     if (
         config.max_actions_per_target is not None
         and target_counts.get(option.target_id, 0) >= config.max_actions_per_target
@@ -1385,27 +1548,37 @@ def schedule_observations(
         else PropagationCache(selected_candidates, case.horizon_start, case.horizon_end)
     )
     transition_gap_sec = config.transition_gap_for_case(case)
+    conflict_index = build_option_conflict_index(
+        case=case,
+        options=options,
+        transition_gap_sec=transition_gap_sec,
+        propagation=propagation,
+    )
     action_limit = config.selected_action_limit(len(options))
     scheduled: list[ScheduledObservation] = []
     consumed_option_ids: set[str] = set()
     decisions: list[SchedulingDecision] = []
-    initial_score = score_observation_timelines(case, {})
+    gap_state = IncrementalGapState.empty(case)
+    initial_score = gap_state.score
     horizon_hours = case.horizon_duration_sec / 3600.0
+    target_counts: dict[str, int] = {}
 
     while len(scheduled) < action_limit:
-        current_score = score_observation_timelines(case, _timelines_from_schedule(scheduled))
+        current_score = gap_state.score
         remaining_options = [
             option for option in options if option.option_id not in consumed_option_ids
         ]
+        remaining_option_ids = {option.option_id for option in remaining_options}
         feasible_by_target: dict[str, list[ObservationOption]] = {}
         for option in remaining_options:
-            feasible, reason = _base_feasible(
+            feasible, reason = _base_feasible_indexed(
                 case=case,
                 option=option,
                 scheduled=scheduled,
+                target_counts=target_counts,
                 config=config,
                 transition_gap_sec=transition_gap_sec,
-                propagation=propagation,
+                conflict_index=conflict_index,
             )
             if not feasible:
                 rejected.append(
@@ -1417,7 +1590,8 @@ def schedule_observations(
                 )
                 consumed_option_ids.add(option.option_id)
                 continue
-            _, improvement = _score_with_option(case, scheduled, option)
+            after_score = gap_state.score_with_added(option.target_id, option.midpoint)
+            improvement = gap_improvement(current_score, after_score)
             if config.require_positive_gap_improvement and not improvement.is_positive:
                 rejected.append(
                     {
@@ -1459,13 +1633,13 @@ def schedule_observations(
             ]
         ] = []
         for option in target_options:
-            after_score, improvement = _score_with_option(case, scheduled, option)
-            opportunity_cost = _opportunity_cost(
+            after_score = gap_state.score_with_added(option.target_id, option.midpoint)
+            improvement = gap_improvement(current_score, after_score)
+            opportunity_cost = conflict_index.opportunity_cost(
                 option=option,
-                remaining_options=remaining_options,
+                remaining_option_ids=remaining_option_ids,
                 score=current_score,
                 horizon_hours=horizon_hours,
-                transition_gap_sec=transition_gap_sec,
             )
             key = (
                 opportunity_cost,
@@ -1486,6 +1660,8 @@ def schedule_observations(
         scheduled.append(selected)
         scheduled.sort(key=lambda item: (item.start, item.satellite_id, item.target_id))
         consumed_option_ids.add(selected_option.option_id)
+        target_counts[selected.target_id] = target_counts.get(selected.target_id, 0) + 1
+        gap_state.add(selected.target_id, selected.midpoint)
         decisions.append(
             SchedulingDecision(
                 round_index=len(decisions),
@@ -1499,7 +1675,7 @@ def schedule_observations(
             )
         )
 
-    final_score = score_observation_timelines(case, _timelines_from_schedule(scheduled))
+    final_score = gap_state.score
     validation_report = validate_schedule_local(
         case=case,
         scheduled=scheduled,
@@ -1566,6 +1742,8 @@ def schedule_observations(
             "option_count": len(options),
             "selected_candidate_count": len(selected_candidate_ids),
             "transition_gap_sec": transition_gap_sec,
+            "incremental_gap_state_enabled": True,
+            "conflict_index": conflict_index.as_debug_dict(),
             "stopped_by_action_limit": len(scheduled) >= action_limit,
             "stopped_by_no_eligible_option": len(scheduled) < action_limit,
         },

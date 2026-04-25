@@ -23,6 +23,7 @@ from src.case_io import (  # noqa: E402
     load_solver_config,
 )
 from src.gaps import (  # noqa: E402
+    IncrementalGapState,
     gap_improvement,
     score_observation_timelines,
 )
@@ -36,6 +37,10 @@ from src.propagation import PropagationCache  # noqa: E402
 from src.scheduling import (  # noqa: E402
     SchedulingConfig,
     ScheduledObservation,
+    _base_feasible,
+    _base_feasible_indexed,
+    _opportunity_cost,
+    build_option_conflict_index,
     build_observation_options,
     repair_schedule_deterministic,
     schedule_observations,
@@ -495,6 +500,85 @@ def test_gap_improvement_uses_benchmark_style_caps_and_mean(tmp_path: Path) -> N
     assert improvement.mean_revisit_gap_reduction_hours == pytest.approx(2.0 / 3.0)
 
 
+def test_incremental_gap_state_matches_full_recomputation_for_add_remove_swap(
+    tmp_path: Path,
+) -> None:
+    case = load_case(_scheduler_case_dir(tmp_path))
+    first = case.horizon_start + timedelta(minutes=10)
+    replacement = case.horizon_start + timedelta(minutes=20)
+    second_target = case.horizon_start + timedelta(minutes=40)
+    state = IncrementalGapState.empty(case)
+
+    assert state.score.as_dict() == score_observation_timelines(case, {}).as_dict()
+
+    after_first = state.add("target_001", first)
+    assert after_first.as_dict() == score_observation_timelines(
+        case,
+        {"target_001": [first]},
+    ).as_dict()
+
+    duplicate_score = state.add("target_001", first)
+    assert duplicate_score.as_dict() == after_first.as_dict()
+    assert state.midpoint_count("target_001", first) == 2
+
+    remove_duplicate_score = state.remove("target_001", first)
+    assert remove_duplicate_score.as_dict() == after_first.as_dict()
+    assert state.midpoint_count("target_001", first) == 1
+
+    state.add("target_002", second_target)
+    expected_before_swap = score_observation_timelines(
+        case,
+        {
+            "target_001": [first],
+            "target_002": [second_target],
+        },
+    )
+    assert state.score.as_dict() == expected_before_swap.as_dict()
+
+    swap_score = state.score_with_swap(
+        "target_001",
+        first,
+        "target_001",
+        replacement,
+    )
+    expected_after_swap = score_observation_timelines(
+        case,
+        {
+            "target_001": [replacement],
+            "target_002": [second_target],
+        },
+    )
+    assert swap_score.as_dict() == expected_after_swap.as_dict()
+
+    state.swap("target_001", first, "target_001", replacement)
+    assert state.score.as_dict() == expected_after_swap.as_dict()
+    assert state.target_midpoints("target_001") == [replacement]
+
+
+def test_incremental_gap_state_from_timelines_preserves_duplicate_counts(
+    tmp_path: Path,
+) -> None:
+    case = load_case(_gap_case_dir(tmp_path))
+    midpoint = case.horizon_start + timedelta(minutes=30)
+    state = IncrementalGapState.from_timelines(
+        case,
+        {"target_001": [midpoint, midpoint]},
+    )
+
+    assert state.score.as_dict() == score_observation_timelines(
+        case,
+        {"target_001": [midpoint, midpoint]},
+    ).as_dict()
+    assert state.midpoint_count("target_001", midpoint) == 2
+    state.remove("target_001", midpoint)
+    assert state.score.as_dict() == score_observation_timelines(
+        case,
+        {"target_001": [midpoint]},
+    ).as_dict()
+    state.remove("target_001", midpoint)
+    assert state.score.as_dict() == score_observation_timelines(case, {}).as_dict()
+
+
 def test_greedy_selection_respects_case_and_config_caps(tmp_path: Path) -> None:
     case = load_case(_gap_case_dir(tmp_path))
     candidates = [
@@ -658,6 +742,129 @@ def test_scheduler_uses_deterministic_window_ties(tmp_path: Path) -> None:
     assert result.final_score.target_gap_summary["target_001"].observation_count == 1
 
 
+def test_conflict_index_matches_direct_feasibility_and_opportunity_cost(
+    tmp_path: Path,
+) -> None:
+    case = load_case(_scheduler_case_dir(tmp_path))
+    windows = [
+        _window("sat_a", "target_001", case.horizon_start, 10),
+        _window("sat_a", "target_002", case.horizon_start, 10),
+        _window("sat_a", "target_001", case.horizon_start, 11),
+        _window("sat_b", "target_001", case.horizon_start, 10),
+    ]
+    config = SchedulingConfig(
+        transition_gap_sec=120.0,
+        enforce_simple_energy_budget=False,
+        enable_repair=False,
+    )
+    options, rejected = build_observation_options(
+        case=case,
+        selected_candidate_ids={"sat_a", "sat_b"},
+        selected_candidates=None,
+        windows=windows,
+        config=config,
+    )
+    assert rejected == []
+    by_id = {option.option_id: option for option in options}
+    index = build_option_conflict_index(
+        case=case,
+        options=options,
+        transition_gap_sec=120.0,
+        propagation=None,
+    )
+    scheduled = [
+        ScheduledObservation(
+            option_id="sat_a_target_001_10",
+            window_id="sat_a_target_001_10",
+            satellite_id="sat_a",
+            target_id="target_001",
+            start=by_id["sat_a_target_001_10"].start,
+            end=by_id["sat_a_target_001_10"].end,
+            midpoint=by_id["sat_a_target_001_10"].midpoint,
+            quality_score=by_id["sat_a_target_001_10"].quality_score,
+        )
+    ]
+
+    overlap_option = by_id["sat_a_target_002_10"]
+    direct_overlap = _base_feasible(
+        case=case,
+        option=overlap_option,
+        scheduled=scheduled,
+        config=config,
+        transition_gap_sec=120.0,
+        propagation=None,
+    )
+    indexed_overlap = _base_feasible_indexed(
+        case=case,
+        option=overlap_option,
+        scheduled=scheduled,
+        target_counts={"target_001": 1},
+        config=config,
+        transition_gap_sec=120.0,
+        conflict_index=index,
+    )
+    assert indexed_overlap == direct_overlap == (False, "overlap")
+
+    slew_option = by_id["sat_a_target_001_11"]
+    direct_slew = _base_feasible(
+        case=case,
+        option=slew_option,
+        scheduled=scheduled,
+        config=config,
+        transition_gap_sec=120.0,
+        propagation=None,
+    )
+    indexed_slew = _base_feasible_indexed(
+        case=case,
+        option=slew_option,
+        scheduled=scheduled,
+        target_counts={"target_001": 1},
+        config=config,
+        transition_gap_sec=120.0,
+        conflict_index=index,
+    )
+    assert indexed_slew == direct_slew == (False, "slew_gap")
+
+    capped_config = SchedulingConfig(
+        max_actions_per_target=1,
+        transition_gap_sec=120.0,
+        enforce_simple_energy_budget=False,
+        enable_repair=False,
+    )
+    cross_sat_same_target = by_id["sat_b_target_001_10"]
+    assert _base_feasible_indexed(
+        case=case,
+        option=cross_sat_same_target,
+        scheduled=[],
+        target_counts={"target_001": 1},
+        config=capped_config,
+        transition_gap_sec=120.0,
+        conflict_index=index,
+    ) == (False, "target_action_cap_reached")
+
+    score = score_observation_timelines(case, {})
+    remaining_ids = {option.option_id for option in options}
+    for option in options:
+        assert index.opportunity_cost(
+            option=option,
+            remaining_option_ids=remaining_ids,
+            score=score,
+            horizon_hours=case.horizon_duration_sec / 3600.0,
+        ) == pytest.approx(
+            _opportunity_cost(
+                option=option,
+                remaining_options=options,
+                score=score,
+                horizon_hours=case.horizon_duration_sec / 3600.0,
+                transition_gap_sec=120.0,
+            )
+        )
+    assert index.as_debug_dict()["timing_conflict_reason_counts"] == {
+        "overlap": 1,
+        "slew_gap": 2,
+    }
+
+
 def test_scheduler_records_reproduction_fidelity_mode_comparison(tmp_path: Path) -> None:
     case = load_case(_scheduler_case_dir(tmp_path))
     windows = [
@@ -701,6 +908,9 @@ def test_scheduler_records_reproduction_fidelity_mode_comparison(tmp_path: Path)
     assert result.debug_summary["scheduled_action_count_by_target"] == {
         "target_002": 1
     }
+    assert result.caps["incremental_gap_state_enabled"] is True
+    assert result.caps["conflict_index"]["enabled"] is True
+    assert result.caps["conflict_index"]["option_count"] == 3
 
 
 def test_baseline_evidence_records_target_reasons_and_timing(tmp_path: Path) -> None:
