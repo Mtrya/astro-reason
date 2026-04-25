@@ -9,6 +9,13 @@ import time
 from dataclasses import dataclass, field
 from typing import Any
 
+from .lp_relaxation import (
+    LPBackendError,
+    LPRelaxationConfig,
+    LPRelaxationResult,
+    solve_path_restricted_lp,
+    summarize_lp_results,
+)
 from .umcf import UMCFInstance
 
 
@@ -33,6 +40,10 @@ class SRRConfig:
     path_change_penalty: float = 1.0
     multi_run_count: int = 1
     max_path_hops: int = 10
+    probability_source: str = "lp"
+    lp_backend: str = "scipy-highs"
+    lp_tolerance: float = 1e-9
+    lp_path_cost_epsilon: float = 0.0
 
 
 @dataclass
@@ -47,6 +58,7 @@ class SRRResult:
     execution_time_s: float
     timing_breakdown: dict[str, float] = field(default_factory=dict)
     rounding_diagnostics: dict[str, int] = field(default_factory=dict)
+    lp_diagnostics: dict[str, Any] = field(default_factory=dict)
 
 
 def _canonical_edge(a: str, b: str) -> tuple[str, str]:
@@ -221,6 +233,21 @@ def heuristic_probabilities(
     return [w / total for w in weights]
 
 
+def build_path_sets(instance: UMCFInstance, config: SRRConfig) -> dict[str, list[Path]]:
+    """Build the finite per-commodity path set consumed by LP and rounding."""
+    return {
+        commodity.demand_id: k_shortest_paths(
+            instance.adjacency,
+            commodity.source,
+            commodity.destination,
+            config.k_paths,
+            instance.endpoint_ids,
+            config.max_path_hops,
+        )
+        for commodity in instance.commodities
+    }
+
+
 def path_node_usage(path: Path) -> dict[str, int]:
     """Return per-node degree consumed by a selected path."""
     usage: dict[str, int] = {}
@@ -230,11 +257,41 @@ def path_node_usage(path: Path) -> dict[str, int]:
     return usage
 
 
+def _lp_probabilities(
+    paths: list[Path],
+    base_values: list[float],
+    prev_path: Path | None,
+    penalty_alpha: float,
+    tolerance: float,
+) -> list[float]:
+    """Convert LP fractional values into rounding probabilities."""
+    if not paths:
+        return []
+
+    weights = [
+        value if value > tolerance else 0.0
+        for value in base_values[:len(paths)]
+    ]
+    if prev_path is not None and penalty_alpha > 0:
+        prev_nodes = prev_path.nodes
+        for index, path in enumerate(paths):
+            if path.nodes == prev_nodes and weights[index] > 0.0:
+                weights[index] *= math.exp(penalty_alpha)
+                break
+
+    total = sum(weights)
+    if total <= tolerance:
+        return [0.0] * len(paths)
+    return [weight / total for weight in weights]
+
+
 def sequential_rounding(
     instance: UMCFInstance,
     prev_assignments: dict[str, Path] | None,
     config: SRRConfig,
     rng: random.Random,
+    path_sets: dict[str, list[Path]] | None = None,
+    lp_path_values: dict[str, list[float]] | None = None,
 ) -> tuple[dict[str, Path], dict[str, Any]]:
     """Fix one path per commodity using SRR-style sequential rounding.
 
@@ -247,6 +304,11 @@ def sequential_rounding(
     Returns (assignments, timing) where timing contains ``path_generation_s``
     and ``rounding_s`` plus a nested ``diagnostics`` mapping.
     """
+    if config.probability_source not in {"lp", "heuristic"}:
+        raise ValueError(f"unsupported probability_source: {config.probability_source!r}")
+    if config.probability_source == "lp" and lp_path_values is None:
+        raise LPBackendError("LP probability source requires lp_path_values")
+
     if prev_assignments is None:
         prev_assignments = {}
 
@@ -270,17 +332,23 @@ def sequential_rounding(
         "commodities_dropped_edge_capacity": 0,
         "commodities_dropped_node_capacity": 0,
         "commodities_dropped_mixed_capacity": 0,
+        "paths_rejected_lp_probability": 0,
+        "commodities_dropped_lp_probability": 0,
     }
 
     for commodity in commodities:
         t0 = time.perf_counter()
-        paths = k_shortest_paths(
-            instance.adjacency,
-            commodity.source,
-            commodity.destination,
-            config.k_paths,
-            instance.endpoint_ids,
-            config.max_path_hops,
+        paths = (
+            path_sets.get(commodity.demand_id, [])
+            if path_sets is not None
+            else k_shortest_paths(
+                instance.adjacency,
+                commodity.source,
+                commodity.destination,
+                config.k_paths,
+                instance.endpoint_ids,
+                config.max_path_hops,
+            )
         )
         t_path += time.perf_counter() - t0
 
@@ -290,10 +358,10 @@ def sequential_rounding(
 
         t0 = time.perf_counter()
         # Filter to paths with available edge and node capacity.
-        feasible: list[Path] = []
+        feasible: list[tuple[int, Path]] = []
         rejected_by_edge = False
         rejected_by_node = False
-        for p in paths:
+        for path_index, p in enumerate(paths):
             edge_ok = True
             for e in p.edges:
                 if edge_cap.get(e, 0) < 1:
@@ -306,7 +374,7 @@ def sequential_rounding(
             )
 
             if edge_ok and node_ok:
-                feasible.append(p)
+                feasible.append((path_index, p))
             else:
                 if not edge_ok:
                     diagnostics["paths_rejected_edge_capacity"] += 1
@@ -326,16 +394,39 @@ def sequential_rounding(
             continue
 
         prev = prev_assignments.get(commodity.demand_id)
-        probs = heuristic_probabilities(feasible, prev, config.path_change_penalty)
+        feasible_paths = [path for _, path in feasible]
+        if config.probability_source == "lp":
+            assert lp_path_values is not None
+            source_values = lp_path_values.get(commodity.demand_id, [])
+            base_values = [
+                source_values[path_index] if path_index < len(source_values) else 0.0
+                for path_index, _ in feasible
+            ]
+            diagnostics["paths_rejected_lp_probability"] += sum(
+                1 for value in base_values if value <= config.lp_tolerance
+            )
+            probs = _lp_probabilities(
+                feasible_paths,
+                base_values,
+                prev,
+                config.path_change_penalty,
+                config.lp_tolerance,
+            )
+            if not probs or max(probs) <= 0.0:
+                diagnostics["commodities_dropped_lp_probability"] += 1
+                t_round += time.perf_counter() - t0
+                continue
+        else:
+            probs = heuristic_probabilities(feasible_paths, prev, config.path_change_penalty)
 
         if config.deterministic:
-            chosen = feasible[probs.index(max(probs))]
+            chosen = feasible_paths[probs.index(max(probs))]
         else:
             # Inverse-transform sampling
             r = rng.random()
             cumulative = 0.0
-            chosen = feasible[-1]
-            for p, pr in zip(feasible, probs):
+            chosen = feasible_paths[-1]
+            for p, pr in zip(feasible_paths, probs):
                 cumulative += pr
                 if r <= cumulative:
                     chosen = p
@@ -367,10 +458,34 @@ def run_srr_oracle(
     """
     if config.multi_run_count <= 0:
         raise ValueError(f"multi_run_count must be positive, got {config.multi_run_count}")
+    if config.probability_source not in {"lp", "heuristic"}:
+        raise ValueError(f"unsupported probability_source: {config.probability_source!r}")
 
     t0 = time.perf_counter()
     path_gen_time = 0.0
+    lp_time = 0.0
     rounding_time = 0.0
+
+    path_sets_by_sample: list[dict[str, list[Path]]] = []
+    lp_results: list[LPRelaxationResult] = []
+    for instance in umcf_instances:
+        t_path_start = time.perf_counter()
+        path_sets = build_path_sets(instance, config)
+        path_gen_time += time.perf_counter() - t_path_start
+        path_sets_by_sample.append(path_sets)
+        if config.probability_source == "lp":
+            lp_config = LPRelaxationConfig(
+                backend=config.lp_backend,
+                tolerance=config.lp_tolerance,
+                path_cost_epsilon=config.lp_path_cost_epsilon,
+            )
+            lp_result = solve_path_restricted_lp(instance, path_sets, lp_config)
+            lp_time += lp_result.solve_time_s
+            if not lp_result.success:
+                raise LPBackendError(
+                    f"LP solve failed for sample {instance.sample_index}: {lp_result.message}"
+                )
+            lp_results.append(lp_result)
 
     best_assignments: list[dict[str, Path]] | None = None
     best_dropped: list[list[str]] | None = None
@@ -390,7 +505,6 @@ def run_srr_oracle(
         path_changes = 0
         prev: dict[str, Path] | None = None
         total_served_weight = 0.0
-        run_path_time = 0.0
         run_round_time = 0.0
         run_diagnostics = {
             "paths_rejected_edge_capacity": 0,
@@ -399,11 +513,24 @@ def run_srr_oracle(
             "commodities_dropped_edge_capacity": 0,
             "commodities_dropped_node_capacity": 0,
             "commodities_dropped_mixed_capacity": 0,
+            "paths_rejected_lp_probability": 0,
+            "commodities_dropped_lp_probability": 0,
         }
 
-        for instance in umcf_instances:
-            assignments, timing = sequential_rounding(instance, prev, config, rng)
-            run_path_time += timing["path_generation_s"]
+        for sample_pos, instance in enumerate(umcf_instances):
+            lp_values = (
+                lp_results[sample_pos].path_values
+                if config.probability_source == "lp"
+                else None
+            )
+            assignments, timing = sequential_rounding(
+                instance,
+                prev,
+                config,
+                rng,
+                path_sets_by_sample[sample_pos],
+                lp_values,
+            )
             run_round_time += timing["rounding_s"]
             for key, value in timing.get("diagnostics", {}).items():
                 run_diagnostics[key] = run_diagnostics.get(key, 0) + int(value)
@@ -433,7 +560,6 @@ def run_srr_oracle(
             dropped_by_sample.append(dropped)
             prev = assignments
 
-        path_gen_time += run_path_time
         rounding_time += run_round_time
 
         if total_served_weight > best_served_weight:
@@ -445,6 +571,14 @@ def run_srr_oracle(
             best_diagnostics = run_diagnostics
 
     total_time = time.perf_counter() - t0
+    lp_summary = summarize_lp_results(lp_results) if config.probability_source == "lp" else {
+        "backend": "none",
+        "num_lps": 0,
+        "successful_lps": 0,
+        "status_counts": {},
+        "total_solve_time_s": 0.0,
+        "samples": [],
+    }
 
     assert best_assignments is not None
     assert best_dropped is not None
@@ -458,7 +592,9 @@ def run_srr_oracle(
         execution_time_s=total_time,
         timing_breakdown={
             "path_generation_s": round(path_gen_time, 6),
+            "lp_solve_s": round(lp_time, 6),
             "rounding_s": round(rounding_time, 6),
         },
         rounding_diagnostics=best_diagnostics,
+        lp_diagnostics=lp_summary,
     )

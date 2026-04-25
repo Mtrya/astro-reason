@@ -31,10 +31,15 @@ from solvers.relay_constellation.umcf_srr_contact_plan.src.umcf import (
 from solvers.relay_constellation.umcf_srr_contact_plan.src.srr import (
     SRRConfig,
     Path as SRRPath,
+    build_path_sets,
     k_shortest_paths,
     heuristic_probabilities,
     sequential_rounding,
     run_srr_oracle,
+)
+from solvers.relay_constellation.umcf_srr_contact_plan.src.lp_relaxation import (
+    LPRelaxationConfig,
+    solve_path_restricted_lp,
 )
 from solvers.relay_constellation.umcf_srr_contact_plan.src.action_generation import (
     LinkAction,
@@ -43,6 +48,9 @@ from solvers.relay_constellation.umcf_srr_contact_plan.src.action_generation imp
     extract_edge_samples,
     repair_degree_caps,
 )
+
+
+pytest.importorskip("yaml")
 
 
 def _make_manifest() -> Manifest:
@@ -283,6 +291,141 @@ class TestHeuristicProbabilities:
         assert pytest.approx(probs[0] + probs[1]) == 1.0
 
 
+class TestLPRelaxation:
+    @pytest.fixture(autouse=True)
+    def _requires_scipy(self) -> None:
+        pytest.importorskip("scipy.optimize")
+
+    def test_one_commodity_two_paths_assigns_unit_mass(self) -> None:
+        inst = _make_instance(
+            0,
+            [Commodity("d1", "ep1", "ep2", 3.0)],
+            {
+                "ep1": [("sat1", 100.0), ("sat2", 100.0)],
+                "ep2": [("sat1", 100.0), ("sat2", 100.0)],
+                "sat1": [("ep1", 100.0), ("ep2", 100.0)],
+                "sat2": [("ep1", 100.0), ("ep2", 100.0)],
+            },
+        )
+
+        path_sets = build_path_sets(inst, SRRConfig(k_paths=4))
+        result = solve_path_restricted_lp(inst, path_sets, LPRelaxationConfig())
+
+        assert result.success is True
+        assert pytest.approx(sum(result.path_values["d1"])) == 1.0
+        assert pytest.approx(result.objective_value) == 3.0
+        assert result.variable_count == 2
+
+    def test_edge_contention_prioritizes_higher_weight(self) -> None:
+        inst = _make_instance(
+            0,
+            [
+                Commodity("d_low", "ep1", "ep2", 1.0),
+                Commodity("d_high", "ep1", "ep2", 5.0),
+            ],
+            {
+                "ep1": [("sat1", 100.0)],
+                "ep2": [("sat1", 100.0)],
+                "sat1": [("ep1", 100.0), ("ep2", 100.0)],
+            },
+        )
+
+        path_sets = build_path_sets(inst, SRRConfig(k_paths=4))
+        result = solve_path_restricted_lp(inst, path_sets, LPRelaxationConfig())
+
+        assert result.success is True
+        assert result.path_values["d_high"] == [1.0]
+        assert result.path_values["d_low"] == [0.0]
+        assert pytest.approx(result.objective_value) == 5.0
+
+    def test_node_degree_contention_is_constrained(self) -> None:
+        inst = UMCFInstance(
+            sample_index=0,
+            commodities=[
+                Commodity("d_low", "ep3", "ep4", 1.0),
+                Commodity("d_high", "ep1", "ep2", 5.0),
+            ],
+            adjacency={
+                "ep1": [("sat1", 100.0)],
+                "ep2": [("sat1", 100.0)],
+                "ep3": [("sat1", 100.0)],
+                "ep4": [("sat1", 100.0)],
+                "sat1": [
+                    ("ep1", 100.0),
+                    ("ep2", 100.0),
+                    ("ep3", 100.0),
+                    ("ep4", 100.0),
+                ],
+            },
+            edge_capacity={
+                ("ep1", "sat1"): 1,
+                ("ep2", "sat1"): 1,
+                ("ep3", "sat1"): 1,
+                ("ep4", "sat1"): 1,
+            },
+            node_capacity={
+                "ep1": 1,
+                "ep2": 1,
+                "ep3": 1,
+                "ep4": 1,
+                "sat1": 2,
+            },
+            endpoint_ids={"ep1", "ep2", "ep3", "ep4"},
+            satellite_ids={"sat1"},
+        )
+
+        path_sets = build_path_sets(inst, SRRConfig(k_paths=4))
+        result = solve_path_restricted_lp(inst, path_sets, LPRelaxationConfig())
+
+        assert result.success is True
+        assert result.path_values["d_high"] == [1.0]
+        assert result.path_values["d_low"] == [0.0]
+        assert pytest.approx(result.objective_value) == 5.0
+
+    def test_unreachable_commodity_is_recorded(self) -> None:
+        inst = _make_instance(
+            0,
+            [
+                Commodity("d1", "ep1", "ep2", 3.0),
+                Commodity("d_missing", "ep1", "ep9", 9.0),
+            ],
+            {
+                "ep1": [("sat1", 100.0)],
+                "ep2": [("sat1", 100.0)],
+                "sat1": [("ep1", 100.0), ("ep2", 100.0)],
+            },
+        )
+
+        path_sets = build_path_sets(inst, SRRConfig(k_paths=4))
+        result = solve_path_restricted_lp(inst, path_sets, LPRelaxationConfig())
+
+        assert result.success is True
+        assert result.path_values["d_missing"] == []
+        assert result.zero_path_commodities == ["d_missing"]
+        assert result.path_values["d1"] == [1.0]
+
+    def test_run_srr_oracle_uses_lp_values_by_default(self) -> None:
+        inst = _make_instance(
+            0,
+            [
+                Commodity("d_low", "ep1", "ep2", 1.0),
+                Commodity("d_high", "ep1", "ep2", 5.0),
+            ],
+            {
+                "ep1": [("sat1", 100.0)],
+                "ep2": [("sat1", 100.0)],
+                "sat1": [("ep1", 100.0), ("ep2", 100.0)],
+            },
+        )
+
+        result = run_srr_oracle([inst], SRRConfig(deterministic=True, k_paths=4))
+
+        assert set(result.sample_assignments[0]) == {"d_high"}
+        assert result.lp_diagnostics["num_lps"] == 1
+        assert result.lp_diagnostics["successful_lps"] == 1
+        assert result.rounding_diagnostics["commodities_dropped_lp_probability"] == 1
+
+
 class TestSequentialRounding:
     def test_capacity_exhaustion(self) -> None:
         """Only the largest-weight commodity gets the single available path."""
@@ -302,7 +445,7 @@ class TestSequentialRounding:
         instances = build_umcf_instances(case, [graph])
         inst = instances[0]
 
-        config = SRRConfig(deterministic=True, k_paths=4)
+        config = SRRConfig(deterministic=True, k_paths=4, probability_source="heuristic")
         import random
 
         assignments, _ = sequential_rounding(inst, None, config, random.Random(42))
@@ -341,7 +484,7 @@ class TestSequentialRounding:
             satellite_ids={"sat1"},
         )
 
-        config = SRRConfig(deterministic=True, k_paths=4)
+        config = SRRConfig(deterministic=True, k_paths=4, probability_source="heuristic")
         import random
 
         assignments, timing = sequential_rounding(inst, None, config, random.Random(42))
@@ -379,7 +522,7 @@ class TestSequentialRounding:
             satellite_ids={"sat1", "sat2"},
         )
 
-        config = SRRConfig(deterministic=True, k_paths=4)
+        config = SRRConfig(deterministic=True, k_paths=4, probability_source="heuristic")
         import random
 
         assignments, timing = sequential_rounding(inst, None, config, random.Random(42))
@@ -420,7 +563,7 @@ class TestSequentialRounding:
             satellite_ids={"sat1"},
         )
 
-        config = SRRConfig(deterministic=True, k_paths=4)
+        config = SRRConfig(deterministic=True, k_paths=4, probability_source="heuristic")
         import random
 
         assignments, _ = sequential_rounding(inst, None, config, random.Random(42))
@@ -452,7 +595,7 @@ class TestSequentialRounding:
             satellite_ids={"sat1", "sat2"},
         )
 
-        config = SRRConfig(deterministic=True, k_paths=4)
+        config = SRRConfig(deterministic=True, k_paths=4, probability_source="heuristic")
         import random
 
         assignments1, _ = sequential_rounding(inst, None, config, random.Random(42))
@@ -485,7 +628,7 @@ class TestSequentialRounding:
             satellite_ids={"sat1", "sat2"},
         )
 
-        config = SRRConfig(deterministic=False, seed=42, k_paths=4)
+        config = SRRConfig(deterministic=False, seed=42, k_paths=4, probability_source="heuristic")
         result1 = run_srr_oracle([inst], config)
         result2 = run_srr_oracle([inst], config)
         assert result1.sample_assignments == result2.sample_assignments
@@ -517,13 +660,13 @@ class TestSequentialRounding:
             satellite_ids={"sat1", "sat2"},
         )
 
-        config = SRRConfig(deterministic=True, k_paths=4, path_change_penalty=0.0)
+        config = SRRConfig(deterministic=True, k_paths=4, path_change_penalty=0.0, probability_source="heuristic")
         import random
 
         first, _ = sequential_rounding(inst, None, config, random.Random(42))
         prev = first
 
-        config_pen = SRRConfig(deterministic=True, k_paths=4, path_change_penalty=5.0)
+        config_pen = SRRConfig(deterministic=True, k_paths=4, path_change_penalty=5.0, probability_source="heuristic")
         second, _ = sequential_rounding(inst, prev, config_pen, random.Random(42))
         assert second[case.demands[0].demand_id].nodes == prev[case.demands[0].demand_id].nodes
 
@@ -564,7 +707,7 @@ class TestSequentialRounding:
             satellite_ids={"sat1", "sat2"},
         )
 
-        result = run_srr_oracle([inst], SRRConfig(deterministic=True, k_paths=4))
+        result = run_srr_oracle([inst], SRRConfig(deterministic=True, k_paths=4, probability_source="heuristic"))
         assert result.rounding_diagnostics["paths_rejected_node_capacity"] == 1
         assert result.rounding_diagnostics["commodities_dropped_node_capacity"] == 1
 
@@ -620,7 +763,7 @@ class TestActionGeneration:
         assignments, _ = sequential_rounding(
             inst,
             None,
-            SRRConfig(deterministic=True, k_paths=4),
+            SRRConfig(deterministic=True, k_paths=4, probability_source="heuristic"),
             random.Random(42),
         )
         edge_samples = extract_edge_samples([inst], [assignments])

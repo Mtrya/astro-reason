@@ -23,6 +23,7 @@ from .dynamic_graph import build_sample_graphs, graph_summary
 from .orbit_library import generate_candidates
 from .propagation import propagate_all_to_samples
 from .solution_io import write_solution, write_status
+from .lp_relaxation import LPBackendError
 from .srr import SRRConfig, run_srr_oracle
 from .umcf import build_umcf_instances, instance_summary
 
@@ -46,7 +47,28 @@ def _load_srr_config(config_dir: str | Path | None) -> SRRConfig:
         path_change_penalty=srr.get("path_change_penalty", 1.0),
         multi_run_count=srr.get("multi_run_count", 1),
         max_path_hops=srr.get("max_path_hops", 10),
+        probability_source=srr.get("probability_source", "lp"),
+        lp_backend=srr.get("lp_backend", "scipy-highs"),
+        lp_tolerance=srr.get("lp_tolerance", 1e-9),
+        lp_path_cost_epsilon=srr.get("lp_path_cost_epsilon", 0.0),
     )
+
+
+def _compact_lp_status(lp_diagnostics: dict[str, Any]) -> dict[str, Any]:
+    """Return LP diagnostics small enough to duplicate into status.json."""
+    return {
+        "backend": lp_diagnostics.get("backend", "none"),
+        "num_lps": lp_diagnostics.get("num_lps", 0),
+        "successful_lps": lp_diagnostics.get("successful_lps", 0),
+        "status_counts": lp_diagnostics.get("status_counts", {}),
+        "total_solve_time_s": lp_diagnostics.get("total_solve_time_s", 0.0),
+        "total_variables": lp_diagnostics.get("total_variables", 0),
+        "total_constraints": lp_diagnostics.get("total_constraints", 0),
+        "total_positive_variables": lp_diagnostics.get("total_positive_variables", 0),
+        "total_fractional_variables": lp_diagnostics.get("total_fractional_variables", 0),
+        "total_zero_path_commodities": lp_diagnostics.get("total_zero_path_commodities", 0),
+        "objective_value_sum": lp_diagnostics.get("objective_value_sum", 0.0),
+    }
 
 
 def solve(
@@ -100,7 +122,24 @@ def solve(
 
     srr_config = _load_srr_config(config_dir)
     t_srr_start = time.perf_counter()
-    srr_result = run_srr_oracle(umcf_instances, srr_config)
+    try:
+        srr_result = run_srr_oracle(umcf_instances, srr_config)
+    except LPBackendError as exc:
+        solution_path = Path(solution_dir)
+        debug_dir = solution_path / "debug"
+        debug_dir.mkdir(parents=True, exist_ok=True)
+        write_status(
+            solution_path,
+            {"srr_rounding": round(time.perf_counter() - t_srr_start, 6)},
+            {
+                "status": "lp_error",
+                "case_id": case.manifest.case_id,
+                "srr_probability_source": srr_config.probability_source,
+                "lp_backend": srr_config.lp_backend,
+                "error": str(exc),
+            },
+        )
+        raise
     t_srr = time.perf_counter() - t_srr_start
 
     # 7. Generate actions from SRR paths
@@ -162,6 +201,11 @@ def solve(
     )
     total_served = sum(len(a) for a in srr_result.sample_assignments)
     total_dropped = sum(len(d) for d in srr_result.dropped_by_sample)
+    lp_status = _compact_lp_status(srr_result.lp_diagnostics)
+    (debug_dir / "lp_summary.json").write_text(
+        json.dumps(srr_result.lp_diagnostics, indent=2) + "\n",
+        encoding="utf-8",
+    )
     (debug_dir / "srr_summary.json").write_text(
         json.dumps(
             {
@@ -170,14 +214,17 @@ def solve(
                 "path_changes": srr_result.path_changes,
                 "seed": srr_result.seed,
                 "deterministic": srr_result.deterministic,
+                "probability_source": srr_config.probability_source,
                 "execution_time_s": round(srr_result.execution_time_s, 6),
                 "timing_breakdown": srr_result.timing_breakdown,
                 "rounding_diagnostics": srr_result.rounding_diagnostics,
+                "lp_diagnostics": lp_status,
                 "approximation_disclosure": {
-                    "lp_relaxation": "MISSING (heuristic probabilities used instead of LP fractional flows)",
+                    "lp_relaxation": "IMPLEMENTED (SciPy HiGHS path-restricted LP over finite per-sample path sets)",
                     "path_set_restriction": "IMPLEMENTED (k-shortest simple paths, k=4 default)",
                     "srr_control_flow": "IMPLEMENTED (sequential, demand-sorted, capacity-tracking)",
-                    "dynamic_path_change_penalty": "ADAPTED (per-sample instead of per-block)",
+                    "randomized_rounding": "IMPLEMENTED (LP fractional path values drive SRR probabilities)",
+                    "dynamic_path_change_penalty": "ADAPTED (per-sample probability boost instead of per-block objective term)",
                     "node_degree_modeling": "ADAPTED (benchmark degree caps consumed as per-sample node capacities during rounding)",
                 },
             },
@@ -247,16 +294,16 @@ def solve(
                 "note": "SRR assigns exactly one path per commodity per sample. Matches Grislain Algorithm 1 and Lamothe integer constraints.",
             },
             "lp_relaxation_for_fractional_flows": {
-                "status": "MISSING",
-                "note": "No LP solver (Gurobi/SCIP) is used. Heuristic uniform probabilities plus path-change boost replace LP-derived fractional flows.",
+                "status": "ADAPTED",
+                "note": "SciPy HiGHS solves a path-restricted LP relaxation over each sample's finite k-shortest path set. This supplies fractional path values for SRR while deferring column generation to a later phase.",
             },
             "srr_sequential_rounding": {
                 "status": "IMPLEMENTED",
                 "note": "Commodities processed in decreasing-weight order. Edge and benchmark-adapted node degree capacities updated after each fixation. Matches Grislain Algorithm 1 lines 1-10 with relay_constellation degree-cap adaptation.",
             },
             "randomized_rounding_from_lp_solution": {
-                "status": "ADAPTED",
-                "note": "Probabilities are heuristic (uniform base + exp(boost) for previous path) instead of sampled from LP relaxation x_p^k values.",
+                "status": "IMPLEMENTED",
+                "note": "SRR probabilities are normalized from LP relaxation x_p^k values over currently feasible paths. Explicit heuristic mode remains available only as an ablation.",
             },
             "k_shortest_path_restriction": {
                 "status": "IMPLEMENTED",
@@ -264,7 +311,7 @@ def solve(
             },
             "dynamic_path_change_penalty": {
                 "status": "ADAPTED",
-                "note": "Per-sample boost to previous path (exp(penalty_alpha)) instead of Lamothe per-block MILP objective term P * sum(1 - x_k).",
+                "note": "Per-sample boost to a positive-LP-mass previous path (exp(penalty_alpha)) instead of Lamothe per-block MILP objective term P * sum(1 - x_k).",
             },
             "node_degree_cap_modeling": {
                 "status": "ADAPTED",
@@ -292,7 +339,7 @@ def solve(
             },
             "srr_recomputation_threshold_theta": {
                 "status": "MISSING",
-                "note": "LP is never recomputed because no LP is solved. Threshold theta (Lamothe Appendix C) irrelevant.",
+                "note": "LP is solved once per sample before rounding. Lamothe Appendix C recomputation threshold theta is deferred to the dynamic/column-generation phase.",
             },
             "flow_penalization_epsilon": {
                 "status": "MISSING",
@@ -353,6 +400,8 @@ def solve(
         "srr_path_changes": srr_result.path_changes,
         "srr_execution_time_s": round(srr_result.execution_time_s, 6),
         "srr_rounding_diagnostics": srr_result.rounding_diagnostics,
+        "srr_probability_source": srr_config.probability_source,
+        "srr_lp_diagnostics": lp_status,
         "srr_seed": srr_result.seed,
         "srr_deterministic": srr_result.deterministic,
         "num_actions": compaction_summary["num_actions"],

@@ -8,6 +8,7 @@ mkdir -p "${MPLCONFIGDIR}"
 python - <<'PY'
 import brahe
 import numpy
+import scipy.optimize
 import yaml
 
 print("umcf_srr_contact_plan setup ok")

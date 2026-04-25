@@ -43,7 +43,8 @@ This reproduction keeps the core UMCF/SRR structure and adapts it to `relay_cons
 - A greedy marginal selection step chooses which candidates to add.
 - For each routing-sample instant, it builds a dynamic communication graph from propagated positions.
 - An internal UMCF instance is formed from active demands and feasible paths.
-- The SRR heuristic assigns one path per commodity, tracking unit edge capacities and benchmark-adapted node degree capacities.
+- A path-restricted LP relaxation computes fractional path values over the finite per-sample path set.
+- The SRR heuristic assigns one path per commodity from those LP values, tracking unit edge capacities and benchmark-adapted node degree capacities.
 - Paths are converted into interval-based link actions, repaired for degree caps, and compacted.
 
 ## Benchmark Adaptation
@@ -63,7 +64,7 @@ The benchmark differs from the papers in several important ways:
 ./solve.sh <case_dir> [config_dir] [solution_dir]
 ```
 
-`setup.sh` validates that `brahe`, `numpy`, and `yaml` are available.
+`setup.sh` validates that `brahe`, `numpy`, `yaml`, and SciPy HiGHS are available. Solver-local environment isolation is the intended deployment model; see [ENVIRONMENT_HANDOFF.md](./ENVIRONMENT_HANDOFF.md) for the remaining setup/solve script work.
 
 `solve.sh` writes:
 
@@ -83,19 +84,20 @@ The solver pipeline is:
 4. **Select candidates** — Evaluate each candidate's marginal contribution to demand connectivity using a Union-Find reachability proxy on a strided subset of samples. Select greedily up to the manifest limit.
 5. **Rebuild graphs** — Rebuild per-sample graphs using only the selected satellites so that routing does not traverse unselected candidates.
 6. **Build UMCF instances** — For each sample, enumerate k-shortest simple paths per commodity and build a UMCF instance with unit edge capacities plus endpoint/satellite node degree capacities.
-7. **Run SRR oracle** — For each sample, sort commodities by decreasing demand weight, assign paths via sequential randomized rounding (or deterministic highest-probability selection), and track remaining edge and node capacities.
-8. **Generate actions** — Extract edges from assigned paths, filter ground links against exact verifier elevation geometry, defensively repair any remaining per-sample degree-cap violations, compact consecutive samples into interval actions, and emit the benchmark JSON schema.
+7. **Solve path-restricted LP** — For each sample, solve a finite-path LP relaxation with per-commodity, edge-capacity, and node-degree constraints using SciPy HiGHS.
+8. **Run SRR oracle** — For each sample, sort commodities by decreasing demand weight, assign paths via sequential randomized rounding from LP fractional values (or deterministic highest-probability selection), and track remaining edge and node capacities.
+9. **Generate actions** — Extract edges from assigned paths, filter ground links against exact verifier elevation geometry, defensively repair any remaining per-sample degree-cap violations, compact consecutive samples into interval actions, and emit the benchmark JSON schema.
 
 ## Dependency And Backend Choices
 
-- **Python 3.13** — Pure Python with no compiled extensions in the oracle.
+- **Python 3.13** — The solver is intended to run from a solver-local environment managed behind `setup.sh` and `solve.sh`.
 - **brahe** — Astrodynamics propagation (`NumericalOrbitPropagator`, J2 gravity, GCRF/ITRF frames, deterministic zero-valued static EOP provider). This matches the verifier's propagation model exactly.
 - **NumPy** — Vectorized geometry for link feasibility, distance matrices, and elevation checks.
 - **PyYAML** — Config parsing.
-- **No external LP solver** — The solver uses heuristic uniform probabilities instead of LP relaxation. Room is left for an optional LP backend.
+- **SciPy HiGHS** — Path-restricted LP relaxation backend via `scipy.optimize.linprog(method="highs")`.
 - **No external graph library** — Path enumeration uses a custom Dijkstra + DFS implementation.
 
-`setup.sh` assumes the project environment already provides `brahe`, `numpy`, and `yaml`. If a future iteration adds an LP backend (e.g., `scipy` or `cvxopt`), the solver-local environment should be extended and `setup.sh` should install it.
+The solver intentionally does not add SciPy to the top-level project dependencies. The Phase 2 LP code is complete, but final solver-local environment wiring is tracked in [ENVIRONMENT_HANDOFF.md](./ENVIRONMENT_HANDOFF.md).
 
 ## Configuration
 
@@ -110,6 +112,10 @@ Key knobs:
 - `srr.seed` — Random seed base for stochastic rounding.
 - `srr.k_paths` — Maximum number of shortest simple paths to consider per commodity.
 - `srr.max_path_hops` — Maximum hop count for path enumeration.
+- `srr.probability_source` — `"lp"` by default for reproduction mode; `"heuristic"` is available only as an ablation/fallback experiment.
+- `srr.lp_backend` — LP backend identifier. The supported value is `"scipy-highs"`.
+- `srr.lp_tolerance` — Numerical tolerance for interpreting LP fractional values.
+- `srr.lp_path_cost_epsilon` — Optional small path-cost penalty in the LP objective; default `0.0`.
 - `srr.path_change_penalty` — Boost factor for sticking with the same path across consecutive samples. Higher values reduce interval churn.
 - `candidate_selection.policy` — `"greedy_marginal"`, `"no-added"`, or `"fixed"`.
 - `candidate_selection.evaluation_sample_stride` — Sample stride for marginal evaluation (1 = every sample, 10 = every 10th).
@@ -123,7 +129,8 @@ Written to `<solution_dir>/debug/`:
 - `selected_candidates.json` — Candidate selection scores, policy, and per-iteration marginal contributions.
 - `routed_potential_summary.json` — Full candidate selection debug.
 - `umcf_instances.json` — Summary of UMCF instances per sample (commodities, edges, nodes).
-- `srr_summary.json` — Served/dropped commodities, path changes, seed, timing, node/edge capacity rejection counters, and approximation disclosure.
+- `lp_summary.json` — LP status counts, objective values, variable/constraint counts, solve time, and fractional-value diagnostics per sample.
+- `srr_summary.json` — Served/dropped commodities, path changes, seed, probability source, timing, LP summary, node/edge capacity rejection counters, and approximation disclosure.
 - `rounded_paths.json` — Per-sample, per-demand path chosen by SRR.
 - `active_link_summary.json` — Edge counts before and after degree-cap repair for each sample.
 - `action_summary.json` — Repair and compaction statistics.
@@ -197,7 +204,7 @@ If service fraction looks unexpectedly low, inspect:
 ## Known Limitations
 
 - This is a reproduction of the paper's method family, not a claim to reproduce every runtime or every table from the papers.
-- No LP relaxation is used. Heuristic uniform probabilities replace the fractional flow optimization that drives the SRR heuristic in the literature. An LP backend would be the single largest improvement to reproduction fidelity.
+- LP relaxation is path-restricted to the finite k-shortest path set generated per sample. Column generation and dynamic LP recomputation are not yet implemented.
 - Node-degree caps (`max_links_per_satellite`, `max_links_per_endpoint`) are modeled inside the oracle as per-sample node capacities, but this remains a benchmark adaptation rather than a direct paper component. Post-hoc repair is retained as a final validity backstop.
 - The solver processes each sample independently. The Lamothe paper's path-sequence and block-based formulations, which optimize over sequences of time steps, are not implemented.
 - Column generation and the associated pricing schemes are not implemented.
@@ -211,7 +218,7 @@ If service fraction looks unexpectedly low, inspect:
 - **Candidate selection**: roughly 9% of runtime after an optimization that replaced process-pool evaluation with a sequential loop. Process-pool candidate evaluation is available via config but not recommended at current scale.
 - **SRR + action generation**: roughly 3% of runtime.
 - **Recommended timeout**: 60 seconds for a single deterministic run; 300 seconds allows roughly 20 seeds for the randomized multi-run mode. The current 300-second experiment timeout is generous and fair.
-- **No compiled extensions or external solvers** are used in the oracle. All computation is pure Python with NumPy vectorization for geometry.
+- **LP backend**: SciPy HiGHS runs from the solver-local `.venv`. Re-profile before changing the registered timeout after dynamic/column-generation work.
 
 ## Reproduction Gap Summary
 
@@ -219,9 +226,9 @@ The following table maps paper components to their status in this solver. `IMPLE
 
 - **UMCF commodities and capacities**: ADAPTED — Commodities derived from benchmark demand windows. Edge capacities fixed to 1 (unit edge-disjoint), matching verifier allocation rather than flow-based capacities from the paper.
 - **Unsplittable one-path-per-commodity constraint**: IMPLEMENTED — SRR assigns exactly one path per commodity per sample.
-- **LP relaxation for fractional flows**: MISSING — No LP solver is used. Heuristic uniform probabilities plus path-change boost replace LP-derived fractional flows. This is the largest gap.
+- **LP relaxation for fractional flows**: ADAPTED — SciPy HiGHS solves a path-restricted LP over each sample's finite k-shortest path set. Column generation is deferred.
 - **SRR sequential rounding control flow**: IMPLEMENTED — Commodities processed in decreasing-weight order with edge-capacity updates plus benchmark-adapted node degree-cap updates.
-- **Randomized rounding from LP solution**: ADAPTED — Probabilities are heuristic (uniform base plus exponential boost for the previous path) instead of sampled from LP relaxation values.
+- **Randomized rounding from LP solution**: IMPLEMENTED — Probabilities are normalized from LP relaxation values over currently feasible paths; heuristic mode remains only as an explicit ablation.
 - **Node-degree cap modeling**: ADAPTED — Benchmark endpoint and satellite link limits are consumed as per-sample node capacities during SRR path feasibility and rounding. Post-hoc repair remains as a validity backstop.
 - **k-shortest path restriction**: IMPLEMENTED — k=4 shortest simple paths by hop count then distance.
 - **Dynamic path-change penalty**: ADAPTED — Per-sample boost to the previous path instead of the paper's per-block MILP objective term.

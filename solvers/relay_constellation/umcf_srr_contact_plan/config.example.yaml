@@ -25,6 +25,16 @@ srr:
   # Maximum hop count for path enumeration.
   max_path_hops: 10
 
+  # Probability source for SRR: "lp" uses the path-restricted LP relaxation,
+  # while "heuristic" uses uniform/path-change probabilities as an ablation.
+  probability_source: lp
+
+  # LP backend and numerical settings.  The default backend is installed into
+  # the solver-local .venv by setup.sh.
+  lp_backend: scipy-highs
+  lp_tolerance: 1.0e-9
+  lp_path_cost_epsilon: 0.0
+
   # Boost factor for sticking with the same path across consecutive samples.
   # Higher values reduce interval churn and improve compaction.
   path_change_penalty: 1.0
