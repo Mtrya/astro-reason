@@ -1,8 +1,9 @@
-"""Phase-1 solver entrypoint: parse, enumerate candidates, write empty solution."""
+"""Solver entrypoint: parse, enumerate candidates, build a greedy schedule."""
 
 from __future__ import annotations
 
 import argparse
+import json
 import sys
 import time
 import traceback
@@ -11,8 +12,9 @@ from pathlib import Path
 from .candidates import generate_candidates
 from .case_io import SolverConfig, load_case, load_solver_config
 from .coverage import CoverageIndex
-from .sequence import create_empty_state
-from .solution_io import write_empty_solution, write_json
+from .greedy import GreedyConfig, greedy_insertion
+from .sequence import is_consistent
+from .solution_io import candidates_to_solution, write_json
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -33,11 +35,18 @@ def main(argv: list[str] | None = None) -> int:
         t0 = time.perf_counter()
         config_payload = load_solver_config(config_dir)
         config = SolverConfig.from_mapping(config_payload)
+        greedy_config = GreedyConfig.from_mapping(config_payload)
         case = load_case(case_dir)
         coverage_index = CoverageIndex.from_case(case)
         candidates, candidate_summary = generate_candidates(case, config, coverage_index)
-        sequence_state = create_empty_state(case)
-        write_empty_solution(solution_path)
+        greedy_result = greedy_insertion(
+            case,
+            candidates,
+            coverage_index=coverage_index,
+            config=greedy_config,
+        )
+        selected_candidates = greedy_result.selected_in_solution_order()
+        write_json(solution_path, candidates_to_solution(case.mission, selected_candidates))
 
         debug_dir = solution_dir / "debug"
         write_json(
@@ -52,11 +61,34 @@ def main(argv: list[str] | None = None) -> int:
             debug_dir / "candidates.json",
             [candidate.as_dict() for candidate in candidates[: config.candidate_debug_limit]],
         )
+        write_json(
+            debug_dir / "greedy_summary.json",
+            {
+                "case_id": case.mission.case_id,
+                "config": greedy_config.as_dict(),
+                "summary": greedy_result.summary.as_dict(),
+            },
+        )
+        write_json(
+            debug_dir / "selected_candidates.json",
+            [candidate.as_dict() for candidate in selected_candidates],
+        )
+        if greedy_config.write_insertion_attempts:
+            attempts_path = debug_dir / "insertion_attempts.jsonl"
+            attempts_path.parent.mkdir(parents=True, exist_ok=True)
+            attempts_path.write_text(
+                "".join(
+                    json.dumps(item, sort_keys=True) + "\n"
+                    for item in greedy_result.attempt_debug
+                ),
+                encoding="utf-8",
+            )
+        local_validation = _local_validation_summary(case, greedy_result)
         elapsed = time.perf_counter() - t0
         write_json(
             solution_dir / "status.json",
             {
-                "status": "empty_solution_with_phase_1_scaffold",
+                "status": "greedy_solution_generated",
                 "case_dir": str(case_dir),
                 "config_dir": str(config_dir) if config_dir is not None else None,
                 "solution": str(solution_path),
@@ -66,20 +98,23 @@ def main(argv: list[str] | None = None) -> int:
                 "coverage_sample_count": len(case.samples),
                 "candidate_config": config.as_dict(),
                 "candidate_summary": candidate_summary.as_dict(),
-                "sequence_model": sequence_state.as_dict(),
+                "greedy_config": greedy_config.as_dict(),
+                "greedy_summary": greedy_result.summary.as_dict(),
+                "sequence_model": greedy_result.state.as_dict(),
+                "local_validation": local_validation,
                 "timing_seconds": {"total": elapsed},
                 "reproduction_notes": {
                     "method_reference": "Antuori, Wojtowicz, and Hebrard, CP 2025, Sections 2 and 4.1",
-                    "phase": "1_contract_candidates_and_sequence_model",
+                    "phase": "2_greedy_insertion_baseline",
                     "implemented": [
                         "standalone case parser",
                         "deterministic fixed-start strip candidates",
                         "solver-local coverage-grid mapping",
                         "benchmark-compatible roll transition helpers",
                         "satellite-local sequence model",
+                        "marginal unique coverage greedy insertion",
                     ],
                     "omitted_until_later_phases": [
-                        "greedy insertion schedule construction",
                         "local-search neighborhoods",
                         "CP-assisted TSPTW repair",
                         "battery and duty repair",
@@ -102,6 +137,24 @@ def main(argv: list[str] | None = None) -> int:
         return 2
 
 
+def _local_validation_summary(case, greedy_result) -> dict:
+    per_satellite: dict[str, dict] = {}
+    valid = True
+    for satellite_id, sequence in sorted(greedy_result.state.sequences.items()):
+        sequence_valid, reasons = is_consistent(case, sequence)
+        valid = valid and sequence_valid
+        per_satellite[satellite_id] = {
+            "valid": sequence_valid,
+            "issues": reasons,
+            "candidate_count": len(sequence.candidates),
+        }
+    return {
+        "valid": valid,
+        "selected_count": len(greedy_result.selected_candidates),
+        "covered_sample_count": len(greedy_result.covered_sample_ids),
+        "per_satellite": per_satellite,
+    }
+
+
 if __name__ == "__main__":
     raise SystemExit(main())
-
