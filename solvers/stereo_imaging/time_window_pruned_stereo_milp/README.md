@@ -220,6 +220,20 @@ What matters here is:
 
 If raw pair/tri selection looks strong but repair removes many observations, inspect the local conflict model, transition gap logic, and candidate generation before tuning search parameters.
 
+## Main Solver Evidence
+
+The `main_solver` profile uses the benchmark-facing `thorough` preset with OR-Tools exact mode and `sample_stride_s: 15`. In the current all-case public test run, every `stereo_imaging` case completed with `status: verified`, verifier `valid: true`, `backend_used: ortools`, and OR-Tools status `OPTIMAL`.
+
+| case | coverage ratio | normalized quality | candidates | selected observations |
+|---|---:|---:|---:|---:|
+| `test/case_0001` | 0.9296 | 0.9130 | 3476 | 272 |
+| `test/case_0002` | 0.9917 | 0.9772 | 3518 | 242 |
+| `test/case_0003` | 0.9421 | 0.9176 | 3056 | 231 |
+| `test/case_0004` | 0.8968 | 0.8532 | 2580 | 232 |
+| `test/case_0005` | 0.9574 | 0.9388 | 3554 | 283 |
+
+Mean verified coverage was 0.9435 and mean normalized quality was 0.9200 across the five public cases. Runtime is dominated by candidate generation and is machine-dependent; in this run, the OR-Tools solve itself remained a small part of each case and did not hit the configured time limit.
+
 ## Known Limitations
 
 - This is a reproduction of the paper's candidate-prune-optimize pipeline, not a claim to reproduce every runtime or every table from the paper.

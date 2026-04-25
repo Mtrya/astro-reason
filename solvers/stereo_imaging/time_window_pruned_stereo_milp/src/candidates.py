@@ -10,6 +10,7 @@ from multiprocessing import Pool
 from typing import Any
 
 import numpy as np
+import brahe
 from skyfield.api import EarthSatellite
 from skyfield.framelib import itrs
 
@@ -44,6 +45,9 @@ class _SatelliteStateSeries:
     pos_m: np.ndarray
     vel_mps: np.ndarray
     up: np.ndarray
+    sun_dir_ecef: np.ndarray
+    satellite_state_s: float = 0.0
+    solar_direction_precompute_s: float = 0.0
 
 
 def _iter_horizon(start: datetime, end: datetime, step_s: float):
@@ -69,8 +73,10 @@ def _build_satellite_state_series(
             pos_m=np.zeros((0, 3), dtype=float),
             vel_mps=np.zeros((0, 3), dtype=float),
             up=np.zeros((0, 3), dtype=float),
+            sun_dir_ecef=np.zeros((0, 3), dtype=float),
         )
     sf_sat = make_earth_satellite(sat)
+    satellite_start = time.perf_counter()
     t = _TS.from_datetimes([dt.astimezone(UTC) for dt in dts])
     g = sf_sat.at(t)
     pos_m, vel_mps = g.frame_xyz_and_velocity(itrs)
@@ -78,24 +84,45 @@ def _build_satellite_state_series(
     vel_mps = np.asarray(vel_mps.km_per_s, dtype=float).T * 1000.0
     norms = np.linalg.norm(pos_m, axis=1).reshape(-1, 1)
     up = pos_m / norms
+    satellite_state_s = time.perf_counter() - satellite_start
+    epochs = [_datetime_to_epoch(dt) for dt in dts]
+    solar_start = time.perf_counter()
+    sun_dir_ecef = _sun_direction_ecef_for_epochs(epochs)
+    solar_direction_precompute_s = time.perf_counter() - solar_start
     return _SatelliteStateSeries(
         sat=sat,
         sf_sat=sf_sat,
         dts=dts,
-        epochs=[_datetime_to_epoch(dt) for dt in dts],
+        epochs=epochs,
         pos_m=pos_m,
         vel_mps=vel_mps,
         up=up,
+        sun_dir_ecef=sun_dir_ecef,
+        satellite_state_s=satellite_state_s,
+        solar_direction_precompute_s=solar_direction_precompute_s,
     )
+
+
+def _sun_direction_ecef_for_epochs(epochs: list[Any]) -> np.ndarray:
+    """Precompute unit Sun directions in ECEF for horizon epochs."""
+    if not epochs:
+        return np.zeros((0, 3), dtype=float)
+    rows: list[np.ndarray] = []
+    for epoch in epochs:
+        sun_hat = np.asarray(brahe.sun_position(epoch), dtype=float).reshape(3)
+        sun_hat = sun_hat / np.linalg.norm(sun_hat)
+        rotation = np.asarray(brahe.rotation_eci_to_ecef(epoch), dtype=float).reshape(3, 3)
+        rows.append((rotation @ sun_hat).reshape(3))
+    return np.asarray(rows, dtype=float)
 
 
 def _build_access_mask(
     series: _SatelliteStateSeries,
     target_ecef: np.ndarray,
     mission: Mission,
-) -> tuple[list[bool], int]:
+) -> tuple[list[bool], dict[str, Any]]:
     if not series.dts:
-        return [], 0
+        return [], {"solar_checks": 0, "viable_samples": 0, "solar_eval_s": 0.0}
 
     los = target_ecef.reshape(1, 3) - series.pos_m
     dist = np.linalg.norm(los, axis=1)
@@ -113,13 +140,24 @@ def _build_access_mask(
     off_ok = off_nadir <= series.sat.max_off_nadir_deg + 1e-6
 
     mask = np.zeros(len(series.dts), dtype=bool)
-    solar_checks = 0
     threshold = mission.validity_thresholds.min_solar_elevation_deg - 1e-6
     viable_indices = np.flatnonzero(los_ok & off_ok)
-    for idx in viable_indices:
-        solar_checks += 1
-        mask[idx] = solar_elevation_deg(series.epochs[idx], target_ecef) >= threshold
-    return mask.tolist(), solar_checks
+    solar_start = time.perf_counter()
+    if len(viable_indices):
+        sun_dir = series.sun_dir_ecef[viable_indices]
+        target = target_ecef.reshape(1, 3)
+        up = target_ecef / np.linalg.norm(target_ecef)
+        sun_to_target = 1.496e11 * sun_dir - target
+        sun_to_target /= np.linalg.norm(sun_to_target, axis=1).reshape(-1, 1)
+        dots = np.clip(sun_to_target @ up, -1.0, 1.0)
+        elevations = np.degrees(np.arcsin(dots))
+        mask[viable_indices] = elevations >= threshold
+    solar_eval_s = time.perf_counter() - solar_start
+    return mask.tolist(), {
+        "solar_checks": int(len(viable_indices)),
+        "viable_samples": int(len(viable_indices)),
+        "solar_eval_s": solar_eval_s,
+    }
 
 
 def _intervals_from_mask(
@@ -290,6 +328,8 @@ def _evaluate_candidate(
     if los_cache is not None and mid in los_cache:
         los_ok = los_cache[mid]
     else:
+        if profile is not None:
+            profile["los_checks"] = profile.get("los_checks", 0) + 1
         if sat_state is not None:
             sp, _ = sat_state
         elif state_cache is not None:
@@ -351,8 +391,17 @@ def _generate_candidates_for_satellite(
     profile = {
         "satellite_workers": 1,
         "state_batch_build_s": 0.0,
+        "satellite_state_propagation_s": 0.0,
+        "solar_direction_precompute_s": 0.0,
         "access_interval_search_s": 0.0,
+        "access_solar_eval_s": 0.0,
+        "access_viable_samples": 0,
+        "targets_checked": 0,
+        "targets_with_intervals": 0,
         "candidate_sampling_s": 0.0,
+        "candidate_sample_windows": 0,
+        "steering_grid_evals": 0,
+        "los_checks": 0,
         "solar_checks": 0,
         "candidates_emitted": 0,
     }
@@ -360,21 +409,27 @@ def _generate_candidates_for_satellite(
     series_start = time.perf_counter()
     series = _build_satellite_state_series(sat, mission, time_step_s)
     profile["state_batch_build_s"] += time.perf_counter() - series_start
+    profile["satellite_state_propagation_s"] += series.satellite_state_s
+    profile["solar_direction_precompute_s"] += series.solar_direction_precompute_s
 
     candidates: list[CandidateObservation] = []
     rejections: list[RejectionRecord] = []
 
     for target in target_list:
+        profile["targets_checked"] += 1
         target_ecef = target_ecef_m(target)
 
         access_start = time.perf_counter()
-        ok_list, solar_checks = _build_access_mask(series, target_ecef, mission)
+        ok_list, access_profile = _build_access_mask(series, target_ecef, mission)
         intervals = _intervals_from_mask(sat, target, series.dts, ok_list, min_interval_length_s=5.0)
         profile["access_interval_search_s"] += time.perf_counter() - access_start
-        profile["solar_checks"] += solar_checks
+        profile["solar_checks"] += access_profile["solar_checks"]
+        profile["access_viable_samples"] += access_profile["viable_samples"]
+        profile["access_solar_eval_s"] += access_profile["solar_eval_s"]
 
         if not intervals:
             continue
+        profile["targets_with_intervals"] += 1
 
         state_cache: dict[datetime, tuple[np.ndarray, np.ndarray]] = {}
         solar_cache: dict[datetime, bool] = {}
@@ -390,6 +445,7 @@ def _generate_candidates_for_satellite(
                 mid = start_t + (end_t - start_t) / 2
 
                 sampling_start = time.perf_counter()
+                profile["candidate_sample_windows"] += 1
                 sp, sv = _cached_satellite_state(series.sf_sat, mid, state_cache)
                 if use_target_centered:
                     steering_grid = _generate_target_centered_steering_grid(
@@ -403,6 +459,7 @@ def _generate_candidates_for_satellite(
                     )
                 else:
                     steering_grid = _generate_steering_grid(sat.max_off_nadir_deg, along_samples, across_samples)
+                profile["steering_grid_evals"] += 1
 
                 for along, across in steering_grid:
                     if count >= max_candidates_per_interval:

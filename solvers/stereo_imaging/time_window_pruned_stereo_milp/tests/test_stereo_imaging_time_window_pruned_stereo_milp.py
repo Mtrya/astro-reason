@@ -2142,6 +2142,42 @@ class TestRepair:
 # ---------------------------------------------------------------------------
 
 class TestDeterminism:
+    def test_access_mask_vector_solar_matches_scalar_helper(self):
+        sat = _satellite(max_off_nadir_deg=45.0)
+        target = _target(lat=0.0, lon=0.0)
+        mission = _mission(min_solar_elevation_deg=-90.0)
+        target_ecef = candidate_module.target_ecef_m(target)
+        dts = [
+            datetime(2026, 6, 18, 0, 0, 0, tzinfo=UTC),
+            datetime(2026, 6, 18, 0, 1, 0, tzinfo=UTC),
+            datetime(2026, 6, 18, 0, 2, 0, tzinfo=UTC),
+        ]
+        epochs = [candidate_module._datetime_to_epoch(dt) for dt in dts]
+        pos_m = np.asarray([[0.0, 0.0, 7_000_000.0]] * len(dts), dtype=float)
+        vel_mps = np.asarray([[7_500.0, 0.0, 0.0]] * len(dts), dtype=float)
+        up = pos_m / np.linalg.norm(pos_m, axis=1).reshape(-1, 1)
+        series = candidate_module._SatelliteStateSeries(
+            sat=sat,
+            sf_sat=candidate_module.make_earth_satellite(sat),
+            dts=dts,
+            epochs=epochs,
+            pos_m=pos_m,
+            vel_mps=vel_mps,
+            up=up,
+            sun_dir_ecef=candidate_module._sun_direction_ecef_for_epochs(epochs),
+        )
+
+        mask, profile = candidate_module._build_access_mask(series, target_ecef, mission)
+        expected = [
+            candidate_module.solar_elevation_deg(epoch, target_ecef)
+            >= mission.validity_thresholds.min_solar_elevation_deg - 1e-6
+            for epoch in epochs
+        ]
+
+        assert mask == expected
+        assert profile["solar_checks"] == len(dts)
+        assert profile["viable_samples"] == len(dts)
+
     def test_candidate_generation_parallel_path_matches_sequential(self, monkeypatch):
         class FakePool:
             def __init__(self, processes):

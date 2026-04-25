@@ -7,6 +7,13 @@ runnable: true
 setup_script: setup.sh
 solve_script: solve.sh
 solution_filename: solution.json
+config:
+  runtime:
+    mode: thorough
+  sample_stride_s: 15
+  optimization:
+    backend: ortools
+    time_limit_s: 1800
 cases:
   - id: test/case_0001
     case_dir: benchmarks/stereo_imaging/dataset/cases/test/case_0001
