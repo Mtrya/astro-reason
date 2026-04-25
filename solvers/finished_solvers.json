@@ -48,6 +48,14 @@
       "evidence_type": "reproduced_solver",
       "runnable": true,
       "ci_smoke": true
+    },
+    {
+      "benchmark": "revisit_constellation",
+      "solver": "rogers_mmrt_mart_binary_scheduler",
+      "path": "solvers/revisit_constellation/rogers_mmrt_mart_binary_scheduler",
+      "evidence_type": "reproduced_solver",
+      "runnable": true,
+      "ci_smoke": true
     }
   ]
 }
