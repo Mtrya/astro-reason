@@ -42,6 +42,14 @@
       "ci_smoke": true
     },
     {
+      "benchmark": "relay_constellation",
+      "solver": "umcf_srr_contact_plan",
+      "path": "solvers/relay_constellation/umcf_srr_contact_plan",
+      "evidence_type": "reproduced_solver",
+      "runnable": true,
+      "ci_smoke": true
+    },
+    {
       "benchmark": "stereo_imaging",
       "solver": "cp_local_search_stereo_insertion",
       "path": "solvers/stereo_imaging/cp_local_search_stereo_insertion",

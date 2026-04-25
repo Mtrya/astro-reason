@@ -6,4 +6,5 @@ solvers:
   - satnet_rl_ppo_goh2021
   - aeossp_standard_mwis_conflict_graph
   - aeossp_standard_greedy_lns
+  - relay_constellation_umcf_srr_contact_plan
   - stereo_imaging_cp_local_search_stereo_insertion

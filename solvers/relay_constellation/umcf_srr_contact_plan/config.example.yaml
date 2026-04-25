@@ -1,0 +1,55 @@
+# Example configuration for the relay_constellation UMCF/SRR contact-plan solver.
+# Copy or rename this file to config.yaml in your config directory and adjust
+# values as needed.
+
+# --- SRR oracle ---
+srr:
+  # When true, rounding picks the highest-probability path deterministically
+  # instead of sampling.  This makes the solver fully reproducible without
+  # multi-run aggregation.
+  deterministic: true
+
+  # Number of independent seeded SRR runs.  The assignment set with the highest
+  # total served commodity weight across all runs is kept.
+  # Ignored when deterministic is true.
+  multi_run_count: 1
+
+  # Random seed base for stochastic rounding.
+  # Each run i uses seed = seed + i.
+  # Ignored when deterministic is true.
+  seed: 42
+
+  # Maximum number of shortest simple paths to consider per commodity.
+  k_paths: 4
+
+  # Maximum hop count for path enumeration.
+  max_path_hops: 10
+
+  # Probability source for SRR: "lp" uses the path-restricted LP relaxation,
+  # while "heuristic" uses uniform/path-change probabilities as an ablation.
+  probability_source: lp
+
+  # LP backend and numerical settings.  The default backend is installed into
+  # the solver-local .venv by setup.sh.
+  lp_backend: scipy-highs
+  lp_tolerance: 1.0e-9
+  lp_path_cost_epsilon: 0.0
+
+  # Boost factor for sticking with the same path across consecutive samples.
+  # Higher values reduce interval churn and improve compaction.
+  path_change_penalty: 1.0
+
+# --- Candidate selection ---
+candidate_selection:
+  # Selection policy: "greedy_marginal" | "no-added" | "fixed"
+  policy: greedy_marginal
+
+  # Maximum number of added satellites to select from the orbit library.
+  # If omitted, the solver uses the benchmark manifest limit.
+  # max_added_satellites: null
+
+  # For policy "fixed": list of candidate IDs to use.
+  # fixed_candidates: []
+
+  # Sample stride for marginal evaluation (1 = every sample, 10 = every 10th).
+  evaluation_sample_stride: 10
