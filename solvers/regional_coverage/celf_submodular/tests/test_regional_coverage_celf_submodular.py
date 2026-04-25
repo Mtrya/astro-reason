@@ -8,8 +8,9 @@ from pathlib import Path
 import yaml
 
 
-REPO_ROOT = Path(__file__).resolve().parents[2]
-SOLVER_SRC = REPO_ROOT / "solvers" / "regional_coverage" / "celf_submodular" / "src"
+SOLVER_ROOT = Path(__file__).resolve().parents[1]
+REPO_ROOT = Path(__file__).resolve().parents[4]
+SOLVER_SRC = SOLVER_ROOT / "src"
 sys.path.insert(0, str(SOLVER_SRC))
 
 from candidates import CandidateConfig, generate_candidates, load_candidate_config  # noqa: E402
