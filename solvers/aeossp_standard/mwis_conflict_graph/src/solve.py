@@ -125,9 +125,15 @@ def _candidate_generation_execution_model(
     *,
     satellite_count: int,
 ) -> dict[str, Any]:
+    caps_enabled = (
+        candidate_config.max_candidates is not None
+        or candidate_config.max_candidates_per_task is not None
+    )
     effective_workers = (
         min(candidate_config.candidate_workers, satellite_count)
-        if candidate_config.candidate_workers > 1 and satellite_count > 1
+        if candidate_config.candidate_workers > 1
+        and satellite_count > 1
+        and not caps_enabled
         else 1
     )
     if effective_workers > 1:
@@ -145,7 +151,11 @@ def _candidate_generation_execution_model(
         "parallelism_scope": "none",
         "configured_workers": candidate_config.candidate_workers,
         "effective_workers": 1,
-        "notes": "serial sweep over satellites, tasks, and grid-aligned start offsets",
+        "notes": (
+            "serial sweep over satellites, tasks, and grid-aligned start offsets"
+            if not caps_enabled
+            else "serial sweep preserves deterministic early candidate cap semantics"
+        ),
     }
 
 

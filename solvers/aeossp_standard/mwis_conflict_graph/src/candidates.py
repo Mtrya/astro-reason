@@ -145,6 +145,13 @@ def _positive_int(value: Any) -> int:
     return parsed
 
 
+def _candidate_caps_enabled(config: CandidateConfig) -> bool:
+    return (
+        config.max_candidates is not None
+        or config.max_candidates_per_task is not None
+    )
+
+
 def start_offsets_for_task(
     case: AeosspCase,
     task: Task,
@@ -510,6 +517,10 @@ def generate_candidates(
 ) -> tuple[list[Candidate], CandidateSummary]:
     config = config or CandidateConfig()
     precompute = _build_candidate_precompute(case, config)
-    if config.candidate_workers <= 1 or len(case.satellites) <= 1:
+    if (
+        _candidate_caps_enabled(config)
+        or config.candidate_workers <= 1
+        or len(case.satellites) <= 1
+    ):
         return _generate_candidates_serial(case, config, precompute)
     return _generate_candidates_parallel(case, config, precompute)

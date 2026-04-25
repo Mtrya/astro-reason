@@ -148,7 +148,10 @@ def _satellite_temporal_edges(
     satellite_candidates: list[Candidate],
 ) -> _SatelliteTemporalEdges:
     step_s = float(min(case.mission.action_time_step_s, case.mission.geometry_sample_step_s))
-    propagation = PropagationContext(case.satellites, step_s=step_s)
+    propagation = PropagationContext(
+        {satellite_id: case.satellites[satellite_id]},
+        step_s=step_s,
+    )
     vector_cache = TransitionVectorCache(case, propagation)
     satellite = case.satellites[satellite_id]
     safe_gap_s = max_transition_gap_s(satellite)
