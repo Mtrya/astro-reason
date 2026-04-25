@@ -57,6 +57,22 @@ uv run python experiments/main_solver/run.py \
     --case test/case_0001
 ```
 
+Run the regional-coverage CELF Phase 4 policy envelopes:
+
+```bash
+# Fast verifier smoke.
+uv run python experiments/main_solver/run.py \
+    --benchmark regional_coverage \
+    --solver regional_coverage_celf_submodular \
+    --policy smoke
+
+# Larger fair fixed-candidate evaluation envelope.
+uv run python experiments/main_solver/run.py \
+    --benchmark regional_coverage \
+    --solver regional_coverage_celf_submodular \
+    --policy evaluation
+```
+
 Materialize SatNet citation-backed rows:
 
 ```bash
@@ -80,5 +96,9 @@ results/main_solver/<benchmark>/<solver>/<case_slug>/
 ├── logs/
 └── run.json
 ```
+
+Named solver policies append the policy id to the case slug, for example
+`test__case_0001__evaluation`, so smoke and evaluation artifacts do not
+overwrite one another.
 
 Benchmark verifiers are consumed as executables. The runner does not import benchmark-internal functions, classes, or modules.

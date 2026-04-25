@@ -7,6 +7,92 @@ runnable: true
 setup_script: setup.sh
 solve_script: solve.sh
 solution_filename: solution.json
+config:
+  candidate_generation:
+    time_stride_s: 600
+    max_candidates_total: 512
+    cap_strategy: balanced_stride
+    debug_candidate_limit: 50
+  coverage_mapping:
+    method: indexed
+    spatial_bin_deg: 0.25
+  selection:
+    write_iteration_trace: true
+    max_iteration_debug: 2000
+run_policies:
+  smoke:
+    description: Fast validity smoke with bounded debug artifacts.
+    cases:
+      - test/case_0001
+    config:
+      candidate_generation:
+        time_stride_s: 600
+        max_candidates_total: 512
+        cap_strategy: balanced_stride
+        debug_candidate_limit: 50
+      coverage_mapping:
+        method: indexed
+        spatial_bin_deg: 0.25
+      selection:
+        write_iteration_trace: true
+        max_iteration_debug: 2000
+    quality_gates:
+      requires_valid_verifier: true
+      min_candidate_count: 512
+      min_nonzero_candidate_count: 1
+      min_repaired_actions: 1
+      max_solver_total_seconds: 30
+      max_verifier_seconds: 60
+  evaluation:
+    description: Larger fair fixed-candidate CELF evaluation envelope for Phase 4.
+    cases:
+      - test/case_0001
+      - test/case_0002
+      - test/case_0003
+      - test/case_0004
+      - test/case_0005
+    config:
+      candidate_generation:
+        time_stride_s: 600
+        max_candidates_total: 2048
+        cap_strategy: balanced_stride
+        debug_candidate_limit: 25
+      coverage_mapping:
+        method: indexed
+        spatial_bin_deg: 0.25
+      selection:
+        write_iteration_trace: false
+        max_iteration_debug: 500
+    quality_gates:
+      requires_valid_verifier: true
+      min_candidate_count: 2048
+      min_nonzero_candidate_count: 1
+      min_repaired_actions: 1
+      max_solver_total_seconds: 60
+      max_verifier_seconds: 90
+  debug_diagnostics:
+    description: Larger candidate coverage diagnostics with bounded CELF trace.
+    cases:
+      - test/case_0001
+    config:
+      candidate_generation:
+        time_stride_s: 600
+        max_candidates_total: 2048
+        cap_strategy: balanced_stride
+        debug_candidate_limit: 100
+      coverage_mapping:
+        method: indexed
+        spatial_bin_deg: 0.25
+      selection:
+        write_iteration_trace: true
+        max_iteration_debug: 1000
+    quality_gates:
+      requires_valid_verifier: true
+      min_candidate_count: 2048
+      min_nonzero_candidate_count: 1
+      min_repaired_actions: 1
+      max_solver_total_seconds: 90
+      max_verifier_seconds: 90
 cases:
   - id: test/case_0001
     case_dir: benchmarks/regional_coverage/dataset/cases/test/case_0001
