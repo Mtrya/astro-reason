@@ -8,6 +8,7 @@ import sys
 
 import brahe
 import numpy as np
+import pytest
 
 
 SOLVER_DIR = Path(__file__).resolve().parents[1]
@@ -95,6 +96,7 @@ def _small_config() -> SolverConfig:
 def _design_config(
     *,
     mode: str,
+    backend: str = "fallback",
     satellite_count: int | None = 1,
     max_selected: int = 2,
     exhaustive_max: int = 100,
@@ -102,7 +104,7 @@ def _design_config(
 ) -> SolverConfig:
     return SolverConfig(
         design_mode=mode,
-        design_backend="auto",
+        design_backend=backend,
         design_satellite_count=satellite_count,
         design_max_selected_slots=max_selected,
         design_max_backend_slots=max_backend_slots,
@@ -383,6 +385,34 @@ def test_mmrt_design_selects_slot_with_smallest_worst_gap() -> None:
     assert result.to_summary()["backend_report"]["used_fallback"] is True
 
 
+def test_mmrt_design_required_pulp_backend_solves_tiny_model() -> None:
+    problem = _problem(
+        shape=(6, 2, 1),
+        visible={
+            (2, 0, 0),
+            (1, 1, 0),
+            (4, 1, 0),
+        },
+    )
+    config = SolverConfig(
+        design_mode="mmrt",
+        design_backend="pulp",
+        design_satellite_count=1,
+        design_max_selected_slots=1,
+    )
+
+    result = select_design_slots(problem, config)
+    report = result.to_summary()["backend_report"]
+
+    assert result.backend == "pulp"
+    assert result.fallback_reason is None
+    assert result.selected_slot_ids == ("slot_1",)
+    assert report["requested_backend"] == "pulp"
+    assert report["exact_required"] is True
+    assert report["solved"] is True
+    assert report["solved_with_milp_backend"] is True
+
+
 def test_mart_design_selects_slot_with_smallest_average_gap() -> None:
     problem = _problem(
         shape=(8, 2, 1),
@@ -398,6 +428,58 @@ def test_mart_design_selects_slot_with_smallest_average_gap() -> None:
 
     assert result.selected_slot_ids == ("slot_1",)
     assert result.objective["sum_mean_gap_samples"] == 1.25
+
+
+def test_mart_design_required_pulp_backend_solves_tiny_model() -> None:
+    problem = _problem(
+        shape=(8, 2, 1),
+        visible={
+            (3, 0, 0),
+            (1, 1, 0),
+            (3, 1, 0),
+            (5, 1, 0),
+        },
+    )
+    config = SolverConfig(
+        design_mode="mart",
+        design_backend="pulp",
+        design_satellite_count=1,
+        design_max_selected_slots=1,
+    )
+
+    result = select_design_slots(problem, config)
+    report = result.to_summary()["backend_report"]
+
+    assert result.backend == "pulp"
+    assert result.fallback_reason is None
+    assert result.selected_slot_ids == ("slot_1",)
+    assert report["requested_backend"] == "pulp"
+    assert report["exact_required"] is True
+    assert report["solved"] is True
+    assert report["solved_with_milp_backend"] is True
+
+
+def test_required_design_backend_fails_loudly_when_model_is_out_of_bounds() -> None:
+    problem = _problem(
+        shape=(5, 3, 1),
+        visible={
+            (1, 0, 0),
+            (3, 1, 0),
+            (2, 2, 0),
+        },
+        fixed_count=1,
+        max_selected=1,
+    )
+    config = SolverConfig(
+        design_mode="mmrt",
+        design_backend="pulp",
+        design_satellite_count=1,
+        design_max_selected_slots=1,
+        design_max_backend_slots=1,
+    )
+
+    with pytest.raises(RuntimeError, match="slot_bound_exceeded"):
+        select_design_slots(problem, config)
 
 
 def test_threshold_first_finds_fewest_slots_satisfying_expected_gap() -> None:
@@ -461,6 +543,7 @@ def test_design_fallback_trigger_is_deterministic() -> None:
     )
     config = _design_config(
         mode="mmrt",
+        backend="auto",
         satellite_count=1,
         max_selected=1,
         max_backend_slots=1,
@@ -561,6 +644,48 @@ def test_scheduler_chooses_window_with_better_gap_reduction() -> None:
 
     assert result.selected_window_ids == ("win_center",)
     assert result.evaluation.max_revisit_gap_hours == 0.5 / 60.0
+
+
+def test_scheduler_required_pulp_binary_backend_solves_tiny_model() -> None:
+    case = _window_case()
+    edge = _manual_window("win_edge", start_offset_sec=0, end_offset_sec=10)
+    center = _manual_window(
+        "win_center",
+        start_offset_sec=25,
+        end_offset_sec=35,
+        max_reduction=1.0,
+    )
+
+    result = schedule_observation_windows(
+        case,
+        _scheduler_config(backend="pulp_binary", max_selected=1),
+        _window_result((edge, center)),
+    )
+    report = result.to_summary()["backend_report"]
+
+    assert result.backend == "pulp_binary"
+    assert result.fallback_reason is None
+    assert result.selected_window_ids == ("win_center",)
+    assert report["requested_backend"] == "pulp_binary"
+    assert report["exact_required"] is True
+    assert report["solved"] is True
+    assert report["solved_with_binary_milp"] is True
+
+
+def test_required_scheduler_backend_fails_loudly_when_model_is_out_of_bounds() -> None:
+    case = _window_case()
+    windows = (
+        _manual_window("win_00", start_offset_sec=0, end_offset_sec=10),
+        _manual_window("win_01", start_offset_sec=20, end_offset_sec=30),
+    )
+    config = SolverConfig(
+        scheduler_backend="pulp_binary",
+        scheduler_max_selected_windows=1,
+        scheduler_max_backend_windows=1,
+    )
+
+    with pytest.raises(RuntimeError, match="window_bound_exceeded"):
+        schedule_observation_windows(case, config, _window_result(windows))
 
 
 def test_scheduler_greedy_fallback_is_deterministic() -> None:

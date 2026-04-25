@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 import importlib.util
 from itertools import combinations
 import math
@@ -65,12 +65,18 @@ class BinaryScheduleResult:
     transition_conflict_edge_count: int
     model_size: dict[str, int]
     rounding_summary: dict[str, object]
+    backend_status: dict[str, object] = field(default_factory=dict)
 
     def to_summary(self) -> dict[str, object]:
+        backend_report = (
+            self.backend_status
+            if self.backend_status
+            else _scheduler_backend_report(self.backend, self.fallback_reason)
+        )
         return {
             "backend": self.backend,
             "fallback_reason": self.fallback_reason,
-            "backend_report": _scheduler_backend_report(self.backend, self.fallback_reason),
+            "backend_report": backend_report,
             "selected_window_ids": list(self.selected_window_ids),
             "selected_window_indices": list(self.selected_window_indices),
             "selected_count": len(self.selected_windows),
@@ -85,7 +91,15 @@ class BinaryScheduleResult:
 def _scheduler_backend_report(backend: str, fallback_reason: str | None) -> dict[str, object]:
     reason = fallback_reason or ""
     return {
+        "backend_name": "pulp_cbc" if backend in {"pulp_binary", "relaxed_rounding"} else backend,
+        "requested_backend": backend,
+        "exact_required": backend == "pulp_binary",
         "pulp_available": importlib.util.find_spec("pulp") is not None,
+        "available": None if backend in {"exact_fallback", "greedy_fallback", "none"} else "pulp_not_available" not in reason,
+        "attempted": backend in {"pulp_binary", "relaxed_rounding"} and "pulp_not_available" not in reason,
+        "solved": backend == "pulp_binary" and not fallback_reason,
+        "solver_status": None,
+        "failure_reason": fallback_reason,
         "solved_with_binary_milp": backend == "pulp_binary" and not fallback_reason,
         "used_exact_fallback": backend == "exact_fallback" or "exact_fallback" in reason,
         "used_relaxed_rounding": backend == "relaxed_rounding"
@@ -93,6 +107,38 @@ def _scheduler_backend_report(backend: str, fallback_reason: str | None) -> dict
         "used_greedy_fallback": backend == "greedy_fallback"
         or "greedy_fallback" in reason,
         "fallback_reason": fallback_reason,
+    }
+
+
+def _scheduler_backend_status(
+    *,
+    requested_backend: str,
+    active_backend: str,
+    available: bool | None,
+    attempted: bool,
+    solved: bool,
+    failure_reason: str | None,
+    solver_status: str | None = None,
+) -> dict[str, object]:
+    reason = failure_reason or ""
+    return {
+        "backend_name": "pulp_cbc",
+        "requested_backend": requested_backend,
+        "active_backend": active_backend,
+        "exact_required": requested_backend == "pulp_binary",
+        "pulp_available": importlib.util.find_spec("pulp") is not None,
+        "available": available,
+        "attempted": attempted,
+        "solved": solved,
+        "solver_status": solver_status,
+        "failure_reason": failure_reason,
+        "solved_with_binary_milp": active_backend == "pulp_binary" and solved,
+        "used_exact_fallback": active_backend == "exact_fallback" or "exact_fallback" in reason,
+        "used_relaxed_rounding": active_backend == "relaxed_rounding"
+        or "relaxed_rounding" in reason,
+        "used_greedy_fallback": active_backend == "greedy_fallback"
+        or "greedy_fallback" in reason,
+        "fallback_reason": failure_reason,
     }
 
 
@@ -290,17 +336,61 @@ def _try_pulp_binary(
     windows: tuple[ObservationWindow, ...],
     edges: frozenset[tuple[int, int]],
     config: SolverConfig,
-) -> tuple[tuple[int, ...] | None, str | None]:
+) -> tuple[tuple[int, ...] | None, str | None, dict[str, object]]:
     if config.scheduler_backend not in {"auto", "pulp_binary"}:
-        return None, "binary_backend_disabled"
+        reason = "binary_backend_disabled"
+        return None, reason, _scheduler_backend_status(
+            requested_backend=config.scheduler_backend,
+            active_backend="pulp_binary",
+            available=None,
+            attempted=False,
+            solved=False,
+            failure_reason=reason,
+        )
     if len(windows) > config.scheduler_max_backend_windows:
-        return None, "window_bound_exceeded"
+        reason = "window_bound_exceeded"
+        return None, reason, _scheduler_backend_status(
+            requested_backend=config.scheduler_backend,
+            active_backend="pulp_binary",
+            available=None,
+            attempted=False,
+            solved=False,
+            failure_reason=reason,
+        )
     if len(edges) > config.scheduler_max_backend_conflicts:
-        return None, "conflict_bound_exceeded"
+        reason = "conflict_bound_exceeded"
+        return None, reason, _scheduler_backend_status(
+            requested_backend=config.scheduler_backend,
+            active_backend="pulp_binary",
+            available=None,
+            attempted=False,
+            solved=False,
+            failure_reason=reason,
+        )
     try:
         import pulp  # type: ignore[import-not-found]
     except ImportError:
-        return None, "pulp_not_available"
+        reason = "pulp_not_available"
+        return None, reason, _scheduler_backend_status(
+            requested_backend=config.scheduler_backend,
+            active_backend="pulp_binary",
+            available=False,
+            attempted=False,
+            solved=False,
+            failure_reason=reason,
+        )
+
+    solver = pulp.PULP_CBC_CMD(msg=False, timeLimit=config.scheduler_time_limit_sec)
+    if not solver.available():
+        reason = "pulp_cbc_not_available"
+        return None, reason, _scheduler_backend_status(
+            requested_backend=config.scheduler_backend,
+            active_backend="pulp_binary",
+            available=False,
+            attempted=False,
+            solved=False,
+            failure_reason=reason,
+        )
 
     model = pulp.LpProblem("rogers_binary_scheduler", pulp.LpMaximize)
     x = [pulp.LpVariable(f"z_{index}", cat="Binary") for index in range(len(windows))]
@@ -308,30 +398,101 @@ def _try_pulp_binary(
         model += x[left] + x[right] <= 1
     model += pulp.lpSum(x) <= config.scheduler_max_selected_windows
     model += pulp.lpSum(_window_profit(window) * x[index] for index, window in enumerate(windows))
-    solver = pulp.PULP_CBC_CMD(msg=False, timeLimit=config.scheduler_time_limit_sec)
-    status = model.solve(solver)
+    try:
+        status = model.solve(solver)
+    except Exception as exc:  # pragma: no cover - depends on external solver failure mode
+        reason = f"pulp_error_{type(exc).__name__}"
+        return None, reason, _scheduler_backend_status(
+            requested_backend=config.scheduler_backend,
+            active_backend="pulp_binary",
+            available=True,
+            attempted=True,
+            solved=False,
+            failure_reason=reason,
+        )
     status_name = pulp.LpStatus.get(status, str(status))
     if status_name not in {"Optimal", "Feasible"}:
-        return None, f"pulp_status_{status_name}"
+        reason = f"pulp_status_{status_name}"
+        return None, reason, _scheduler_backend_status(
+            requested_backend=config.scheduler_backend,
+            active_backend="pulp_binary",
+            available=True,
+            attempted=True,
+            solved=False,
+            failure_reason=reason,
+            solver_status=status_name,
+        )
     selected = tuple(index for index, variable in enumerate(x) if (variable.value() or 0.0) >= 0.5)
-    return selected, None
+    return selected, None, _scheduler_backend_status(
+        requested_backend=config.scheduler_backend,
+        active_backend="pulp_binary",
+        available=True,
+        attempted=True,
+        solved=True,
+        failure_reason=None,
+        solver_status=status_name,
+    )
 
 
 def _try_pulp_relaxed(
     windows: tuple[ObservationWindow, ...],
     edges: frozenset[tuple[int, int]],
     config: SolverConfig,
-) -> tuple[tuple[int, ...] | None, dict[str, object], str | None]:
+) -> tuple[tuple[int, ...] | None, dict[str, object], str | None, dict[str, object]]:
     if config.scheduler_backend not in {"auto", "pulp_relaxed"}:
-        return None, {}, "relaxed_backend_disabled"
+        reason = "relaxed_backend_disabled"
+        return None, {}, reason, _scheduler_backend_status(
+            requested_backend=config.scheduler_backend,
+            active_backend="relaxed_rounding",
+            available=None,
+            attempted=False,
+            solved=False,
+            failure_reason=reason,
+        )
     if len(windows) > config.scheduler_max_backend_windows:
-        return None, {}, "window_bound_exceeded"
+        reason = "window_bound_exceeded"
+        return None, {}, reason, _scheduler_backend_status(
+            requested_backend=config.scheduler_backend,
+            active_backend="relaxed_rounding",
+            available=None,
+            attempted=False,
+            solved=False,
+            failure_reason=reason,
+        )
     if len(edges) > config.scheduler_max_backend_conflicts:
-        return None, {}, "conflict_bound_exceeded"
+        reason = "conflict_bound_exceeded"
+        return None, {}, reason, _scheduler_backend_status(
+            requested_backend=config.scheduler_backend,
+            active_backend="relaxed_rounding",
+            available=None,
+            attempted=False,
+            solved=False,
+            failure_reason=reason,
+        )
     try:
         import pulp  # type: ignore[import-not-found]
     except ImportError:
-        return None, {}, "pulp_not_available"
+        reason = "pulp_not_available"
+        return None, {}, reason, _scheduler_backend_status(
+            requested_backend=config.scheduler_backend,
+            active_backend="relaxed_rounding",
+            available=False,
+            attempted=False,
+            solved=False,
+            failure_reason=reason,
+        )
+
+    solver = pulp.PULP_CBC_CMD(msg=False, timeLimit=config.scheduler_time_limit_sec)
+    if not solver.available():
+        reason = "pulp_cbc_not_available"
+        return None, {}, reason, _scheduler_backend_status(
+            requested_backend=config.scheduler_backend,
+            active_backend="relaxed_rounding",
+            available=False,
+            attempted=False,
+            solved=False,
+            failure_reason=reason,
+        )
 
     model = pulp.LpProblem("rogers_relaxed_scheduler", pulp.LpMaximize)
     x = [
@@ -342,11 +503,30 @@ def _try_pulp_relaxed(
         model += x[left] + x[right] <= 1.0
     model += pulp.lpSum(x) <= config.scheduler_max_selected_windows
     model += pulp.lpSum(_window_profit(window) * x[index] for index, window in enumerate(windows))
-    solver = pulp.PULP_CBC_CMD(msg=False, timeLimit=config.scheduler_time_limit_sec)
-    status = model.solve(solver)
+    try:
+        status = model.solve(solver)
+    except Exception as exc:  # pragma: no cover - depends on external solver failure mode
+        reason = f"pulp_error_{type(exc).__name__}"
+        return None, {}, reason, _scheduler_backend_status(
+            requested_backend=config.scheduler_backend,
+            active_backend="relaxed_rounding",
+            available=True,
+            attempted=True,
+            solved=False,
+            failure_reason=reason,
+        )
     status_name = pulp.LpStatus.get(status, str(status))
     if status_name not in {"Optimal", "Feasible"}:
-        return None, {}, f"pulp_relaxed_status_{status_name}"
+        reason = f"pulp_relaxed_status_{status_name}"
+        return None, {}, reason, _scheduler_backend_status(
+            requested_backend=config.scheduler_backend,
+            active_backend="relaxed_rounding",
+            available=True,
+            attempted=True,
+            solved=False,
+            failure_reason=reason,
+            solver_status=status_name,
+        )
     values = tuple(float(variable.value() or 0.0) for variable in x)
     order = tuple(
         index
@@ -355,7 +535,15 @@ def _try_pulp_relaxed(
             key=lambda item: (-item[1], -_window_profit(windows[item[0]]), windows[item[0]].window_id),
         )
     )
-    return order, {"relaxed_values": list(values), "status": status_name}, None
+    return order, {"relaxed_values": list(values), "status": status_name}, None, _scheduler_backend_status(
+        requested_backend=config.scheduler_backend,
+        active_backend="relaxed_rounding",
+        available=True,
+        attempted=True,
+        solved=True,
+        failure_reason=None,
+        solver_status=status_name,
+    )
 
 
 def schedule_observation_windows(
@@ -379,23 +567,45 @@ def schedule_observation_windows(
     fallback_reason: str | None = None
     backend = "pulp_binary"
     rounding_summary: dict[str, object] = {}
+    backend_status: dict[str, object] = {}
 
-    selected, fallback_reason = _try_pulp_binary(windows, edges, config)
+    selected, fallback_reason, backend_status = _try_pulp_binary(windows, edges, config)
     if selected is None:
-        exact, combination_count = _exact_schedule(
-            case,
-            windows,
-            edges,
-            max_selected,
-            config.scheduler_max_exact_combinations,
-        )
+        if config.scheduler_backend == "pulp_binary":
+            raise RuntimeError(
+                "required scheduler_backend=pulp_binary failed: "
+                f"{fallback_reason or 'unknown_failure'}"
+            )
+        exact: tuple[int, ...] | None = None
+        combination_count = 0
+        if config.scheduler_backend != "pulp_relaxed":
+            exact, combination_count = _exact_schedule(
+                case,
+                windows,
+                edges,
+                max_selected,
+                config.scheduler_max_exact_combinations,
+            )
         if exact is not None:
             selected = exact
             backend = "exact_fallback"
             fallback_reason = f"{fallback_reason or 'binary_backend_unavailable'};exact_fallback"
             rounding_summary = {"exact_combinations": combination_count}
+            backend_status = _scheduler_backend_status(
+                requested_backend=config.scheduler_backend,
+                active_backend=backend,
+                available=backend_status.get("available") if backend_status else None,
+                attempted=bool(backend_status.get("attempted")) if backend_status else False,
+                solved=False,
+                failure_reason=fallback_reason,
+                solver_status=(
+                    str(backend_status.get("solver_status"))
+                    if backend_status.get("solver_status") is not None
+                    else None
+                ),
+            )
         else:
-            relaxed_order, relaxed_summary, relaxed_reason = _try_pulp_relaxed(
+            relaxed_order, relaxed_summary, relaxed_reason, relaxed_status = _try_pulp_relaxed(
                 windows, edges, config
             )
             if relaxed_order is not None:
@@ -408,7 +618,25 @@ def schedule_observation_windows(
                     f"exact_combinations_{combination_count}_exceeded;relaxed_rounding"
                 )
                 rounding_summary = relaxed_summary
+                backend_status = _scheduler_backend_status(
+                    requested_backend=config.scheduler_backend,
+                    active_backend=backend,
+                    available=relaxed_status.get("available") if relaxed_status else None,
+                    attempted=bool(relaxed_status.get("attempted")) if relaxed_status else False,
+                    solved=False,
+                    failure_reason=fallback_reason,
+                    solver_status=(
+                        str(relaxed_status.get("solver_status"))
+                        if relaxed_status.get("solver_status") is not None
+                        else None
+                    ),
+                )
             else:
+                if config.scheduler_backend == "pulp_relaxed":
+                    raise RuntimeError(
+                        "required scheduler_backend=pulp_relaxed failed: "
+                        f"{relaxed_reason or 'unknown_failure'}"
+                    )
                 backend = "greedy_fallback"
                 selected = _greedy_schedule(case, windows, edges, max_selected)
                 fallback_reason = (
@@ -417,6 +645,19 @@ def schedule_observation_windows(
                     f"{relaxed_reason or 'relaxed_unavailable'};greedy_fallback"
                 )
                 rounding_summary = {"exact_combinations": combination_count}
+                backend_status = _scheduler_backend_status(
+                    requested_backend=config.scheduler_backend,
+                    active_backend=backend,
+                    available=relaxed_status.get("available") if relaxed_status else None,
+                    attempted=bool(relaxed_status.get("attempted")) if relaxed_status else False,
+                    solved=False,
+                    failure_reason=fallback_reason,
+                    solver_status=(
+                        str(relaxed_status.get("solver_status"))
+                        if relaxed_status.get("solver_status") is not None
+                        else None
+                    ),
+                )
 
     selected = tuple(sorted(selected or ()))
     selected_windows = tuple(windows[index] for index in selected)
@@ -432,6 +673,7 @@ def schedule_observation_windows(
         transition_conflict_edge_count=transition_edges,
         model_size=model_size,
         rounding_summary=rounding_summary,
+        backend_status=backend_status,
     )
 
 

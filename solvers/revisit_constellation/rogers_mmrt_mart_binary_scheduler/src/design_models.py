@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass, replace
+from dataclasses import dataclass, field, replace
 from itertools import combinations
 import math
 from typing import Iterable
@@ -62,13 +62,19 @@ class DesignResult:
     target_stats: tuple[TargetDesignStats, ...]
     model_size: dict[str, int]
     notes: tuple[str, ...] = ()
+    backend_status: dict[str, object] = field(default_factory=dict)
 
     def to_summary(self) -> dict[str, object]:
+        backend_report = (
+            self.backend_status
+            if self.backend_status
+            else _design_backend_report(self.backend, self.fallback_reason)
+        )
         return {
             "mode": self.mode,
             "backend": self.backend,
             "fallback_reason": self.fallback_reason,
-            "backend_report": _design_backend_report(self.backend, self.fallback_reason),
+            "backend_report": backend_report,
             "selected_slot_indices": list(self.selected_slot_indices),
             "selected_slot_ids": list(self.selected_slot_ids),
             "objective": self.objective,
@@ -124,11 +130,45 @@ def _problem_for_mode(
 def _design_backend_report(backend: str, fallback_reason: str | None) -> dict[str, object]:
     reason = fallback_reason or ""
     return {
+        "backend_name": "pulp_cbc" if backend == "pulp" else backend,
+        "requested_backend": backend,
+        "exact_required": backend == "pulp",
+        "available": None if backend == "fallback" else fallback_reason != "pulp_not_available",
+        "attempted": backend == "pulp" and fallback_reason != "pulp_not_available",
+        "solved": backend == "pulp" and not fallback_reason,
+        "failure_reason": fallback_reason,
         "solved_with_milp_backend": backend == "pulp" and not fallback_reason,
         "used_fallback": backend != "pulp" or fallback_reason is not None,
         "used_exhaustive_fallback": "exhaustive_fallback" in reason,
         "used_greedy_fallback": "exhaustive_combinations_" in reason,
         "fallback_reason": fallback_reason,
+    }
+
+
+def _design_backend_status(
+    *,
+    requested_backend: str,
+    available: bool | None,
+    attempted: bool,
+    solved: bool,
+    failure_reason: str | None,
+    solver_status: str | None = None,
+) -> dict[str, object]:
+    reason = failure_reason or ""
+    return {
+        "backend_name": "pulp_cbc",
+        "requested_backend": requested_backend,
+        "exact_required": requested_backend == "pulp",
+        "available": available,
+        "attempted": attempted,
+        "solved": solved,
+        "solver_status": solver_status,
+        "failure_reason": failure_reason,
+        "solved_with_milp_backend": solved,
+        "used_fallback": not solved,
+        "used_exhaustive_fallback": "exhaustive_fallback" in reason,
+        "used_greedy_fallback": "exhaustive_combinations_" in reason,
+        "fallback_reason": failure_reason,
     }
 
 
@@ -387,19 +427,57 @@ def _try_pulp_backend(
     config: SolverConfig,
     mode: str,
     threshold_metric: str,
-) -> tuple[tuple[int, ...] | None, str | None]:
+) -> tuple[tuple[int, ...] | None, str | None, dict[str, object]]:
     if config.design_backend == "fallback":
-        return None, "backend_disabled"
+        reason = "backend_disabled"
+        return None, reason, _design_backend_status(
+            requested_backend=config.design_backend,
+            available=None,
+            attempted=False,
+            solved=False,
+            failure_reason=reason,
+        )
     if mode == "hybrid":
-        return None, "pulp_backend_not_implemented_for_hybrid"
+        reason = "pulp_backend_not_implemented_for_hybrid"
+        return None, reason, _design_backend_status(
+            requested_backend=config.design_backend,
+            available=None,
+            attempted=False,
+            solved=False,
+            failure_reason=reason,
+        )
     bound_reason = _bounded_for_backend(problem, config, mode)
     if bound_reason:
-        return None, bound_reason
+        return None, bound_reason, _design_backend_status(
+            requested_backend=config.design_backend,
+            available=None,
+            attempted=False,
+            solved=False,
+            failure_reason=bound_reason,
+        )
 
     try:
         import pulp  # type: ignore[import-not-found]
     except ImportError:
-        return None, "pulp_not_available"
+        reason = "pulp_not_available"
+        return None, reason, _design_backend_status(
+            requested_backend=config.design_backend,
+            available=False,
+            attempted=False,
+            solved=False,
+            failure_reason=reason,
+        )
+
+    solver = pulp.PULP_CBC_CMD(msg=False, timeLimit=config.design_time_limit_sec)
+    if not solver.available():
+        reason = "pulp_cbc_not_available"
+        return None, reason, _design_backend_status(
+            requested_backend=config.design_backend,
+            available=False,
+            attempted=False,
+            solved=False,
+            failure_reason=reason,
+        )
 
     time_count, slot_count, target_count = problem.matrix.shape
     fixed_count = (
@@ -505,13 +583,37 @@ def _try_pulp_backend(
         else:
             model += pulp.lpSum(alpha)
 
-    solver = pulp.PULP_CBC_CMD(msg=False, timeLimit=config.design_time_limit_sec)
-    status = model.solve(solver)
+    try:
+        status = model.solve(solver)
+    except Exception as exc:  # pragma: no cover - depends on external solver failure mode
+        reason = f"pulp_error_{type(exc).__name__}"
+        return None, reason, _design_backend_status(
+            requested_backend=config.design_backend,
+            available=True,
+            attempted=True,
+            solved=False,
+            failure_reason=reason,
+        )
     status_name = pulp.LpStatus.get(status, str(status))
     if status_name not in {"Optimal", "Feasible"}:
-        return None, f"pulp_status_{status_name}"
+        reason = f"pulp_status_{status_name}"
+        return None, reason, _design_backend_status(
+            requested_backend=config.design_backend,
+            available=True,
+            attempted=True,
+            solved=False,
+            failure_reason=reason,
+            solver_status=status_name,
+        )
     selected = tuple(j for j, variable in enumerate(x) if (variable.value() or 0.0) >= 0.5)
-    return selected, None
+    return selected, None, _design_backend_status(
+        requested_backend=config.design_backend,
+        available=True,
+        attempted=True,
+        solved=True,
+        failure_reason=None,
+        solver_status=status_name,
+    )
 
 
 def select_design_slots(
@@ -520,12 +622,17 @@ def select_design_slots(
     selected_mode = mode or config.design_mode
     problem = _problem_for_mode(problem, config, selected_mode)
     size = estimate_model_size(problem, selected_mode)
-    selected, fallback_reason = _try_pulp_backend(
+    selected, fallback_reason, backend_status = _try_pulp_backend(
         problem, config, selected_mode, config.design_threshold_metric
     )
     backend = "pulp"
 
     if selected is None:
+        if config.design_backend == "pulp":
+            raise RuntimeError(
+                f"required design_backend=pulp failed for {selected_mode}: "
+                f"{fallback_reason or 'unknown_failure'}"
+            )
         backend = "fallback"
         exact, combination_count = _enumerate_best(
             problem,
@@ -539,10 +646,34 @@ def select_design_slots(
                 f"{fallback_reason or 'backend_unavailable'};"
                 f"exhaustive_combinations_{combination_count}_exceeded"
             )
+            backend_status = _design_backend_status(
+                requested_backend=config.design_backend,
+                available=backend_status.get("available") if backend_status else None,
+                attempted=bool(backend_status.get("attempted")) if backend_status else False,
+                solved=False,
+                failure_reason=fallback_reason,
+                solver_status=(
+                    str(backend_status.get("solver_status"))
+                    if backend_status.get("solver_status") is not None
+                    else None
+                ),
+            )
         else:
             selected = exact
             fallback_reason = (
                 f"{fallback_reason or 'backend_unavailable'};exhaustive_fallback"
+            )
+            backend_status = _design_backend_status(
+                requested_backend=config.design_backend,
+                available=backend_status.get("available") if backend_status else None,
+                attempted=bool(backend_status.get("attempted")) if backend_status else False,
+                solved=False,
+                failure_reason=fallback_reason,
+                solver_status=(
+                    str(backend_status.get("solver_status"))
+                    if backend_status.get("solver_status") is not None
+                    else None
+                ),
             )
 
     objective, target_stats = evaluate_selection(problem, selected)
@@ -560,6 +691,7 @@ def select_design_slots(
         target_stats=target_stats,
         model_size=size,
         notes=notes if selected_mode == "mart" else (),
+        backend_status=backend_status,
     )
 
 
@@ -570,19 +702,42 @@ def compare_design_modes(
 ) -> tuple[dict[str, object], ...]:
     records: list[dict[str, object]] = []
     for mode in modes:
-        result = select_design_slots(problem, config, mode=mode)
-        records.append(
-            {
-                "mode": result.mode,
-                "backend": result.backend,
-                "fallback_reason": result.fallback_reason,
-                "backend_report": _design_backend_report(
-                    result.backend, result.fallback_reason
-                ),
-                "selected_slot_count": len(result.selected_slot_indices),
-                "selected_slot_ids": list(result.selected_slot_ids),
-                "objective": result.objective,
-                "model_size": result.model_size,
-            }
-        )
+        try:
+            result = select_design_slots(problem, config, mode=mode)
+        except RuntimeError as exc:
+            mode_problem = _problem_for_mode(problem, config, mode)
+            failure_reason = str(exc)
+            records.append(
+                {
+                    "mode": mode,
+                    "backend": config.design_backend,
+                    "fallback_reason": failure_reason,
+                    "backend_report": _design_backend_status(
+                        requested_backend=config.design_backend,
+                        available=None,
+                        attempted=True,
+                        solved=False,
+                        failure_reason=failure_reason,
+                    ),
+                    "available": False,
+                    "selected_slot_count": 0,
+                    "selected_slot_ids": [],
+                    "objective": {},
+                    "model_size": estimate_model_size(mode_problem, mode),
+                }
+            )
+        else:
+            records.append(
+                {
+                    "mode": result.mode,
+                    "backend": result.backend,
+                    "fallback_reason": result.fallback_reason,
+                    "backend_report": result.to_summary()["backend_report"],
+                    "available": True,
+                    "selected_slot_count": len(result.selected_slot_indices),
+                    "selected_slot_ids": list(result.selected_slot_ids),
+                    "objective": result.objective,
+                    "model_size": result.model_size,
+                }
+            )
     return tuple(records)
