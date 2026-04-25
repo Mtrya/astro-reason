@@ -24,7 +24,19 @@ from solvers.regional_coverage.cp_local_search.src.coverage import (
 )
 from solvers.regional_coverage.cp_local_search.src.greedy import (
     GreedyConfig,
+    GreedyResult,
+    GreedySummary,
     greedy_insertion,
+)
+from solvers.regional_coverage.cp_local_search.src.local_search import (
+    LocalSearchConfig,
+    Neighborhood,
+    build_neighborhoods,
+    covered_sample_ids,
+    local_search,
+    rebuild_neighborhood,
+    schedule_objective,
+    state_from_candidates,
 )
 from solvers.regional_coverage.cp_local_search.src.sequence import (
     SatelliteSequence,
@@ -287,3 +299,203 @@ def test_greedy_tie_breaks_by_lower_energy_then_stable_candidate_id() -> None:
 
     assert first.selected_candidates[0].candidate_id == "a_stable_id"
     assert second.selected_candidates[0].candidate_id == "a_stable_id"
+
+
+def test_local_search_extracts_satellite_time_component_neighborhoods() -> None:
+    selected = [
+        _candidate("c1", start_offset_s=0, end_offset_s=20),
+        _candidate("c2", start_offset_s=500, end_offset_s=520),
+        _candidate("c3", start_offset_s=5000, end_offset_s=5020),
+    ]
+    candidates = selected + [
+        _candidate("u1", start_offset_s=200, end_offset_s=220),
+        _candidate("u2", start_offset_s=5050, end_offset_s=5070),
+    ]
+
+    neighborhoods = build_neighborhoods(
+        candidates,
+        selected,
+        config=LocalSearchConfig(
+            component_gap_s=1000,
+            time_padding_s=100,
+            max_neighborhoods_per_iteration=10,
+        ),
+    )
+
+    time_components = [
+        item for item in neighborhoods if item.kind == "satellite_time_component"
+    ]
+    assert len(time_components) == 2
+    assert time_components[0].remove_candidate_ids == ("c1", "c2")
+    assert "u1" in time_components[0].candidate_ids
+    assert time_components[1].remove_candidate_ids == ("c3",)
+    assert "u2" in time_components[1].candidate_ids
+
+
+def test_neighborhood_rebuild_recomputes_marginal_after_removal_and_accepts_improvement() -> None:
+    case = load_case(CASE_DIR)
+    incumbent = [
+        _candidate("c1", start_offset_s=0, end_offset_s=20, samples=frozenset({"a"})),
+        _candidate("c2", start_offset_s=200, end_offset_s=220, samples=frozenset({"b"})),
+    ]
+    replacement = _candidate(
+        "c3",
+        start_offset_s=100,
+        end_offset_s=120,
+        samples=frozenset({"a", "c"}),
+    )
+    candidate_by_id = {candidate.candidate_id: candidate for candidate in incumbent + [replacement]}
+    index = _coverage_index({"a": 1.0, "b": 1.0, "c": 1.0})
+    neighborhood = Neighborhood(
+        neighborhood_id="n_test",
+        kind="satellite_time_component",
+        satellite_id="sat_iceye-x2",
+        start_offset_s=0,
+        end_offset_s=220,
+        remove_candidate_ids=("c1",),
+        candidate_ids=("c1", "c3"),
+        reason="unit test replacement",
+    )
+
+    move = rebuild_neighborhood(
+        case,
+        incumbent,
+        neighborhood,
+        candidate_by_id=candidate_by_id,
+        coverage_index=index,
+        greedy_config=GreedyConfig(),
+    )
+
+    assert move.accepted is True
+    assert move.before.coverage_weight_m2 == pytest.approx(2.0)
+    assert move.after.coverage_weight_m2 == pytest.approx(3.0)
+    assert move.inserted_candidate_ids == ("c3",)
+
+
+def test_local_search_accepts_strictly_improving_rebuild() -> None:
+    case = load_case(CASE_DIR)
+    incumbent = [
+        _candidate("c1", start_offset_s=0, end_offset_s=20, samples=frozenset({"a"})),
+        _candidate("c2", start_offset_s=200, end_offset_s=220, samples=frozenset({"b"})),
+    ]
+    replacement = _candidate(
+        "c3",
+        start_offset_s=100,
+        end_offset_s=120,
+        samples=frozenset({"a", "b", "c"}),
+    )
+    all_candidates = incumbent + [replacement]
+    index = _coverage_index({"a": 1.0, "b": 1.0, "c": 1.0})
+    greedy_result = GreedyResult(
+        state=state_from_candidates(case, incumbent),
+        selected_candidates=list(incumbent),
+        covered_sample_ids=covered_sample_ids(incumbent),
+        summary=GreedySummary(policy="best_marginal_coverage"),
+        accepted_evaluations=[],
+        attempt_debug=[],
+    )
+
+    result = local_search(
+        case,
+        all_candidates,
+        coverage_index=index,
+        greedy_result=greedy_result,
+        greedy_config=GreedyConfig(),
+        config=LocalSearchConfig(
+            max_iterations=2,
+            component_gap_s=1000,
+            time_padding_s=100,
+            max_neighborhoods_per_iteration=4,
+        ),
+    )
+
+    assert result.summary.accepted_moves == 1
+    assert result.summary.final_objective.coverage_weight_m2 == pytest.approx(3.0)
+    assert [candidate.candidate_id for candidate in result.selected_candidates] == ["c3"]
+    assert result.summary.incumbent_progression[0]["objective"]["coverage_weight_m2"] == pytest.approx(3.0)
+
+
+def test_local_search_rejects_non_improving_move_and_keeps_incumbent() -> None:
+    case = load_case(CASE_DIR)
+    incumbent = [
+        _candidate("c1", start_offset_s=0, end_offset_s=20, samples=frozenset({"a"})),
+        _candidate("c2", start_offset_s=200, end_offset_s=220, samples=frozenset({"b"})),
+    ]
+    duplicate = _candidate(
+        "c3",
+        start_offset_s=100,
+        end_offset_s=120,
+        samples=frozenset({"a"}),
+    )
+    all_candidates = incumbent + [duplicate]
+    index = _coverage_index({"a": 1.0, "b": 1.0})
+    greedy_result = GreedyResult(
+        state=state_from_candidates(case, incumbent),
+        selected_candidates=list(incumbent),
+        covered_sample_ids=covered_sample_ids(incumbent),
+        summary=GreedySummary(policy="best_marginal_coverage"),
+        accepted_evaluations=[],
+        attempt_debug=[],
+    )
+
+    result = local_search(
+        case,
+        all_candidates,
+        coverage_index=index,
+        greedy_result=greedy_result,
+        greedy_config=GreedyConfig(),
+        config=LocalSearchConfig(
+            max_iterations=1,
+            component_gap_s=1000,
+            time_padding_s=100,
+            max_neighborhoods_per_iteration=4,
+        ),
+    )
+
+    assert result.summary.accepted_moves == 0
+    assert [candidate.candidate_id for candidate in result.selected_candidates] == ["c1", "c2"]
+    assert result.summary.final_objective == schedule_objective(case, incumbent, index)
+
+
+def test_local_search_is_deterministic_for_same_inputs() -> None:
+    case = load_case(CASE_DIR)
+    incumbent = [
+        _candidate("c1", start_offset_s=0, end_offset_s=20, samples=frozenset({"a"})),
+        _candidate("c2", start_offset_s=200, end_offset_s=220, samples=frozenset({"b"})),
+    ]
+    replacements = [
+        _candidate("c3", start_offset_s=100, end_offset_s=120, samples=frozenset({"a", "b", "c"})),
+        _candidate("c4", start_offset_s=120, end_offset_s=140, samples=frozenset({"a", "b", "c"}), energy_wh=2.0),
+    ]
+    index = _coverage_index({"a": 1.0, "b": 1.0, "c": 1.0})
+
+    def run_once(order):
+        greedy_result = GreedyResult(
+            state=state_from_candidates(case, incumbent),
+            selected_candidates=list(incumbent),
+            covered_sample_ids=covered_sample_ids(incumbent),
+            summary=GreedySummary(policy="best_marginal_coverage"),
+            accepted_evaluations=[],
+            attempt_debug=[],
+        )
+        return local_search(
+            case,
+            order,
+            coverage_index=index,
+            greedy_result=greedy_result,
+            greedy_config=GreedyConfig(),
+            config=LocalSearchConfig(
+                max_iterations=2,
+                component_gap_s=1000,
+                time_padding_s=150,
+                max_neighborhoods_per_iteration=4,
+            ),
+        )
+
+    first = run_once(incumbent + replacements)
+    second = run_once(list(reversed(incumbent + replacements)))
+
+    assert [candidate.candidate_id for candidate in first.selected_candidates] == [
+        candidate.candidate_id for candidate in second.selected_candidates
+    ]
+    assert first.summary.as_dict() == second.summary.as_dict()

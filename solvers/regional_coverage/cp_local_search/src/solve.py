@@ -13,6 +13,7 @@ from .candidates import generate_candidates
 from .case_io import SolverConfig, load_case, load_solver_config
 from .coverage import CoverageIndex
 from .greedy import GreedyConfig, greedy_insertion
+from .local_search import LocalSearchConfig, local_search
 from .sequence import is_consistent
 from .solution_io import candidates_to_solution, write_json
 
@@ -36,6 +37,7 @@ def main(argv: list[str] | None = None) -> int:
         config_payload = load_solver_config(config_dir)
         config = SolverConfig.from_mapping(config_payload)
         greedy_config = GreedyConfig.from_mapping(config_payload)
+        local_search_config = LocalSearchConfig.from_mapping(config_payload)
         case = load_case(case_dir)
         coverage_index = CoverageIndex.from_case(case)
         candidates, candidate_summary = generate_candidates(case, config, coverage_index)
@@ -45,7 +47,15 @@ def main(argv: list[str] | None = None) -> int:
             coverage_index=coverage_index,
             config=greedy_config,
         )
-        selected_candidates = greedy_result.selected_in_solution_order()
+        local_search_result = local_search(
+            case,
+            candidates,
+            coverage_index=coverage_index,
+            greedy_result=greedy_result,
+            greedy_config=greedy_config,
+            config=local_search_config,
+        )
+        selected_candidates = local_search_result.selected_in_solution_order()
         write_json(solution_path, candidates_to_solution(case.mission, selected_candidates))
 
         debug_dir = solution_dir / "debug"
@@ -73,6 +83,14 @@ def main(argv: list[str] | None = None) -> int:
             debug_dir / "selected_candidates.json",
             [candidate.as_dict() for candidate in selected_candidates],
         )
+        write_json(
+            debug_dir / "local_search_summary.json",
+            {
+                "case_id": case.mission.case_id,
+                "config": local_search_config.as_dict(),
+                "summary": local_search_result.summary.as_dict(),
+            },
+        )
         if greedy_config.write_insertion_attempts:
             attempts_path = debug_dir / "insertion_attempts.jsonl"
             attempts_path.parent.mkdir(parents=True, exist_ok=True)
@@ -83,7 +101,17 @@ def main(argv: list[str] | None = None) -> int:
                 ),
                 encoding="utf-8",
             )
-        local_validation = _local_validation_summary(case, greedy_result)
+        if local_search_config.write_move_log:
+            moves_path = debug_dir / "moves.jsonl"
+            moves_path.parent.mkdir(parents=True, exist_ok=True)
+            moves_path.write_text(
+                "".join(
+                    json.dumps(move.as_dict(), sort_keys=True) + "\n"
+                    for move in local_search_result.moves
+                ),
+                encoding="utf-8",
+            )
+        local_validation = _local_validation_summary(case, local_search_result)
         elapsed = time.perf_counter() - t0
         write_json(
             solution_dir / "status.json",
@@ -100,12 +128,14 @@ def main(argv: list[str] | None = None) -> int:
                 "candidate_summary": candidate_summary.as_dict(),
                 "greedy_config": greedy_config.as_dict(),
                 "greedy_summary": greedy_result.summary.as_dict(),
-                "sequence_model": greedy_result.state.as_dict(),
+                "local_search_config": local_search_config.as_dict(),
+                "local_search_summary": local_search_result.summary.as_dict(),
+                "sequence_model": local_search_result.state.as_dict(),
                 "local_validation": local_validation,
                 "timing_seconds": {"total": elapsed},
                 "reproduction_notes": {
                     "method_reference": "Antuori, Wojtowicz, and Hebrard, CP 2025, Sections 2 and 4.1",
-                    "phase": "2_greedy_insertion_baseline",
+                    "phase": "3_local_search_neighborhoods",
                     "implemented": [
                         "standalone case parser",
                         "deterministic fixed-start strip candidates",
@@ -113,9 +143,10 @@ def main(argv: list[str] | None = None) -> int:
                         "benchmark-compatible roll transition helpers",
                         "satellite-local sequence model",
                         "marginal unique coverage greedy insertion",
+                        "bounded deterministic local-search neighborhoods",
+                        "greedy neighborhood rebuild",
                     ],
                     "omitted_until_later_phases": [
-                        "local-search neighborhoods",
                         "CP-assisted TSPTW repair",
                         "battery and duty repair",
                     ],
