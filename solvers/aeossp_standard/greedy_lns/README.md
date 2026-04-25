@@ -106,6 +106,10 @@ Key knobs:
 - `debug`
 
 `max_local_search_time_s` only bounds the local-search loop. It does not cap candidate generation or local validation. If the time budget is reached, the solver returns the best incumbent found so far and still performs local validation and repair. When `local_search_workers > 1`, restart starts run in deterministic process-pool waves; each connected-component descent remains sequential.
+Within each start, components with no possible task-weight improvement are
+pruned by a safe objective upper bound before any reinsertion work. This does
+not change the first-improving policy because such components could not be
+accepted as improving moves.
 
 ## Debug Artifacts
 
@@ -182,6 +186,25 @@ What matters here is:
 - weighted completion remains reasonable on public cases
 
 If raw greedy/local-search selection looks strong but repair removes many actions, inspect the local battery model, transition gap logic, and candidate generation before tuning search parameters.
+
+## Public Evidence Snapshot
+
+The public `experiments/main_solver` profile uses a quality-preserving
+multi-start configuration: `total_time_budget_s: 300`, `candidate_workers: 4`,
+`restart_count: 8`, `local_search_workers: 4`, fixed-seed stochastic component
+ordering, bounded exact reinsertion, battery guardrails, and bounded repair.
+
+On the five public AEOSSP standard `test` cases, the current profile verifies
+all cases with average `WCR 0.681622`, `CR 0.721229`, `TAT 1128.286`, and
+`PC 18496.574`. Average wall time is `136.936 s`, split mainly between
+candidate generation (`46.977 s`) and local search (`88.147 s`). Final repair
+removed zero objective on all five cases.
+
+The local search is intentionally not fully parallel inside one descent: each
+accepted connected-component move mutates the incumbent. The parallelism is at
+candidate generation and restart-wave scope, with status counters exposing
+bounded exact-reinsertion work and components pruned by the safe objective
+upper bound.
 
 ## Known Limitations
 

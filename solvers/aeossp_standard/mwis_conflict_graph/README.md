@@ -202,6 +202,26 @@ What matters here is:
 
 If raw graph selection looks strong but repair removes many actions, inspect the local battery model, transition gap logic, and candidate generation before tuning the search policy.
 
+## Public Evidence Snapshot
+
+The public `experiments/main_solver` profile uses a quality-preserving
+configuration: `total_time_budget_s: 300`, `candidate_workers: 8`,
+`graph_workers: 8`, `backend: internal_reduction`,
+`max_exact_component_size: 24`, sixteen local passes, population size eight,
+twenty-four recombination rounds, incremental repair, and bounded final repair.
+
+On the five public AEOSSP standard `test` cases, the current profile verifies
+all cases with average `WCR 0.758178`, `CR 0.789535`, `TAT 1017.821`, and
+`PC 19795.164`. Average wall time is `109.599 s`, split mainly across
+candidate generation (`37.995 s`), graph build (`3.695 s`), reduction-backed
+selection (`62.643 s`), and repair (`4.708 s`). Final repair removed zero
+objective on all five cases.
+
+The status artifacts expose the requested execution model: candidate generation
+and same-satellite graph construction use deterministic process pools,
+selection uses the internal reduction-backed Python backend, and repair uses
+incremental affected-satellite validation after the initial full pass.
+
 ## Known Limitations
 
 - This is a reproduction of the paper's method family, not a claim to reproduce every runtime or every table from the paper.

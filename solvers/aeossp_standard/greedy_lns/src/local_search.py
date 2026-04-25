@@ -66,6 +66,7 @@ class LocalSearchStartStats:
     iterations: int = 0
     moves_attempted: int = 0
     moves_accepted: int = 0
+    components_pruned_by_objective_bound: int = 0
     perturbation_removals: int = 0
     insertion_failures: int = 0
     stop_reason: str = ""
@@ -82,6 +83,7 @@ class LocalSearchStats:
     iterations: int = 0
     moves_attempted: int = 0
     moves_accepted: int = 0
+    components_pruned_by_objective_bound: int = 0
     restarts_executed: int = 0
     stop_reason: str = ""
     component_count: int = 0
@@ -278,6 +280,25 @@ class _ExactReinsertionResult:
     timed_out: bool = False
 
 
+def _install_exact_reinsertion_state(
+    component: Component,
+    by_satellite: dict[str, list[Candidate]],
+    scheduled_tasks: dict[str, Candidate],
+    best_satellite_schedule: list[Candidate],
+    best_selected: tuple[Candidate, ...],
+    best_displaced_tasks: dict[str, Candidate],
+) -> None:
+    for task_id, displaced in best_displaced_tasks.items():
+        if displaced.satellite_id != component.satellite_id:
+            _remove_candidate_from_state(by_satellite, scheduled_tasks, displaced)
+        elif scheduled_tasks.get(task_id) == displaced:
+            del scheduled_tasks[task_id]
+
+    by_satellite[component.satellite_id] = list(best_satellite_schedule)
+    for candidate in best_selected:
+        scheduled_tasks[candidate.task_id] = candidate
+
+
 def _try_exact_reinsert_component(
     case: AeosspCase,
     component: Component,
@@ -292,10 +313,14 @@ def _try_exact_reinsert_component(
         component.candidates,
         key=lambda c: (c.start_offset_s, c.end_offset_s, c.candidate_id),
     )
-    best_by_satellite: dict[str, list[Candidate]] | None = None
-    best_scheduled_tasks: dict[str, Candidate] | None = None
+    base_satellite_schedule = by_satellite.setdefault(component.satellite_id, [])
+    base_objective = _objective(scheduled_tasks)
+    best_satellite_schedule: list[Candidate] | None = None
+    best_selected: tuple[Candidate, ...] = ()
+    best_displaced_tasks: dict[str, Candidate] = {}
     best_objective = float("-inf")
     best_ids: tuple[str, ...] | None = None
+    best_component_weight = 0.0
     subsets_evaluated = 0
     feasible_subsets = 0
     infeasible_subsets = 0
@@ -322,25 +347,25 @@ def _try_exact_reinsert_component(
             infeasible_subsets += 1
             continue
 
-        trial_by_satellite, trial_scheduled_tasks = _copy_state(
-            by_satellite, scheduled_tasks
-        )
+        trial_satellite_schedule = list(base_satellite_schedule)
+        displaced_tasks: dict[str, Candidate] = {}
         feasible = True
         selected_weight = 0.0
 
         for candidate in selected:
-            existing = trial_scheduled_tasks.get(candidate.task_id)
+            existing = scheduled_tasks.get(candidate.task_id)
             if existing is not None and existing.candidate_id != candidate.candidate_id:
-                _remove_candidate_from_state(
-                    trial_by_satellite,
-                    trial_scheduled_tasks,
-                    existing,
-                )
+                displaced_tasks[candidate.task_id] = existing
+                if (
+                    existing.satellite_id == component.satellite_id
+                    and existing in trial_satellite_schedule
+                ):
+                    trial_satellite_schedule.remove(existing)
 
             inserted = _try_insert_into_satellite(
                 case,
                 component.satellite_id,
-                trial_by_satellite.setdefault(component.satellite_id, []),
+                trial_satellite_schedule,
                 candidate,
                 propagation,
                 vector_cache,
@@ -348,7 +373,6 @@ def _try_exact_reinsert_component(
             if not inserted:
                 feasible = False
                 break
-            trial_scheduled_tasks[candidate.task_id] = candidate
             selected_weight += candidate.task_weight
 
         if not feasible:
@@ -356,7 +380,11 @@ def _try_exact_reinsert_component(
             continue
 
         feasible_subsets += 1
-        objective = _objective(trial_scheduled_tasks)
+        objective = (
+            base_objective
+            + selected_weight
+            - sum(existing.task_weight for existing in displaced_tasks.values())
+        )
         selected_ids = tuple(sorted(candidate.candidate_id for candidate in selected))
         if (
             objective > best_objective + 1.0e-9
@@ -367,11 +395,12 @@ def _try_exact_reinsert_component(
         ):
             best_objective = objective
             best_ids = selected_ids
-            best_by_satellite = trial_by_satellite
-            best_scheduled_tasks = trial_scheduled_tasks
+            best_satellite_schedule = trial_satellite_schedule
+            best_selected = tuple(selected)
+            best_displaced_tasks = displaced_tasks
             best_component_weight = selected_weight
 
-    if best_by_satellite is None or best_scheduled_tasks is None:
+    if best_satellite_schedule is None:
         return _ExactReinsertionResult(
             solved=True,
             subsets_evaluated=subsets_evaluated,
@@ -379,11 +408,13 @@ def _try_exact_reinsert_component(
             infeasible_subsets=infeasible_subsets,
         )
 
-    _replace_state(
+    _install_exact_reinsertion_state(
+        component,
         by_satellite,
         scheduled_tasks,
-        best_by_satellite,
-        best_scheduled_tasks,
+        best_satellite_schedule,
+        best_selected,
+        best_displaced_tasks,
     )
     return _ExactReinsertionResult(
         solved=True,
@@ -557,6 +588,42 @@ def _objective(scheduled_tasks: dict[str, Candidate]) -> float:
     return sum(c.task_weight for c in scheduled_tasks.values())
 
 
+def _component_objective_upper_bound(
+    component: Component,
+    scheduled_tasks: dict[str, Candidate],
+) -> float:
+    """Return a safe objective upper bound after recomputing *component*.
+
+    The bound ignores time and transition conflicts, so it can only overstate
+    what reinsertion may achieve.  If this bound is not better than the current
+    objective, the first-improving search would reject the component move.
+    """
+    current_objective = _objective(scheduled_tasks)
+    base_objective = current_objective
+    selected_component_tasks: set[str] = set()
+    best_component_weight_by_task: dict[str, float] = {}
+
+    for candidate in component.candidates:
+        existing = scheduled_tasks.get(candidate.task_id)
+        if existing is not None and existing.candidate_id == candidate.candidate_id:
+            if candidate.task_id not in selected_component_tasks:
+                base_objective -= existing.task_weight
+                selected_component_tasks.add(candidate.task_id)
+        best_component_weight_by_task[candidate.task_id] = max(
+            best_component_weight_by_task.get(candidate.task_id, float("-inf")),
+            candidate.task_weight,
+        )
+
+    upper_bound = base_objective
+    for task_id, best_component_weight in best_component_weight_by_task.items():
+        existing = scheduled_tasks.get(task_id)
+        if task_id in selected_component_tasks or existing is None:
+            upper_bound += best_component_weight
+        else:
+            upper_bound += max(0.0, best_component_weight - existing.task_weight)
+    return upper_bound
+
+
 def _ordered_components(
     component_index: ComponentIndex,
     stochastic: bool,
@@ -607,6 +674,7 @@ class _SearchStartResult:
     iterations: int = 0
     moves_attempted: int = 0
     moves_accepted: int = 0
+    components_pruned_by_objective_bound: int = 0
     insertion_failures: int = 0
 
 
@@ -669,6 +737,7 @@ def _run_search_start(
         "iterations": 0,
         "moves_attempted": 0,
         "moves_accepted": 0,
+        "components_pruned_by_objective_bound": 0,
         "insertion_failures": 0,
     }
 
@@ -689,6 +758,15 @@ def _run_search_start(
             totals["moves_attempted"] += 1
             start_stats.moves_attempted += 1
 
+            old_objective = _objective(scheduled_tasks)
+            if (
+                _component_objective_upper_bound(component, scheduled_tasks)
+                <= old_objective + 1.0e-9
+            ):
+                totals["components_pruned_by_objective_bound"] += 1
+                start_stats.components_pruned_by_objective_bound += 1
+                continue
+
             old_by_satellite, old_scheduled_tasks = _copy_state(
                 by_satellite, scheduled_tasks
             )
@@ -707,7 +785,6 @@ def _run_search_start(
             start_stats.insertion_failures += failures
 
             new_objective = _objective(scheduled_tasks)
-            old_objective = _objective(old_scheduled_tasks)
 
             if new_objective > old_objective:
                 if battery_guard_config.enable_battery_guardrails:
@@ -765,6 +842,9 @@ def _run_search_start(
         iterations=totals["iterations"],
         moves_attempted=totals["moves_attempted"],
         moves_accepted=totals["moves_accepted"],
+        components_pruned_by_objective_bound=totals[
+            "components_pruned_by_objective_bound"
+        ],
         insertion_failures=totals["insertion_failures"],
     )
 
@@ -800,6 +880,9 @@ def _apply_start_result(stats: LocalSearchStats, result: _SearchStartResult) -> 
     stats.iterations += result.iterations
     stats.moves_attempted += result.moves_attempted
     stats.moves_accepted += result.moves_accepted
+    stats.components_pruned_by_objective_bound += (
+        result.components_pruned_by_objective_bound
+    )
     stats.insertion_failures_during_local_search += result.insertion_failures
     if result.start_stats.is_restart:
         stats.restarts_executed += 1
