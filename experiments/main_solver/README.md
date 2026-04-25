@@ -23,7 +23,8 @@ experiments/main_solver/
 ```
 
 Each solver profile carries the benchmark name, case list or reported metrics,
-and executable verifier command when the solver is runnable.
+executable verifier command when the solver is runnable, and optional
+solver-owned config written to each job's `config/config.yaml`.
 
 ## Evidence Types
 

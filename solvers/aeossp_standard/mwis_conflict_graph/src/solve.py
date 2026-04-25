@@ -6,14 +6,206 @@ import argparse
 import sys
 import time
 import traceback
+from dataclasses import asdict, dataclass
 from pathlib import Path
+from typing import Any
 
 from .candidates import CandidateConfig, generate_candidates
 from .case_io import load_case, load_solver_config
-from .graph import build_conflict_graph, connected_components
+from .graph import (
+    GraphBuildConfig,
+    build_conflict_graph,
+    connected_components,
+    graph_build_execution_model,
+)
 from .mwis import MwisConfig, select_weighted_independent_set
 from .solution_io import write_json, write_solution
 from .validation import RepairConfig, repair_candidates
+
+
+@dataclass(frozen=True, slots=True)
+class BudgetConfig:
+    total_time_budget_s: float | None = None
+
+    @classmethod
+    def from_mapping(cls, payload: dict[str, Any] | None) -> "BudgetConfig":
+        payload = payload or {}
+        raw_budget = payload.get("total_time_budget_s")
+        if raw_budget in {None, ""}:
+            return cls()
+        total_time_budget_s = float(raw_budget)
+        if total_time_budget_s < 0.0:
+            raise ValueError("total_time_budget_s must be null or non-negative")
+        return cls(total_time_budget_s=total_time_budget_s)
+
+    def as_status_dict(self) -> dict[str, Any]:
+        return asdict(self)
+
+
+def _timing_with_accounting(
+    stage_seconds: dict[str, float],
+    total_seconds: float,
+    aliases: dict[str, float] | None = None,
+) -> dict[str, float]:
+    accounted_total = sum(stage_seconds.values())
+    return {
+        **stage_seconds,
+        **(aliases or {}),
+        "accounted_total": accounted_total,
+        "unaccounted_overhead": total_seconds - accounted_total,
+        "total": total_seconds,
+    }
+
+
+def _remaining_budget_s(budget_config: BudgetConfig, total_start: float) -> float | None:
+    if budget_config.total_time_budget_s is None:
+        return None
+    elapsed_s = time.perf_counter() - total_start
+    return max(0.0, budget_config.total_time_budget_s - elapsed_s)
+
+
+def _budget_status(
+    *,
+    budget_config: BudgetConfig,
+    timing_seconds: dict[str, float],
+    stage_order: tuple[str, ...],
+    search_stage_budget_s: float | None,
+    search_stage_budget_hit: bool,
+    selection_started_with_remaining_budget_s: float | None,
+    selection_deadline_source: str,
+    selection_started_after_deadline: bool,
+    refinement_only_budget_s: float | None,
+    refinement_only_budget_hit: bool,
+) -> dict[str, Any]:
+    configured_budget_s = budget_config.total_time_budget_s
+    elapsed_total_s = timing_seconds["total"]
+    budget_hit = (
+        configured_budget_s is not None
+        and elapsed_total_s >= configured_budget_s
+    )
+    stage_observed = None
+    if configured_budget_s is not None:
+        cumulative_s = 0.0
+        for stage in stage_order:
+            cumulative_s += timing_seconds.get(stage, 0.0)
+            if cumulative_s >= configured_budget_s:
+                stage_observed = stage
+                break
+    return {
+        "configured": budget_config.as_status_dict(),
+        "elapsed_total_s": elapsed_total_s,
+        "remaining_time_s": (
+            None if configured_budget_s is None else max(0.0, configured_budget_s - elapsed_total_s)
+        ),
+        "budget_hit": budget_hit,
+        "stage_observed": stage_observed,
+        "output_status": "best_effort" if budget_hit else "complete",
+        "search_stage_budget_s": search_stage_budget_s,
+        "search_stage_budget_hit": search_stage_budget_hit,
+        "selection_started_with_remaining_budget_s": selection_started_with_remaining_budget_s,
+        "selection_deadline_source": selection_deadline_source,
+        "selection_started_after_deadline": selection_started_after_deadline,
+        "refinement_only_time_limit_s": refinement_only_budget_s,
+        "refinement_only_time_limit_hit": (
+            refinement_only_budget_s is not None and refinement_only_budget_hit
+        ),
+        "candidate_generation_interruptible": False,
+        "repair_runs_after_budget": True,
+        "notes": [
+            "total_time_budget_s is end-to-end accounting",
+            "time_limit_s remains a refinement-only cap, not a total runtime budget",
+            "candidate generation is not interruptible in this phase",
+            "repair still runs to produce a locally validated solution",
+        ],
+    }
+
+
+def _candidate_generation_execution_model(
+    candidate_config: CandidateConfig,
+    *,
+    satellite_count: int,
+) -> dict[str, Any]:
+    caps_enabled = (
+        candidate_config.max_candidates is not None
+        or candidate_config.max_candidates_per_task is not None
+    )
+    effective_workers = (
+        min(candidate_config.candidate_workers, satellite_count)
+        if candidate_config.candidate_workers > 1
+        and satellite_count > 1
+        and not caps_enabled
+        else 1
+    )
+    if effective_workers > 1:
+        return {
+            "model": "process_pool_python",
+            "bounded_by_search_budget": False,
+            "parallelism_scope": "satellite",
+            "configured_workers": candidate_config.candidate_workers,
+            "effective_workers": effective_workers,
+            "notes": "satellite-level process pool with deterministic parent-side merge",
+        }
+    return {
+        "model": "single_threaded_python",
+        "bounded_by_search_budget": False,
+        "parallelism_scope": "none",
+        "configured_workers": candidate_config.candidate_workers,
+        "effective_workers": 1,
+        "notes": (
+            "serial sweep over satellites, tasks, and grid-aligned start offsets"
+            if not caps_enabled
+            else "serial sweep preserves deterministic early candidate cap semantics"
+        ),
+    }
+
+
+def _execution_model(
+    candidate_config: CandidateConfig,
+    graph_config: GraphBuildConfig,
+    *,
+    satellite_count: int,
+) -> dict[str, dict[str, Any]]:
+    return {
+        "case_load": {
+            "model": "single_threaded_python",
+            "bounded_by_search_budget": False,
+            "notes": "loads YAML case files into solver-local data classes",
+        },
+        "candidate_generation": _candidate_generation_execution_model(
+            candidate_config,
+            satellite_count=satellite_count,
+        ),
+        "graph_build": graph_build_execution_model(
+            graph_config,
+            satellite_count=satellite_count,
+        ),
+        "search": {
+            "model": "single_threaded_python",
+            "bounded_by_search_budget": True,
+            "budget_field": "effective_time_limit_s",
+            "configured_budget_fields": ["total_time_budget_s", "time_limit_s"],
+            "notes": (
+                "exact small-component search plus bounded large-component refinement; "
+                "the effective deadline is the earlier of remaining total budget and "
+                "refinement-only time_limit_s"
+            ),
+        },
+        "validation": {
+            "model": "single_threaded_python",
+            "bounded_by_search_budget": False,
+            "notes": "solver-local validity checks are run inside bounded repair",
+        },
+        "repair": {
+            "model": "single_threaded_python",
+            "bounded_by_search_budget": False,
+            "notes": "bounded removal repair with incremental affected-satellite validation cache",
+        },
+        "solution_write": {
+            "model": "single_threaded_python",
+            "bounded_by_search_budget": False,
+            "notes": "writes solution and status JSON artifacts",
+        },
+    }
 
 
 def _build_status(
@@ -23,6 +215,7 @@ def _build_status(
     solution_path: Path,
     case,
     candidate_config: CandidateConfig,
+    graph_config: GraphBuildConfig,
     candidate_summary,
     graph,
     mwis_config: MwisConfig,
@@ -30,6 +223,7 @@ def _build_status(
     repair_config: RepairConfig,
     repair_result,
     timing_seconds: dict[str, float],
+    budget_status: dict[str, Any],
 ) -> dict:
     return {
         "status": "phase_5_reproduction_solution_generated",
@@ -41,13 +235,20 @@ def _build_status(
         "satellite_count": len(case.satellites),
         "task_count": len(case.tasks),
         "candidate_config": candidate_config.as_status_dict(),
+        "graph_config": graph_config.as_status_dict(),
         "mwis_config": mwis_config.as_dict(),
+        "execution_model": _execution_model(
+            candidate_config,
+            graph_config,
+            satellite_count=len(case.satellites),
+        ),
         **candidate_summary.as_debug_dict(case),
         "graph": graph.stats.as_dict(),
         "solver": mwis_stats.as_dict(),
         "repair_config": repair_config.as_status_dict(),
         "local_validation": repair_result.as_status_dict(),
         "timing_seconds": timing_seconds,
+        "budget": budget_status,
         "reproduction_summary": {
             "best_local_valid": repair_result.final_report.valid,
             "candidate_count": candidate_summary.candidate_count,
@@ -76,13 +277,14 @@ def _build_status(
         "paper_fidelity": {
             "reproduced_behavior": [
                 "sparse infeasibility graph over candidate observations",
+                "safe solver-local weighted-MWIS reductions before component search",
                 "exact solving on tiny components",
                 "bounded local improvement with insertions and 2-swaps",
                 "deterministic recombination over a bounded population",
                 "optional incumbent refinement time budget",
             ],
             "approximated_behavior": [
-                "no external ReduMIS binary or kernelization rules",
+                "no external ReduMIS backend",
                 "weighted benchmark objective instead of pure collect count",
                 "solver-local battery validation and repair remains outside graph edges",
             ],
@@ -121,6 +323,7 @@ def _write_debug_artifacts(
     solution_dir: Path,
     case,
     candidate_config: CandidateConfig,
+    graph_config: GraphBuildConfig,
     candidate_summary,
     graph,
     mwis_config: MwisConfig,
@@ -136,6 +339,7 @@ def _write_debug_artifacts(
         {
             "case_id": case.mission.case_id,
             "candidate_config": candidate_config.as_status_dict(),
+            "graph_config": graph_config.as_status_dict(),
             "summary": candidate_summary.as_debug_dict(case),
         },
     )
@@ -151,6 +355,7 @@ def _write_debug_artifacts(
         {
             "case_id": case.mission.case_id,
             "candidate_config": candidate_config.as_status_dict(),
+            "graph_config": graph_config.as_status_dict(),
             "mwis_config": mwis_config.as_dict(),
             "repair_config": repair_config.as_status_dict(),
             "solver": mwis_stats.as_dict(),
@@ -198,22 +403,36 @@ def main(argv: list[str] | None = None) -> int:
 
     try:
         total_start = time.perf_counter()
+        config_start = time.perf_counter()
         config_payload = load_solver_config(config_dir)
         candidate_config = CandidateConfig.from_mapping(config_payload)
+        graph_config = GraphBuildConfig.from_mapping(config_payload)
         mwis_config = MwisConfig.from_mapping(config_payload)
         repair_config = RepairConfig.from_mapping(config_payload)
+        budget_config = BudgetConfig.from_mapping(config_payload)
+        config_end = time.perf_counter()
+        case_load_start = time.perf_counter()
         case = load_case(case_dir)
+        case_load_end = time.perf_counter()
         candidate_start = time.perf_counter()
         candidates, candidate_summary = generate_candidates(case, candidate_config)
         candidate_end = time.perf_counter()
         graph_start = time.perf_counter()
-        graph = build_conflict_graph(case, candidates)
+        graph = build_conflict_graph(case, candidates, config=graph_config)
         graph_end = time.perf_counter()
+        refinement_only_budget_s = mwis_config.time_limit_s
+        remaining_search_budget_s = _remaining_budget_s(budget_config, total_start)
+        total_deadline = (
+            None
+            if budget_config.total_time_budget_s is None
+            else total_start + budget_config.total_time_budget_s
+        )
         selection_start = time.perf_counter()
         selected_candidates, mwis_stats = select_weighted_independent_set(
             candidates,
             graph,
             mwis_config,
+            deadline=total_deadline,
         )
         selection_end = time.perf_counter()
         if not mwis_stats.independent_set_valid:
@@ -230,21 +449,50 @@ def main(argv: list[str] | None = None) -> int:
             conflict_degrees=conflict_degrees,
         )
         repair_end = time.perf_counter()
+        solution_write_start = time.perf_counter()
         solution_path = write_solution(solution_dir, repair_result.candidates)
-        total_end = time.perf_counter()
-        timing_seconds = {
+        solution_write_end = time.perf_counter()
+        total_end = solution_write_end
+        timing_seconds = _timing_with_accounting({
+            "config_load": config_end - config_start,
+            "case_load": case_load_end - case_load_start,
             "candidate_generation": candidate_end - candidate_start,
             "graph_build": graph_end - graph_start,
             "selection": selection_end - selection_start,
             "repair": repair_end - repair_start,
-            "total": total_end - total_start,
-        }
+            "solution_write": solution_write_end - solution_write_start,
+        }, total_end - total_start, aliases={"search": selection_end - selection_start})
+        budget_status = _budget_status(
+            budget_config=budget_config,
+            timing_seconds=timing_seconds,
+            stage_order=(
+                "config_load",
+                "case_load",
+                "candidate_generation",
+                "graph_build",
+                "selection",
+                "repair",
+                "solution_write",
+            ),
+            search_stage_budget_s=mwis_stats.effective_time_limit_s,
+            search_stage_budget_hit=mwis_stats.time_limit_hit,
+            selection_started_with_remaining_budget_s=remaining_search_budget_s,
+            selection_deadline_source=mwis_stats.deadline_source,
+            selection_started_after_deadline=mwis_stats.selection_started_after_deadline,
+            refinement_only_budget_s=refinement_only_budget_s,
+            refinement_only_budget_hit=(
+                mwis_stats.time_limit_hit
+                and mwis_stats.deadline_source
+                in {"time_limit_s", "time_limit_s_and_total_time_budget_s"}
+            ),
+        )
         status = _build_status(
             case_dir=case_dir,
             config_dir=config_dir,
             solution_path=solution_path,
             case=case,
             candidate_config=candidate_config,
+            graph_config=graph_config,
             candidate_summary=candidate_summary,
             graph=graph,
             mwis_config=mwis_config,
@@ -252,6 +500,7 @@ def main(argv: list[str] | None = None) -> int:
             repair_config=repair_config,
             repair_result=repair_result,
             timing_seconds=timing_seconds,
+            budget_status=budget_status,
         )
         write_json(solution_dir / "status.json", status)
         if candidate_config.debug:
@@ -259,6 +508,7 @@ def main(argv: list[str] | None = None) -> int:
                 solution_dir=solution_dir,
                 case=case,
                 candidate_config=candidate_config,
+                graph_config=graph_config,
                 candidate_summary=candidate_summary,
                 graph=graph,
                 mwis_config=mwis_config,

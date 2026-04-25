@@ -39,7 +39,7 @@ This reproduction keeps that structure and adapts it to `aeossp_standard`:
 - same-satellite overlap edge: two observations overlap in time
 - same-satellite transition edge: the later observation does not leave enough slew-plus-settle time after the earlier one
 
-For small connected components, the solver searches exactly. For larger components, it builds deterministic greedy seeds, improves them with bounded local search, and refines the best incumbents with bounded recombination.
+Before component search, the solver applies a small deterministic weighted-MWIS reduction pass for isolated vertices and strict weighted domination. For small reduced components, the solver searches exactly with a deterministic bitmask dynamic program. For larger reduced components, it builds deterministic greedy seeds, improves them with bounded local search, and refines the best incumbents with bounded recombination.
 
 ## Benchmark Adaptation
 
@@ -104,16 +104,27 @@ Key knobs:
 - `candidate_stride_multiplier`
 - `max_candidates`
 - `max_candidates_per_task`
+- `candidate_workers`
+- `graph_workers`
+- `backend`
 - `selection_policy`
 - `max_exact_component_size`
 - `max_local_passes`
 - `population_size`
 - `recombination_rounds`
+- `total_time_budget_s`
 - `time_limit_s`
 - `max_repair_iterations`
+- `enable_incremental_repair`
 - `debug`
 
-`time_limit_s` only bounds the incumbent-refinement search on large components. It does not cap candidate generation, graph construction, or local validation. If the time budget is reached, the solver returns the best incumbent found so far and still performs local validation and repair.
+Use `total_time_budget_s` as the main fair-run runtime knob. Candidate generation and graph construction are accounted for before selection starts, and the remaining budget is passed into MWIS refinement. `time_limit_s` remains backward-compatible as a refinement-only cap; when both are set, the earlier deadline wins. If the budget is reached, the solver returns the best incumbent found so far and still performs local validation and repair.
+
+For hard cases, tune refinement effort with `max_local_passes`, `population_size`, and `recombination_rounds` inside the total budget. `graph_workers` can enable satellite-scoped graph-build workers while preserving deterministic edge sets. `status.json` reports the graph-build execution model, the effective selection budget, the deadline source, whether selection began after the total budget was consumed, backend selection, reduction counts, reduction elapsed time, and compact per-component stop reasons.
+
+`backend` defaults to `internal_reduction`, the solver-local reduction-backed Python path. `fallback_python` explicitly selects the same deterministic pure-Python fallback machinery. `redumis` is accepted as an optional backend request, but no external ReduMIS binary is bundled; until one is installed and integrated, the solver reports it unavailable and falls back to `fallback_python`.
+
+Repair defaults to incremental affected-satellite validation after the initial full pass. Set `enable_incremental_repair: false` to force repeated full validation for comparison. Repair status reports objective impact, removals by reason, validation time by iteration, incremental/full validation counts, and fallback count.
 
 ## Debug Artifacts
 
@@ -134,6 +145,9 @@ These are useful for answering:
 - how dense the conflict graph is
 - which search path produced the incumbent
 - whether a time budget stopped refinement
+- which stop reason each component reported
+- how much each component shrank under safe MWIS reductions
+- how much objective and validation time repair consumed
 - why a candidate was removed during local repair
 
 ## Running It
@@ -188,10 +202,30 @@ What matters here is:
 
 If raw graph selection looks strong but repair removes many actions, inspect the local battery model, transition gap logic, and candidate generation before tuning the search policy.
 
+## Public Evidence Snapshot
+
+The public `experiments/main_solver` profile uses a quality-preserving
+configuration: `total_time_budget_s: 300`, `candidate_workers: 8`,
+`graph_workers: 8`, `backend: internal_reduction`,
+`max_exact_component_size: 24`, sixteen local passes, population size eight,
+twenty-four recombination rounds, incremental repair, and bounded final repair.
+
+On the five public AEOSSP standard `test` cases, the current profile verifies
+all cases with average `WCR 0.758178`, `CR 0.789535`, `TAT 1017.821`, and
+`PC 19795.164`. Average wall time is `109.599 s`, split mainly across
+candidate generation (`37.995 s`), graph build (`3.695 s`), reduction-backed
+selection (`62.643 s`), and repair (`4.708 s`). Final repair removed zero
+objective on all five cases.
+
+The status artifacts expose the requested execution model: candidate generation
+and same-satellite graph construction use deterministic process pools,
+selection uses the internal reduction-backed Python backend, and repair uses
+incremental affected-satellite validation after the initial full pass.
+
 ## Known Limitations
 
 - This is a reproduction of the paper's method family, not a claim to reproduce every runtime or every table from the paper.
-- The solver does not call an external ReduMIS binary and does not implement the paper's reduction rules.
+- The solver implements an internal reduction-backed backend interface, but no external ReduMIS backend is bundled.
 - Battery feasibility is handled by solver-local validation and repair instead of being fully encoded as graph conflicts.
 - Full multi-case tuning may be more practical on a server than on a development laptop.
 

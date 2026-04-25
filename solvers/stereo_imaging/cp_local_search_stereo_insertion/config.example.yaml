@@ -1,0 +1,56 @@
+# Example config for the CP/local-search stereo insertion solver.
+#
+# Copy this file into a config directory as config.yaml, pass it directly to
+# solve.sh as the config path, or override individual keys.
+
+# ---------------------------------------------------------------------------
+# Candidate generation
+# ---------------------------------------------------------------------------
+# observation_duration_s: 6.0          # Fixed duration of each observation window
+# candidate_stride_s: 10.0             # Sampling stride within each access interval
+# access_discovery_step_s: 60.0        # Coarse time step for discovering access intervals
+# max_candidates_per_target_per_sat: null  # Cap candidates per target (null = no cap)
+# parallel_workers: null              # null = auto (CPU count), 0 = serial, N = N processes
+
+# ---------------------------------------------------------------------------
+# Product library
+# ---------------------------------------------------------------------------
+# max_tri_products_per_target_access: 50
+# pair_mc_samples: 100
+# tri_mc_samples: 100
+# tri_pair_edge_mc_samples: 80
+
+# ---------------------------------------------------------------------------
+# Greedy seed
+# ---------------------------------------------------------------------------
+# seed_only: false                    # When true, emit seed solution directly (no local search)
+# tri_stereo_seed_phase: true         # Enable tri-stereo upgrade pass after pair seed
+# max_seed_products: null             # Optional cap on number of products in the seed
+# pair_weight: 1.0                    # Weight multiplier for pair-stereo products in seed ranking
+# tri_weight: 1.5                     # Weight multiplier for tri-stereo products in seed ranking
+
+# ---------------------------------------------------------------------------
+# Local search
+# ---------------------------------------------------------------------------
+# run_profile: smoke                  # smoke | benchmark | profile
+#                                      # smoke: deterministic single-run check
+#                                      # benchmark: fair-search 5-run profile, construction reused once
+#                                      # profile: extended 10-run profiling sweep
+# max_passes: 10                      # Override profile max local-search passes
+# max_moves_per_pass: 500             # Override profile move-attempt budget per pass
+# max_time_seconds: 30.0              # Override profile per-run local-search time limit
+# enable_repair: true                 # Enable swap / remove-then-repair fallback moves
+# repair_candidates_limit: 20         # Max candidates to try after removing a product in swap move
+# remove_move_enabled: true           # Enable dedicated remove-then-re-insert moves
+# remove_candidates_limit: 50         # Max candidates to try after removing a product in remove move
+
+# ---------------------------------------------------------------------------
+# Multi-run harness
+# ---------------------------------------------------------------------------
+# num_runs: 1                         # Override profile number of deterministic-perturbed runs
+# random_seed: 42                     # Base seed for multi-run randomization
+
+# ---------------------------------------------------------------------------
+# Debug artifacts
+# ---------------------------------------------------------------------------
+# debug: false                        # When true, write detailed debug artifacts to debug/
