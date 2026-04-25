@@ -323,14 +323,16 @@ def test_generate_candidates_filters_sensor_and_keeps_stable_ids(monkeypatch) ->
     assert summary.skipped_sensor_mismatch == 6
 
 
-def _patch_fast_candidate_generation(monkeypatch) -> None:
+def _patch_fast_candidate_generation(monkeypatch):
+    executor_calls = {"max_workers": [], "map_calls": 0}
+
     class DummyPropagation:
         def __init__(self, *args, **kwargs):
             pass
 
     class FakeProcessPoolExecutor:
         def __init__(self, *args, **kwargs):
-            pass
+            executor_calls["max_workers"].append(kwargs.get("max_workers", args[0] if args else None))
 
         def __enter__(self):
             return self
@@ -339,12 +341,14 @@ def _patch_fast_candidate_generation(monkeypatch) -> None:
             return False
 
         def map(self, function, *iterables):
+            executor_calls["map_calls"] += 1
             return [function(*args) for args in zip(*iterables)]
 
     monkeypatch.setattr("solvers.aeossp_standard.mwis_conflict_graph.src.candidates.PropagationContext", DummyPropagation)
     monkeypatch.setattr("solvers.aeossp_standard.mwis_conflict_graph.src.candidates.ProcessPoolExecutor", FakeProcessPoolExecutor)
     monkeypatch.setattr("solvers.aeossp_standard.mwis_conflict_graph.src.candidates.observation_geometry_valid", lambda **kwargs: True)
     monkeypatch.setattr("solvers.aeossp_standard.mwis_conflict_graph.src.candidates.initial_slew_feasible", lambda **kwargs: True)
+    return executor_calls
 
 
 def test_parallel_candidate_generation_matches_serial_order_and_summary(monkeypatch) -> None:
@@ -361,7 +365,7 @@ def test_parallel_candidate_generation_matches_serial_order_and_summary(monkeypa
             "task_a": _task("task_a", "visible"),
         },
     )
-    _patch_fast_candidate_generation(monkeypatch)
+    executor_calls = _patch_fast_candidate_generation(monkeypatch)
 
     serial_candidates, serial_summary = generate_candidates(
         case,
@@ -376,6 +380,8 @@ def test_parallel_candidate_generation_matches_serial_order_and_summary(monkeypa
         item.candidate_id for item in serial_candidates
     ]
     assert parallel_summary.as_dict() == serial_summary.as_dict()
+    assert executor_calls["max_workers"] == [2]
+    assert executor_calls["map_calls"] == 1
 
 
 def test_parallel_candidate_generation_preserves_cap_accounting(monkeypatch) -> None:
@@ -392,7 +398,7 @@ def test_parallel_candidate_generation_preserves_cap_accounting(monkeypatch) -> 
             "task_b": _task("task_b", "visible"),
         },
     )
-    _patch_fast_candidate_generation(monkeypatch)
+    executor_calls = _patch_fast_candidate_generation(monkeypatch)
     config = CandidateConfig(
         max_candidates=5,
         max_candidates_per_task=2,
@@ -415,6 +421,8 @@ def test_parallel_candidate_generation_preserves_cap_accounting(monkeypatch) -> 
     assert parallel_summary.as_dict() == serial_summary.as_dict()
     assert parallel_summary.candidate_count == 4
     assert parallel_summary.skipped_cap == 8
+    assert executor_calls["max_workers"] == []
+    assert executor_calls["map_calls"] == 0
 
 
 def test_candidate_generation_precomputes_offsets_once_per_task(monkeypatch) -> None:
@@ -431,7 +439,7 @@ def test_candidate_generation_precomputes_offsets_once_per_task(monkeypatch) -> 
             "task_a": _task("task_a", "visible"),
         },
     )
-    _patch_fast_candidate_generation(monkeypatch)
+    executor_calls = _patch_fast_candidate_generation(monkeypatch)
 
     calls: list[str] = []
 
@@ -452,11 +460,14 @@ def test_candidate_generation_precomputes_offsets_once_per_task(monkeypatch) -> 
     assert calls == ["task_a", "task_b"]
     assert serial_summary.candidate_precompute["total_start_offsets"] == 6
     assert "geometry_cache" in serial_summary.as_dict()
+    assert executor_calls["max_workers"] == []
 
     calls.clear()
     _, parallel_summary = generate_candidates(case, CandidateConfig(candidate_workers=2))
     assert calls == ["task_a", "task_b"]
     assert parallel_summary.candidate_precompute == serial_summary.candidate_precompute
+    assert executor_calls["max_workers"] == [2]
+    assert executor_calls["map_calls"] == 1
 
 
 def test_candidate_config_parses_candidate_workers() -> None:
@@ -617,10 +628,11 @@ def test_parallel_conflict_graph_matches_serial_and_merges_deterministically(mon
         _candidate("sat_b|task_c|18", satellite_id="sat_b", task_id="task_c", start_offset_s=18, end_offset_s=28),
     ]
     case = _case_for_candidates(candidates)
+    propagation_satellite_keys: list[tuple[str, ...]] = []
 
     class DummyPropagation:
-        def __init__(self, *args, **kwargs):
-            pass
+        def __init__(self, satellites, *args, **kwargs):
+            propagation_satellite_keys.append(tuple(sorted(satellites)))
 
     class FakeProcessPoolExecutor:
         created_max_workers: list[int] = []
@@ -655,6 +667,7 @@ def test_parallel_conflict_graph_matches_serial_and_merges_deterministically(mon
 
     _assert_graphs_equal(parallel, serial)
     assert FakeProcessPoolExecutor.created_max_workers == [2]
+    assert all(keys in {("sat_a",), ("sat_b",)} for keys in propagation_satellite_keys)
 
 
 def test_connected_components_are_stable() -> None:

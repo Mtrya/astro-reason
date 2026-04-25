@@ -402,17 +402,25 @@ def battery_issues(
     *,
     propagation: PropagationContext,
     vector_cache: TransitionVectorCache | None = None,
+    satellite_ids: set[str] | tuple[str, ...] | list[str] | None = None,
 ) -> tuple[list[ValidationIssue], dict[str, BatteryTrace]]:
     issues: list[ValidationIssue] = []
     traces: dict[str, BatteryTrace] = {}
     if vector_cache is None:
         vector_cache = TransitionVectorCache(case, propagation)
+    selected_satellite_ids = (
+        set(satellite_ids) if satellite_ids is not None else set(case.satellites)
+    )
     by_satellite: dict[str, list[Candidate]] = {}
     for candidate in candidates:
-        if candidate.satellite_id in case.satellites:
+        if (
+            candidate.satellite_id in case.satellites
+            and candidate.satellite_id in selected_satellite_ids
+        ):
             by_satellite.setdefault(candidate.satellite_id, []).append(candidate)
 
-    for satellite_id, satellite in sorted(case.satellites.items()):
+    for satellite_id in sorted(selected_satellite_ids & set(case.satellites)):
+        satellite = case.satellites[satellite_id]
         resource = satellite.resource_model
         energy_wh = resource.initial_battery_wh
         min_energy_wh = energy_wh
@@ -537,12 +545,14 @@ def evaluate_battery_guard(
         before_candidates,
         propagation=propagation,
         vector_cache=vector_cache,
+        satellite_ids=affected_satellites,
     )
     after_issues, after_traces = battery_issues(
         case,
         after_candidates,
         propagation=propagation,
         vector_cache=vector_cache,
+        satellite_ids=affected_satellites,
     )
     before_min = _min_battery_for_satellites(before_traces, affected_satellites)
     after_min = _min_battery_for_satellites(after_traces, affected_satellites)

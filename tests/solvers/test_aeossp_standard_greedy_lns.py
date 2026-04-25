@@ -325,14 +325,16 @@ def test_generate_candidates_filters_sensor_and_keeps_stable_ids(monkeypatch) ->
     assert summary.per_task_candidate_counts["task_b"] == 3
 
 
-def _patch_fast_candidate_generation(monkeypatch) -> None:
+def _patch_fast_candidate_generation(monkeypatch):
+    executor_calls = {"max_workers": [], "map_calls": 0}
+
     class DummyPropagation:
         def __init__(self, *args, **kwargs):
             pass
 
     class FakeProcessPoolExecutor:
         def __init__(self, *args, **kwargs):
-            pass
+            executor_calls["max_workers"].append(kwargs.get("max_workers", args[0] if args else None))
 
         def __enter__(self):
             return self
@@ -341,12 +343,14 @@ def _patch_fast_candidate_generation(monkeypatch) -> None:
             return False
 
         def map(self, function, *iterables):
+            executor_calls["map_calls"] += 1
             return [function(*args) for args in zip(*iterables)]
 
     monkeypatch.setattr("solvers.aeossp_standard.greedy_lns.src.candidates.PropagationContext", DummyPropagation)
     monkeypatch.setattr("solvers.aeossp_standard.greedy_lns.src.candidates.ProcessPoolExecutor", FakeProcessPoolExecutor)
     monkeypatch.setattr("solvers.aeossp_standard.greedy_lns.src.candidates.observation_geometry_valid", lambda **kwargs: True)
     monkeypatch.setattr("solvers.aeossp_standard.greedy_lns.src.candidates.initial_slew_feasible", lambda **kwargs: True)
+    return executor_calls
 
 
 def test_parallel_candidate_generation_matches_serial_order_and_summary(monkeypatch) -> None:
@@ -363,7 +367,7 @@ def test_parallel_candidate_generation_matches_serial_order_and_summary(monkeypa
             "task_a": _task("task_a", "visible"),
         },
     )
-    _patch_fast_candidate_generation(monkeypatch)
+    executor_calls = _patch_fast_candidate_generation(monkeypatch)
 
     serial_candidates, serial_summary = generate_candidates(
         case,
@@ -378,6 +382,8 @@ def test_parallel_candidate_generation_matches_serial_order_and_summary(monkeypa
         item.candidate_id for item in serial_candidates
     ]
     assert parallel_summary.as_dict() == serial_summary.as_dict()
+    assert executor_calls["max_workers"] == [2]
+    assert executor_calls["map_calls"] == 1
 
 
 def test_parallel_candidate_generation_preserves_cap_accounting(monkeypatch) -> None:
@@ -394,7 +400,7 @@ def test_parallel_candidate_generation_preserves_cap_accounting(monkeypatch) -> 
             "task_b": _task("task_b", "visible"),
         },
     )
-    _patch_fast_candidate_generation(monkeypatch)
+    executor_calls = _patch_fast_candidate_generation(monkeypatch)
     config = CandidateConfig(
         max_candidates=5,
         max_candidates_per_task=2,
@@ -417,6 +423,43 @@ def test_parallel_candidate_generation_preserves_cap_accounting(monkeypatch) -> 
     assert parallel_summary.as_dict() == serial_summary.as_dict()
     assert parallel_summary.candidate_count == 4
     assert parallel_summary.skipped_cap == 8
+    assert executor_calls["max_workers"] == []
+    assert executor_calls["map_calls"] == 0
+
+
+def test_parallel_candidate_generation_uses_provided_propagation_serially(monkeypatch) -> None:
+    case = AeosspCase(
+        case_dir=Path("."),
+        mission=_mission(),
+        satellites={
+            "sat_a": _satellite("sat_a", "visible"),
+            "sat_b": _satellite("sat_b", "visible"),
+        },
+        tasks={
+            "task_a": _task("task_a", "visible"),
+            "task_b": _task("task_b", "visible"),
+        },
+    )
+    executor_calls = _patch_fast_candidate_generation(monkeypatch)
+    provided_propagation = object()
+
+    serial_candidates, serial_summary = generate_candidates(
+        case,
+        CandidateConfig(candidate_workers=1),
+        propagation=provided_propagation,
+    )
+    parallel_candidates, parallel_summary = generate_candidates(
+        case,
+        CandidateConfig(candidate_workers=2),
+        propagation=provided_propagation,
+    )
+
+    assert [item.candidate_id for item in parallel_candidates] == [
+        item.candidate_id for item in serial_candidates
+    ]
+    assert parallel_summary.as_dict() == serial_summary.as_dict()
+    assert executor_calls["max_workers"] == []
+    assert executor_calls["map_calls"] == 0
 
 
 def test_candidate_generation_precomputes_offsets_once_per_task(monkeypatch) -> None:
@@ -433,7 +476,7 @@ def test_candidate_generation_precomputes_offsets_once_per_task(monkeypatch) -> 
             "task_a": _task("task_a", "visible"),
         },
     )
-    _patch_fast_candidate_generation(monkeypatch)
+    executor_calls = _patch_fast_candidate_generation(monkeypatch)
 
     calls: list[str] = []
 
@@ -454,11 +497,14 @@ def test_candidate_generation_precomputes_offsets_once_per_task(monkeypatch) -> 
     assert calls == ["task_a", "task_b"]
     assert serial_summary.candidate_precompute["total_start_offsets"] == 6
     assert "geometry_cache" in serial_summary.as_dict()
+    assert executor_calls["max_workers"] == []
 
     calls.clear()
     _, parallel_summary = generate_candidates(case, CandidateConfig(candidate_workers=2))
     assert calls == ["task_a", "task_b"]
     assert parallel_summary.candidate_precompute == serial_summary.candidate_precompute
+    assert executor_calls["max_workers"] == [2]
+    assert executor_calls["map_calls"] == 1
 
 
 def test_angle_between_deg_edge_cases() -> None:
@@ -1174,8 +1220,11 @@ def test_battery_guard_decision_rejects_worsening_depletion(monkeypatch) -> None
     low = _candidate("low", satellite_id="sat_a", task_id="task_low", start_offset_s=10, end_offset_s=20, weight=1.0)
     high = _candidate("high", satellite_id="sat_a", task_id="task_high", start_offset_s=30, end_offset_s=40, weight=5.0)
     case = _case_for_candidates([low, high])
+    battery_issue_satellite_ids: list[set[str] | None] = []
 
     def fake_battery_issues(case, candidates, **kwargs):
+        satellite_ids = kwargs.get("satellite_ids")
+        battery_issue_satellite_ids.append(set(satellite_ids) if satellite_ids is not None else None)
         if any(candidate.candidate_id == "high" for candidate in candidates):
             return (
                 [
@@ -1231,6 +1280,7 @@ def test_battery_guard_decision_rejects_worsening_depletion(monkeypatch) -> None
     assert decision.before_battery_failure_count == 0
     assert decision.after_battery_failure_count == 1
     assert decision.reason == "battery_worsened"
+    assert battery_issue_satellite_ids == [{"sat_a"}, {"sat_a"}]
 
 
 def test_exact_reinsertion_finds_better_bounded_component(monkeypatch) -> None:
