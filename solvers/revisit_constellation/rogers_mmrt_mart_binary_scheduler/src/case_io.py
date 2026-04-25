@@ -85,7 +85,7 @@ class SolverConfig:
     phase_count: int = 2
     max_slots: int = 16
     write_visibility_matrix: bool = True
-    design_mode: str = "hybrid"
+    design_mode: str = "mmrt"
     design_backend: str = "auto"
     design_threshold_metric: str = "mmrt"
     design_satellite_count: int | None = None

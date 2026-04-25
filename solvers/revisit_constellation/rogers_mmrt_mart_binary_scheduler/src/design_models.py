@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from itertools import combinations
 import math
 from typing import Iterable
@@ -68,6 +68,7 @@ class DesignResult:
             "mode": self.mode,
             "backend": self.backend,
             "fallback_reason": self.fallback_reason,
+            "backend_report": _design_backend_report(self.backend, self.fallback_reason),
             "selected_slot_indices": list(self.selected_slot_indices),
             "selected_slot_ids": list(self.selected_slot_ids),
             "objective": self.objective,
@@ -101,6 +102,34 @@ def build_design_problem(
         max_selected_slots=max_selected,
         fixed_satellite_count=fixed_count,
     )
+
+
+def _problem_for_mode(
+    problem: DesignProblem, config: SolverConfig, mode: str
+) -> DesignProblem:
+    fixed_count = problem.fixed_satellite_count
+    if mode in {"mmrt", "mart"}:
+        fixed_count = config.design_satellite_count
+        if fixed_count is None:
+            fixed_count = min(
+                config.design_max_selected_slots,
+                problem.max_selected_slots,
+                len(problem.slot_ids),
+            )
+    if fixed_count is not None:
+        fixed_count = min(fixed_count, problem.max_selected_slots, len(problem.slot_ids))
+    return replace(problem, fixed_satellite_count=fixed_count)
+
+
+def _design_backend_report(backend: str, fallback_reason: str | None) -> dict[str, object]:
+    reason = fallback_reason or ""
+    return {
+        "solved_with_milp_backend": backend == "pulp" and not fallback_reason,
+        "used_fallback": backend != "pulp" or fallback_reason is not None,
+        "used_exhaustive_fallback": "exhaustive_fallback" in reason,
+        "used_greedy_fallback": "exhaustive_combinations_" in reason,
+        "fallback_reason": fallback_reason,
+    }
 
 
 def estimate_model_size(problem: DesignProblem, mode: str) -> dict[str, int]:
@@ -489,6 +518,7 @@ def select_design_slots(
     problem: DesignProblem, config: SolverConfig, mode: str | None = None
 ) -> DesignResult:
     selected_mode = mode or config.design_mode
+    problem = _problem_for_mode(problem, config, selected_mode)
     size = estimate_model_size(problem, selected_mode)
     selected, fallback_reason = _try_pulp_backend(
         problem, config, selected_mode, config.design_threshold_metric
@@ -532,3 +562,27 @@ def select_design_slots(
         notes=notes if selected_mode == "mart" else (),
     )
 
+
+def compare_design_modes(
+    problem: DesignProblem,
+    config: SolverConfig,
+    modes: tuple[str, ...] = ("mmrt", "mart", "threshold_first", "hybrid"),
+) -> tuple[dict[str, object], ...]:
+    records: list[dict[str, object]] = []
+    for mode in modes:
+        result = select_design_slots(problem, config, mode=mode)
+        records.append(
+            {
+                "mode": result.mode,
+                "backend": result.backend,
+                "fallback_reason": result.fallback_reason,
+                "backend_report": _design_backend_report(
+                    result.backend, result.fallback_reason
+                ),
+                "selected_slot_count": len(result.selected_slot_indices),
+                "selected_slot_ids": list(result.selected_slot_ids),
+                "objective": result.objective,
+                "model_size": result.model_size,
+            }
+        )
+    return tuple(records)

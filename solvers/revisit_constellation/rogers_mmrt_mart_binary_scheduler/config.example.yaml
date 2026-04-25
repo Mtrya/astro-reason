@@ -5,7 +5,7 @@ raan_count: 4
 phase_count: 2
 max_slots: 16
 write_visibility_matrix: true
-design_mode: hybrid
+design_mode: mmrt
 design_backend: auto
 design_threshold_metric: mmrt
 design_satellite_count:

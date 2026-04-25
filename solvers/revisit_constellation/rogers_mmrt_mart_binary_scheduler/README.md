@@ -1,8 +1,8 @@
 # Rogers MMRT/MART Binary Scheduler
 
-This is the Phase 2 scaffold for a reproduced `revisit_constellation` solver based on Rogers MMRT/MART constellation-design models followed by a later binary observation scheduler.
+This is a reproduced `revisit_constellation` solver based on Rogers MMRT/MART constellation-design models followed by a Cho-style binary observation scheduler.
 
-The current implementation is intentionally limited to standalone design preprocessing:
+The implementation is standalone and benchmark-contract based:
 
 - parse public `assets.json` and `mission.json`
 - build a deterministic finite circular-orbit slot library
@@ -13,15 +13,20 @@ The current implementation is intentionally limited to standalone design preproc
 - select a conflict-free schedule with binary, relaxed, exact, or greedy modes
 - run solver-local validation and conservative repair on scheduled windows
 - write a benchmark-shaped `solution.json` with selected satellites and observation actions
-- write `status.json` and `model_prep/*` summaries
+- write `status.json`, `model_prep/*`, and hardened debug summaries
 
-It does not import benchmark internals and does not implement observation scheduling yet.
+It does not import benchmark internals or call the benchmark verifier from solver code.
 
 The design models operate on access timelines, following Rogers' MMRT/MART layer before
 the later Cho-style action scheduler. If PuLP is available and the model is within
 configured size limits, the solver can use it for bounded MILP design models. Otherwise
 it falls back deterministically to exact enumeration for tiny cases and greedy objective
 matching for larger cases.
+
+The default `design_mode` is `mmrt` because the public benchmark prioritizes maximum
+revisit gap. `debug/reproduction_summary.json` records MMRT, MART, threshold-first,
+and hybrid design comparisons plus scheduler exact/relaxed/greedy fallback behavior
+so reproduction drift is explicit.
 
 ## Contract
 
@@ -45,6 +50,7 @@ matching for larger cases.
 - `debug/selected_windows.json`
 - `debug/rounding_or_fallback_summary.json`
 - `debug/validation_summary.json`
+- `debug/reproduction_summary.json`
 
 Optional configuration can be provided with `config.yaml`, `config.yml`, or `config.json` in the config directory. Supported keys are:
 
@@ -55,7 +61,7 @@ Optional configuration can be provided with `config.yaml`, `config.yml`, or `con
 - `phase_count` (default `2`)
 - `max_slots` (default `16`)
 - `write_visibility_matrix`
-- `design_mode` (`hybrid`, `threshold_first`, `mmrt`, or `mart`)
+- `design_mode` (`mmrt`, `mart`, `threshold_first`, or `hybrid`; default `mmrt`)
 - `design_backend` (`auto`, `pulp`, or `fallback`)
 - `design_threshold_metric` (`mmrt` or `mart`)
 - `design_satellite_count`

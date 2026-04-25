@@ -81,6 +81,8 @@ def write_preprocessing_artifacts(
     window_result: WindowEnumerationResult,
     schedule_result: BinaryScheduleResult,
     validation_result: LocalValidationResult,
+    design_mode_comparison: tuple[dict[str, object], ...],
+    scheduler_mode_comparison: tuple[dict[str, object], ...],
     *,
     issue_88_url: str | None,
 ) -> None:
@@ -120,11 +122,45 @@ def write_preprocessing_artifacts(
         },
     )
     write_json(debug_dir / "validation_summary.json", validation_result.to_summary())
+    reproduction_summary = {
+        "source_mapping": {
+            "rogers_slot_visibility_model": "reproduced as finite candidate slots and sampled V[t,j,p] visibility",
+            "rogers_mmrt_design": "implemented for bounded cases with PuLP backend when available and deterministic fallback otherwise",
+            "rogers_mart_design": "implemented for bounded cases with PuLP backend when available and deterministic fallback otherwise",
+            "rogers_constrained_variants": "adapted as threshold_first and hybrid modes over expected revisit thresholds",
+            "cho_window_generation": "adapted as feasible observation-window enumeration for selected slots",
+            "cho_binary_scheduler": "adapted as binary conflict selection with marginal revisit-gap profit",
+            "benchmark_resource_adaptation": "local validation and conservative repair cover overlap, sampled geometry, slew gaps, and battery margin",
+        },
+        "issue_88": {
+            "exists": issue_88_url is not None,
+            "url": issue_88_url,
+        },
+        "active_configuration": {
+            "design_mode": design_result.mode,
+            "design_backend": design_result.backend,
+            "design_fallback_reason": design_result.fallback_reason,
+            "scheduler_backend": schedule_result.backend,
+            "scheduler_fallback_reason": schedule_result.fallback_reason,
+            "local_repair_enabled": validation_result.repair_enabled,
+        },
+        "design_backend_report": design_result.to_summary()["backend_report"],
+        "scheduler_backend_report": schedule_result.to_summary()["backend_report"],
+        "design_mode_comparison": list(design_mode_comparison),
+        "scheduler_mode_comparison": list(scheduler_mode_comparison),
+        "validation": validation_result.to_summary(),
+        "metric_drift": {
+            "design_proxy": design_result.objective,
+            "scheduled_estimate_before_repair": schedule_result.evaluation.to_dict(),
+            "scheduled_estimate_after_repair": validation_result.estimated_metrics,
+        },
+    }
+    write_json(debug_dir / "reproduction_summary.json", reproduction_summary)
 
     capacity = matrix.shape[0] * matrix.shape[1] * matrix.shape[2]
     status = {
         "solver": "rogers_mmrt_mart_binary_scheduler",
-        "phase": "phase_4_binary_scheduler_and_relaxed_fallback",
+        "phase": "phase_6_validation_tuning_and_reproduction_fidelity",
         "case_dir": str(case.case_dir),
         "horizon_start": iso_z(case.horizon_start),
         "horizon_end": iso_z(case.horizon_end),
@@ -145,8 +181,10 @@ def write_preprocessing_artifacts(
         "design_mode": design_result.mode,
         "design_backend": design_result.backend,
         "design_fallback_reason": design_result.fallback_reason,
+        "design_backend_report": design_result.to_summary()["backend_report"],
         "design_objective": design_result.objective,
         "design_model_size": design_result.model_size,
+        "design_mode_comparison": list(design_mode_comparison),
         "selected_slot_count": len(design_result.selected_slot_indices),
         "selected_slot_ids": list(design_result.selected_slot_ids),
         "observation_window_count": len(window_result.windows),
@@ -159,12 +197,14 @@ def write_preprocessing_artifacts(
         "window_capped": window_result.capped,
         "scheduler_backend": schedule_result.backend,
         "scheduler_fallback_reason": schedule_result.fallback_reason,
+        "scheduler_backend_report": schedule_result.to_summary()["backend_report"],
         "scheduler_model_size": schedule_result.model_size,
         "scheduler_selected_window_count": len(schedule_result.selected_windows),
         "scheduler_selected_window_ids": list(schedule_result.selected_window_ids),
         "scheduler_conflict_edge_count": schedule_result.conflict_edge_count,
         "scheduler_transition_conflict_edge_count": schedule_result.transition_conflict_edge_count,
         "scheduler_estimated_metrics": schedule_result.evaluation.to_dict(),
+        "scheduler_mode_comparison": list(scheduler_mode_comparison),
         "local_validation_issue_count": len(validation_result.issues),
         "local_repaired_window_count": len(validation_result.repaired_windows),
         "local_dropped_window_ids": list(validation_result.dropped_window_ids),
@@ -173,8 +213,9 @@ def write_preprocessing_artifacts(
         "issue_88_exists": issue_88_url is not None,
         "issue_88_url": issue_88_url,
         "solution_note": (
-            "Phase 4 emits selected design satellites and scheduled observation actions. "
-            "Battery and full slew repair remain out of scope until Phase 5."
+            "Phase 6 emits selected design satellites and scheduled observation actions. "
+            "Debug artifacts record Rogers design mode comparisons, scheduler fallback "
+            "behavior, and local validation/repair as benchmark adaptations."
         ),
     }
     write_json(solution_dir / "status.json", status)

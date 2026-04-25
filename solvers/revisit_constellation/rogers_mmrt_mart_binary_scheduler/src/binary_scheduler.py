@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+import importlib.util
 from itertools import combinations
 import math
 
@@ -69,6 +70,7 @@ class BinaryScheduleResult:
         return {
             "backend": self.backend,
             "fallback_reason": self.fallback_reason,
+            "backend_report": _scheduler_backend_report(self.backend, self.fallback_reason),
             "selected_window_ids": list(self.selected_window_ids),
             "selected_window_indices": list(self.selected_window_indices),
             "selected_count": len(self.selected_windows),
@@ -78,6 +80,20 @@ class BinaryScheduleResult:
             "model_size": self.model_size,
             "rounding_summary": self.rounding_summary,
         }
+
+
+def _scheduler_backend_report(backend: str, fallback_reason: str | None) -> dict[str, object]:
+    reason = fallback_reason or ""
+    return {
+        "pulp_available": importlib.util.find_spec("pulp") is not None,
+        "solved_with_binary_milp": backend == "pulp_binary" and not fallback_reason,
+        "used_exact_fallback": backend == "exact_fallback" or "exact_fallback" in reason,
+        "used_relaxed_rounding": backend == "relaxed_rounding"
+        or "relaxed_rounding" in reason,
+        "used_greedy_fallback": backend == "greedy_fallback"
+        or "greedy_fallback" in reason,
+        "fallback_reason": fallback_reason,
+    }
 
 
 def _window_profit(window: ObservationWindow) -> float:
@@ -417,6 +433,101 @@ def schedule_observation_windows(
         model_size=model_size,
         rounding_summary=rounding_summary,
     )
+
+
+def _comparison_record(
+    label: str,
+    backend: str,
+    fallback_reason: str | None,
+    case: RevisitCase,
+    windows: tuple[ObservationWindow, ...],
+    selected_indices: tuple[int, ...] | None,
+    *,
+    exact_combinations: int | None = None,
+) -> dict[str, object]:
+    if selected_indices is None:
+        return {
+            "label": label,
+            "backend": backend,
+            "fallback_reason": fallback_reason,
+            "backend_report": _scheduler_backend_report(backend, fallback_reason),
+            "available": False,
+            "exact_combinations": exact_combinations,
+        }
+    selected_indices = tuple(sorted(selected_indices))
+    evaluation = evaluate_schedule(case, windows, selected_indices)
+    return {
+        "label": label,
+        "backend": backend,
+        "fallback_reason": fallback_reason,
+        "backend_report": _scheduler_backend_report(backend, fallback_reason),
+        "available": True,
+        "exact_combinations": exact_combinations,
+        "selected_count": len(selected_indices),
+        "selected_window_ids": [windows[index].window_id for index in selected_indices],
+        "evaluation": evaluation.to_dict(),
+    }
+
+
+def compare_scheduler_modes(
+    case: RevisitCase,
+    config: SolverConfig,
+    window_result: WindowEnumerationResult,
+    current_result: BinaryScheduleResult,
+) -> tuple[dict[str, object], ...]:
+    windows = window_result.windows
+    max_selected = min(config.scheduler_max_selected_windows, len(windows))
+    edges, _ = build_conflict_edges(windows, config.scheduler_min_transition_gap_sec)
+    exact, exact_count = _exact_schedule(
+        case,
+        windows,
+        edges,
+        max_selected,
+        config.scheduler_max_exact_combinations,
+    )
+    greedy = _greedy_schedule(case, windows, edges, max_selected)
+    records = [
+        _comparison_record(
+            "baseline_no_observations",
+            "none",
+            None,
+            case,
+            windows,
+            (),
+        ),
+        _comparison_record(
+            "current",
+            current_result.backend,
+            current_result.fallback_reason,
+            case,
+            windows,
+            current_result.selected_window_indices,
+            exact_combinations=exact_count,
+        ),
+        _comparison_record(
+            "bounded_exact_fallback",
+            "exact_fallback",
+            (
+                None
+                if exact is not None
+                else f"exact_combinations_{exact_count}_exceeded"
+            ),
+            case,
+            windows,
+            exact,
+            exact_combinations=exact_count,
+        ),
+        _comparison_record(
+            "greedy_fallback",
+            "greedy_fallback",
+            None,
+            case,
+            windows,
+            greedy,
+            exact_combinations=exact_count,
+        ),
+    ]
+    return tuple(records)
 
 
 def selected_windows_to_actions(

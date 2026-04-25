@@ -28,6 +28,7 @@ from solvers.revisit_constellation.rogers_mmrt_mart_binary_scheduler.src.case_io
 from solvers.revisit_constellation.rogers_mmrt_mart_binary_scheduler.src.binary_scheduler import (  # noqa: E402
     BinaryScheduleResult,
     build_conflict_edges,
+    compare_scheduler_modes,
     evaluate_schedule,
     schedule_observation_windows,
     selected_windows_to_actions,
@@ -35,6 +36,7 @@ from solvers.revisit_constellation.rogers_mmrt_mart_binary_scheduler.src.binary_
 from solvers.revisit_constellation.rogers_mmrt_mart_binary_scheduler.src.design_models import (  # noqa: E402
     DesignProblem,
     DesignResult,
+    compare_design_modes,
     select_design_slots,
 )
 from solvers.revisit_constellation.rogers_mmrt_mart_binary_scheduler.src.observation_windows import (  # noqa: E402
@@ -377,6 +379,7 @@ def test_mmrt_design_selects_slot_with_smallest_worst_gap() -> None:
 
     assert result.selected_slot_ids == ("slot_1",)
     assert result.objective["max_gap_samples"] == 2
+    assert result.to_summary()["backend_report"]["used_fallback"] is True
 
 
 def test_mart_design_selects_slot_with_smallest_average_gap() -> None:
@@ -419,6 +422,29 @@ def test_threshold_first_finds_fewest_slots_satisfying_expected_gap() -> None:
     assert result.selected_slot_ids == ("slot_0", "slot_1")
     assert result.objective["threshold_satisfied"] is True
     assert result.objective["selected_count"] == 2
+
+
+def test_design_mode_comparison_records_fixed_n_mmrt_and_mart() -> None:
+    problem = _problem(
+        shape=(6, 3, 1),
+        visible={
+            (2, 0, 0),
+            (1, 1, 0),
+            (4, 1, 0),
+            (3, 2, 0),
+        },
+        fixed_count=None,
+        max_selected=2,
+    )
+    config = _design_config(mode="hybrid", satellite_count=None, max_selected=2)
+
+    records = compare_design_modes(problem, config)
+    by_mode = {record["mode"]: record for record in records}
+
+    assert tuple(by_mode) == ("mmrt", "mart", "threshold_first", "hybrid")
+    assert by_mode["mmrt"]["selected_slot_count"] == 2
+    assert by_mode["mart"]["selected_slot_count"] == 2
+    assert by_mode["threshold_first"]["backend_report"]["used_exhaustive_fallback"] is True
 
 
 def test_design_fallback_trigger_is_deterministic() -> None:
@@ -549,6 +575,7 @@ def test_scheduler_greedy_fallback_is_deterministic() -> None:
     second = schedule_observation_windows(case, config, _window_result(windows))
 
     assert first.backend == "greedy_fallback"
+    assert first.to_summary()["backend_report"]["used_greedy_fallback"] is True
     assert first.selected_window_ids == second.selected_window_ids
     assert "greedy_fallback" in (first.fallback_reason or "")
 
@@ -561,6 +588,26 @@ def test_scheduler_adds_transition_gap_conflicts() -> None:
 
     assert edges == frozenset({(0, 1)})
     assert transition_count == 1
+
+
+def test_scheduler_mode_comparison_records_exact_and_greedy() -> None:
+    case = _window_case()
+    windows = (
+        _manual_window("win_00", start_offset_sec=0, end_offset_sec=10),
+        _manual_window("win_01", start_offset_sec=20, end_offset_sec=30),
+        _manual_window("win_02", start_offset_sec=40, end_offset_sec=50),
+    )
+    config = _scheduler_config(max_selected=2, max_exact_combinations=1000)
+    window_result = _window_result(windows)
+    current = schedule_observation_windows(case, config, window_result)
+
+    records = compare_scheduler_modes(case, config, window_result, current)
+    by_label = {record["label"]: record for record in records}
+
+    assert by_label["baseline_no_observations"]["available"] is True
+    assert by_label["bounded_exact_fallback"]["available"] is True
+    assert by_label["greedy_fallback"]["available"] is True
+    assert by_label["current"]["backend_report"]["used_exact_fallback"] is True
 
 
 def test_selected_windows_decode_to_action_schema() -> None:

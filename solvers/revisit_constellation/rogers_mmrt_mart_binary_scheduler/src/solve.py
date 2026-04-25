@@ -5,9 +5,9 @@ from __future__ import annotations
 import argparse
 from pathlib import Path
 
-from .binary_scheduler import schedule_observation_windows
+from .binary_scheduler import compare_scheduler_modes, schedule_observation_windows
 from .case_io import load_case, load_solver_config
-from .design_models import build_design_problem, select_design_slots
+from .design_models import build_design_problem, compare_design_modes, select_design_slots
 from .observation_windows import enumerate_observation_windows
 from .slot_library import build_slot_library
 from .solution_io import write_preprocessing_artifacts, write_slot_solution
@@ -30,6 +30,10 @@ def solve(case_dir: Path, config_dir: str | None, solution_dir: Path) -> None:
     window_result = enumerate_observation_windows(case, config, slots, design_result)
     schedule_result = schedule_observation_windows(case, config, window_result)
     validation_result = validate_and_repair_schedule(case, config, slots, schedule_result)
+    design_mode_comparison = compare_design_modes(design_problem, config)
+    scheduler_mode_comparison = compare_scheduler_modes(
+        case, config, window_result, schedule_result
+    )
 
     solution_dir.mkdir(parents=True, exist_ok=True)
     write_slot_solution(
@@ -50,6 +54,8 @@ def solve(case_dir: Path, config_dir: str | None, solution_dir: Path) -> None:
         window_result,
         schedule_result,
         validation_result,
+        design_mode_comparison,
+        scheduler_mode_comparison,
         issue_88_url=ISSUE_88_URL,
     )
 
