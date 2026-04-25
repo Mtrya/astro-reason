@@ -192,20 +192,27 @@ def _parse_json_verifier(stdout: str, returncode: int) -> dict[str, Any]:
         }
     valid = payload.get("valid")
     if not isinstance(valid, bool):
+        valid = payload.get("is_valid")
+    if not isinstance(valid, bool):
         return {
             "status": "error",
             "valid": None,
             "returncode": returncode,
-            "parse_error": "JSON verifier report must contain boolean key 'valid'",
+            "parse_error": "JSON verifier report must contain boolean key 'valid' or 'is_valid'",
             "report": payload,
         }
+    diagnostics = payload.get("diagnostics", {})
+    if not isinstance(diagnostics, dict):
+        diagnostics = {}
+    if "warnings" in payload:
+        diagnostics = {**diagnostics, "warnings": payload.get("warnings", [])}
     return {
         "status": "valid" if valid else "invalid",
         "valid": valid,
         "returncode": returncode,
         "metrics": payload.get("metrics", {}),
-        "violations": payload.get("violations", []),
-        "diagnostics": payload.get("diagnostics", {}),
+        "violations": payload.get("violations", payload.get("errors", [])),
+        "diagnostics": diagnostics,
         "report": payload,
     }
 
@@ -232,7 +239,7 @@ def _verify_solution(job: Job, solution_path: Path, *, log_dir: Path) -> dict[st
     stdout = (log_dir / "verifier.stdout.log").read_text(encoding="utf-8")
     if job.benchmark_id == "spot5":
         parsed = _parse_spot5_verifier(stdout, run["returncode"])
-    elif job.benchmark_id in ("aeossp_standard", "stereo_imaging"):
+    elif job.benchmark_id in ("aeossp_standard", "stereo_imaging", "revisit_constellation"):
         parsed = _parse_json_verifier(stdout, run["returncode"])
     else:
         parsed = {

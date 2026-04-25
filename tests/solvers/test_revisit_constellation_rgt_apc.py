@@ -15,6 +15,7 @@ sys.path.insert(0, str(REPO_ROOT))
 
 from solvers.revisit_constellation.rgt_apc_gap_constructive.src.case_io import (  # noqa: E402
     load_case,
+    load_solver_config,
 )
 from solvers.revisit_constellation.rgt_apc_gap_constructive.src.gaps import (  # noqa: E402
     gap_improvement,
@@ -47,6 +48,7 @@ from solvers.revisit_constellation.rgt_apc_gap_constructive.src.time_grid import
     parse_iso_z,
 )
 from solvers.revisit_constellation.rgt_apc_gap_constructive.src.visibility import (  # noqa: E402
+    VisibilityConfig,
     VisibilitySample,
     VisibilityWindow,
     group_visible_samples,
@@ -308,6 +310,28 @@ def test_empty_solution_schema(tmp_path: Path) -> None:
         "actions": [],
         "satellites": [],
     }
+
+
+def test_config_example_loads_all_solver_component_configs(tmp_path: Path) -> None:
+    case = load_case(_case_dir(tmp_path))
+    config_dir = tmp_path / "example_config"
+    config_dir.mkdir()
+    config_text = (
+        REPO_ROOT / "solvers/revisit_constellation/rgt_apc_gap_constructive/config.example.yaml"
+    ).read_text(encoding="utf-8")
+    (config_dir / "config.yaml").write_text(config_text, encoding="utf-8")
+
+    payload = load_solver_config(config_dir)
+    orbit_config = OrbitLibraryConfig.from_mapping(payload, case)
+    visibility_config = VisibilityConfig.from_mapping(payload)
+    selection_config = SelectionConfig.from_mapping(payload)
+    scheduling_config = SchedulingConfig.from_mapping(payload)
+
+    assert orbit_config.max_candidates == 18
+    assert visibility_config.sample_step_sec == 120.0
+    assert selection_config.require_positive_improvement is True
+    assert scheduling_config.enable_repair is True
+    assert scheduling_config.repair_max_iterations == 3
 
 
 def test_gap_score_matches_boundary_inclusive_benchmark_metrics(tmp_path: Path) -> None:

@@ -53,6 +53,15 @@ uv run python experiments/main_solver/run.py \
     --case test/8
 ```
 
+Run the RGT/APC constructive `revisit_constellation` smoke case:
+
+```bash
+uv run python experiments/main_solver/run.py \
+    --benchmark revisit_constellation \
+    --solver revisit_constellation_rgt_apc_gap_constructive \
+    --case test/case_0001
+```
+
 Materialize SatNet citation-backed rows:
 
 ```bash
