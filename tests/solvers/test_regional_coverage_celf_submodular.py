@@ -12,7 +12,15 @@ SOLVER_SRC = REPO_ROOT / "solvers" / "regional_coverage" / "celf_submodular" / "
 sys.path.insert(0, str(SOLVER_SRC))
 
 from candidates import CandidateConfig, generate_candidates  # noqa: E402
+from candidates import StripCandidate  # noqa: E402
 from case_io import CoverageSample, iso_z, load_case, parse_iso_z  # noqa: E402
+from celf import (  # noqa: E402
+    SelectionConfig,
+    lazy_forward_selection,
+    marginal_gain,
+    naive_forward_selection,
+    run_celf_selection,
+)
 from coverage import sample_indices_near_centerline  # noqa: E402
 from solve import run  # noqa: E402
 
@@ -125,6 +133,25 @@ def _write_case(case_dir: Path) -> None:
     )
 
 
+def _candidate(
+    candidate_id: str,
+    *,
+    start_offset_s: int = 0,
+    duration_s: int = 10,
+    roll_deg: float = 12.0,
+) -> StripCandidate:
+    return StripCandidate(
+        candidate_id=candidate_id,
+        satellite_id="sat_a",
+        start_offset_s=start_offset_s,
+        start_time=f"2025-07-17T00:00:{start_offset_s:02d}Z",
+        duration_s=duration_s,
+        roll_deg=roll_deg,
+        theta_inner_deg=10.0,
+        theta_outer_deg=14.0,
+    )
+
+
 def test_iso_z_timestamp_round_trip() -> None:
     parsed = parse_iso_z("2025-07-17T00:00:05Z")
     assert iso_z(parsed) == "2025-07-17T00:00:05Z"
@@ -164,6 +191,128 @@ def test_coverage_sample_indexing_is_duplicate_free() -> None:
     assert covered == (0, 1)
 
 
+def test_marginal_gain_counts_only_fresh_weighted_samples() -> None:
+    coverage_by_candidate = {"c1": (0, 1, 2), "c2": (1, 2)}
+    sample_weights = {0: 1.5, 1: 2.0, 2: 3.0}
+
+    gain = marginal_gain("c1", coverage_by_candidate, {1}, sample_weights)
+    repeated_gain = marginal_gain("c2", coverage_by_candidate, {1, 2}, sample_weights)
+
+    assert gain == 4.5
+    assert repeated_gain == 0.0
+
+
+def test_lazy_and_naive_unit_cost_greedy_agree_on_fixed_candidates() -> None:
+    candidates = [
+        _candidate("a", start_offset_s=0),
+        _candidate("b", start_offset_s=10),
+        _candidate("c", start_offset_s=20),
+    ]
+    coverage_by_candidate = {
+        "a": (0, 1),
+        "b": (1, 2),
+        "c": (3,),
+    }
+    sample_weights = {0: 3.0, 1: 2.0, 2: 4.0, 3: 1.0}
+
+    lazy = lazy_forward_selection(
+        candidates,
+        coverage_by_candidate,
+        sample_weights,
+        budget=2.0,
+        policy="unit_cost",
+    )
+    naive = naive_forward_selection(
+        candidates,
+        coverage_by_candidate,
+        sample_weights,
+        budget=2.0,
+        policy="unit_cost",
+    )
+
+    assert lazy.selected_candidate_ids == naive.selected_candidate_ids == ("b", "a")
+    assert lazy.objective_value == naive.objective_value == 9.0
+    assert lazy.marginal_recomputations < naive.marginal_recomputations
+
+
+def test_cost_benefit_can_differ_from_unit_cost_when_costs_differ() -> None:
+    candidates = [
+        _candidate("long", start_offset_s=0, duration_s=90),
+        _candidate("short", start_offset_s=10, duration_s=10),
+    ]
+    coverage_by_candidate = {
+        "long": (0, 1, 2),
+        "short": (0,),
+    }
+    sample_weights = {0: 5.0, 1: 1.0, 2: 1.0}
+
+    unit = lazy_forward_selection(
+        candidates,
+        coverage_by_candidate,
+        sample_weights,
+        budget=100.0,
+        policy="unit_cost",
+        cost_mode="action_count",
+    )
+    cost_benefit = lazy_forward_selection(
+        candidates,
+        coverage_by_candidate,
+        sample_weights,
+        budget=100.0,
+        policy="cost_benefit",
+        cost_mode="imaging_time",
+    )
+
+    assert unit.selected_candidate_ids[0] == "long"
+    assert cost_benefit.selected_candidate_ids[0] == "short"
+
+
+def test_tie_breaking_is_deterministic() -> None:
+    candidates = [
+        _candidate("later", start_offset_s=20, roll_deg=12.0),
+        _candidate("earlier_high_roll", start_offset_s=10, roll_deg=16.0),
+        _candidate("earlier_low_roll_z", start_offset_s=10, roll_deg=12.0),
+        _candidate("earlier_low_roll_a", start_offset_s=10, roll_deg=-12.0),
+    ]
+    coverage_by_candidate = {candidate.candidate_id: (0,) for candidate in candidates}
+    sample_weights = {0: 3.0}
+
+    result = lazy_forward_selection(
+        candidates,
+        coverage_by_candidate,
+        sample_weights,
+        budget=1.0,
+        policy="unit_cost",
+    )
+
+    assert result.selected_candidate_ids == ("earlier_low_roll_a",)
+
+
+def test_run_celf_selection_keeps_higher_reward_variant() -> None:
+    candidates = [
+        _candidate("expensive", start_offset_s=0, duration_s=90),
+        _candidate("cheap", start_offset_s=10, duration_s=10),
+    ]
+    coverage_by_candidate = {
+        "expensive": (0, 1, 2),
+        "cheap": (0,),
+    }
+    sample_weights = {0: 5.0, 1: 1.0, 2: 1.0}
+
+    result = run_celf_selection(
+        candidates,
+        coverage_by_candidate,
+        sample_weights,
+        max_actions_total=100,
+        config=SelectionConfig(cost_mode="imaging_time", budget=90.0),
+    )
+
+    assert result.unit_cost is not None
+    assert result.cost_benefit is not None
+    assert result.best_policy == "unit_cost"
+    assert result.best.selected_candidate_ids == ("expensive",)
+
+
 def test_phase1_solver_writes_empty_solution_and_status(tmp_path: Path) -> None:
     case_dir = tmp_path / "case"
     config_dir = tmp_path / "config"
@@ -197,5 +346,7 @@ def test_phase1_solver_writes_empty_solution_and_status(tmp_path: Path) -> None:
         "sample_count": 2,
     }
     assert status["candidate_summary"]["candidate_count"] == 3
-    assert status["output_policy"]["empty_solution_only"] is True
+    assert "celf_summary" in status
+    assert status["output_policy"]["satellite_repair_enabled"] is False
     assert len(debug) == 2
+    assert (solution_dir / "debug" / "celf_summary.json").is_file()
