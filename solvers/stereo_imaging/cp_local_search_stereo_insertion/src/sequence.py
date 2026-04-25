@@ -9,6 +9,7 @@ generality.
 
 from __future__ import annotations
 
+from bisect import bisect_left
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 from typing import Any
@@ -33,6 +34,8 @@ class SatelliteSequence:
     observations: list[Candidate] = field(default_factory=list)
     earliest: dict[str, datetime] = field(default_factory=dict)
     latest: dict[str, datetime] = field(default_factory=dict)
+    ordering_keys: list[tuple[datetime, datetime, str]] = field(default_factory=list)
+    slew_cache: dict[tuple[str, str], float] = field(default_factory=dict)
 
     def as_dict(self) -> dict[str, Any]:
         return {
@@ -94,11 +97,87 @@ def _duration_s(candidate: Candidate) -> float:
     return (candidate.end - candidate.start).total_seconds()
 
 
+def _candidate_ordering_key(candidate: Candidate) -> tuple[datetime, datetime, str]:
+    return (candidate.start, candidate.end, candidate.candidate_id)
+
+
+def _fixed_window_times(sequence: SatelliteSequence) -> tuple[dict[str, datetime], dict[str, datetime]]:
+    times = {obs.candidate_id: obs.start for obs in sequence.observations}
+    return dict(times), dict(times)
+
+
+def _cached_slew_gap_required_s(
+    before: Candidate,
+    after: Candidate,
+    sequence: SatelliteSequence,
+    sat_def: SatelliteDef,
+    sf: EarthSatellite,
+) -> float:
+    key = (before.candidate_id, after.candidate_id)
+    cached = sequence.slew_cache.get(key)
+    if cached is not None:
+        return cached
+    gap = _slew_gap_required_s(before, after, sat_def, sf)
+    sequence.slew_cache[key] = gap
+    return gap
+
+
+def _insertion_reject_reasons(
+    candidate: Candidate,
+    sequence: SatelliteSequence,
+    position: int,
+    sat_def: SatelliteDef,
+    sf: EarthSatellite,
+) -> list[str]:
+    reasons: list[str] = []
+
+    if position < 0 or position > len(sequence.observations):
+        reasons.append(f"insertion position {position} is out of bounds")
+        return reasons
+
+    candidate_key = _candidate_ordering_key(candidate)
+    if position > 0:
+        left = sequence.observations[position - 1]
+        left_key = sequence.ordering_keys[position - 1]
+        if left_key > candidate_key:
+            reasons.append(
+                f"candidate {candidate.candidate_id} would violate chronological order after {left.candidate_id}"
+            )
+        required_gap = _cached_slew_gap_required_s(left, candidate, sequence, sat_def, sf)
+        if left.end + timedelta(seconds=required_gap) > candidate.start:
+            reasons.append(
+                f"candidate {candidate.candidate_id} cannot follow {left.candidate_id}: "
+                f"requires {required_gap:.3f}s slew gap"
+            )
+
+    if position < len(sequence.observations):
+        right = sequence.observations[position]
+        right_key = sequence.ordering_keys[position]
+        if candidate_key > right_key:
+            reasons.append(
+                f"candidate {candidate.candidate_id} would violate chronological order before {right.candidate_id}"
+            )
+        required_gap = _cached_slew_gap_required_s(candidate, right, sequence, sat_def, sf)
+        if candidate.end + timedelta(seconds=required_gap) > right.start:
+            reasons.append(
+                f"candidate {candidate.candidate_id} cannot precede {right.candidate_id}: "
+                f"requires {required_gap:.3f}s slew gap"
+            )
+
+    return reasons
+
+
+def _rebuild_sequence_windows(sequence: SatelliteSequence) -> None:
+    sequence.earliest, sequence.latest = _fixed_window_times(sequence)
+
+
 def _snapshot_sequence(sequence: SatelliteSequence) -> dict[str, Any]:
     return {
         "observations": list(sequence.observations),
         "earliest": dict(sequence.earliest),
         "latest": dict(sequence.latest),
+        "ordering_keys": list(sequence.ordering_keys),
+        "slew_cache": dict(sequence.slew_cache),
     }
 
 
@@ -106,6 +185,8 @@ def _restore_sequence(sequence: SatelliteSequence, snapshot: dict[str, Any]) -> 
     sequence.observations = list(snapshot["observations"])
     sequence.earliest = dict(snapshot["earliest"])
     sequence.latest = dict(snapshot["latest"])
+    sequence.ordering_keys = list(snapshot["ordering_keys"])
+    sequence.slew_cache = dict(snapshot["slew_cache"])
 
 
 def _snapshot_state(state: SequenceState) -> dict[str, Any]:
@@ -125,19 +206,9 @@ def compute_earliest(
     sat_def: SatelliteDef,
     sf: EarthSatellite,
 ) -> dict[str, datetime]:
-    """Upward propagation: e[p] = max(start_p, e[p-1] + dur_{p-1} + slew_{p-1,p})."""
-    e: dict[str, datetime] = {}
-    for p, obs in enumerate(sequence.observations):
-        cid = obs.candidate_id
-        if p == 0:
-            e[cid] = obs.start
-        else:
-            prev = sequence.observations[p - 1]
-            dur_prev = _duration_s(prev)
-            slew = _slew_gap_required_s(prev, obs, sat_def, sf)
-            e_prev = e[prev.candidate_id]
-            e[cid] = max(obs.start, e_prev + timedelta(seconds=dur_prev + slew))
-    return e
+    """Fixed-window benchmark candidates have deterministic earliest times."""
+    earliest, _ = _fixed_window_times(sequence)
+    return earliest
 
 
 def compute_latest(
@@ -145,21 +216,9 @@ def compute_latest(
     sat_def: SatelliteDef,
     sf: EarthSatellite,
 ) -> dict[str, datetime]:
-    """Downward propagation: l[p] = min(start_p, l[p+1] - dur_p - slew_{p,p+1})."""
-    l: dict[str, datetime] = {}
-    n = len(sequence.observations)
-    for p in range(n - 1, -1, -1):
-        obs = sequence.observations[p]
-        cid = obs.candidate_id
-        if p == n - 1:
-            l[cid] = obs.start
-        else:
-            nxt = sequence.observations[p + 1]
-            dur_obs = _duration_s(obs)
-            slew = _slew_gap_required_s(obs, nxt, sat_def, sf)
-            l_next = l[nxt.candidate_id]
-            l[cid] = min(obs.start, l_next - timedelta(seconds=dur_obs + slew))
-    return l
+    """Fixed-window benchmark candidates have deterministic latest times."""
+    _, latest = _fixed_window_times(sequence)
+    return latest
 
 
 def propagate(
@@ -167,9 +226,9 @@ def propagate(
     sat_def: SatelliteDef,
     sf: EarthSatellite,
 ) -> None:
-    """Recompute earliest and latest for the whole sequence."""
-    sequence.earliest = compute_earliest(sequence, sat_def, sf)
-    sequence.latest = compute_latest(sequence, sat_def, sf)
+    """Recompute sequence bookkeeping from the current fixed observation order."""
+    sequence.ordering_keys = [_candidate_ordering_key(obs) for obs in sequence.observations]
+    _rebuild_sequence_windows(sequence)
 
 
 def is_consistent(sequence: SatelliteSequence) -> tuple[bool, list[str]]:
@@ -199,43 +258,13 @@ def possible_insertion_positions(
 
     Returns valid insertion indices 0 … len(sequence).
     """
-    positions: list[int] = []
-    n = len(sequence.observations)
-    E_i = candidate.start
-    D_i = _duration_s(candidate)
-
-    if n == 0:
+    if not sequence.observations:
         return [0]
 
-    e = sequence.earliest
-    l_val = sequence.latest
-
-    # Beginning: position 0
-    first = sequence.observations[0]
-    M_i_first = _slew_gap_required_s(candidate, first, sat_def, sf)
-    if E_i + timedelta(seconds=D_i + M_i_first) <= l_val[first.candidate_id]:
-        positions.append(0)
-
-    # Middle: positions 1 … n-1
-    for p in range(1, n):
-        left = sequence.observations[p - 1]
-        right = sequence.observations[p]
-        D_left = _duration_s(left)
-        M_left_i = _slew_gap_required_s(left, candidate, sat_def, sf)
-        M_i_right = _slew_gap_required_s(candidate, right, sat_def, sf)
-        e_i = max(E_i, e[left.candidate_id] + timedelta(seconds=D_left + M_left_i))
-        l_i = min(E_i, l_val[right.candidate_id] - timedelta(seconds=D_i + M_i_right))
-        if e_i <= l_i:
-            positions.append(p)
-
-    # End: position n
-    last = sequence.observations[-1]
-    D_last = _duration_s(last)
-    M_last_i = _slew_gap_required_s(last, candidate, sat_def, sf)
-    if e[last.candidate_id] + timedelta(seconds=D_last + M_last_i) <= E_i:
-        positions.append(n)
-
-    return positions
+    candidate_key = _candidate_ordering_key(candidate)
+    position = bisect_left(sequence.ordering_keys, candidate_key)
+    reasons = _insertion_reject_reasons(candidate, sequence, position, sat_def, sf)
+    return [] if reasons else [position]
 
 
 def insert_observation(
@@ -250,21 +279,24 @@ def insert_observation(
     On failure the sequence is rolled back to its pre-call state.
     """
     snapshot = _snapshot_sequence(sequence)
-    sequence.observations.insert(position, candidate)
-    propagate(sequence, sat_def, sf)
-    ok, reasons = is_consistent(sequence)
-    if ok:
+    reasons = _insertion_reject_reasons(candidate, sequence, position, sat_def, sf)
+    if reasons:
         return InsertionResult(
-            success=True,
+            success=False,
             position=position,
-            reject_reasons=tuple(),
+            reject_reasons=tuple(reasons),
             rollback_snapshot=snapshot,
         )
-    _restore_sequence(sequence, snapshot)
+
+    sequence.observations.insert(position, candidate)
+    sequence.ordering_keys.insert(position, _candidate_ordering_key(candidate))
+    sequence.earliest[candidate.candidate_id] = candidate.start
+    sequence.latest[candidate.candidate_id] = candidate.start
+
     return InsertionResult(
-        success=False,
+        success=True,
         position=position,
-        reject_reasons=tuple(reasons),
+        reject_reasons=tuple(),
         rollback_snapshot=snapshot,
     )
 
@@ -276,12 +308,18 @@ def remove_observation(
     sf: EarthSatellite,
 ) -> None:
     """Remove observation by candidate_id and re-propagate."""
-    sequence.observations = [o for o in sequence.observations if o.candidate_id != candidate_id]
-    if sequence.observations:
-        propagate(sequence, sat_def, sf)
-    else:
-        sequence.earliest = {}
-        sequence.latest = {}
+    removed_index = next(
+        (idx for idx, obs in enumerate(sequence.observations) if obs.candidate_id == candidate_id),
+        None,
+    )
+    if removed_index is None:
+        return
+    sequence.observations.pop(removed_index)
+    sequence.ordering_keys.pop(removed_index)
+    sequence.earliest.pop(candidate_id, None)
+    sequence.latest.pop(candidate_id, None)
+    if not sequence.observations:
+        sequence.slew_cache = {}
 
 
 def insert_product(
@@ -298,8 +336,8 @@ def insert_product(
     results: list[InsertionResult] = []
     all_reasons: list[str] = []
 
-    # All observations in a product share the same satellite (same-pass constraint)
-    # Sort by start time for deterministic insertion order
+    # Observations may span satellites; each one is inserted into its own
+    # per-satellite sequence. Sort by start time for deterministic order.
     sorted_obs = sorted(product.observations, key=lambda o: o.start)
 
     for obs in sorted_obs:

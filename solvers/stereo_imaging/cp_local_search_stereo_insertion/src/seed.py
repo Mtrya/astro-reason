@@ -176,7 +176,7 @@ def _attempt_tri_stereo_pre_pass(
     # Gather feasible tri-stereo products grouped by target
     tri_by_target: dict[str, list[StereoProduct]] = {}
     for target_id, products in sorted(product_library.per_target_products.items()):
-        tri_products = [p for p in products if p.feasible and p.product_type == ProductType.TRI]
+        tri_products = [p for p in products if p.product_type == ProductType.TRI]
         if tri_products:
             tri_by_target[target_id] = tri_products
 
@@ -241,7 +241,7 @@ def build_greedy_seed(
     iterations = 0
 
     # Step 1 — build pair-primary seed (pairs compete with tri in same pool)
-    pool: list[StereoProduct] = [p for p in product_library.products if p.feasible]
+    pool: list[StereoProduct] = list(product_library.products)
 
     while pool:
         if config.max_seed_products is not None and len(accepted_products) >= config.max_seed_products:
@@ -299,7 +299,7 @@ def build_greedy_seed(
                 continue  # already tri
             tri_candidates = [
                 p for p in products
-                if p.feasible and p.product_type == ProductType.TRI
+                if p.product_type == ProductType.TRI
             ]
             if tri_candidates:
                 upgrade_targets.append(target_id)
@@ -316,7 +316,7 @@ def build_greedy_seed(
             # Best tri product for this target by weighted quality
             tri_candidates = [
                 p for p in product_library.per_target_products[target_id]
-                if p.feasible and p.product_type == ProductType.TRI
+                if p.product_type == ProductType.TRI
             ]
             tri_candidates.sort(key=lambda p: (-p.quality, p.product_id))
             best_tri = tri_candidates[0]

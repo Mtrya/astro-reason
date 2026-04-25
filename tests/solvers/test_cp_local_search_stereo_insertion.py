@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import importlib
 import json
 import math
 import subprocess
@@ -9,6 +10,8 @@ import sys
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
+import brahe
+import numpy as np
 import pytest
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
@@ -169,7 +172,14 @@ def solver_imports():
             _try_remove,
             _try_swap,
         )
-        from products import ProductLibrary, ProductSummary, StereoProduct, ProductType
+        from products import (
+            ProductConfig,
+            ProductLibrary,
+            ProductSummary,
+            StereoProduct,
+            ProductType,
+            build_product_library,
+        )
         from repair import RepairConfig, RepairResult, repair_state, _find_first_conflict
         from seed import (
             SeedConfig,
@@ -203,6 +213,7 @@ def solver_imports():
             "LocalSearchState": LocalSearchState,
             "Mission": Mission,
             "ProductLibrary": ProductLibrary,
+            "ProductConfig": ProductConfig,
             "ProductSummary": ProductSummary,
             "ProductType": ProductType,
             "RepairConfig": RepairConfig,
@@ -225,6 +236,7 @@ def solver_imports():
             "_try_replace": _try_replace,
             "_try_swap": _try_swap,
             "build_greedy_seed": build_greedy_seed,
+            "build_product_library": build_product_library,
             "compute_earliest": compute_earliest,
             "compute_latest": compute_latest,
             "create_empty_state": create_empty_state,
@@ -431,13 +443,402 @@ def test_product_library_sorting_and_bounds(tmp_path: Path) -> None:
         key_next = (-p_next["coverage_value"], -p_next["quality"], p_next["target_id"])
         assert key_curr <= key_next, f"Product sort violated at index {i}"
 
-    tri_counts: dict[tuple[str, str], int] = {}
+    assert all(p["feasible"] for p in products)
+    assert "pair_candidates_considered" in summary
+    assert "pair_pruned_prerequisite" in summary
+    assert "tri_candidates_evaluated" in summary
+
+    tri_counts: dict[str, int] = {}
     for p in products:
         if p["product_type"] == "tri":
-            key = (p["target_id"], p["access_interval_id"])
+            key = p["target_id"]
             tri_counts[key] = tri_counts.get(key, 0) + 1
     for key, count in tri_counts.items():
         assert count <= 5, f"Tri-stereo bound exceeded for {key}: {count}"
+
+
+# ---------------------------------------------------------------------------
+# Product correctness tests
+# ---------------------------------------------------------------------------
+
+
+def test_build_product_library_includes_cross_satellite_products(solver_imports, monkeypatch) -> None:
+    products_module = importlib.import_module("products")
+    build_product_library = solver_imports["build_product_library"]
+    ProductConfig = solver_imports["ProductConfig"]
+
+    case = _make_minimal_stereo_case(solver_imports)
+    candidates = [
+        _make_candidate(
+            satellite_id="sat_a",
+            target_id="t1",
+            start="2026-04-22T22:00:00Z",
+            end="2026-04-22T22:00:06Z",
+            access_interval_id="sat_a::0",
+            candidate_id="sat_a_t1_0",
+        ),
+        _make_candidate(
+            satellite_id="sat_b",
+            target_id="t1",
+            start="2026-04-22T22:10:00Z",
+            end="2026-04-22T22:10:06Z",
+            access_interval_id="sat_b::0",
+            candidate_id="sat_b_t1_0",
+        ),
+        _make_candidate(
+            satellite_id="sat_b",
+            target_id="t1",
+            start="2026-04-22T22:20:00Z",
+            end="2026-04-22T22:20:06Z",
+            access_interval_id="sat_b::0",
+            candidate_id="sat_b_t1_1",
+        ),
+    ]
+
+    monkeypatch.setattr(products_module, "_strip_polyline_en", lambda *args, **kwargs: [(0.0, 0.0), (1.0, 0.0)])
+    monkeypatch.setattr(
+        products_module,
+        "_evaluate_pair",
+        lambda ci, cj, *args, **kwargs: (
+            True,
+            0.9,
+            [],
+        ),
+    )
+    monkeypatch.setattr(
+        products_module,
+        "_evaluate_triple",
+        lambda c0, c1, c2, *args, **kwargs: (
+            True,
+            0.95,
+            [],
+        ),
+    )
+
+    library = build_product_library(candidates, case, ProductConfig(max_tri_products_per_target_access=10))
+
+    cross_sat_pairs = [
+        p for p in library.products
+        if p.product_type == solver_imports["ProductType"].PAIR
+        and {obs.satellite_id for obs in p.observations} == {"sat_a", "sat_b"}
+        and p.feasible
+    ]
+    cross_sat_tris = [
+        p for p in library.products
+        if p.product_type == solver_imports["ProductType"].TRI
+        and {obs.satellite_id for obs in p.observations} == {"sat_a", "sat_b"}
+        and p.feasible
+    ]
+
+    assert cross_sat_pairs, "expected at least one feasible cross-satellite pair"
+    assert cross_sat_pairs[0].satellite_id == "multi"
+    assert cross_sat_pairs[0].access_interval_id == "multi"
+    assert cross_sat_tris, "expected at least one feasible mixed-satellite tri product"
+    assert cross_sat_tris[0].satellite_id == "multi"
+    assert cross_sat_tris[0].access_interval_id == "multi"
+
+
+def test_build_product_library_prunes_out_of_window_pairs_before_geometry(
+    solver_imports, monkeypatch
+) -> None:
+    products_module = importlib.import_module("products")
+    build_product_library = solver_imports["build_product_library"]
+    ProductConfig = solver_imports["ProductConfig"]
+
+    case = _make_minimal_stereo_case(solver_imports)
+    candidates = [
+        _make_candidate(
+            satellite_id="sat_a",
+            target_id="t1",
+            start="2026-04-22T22:00:00Z",
+            end="2026-04-22T22:00:06Z",
+            access_interval_id="sat_a::0",
+            candidate_id="prune_0",
+        ),
+        _make_candidate(
+            satellite_id="sat_b",
+            target_id="t1",
+            start="2026-04-22T22:30:00Z",
+            end="2026-04-22T22:30:06Z",
+            access_interval_id="sat_b::0",
+            candidate_id="prune_1",
+        ),
+        _make_candidate(
+            satellite_id="sat_b",
+            target_id="t1",
+            start="2026-04-23T01:30:00Z",
+            end="2026-04-23T01:30:06Z",
+            access_interval_id="sat_b::1",
+            candidate_id="prune_2",
+        ),
+    ]
+
+    pair_calls: list[tuple[str, str]] = []
+    tri_calls: list[tuple[str, str, str]] = []
+
+    monkeypatch.setattr(products_module, "_strip_polyline_en", lambda *args, **kwargs: [(0.0, 0.0), (1.0, 0.0)])
+
+    def _fake_pair(ci, cj, *args, **kwargs):
+        pair_calls.append((ci.candidate_id, cj.candidate_id))
+        return True, 0.9, []
+
+    def _fake_tri(c0, c1, c2, *args, **kwargs):
+        tri_calls.append((c0.candidate_id, c1.candidate_id, c2.candidate_id))
+        return True, 0.95, []
+
+    monkeypatch.setattr(products_module, "_evaluate_pair", _fake_pair)
+    monkeypatch.setattr(products_module, "_evaluate_triple", _fake_tri)
+
+    library = build_product_library(candidates, case, ProductConfig(max_tri_products_per_target_access=10))
+
+    assert pair_calls == [("prune_0", "prune_1")]
+    assert tri_calls == []
+    assert library.summary.pair_candidates_considered == 3
+    assert library.summary.pair_pruned_prerequisite == 2
+    assert library.summary.pair_rejected_geometry == 0
+    assert library.summary.tri_candidates_evaluated == 0
+    assert len(library.products) == 1
+
+
+def test_evaluate_pair_allows_cross_satellite_within_pair_separation(solver_imports, monkeypatch) -> None:
+    products_module = importlib.import_module("products")
+
+    case = _make_minimal_stereo_case(solver_imports)
+    sf_sats = {
+        sid: solver_imports["EarthSatellite"](sat.tle_line1, sat.tle_line2, name=sid, ts=solver_imports["_TS"])
+        for sid, sat in case.satellites.items()
+    }
+    target = case.targets["t1"]
+    target_ecef = {
+        "t1": np.asarray(
+            brahe.position_geodetic_to_ecef(
+                [target.longitude_deg, target.latitude_deg, target.elevation_ref_m],
+                brahe.AngleFormat.DEGREES,
+            ),
+            dtype=float,
+        ).reshape(3)
+    }
+    geo_cache = {
+        0: products_module._CandidateGeoCache(polyline=[(0.0, 0.0), (1.0, 0.0)], half_width_m=100.0),
+        1: products_module._CandidateGeoCache(polyline=[(0.0, 0.0), (1.0, 0.0)], half_width_m=100.0),
+    }
+    state_by_sat = {
+        "sat_a": np.array([7_000_000.0, 0.0, 0.0]),
+        "sat_b": np.array([0.0, 7_000_000.0, 0.0]),
+    }
+
+    monkeypatch.setattr(
+        products_module,
+        "_satellite_state_ecef_m",
+        lambda sat, dt: (state_by_sat[sat.name], np.zeros(3)),
+    )
+    monkeypatch.setattr(products_module, "_angle_between_deg", lambda a, b: 10.0)
+    monkeypatch.setattr(products_module, "_monte_carlo_overlap_fraction", lambda *args, **kwargs: 0.9)
+
+    c0 = _make_candidate(
+        satellite_id="sat_a",
+        target_id="t1",
+        start="2026-04-22T22:00:00Z",
+        end="2026-04-22T22:00:06Z",
+        access_interval_id="sat_a::0",
+        candidate_id="pair_a",
+    )
+    c1 = _make_candidate(
+        satellite_id="sat_b",
+        target_id="t1",
+        start="2026-04-22T22:30:00Z",
+        end="2026-04-22T22:30:06Z",
+        access_interval_id="sat_b::0",
+        candidate_id="pair_b",
+    )
+
+    feasible, quality, reasons = products_module._evaluate_pair(
+        c0,
+        c1,
+        case,
+        sf_sats,
+        target_ecef,
+        solver_imports["ProductConfig"](pair_mc_samples=4),
+        geo_cache=geo_cache,
+        i=0,
+        j=1,
+    )
+
+    assert feasible
+    assert quality > 0.0
+    assert reasons == []
+
+
+def test_evaluate_pair_rejects_cross_satellite_outside_pair_separation(solver_imports) -> None:
+    products_module = importlib.import_module("products")
+
+    case = _make_minimal_stereo_case(solver_imports)
+    sf_sats = {
+        sid: solver_imports["EarthSatellite"](sat.tle_line1, sat.tle_line2, name=sid, ts=solver_imports["_TS"])
+        for sid, sat in case.satellites.items()
+    }
+    target = case.targets["t1"]
+    target_ecef = {
+        "t1": np.asarray(
+            brahe.position_geodetic_to_ecef(
+                [target.longitude_deg, target.latitude_deg, target.elevation_ref_m],
+                brahe.AngleFormat.DEGREES,
+            ),
+            dtype=float,
+        ).reshape(3)
+    }
+
+    c0 = _make_candidate(
+        satellite_id="sat_a",
+        target_id="t1",
+        start="2026-04-22T22:00:00Z",
+        end="2026-04-22T22:00:06Z",
+        access_interval_id="sat_a::0",
+        candidate_id="pair_far_a",
+    )
+    c1 = _make_candidate(
+        satellite_id="sat_b",
+        target_id="t1",
+        start="2026-04-23T00:30:00Z",
+        end="2026-04-23T00:30:06Z",
+        access_interval_id="sat_b::0",
+        candidate_id="pair_far_b",
+    )
+
+    feasible, quality, reasons = products_module._evaluate_pair(
+        c0,
+        c1,
+        case,
+        sf_sats,
+        target_ecef,
+        solver_imports["ProductConfig"](pair_mc_samples=4),
+    )
+
+    assert not feasible
+    assert quality == 0.0
+    assert any("pair_separation" in reason for reason in reasons)
+
+
+def test_evaluate_pair_rejects_same_satellite_different_access_interval(solver_imports) -> None:
+    products_module = importlib.import_module("products")
+
+    case = _make_minimal_stereo_case(solver_imports)
+    sf_sats = {
+        sid: solver_imports["EarthSatellite"](sat.tle_line1, sat.tle_line2, name=sid, ts=solver_imports["_TS"])
+        for sid, sat in case.satellites.items()
+    }
+    target = case.targets["t1"]
+    target_ecef = {
+        "t1": np.asarray(
+            brahe.position_geodetic_to_ecef(
+                [target.longitude_deg, target.latitude_deg, target.elevation_ref_m],
+                brahe.AngleFormat.DEGREES,
+            ),
+            dtype=float,
+        ).reshape(3)
+    }
+
+    c0 = _make_candidate(
+        satellite_id="sat_a",
+        target_id="t1",
+        start="2026-04-22T22:00:00Z",
+        end="2026-04-22T22:00:06Z",
+        access_interval_id="sat_a::0",
+        candidate_id="same_sat_0",
+    )
+    c1 = _make_candidate(
+        satellite_id="sat_a",
+        target_id="t1",
+        start="2026-04-22T22:10:00Z",
+        end="2026-04-22T22:10:06Z",
+        access_interval_id="sat_a::1",
+        candidate_id="same_sat_1",
+    )
+
+    feasible, quality, reasons = products_module._evaluate_pair(
+        c0,
+        c1,
+        case,
+        sf_sats,
+        target_ecef,
+        solver_imports["ProductConfig"](pair_mc_samples=4),
+    )
+
+    assert not feasible
+    assert quality == 0.0
+    assert any("access_interval_id" in reason for reason in reasons)
+
+
+def test_evaluate_triple_accepts_mixed_satellite_with_anchor(solver_imports, monkeypatch) -> None:
+    products_module = importlib.import_module("products")
+
+    case = _make_minimal_stereo_case(solver_imports)
+    sf_sats = {
+        sid: solver_imports["EarthSatellite"](sat.tle_line1, sat.tle_line2, name=sid, ts=solver_imports["_TS"])
+        for sid, sat in case.satellites.items()
+    }
+    target = case.targets["t1"]
+    target_ecef = {
+        "t1": np.asarray(
+            brahe.position_geodetic_to_ecef(
+                [target.longitude_deg, target.latitude_deg, target.elevation_ref_m],
+                brahe.AngleFormat.DEGREES,
+            ),
+            dtype=float,
+        ).reshape(3)
+    }
+    geo_cache = {
+        0: products_module._CandidateGeoCache(polyline=[(0.0, 0.0), (1.0, 0.0)], half_width_m=100.0),
+        1: products_module._CandidateGeoCache(polyline=[(0.0, 0.0), (1.0, 0.0)], half_width_m=100.0),
+        2: products_module._CandidateGeoCache(polyline=[(0.0, 0.0), (1.0, 0.0)], half_width_m=100.0),
+    }
+    monkeypatch.setattr(products_module, "_monte_carlo_tri_overlap", lambda *args, **kwargs: 0.9)
+
+    c0 = _make_candidate(
+        satellite_id="sat_a",
+        target_id="t1",
+        start="2026-04-22T22:00:00Z",
+        end="2026-04-22T22:00:06Z",
+        access_interval_id="sat_a::0",
+        candidate_id="tri_a",
+    )
+    c1 = _make_candidate(
+        satellite_id="sat_b",
+        target_id="t1",
+        start="2026-04-22T22:10:00Z",
+        end="2026-04-22T22:10:06Z",
+        access_interval_id="sat_b::0",
+        candidate_id="tri_b0",
+    )
+    c2 = _make_candidate(
+        satellite_id="sat_b",
+        target_id="t1",
+        start="2026-04-22T22:20:00Z",
+        end="2026-04-22T22:20:06Z",
+        access_interval_id="sat_b::0",
+        candidate_id="tri_b1",
+    )
+
+    feasible, quality, reasons = products_module._evaluate_triple(
+        c0,
+        c1,
+        c2,
+        case,
+        sf_sats,
+        target_ecef,
+        solver_imports["ProductConfig"](tri_mc_samples=4),
+        geo_cache=geo_cache,
+        indices=(0, 1, 2),
+        pair_cache={
+            (0, 1): (True, 0.8, []),
+            (0, 2): (True, 0.81, []),
+            (1, 2): (True, 0.82, []),
+        },
+    )
+
+    assert feasible
+    assert quality > 0.0
+    assert reasons == []
 
 
 # ---------------------------------------------------------------------------
@@ -619,6 +1020,46 @@ def test_tri_product_rollback(solver_imports) -> None:
     assert seq.observations[0].candidate_id == "c0"
 
 
+def test_cross_satellite_product_inserts_into_independent_sequences(solver_imports) -> None:
+    case = _make_minimal_stereo_case(solver_imports)
+    state = solver_imports["create_empty_state"](case)
+
+    c0 = _make_candidate(
+        satellite_id="sat_a",
+        target_id="t1",
+        start="2026-04-22T22:00:00Z",
+        end="2026-04-22T22:00:06Z",
+        access_interval_id="sat_a::0",
+        candidate_id="cross_insert_a",
+    )
+    c1 = _make_candidate(
+        satellite_id="sat_b",
+        target_id="t1",
+        start="2026-04-22T22:00:00Z",
+        end="2026-04-22T22:00:06Z",
+        access_interval_id="sat_b::0",
+        candidate_id="cross_insert_b",
+    )
+    product = solver_imports["StereoProduct"](
+        product_id="pair|cross_insert",
+        product_type=solver_imports["ProductType"].PAIR,
+        target_id="t1",
+        satellite_id="multi",
+        access_interval_id="multi",
+        observations=(c0, c1),
+        quality=0.5,
+        coverage_value=0.5,
+        feasible=True,
+        reject_reasons=tuple(),
+    )
+
+    result = solver_imports["insert_product"](product, state, case)
+
+    assert result.success
+    assert [obs.candidate_id for obs in state.sequences["sat_a"].observations] == ["cross_insert_a"]
+    assert [obs.candidate_id for obs in state.sequences["sat_b"].observations] == ["cross_insert_b"]
+
+
 def test_propagation_consistency_after_insert_remove(solver_imports) -> None:
     sat_def = _make_sat_def()
     sf = solver_imports["EarthSatellite"](sat_def.tle_line1, sat_def.tle_line2, name="sat_test", ts=solver_imports["_TS"])
@@ -644,6 +1085,23 @@ def test_propagation_consistency_after_insert_remove(solver_imports) -> None:
     solver_imports["insert_observation"](c1, seq, 1, sat_def, sf)
     assert seq.earliest == e_after_insert
     assert seq.latest == l_after_insert
+
+
+def test_sequence_uses_fixed_window_times(solver_imports) -> None:
+    sat_def = _make_sat_def()
+    sf = solver_imports["EarthSatellite"](sat_def.tle_line1, sat_def.tle_line2, name="sat_test", ts=solver_imports["_TS"])
+    seq = solver_imports["SatelliteSequence"](satellite_id="sat_test")
+
+    c0 = _make_candidate(start="2026-04-22T22:00:00Z", end="2026-04-22T22:00:06Z", candidate_id="c0")
+    c1 = _make_candidate(start="2026-04-22T22:02:00Z", end="2026-04-22T22:02:06Z", candidate_id="c1")
+
+    solver_imports["insert_observation"](c0, seq, 0, sat_def, sf)
+    solver_imports["insert_observation"](c1, seq, 1, sat_def, sf)
+
+    assert seq.earliest == {"c0": c0.start, "c1": c1.start}
+    assert seq.latest == {"c0": c0.start, "c1": c1.start}
+    assert solver_imports["compute_earliest"](seq, sat_def, sf) == seq.earliest
+    assert solver_imports["compute_latest"](seq, sat_def, sf) == seq.latest
 
 
 def test_deterministic_position_selection(solver_imports) -> None:

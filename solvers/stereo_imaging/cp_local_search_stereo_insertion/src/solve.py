@@ -96,13 +96,13 @@ def _build_status(
 def _run_sequence_sanity(product_library, case) -> dict:
     """Quick sanity check: insert a few feasible products, verify consistency, remove them."""
     state = create_empty_state(case)
-    feasible_products = [p for p in product_library.products if p.feasible][:5]
-    if not feasible_products:
+    sample_products = product_library.products[:5]
+    if not sample_products:
         return {"checked": False, "reason": "no feasible products"}
 
     inserted = 0
     removed = 0
-    for product in feasible_products:
+    for product in sample_products:
         result = insert_product(product, state, case)
         if result.success:
             inserted += 1
@@ -112,7 +112,7 @@ def _run_sequence_sanity(product_library, case) -> dict:
     all_empty = all(len(seq.observations) == 0 for seq in state.sequences.values())
     return {
         "checked": True,
-        "attempted": len(feasible_products),
+        "attempted": len(sample_products),
         "inserted": inserted,
         "removed": removed,
         "all_empty_after_remove": all_empty,

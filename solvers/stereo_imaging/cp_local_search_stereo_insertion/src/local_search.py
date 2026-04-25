@@ -39,7 +39,7 @@ from sequence import (
 class LocalSearchConfig:
     max_passes: int = 10
     max_moves_per_pass: int = 500
-    max_time_seconds: float = 60.0
+    max_time_seconds: float = 120.0
     enable_repair: bool = True
     repair_candidates_limit: int = 20
     remove_move_enabled: bool = True
@@ -53,7 +53,7 @@ class LocalSearchConfig:
         return cls(
             max_passes=int(payload.get("max_passes", 10)),
             max_moves_per_pass=int(payload.get("max_moves_per_pass", 500)),
-            max_time_seconds=float(payload.get("max_time_seconds", 60.0)),
+            max_time_seconds=float(payload.get("max_time_seconds", 120.0)),
             enable_repair=bool(payload.get("enable_repair", True)),
             repair_candidates_limit=int(payload.get("repair_candidates_limit", 20)),
             remove_move_enabled=bool(payload.get("remove_move_enabled", True)),
@@ -78,6 +78,8 @@ def _clone_sequence_state(state: SequenceState) -> SequenceState:
         new_seq.observations = list(seq.observations)
         new_seq.earliest = dict(seq.earliest)
         new_seq.latest = dict(seq.latest)
+        new_seq.ordering_keys = list(seq.ordering_keys)
+        new_seq.slew_cache = dict(seq.slew_cache)
         sequences[sid] = new_seq
     return SequenceState(sequences=sequences, sf_sats=state.sf_sats)
 
@@ -233,8 +235,6 @@ def _build_feasible_by_target(
     """Map target_id -> feasible products sorted by quality desc, product_id asc."""
     by_target: dict[str, list[StereoProduct]] = {}
     for product in product_library.products:
-        if not product.feasible:
-            continue
         by_target.setdefault(product.target_id, []).append(product)
     for target_id in by_target:
         by_target[target_id].sort(
