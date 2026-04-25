@@ -76,25 +76,45 @@ class LocalSearchConfig:
             allowed = ", ".join(sorted(presets))
             raise ValueError(f"run_profile must be one of: {allowed}")
         preset = presets[run_profile]
+        max_passes = _positive_int(payload.get("max_passes", preset["max_passes"]), "max_passes")
+        max_moves_per_pass = _positive_int(
+            payload.get("max_moves_per_pass", preset["max_moves_per_pass"]),
+            "max_moves_per_pass",
+        )
+        max_time_seconds = _non_negative_float(
+            payload.get("max_time_seconds", preset["max_time_seconds"]),
+            "max_time_seconds",
+        )
+        num_runs = _positive_int(payload.get("num_runs", preset["num_runs"]), "num_runs")
         return cls(
             run_profile=run_profile,
-            max_passes=int(payload.get("max_passes", preset["max_passes"])),
-            max_moves_per_pass=int(
-                payload.get("max_moves_per_pass", preset["max_moves_per_pass"])
-            ),
-            max_time_seconds=float(
-                payload.get("max_time_seconds", preset["max_time_seconds"])
-            ),
+            max_passes=max_passes,
+            max_moves_per_pass=max_moves_per_pass,
+            max_time_seconds=max_time_seconds,
             enable_repair=bool(payload.get("enable_repair", True)),
             repair_candidates_limit=int(payload.get("repair_candidates_limit", 20)),
             remove_move_enabled=bool(payload.get("remove_move_enabled", True)),
             remove_candidates_limit=int(payload.get("remove_candidates_limit", 50)),
-            num_runs=int(payload.get("num_runs", preset["num_runs"])),
+            num_runs=num_runs,
             random_seed=int(payload.get("random_seed", 42)),
         )
 
     def as_status_dict(self) -> dict[str, Any]:
         return asdict(self)
+
+
+def _positive_int(value: Any, field: str) -> int:
+    parsed = int(value)
+    if parsed <= 0:
+        raise ValueError(f"{field} must be positive")
+    return parsed
+
+
+def _non_negative_float(value: Any, field: str) -> float:
+    parsed = float(value)
+    if parsed < 0:
+        raise ValueError(f"{field} must be non-negative")
+    return parsed
 
 
 # ---------------------------------------------------------------------------
@@ -473,7 +493,9 @@ def run_local_search(
 
     log: list[MoveRecord] = []
     move_number = 0
+    moves_this_pass = 0
     moves_accepted = 0
+    passes_completed = 0
 
     def _record(
         pass_num: int,
@@ -485,8 +507,9 @@ def run_local_search(
         after_state: LocalSearchState | None,
         reason: str,
     ) -> None:
-        nonlocal move_number
+        nonlocal move_number, moves_this_pass
         move_number += 1
+        moves_this_pass += 1
         log.append(
             MoveRecord(
                 move_number=move_number,
@@ -502,13 +525,14 @@ def run_local_search(
         )
 
     def _budget_exceeded() -> bool:
-        if move_number >= config.max_passes * config.max_moves_per_pass:
+        if moves_this_pass >= config.max_moves_per_pass:
             return True
         if _time_exceeded(start_time, config.max_time_seconds):
             return True
         return False
 
     for pass_num in range(config.max_passes):
+        moves_this_pass = 0
         if _budget_exceeded():
             break
 
@@ -644,14 +668,16 @@ def run_local_search(
                     break
 
         if not improved_this_pass:
+            passes_completed += 1
             break
+        passes_completed += 1
 
     elapsed = time.perf_counter() - start_time
     return LocalSearchResult(
         best_state=best_state,
         final_state=state,
         log=log,
-        passes_completed=pass_num + 1,
+        passes_completed=passes_completed,
         moves_attempted=move_number,
         moves_accepted=moves_accepted,
         best_objective=best_objective,

@@ -231,11 +231,30 @@ def propagate(
     _rebuild_sequence_windows(sequence)
 
 
-def is_consistent(sequence: SatelliteSequence) -> tuple[bool, list[str]]:
-    """Return (ok, reasons) where reasons is empty when e[cid] <= l[cid] for all."""
+def is_consistent(
+    sequence: SatelliteSequence,
+    sat_def: SatelliteDef | None = None,
+    sf: EarthSatellite | None = None,
+) -> tuple[bool, list[str]]:
+    """Return whether sequence bookkeeping and optional slew chronology are valid."""
     reasons: list[str] = []
-    for obs in sequence.observations:
+    if len(sequence.ordering_keys) != len(sequence.observations):
+        reasons.append(
+            "ordering key count does not match observation count: "
+            f"{len(sequence.ordering_keys)} != {len(sequence.observations)}"
+        )
+
+    for idx, obs in enumerate(sequence.observations):
         cid = obs.candidate_id
+        if obs.satellite_id != sequence.satellite_id:
+            reasons.append(
+                f"Observation {cid} has satellite_id {obs.satellite_id}, "
+                f"expected {sequence.satellite_id}"
+            )
+        if idx < len(sequence.ordering_keys):
+            expected_key = _candidate_ordering_key(obs)
+            if sequence.ordering_keys[idx] != expected_key:
+                reasons.append(f"Ordering key mismatch for observation {cid}")
         e = sequence.earliest.get(cid)
         l_val = sequence.latest.get(cid)
         if e is None or l_val is None:
@@ -245,6 +264,24 @@ def is_consistent(sequence: SatelliteSequence) -> tuple[bool, list[str]]:
             reasons.append(
                 f"Inconsistency for {cid}: earliest {e.isoformat()} > latest {l_val.isoformat()}"
             )
+    for before, after in zip(sequence.observations, sequence.observations[1:]):
+        before_key = _candidate_ordering_key(before)
+        after_key = _candidate_ordering_key(after)
+        if before_key > after_key:
+            reasons.append(
+                f"Observation {after.candidate_id} appears before chronological predecessor {before.candidate_id}"
+            )
+        if before.end > after.start:
+            reasons.append(
+                f"Observation {after.candidate_id} overlaps predecessor {before.candidate_id}"
+            )
+        if sat_def is not None and sf is not None:
+            required_gap = _cached_slew_gap_required_s(before, after, sequence, sat_def, sf)
+            if before.end + timedelta(seconds=required_gap) > after.start:
+                reasons.append(
+                    f"Observation {after.candidate_id} violates slew gap after {before.candidate_id}: "
+                    f"requires {required_gap:.3f}s"
+                )
     return len(reasons) == 0, reasons
 
 

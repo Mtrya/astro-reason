@@ -107,6 +107,24 @@ def _require_str(d: dict[str, Any], key: str, ctx: str) -> str:
     return v
 
 
+def _require_dict(d: dict[str, Any], key: str, ctx: str) -> dict[str, Any]:
+    if key not in d:
+        raise ValueError(f"{ctx}: missing {key}")
+    v = d[key]
+    if not isinstance(v, dict):
+        raise ValueError(f"{ctx}: {key} must be a mapping")
+    return v
+
+
+def _require_bool(d: dict[str, Any], key: str, ctx: str) -> bool:
+    if key not in d:
+        raise ValueError(f"{ctx}: missing {key}")
+    v = d[key]
+    if not isinstance(v, bool):
+        raise ValueError(f"{ctx}: {key} must be a boolean")
+    return v
+
+
 def load_mission(case_dir: Path) -> Mission:
     path = case_dir / "mission.yaml"
     if not path.is_file():
@@ -114,14 +132,18 @@ def load_mission(case_dir: Path) -> Mission:
     raw = yaml.safe_load(path.read_text(encoding="utf-8"))
     if not isinstance(raw, dict) or "mission" not in raw:
         raise ValueError("mission.yaml must contain a top-level 'mission' mapping")
-    m = raw["mission"]
     ctx = "mission.yaml mission"
-    vt = m["validity_thresholds"]
-    qm = m["quality_model"]
+    m = _require_dict(raw, "mission", "mission.yaml")
+    vt = _require_dict(m, "validity_thresholds", ctx)
+    qm = _require_dict(m, "quality_model", ctx)
+    pair_weights = _require_dict(qm, "pair_weights", f"{ctx}.quality_model")
+    tri_stereo_bonus_by_scene = _require_dict(
+        qm, "tri_stereo_bonus_by_scene", f"{ctx}.quality_model"
+    )
     return Mission(
         horizon_start=_parse_iso_utc(_require_str(m, "horizon_start", ctx), field=f"{ctx}.horizon_start"),
         horizon_end=_parse_iso_utc(_require_str(m, "horizon_end", ctx), field=f"{ctx}.horizon_end"),
-        allow_cross_satellite_stereo=bool(m.get("allow_cross_satellite_stereo", False)),
+        allow_cross_satellite_stereo=_require_bool(m, "allow_cross_satellite_stereo", ctx),
         max_stereo_pair_separation_s=_require_float(m, "max_stereo_pair_separation_s", ctx),
         min_overlap_fraction=_require_float(vt, "min_overlap_fraction", f"{ctx}.validity_thresholds"),
         min_convergence_deg=_require_float(vt, "min_convergence_deg", f"{ctx}.validity_thresholds"),
@@ -131,8 +153,8 @@ def load_mission(case_dir: Path) -> Mission:
         near_nadir_anchor_max_off_nadir_deg=_require_float(
             vt, "near_nadir_anchor_max_off_nadir_deg", f"{ctx}.validity_thresholds"
         ),
-        pair_weights=dict(qm["pair_weights"]),
-        tri_stereo_bonus_by_scene=dict(qm["tri_stereo_bonus_by_scene"]),
+        pair_weights=dict(pair_weights),
+        tri_stereo_bonus_by_scene=dict(tri_stereo_bonus_by_scene),
     )
 
 
@@ -149,6 +171,8 @@ def load_satellites(case_dir: Path) -> dict[str, SatelliteDef]:
         if not isinstance(row, dict):
             raise ValueError(f"{ctx} must be a mapping")
         sid = _require_str(row, "id", ctx)
+        if sid in out:
+            raise ValueError(f"{ctx}: duplicate satellite id {sid!r}")
         out[sid] = SatelliteDef(
             sat_id=sid,
             norad_catalog_id=int(row["norad_catalog_id"]),
@@ -179,6 +203,8 @@ def load_targets(case_dir: Path) -> dict[str, TargetDef]:
         if not isinstance(row, dict):
             raise ValueError(f"{ctx} must be a mapping")
         tid = _require_str(row, "id", ctx)
+        if tid in out:
+            raise ValueError(f"{ctx}: duplicate target id {tid!r}")
         st = _require_str(row, "scene_type", ctx)
         if st not in _SCENE_TYPES:
             raise ValueError(f"{ctx}: unknown scene_type {st!r}")

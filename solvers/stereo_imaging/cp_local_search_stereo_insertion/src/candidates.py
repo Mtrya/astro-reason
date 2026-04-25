@@ -51,9 +51,18 @@ class CandidateConfig:
     def from_mapping(cls, payload: dict[str, Any] | None) -> "CandidateConfig":
         payload = payload or {}
         return cls(
-            observation_duration_s=float(payload.get("observation_duration_s", 6.0)),
-            candidate_stride_s=float(payload.get("candidate_stride_s", 10.0)),
-            access_discovery_step_s=float(payload.get("access_discovery_step_s", 60.0)),
+            observation_duration_s=_positive_float(
+                payload.get("observation_duration_s", 6.0),
+                "observation_duration_s",
+            ),
+            candidate_stride_s=_positive_float(
+                payload.get("candidate_stride_s", 10.0),
+                "candidate_stride_s",
+            ),
+            access_discovery_step_s=_positive_float(
+                payload.get("access_discovery_step_s", 60.0),
+                "access_discovery_step_s",
+            ),
             max_candidates_per_target_per_sat=_optional_positive_int(
                 payload.get("max_candidates_per_target_per_sat")
             ),
@@ -135,6 +144,13 @@ def _optional_positive_int(value: Any) -> int | None:
     parsed = int(value)
     if parsed <= 0:
         raise ValueError("candidate cap values must be positive integers")
+    return parsed
+
+
+def _positive_float(value: Any, field: str) -> float:
+    parsed = float(value)
+    if parsed <= 0:
+        raise ValueError(f"{field} must be positive")
     return parsed
 
 
@@ -346,6 +362,7 @@ def generate_candidates(
 
             for target_id, target in sorted(case.targets.items()):
                 summary.per_target_candidate_counts.setdefault(target_id, 0)
+                sat_target_count = 0
                 te = target_ecef[target_id]
 
                 access_intervals = discover_access_intervals(
@@ -361,13 +378,13 @@ def generate_candidates(
                 duration = timedelta(seconds=config.observation_duration_s)
 
                 for interval_start, interval_end, access_interval_id in access_intervals:
-                    if cap is not None and summary.per_target_candidate_counts[target_id] >= cap:
+                    if cap is not None and sat_target_count >= cap:
                         summary.skipped_cap += 1
                         break
 
                     start = interval_start
                     while start + duration <= interval_end:
-                        if cap is not None and summary.per_target_candidate_counts[target_id] >= cap:
+                        if cap is not None and sat_target_count >= cap:
                             summary.skipped_cap += 1
                             break
 
@@ -431,6 +448,7 @@ def generate_candidates(
                         summary.candidate_count += 1
                         summary.per_satellite_candidate_counts[satellite_id] += 1
                         summary.per_target_candidate_counts[target_id] += 1
+                        sat_target_count += 1
                         summary.per_access_interval_candidate_counts[access_interval_id] = (
                             summary.per_access_interval_candidate_counts.get(access_interval_id, 0) + 1
                         )

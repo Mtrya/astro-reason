@@ -376,7 +376,20 @@ def _evaluate_triple(
             a = index_map[ix]
             b = index_map[jx]
             key = (min(a, b), max(a, b))
-            feasible, q_pair, _ = pair_cache[key]
+            if key in pair_cache:
+                feasible, q_pair, _ = pair_cache[key]
+            else:
+                feasible, q_pair, _ = _evaluate_pair(
+                    ci,
+                    cj,
+                    case,
+                    sf_sats,
+                    target_ecef,
+                    product_config,
+                    geo_cache=geo_cache,
+                    i=a,
+                    j=b,
+                )
         else:
             feasible, q_pair, _ = _evaluate_pair(
                 ci,
@@ -533,7 +546,10 @@ def build_product_library(
         tri_candidates: list[StereoProduct] = []
         for i in range(n):
             for j in sorted(k for k in pair_prereq_neighbors[i] if k > i):
-                candidate_ks = sorted(k for k in pair_prereq_neighbors[i].intersection(pair_prereq_neighbors[j]) if k > j)
+                candidate_ks = sorted(
+                    k for k in pair_prereq_neighbors[i].union(pair_prereq_neighbors[j])
+                    if k > j
+                )
                 for k in candidate_ks:
                     summary.tri_candidates_evaluated += 1
                     c0, c1, c2 = group[i], group[j], group[k]

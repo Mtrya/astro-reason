@@ -1,7 +1,9 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-: "${MPLCONFIGDIR:=/tmp/astroreason-matplotlib}"
+if [[ -z "${MPLCONFIGDIR:-}" ]]; then
+  MPLCONFIGDIR="$(mktemp -d)"
+fi
 export MPLCONFIGDIR
 mkdir -p "${MPLCONFIGDIR}"
 

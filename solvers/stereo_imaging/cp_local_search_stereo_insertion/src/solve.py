@@ -60,7 +60,7 @@ def _run_policy_summary(
             if local_search_config.num_runs <= 1
             else "deterministic_multi_run_profile"
         ),
-        "construction_reused_across_runs": True,
+        "construction_reused_across_runs": local_search_config.num_runs > 1,
         "construction_seconds": _round_seconds(construction_seconds),
         "search_pipeline_seconds": _round_seconds(search_pipeline_seconds),
         "total_seconds": _round_seconds(total_seconds),
@@ -72,7 +72,7 @@ def _run_policy_summary(
         "local_search_budget_seconds_total": local_search_config.max_time_seconds * num_runs,
         "num_runs": local_search_config.num_runs,
         "random_seed": local_search_config.random_seed,
-        "best_run": multi_run_stats.get("best_run") if multi_run_stats else 0,
+        "best_run": multi_run_stats.get("best_run") if multi_run_stats else None,
         "construction_share_of_total": (
             construction_seconds / total_seconds if total_seconds > 0 else 0.0
         ),
@@ -108,7 +108,7 @@ def _build_status(
     multi_run_stats: dict[str, Any] | None = None,
 ) -> dict:
     status = {
-        "status": "multi_run",
+        "status": "multi_run" if multi_run_stats is not None else "single_run",
         "case_dir": str(case_dir),
         "config_dir": str(config_dir) if config_dir is not None else None,
         "solution": str(solution_path),
@@ -409,7 +409,7 @@ def main(argv: list[str] | None = None) -> int:
         )
         write_json(solution_dir / "status.json", status)
 
-        if candidate_config.debug or seed_config.seed_only or local_search_result is not None:
+        if candidate_config.debug or seed_config.seed_only:
             write_debug_artifacts(
                 solution_dir,
                 case_id=case_id,

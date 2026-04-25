@@ -329,6 +329,97 @@ def test_load_case_requires_max_stereo_pair_separation(tmp_path: Path, solver_im
         solver_imports["load_case"](case_dir)
 
 
+def _write_case_files(case_dir: Path, *, satellites: str, targets: str, allow_cross: str = "true") -> None:
+    case_dir.mkdir()
+    (case_dir / "mission.yaml").write_text(
+        f"""mission:
+  horizon_start: '2026-04-22T02:00:00Z'
+  horizon_end: '2026-04-24T02:00:00Z'
+  allow_cross_satellite_stereo: {allow_cross}
+  max_stereo_pair_separation_s: 3600.0
+  validity_thresholds:
+    min_overlap_fraction: 0.8
+    min_convergence_deg: 5.0
+    max_convergence_deg: 45.0
+    max_pixel_scale_ratio: 1.5
+    min_solar_elevation_deg: 10.0
+    near_nadir_anchor_max_off_nadir_deg: 10.0
+  quality_model:
+    pair_weights:
+      geometry: 0.5
+      overlap: 0.35
+      resolution: 0.15
+    tri_stereo_bonus_by_scene:
+      urban_structured: 0.12
+      rugged: 0.1
+      vegetated: 0.08
+      open: 0.05
+""",
+        encoding="utf-8",
+    )
+    (case_dir / "satellites.yaml").write_text(satellites, encoding="utf-8")
+    (case_dir / "targets.yaml").write_text(targets, encoding="utf-8")
+
+
+def _satellite_yaml(sat_id: str) -> str:
+    return f"""- id: {sat_id}
+  norad_catalog_id: 38012
+  tle_line1: "1 38012U 11076F   26096.23539690  .00000494  00000+0  11617-3 0  9994"
+  tle_line2: "2 38012  98.2002 172.2949 0001342  74.1943  10.7084 14.58565955761501"
+  pixel_ifov_deg: 4.0e-5
+  cross_track_pixels: 20000
+  max_off_nadir_deg: 30.0
+  max_slew_velocity_deg_per_s: 1.95
+  max_slew_acceleration_deg_per_s2: 0.95
+  settling_time_s: 1.9
+  min_obs_duration_s: 2.0
+  max_obs_duration_s: 60.0
+"""
+
+
+def _target_yaml(target_id: str) -> str:
+    return f"""- id: {target_id}
+  latitude_deg: 48.8566
+  longitude_deg: 2.3522
+  aoi_radius_m: 5000.0
+  elevation_ref_m: 0.0
+  scene_type: urban_structured
+"""
+
+
+def test_load_case_rejects_non_boolean_cross_satellite_flag(tmp_path: Path, solver_imports) -> None:
+    case_dir = tmp_path / "case_bad_bool"
+    _write_case_files(
+        case_dir,
+        satellites=_satellite_yaml("sat_test"),
+        targets=_target_yaml("t1"),
+        allow_cross='"yes"',
+    )
+
+    with pytest.raises(ValueError, match="allow_cross_satellite_stereo must be a boolean"):
+        solver_imports["load_case"](case_dir)
+
+
+def test_load_case_rejects_duplicate_satellite_and_target_ids(tmp_path: Path, solver_imports) -> None:
+    sat_case = tmp_path / "case_duplicate_sat"
+    _write_case_files(
+        sat_case,
+        satellites=_satellite_yaml("sat_test") + _satellite_yaml("sat_test"),
+        targets=_target_yaml("t1"),
+    )
+    with pytest.raises(ValueError, match="duplicate satellite id"):
+        solver_imports["load_case"](sat_case)
+
+    target_case = tmp_path / "case_duplicate_target"
+    _write_case_files(
+        target_case,
+        satellites=_satellite_yaml("sat_test"),
+        targets=_target_yaml("t1") + _target_yaml("t1"),
+    )
+    with pytest.raises(ValueError, match="duplicate target id"):
+        solver_imports["load_case"](target_case)
+
+
 # ---------------------------------------------------------------------------
 # Product correctness tests
 # ---------------------------------------------------------------------------
@@ -470,6 +561,58 @@ def test_build_product_library_prunes_out_of_window_pairs_before_geometry(
     assert library.summary.pair_rejected_geometry == 0
     assert library.summary.tri_candidates_evaluated == 0
     assert len(library.products) == 1
+
+
+def test_build_product_library_evaluates_triples_with_two_prerequisite_edges(
+    solver_imports, monkeypatch
+) -> None:
+    products_module = importlib.import_module("products")
+    build_product_library = solver_imports["build_product_library"]
+    ProductConfig = solver_imports["ProductConfig"]
+
+    case = _make_minimal_stereo_case(solver_imports)
+    candidates = [
+        _make_candidate(
+            satellite_id="sat_a",
+            target_id="t1",
+            start="2026-04-22T22:00:00Z",
+            end="2026-04-22T22:00:06Z",
+            access_interval_id="sat_a::0",
+            candidate_id="chain_0",
+        ),
+        _make_candidate(
+            satellite_id="sat_a",
+            target_id="t1",
+            start="2026-04-22T22:50:00Z",
+            end="2026-04-22T22:50:06Z",
+            access_interval_id="sat_a::0",
+            candidate_id="chain_1",
+        ),
+        _make_candidate(
+            satellite_id="sat_a",
+            target_id="t1",
+            start="2026-04-22T23:40:00Z",
+            end="2026-04-22T23:40:06Z",
+            access_interval_id="sat_a::0",
+            candidate_id="chain_2",
+        ),
+    ]
+    tri_calls: list[tuple[str, str, str]] = []
+
+    monkeypatch.setattr(products_module, "_strip_polyline_en", lambda *args, **kwargs: [(0.0, 0.0), (1.0, 0.0)])
+    monkeypatch.setattr(products_module, "_evaluate_pair", lambda *args, **kwargs: (True, 0.8, []))
+
+    def _fake_tri(c0, c1, c2, *args, **kwargs):
+        tri_calls.append((c0.candidate_id, c1.candidate_id, c2.candidate_id))
+        return True, 0.9, []
+
+    monkeypatch.setattr(products_module, "_evaluate_triple", _fake_tri)
+
+    library = build_product_library(candidates, case, ProductConfig(max_tri_products_per_target_access=10))
+
+    assert tri_calls == [("chain_0", "chain_1", "chain_2")]
+    assert library.summary.tri_candidates_evaluated == 1
+    assert any(p.product_type == solver_imports["ProductType"].TRI for p in library.products)
 
 
 def test_evaluate_pair_allows_cross_satellite_within_pair_separation(solver_imports, monkeypatch) -> None:
@@ -797,6 +940,23 @@ def test_overlap_rejection(solver_imports) -> None:
 
     result = solver_imports["insert_observation"](overlap, seq, 0, sat_def, sf)
     assert not result.success
+
+
+def test_sequence_consistency_checks_pairwise_chronology_and_gap(solver_imports) -> None:
+    sat_def = _make_sat_def()
+    sf = solver_imports["EarthSatellite"](sat_def.tle_line1, sat_def.tle_line2, name="sat_test", ts=solver_imports["_TS"])
+    seq = solver_imports["SatelliteSequence"](satellite_id="sat_test")
+
+    c0 = _make_candidate(start="2026-04-22T22:00:00Z", end="2026-04-22T22:00:06Z", candidate_id="c0")
+    overlap = _make_candidate(start="2026-04-22T22:00:03Z", end="2026-04-22T22:00:09Z", candidate_id="c_overlap")
+    seq.observations = [c0, overlap]
+    solver_imports["propagate"](seq, sat_def, sf)
+
+    ok, reasons = solver_imports["is_consistent"](seq, sat_def, sf)
+
+    assert not ok
+    assert any("overlaps predecessor" in reason for reason in reasons)
+    assert any("violates slew gap" in reason for reason in reasons)
 
 
 def test_slew_too_fast_rejection(solver_imports) -> None:
@@ -1697,6 +1857,61 @@ def test_local_optimum_stops_early(solver_imports) -> None:
     assert result.moves_accepted == 0
 
 
+def test_local_search_move_budget_resets_per_pass(solver_imports) -> None:
+    sat_def = _make_sat_def()
+    ProductType = solver_imports["ProductType"]
+    LocalSearchConfig = solver_imports["LocalSearchConfig"]
+    run_local_search = solver_imports["run_local_search"]
+    create_empty_state = solver_imports["create_empty_state"]
+
+    class _FakeCase:
+        satellites = {"sat_test": sat_def}
+        targets = {"t1": None, "t2": None}
+
+    p1 = _make_product(solver_imports, "p1", ProductType.PAIR, "t1", quality=0.5)
+    p1_upgrade = _make_product(solver_imports, "p1_upgrade", ProductType.PAIR, "t1", quality=0.9)
+    p2 = _make_product(
+        solver_imports,
+        "p2",
+        ProductType.PAIR,
+        "t2",
+        quality=0.6,
+        observations=(
+            _make_candidate(
+                target_id="t2",
+                start="2026-04-22T23:00:00Z",
+                end="2026-04-22T23:00:06Z",
+                candidate_id="p2_c1",
+            ),
+            _make_candidate(
+                target_id="t2",
+                start="2026-04-22T23:01:00Z",
+                end="2026-04-22T23:01:06Z",
+                candidate_id="p2_c2",
+            ),
+        ),
+    )
+    seed_state = create_empty_state(_FakeCase())
+    solver_imports["insert_product"](p1, seed_state, _FakeCase())
+    library = solver_imports["ProductLibrary"](
+        products=[p1, p1_upgrade, p2],
+        per_target_products={"t1": [p1, p1_upgrade], "t2": [p2]},
+        summary=solver_imports["ProductSummary"](
+            total_products=3,
+            pair_products=3,
+            feasible_products=3,
+            per_target_product_counts={"t1": 2, "t2": 1},
+        ),
+    )
+
+    config = LocalSearchConfig(max_passes=2, max_moves_per_pass=1)
+    result = run_local_search(seed_state, [p1], library, _FakeCase(), config)
+
+    assert result.passes_completed == 2
+    assert result.moves_attempted == 2
+    assert result.best_objective[0] == 2
+
+
 def test_seed_vs_improved_objective(solver_imports) -> None:
     sat_def = _make_sat_def()
     ProductType = solver_imports["ProductType"]
@@ -2135,6 +2350,21 @@ def test_local_search_config_rejects_unknown_profile(solver_imports) -> None:
         LocalSearchConfig.from_mapping({"run_profile": "surprise"})
 
 
+@pytest.mark.parametrize(
+    ("field", "value"),
+    [
+        ("max_passes", 0),
+        ("max_moves_per_pass", 0),
+        ("num_runs", 0),
+        ("max_time_seconds", -0.1),
+    ],
+)
+def test_local_search_config_rejects_invalid_budgets(solver_imports, field: str, value: float) -> None:
+    LocalSearchConfig = solver_imports["LocalSearchConfig"]
+    with pytest.raises(ValueError, match=field):
+        LocalSearchConfig.from_mapping({field: value})
+
+
 def test_candidate_config_parses_parallel_workers(solver_imports) -> None:
     CandidateConfig = solver_imports["CandidateConfig"]
     config = CandidateConfig.from_mapping({"parallel_workers": 4})
@@ -2151,6 +2381,16 @@ def test_candidate_config_parallel_workers_zero_disables(solver_imports) -> None
     CandidateConfig = solver_imports["CandidateConfig"]
     config = CandidateConfig.from_mapping({"parallel_workers": 0})
     assert config.parallel_workers == 0
+
+
+@pytest.mark.parametrize(
+    "field",
+    ["observation_duration_s", "candidate_stride_s", "access_discovery_step_s"],
+)
+def test_candidate_config_rejects_non_positive_timing_values(solver_imports, field: str) -> None:
+    CandidateConfig = solver_imports["CandidateConfig"]
+    with pytest.raises(ValueError, match=field):
+        CandidateConfig.from_mapping({field: 0})
 
 
 # ---------------------------------------------------------------------------
@@ -2239,6 +2479,47 @@ def test_minimal_stereo_case_uses_benchmark_shaped_mission(solver_imports) -> No
     }
 
 
+def test_serial_candidate_cap_applies_per_target_per_satellite(solver_imports, monkeypatch) -> None:
+    candidates_module = importlib.import_module("candidates")
+    CandidateConfig = solver_imports["CandidateConfig"]
+    generate_candidates = solver_imports["generate_candidates"]
+
+    case = _make_minimal_stereo_case(solver_imports)
+    start = datetime(2026, 4, 22, 22, 0, 0, tzinfo=UTC)
+    end = start + timedelta(seconds=30)
+
+    monkeypatch.setattr(
+        candidates_module,
+        "discover_access_intervals",
+        lambda *args, **kwargs: [(start, end, "access::0")],
+    )
+    monkeypatch.setattr(
+        candidates_module,
+        "_satellite_state_ecef_m",
+        lambda *args, **kwargs: (np.array([7_000_000.0, 0.0, 0.0]), np.array([0.0, 7_500.0, 0.0])),
+    )
+    monkeypatch.setattr(candidates_module, "compute_steering_angles_to_target", lambda *args, **kwargs: (0.0, 0.0))
+    monkeypatch.setattr(candidates_module, "_combined_off_nadir_deg", lambda *args, **kwargs: 0.0)
+    monkeypatch.setattr(candidates_module, "_boresight_ground_intercept_ecef_m", lambda *args, **kwargs: np.array([0.0, 0.0, 0.0]))
+    monkeypatch.setattr(candidates_module, "_solar_elevation_azimuth_deg", lambda *args, **kwargs: (90.0, 0.0))
+    monkeypatch.setattr(candidates_module, "_access_holds_over_window", lambda *args, **kwargs: True)
+    monkeypatch.setattr(candidates_module, "_off_nadir_deg", lambda *args, **kwargs: 0.0)
+
+    candidates, summary = generate_candidates(
+        case,
+        CandidateConfig(
+            observation_duration_s=6.0,
+            candidate_stride_s=10.0,
+            max_candidates_per_target_per_sat=2,
+            parallel_workers=0,
+        ),
+    )
+
+    assert summary.per_satellite_candidate_counts == {"sat_a": 4, "sat_b": 4}
+    assert summary.per_target_candidate_counts == {"t1": 4, "t2": 4}
+    assert len(candidates) == 8
+
+
 def test_parallel_candidates_identical_to_serial(solver_imports) -> None:
     CandidateConfig = solver_imports["CandidateConfig"]
     generate_candidates = solver_imports["generate_candidates"]
@@ -2273,18 +2554,54 @@ def test_multi_run_different_results_with_rng(solver_imports) -> None:
     from products import ProductLibrary, ProductSummary
 
     case = _make_minimal_stereo_case(solver_imports)
-    config = SeedConfig()
+    ProductType = solver_imports["ProductType"]
+    p1 = _make_product(
+        solver_imports,
+        "rng_p1",
+        ProductType.PAIR,
+        "t1",
+        satellite_id="sat_a",
+        quality=0.5,
+    )
+    p2 = _make_product(
+        solver_imports,
+        "rng_p2",
+        ProductType.PAIR,
+        "t2",
+        satellite_id="sat_b",
+        quality=0.5,
+        observations=(
+            _make_candidate(
+                satellite_id="sat_b",
+                target_id="t2",
+                start="2026-04-22T23:00:00Z",
+                end="2026-04-22T23:00:06Z",
+                candidate_id="rng_p2_c1",
+            ),
+            _make_candidate(
+                satellite_id="sat_b",
+                target_id="t2",
+                start="2026-04-22T23:01:00Z",
+                end="2026-04-22T23:01:06Z",
+                candidate_id="rng_p2_c2",
+            ),
+        ),
+    )
+    config = SeedConfig(max_seed_products=1)
     rng1 = random.Random(1)
     rng2 = random.Random(2)
 
-    empty_lib = ProductLibrary(products=[], per_target_products={}, summary=ProductSummary(
-        total_products=0, pair_products=0, feasible_products=0, per_target_product_counts={}
+    library = ProductLibrary(products=[p1, p2], per_target_products={"t1": [p1], "t2": [p2]}, summary=ProductSummary(
+        total_products=2, pair_products=2, feasible_products=2, per_target_product_counts={"t1": 1, "t2": 1}
     ))
 
-    result1 = build_greedy_seed(empty_lib, case, config, rng=rng1)
-    result2 = build_greedy_seed(empty_lib, case, config, rng=rng2)
-    assert result1.accepted_count == 0
-    assert result2.accepted_count == 0
+    result1 = build_greedy_seed(library, case, config, rng=rng1)
+    result2 = build_greedy_seed(library, case, config, rng=rng2)
+
+    assert result1.accepted_count == result2.accepted_count == 1
+    assert [p.product_id for p in result1.accepted_products] != [
+        p.product_id for p in result2.accepted_products
+    ]
 
 
 def test_multi_run_keeps_best_result(solver_imports) -> None:
@@ -2354,7 +2671,7 @@ def test_status_includes_multi_run_stats_when_enabled(solver_imports) -> None:
         satellite_count=2,
         candidate_config=candidate_config,
         candidate_summary=CandidateSummary(),
-        product_config=solver_imports["CandidateConfig"](),
+        product_config=solver_imports["ProductConfig"](),
         product_library=product_library,
         sequence_sanity={},
         timing_seconds={
@@ -2386,3 +2703,71 @@ def test_status_includes_multi_run_stats_when_enabled(solver_imports) -> None:
     assert status["run_policy"]["construction_seconds"] == pytest.approx(0.51)
     assert status["run_policy"]["local_search_seconds_total"] == pytest.approx(0.3)
     assert status["run_policy"]["best_run"] == 1
+
+
+def test_status_marks_single_run_policy_without_construction_reuse(solver_imports) -> None:
+    from solve import _build_status
+    from candidates import CandidateSummary
+    from products import ProductLibrary, ProductSummary
+    from seed import SeedResult, SeedConfig
+    from local_search import LocalSearchConfig
+    from repair import RepairResult, RepairConfig
+    import tempfile
+
+    case_dir = Path(tempfile.mkdtemp())
+    product_library = ProductLibrary(
+        products=[],
+        per_target_products={},
+        summary=ProductSummary(total_products=0, pair_products=0, feasible_products=0, per_target_product_counts={}),
+    )
+    seed_result = SeedResult(
+        accepted_products=[],
+        rejected_records=[],
+        covered_targets=set(),
+        state=None,
+        config=SeedConfig(),
+        iterations=0,
+    )
+
+    status = _build_status(
+        case_dir=case_dir,
+        config_dir=None,
+        solution_path=case_dir / "solution.json",
+        case_id="test",
+        satellite_count=2,
+        candidate_config=solver_imports["CandidateConfig"](),
+        candidate_summary=CandidateSummary(),
+        product_config=solver_imports["ProductConfig"](),
+        product_library=product_library,
+        sequence_sanity={},
+        timing_seconds={
+            "candidate_generation": 0.2,
+            "product_library": 0.3,
+            "sequence_sanity": 0.01,
+            "construction": 0.51,
+            "seed": 0.02,
+            "seed_total": 0.02,
+            "local_search": 0.1,
+            "local_search_total": 0.1,
+            "repair": 0.01,
+            "repair_total": 0.01,
+            "selected_run_pipeline": 0.13,
+            "search_pipeline_total": 0.13,
+            "total": 1.0,
+        },
+        seed_result=seed_result,
+        repair_result=RepairResult(
+            removed_products=[],
+            lost_targets=set(),
+            final_coverage=0,
+            final_quality=0.0,
+        ),
+        repair_config=RepairConfig(),
+        local_search_config=LocalSearchConfig.from_mapping({}),
+        multi_run_stats=None,
+    )
+
+    assert status["status"] == "single_run"
+    assert "multi_run_stats" not in status
+    assert status["run_policy"]["construction_reused_across_runs"] is False
+    assert status["run_policy"]["best_run"] is None
