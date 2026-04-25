@@ -22,3 +22,5 @@ scheduling:
   transition_gap_sec: null
   require_positive_gap_improvement: true
   enforce_simple_energy_budget: true
+  enable_repair: true
+  repair_max_iterations: 3

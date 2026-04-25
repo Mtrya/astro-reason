@@ -7,12 +7,15 @@ from datetime import datetime, timedelta
 from typing import Any
 import math
 
+import brahe
+import numpy as np
+
 from .case_io import RevisitCase, Target
 from .gaps import GapImprovement, GapScore, gap_improvement, score_observation_timelines
 from .orbit_library import OrbitCandidate
-from .propagation import PropagationCache
+from .propagation import PropagationCache, datetime_to_epoch
 from .time_grid import iso_z
-from .visibility import VisibilityWindow, _geometry_sample
+from .visibility import VisibilityWindow, _geometry_sample, angle_between_deg
 
 
 NUMERICAL_EPS = 1.0e-9
@@ -26,6 +29,8 @@ class SchedulingConfig:
     transition_gap_sec: float | None = None
     require_positive_gap_improvement: bool = True
     enforce_simple_energy_budget: bool = True
+    enable_repair: bool = True
+    repair_max_iterations: int = 3
 
     @classmethod
     def from_mapping(cls, payload: dict[str, Any]) -> "SchedulingConfig":
@@ -48,6 +53,8 @@ class SchedulingConfig:
                 raw.get("require_positive_gap_improvement", True)
             ),
             enforce_simple_energy_budget=bool(raw.get("enforce_simple_energy_budget", True)),
+            enable_repair=bool(raw.get("enable_repair", True)),
+            repair_max_iterations=int(raw.get("repair_max_iterations", 3)),
         )
 
     def selected_action_limit(self, option_count: int) -> int:
@@ -70,6 +77,8 @@ class SchedulingConfig:
             "transition_gap_sec": self.transition_gap_sec,
             "require_positive_gap_improvement": self.require_positive_gap_improvement,
             "enforce_simple_energy_budget": self.enforce_simple_energy_budget,
+            "enable_repair": self.enable_repair,
+            "repair_max_iterations": self.repair_max_iterations,
         }
 
 
@@ -163,6 +172,8 @@ class SchedulingResult:
     final_score: GapScore
     decisions: list[SchedulingDecision]
     rejected_options: list[dict[str, Any]]
+    validation_report: "LocalValidationReport"
+    repair_steps: list["RepairStep"]
     caps: dict[str, Any]
 
     def as_status_dict(self) -> dict[str, Any]:
@@ -172,7 +183,74 @@ class SchedulingResult:
             "final_score": self.final_score.as_dict(),
             "decision_count": len(self.decisions),
             "rejected_option_count": len(self.rejected_options),
+            "validation": self.validation_report.as_dict(),
+            "repair_step_count": len(self.repair_steps),
             "caps": self.caps,
+        }
+
+
+@dataclass(frozen=True, slots=True)
+class LocalValidationIssue:
+    reason: str
+    message: str
+    satellite_id: str | None = None
+    target_id: str | None = None
+    option_ids: tuple[str, ...] = ()
+
+    def as_dict(self) -> dict[str, Any]:
+        return {
+            "reason": self.reason,
+            "message": self.message,
+            "satellite_id": self.satellite_id,
+            "target_id": self.target_id,
+            "option_ids": list(self.option_ids),
+        }
+
+
+@dataclass(frozen=True, slots=True)
+class LocalValidationReport:
+    is_valid: bool
+    issues: list[LocalValidationIssue]
+    score: GapScore
+    high_gap_target_ids: list[str]
+    battery_risk_by_satellite: dict[str, float]
+
+    def as_dict(self) -> dict[str, Any]:
+        return {
+            "is_valid": self.is_valid,
+            "issue_count": len(self.issues),
+            "issues": [issue.as_dict() for issue in self.issues],
+            "score": self.score.as_dict(),
+            "high_gap_target_ids": self.high_gap_target_ids,
+            "battery_risk_by_satellite": self.battery_risk_by_satellite,
+        }
+
+
+@dataclass(frozen=True, slots=True)
+class RepairStep:
+    action: str
+    reason: str
+    score_before: GapScore
+    score_after: GapScore
+    removed_observation: ScheduledObservation | None = None
+    inserted_observation: ScheduledObservation | None = None
+
+    def as_dict(self) -> dict[str, Any]:
+        return {
+            "action": self.action,
+            "reason": self.reason,
+            "score_before": self.score_before.as_dict(),
+            "score_after": self.score_after.as_dict(),
+            "removed_observation": (
+                None
+                if self.removed_observation is None
+                else self.removed_observation.as_dict()
+            ),
+            "inserted_observation": (
+                None
+                if self.inserted_observation is None
+                else self.inserted_observation.as_dict()
+            ),
         }
 
 
@@ -257,6 +335,49 @@ def _geometry_interval_visible(
             instant=instant,
         ).visible
         for instant in _action_sample_times(option.start, option.end)
+    )
+
+
+def _target_vector_eci(
+    *,
+    case: RevisitCase,
+    observation: ObservationOption | ScheduledObservation,
+    propagation: PropagationCache,
+) -> np.ndarray:
+    epoch = datetime_to_epoch(observation.midpoint)
+    satellite_state_eci = propagation.state_eci(observation.satellite_id, observation.midpoint)
+    target = case.targets[observation.target_id]
+    target_eci = np.asarray(
+        brahe.position_ecef_to_eci(epoch, target.ecef_position_m),
+        dtype=float,
+    )
+    return target_eci - satellite_state_eci[:3]
+
+
+def _required_transition_gap_sec(
+    *,
+    case: RevisitCase,
+    previous: ObservationOption | ScheduledObservation,
+    current: ObservationOption | ScheduledObservation,
+    propagation: PropagationCache | None,
+    fallback_transition_gap_sec: float,
+) -> float:
+    if propagation is None:
+        return fallback_transition_gap_sec
+    previous_vector = _target_vector_eci(
+        case=case,
+        observation=previous,
+        propagation=propagation,
+    )
+    current_vector = _target_vector_eci(
+        case=case,
+        observation=current,
+        propagation=propagation,
+    )
+    slew_angle_deg = angle_between_deg(previous_vector, current_vector)
+    return (
+        _slew_time_sec(slew_angle_deg, case.satellite_model.attitude_model)
+        + case.satellite_model.attitude_model.settling_time_sec
     )
 
 
@@ -369,6 +490,45 @@ def _intervals_conflict(
     return True
 
 
+def _timing_conflict_issue(
+    *,
+    case: RevisitCase,
+    left: ObservationOption | ScheduledObservation,
+    right: ObservationOption | ScheduledObservation,
+    propagation: PropagationCache | None,
+    fallback_transition_gap_sec: float,
+) -> LocalValidationIssue | None:
+    if left.satellite_id != right.satellite_id:
+        return None
+    previous, current = (left, right) if left.start <= right.start else (right, left)
+    if previous.end > current.start:
+        return LocalValidationIssue(
+            reason="overlap",
+            message="same-satellite observations overlap",
+            satellite_id=previous.satellite_id,
+            option_ids=(previous.option_id, current.option_id),
+        )
+    required_gap_sec = _required_transition_gap_sec(
+        case=case,
+        previous=previous,
+        current=current,
+        propagation=propagation,
+        fallback_transition_gap_sec=fallback_transition_gap_sec,
+    )
+    actual_gap_sec = (current.start - previous.end).total_seconds()
+    if actual_gap_sec + NUMERICAL_EPS < required_gap_sec:
+        return LocalValidationIssue(
+            reason="slew_gap",
+            message=(
+                "same-satellite observations have insufficient slew/settle gap "
+                f"available={actual_gap_sec:.3f}s required={required_gap_sec:.3f}s"
+            ),
+            satellite_id=previous.satellite_id,
+            option_ids=(previous.option_id, current.option_id),
+        )
+    return None
+
+
 def _simple_energy_feasible(
     *,
     case: RevisitCase,
@@ -399,6 +559,35 @@ def _simple_energy_feasible(
     return required_wh <= resource.initial_battery_wh + NUMERICAL_EPS
 
 
+def _simple_energy_margin_wh(
+    *,
+    case: RevisitCase,
+    satellite_id: str,
+    scheduled: list[ScheduledObservation],
+    transition_gap_sec: float,
+) -> float:
+    resource = case.satellite_model.resource_model
+    sensor = case.satellite_model.sensor
+    attitude = case.satellite_model.attitude_model
+    horizon_hours = case.horizon_duration_sec / 3600.0
+    satellite_observations = [
+        observation
+        for observation in scheduled
+        if observation.satellite_id == satellite_id
+    ]
+    total_observation_sec = sum(
+        (observation.end - observation.start).total_seconds()
+        for observation in satellite_observations
+    )
+    maneuver_sec = max(0, len(satellite_observations) - 1) * transition_gap_sec
+    required_wh = (
+        resource.idle_discharge_rate_w * horizon_hours
+        + sensor.obs_discharge_rate_w * (total_observation_sec / 3600.0)
+        + attitude.maneuver_discharge_rate_w * (maneuver_sec / 3600.0)
+    )
+    return resource.initial_battery_wh - required_wh
+
+
 def _base_feasible(
     *,
     case: RevisitCase,
@@ -406,10 +595,18 @@ def _base_feasible(
     scheduled: list[ScheduledObservation],
     config: SchedulingConfig,
     transition_gap_sec: float,
+    propagation: PropagationCache | None = None,
 ) -> tuple[bool, str | None]:
     for observation in scheduled:
-        if _intervals_conflict(option, observation, transition_gap_sec):
-            return False, "satellite_interval_or_transition_conflict"
+        issue = _timing_conflict_issue(
+            case=case,
+            left=option,
+            right=observation,
+            propagation=propagation,
+            fallback_transition_gap_sec=transition_gap_sec,
+        )
+        if issue is not None:
+            return False, issue.reason
     target_counts = _target_counts(scheduled)
     if (
         config.max_actions_per_target is not None
@@ -491,6 +688,385 @@ def _as_scheduled(option: ObservationOption) -> ScheduledObservation:
     )
 
 
+def validate_schedule_local(
+    *,
+    case: RevisitCase,
+    scheduled: list[ScheduledObservation],
+    selected_candidate_ids: list[str],
+    transition_gap_sec: float,
+    propagation: PropagationCache | None = None,
+    check_geometry: bool = True,
+) -> LocalValidationReport:
+    issues: list[LocalValidationIssue] = []
+    selected_id_set = set(selected_candidate_ids)
+
+    for observation in scheduled:
+        if observation.satellite_id not in selected_id_set:
+            issues.append(
+                LocalValidationIssue(
+                    reason="unknown_satellite",
+                    message="observation references a satellite not selected by the solver",
+                    satellite_id=observation.satellite_id,
+                    target_id=observation.target_id,
+                    option_ids=(observation.option_id,),
+                )
+            )
+        if observation.target_id not in case.targets:
+            issues.append(
+                LocalValidationIssue(
+                    reason="unknown_target",
+                    message="observation references an unknown target",
+                    satellite_id=observation.satellite_id,
+                    target_id=observation.target_id,
+                    option_ids=(observation.option_id,),
+                )
+            )
+            continue
+        target = case.targets[observation.target_id]
+        duration_sec = (observation.end - observation.start).total_seconds()
+        if observation.end <= observation.start:
+            issues.append(
+                LocalValidationIssue(
+                    reason="timing",
+                    message="observation end must be after start",
+                    satellite_id=observation.satellite_id,
+                    target_id=observation.target_id,
+                    option_ids=(observation.option_id,),
+                )
+            )
+        if duration_sec + NUMERICAL_EPS < target.min_duration_sec:
+            issues.append(
+                LocalValidationIssue(
+                    reason="duration",
+                    message=(
+                        "observation is shorter than target minimum duration "
+                        f"duration={duration_sec:.3f}s required={target.min_duration_sec:.3f}s"
+                    ),
+                    satellite_id=observation.satellite_id,
+                    target_id=observation.target_id,
+                    option_ids=(observation.option_id,),
+                )
+            )
+        if (
+            check_geometry
+            and propagation is not None
+            and not _geometry_interval_visible(
+                case=case,
+                option=ObservationOption(
+                    option_id=observation.option_id,
+                    window_id=observation.window_id,
+                    satellite_id=observation.satellite_id,
+                    target_id=observation.target_id,
+                    start=observation.start,
+                    end=observation.end,
+                    midpoint=observation.midpoint,
+                    quality_score=observation.quality_score,
+                    window=VisibilityWindow(
+                        window_id=observation.window_id,
+                        candidate_id=observation.satellite_id,
+                        target_id=observation.target_id,
+                        start=observation.start,
+                        end=observation.end,
+                        midpoint=observation.midpoint,
+                        duration_sec=duration_sec,
+                        max_elevation_deg=0.0,
+                        min_slant_range_m=0.0,
+                        min_off_nadir_deg=0.0,
+                        sample_count=0,
+                        samples=(),
+                    ),
+                ),
+                propagation=propagation,
+            )
+        ):
+            issues.append(
+                LocalValidationIssue(
+                    reason="geometry",
+                    message="observation is not visible at all 10-second local samples",
+                    satellite_id=observation.satellite_id,
+                    target_id=observation.target_id,
+                    option_ids=(observation.option_id,),
+                )
+            )
+
+    for satellite_id in sorted({observation.satellite_id for observation in scheduled}):
+        satellite_observations = sorted(
+            [
+                observation
+                for observation in scheduled
+                if observation.satellite_id == satellite_id
+            ],
+            key=lambda item: (item.start, item.end, item.target_id, item.option_id),
+        )
+        for previous, current in zip(satellite_observations, satellite_observations[1:]):
+            issue = _timing_conflict_issue(
+                case=case,
+                left=previous,
+                right=current,
+                propagation=propagation,
+                fallback_transition_gap_sec=transition_gap_sec,
+            )
+            if issue is not None:
+                issues.append(issue)
+
+    battery_risk_by_satellite = {
+        satellite_id: margin
+        for satellite_id in sorted({*selected_id_set, *(item.satellite_id for item in scheduled)})
+        if (
+            margin := _simple_energy_margin_wh(
+                case=case,
+                satellite_id=satellite_id,
+                scheduled=scheduled,
+                transition_gap_sec=transition_gap_sec,
+            )
+        )
+        < -NUMERICAL_EPS
+    }
+    for satellite_id, margin in battery_risk_by_satellite.items():
+        issues.append(
+            LocalValidationIssue(
+                reason="battery_risk",
+                message=f"simple energy budget is negative by {-margin:.3f} Wh",
+                satellite_id=satellite_id,
+            )
+        )
+
+    score = score_observation_timelines(case, _timelines_from_schedule(scheduled))
+    high_gap_target_ids = [
+        target_id
+        for target_id, target_score in sorted(score.target_gap_summary.items())
+        if target_score.max_revisit_gap_hours
+        > target_score.expected_revisit_period_hours + NUMERICAL_EPS
+    ]
+    hard_issue_reasons = {
+        "unknown_satellite",
+        "unknown_target",
+        "timing",
+        "duration",
+        "geometry",
+        "overlap",
+        "slew_gap",
+        "battery_risk",
+    }
+    return LocalValidationReport(
+        is_valid=not any(issue.reason in hard_issue_reasons for issue in issues),
+        issues=issues,
+        score=score,
+        high_gap_target_ids=high_gap_target_ids,
+        battery_risk_by_satellite=battery_risk_by_satellite,
+    )
+
+
+def _removal_key(
+    case: RevisitCase,
+    scheduled: list[ScheduledObservation],
+    observation: ScheduledObservation,
+) -> tuple[int, float, float, datetime, str, str, str]:
+    before = score_observation_timelines(case, _timelines_from_schedule(scheduled))
+    after = score_observation_timelines(
+        case,
+        _timelines_from_schedule([item for item in scheduled if item is not observation]),
+    )
+    damage = gap_improvement(after, before)
+    return (
+        damage.threshold_violation_reduction,
+        damage.capped_max_revisit_gap_reduction_hours,
+        damage.mean_revisit_gap_reduction_hours,
+        observation.start,
+        observation.satellite_id,
+        observation.target_id,
+        observation.option_id,
+    )
+
+
+def _choose_removal_for_issues(
+    case: RevisitCase,
+    scheduled: list[ScheduledObservation],
+    report: LocalValidationReport,
+) -> tuple[ScheduledObservation, str] | None:
+    by_option_id = {observation.option_id: observation for observation in scheduled}
+    candidates: list[tuple[tuple[int, float, float, datetime, str, str, str], ScheduledObservation, str]] = []
+    for issue in report.issues:
+        if issue.reason not in {"overlap", "slew_gap", "battery_risk", "geometry", "duration"}:
+            continue
+        issue_observations = [
+            by_option_id[option_id]
+            for option_id in issue.option_ids
+            if option_id in by_option_id
+        ]
+        if not issue_observations and issue.satellite_id:
+            issue_observations = [
+                observation
+                for observation in scheduled
+                if observation.satellite_id == issue.satellite_id
+            ]
+        for observation in issue_observations:
+            candidates.append(
+                (
+                    _removal_key(case, scheduled, observation),
+                    observation,
+                    issue.reason,
+                )
+            )
+    if not candidates:
+        return None
+    candidates.sort(key=lambda item: item[0])
+    return candidates[0][1], candidates[0][2]
+
+
+def _insert_high_gap_observation(
+    *,
+    case: RevisitCase,
+    scheduled: list[ScheduledObservation],
+    options: list[ObservationOption],
+    consumed_option_ids: set[str],
+    report: LocalValidationReport,
+    config: SchedulingConfig,
+    transition_gap_sec: float,
+    propagation: PropagationCache | None,
+) -> tuple[ScheduledObservation, GapScore, GapScore] | None:
+    score_before = report.score
+    ranked_targets = sorted(
+        report.high_gap_target_ids,
+        key=lambda target_id: (
+            -score_before.target_gap_summary[target_id].max_revisit_gap_hours,
+            target_id,
+        ),
+    )
+    for target_id in ranked_targets:
+        candidate_options = [
+            option
+            for option in options
+            if option.target_id == target_id and option.option_id not in consumed_option_ids
+        ]
+        ranked_options: list[
+            tuple[tuple[int, float, float, float, datetime, str, str], ObservationOption, GapScore]
+        ] = []
+        for option in candidate_options:
+            feasible, _ = _base_feasible(
+                case=case,
+                option=option,
+                scheduled=scheduled,
+                config=config,
+                transition_gap_sec=transition_gap_sec,
+                propagation=propagation,
+            )
+            if not feasible:
+                continue
+            inserted = _as_scheduled(option)
+            score_after = score_observation_timelines(
+                case,
+                _timelines_from_schedule([*scheduled, inserted]),
+            )
+            improvement = gap_improvement(score_before, score_after)
+            if not improvement.is_positive:
+                continue
+            ranked_options.append(
+                (
+                    (
+                        -improvement.threshold_violation_reduction,
+                        -improvement.capped_max_revisit_gap_reduction_hours,
+                        -improvement.max_revisit_gap_reduction_hours,
+                        -improvement.mean_revisit_gap_reduction_hours,
+                        option.start,
+                        option.satellite_id,
+                        option.window_id,
+                    ),
+                    option,
+                    score_after,
+                )
+            )
+        if ranked_options:
+            ranked_options.sort(key=lambda item: item[0])
+            selected_option = ranked_options[0][1]
+            return _as_scheduled(selected_option), score_before, ranked_options[0][2]
+    return None
+
+
+def repair_schedule_deterministic(
+    *,
+    case: RevisitCase,
+    scheduled: list[ScheduledObservation],
+    options: list[ObservationOption],
+    selected_candidate_ids: list[str],
+    config: SchedulingConfig,
+    transition_gap_sec: float,
+    propagation: PropagationCache | None,
+) -> tuple[list[ScheduledObservation], list[RepairStep], LocalValidationReport]:
+    repaired = list(scheduled)
+    consumed_option_ids = {observation.option_id for observation in repaired}
+    repair_steps: list[RepairStep] = []
+
+    for _ in range(max(0, config.repair_max_iterations)):
+        report = validate_schedule_local(
+            case=case,
+            scheduled=repaired,
+            selected_candidate_ids=selected_candidate_ids,
+            transition_gap_sec=transition_gap_sec,
+            propagation=propagation,
+        )
+        removal = _choose_removal_for_issues(case, repaired, report)
+        if removal is not None:
+            removed_observation, reason = removal
+            score_before = report.score
+            repaired = [
+                observation
+                for observation in repaired
+                if observation is not removed_observation
+            ]
+            score_after = score_observation_timelines(
+                case,
+                _timelines_from_schedule(repaired),
+            )
+            repair_steps.append(
+                RepairStep(
+                    action="remove",
+                    reason=reason,
+                    score_before=score_before,
+                    score_after=score_after,
+                    removed_observation=removed_observation,
+                )
+            )
+            continue
+
+        if len(repaired) >= config.selected_action_limit(len(options)):
+            return repaired, repair_steps, report
+        insertion = _insert_high_gap_observation(
+            case=case,
+            scheduled=repaired,
+            options=options,
+            consumed_option_ids=consumed_option_ids,
+            report=report,
+            config=config,
+            transition_gap_sec=transition_gap_sec,
+            propagation=propagation,
+        )
+        if insertion is None:
+            return repaired, repair_steps, report
+        inserted_observation, score_before, score_after = insertion
+        repaired.append(inserted_observation)
+        repaired.sort(key=lambda item: (item.start, item.satellite_id, item.target_id))
+        consumed_option_ids.add(inserted_observation.option_id)
+        repair_steps.append(
+            RepairStep(
+                action="insert",
+                reason="high_gap_target",
+                score_before=score_before,
+                score_after=score_after,
+                inserted_observation=inserted_observation,
+            )
+        )
+
+    final_report = validate_schedule_local(
+        case=case,
+        scheduled=repaired,
+        selected_candidate_ids=selected_candidate_ids,
+        transition_gap_sec=transition_gap_sec,
+        propagation=propagation,
+    )
+    return repaired, repair_steps, final_report
+
+
 def schedule_observations(
     *,
     case: RevisitCase,
@@ -505,6 +1081,11 @@ def schedule_observations(
         selected_candidates=selected_candidates,
         windows=windows,
         config=config,
+    )
+    propagation = (
+        None
+        if selected_candidates is None
+        else PropagationCache(selected_candidates, case.horizon_start, case.horizon_end)
     )
     transition_gap_sec = config.transition_gap_for_case(case)
     action_limit = config.selected_action_limit(len(options))
@@ -527,6 +1108,7 @@ def schedule_observations(
                 scheduled=scheduled,
                 config=config,
                 transition_gap_sec=transition_gap_sec,
+                propagation=propagation,
             )
             if not feasible:
                 rejected.append(
@@ -621,6 +1203,28 @@ def schedule_observations(
         )
 
     final_score = score_observation_timelines(case, _timelines_from_schedule(scheduled))
+    validation_report = validate_schedule_local(
+        case=case,
+        scheduled=scheduled,
+        selected_candidate_ids=selected_candidate_ids,
+        transition_gap_sec=transition_gap_sec,
+        propagation=propagation,
+    )
+    repair_steps: list[RepairStep] = []
+    if config.enable_repair:
+        scheduled, repair_steps, validation_report = repair_schedule_deterministic(
+            case=case,
+            scheduled=scheduled,
+            options=options,
+            selected_candidate_ids=selected_candidate_ids,
+            config=config,
+            transition_gap_sec=transition_gap_sec,
+            propagation=propagation,
+        )
+        final_score = score_observation_timelines(
+            case,
+            _timelines_from_schedule(scheduled),
+        )
     actions = [
         observation.as_action_dict()
         for observation in sorted(
@@ -635,6 +1239,8 @@ def schedule_observations(
         final_score=final_score,
         decisions=decisions,
         rejected_options=rejected,
+        validation_report=validation_report,
+        repair_steps=repair_steps,
         caps={
             **config.as_status_dict(),
             "action_limit": action_limit,

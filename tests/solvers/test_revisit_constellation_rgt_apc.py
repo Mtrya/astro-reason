@@ -28,7 +28,11 @@ from solvers.revisit_constellation.rgt_apc_gap_constructive.src.orbit_library im
 )
 from solvers.revisit_constellation.rgt_apc_gap_constructive.src.scheduling import (  # noqa: E402
     SchedulingConfig,
+    ScheduledObservation,
+    build_observation_options,
+    repair_schedule_deterministic,
     schedule_observations,
+    validate_schedule_local,
 )
 from solvers.revisit_constellation.rgt_apc_gap_constructive.src.selection import (  # noqa: E402
     SelectionConfig,
@@ -54,7 +58,12 @@ def _write_json(path: Path, payload: dict) -> None:
     path.write_text(json.dumps(payload, indent=2, sort_keys=True), encoding="utf-8")
 
 
-def _assets_payload(*, min_altitude_m: float = 500000.0, max_altitude_m: float = 850000.0) -> dict:
+def _assets_payload(
+    *,
+    min_altitude_m: float = 500000.0,
+    max_altitude_m: float = 850000.0,
+    initial_battery_wh: float = 1600.0,
+) -> dict:
     return {
         "max_num_satellites": 4,
         "satellite_model": {
@@ -66,7 +75,7 @@ def _assets_payload(*, min_altitude_m: float = 500000.0, max_altitude_m: float =
             },
             "resource_model": {
                 "battery_capacity_wh": 2000.0,
-                "initial_battery_wh": 1600.0,
+                "initial_battery_wh": initial_battery_wh,
                 "idle_discharge_rate_w": 5.0,
                 "sunlight_charge_rate_w": 100.0,
             },
@@ -140,6 +149,13 @@ def _scheduler_case_dir(tmp_path: Path) -> Path:
     return case_dir
 
 
+def _low_battery_case_dir(tmp_path: Path) -> Path:
+    case_dir = tmp_path / "low_battery_case"
+    _write_json(case_dir / "assets.json", _assets_payload(initial_battery_wh=1.0))
+    _write_json(case_dir / "mission.json", _mission_payload())
+    return case_dir
+
+
 def _candidate(candidate_id: str) -> OrbitCandidate:
     return OrbitCandidate(
         candidate_id=candidate_id,
@@ -182,6 +198,26 @@ def _window(
         min_off_nadir_deg=off_nadir_deg,
         sample_count=1,
         samples=(),
+    )
+
+
+def _scheduled(
+    option_id: str,
+    satellite_id: str,
+    target_id: str,
+    start: datetime,
+    seconds: int = 30,
+) -> ScheduledObservation:
+    end = start + timedelta(seconds=seconds)
+    return ScheduledObservation(
+        option_id=option_id,
+        window_id=option_id,
+        satellite_id=satellite_id,
+        target_id=target_id,
+        start=start,
+        end=end,
+        midpoint=start + ((end - start) / 2),
+        quality_score=1.0,
     )
 
 
@@ -385,6 +421,7 @@ def test_scheduler_prioritizes_lower_flexibility_when_freshness_ties(tmp_path: P
             max_actions=1,
             transition_gap_sec=0.0,
             enforce_simple_energy_budget=False,
+            enable_repair=False,
         ),
     )
 
@@ -410,6 +447,7 @@ def test_scheduler_prioritizes_staler_target_after_freshness_update(tmp_path: Pa
             max_actions=2,
             transition_gap_sec=0.0,
             enforce_simple_energy_budget=False,
+            enable_repair=False,
         ),
     )
 
@@ -442,6 +480,7 @@ def test_scheduler_uses_lower_opportunity_cost_within_target(tmp_path: Path) -> 
             max_actions=1,
             transition_gap_sec=0.0,
             enforce_simple_energy_budget=False,
+            enable_repair=False,
         ),
     )
 
@@ -466,11 +505,118 @@ def test_scheduler_uses_deterministic_window_ties(tmp_path: Path) -> None:
             max_actions=1,
             transition_gap_sec=0.0,
             enforce_simple_energy_budget=False,
+            enable_repair=False,
         ),
     )
 
     assert result.scheduled_observations[0].satellite_id == "sat_a"
     assert result.final_score.target_gap_summary["target_001"].observation_count == 1
+
+
+def test_local_validation_reports_overlap_high_gap_and_battery_risk(tmp_path: Path) -> None:
+    overlap_case = load_case(_gap_case_dir(tmp_path))
+    overlapping = [
+        _scheduled("obs_a", "sat_a", "target_001", overlap_case.horizon_start + timedelta(minutes=10)),
+        _scheduled(
+            "obs_b",
+            "sat_a",
+            "target_001",
+            overlap_case.horizon_start + timedelta(minutes=10, seconds=10),
+        ),
+    ]
+    overlap_report = validate_schedule_local(
+        case=overlap_case,
+        scheduled=overlapping,
+        selected_candidate_ids=["sat_a"],
+        transition_gap_sec=0.0,
+        propagation=None,
+    )
+
+    assert "overlap" in {issue.reason for issue in overlap_report.issues}
+    assert overlap_report.high_gap_target_ids == ["target_001"]
+
+    battery_case = load_case(_low_battery_case_dir(tmp_path))
+    battery_report = validate_schedule_local(
+        case=battery_case,
+        scheduled=[],
+        selected_candidate_ids=["sat_a"],
+        transition_gap_sec=0.0,
+        propagation=None,
+    )
+
+    assert "battery_risk" in {issue.reason for issue in battery_report.issues}
+    assert battery_report.battery_risk_by_satellite["sat_a"] < 0.0
+
+
+def test_repair_removes_overlapping_observation_deterministically(tmp_path: Path) -> None:
+    case = load_case(_gap_case_dir(tmp_path))
+    scheduled = [
+        _scheduled("obs_b", "sat_a", "target_001", case.horizon_start + timedelta(minutes=10)),
+        _scheduled(
+            "obs_a",
+            "sat_a",
+            "target_001",
+            case.horizon_start + timedelta(minutes=10, seconds=10),
+        ),
+    ]
+
+    repaired, steps, report = repair_schedule_deterministic(
+        case=case,
+        scheduled=scheduled,
+        options=[],
+        selected_candidate_ids=["sat_a"],
+        config=SchedulingConfig(
+            transition_gap_sec=0.0,
+            enforce_simple_energy_budget=False,
+            repair_max_iterations=2,
+        ),
+        transition_gap_sec=0.0,
+        propagation=None,
+    )
+
+    assert [step.action for step in steps] == ["remove"]
+    assert steps[0].reason == "overlap"
+    assert len(repaired) == 1
+    assert repaired[0].option_id == "obs_a"
+    assert report.is_valid
+
+
+def test_repair_inserts_high_gap_target_option_deterministically(tmp_path: Path) -> None:
+    case = load_case(_scheduler_case_dir(tmp_path))
+    windows = [
+        _window("sat_a", "target_001", case.horizon_start, 10),
+        _window("sat_b", "target_002", case.horizon_start, 30),
+    ]
+    options, _ = build_observation_options(
+        case=case,
+        selected_candidate_ids={"sat_a", "sat_b"},
+        selected_candidates=None,
+        windows=windows,
+        config=SchedulingConfig(enforce_simple_energy_budget=False),
+    )
+    scheduled = [
+        _scheduled("sat_a_target_001_10", "sat_a", "target_001", case.horizon_start + timedelta(minutes=10, seconds=15))
+    ]
+
+    repaired, steps, report = repair_schedule_deterministic(
+        case=case,
+        scheduled=scheduled,
+        options=options,
+        selected_candidate_ids=["sat_a", "sat_b"],
+        config=SchedulingConfig(
+            transition_gap_sec=0.0,
+            enforce_simple_energy_budget=False,
+            repair_max_iterations=1,
+        ),
+        transition_gap_sec=0.0,
+        propagation=None,
+    )
+
+    assert [step.action for step in steps] == ["insert"]
+    assert steps[0].inserted_observation is not None
+    assert steps[0].inserted_observation.target_id == "target_002"
+    assert len(repaired) == 2
+    assert report.score.target_gap_summary["target_002"].observation_count == 1
 
 
 def test_solve_sh_smoke_writes_selected_solution_status_and_debug(tmp_path: Path) -> None:
@@ -533,6 +679,8 @@ def test_solve_sh_smoke_writes_selected_solution_status_and_debug(tmp_path: Path
     assert (solution_dir / "debug" / "selection_rounds.json").exists()
     assert (solution_dir / "debug" / "scheduling_decisions.json").exists()
     assert (solution_dir / "debug" / "scheduling_rejections.json").exists()
+    assert (solution_dir / "debug" / "local_validation.json").exists()
+    assert (solution_dir / "debug" / "repair_steps.json").exists()
 
 
 def test_solver_source_does_not_import_benchmark_or_experiment_internals() -> None:

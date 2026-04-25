@@ -63,9 +63,10 @@ def _build_status(
                 "benchmark_style_gap_scoring": True,
                 "greedy_gap_aware_satellite_selection": True,
                 "freshness_flexibility_opportunity_cost_scheduling": True,
+                "solver_local_validation_and_repair": True,
             },
             "components_deferred": {
-                "slew_battery_repair": "phase 4",
+                "full_verifier_equivalent_energy_repair": "phase 5",
             },
             "action_output_reason": "Phase 3 emits constructive observation actions from selected visibility opportunities.",
         },
@@ -177,6 +178,14 @@ def main(argv: list[str] | None = None) -> int:
         write_json(
             solution_dir / "debug" / "scheduling_rejections.json",
             scheduling_result.rejected_options,
+        )
+        write_json(
+            solution_dir / "debug" / "local_validation.json",
+            scheduling_result.validation_report.as_dict(),
+        )
+        write_json(
+            solution_dir / "debug" / "repair_steps.json",
+            [step.as_dict() for step in scheduling_result.repair_steps],
         )
     except Exception as exc:
         traceback_text = traceback.format_exc()
