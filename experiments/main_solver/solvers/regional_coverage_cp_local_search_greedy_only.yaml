@@ -1,0 +1,34 @@
+id: regional_coverage_cp_local_search_greedy_only
+benchmark: regional_coverage
+solver: cp_local_search
+solver_path: solvers/regional_coverage/cp_local_search
+evidence_type: reproduced_solver
+runnable: true
+setup_script: setup.sh
+solve_script: solve.sh
+solution_filename: solution.json
+config:
+  local_search_enabled: false
+  cp_enabled: false
+  search_restart_count: 1
+  search_run_seeds:
+    - 0
+cases:
+  - id: test/case_0001
+    case_dir: benchmarks/regional_coverage/dataset/cases/test/case_0001
+  - id: test/case_0002
+    case_dir: benchmarks/regional_coverage/dataset/cases/test/case_0002
+  - id: test/case_0003
+    case_dir: benchmarks/regional_coverage/dataset/cases/test/case_0003
+  - id: test/case_0004
+    case_dir: benchmarks/regional_coverage/dataset/cases/test/case_0004
+  - id: test/case_0005
+    case_dir: benchmarks/regional_coverage/dataset/cases/test/case_0005
+verifier:
+  command:
+    - uv
+    - run
+    - python
+    - benchmarks/regional_coverage/verifier.py
+    - "{case_dir}"
+    - "{solution_path}"

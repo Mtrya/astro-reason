@@ -62,6 +62,22 @@ Aggregate results:
 uv run python experiments/main_solver/aggregate.py
 ```
 
+Run the regional-coverage CP/local-search CI smoke envelope:
+
+```bash
+uv run python experiments/main_solver/run.py \
+    --config experiments/main_solver/config_regional_coverage_cp_local_search_ci_smoke.yaml
+```
+
+Run the regional-coverage reproduction envelope, comparing greedy-only,
+local-search, and CP-enabled modes over all public regional cases:
+
+```bash
+uv run python experiments/main_solver/run.py \
+    --config experiments/main_solver/config_regional_coverage_cp_local_search_reproduction.yaml
+uv run python experiments/main_solver/aggregate.py
+```
+
 ## Result Layout
 
 ```text
@@ -73,3 +89,12 @@ results/main_solver/<benchmark>/<solver>/<case_slug>/
 ```
 
 Benchmark verifiers are consumed as executables. The runner does not import benchmark-internal functions, classes, or modules.
+
+## Solver Status Reporting
+
+For runnable solvers that write `status.json`, aggregation preserves official
+verifier metrics while also surfacing selected solver-status fields such as
+execution mode, solve/verifier durations, phase timings, candidate counts,
+search seeds, local-search move counts, and CP backend/call/timing summaries.
+These fields are supplemental audit data; official validity and benchmark
+scores remain the verifier-owned fields in `run.json`.

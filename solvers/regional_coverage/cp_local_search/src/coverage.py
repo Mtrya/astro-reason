@@ -28,14 +28,23 @@ class CoverageIndex:
     total_weight_m2: float
     sample_weight_by_id: dict[str, float]
     sample_bins: dict[tuple[int, int], tuple[CoverageSample, ...]] = field(default_factory=dict)
+    sample_points_by_id: dict[str, Point] = field(default_factory=dict)
 
     def __post_init__(self) -> None:
-        if self.sample_bins or not self.samples:
+        if self.sample_bins and self.sample_points_by_id:
             return
-        bins: dict[tuple[int, int], list[CoverageSample]] = {}
-        for sample in self.samples:
-            bins.setdefault(_sample_bin_key(sample.longitude_deg, sample.latitude_deg), []).append(sample)
-        self.sample_bins = {key: tuple(rows) for key, rows in bins.items()}
+        if not self.samples:
+            return
+        if not self.sample_bins:
+            bins: dict[tuple[int, int], list[CoverageSample]] = {}
+            for sample in self.samples:
+                bins.setdefault(_sample_bin_key(sample.longitude_deg, sample.latitude_deg), []).append(sample)
+            self.sample_bins = {key: tuple(rows) for key, rows in bins.items()}
+        if not self.sample_points_by_id:
+            self.sample_points_by_id = {
+                sample.sample_id: Point(sample.longitude_deg, sample.latitude_deg)
+                for sample in self.samples
+            }
 
     @classmethod
     def from_case(cls, case: RegionalCoverageCase) -> "CoverageIndex":
@@ -78,11 +87,18 @@ class CoverageIndex:
             if polygon.is_empty:
                 continue
             min_lon, min_lat, max_lon, max_lat = polygon.bounds
+            samples = tuple(self._samples_in_bbox(min_lon, min_lat, max_lon, max_lat))
+            if not samples:
+                continue
             prepared = prep(polygon)
-            for sample in self._samples_in_bbox(min_lon, min_lat, max_lon, max_lat):
+            for sample in samples:
                 if sample.sample_id in hits:
                     continue
-                if prepared.covers(Point(sample.longitude_deg, sample.latitude_deg)):
+                point = self.sample_points_by_id.get(sample.sample_id)
+                if point is None:
+                    point = Point(sample.longitude_deg, sample.latitude_deg)
+                    self.sample_points_by_id[sample.sample_id] = point
+                if prepared.covers(point):
                     hits.add(sample.sample_id)
         return frozenset(hits)
 

@@ -33,7 +33,7 @@ This reproduction keeps the acquisition-planning structure:
 - transition time: roll-delta bang-coast-bang slew plus settling time
 - greedy insertion: choose the feasible candidate/position with best marginal unique coverage, with deterministic tie breaks
 - neighborhood move: remove selected satellite-local candidates, then rebuild the neighborhood greedily
-- CP assistance: run a bounded exact TSPTW-style sequence repair inside local neighborhoods
+- CP assistance: run bounded OR-Tools CP-SAT TSPTW-style sequence repair inside local neighborhoods
 
 The solver's objective is benchmark-facing rather than paper-native: it maximizes unique weighted coverage over `coverage_grid.json` samples while preserving valid public actions.
 
@@ -45,7 +45,7 @@ The benchmark differs from the paper in several important ways:
 - The paper has precomputed acquisition opportunities; the benchmark exposes no access windows, so this solver generates deterministic fixed-start, roll-grid strip candidates from public case files.
 - The paper includes downloads and onboard memory planning; the benchmark solution contract has no download or memory actions.
 - The benchmark has hard battery and imaging-duty constraints. This solver avoids known sequence conflicts and reports solver-local validation, while official validity remains owned by `experiments/main_solver` plus the benchmark verifier.
-- The paper uses Tempo for CP-SAT TSPTW insertion; this repository currently has no public CP backend configured, so the solver uses a clearly labeled bounded exact fallback.
+- The paper uses Tempo for CP-SAT TSPTW insertion; this solver uses a solver-local OR-Tools CP-SAT backend prepared by `setup.sh`.
 
 That means this solver is a faithful adaptation of the paper's acquisition-planning control flow, not a reproduction of every industrial subsystem or every result table.
 
@@ -56,7 +56,7 @@ That means this solver is a faithful adaptation of the paper's acquisition-plann
 ./solve.sh <case_dir> [config_dir] [solution_dir]
 ```
 
-`setup.sh` is a no-op under the project environment.
+`setup.sh` creates a solver-local `.venv/`, installs the pinned dependencies from `requirements.txt`, and writes `.solver-env` for direct and experiment-owned runs.
 
 `solve.sh` writes:
 
@@ -89,7 +89,7 @@ The solver pipeline is:
 5. Run deterministic greedy insertion with marginal unique coverage scoring.
 6. Build bounded satellite-time and sample-competition neighborhoods.
 7. Rebuild each neighborhood with greedy insertion against the current covered-sample set.
-8. If CP is enabled, call the bounded exact fallback on non-improving local neighborhoods.
+8. If CP is enabled, call bounded OR-Tools CP-SAT repair on non-improving local neighborhoods.
 9. Emit the selected candidate sequence as `strip_observation` actions.
 10. Write debug summaries and status metadata for reproduction auditing.
 
@@ -97,16 +97,17 @@ The defaults are deterministic and bounded. There is no hidden random restart pa
 
 ## CP Backend
 
-`cp_backend: tiny_exact_fallback` is the only supported backend today.
+`cp_backend: ortools_cp_sat` is the supported backend.
 
-It is a solver-local exact subset search over a small fixed-start TSPTW-style neighborhood:
+It is a solver-local CP-SAT model over a small fixed-start TSPTW-style neighborhood:
 
 - input: kept incumbent candidates plus one bounded neighborhood candidate pool
-- feasibility: satellite-local sequence insertion and transition checks
+- feasibility: satellite-local transition conflict constraints against selected candidates and outside-neighborhood anchors
+- objective: maximize marginal unique coverage over samples not already covered by kept candidates
 - objective key: valid first, coverage weight, lower energy estimate, lower slew burden, fewer actions
-- limits: `cp_max_calls`, `cp_max_candidates`, `cp_max_subsets`, and `cp_time_limit_s`
+- limits: `cp_max_calls`, `cp_max_candidates`, `cp_max_conflicts`, and `cp_time_limit_s`
 
-This fallback is not Tempo and does not claim Tempo performance. It is a public-backend substitution point that preserves the paper's control flow: try greedy sequence repair first, then call a bounded exact repair when the neighborhood warrants it.
+This backend is not Tempo and does not claim Tempo performance. It preserves the paper's control flow: try greedy sequence repair first, then call bounded CP repair when the neighborhood warrants it.
 
 CP metrics are recorded in `status.json` and `debug/local_search_summary.json`:
 
@@ -117,7 +118,7 @@ CP metrics are recorded in `status.json` and `debug/local_search_summary.json`:
 - `improving_success_rate`
 - skipped-call counters
 - model-build and solve times
-- timeout and subset-limit stops
+- solver status counts, branches, conflicts, model sizes, timeout stops, and conflict-limit stops
 
 ## Configuration
 
@@ -149,13 +150,13 @@ Key knobs:
 - `cp_backend`
 - `cp_max_calls`
 - `cp_max_candidates`
-- `cp_max_subsets`
+- `cp_max_conflicts`
 - `cp_time_limit_s`
 - `cp_min_improvement_weight_m2`
 - `write_insertion_attempts`
 - `write_local_search_moves`
 
-`greedy_wall_time_limit_s` bounds greedy insertion only. `cp_time_limit_s` bounds each CP fallback call only. Candidate generation, solution writing, and local validation still run before the solver exits.
+`greedy_wall_time_limit_s` bounds greedy insertion only. `cp_time_limit_s` bounds each CP-SAT repair call only. Candidate generation, solution writing, and local validation still run before the solver exits.
 
 ## Debug Artifacts
 
@@ -234,9 +235,9 @@ Greedy-only, local-search-without-CP, and CP-enabled modes produce the same smok
 ## Known Limitations
 
 - This solver reproduces the Antuori acquisition-planning method family, not the full integrated acquisition/download/memory planner.
-- Tempo is not available as a project dependency; `tiny_exact_fallback` is a bounded exact substitute for tiny fixed-start neighborhoods.
+- Tempo is not available as a project dependency; OR-Tools CP-SAT is used as the public backend for tiny fixed-start neighborhoods.
 - Candidate generation uses deterministic time and roll grids, so finer opportunities between grid points are intentionally missed.
-- The CP fallback searches fixed-start candidate subsets; it does not continuously reschedule action start times.
+- The CP backend searches fixed-start candidate subsets; it does not continuously reschedule action start times.
 - Battery and duty constraints are not globally optimized inside the search objective. Official validity is still checked by the benchmark verifier through experiments.
 - Local search is intentionally bounded and deterministic. It is not an ALNS or broad metaheuristic sweep.
 - Full multi-case tuning may need broader candidate budgets than are comfortable for quick development-laptop smoke runs.

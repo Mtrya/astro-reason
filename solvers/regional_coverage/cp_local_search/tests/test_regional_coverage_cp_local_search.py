@@ -1,11 +1,13 @@
 from __future__ import annotations
 
+import json
 from dataclasses import replace
 import math
 from pathlib import Path
 import sys
 
 import pytest
+from shapely.geometry import Polygon
 
 REPO_ROOT = Path(__file__).resolve().parents[4]
 sys.path.insert(0, str(REPO_ROOT))
@@ -17,6 +19,7 @@ from solvers.regional_coverage.cp_local_search.src.candidates import (
 from solvers.regional_coverage.cp_local_search.src.case_io import (
     SolverConfig,
     load_case,
+    load_solver_config,
 )
 from solvers.regional_coverage.cp_local_search.src.coverage import (
     CoverageFootprint,
@@ -25,6 +28,7 @@ from solvers.regional_coverage.cp_local_search.src.coverage import (
 from solvers.regional_coverage.cp_local_search.src.cp_repair import (
     CPRepairConfig,
     CPMetrics,
+    cp_sat_repair,
 )
 from solvers.regional_coverage.cp_local_search.src.greedy import (
     GreedyConfig,
@@ -48,6 +52,11 @@ from solvers.regional_coverage.cp_local_search.src.sequence import (
     is_consistent,
     remove_candidate,
 )
+from solvers.regional_coverage.cp_local_search.src.search import (
+    SearchConfig,
+    run_search,
+)
+from solvers.regional_coverage.cp_local_search.src.solve import main as solve_main
 from solvers.regional_coverage.cp_local_search.src.time_grid import grid_offsets
 from solvers.regional_coverage.cp_local_search.src.transition import (
     required_transition_gap_s,
@@ -139,6 +148,49 @@ def test_candidate_generation_is_deterministic_and_grid_aligned() -> None:
     assert all(candidate.start_offset_s % case.mission.time_step_s == 0 for candidate in first)
 
 
+def test_candidate_summary_reports_auditable_generation_counters() -> None:
+    case = load_case(CASE_DIR)
+    config = SolverConfig(
+        candidate_stride_s=3600,
+        max_candidates_per_satellite=2,
+        max_zero_coverage_candidates_per_satellite=1,
+    )
+
+    candidates, summary = generate_candidates(case, config)
+    payload = summary.as_dict()
+
+    assert payload["grid_roll_candidate_count"] >= payload["evaluated_candidate_count"]
+    assert payload["evaluated_candidate_count"] >= payload["candidate_count"]
+    assert payload["discarded_candidate_count"] == (
+        payload["evaluated_candidate_count"] - payload["candidate_count"]
+    )
+    assert payload["candidate_count"] == (
+        payload["positive_coverage_candidate_count"]
+        + payload["zero_coverage_candidate_count"]
+    )
+    assert payload["evaluated_candidate_count"] == (
+        payload["evaluated_positive_coverage_count"]
+        + payload["evaluated_zero_coverage_count"]
+    )
+    assert payload["discarded_zero_coverage_candidate_count"] >= payload[
+        "discarded_zero_coverage_cap_count"
+    ]
+    assert sum(payload["per_satellite_candidate_counts"].values()) == len(candidates)
+    assert sum(payload["per_satellite_evaluated_candidate_counts"].values()) == payload[
+        "evaluated_candidate_count"
+    ]
+    assert sum(payload["per_satellite_grid_roll_candidate_counts"].values()) == payload[
+        "grid_roll_candidate_count"
+    ]
+    assert payload["cached_state_sample_use_count"] >= payload["propagated_state_sample_count"]
+    assert payload["cached_state_sample_reuse_count"] == (
+        payload["cached_state_sample_use_count"] - payload["propagated_state_sample_count"]
+    )
+    assert sum(payload["per_satellite_propagated_window_counts"].values()) == payload[
+        "propagated_window_count"
+    ]
+
+
 def test_tuned_candidate_generation_finds_positive_smoke_coverage() -> None:
     case = load_case(CASE_DIR)
     config = SolverConfig(
@@ -153,6 +205,49 @@ def test_tuned_candidate_generation_finds_positive_smoke_coverage() -> None:
     assert summary.positive_coverage_candidate_count == len(candidates)
     assert summary.max_candidate_weight_m2 > 0.0
     assert all(candidate.coverage_sample_ids for candidate in candidates)
+
+
+def test_candidate_generation_fingerprint_is_stable_after_state_caching() -> None:
+    case = load_case(CASE_DIR)
+    config = SolverConfig(
+        candidate_stride_s=7200,
+        max_candidates_per_satellite=4,
+        max_zero_coverage_candidates_per_satellite=4,
+    )
+
+    first, first_summary = generate_candidates(case, config)
+    second, second_summary = generate_candidates(case, config)
+
+    def fingerprint(candidates: list[Candidate]) -> list[tuple[str, tuple[str, ...], float]]:
+        return [
+            (
+                candidate.candidate_id,
+                tuple(sorted(candidate.coverage_sample_ids)),
+                candidate.base_coverage_weight_m2,
+            )
+            for candidate in candidates
+        ]
+
+    assert fingerprint(first) == fingerprint(second)
+    assert first_summary.as_dict() == second_summary.as_dict()
+
+
+def test_candidate_generation_reuses_roll_independent_sampled_states() -> None:
+    case = load_case(CASE_DIR)
+    config = SolverConfig(
+        candidate_stride_s=7200,
+        roll_samples_per_side=3,
+        max_candidates_per_satellite=6,
+        max_zero_coverage_candidates_per_satellite=6,
+    )
+
+    _, summary = generate_candidates(case, config)
+    payload = summary.as_dict()
+
+    assert payload["propagated_window_count"] == len(case.satellites)
+    assert payload["cached_state_sample_use_count"] > payload["propagated_state_sample_count"]
+    assert payload["cached_state_sample_reuse_count"] > 0
+    assert payload["propagated_state_sample_count"] < payload["evaluated_candidate_count"] * 5
 
 
 def test_coverage_mapping_selects_samples_inside_oriented_strip() -> None:
@@ -176,6 +271,29 @@ def test_coverage_mapping_selects_samples_inside_oriented_strip() -> None:
 
     assert hits == frozenset({origin.sample_id})
     assert index.total_weight(hits) == pytest.approx(origin.weight_m2)
+
+
+def test_polygon_coverage_lookup_reuses_points_and_skips_empty_bbox() -> None:
+    case = load_case(CASE_DIR)
+    origin = case.samples[0]
+    index = CoverageIndex(
+        samples=(origin,),
+        total_weight_m2=origin.weight_m2,
+        sample_weight_by_id={origin.sample_id: origin.weight_m2},
+    )
+    hit_polygon = Polygon(
+        [
+            (origin.longitude_deg - 0.01, origin.latitude_deg - 0.01),
+            (origin.longitude_deg + 0.01, origin.latitude_deg - 0.01),
+            (origin.longitude_deg + 0.01, origin.latitude_deg + 0.01),
+            (origin.longitude_deg - 0.01, origin.latitude_deg + 0.01),
+        ]
+    )
+    miss_polygon = Polygon([(170.0, 80.0), (171.0, 80.0), (171.0, 81.0), (170.0, 81.0)])
+
+    assert index.samples_for_polygons([miss_polygon]) == frozenset()
+    assert index.samples_for_polygons([hit_polygon]) == frozenset({origin.sample_id})
+    assert origin.sample_id in index.sample_points_by_id
 
 
 def test_roll_slew_formula_matches_triangular_and_trapezoidal_cases() -> None:
@@ -319,6 +437,56 @@ def test_greedy_tie_breaks_by_lower_energy_then_stable_candidate_id() -> None:
 
     assert first.selected_candidates[0].candidate_id == "a_stable_id"
     assert second.selected_candidates[0].candidate_id == "a_stable_id"
+
+
+def test_seeded_randomized_greedy_is_reproducible() -> None:
+    case = load_case(CASE_DIR)
+    index = _coverage_index({"a": 1.0, "b": 1.0, "c": 1.0})
+    candidates = [
+        _candidate("c1", start_offset_s=0, end_offset_s=20, samples=frozenset({"a"})),
+        _candidate("c2", start_offset_s=100, end_offset_s=120, samples=frozenset({"b"})),
+        _candidate("c3", start_offset_s=200, end_offset_s=220, samples=frozenset({"c"})),
+    ]
+    config = GreedyConfig(
+        max_iterations=1,
+        random_choice_probability=1.0,
+        random_seed=7,
+    )
+
+    first = greedy_insertion(case, candidates, coverage_index=index, config=config)
+    second = greedy_insertion(case, candidates, coverage_index=index, config=config)
+
+    assert first.summary.random_choices == 1
+    assert first.summary.as_dict() == second.summary.as_dict()
+    assert [candidate.candidate_id for candidate in first.selected_candidates] == [
+        candidate.candidate_id for candidate in second.selected_candidates
+    ]
+
+
+def test_seeded_randomized_greedy_can_choose_different_starts() -> None:
+    case = load_case(CASE_DIR)
+    index = _coverage_index({"a": 1.0, "b": 1.0, "c": 1.0})
+    candidates = [
+        _candidate("c1", start_offset_s=0, end_offset_s=20, samples=frozenset({"a"})),
+        _candidate("c2", start_offset_s=100, end_offset_s=120, samples=frozenset({"b"})),
+        _candidate("c3", start_offset_s=200, end_offset_s=220, samples=frozenset({"c"})),
+    ]
+
+    chosen = {
+        greedy_insertion(
+            case,
+            candidates,
+            coverage_index=index,
+            config=GreedyConfig(
+                max_iterations=1,
+                random_choice_probability=1.0,
+                random_seed=seed,
+            ),
+        ).selected_candidates[0].candidate_id
+        for seed in range(6)
+    }
+
+    assert len(chosen) > 1
 
 
 def test_local_search_extracts_satellite_time_component_neighborhoods() -> None:
@@ -478,7 +646,7 @@ def test_local_search_rejects_non_improving_move_and_keeps_incumbent() -> None:
     assert result.summary.objective_delta["coverage_weight_m2"] == pytest.approx(0.0)
 
 
-def test_cp_repair_does_not_accept_float_noise_tie() -> None:
+def test_cp_sat_repair_does_not_accept_float_noise_tie() -> None:
     case = load_case(CASE_DIR)
     incumbent = [
         _candidate(
@@ -507,7 +675,7 @@ def test_cp_repair_does_not_accept_float_noise_tie() -> None:
         end_offset_s=120,
         remove_candidate_ids=("c_old",),
         candidate_ids=("c_old", "c_equivalent"),
-        reason="unit test equivalent cp fallback",
+        reason="unit test equivalent cp repair",
     )
     metrics = CPMetrics()
 
@@ -518,13 +686,15 @@ def test_cp_repair_does_not_accept_float_noise_tie() -> None:
         candidate_by_id=candidate_by_id,
         coverage_index=index,
         greedy_config=GreedyConfig(),
-        cp_config=CPRepairConfig(max_candidates=4, max_calls=4, max_subsets=16),
+        cp_config=CPRepairConfig(max_candidates=4, max_calls=4, max_conflicts=16),
         cp_metrics=metrics,
     )
 
     assert move.accepted is False
     assert move.cp_repair is not None
     assert move.cp_repair.improving is False
+    assert move.cp_repair.backend == "ortools_cp_sat"
+    assert move.cp_repair.solver_status in {"OPTIMAL", "FEASIBLE"}
     assert metrics.calls == 1
     assert metrics.feasible_solutions == 1
     assert metrics.improving_solutions == 0
@@ -574,7 +744,39 @@ def test_local_search_is_deterministic_for_same_inputs() -> None:
     assert first.summary.as_dict() == second.summary.as_dict()
 
 
-def test_cp_exact_fallback_improves_when_greedy_rebuild_is_blocked() -> None:
+def test_local_search_records_seeded_neighborhood_order_config() -> None:
+    case = load_case(CASE_DIR)
+    incumbent = [_candidate("c1", start_offset_s=0, end_offset_s=20, samples=frozenset({"a"}))]
+    index = _coverage_index({"a": 1.0})
+    greedy_result = GreedyResult(
+        state=state_from_candidates(case, incumbent),
+        selected_candidates=list(incumbent),
+        covered_sample_ids=covered_sample_ids(incumbent),
+        summary=GreedySummary(policy="best_marginal_coverage"),
+        accepted_evaluations=[],
+        attempt_debug=[],
+    )
+
+    result = local_search(
+        case,
+        incumbent,
+        coverage_index=index,
+        greedy_result=greedy_result,
+        greedy_config=GreedyConfig(),
+        config=LocalSearchConfig(
+            max_iterations=1,
+            randomize_neighborhood_order=True,
+            random_seed=99,
+        ),
+    )
+
+    payload = result.summary.as_dict()
+    assert payload["random_seed"] == 99
+    assert payload["randomized_neighborhood_order"] is True
+    assert payload["stop_reason"] in {"local_minimum", "empty_incumbent"}
+
+
+def test_cp_sat_repair_improves_when_greedy_rebuild_is_blocked() -> None:
     case = load_case(CASE_DIR)
     incumbent = [
         _candidate(
@@ -609,7 +811,7 @@ def test_cp_exact_fallback_improves_when_greedy_rebuild_is_blocked() -> None:
         end_offset_s=120,
         remove_candidate_ids=("c_old",),
         candidate_ids=("c_old", "c_left", "c_right"),
-        reason="unit test cp fallback",
+        reason="unit test cp repair",
     )
     metrics = CPMetrics()
 
@@ -620,7 +822,7 @@ def test_cp_exact_fallback_improves_when_greedy_rebuild_is_blocked() -> None:
         candidate_by_id=candidate_by_id,
         coverage_index=index,
         greedy_config=GreedyConfig(),
-        cp_config=CPRepairConfig(max_candidates=4, max_calls=4, max_subsets=16),
+        cp_config=CPRepairConfig(max_candidates=4, max_calls=4, max_conflicts=32),
         cp_metrics=metrics,
     )
 
@@ -631,9 +833,46 @@ def test_cp_exact_fallback_improves_when_greedy_rebuild_is_blocked() -> None:
     assert move.inserted_candidate_ids == ("c_left", "c_right")
     assert move.cp_repair is not None
     assert move.cp_repair.improving is True
+    assert move.cp_repair.solver_status in {"OPTIMAL", "FEASIBLE"}
+    assert move.cp_repair.candidate_variables == 3
+    assert move.cp_repair.model_constraints > 0
     assert metrics.calls == 1
     assert metrics.feasible_solutions == 1
     assert metrics.improving_solutions == 1
+
+
+def test_cp_sat_repair_tie_break_is_deterministic() -> None:
+    case = load_case(CASE_DIR)
+    candidates = [
+        _candidate("c_b", start_offset_s=0, end_offset_s=20, samples=frozenset({"a"})),
+        _candidate("c_a", start_offset_s=0, end_offset_s=20, samples=frozenset({"a"})),
+    ]
+    index = _coverage_index({"a": 1.0})
+    config = CPRepairConfig(max_candidates=4, max_calls=4, max_conflicts=32)
+
+    first = cp_sat_repair(
+        case,
+        kept_candidates=[],
+        neighborhood_candidates=list(candidates),
+        coverage_index=index,
+        before_key=(1, 0.0, 0.0, 0.0, 0),
+        config=config,
+        metrics=CPMetrics(),
+    )
+    second = cp_sat_repair(
+        case,
+        kept_candidates=[],
+        neighborhood_candidates=list(reversed(candidates)),
+        coverage_index=index,
+        before_key=(1, 0.0, 0.0, 0.0, 0),
+        config=config,
+        metrics=CPMetrics(),
+    )
+
+    assert first.selected_candidate_ids == ("c_a",)
+    assert second.selected_candidate_ids == ("c_a",)
+    assert first.improving is True
+    assert second.improving is True
 
 
 def test_local_search_reports_cp_metrics() -> None:
@@ -673,7 +912,7 @@ def test_local_search_reports_cp_metrics() -> None:
             max_neighborhoods_per_iteration=1,
             max_neighborhood_candidates=4,
         ),
-        cp_config=CPRepairConfig(max_candidates=4, max_calls=4, max_subsets=16),
+        cp_config=CPRepairConfig(max_candidates=4, max_calls=4, max_conflicts=32),
     )
 
     assert result.summary.accepted_moves == 1
@@ -682,6 +921,10 @@ def test_local_search_reports_cp_metrics() -> None:
     assert result.summary.cp_metrics["call_success_rate"] == pytest.approx(1.0)
     assert result.summary.cp_metrics["improving_solutions"] == 1
     assert result.summary.cp_metrics["improving_success_rate"] == pytest.approx(1.0)
+    assert result.summary.cp_metrics["backend"] == "ortools_cp_sat"
+    assert result.summary.cp_metrics["model_bool_variables"] > 0
+    assert result.summary.cp_metrics["model_constraints"] > 0
+    assert result.summary.cp_metrics["status_counts"]
     assert [candidate.candidate_id for candidate in result.selected_candidates] == ["c_left", "c_right"]
 
 
@@ -699,4 +942,147 @@ def test_cp_metrics_reports_success_rates_and_skips() -> None:
     assert payload["successful_calls"] == 3
     assert payload["call_success_rate"] == pytest.approx(0.75)
     assert payload["improving_success_rate"] == pytest.approx(0.25)
+    assert payload["backend"] == "ortools_cp_sat"
     assert payload["skipped_calls"] == 3
+
+
+def test_cp_backend_rejects_unsupported_backend() -> None:
+    with pytest.raises(ValueError, match="ortools_cp_sat"):
+        CPRepairConfig.from_mapping({"cp_backend": "legacy_exact"})
+
+
+def test_search_multistart_records_runs_and_selects_stable_best() -> None:
+    case = load_case(CASE_DIR)
+    index = _coverage_index({"a": 1.0, "b": 2.0})
+    candidates = [
+        _candidate("c1", start_offset_s=0, end_offset_s=20, samples=frozenset({"a"})),
+        _candidate("c2", start_offset_s=100, end_offset_s=120, samples=frozenset({"b"})),
+    ]
+
+    result = run_search(
+        case,
+        candidates,
+        coverage_index=index,
+        search_config=SearchConfig(restart_count=2, run_seeds=(10, 11)),
+        greedy_config=GreedyConfig(max_iterations=1),
+        local_search_config=LocalSearchConfig(enabled=False),
+        cp_config=CPRepairConfig(enabled=False),
+    )
+    payload = result.summary.as_dict()
+
+    assert payload["configured_run_count"] == 2
+    assert payload["completed_run_count"] == 2
+    assert payload["best_run_index"] == 0
+    assert payload["best_seed"] == 10
+    assert len(payload["run_summaries"]) == 2
+    assert payload["run_summaries"][0]["greedy_summary"]["random_seed"] == 10
+    assert payload["run_summaries"][1]["greedy_summary"]["random_seed"] == 11
+
+
+def test_search_multistart_selects_best_randomized_run() -> None:
+    case = load_case(CASE_DIR)
+    index = _coverage_index({"a": 1.0, "b": 2.0, "c": 3.0})
+    candidates = [
+        _candidate("c1", start_offset_s=0, end_offset_s=20, samples=frozenset({"a"})),
+        _candidate("c2", start_offset_s=100, end_offset_s=120, samples=frozenset({"b"})),
+        _candidate("c3", start_offset_s=200, end_offset_s=220, samples=frozenset({"c"})),
+    ]
+
+    result = run_search(
+        case,
+        candidates,
+        coverage_index=index,
+        search_config=SearchConfig(restart_count=6, run_seeds=tuple(range(6))),
+        greedy_config=GreedyConfig(max_iterations=1, random_choice_probability=1.0),
+        local_search_config=LocalSearchConfig(enabled=False),
+        cp_config=CPRepairConfig(enabled=False),
+    )
+    payload = result.summary.as_dict()
+    run_weights = [
+        item["objective"]["coverage_weight_m2"]
+        for item in payload["run_summaries"]
+    ]
+
+    assert payload["best_objective"]["coverage_weight_m2"] == max(run_weights)
+    assert index.total_weight(result.selected_in_solution_order()[0].coverage_sample_ids) == pytest.approx(
+        payload["best_objective"]["coverage_weight_m2"]
+    )
+
+
+def test_empty_config_directory_uses_defaults(tmp_path: Path) -> None:
+    config_dir = tmp_path / "empty_config"
+    config_dir.mkdir()
+
+    assert load_solver_config(config_dir) == {}
+
+
+def test_solve_status_reports_timing_and_candidate_counters(tmp_path: Path) -> None:
+    config_dir = tmp_path / "config"
+    solution_dir = tmp_path / "solution"
+    config_dir.mkdir()
+    (config_dir / "config.json").write_text(
+        json.dumps(
+            {
+                "candidate_stride_s": 7200,
+                "max_candidates_per_satellite": 1,
+                "max_zero_coverage_candidates_per_satellite": 1,
+                "search_restart_count": 2,
+                "search_run_seeds": [3, 4],
+                "local_search_enabled": False,
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    returncode = solve_main(
+        [
+            "--case-dir",
+            str(CASE_DIR),
+            "--config-dir",
+            str(config_dir),
+            "--solution-dir",
+            str(solution_dir),
+        ]
+    )
+
+    assert returncode == 0
+    solution_path = solution_dir / "solution.json"
+    status_path = solution_dir / "status.json"
+    candidate_summary_path = solution_dir / "debug" / "candidate_summary.json"
+    search_summary_path = solution_dir / "debug" / "search_summary.json"
+    assert solution_path.is_file()
+    assert status_path.is_file()
+    assert candidate_summary_path.is_file()
+    assert search_summary_path.is_file()
+
+    status = json.loads(status_path.read_text(encoding="utf-8"))
+    timing = status["timing_seconds"]
+    assert timing["total"] >= 0.0
+    for key in (
+        "case_parsing",
+        "coverage_index",
+        "candidate_generation",
+        "search",
+        "solution_writing",
+        "debug_writing",
+        "local_validation",
+    ):
+        assert timing["wall_phases"][key] >= 0.0
+    cp_timing = timing["reported_subphases"]["cp_repair"]
+    assert cp_timing["source"] == "cp_metrics"
+    assert cp_timing["model_build"] == pytest.approx(status["cp_summary"]["model_build_time_s"])
+    assert cp_timing["solve"] == pytest.approx(status["cp_summary"]["solve_time_s"])
+    assert cp_timing["total"] == pytest.approx(cp_timing["model_build"] + cp_timing["solve"])
+
+    debug_summary = json.loads(candidate_summary_path.read_text(encoding="utf-8"))["summary"]
+    for payload in (status["candidate_summary"], debug_summary):
+        assert payload["grid_roll_candidate_count"] >= payload["evaluated_candidate_count"]
+        assert payload["evaluated_candidate_count"] >= payload["candidate_count"]
+        assert "discarded_candidate_count" in payload
+        assert "per_satellite_grid_roll_candidate_counts" in payload
+
+    assert status["search_config"]["run_seeds"] == [3, 4]
+    assert status["search_summary"]["configured_run_count"] == 2
+    assert status["search_summary"]["completed_run_count"] == 2
+    debug_search = json.loads(search_summary_path.read_text(encoding="utf-8"))
+    assert debug_search["summary"] == status["search_summary"]

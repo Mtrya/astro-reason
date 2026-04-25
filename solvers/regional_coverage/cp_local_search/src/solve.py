@@ -13,10 +13,12 @@ from .candidates import generate_candidates
 from .case_io import SolverConfig, load_case, load_solver_config
 from .coverage import CoverageIndex
 from .cp_repair import CPRepairConfig
-from .greedy import GreedyConfig, greedy_insertion
-from .local_search import LocalSearchConfig, local_search
+from .greedy import GreedyConfig
+from .local_search import LocalSearchConfig
+from .search import SearchConfig, run_search
 from .sequence import is_consistent
 from .solution_io import candidates_to_solution, write_json
+from .timing import PhaseTimer
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -35,87 +37,106 @@ def main(argv: list[str] | None = None) -> int:
 
     try:
         t0 = time.perf_counter()
-        config_payload = load_solver_config(config_dir)
+        phase_timer = PhaseTimer()
+        with phase_timer.phase("config_loading"):
+            config_payload = load_solver_config(config_dir)
         config = SolverConfig.from_mapping(config_payload)
+        search_config = SearchConfig.from_mapping(config_payload)
         greedy_config = GreedyConfig.from_mapping(config_payload)
         local_search_config = LocalSearchConfig.from_mapping(config_payload)
         cp_config = CPRepairConfig.from_mapping(config_payload)
-        case = load_case(case_dir)
-        coverage_index = CoverageIndex.from_case(case)
-        candidates, candidate_summary = generate_candidates(case, config, coverage_index)
-        greedy_result = greedy_insertion(
-            case,
-            candidates,
-            coverage_index=coverage_index,
-            config=greedy_config,
-        )
-        local_search_result = local_search(
-            case,
-            candidates,
-            coverage_index=coverage_index,
-            greedy_result=greedy_result,
-            greedy_config=greedy_config,
-            config=local_search_config,
-            cp_config=cp_config,
-        )
+        with phase_timer.phase("case_parsing"):
+            case = load_case(case_dir)
+        with phase_timer.phase("coverage_index"):
+            coverage_index = CoverageIndex.from_case(case)
+        with phase_timer.phase("candidate_generation"):
+            candidates, candidate_summary = generate_candidates(case, config, coverage_index)
+        with phase_timer.phase("search"):
+            search_result = run_search(
+                case,
+                candidates,
+                coverage_index=coverage_index,
+                search_config=search_config,
+                greedy_config=greedy_config,
+                local_search_config=local_search_config,
+                cp_config=cp_config,
+            )
+        greedy_result = search_result.greedy_result
+        local_search_result = search_result.local_search_result
         selected_candidates = local_search_result.selected_in_solution_order()
-        write_json(solution_path, candidates_to_solution(case.mission, selected_candidates))
+        with phase_timer.phase("solution_writing"):
+            write_json(solution_path, candidates_to_solution(case.mission, selected_candidates))
 
         debug_dir = solution_dir / "debug"
-        write_json(
-            debug_dir / "candidate_summary.json",
-            {
-                "case_id": case.mission.case_id,
-                "config": config.as_dict(),
-                "summary": candidate_summary.as_dict(),
-            },
-        )
-        write_json(
-            debug_dir / "candidates.json",
-            [candidate.as_dict() for candidate in candidates[: config.candidate_debug_limit]],
-        )
-        write_json(
-            debug_dir / "greedy_summary.json",
-            {
-                "case_id": case.mission.case_id,
-                "config": greedy_config.as_dict(),
-                "summary": greedy_result.summary.as_dict(),
-            },
-        )
-        write_json(
-            debug_dir / "selected_candidates.json",
-            [candidate.as_dict() for candidate in selected_candidates],
-        )
-        write_json(
-            debug_dir / "local_search_summary.json",
-            {
-                "case_id": case.mission.case_id,
-                "config": local_search_config.as_dict(),
-                "summary": local_search_result.summary.as_dict(),
-            },
-        )
-        if greedy_config.write_insertion_attempts:
-            attempts_path = debug_dir / "insertion_attempts.jsonl"
-            attempts_path.parent.mkdir(parents=True, exist_ok=True)
-            attempts_path.write_text(
-                "".join(
-                    json.dumps(item, sort_keys=True) + "\n"
-                    for item in greedy_result.attempt_debug
-                ),
-                encoding="utf-8",
+        with phase_timer.phase("debug_writing"):
+            write_json(
+                debug_dir / "candidate_summary.json",
+                {
+                    "case_id": case.mission.case_id,
+                    "config": config.as_dict(),
+                    "summary": candidate_summary.as_dict(),
+                },
             )
-        if local_search_config.write_move_log:
-            moves_path = debug_dir / "moves.jsonl"
-            moves_path.parent.mkdir(parents=True, exist_ok=True)
-            moves_path.write_text(
-                "".join(
-                    json.dumps(move.as_dict(), sort_keys=True) + "\n"
-                    for move in local_search_result.moves
-                ),
-                encoding="utf-8",
+            write_json(
+                debug_dir / "candidates.json",
+                [candidate.as_dict() for candidate in candidates[: config.candidate_debug_limit]],
             )
-        local_validation = _local_validation_summary(case, local_search_result)
+            write_json(
+                debug_dir / "greedy_summary.json",
+                {
+                    "case_id": case.mission.case_id,
+                    "config": greedy_config.as_dict(),
+                    "summary": greedy_result.summary.as_dict(),
+                },
+            )
+            write_json(
+                debug_dir / "selected_candidates.json",
+                [candidate.as_dict() for candidate in selected_candidates],
+            )
+            write_json(
+                debug_dir / "local_search_summary.json",
+                {
+                    "case_id": case.mission.case_id,
+                    "config": local_search_config.as_dict(),
+                    "summary": local_search_result.summary.as_dict(),
+                },
+            )
+            write_json(
+                debug_dir / "search_summary.json",
+                {
+                    "case_id": case.mission.case_id,
+                    "config": search_config.as_dict(),
+                    "summary": search_result.summary.as_dict(),
+                },
+            )
+            if greedy_config.write_insertion_attempts:
+                attempts_path = debug_dir / "insertion_attempts.jsonl"
+                attempts_path.parent.mkdir(parents=True, exist_ok=True)
+                attempts_path.write_text(
+                    "".join(
+                        json.dumps(item, sort_keys=True) + "\n"
+                        for item in greedy_result.attempt_debug
+                    ),
+                    encoding="utf-8",
+                )
+            if local_search_config.write_move_log:
+                moves_path = debug_dir / "moves.jsonl"
+                moves_path.parent.mkdir(parents=True, exist_ok=True)
+                moves_path.write_text(
+                    "".join(
+                        json.dumps(move.as_dict(), sort_keys=True) + "\n"
+                        for move in local_search_result.moves
+                    ),
+                    encoding="utf-8",
+                )
+        with phase_timer.phase("local_validation"):
+            local_validation = _local_validation_summary(case, local_search_result)
         elapsed = time.perf_counter() - t0
+        timing_seconds = _timing_summary(
+            total_elapsed_s=elapsed,
+            phase_timer=phase_timer,
+            cp_summary=local_search_result.summary.cp_metrics,
+        )
         write_json(
             solution_dir / "status.json",
             {
@@ -130,6 +151,8 @@ def main(argv: list[str] | None = None) -> int:
                 "coverage_sample_count": len(case.samples),
                 "candidate_config": config.as_dict(),
                 "candidate_summary": candidate_summary.as_dict(),
+                "search_config": search_config.as_dict(),
+                "search_summary": search_result.summary.as_dict(),
                 "greedy_config": greedy_config.as_dict(),
                 "greedy_summary": greedy_result.summary.as_dict(),
                 "local_search_config": local_search_config.as_dict(),
@@ -138,7 +161,7 @@ def main(argv: list[str] | None = None) -> int:
                 "cp_summary": local_search_result.summary.cp_metrics,
                 "sequence_model": local_search_result.state.as_dict(),
                 "local_validation": local_validation,
-                "timing_seconds": {"total": elapsed},
+                "timing_seconds": timing_seconds,
                 "reproduction_notes": {
                     "method_reference": "Antuori, Wojtowicz, and Hebrard, CP 2025, Sections 2 and 4.1",
                     "phase": "6_tuning_and_reproduction_fidelity",
@@ -151,16 +174,17 @@ def main(argv: list[str] | None = None) -> int:
                         "marginal unique coverage greedy insertion",
                         "bounded deterministic local-search neighborhoods",
                         "greedy neighborhood rebuild",
-                        "bounded CP-style exact sequence repair fallback",
+                        "bounded OR-Tools CP-SAT sequence repair in local neighborhoods",
                         "verifier-shaped solver-local strip coverage scoring",
                         "CP call success and improvement-rate reporting",
+                        "seeded restart and multi-start search orchestration",
                     ],
                     "omitted_until_later_phases": [
                         "battery and duty repair",
                     ],
                     "backend_note": (
-                        "pyproject.toml does not include OR-Tools or another public CP backend; "
-                        "CP assistance is implemented as a solver-local tiny exact fallback over fixed-start "
+                        "OR-Tools is installed in the solver-local environment by setup.sh; "
+                        "CP assistance is implemented as bounded CP-SAT repair over fixed-start "
                         "TSPTW-style neighborhood subproblems."
                     ),
                 },
@@ -179,6 +203,28 @@ def main(argv: list[str] | None = None) -> int:
         )
         print(f"regional_coverage cp_local_search failed: {exc}", file=sys.stderr)
         return 2
+
+
+def _timing_summary(
+    *,
+    total_elapsed_s: float,
+    phase_timer: PhaseTimer,
+    cp_summary: dict,
+) -> dict:
+    model_build_s = float(cp_summary.get("model_build_time_s", 0.0))
+    solve_s = float(cp_summary.get("solve_time_s", 0.0))
+    return {
+        "total": total_elapsed_s,
+        "wall_phases": phase_timer.as_dict(),
+        "reported_subphases": {
+            "cp_repair": {
+                "source": "cp_metrics",
+                "model_build": model_build_s,
+                "solve": solve_s,
+                "total": model_build_s + solve_s,
+            },
+        },
+    }
 
 
 def _local_validation_summary(case, greedy_result) -> dict:

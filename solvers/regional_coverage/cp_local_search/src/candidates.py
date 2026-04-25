@@ -69,8 +69,27 @@ class CandidateSummary:
     zero_coverage_candidate_count: int = 0
     positive_coverage_candidate_count: int = 0
     max_candidate_weight_m2: float = 0.0
+    grid_roll_candidate_count: int = 0
+    evaluated_candidate_count: int = 0
+    evaluated_zero_coverage_count: int = 0
+    evaluated_positive_coverage_count: int = 0
+    discarded_candidate_count: int = 0
+    discarded_zero_coverage_candidate_count: int = 0
+    discarded_zero_coverage_cap_count: int = 0
+    propagated_window_count: int = 0
+    propagated_state_sample_count: int = 0
+    cached_state_sample_use_count: int = 0
+    cached_state_sample_reuse_count: int = 0
     skipped_roll_band: int = 0
     skipped_satellite_cap: int = 0
+    per_satellite_grid_roll_candidate_counts: dict[str, int] = field(default_factory=dict)
+    per_satellite_evaluated_candidate_counts: dict[str, int] = field(default_factory=dict)
+    per_satellite_discarded_candidate_counts: dict[str, int] = field(default_factory=dict)
+    per_satellite_discarded_zero_coverage_cap_counts: dict[str, int] = field(default_factory=dict)
+    per_satellite_skipped_satellite_cap_counts: dict[str, int] = field(default_factory=dict)
+    per_satellite_propagated_window_counts: dict[str, int] = field(default_factory=dict)
+    per_satellite_propagated_state_sample_counts: dict[str, int] = field(default_factory=dict)
+    per_satellite_cached_state_sample_use_counts: dict[str, int] = field(default_factory=dict)
     per_satellite_candidate_counts: dict[str, int] = field(default_factory=dict)
     per_satellite_zero_coverage_counts: dict[str, int] = field(default_factory=dict)
     per_satellite_positive_coverage_counts: dict[str, int] = field(default_factory=dict)
@@ -81,8 +100,43 @@ class CandidateSummary:
             "zero_coverage_candidate_count": self.zero_coverage_candidate_count,
             "positive_coverage_candidate_count": self.positive_coverage_candidate_count,
             "max_candidate_weight_m2": self.max_candidate_weight_m2,
+            "grid_roll_candidate_count": self.grid_roll_candidate_count,
+            "evaluated_candidate_count": self.evaluated_candidate_count,
+            "evaluated_zero_coverage_count": self.evaluated_zero_coverage_count,
+            "evaluated_positive_coverage_count": self.evaluated_positive_coverage_count,
+            "discarded_candidate_count": self.discarded_candidate_count,
+            "discarded_zero_coverage_candidate_count": self.discarded_zero_coverage_candidate_count,
+            "discarded_zero_coverage_cap_count": self.discarded_zero_coverage_cap_count,
+            "propagated_window_count": self.propagated_window_count,
+            "propagated_state_sample_count": self.propagated_state_sample_count,
+            "cached_state_sample_use_count": self.cached_state_sample_use_count,
+            "cached_state_sample_reuse_count": self.cached_state_sample_reuse_count,
             "skipped_roll_band": self.skipped_roll_band,
             "skipped_satellite_cap": self.skipped_satellite_cap,
+            "per_satellite_grid_roll_candidate_counts": dict(
+                sorted(self.per_satellite_grid_roll_candidate_counts.items())
+            ),
+            "per_satellite_evaluated_candidate_counts": dict(
+                sorted(self.per_satellite_evaluated_candidate_counts.items())
+            ),
+            "per_satellite_discarded_candidate_counts": dict(
+                sorted(self.per_satellite_discarded_candidate_counts.items())
+            ),
+            "per_satellite_discarded_zero_coverage_cap_counts": dict(
+                sorted(self.per_satellite_discarded_zero_coverage_cap_counts.items())
+            ),
+            "per_satellite_skipped_satellite_cap_counts": dict(
+                sorted(self.per_satellite_skipped_satellite_cap_counts.items())
+            ),
+            "per_satellite_propagated_window_counts": dict(
+                sorted(self.per_satellite_propagated_window_counts.items())
+            ),
+            "per_satellite_propagated_state_sample_counts": dict(
+                sorted(self.per_satellite_propagated_state_sample_counts.items())
+            ),
+            "per_satellite_cached_state_sample_use_counts": dict(
+                sorted(self.per_satellite_cached_state_sample_use_counts.items())
+            ),
             "per_satellite_candidate_counts": dict(sorted(self.per_satellite_candidate_counts.items())),
             "per_satellite_zero_coverage_counts": dict(
                 sorted(self.per_satellite_zero_coverage_counts.items())
@@ -103,6 +157,14 @@ def generate_candidates(
     candidates: list[Candidate] = []
 
     for satellite_id, satellite in sorted(case.satellites.items()):
+        summary.per_satellite_grid_roll_candidate_counts[satellite_id] = 0
+        summary.per_satellite_evaluated_candidate_counts[satellite_id] = 0
+        summary.per_satellite_discarded_candidate_counts[satellite_id] = 0
+        summary.per_satellite_discarded_zero_coverage_cap_counts[satellite_id] = 0
+        summary.per_satellite_skipped_satellite_cap_counts[satellite_id] = 0
+        summary.per_satellite_propagated_window_counts[satellite_id] = 0
+        summary.per_satellite_propagated_state_sample_counts[satellite_id] = 0
+        summary.per_satellite_cached_state_sample_use_counts[satellite_id] = 0
         summary.per_satellite_candidate_counts[satellite_id] = 0
         summary.per_satellite_zero_coverage_counts[satellite_id] = 0
         summary.per_satellite_positive_coverage_counts[satellite_id] = 0
@@ -116,6 +178,10 @@ def generate_candidates(
     summary.max_candidate_weight_m2 = max(
         (candidate.base_coverage_weight_m2 for candidate in candidates),
         default=0.0,
+    )
+    summary.cached_state_sample_reuse_count = max(
+        0,
+        summary.cached_state_sample_use_count - summary.propagated_state_sample_count,
     )
     return candidates, summary
 
@@ -166,37 +232,77 @@ def _generate_for_satellite(
     )
     offsets = grid_offsets(case.mission, stride_s=config.candidate_stride_s, duration_s=duration_s)
     rolls = roll_values_for_satellite(satellite, config.roll_samples_per_side)
+    total_grid_roll_candidates = len(offsets) * len(rolls)
+    summary.grid_roll_candidate_count += total_grid_roll_candidates
+    summary.per_satellite_grid_roll_candidate_counts[satellite.satellite_id] += total_grid_roll_candidates
     out: list[Candidate] = []
     zero_kept = 0
+    evaluated_slots = 0
+    stop_generation = False
 
     for start_offset_s in offsets:
         if len(out) >= config.max_candidates_per_satellite:
-            summary.skipped_satellite_cap += len(offsets) * max(1, len(rolls))
+            skipped = total_grid_roll_candidates - evaluated_slots
+            summary.skipped_satellite_cap += skipped
+            summary.per_satellite_skipped_satellite_cap_counts[satellite.satellite_id] += skipped
             break
+        start = offset_to_datetime(case.mission, start_offset_s)
+        end = offset_to_datetime(case.mission, start_offset_s + duration_s)
+        sampled_states = _sampled_states(
+            propagator=propagator,
+            start=start,
+            end=end,
+            step_s=case.mission.coverage_sample_step_s,
+        )
+        state_sample_count = len(sampled_states)
+        summary.propagated_window_count += 1
+        summary.propagated_state_sample_count += state_sample_count
+        summary.per_satellite_propagated_window_counts[satellite.satellite_id] += 1
+        summary.per_satellite_propagated_state_sample_counts[satellite.satellite_id] += state_sample_count
         for roll_deg in rolls:
             if len(out) >= config.max_candidates_per_satellite:
-                summary.skipped_satellite_cap += 1
+                skipped = total_grid_roll_candidates - evaluated_slots
+                summary.skipped_satellite_cap += skipped
+                summary.per_satellite_skipped_satellite_cap_counts[satellite.satellite_id] += skipped
+                stop_generation = True
                 break
+            evaluated_slots += 1
             candidate = _candidate_at(
                 case=case,
                 satellite=satellite,
-                propagator=propagator,
+                sampled_states=sampled_states,
                 start_offset_s=start_offset_s,
                 duration_s=duration_s,
                 roll_deg=roll_deg,
                 index=index,
             )
+            summary.evaluated_candidate_count += 1
+            summary.per_satellite_evaluated_candidate_counts[satellite.satellite_id] += 1
+            summary.cached_state_sample_use_count += state_sample_count
+            summary.per_satellite_cached_state_sample_use_counts[satellite.satellite_id] += state_sample_count
             if not candidate.coverage_sample_ids:
+                summary.evaluated_zero_coverage_count += 1
                 if not config.include_zero_coverage_candidates:
+                    summary.discarded_candidate_count += 1
+                    summary.discarded_zero_coverage_candidate_count += 1
+                    summary.per_satellite_discarded_candidate_counts[satellite.satellite_id] += 1
                     continue
                 if zero_kept >= config.max_zero_coverage_candidates_per_satellite:
+                    summary.discarded_candidate_count += 1
+                    summary.discarded_zero_coverage_candidate_count += 1
+                    summary.discarded_zero_coverage_cap_count += 1
+                    summary.per_satellite_discarded_candidate_counts[satellite.satellite_id] += 1
+                    summary.per_satellite_discarded_zero_coverage_cap_counts[satellite.satellite_id] += 1
                     continue
                 zero_kept += 1
                 summary.per_satellite_zero_coverage_counts[satellite.satellite_id] += 1
             else:
+                summary.evaluated_positive_coverage_count += 1
                 summary.per_satellite_positive_coverage_counts[satellite.satellite_id] += 1
             out.append(candidate)
             summary.per_satellite_candidate_counts[satellite.satellite_id] += 1
+        if stop_generation:
+            break
     return out
 
 
@@ -204,20 +310,15 @@ def _candidate_at(
     *,
     case: RegionalCoverageCase,
     satellite: Satellite,
-    propagator: brahe.SGPPropagator,
+    sampled_states: tuple["_SampledState", ...],
     start_offset_s: int,
     duration_s: int,
     roll_deg: float,
     index: CoverageIndex,
 ) -> Candidate:
-    start = offset_to_datetime(case.mission, start_offset_s)
     end_offset_s = start_offset_s + duration_s
-    end = offset_to_datetime(case.mission, end_offset_s)
-    geometry = _strip_geometry(
-        propagator=propagator,
-        start=start,
-        end=end,
-        step_s=case.mission.coverage_sample_step_s,
+    geometry = _strip_geometry_from_states(
+        sampled_states=sampled_states,
         roll_deg=roll_deg,
         fov_deg=satellite.sensor.cross_track_fov_deg,
     )
@@ -250,6 +351,14 @@ def _candidate_at(
 
 
 @dataclass(frozen=True, slots=True)
+class _SampledState:
+    sat_pos_m: np.ndarray
+    sat_vel_mps: np.ndarray
+    across_hat: np.ndarray
+    nadir_hat: np.ndarray
+
+
+@dataclass(frozen=True, slots=True)
 class _StripGeometry:
     segment_polygons: tuple[Polygon, ...]
     center_latitude_deg: float
@@ -266,21 +375,61 @@ def _strip_geometry(
     roll_deg: float,
     fov_deg: float,
 ) -> _StripGeometry:
+    sampled_states = _sampled_states(
+        propagator=propagator,
+        start=start,
+        end=end,
+        step_s=step_s,
+    )
+    return _strip_geometry_from_states(
+        sampled_states=sampled_states,
+        roll_deg=roll_deg,
+        fov_deg=fov_deg,
+    )
+
+
+def _sampled_states(
+    *,
+    propagator: brahe.SGPPropagator,
+    start: datetime,
+    end: datetime,
+    step_s: int,
+) -> tuple[_SampledState, ...]:
     times = _sample_times(start, end, step_s)
+    out: list[_SampledState] = []
+    for sample_time in times:
+        epoch = _datetime_to_epoch(sample_time)
+        state_ecef = np.asarray(propagator.state_ecef(epoch), dtype=float).reshape(6)
+        sat_pos_m = state_ecef[:3]
+        sat_vel_mps = state_ecef[3:]
+        _, across_hat, nadir_hat = _satellite_local_axes(sat_pos_m, sat_vel_mps)
+        out.append(
+            _SampledState(
+                sat_pos_m=sat_pos_m,
+                sat_vel_mps=sat_vel_mps,
+                across_hat=across_hat,
+                nadir_hat=nadir_hat,
+            )
+        )
+    return tuple(out)
+
+
+def _strip_geometry_from_states(
+    *,
+    sampled_states: tuple[_SampledState, ...],
+    roll_deg: float,
+    fov_deg: float,
+) -> _StripGeometry:
     center_lonlat: list[tuple[float, float]] = []
     edge_hits: list[tuple[np.ndarray, np.ndarray]] = []
     center_abs = abs(roll_deg)
     signed_inner = math.copysign(center_abs - (0.5 * fov_deg), roll_deg)
     signed_outer = math.copysign(center_abs + (0.5 * fov_deg), roll_deg)
 
-    for sample_time in times:
-        epoch = _datetime_to_epoch(sample_time)
-        state_ecef = np.asarray(propagator.state_ecef(epoch), dtype=float).reshape(6)
-        sat_pos_m = state_ecef[:3]
-        sat_vel_mps = state_ecef[3:]
-        center_hit = _ground_intercept_ecef_m(sat_pos_m, sat_vel_mps, roll_deg)
-        inner_hit = _ground_intercept_ecef_m(sat_pos_m, sat_vel_mps, signed_inner)
-        outer_hit = _ground_intercept_ecef_m(sat_pos_m, sat_vel_mps, signed_outer)
+    for state in sampled_states:
+        center_hit = _ground_intercept_from_axes_ecef_m(state, roll_deg)
+        inner_hit = _ground_intercept_from_axes_ecef_m(state, signed_inner)
+        outer_hit = _ground_intercept_from_axes_ecef_m(state, signed_outer)
         if center_hit is None or inner_hit is None or outer_hit is None:
             return _StripGeometry((), 0.0, 0.0, 0.0)
         center_lonlat.append(_ecef_to_lonlat_deg(center_hit))
@@ -376,6 +525,18 @@ def _boresight_unit_vector(
     across_track_off_nadir_deg: float,
 ) -> np.ndarray:
     _, across_hat, nadir_hat = _satellite_local_axes(sat_pos_m, sat_vel_mps)
+    return _boresight_unit_vector_from_axes(
+        across_hat,
+        nadir_hat,
+        across_track_off_nadir_deg,
+    )
+
+
+def _boresight_unit_vector_from_axes(
+    across_hat: np.ndarray,
+    nadir_hat: np.ndarray,
+    across_track_off_nadir_deg: float,
+) -> np.ndarray:
     vector = nadir_hat + (
         math.tan(math.radians(float(across_track_off_nadir_deg))) * across_hat
     )
@@ -417,6 +578,21 @@ def _ground_intercept_ecef_m(
     if distance is None:
         return None
     return sat_pos_m + (distance * direction)
+
+
+def _ground_intercept_from_axes_ecef_m(
+    state: _SampledState,
+    roll_deg: float,
+) -> np.ndarray | None:
+    direction = _boresight_unit_vector_from_axes(
+        state.across_hat,
+        state.nadir_hat,
+        roll_deg,
+    )
+    distance = _ray_ellipsoid_intersection_m(state.sat_pos_m, direction)
+    if distance is None:
+        return None
+    return state.sat_pos_m + (distance * direction)
 
 
 def _ecef_to_lonlat_deg(ecef_position_m: np.ndarray) -> tuple[float, float]:

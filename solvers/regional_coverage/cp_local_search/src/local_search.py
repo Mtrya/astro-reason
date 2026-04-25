@@ -3,12 +3,14 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+import random
+from time import perf_counter
 from typing import Any, Iterable, Literal
 
 from .candidates import Candidate
 from .case_io import RegionalCoverageCase
 from .coverage import CoverageIndex
-from .cp_repair import CPRepairConfig, CPMetrics, CPRepairResult, exact_repair
+from .cp_repair import CPRepairConfig, CPMetrics, CPRepairResult, cp_sat_repair
 from .greedy import GreedyConfig, GreedyResult, _best_feasible_evaluation
 from .sequence import (
     SequenceState,
@@ -30,6 +32,9 @@ class LocalSearchConfig:
     time_padding_s: int = 1200
     max_neighborhoods_per_iteration: int = 24
     max_neighborhood_candidates: int = 40
+    wall_time_limit_s: float | None = None
+    randomize_neighborhood_order: bool = False
+    random_seed: int | None = None
     write_move_log: bool = False
     move_debug_limit: int = 1000
 
@@ -49,6 +54,9 @@ class LocalSearchConfig:
                 payload.get("local_search_max_neighborhood_candidates", 40),
                 "local_search_max_neighborhood_candidates",
             ),
+            wall_time_limit_s=_optional_positive_float(payload.get("local_search_wall_time_limit_s")),
+            randomize_neighborhood_order=bool(payload.get("local_search_randomize_neighborhood_order", False)),
+            random_seed=_optional_int(payload.get("local_search_random_seed")),
             write_move_log=bool(payload.get("write_local_search_moves", False)),
             move_debug_limit=_non_negative_int(payload.get("local_search_move_debug_limit", 1000), "local_search_move_debug_limit"),
         )
@@ -61,6 +69,9 @@ class LocalSearchConfig:
             "time_padding_s": self.time_padding_s,
             "max_neighborhoods_per_iteration": self.max_neighborhoods_per_iteration,
             "max_neighborhood_candidates": self.max_neighborhood_candidates,
+            "wall_time_limit_s": self.wall_time_limit_s,
+            "randomize_neighborhood_order": self.randomize_neighborhood_order,
+            "random_seed": self.random_seed,
             "write_move_log": self.write_move_log,
             "move_debug_limit": self.move_debug_limit,
         }
@@ -145,6 +156,8 @@ class LocalSearchSummary:
     cp_metrics: dict[str, Any] = field(default_factory=dict)
     incumbent_progression: list[dict[str, Any]] = field(default_factory=list)
     objective_delta: dict[str, Any] = field(default_factory=dict)
+    random_seed: int | None = None
+    randomized_neighborhood_order: bool = False
 
     def as_dict(self) -> dict[str, Any]:
         return {
@@ -159,6 +172,8 @@ class LocalSearchSummary:
             "objective_delta": dict(self.objective_delta),
             "cp_metrics": dict(self.cp_metrics),
             "incumbent_progression": list(self.incumbent_progression),
+            "random_seed": self.random_seed,
+            "randomized_neighborhood_order": self.randomized_neighborhood_order,
         }
 
 
@@ -195,6 +210,8 @@ def local_search(
         initial_objective=incumbent_objective,
         final_objective=incumbent_objective,
         cp_metrics=cp_metrics.as_dict(),
+        random_seed=config.random_seed,
+        randomized_neighborhood_order=config.randomize_neighborhood_order,
     )
     moves: list[MoveResult] = []
     if not config.enabled:
@@ -208,15 +225,25 @@ def local_search(
 
     candidate_by_id = {candidate.candidate_id: candidate for candidate in candidates}
     accepted_this_run = 0
+    started = perf_counter()
+    rng = random.Random(config.random_seed)
     for iteration in range(config.max_iterations):
+        if config.wall_time_limit_s is not None and perf_counter() - started >= config.wall_time_limit_s:
+            summary.stop_reason = "time_cap_reached"
+            break
         neighborhoods = build_neighborhoods(
             candidates,
             incumbent,
             config=config,
         )
+        if config.randomize_neighborhood_order:
+            rng.shuffle(neighborhoods)
         summary.generated_neighborhoods += len(neighborhoods)
         accepted_in_iteration = False
         for neighborhood in neighborhoods:
+            if config.wall_time_limit_s is not None and perf_counter() - started >= config.wall_time_limit_s:
+                summary.stop_reason = "time_cap_reached"
+                break
             summary.attempted_moves += 1
             move = rebuild_neighborhood(
                 case,
@@ -255,6 +282,9 @@ def local_search(
                 }
             )
             accepted_in_iteration = True
+            break
+        if summary.stop_reason == "time_cap_reached":
+            summary.iterations = iteration + 1
             break
         summary.cp_metrics = cp_metrics.as_dict()
         summary.iterations = iteration + 1
@@ -360,6 +390,8 @@ def rebuild_neighborhood(
             state=state,
             coverage_index=coverage_index,
             policy=greedy_config.policy,
+            random_choice_probability=0.0,
+            rng=random.Random(0),
             summary=_NullGreedySummary(greedy_config.policy, case.mission.max_actions_total),
             attempt_debug=attempts,
             attempt_debug_limit=0,
@@ -389,7 +421,7 @@ def rebuild_neighborhood(
 
     cp_result = None
     if cp_config is not None and cp_metrics is not None:
-        cp_result = exact_repair(
+        cp_result = cp_sat_repair(
             case,
             kept_candidates=kept,
             neighborhood_candidates=pool,
@@ -675,4 +707,19 @@ def _non_negative_int(value: Any, field: str) -> int:
     parsed = int(value)
     if parsed < 0:
         raise ValueError(f"{field} must be non-negative")
+    return parsed
+
+
+def _optional_int(value: Any) -> int | None:
+    if value is None:
+        return None
+    return int(value)
+
+
+def _optional_positive_float(value: Any) -> float | None:
+    if value is None:
+        return None
+    parsed = float(value)
+    if parsed <= 0.0:
+        raise ValueError("optional float limits must be positive when set")
     return parsed

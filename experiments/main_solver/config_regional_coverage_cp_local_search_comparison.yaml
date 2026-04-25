@@ -1,0 +1,6 @@
+results_root: results/main_solver
+
+solvers:
+  - regional_coverage_cp_local_search_greedy_only
+  - regional_coverage_cp_local_search_local_search
+  - regional_coverage_cp_local_search_cp_enabled

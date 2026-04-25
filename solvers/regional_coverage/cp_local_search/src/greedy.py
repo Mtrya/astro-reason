@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+import random
 from time import perf_counter
 from typing import Any, Literal
 
@@ -31,6 +32,8 @@ class GreedyConfig:
     policy: GreedyPolicy = "best_marginal_coverage"
     max_iterations: int | None = None
     wall_time_limit_s: float | None = None
+    random_choice_probability: float = 0.0
+    random_seed: int | None = None
     write_insertion_attempts: bool = False
     insertion_attempt_debug_limit: int = 2000
 
@@ -46,6 +49,11 @@ class GreedyConfig:
             policy=policy,
             max_iterations=_optional_positive_int(payload.get("greedy_max_iterations")),
             wall_time_limit_s=_optional_positive_float(payload.get("greedy_wall_time_limit_s")),
+            random_choice_probability=_probability_float(
+                payload.get("greedy_random_choice_probability", 0.0),
+                "greedy_random_choice_probability",
+            ),
+            random_seed=_optional_int(payload.get("greedy_random_seed")),
             write_insertion_attempts=bool(payload.get("write_insertion_attempts", False)),
             insertion_attempt_debug_limit=_non_negative_int(
                 payload.get("insertion_attempt_debug_limit", 2000),
@@ -58,6 +66,8 @@ class GreedyConfig:
             "policy": self.policy,
             "max_iterations": self.max_iterations,
             "wall_time_limit_s": self.wall_time_limit_s,
+            "random_choice_probability": self.random_choice_probability,
+            "random_seed": self.random_seed,
             "write_insertion_attempts": self.write_insertion_attempts,
             "insertion_attempt_debug_limit": self.insertion_attempt_debug_limit,
         }
@@ -109,6 +119,9 @@ class GreedySummary:
     rejected_insertions: int = 0
     zero_marginal_candidates: int = 0
     action_cap: int = 0
+    random_choice_probability: float = 0.0
+    random_seed: int | None = None
+    random_choices: int = 0
     reject_reasons: dict[str, int] = field(default_factory=dict)
     accepted_candidate_ids: list[str] = field(default_factory=list)
 
@@ -125,6 +138,9 @@ class GreedySummary:
             "rejected_insertions": self.rejected_insertions,
             "zero_marginal_candidates": self.zero_marginal_candidates,
             "action_cap": self.action_cap,
+            "random_choice_probability": self.random_choice_probability,
+            "random_seed": self.random_seed,
+            "random_choices": self.random_choices,
             "reject_reasons": dict(sorted(self.reject_reasons.items())),
             "accepted_candidate_ids": list(self.accepted_candidate_ids),
             "tie_break_order": [
@@ -181,8 +197,14 @@ def greedy_insertion(
     accepted_evaluations: list[InsertionEvaluation] = []
     attempt_debug: list[dict[str, Any]] = []
     action_cap = case.mission.max_actions_total
-    summary = GreedySummary(policy=config.policy, action_cap=action_cap)
+    summary = GreedySummary(
+        policy=config.policy,
+        action_cap=action_cap,
+        random_choice_probability=config.random_choice_probability,
+        random_seed=config.random_seed,
+    )
     started = perf_counter()
+    rng = random.Random(config.random_seed)
 
     while True:
         if len(selected_candidates) >= action_cap:
@@ -203,6 +225,8 @@ def greedy_insertion(
             state=state,
             coverage_index=coverage_index,
             policy=config.policy,
+            random_choice_probability=config.random_choice_probability,
+            rng=rng,
             summary=summary,
             attempt_debug=attempt_debug,
             attempt_debug_limit=config.insertion_attempt_debug_limit,
@@ -247,11 +271,14 @@ def _best_feasible_evaluation(
     state: SequenceState,
     coverage_index: CoverageIndex,
     policy: GreedyPolicy,
+    random_choice_probability: float,
+    rng: random.Random,
     summary: GreedySummary,
     attempt_debug: list[dict[str, Any]],
     attempt_debug_limit: int,
 ) -> InsertionEvaluation | None:
     best: InsertionEvaluation | None = None
+    feasible: list[InsertionEvaluation] = []
     zero_marginal_seen = 0
 
     for candidate in candidates:
@@ -287,12 +314,17 @@ def _best_feasible_evaluation(
             continue
 
         summary.feasible_insertions += 1
+        if random_choice_probability > 0.0:
+            feasible.append(candidate_best)
         if len(attempt_debug) < attempt_debug_limit:
             attempt_debug.append({**candidate_best.as_dict(), "accepted": False})
         if best is None or _evaluation_key(candidate_best, policy) < _evaluation_key(best, policy):
             best = candidate_best
 
     summary.zero_marginal_candidates += zero_marginal_seen
+    if best is not None and feasible and rng.random() < random_choice_probability:
+        best = rng.choice(feasible)
+        summary.random_choices += 1
     if best is not None and len(attempt_debug) < attempt_debug_limit:
         attempt_debug.append({**best.as_dict(), "accepted": True})
     return best
@@ -384,6 +416,19 @@ def _optional_positive_float(value: Any) -> float | None:
     parsed = float(value)
     if parsed <= 0.0:
         raise ValueError("optional float limits must be positive when set")
+    return parsed
+
+
+def _optional_int(value: Any) -> int | None:
+    if value is None:
+        return None
+    return int(value)
+
+
+def _probability_float(value: Any, field: str) -> float:
+    parsed = float(value)
+    if parsed < 0.0 or parsed > 1.0:
+        raise ValueError(f"{field} must be between 0.0 and 1.0")
     return parsed
 
 
