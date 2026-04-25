@@ -1,0 +1,7 @@
+sample_step_sec: 7200
+altitude_count: 1
+inclination_deg: [55.0, 97.6]
+raan_count: 4
+phase_count: 2
+max_slots: 16
+write_visibility_matrix: true
