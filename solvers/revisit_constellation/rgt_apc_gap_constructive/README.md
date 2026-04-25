@@ -134,6 +134,7 @@ Key knobs:
 - `visibility.sample_step_sec`
 - `visibility.max_windows`
 - `visibility.keep_samples_per_window`
+- `visibility.worker_count`
 - `selection.max_selected_satellites`
 - `selection.require_positive_improvement`
 - `scheduling.max_actions`
@@ -145,7 +146,7 @@ Key knobs:
 - `scheduling.enable_repair`
 - `scheduling.repair_max_iterations`
 
-Lower visibility sample steps improve opportunity fidelity but increase runtime. `transition_gap_sec: null` uses a conservative case-derived bang-coast-bang slew/settle gap during option conflict checks.
+Lower visibility sample steps improve opportunity fidelity but increase runtime. `visibility.worker_count: null` auto-selects a bounded candidate-parallel worker count; use `1` for serial deterministic visibility construction. `transition_gap_sec: null` uses a conservative case-derived bang-coast-bang slew/settle gap during option conflict checks.
 
 ## Debug Artifacts
 
@@ -159,6 +160,7 @@ Every run writes:
 - `debug/local_validation.json`: final local hard-validity and high-gap report
 - `debug/repair_steps.json`: deterministic removal/insertion repair log
 - `debug/scheduling_summary.json`: compact option, action, rejection, repair, high-gap, and mode counts
+- `debug/baseline_summary.json`: compact profiling, mode, target coverage, and high-gap evidence for future-phase comparisons
 - `debug/mode_comparison.json`: solver-local no-op, FIFO, constructive, and repaired comparison metrics
 - `debug/adaptation_notes.json`: paper concepts mapped to benchmark mechanics
 

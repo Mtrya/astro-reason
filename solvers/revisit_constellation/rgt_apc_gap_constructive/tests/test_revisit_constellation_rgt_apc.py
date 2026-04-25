@@ -14,6 +14,10 @@ SOLVER_DIR = Path(__file__).resolve().parents[1]
 REPO_ROOT = Path(__file__).resolve().parents[4]
 sys.path.insert(0, str(SOLVER_DIR))
 
+from src.baseline import (  # noqa: E402
+    OFFICIAL_VERIFICATION_BOUNDARY,
+    build_baseline_evidence,
+)
 from src.case_io import (  # noqa: E402
     load_case,
     load_solver_config,
@@ -28,6 +32,7 @@ from src.orbit_library import (  # noqa: E402
     generate_orbit_library,
     initial_orbit_bounds,
 )
+from src.propagation import PropagationCache  # noqa: E402
 from src.scheduling import (  # noqa: E402
     SchedulingConfig,
     ScheduledObservation,
@@ -52,6 +57,7 @@ from src.visibility import (  # noqa: E402
     VisibilityConfig,
     VisibilitySample,
     VisibilityWindow,
+    build_visibility_library,
     group_visible_samples,
 )
 
@@ -148,6 +154,33 @@ def _scheduler_case_dir(tmp_path: Path) -> Path:
         }
     )
     _write_json(case_dir / "assets.json", _assets_payload())
+    _write_json(case_dir / "mission.json", mission)
+    return case_dir
+
+
+def _wide_visibility_case_dir(tmp_path: Path) -> Path:
+    case_dir = tmp_path / "wide_visibility_case"
+    assets = _assets_payload()
+    assets["satellite_model"]["sensor"]["max_off_nadir_angle_deg"] = 180.0
+    assets["satellite_model"]["sensor"]["max_range_m"] = 50000000.0
+    mission = _mission_payload(expected_revisit_period_hours=0.4)
+    mission["targets"][0]["min_elevation_deg"] = -90.0
+    mission["targets"][0]["max_slant_range_m"] = 50000000.0
+    mission["targets"][0]["min_duration_sec"] = 60.0
+    mission["targets"].append(
+        {
+            "id": "target_002",
+            "name": "Wide Second Target",
+            "latitude_deg": 20.0,
+            "longitude_deg": 15.0,
+            "altitude_m": 0.0,
+            "expected_revisit_period_hours": 0.4,
+            "min_elevation_deg": -90.0,
+            "max_slant_range_m": 50000000.0,
+            "min_duration_sec": 60.0,
+        }
+    )
+    _write_json(case_dir / "assets.json", assets)
     _write_json(case_dir / "mission.json", mission)
     return case_dir
 
@@ -330,9 +363,96 @@ def test_config_example_loads_all_solver_component_configs(tmp_path: Path) -> No
 
     assert orbit_config.max_candidates == 18
     assert visibility_config.sample_step_sec == 120.0
+    assert visibility_config.worker_count is None
     assert selection_config.require_positive_improvement is True
     assert scheduling_config.enable_repair is True
     assert scheduling_config.repair_max_iterations == 3
+
+
+def test_propagation_cache_state_grid_matches_scalar_states(tmp_path: Path) -> None:
+    case = load_case(_case_dir(tmp_path))
+    candidate = _candidate("sat_a")
+    cache = PropagationCache([candidate], case.horizon_start, case.horizon_end)
+    sample_times = horizon_sample_times(case.horizon_start, case.horizon_end, 600.0)
+
+    grid = cache.candidate_state_grid(candidate.candidate_id, sample_times)
+    same_grid = cache.candidate_state_grid(candidate.candidate_id, sample_times)
+
+    assert same_grid is grid
+    assert grid.candidate_id == "sat_a"
+    assert grid.sample_times == tuple(sample_times)
+    assert grid.eci_states.shape == (len(sample_times), 6)
+    assert grid.ecef_states.shape == (len(sample_times), 6)
+    for index, instant in enumerate(sample_times):
+        assert grid.eci_states[index] == pytest.approx(
+            cache.state_eci(candidate.candidate_id, instant)
+        )
+        assert grid.ecef_states[index] == pytest.approx(
+            cache.state_ecef(candidate.candidate_id, instant)
+        )
+
+
+def test_parallel_visibility_matches_serial_state_grid_output(tmp_path: Path) -> None:
+    case = load_case(_wide_visibility_case_dir(tmp_path))
+    candidates = [_candidate("sat_b"), _candidate("sat_a")]
+    serial = build_visibility_library(
+        case,
+        candidates,
+        VisibilityConfig(
+            sample_step_sec=600.0,
+            keep_samples_per_window=3,
+            worker_count=1,
+        ),
+    )
+    parallel = build_visibility_library(
+        case,
+        candidates,
+        VisibilityConfig(
+            sample_step_sec=600.0,
+            keep_samples_per_window=3,
+            worker_count=2,
+        ),
+    )
+
+    assert serial.sample_count == parallel.sample_count
+    assert serial.pair_count == parallel.pair_count
+    assert [window.as_dict() for window in serial.windows] == [
+        window.as_dict() for window in parallel.windows
+    ]
+    assert serial.caps["worker_count_used"] == 1
+    assert parallel.caps["worker_count_used"] == 2
+    assert serial.caps["state_cache"]["cached_candidate_count"] == 2
+    assert [window.window_id for window in parallel.windows] == sorted(
+        [window.window_id for window in parallel.windows]
+    )
+
+
+def test_visibility_window_cap_applies_after_deterministic_sort(tmp_path: Path) -> None:
+    case = load_case(_wide_visibility_case_dir(tmp_path))
+    candidates = [_candidate("sat_b"), _candidate("sat_a")]
+    uncapped = build_visibility_library(
+        case,
+        candidates,
+        VisibilityConfig(sample_step_sec=600.0, worker_count=1),
+    )
+    capped_serial = build_visibility_library(
+        case,
+        candidates,
+        VisibilityConfig(sample_step_sec=600.0, max_windows=2, worker_count=1),
+    )
+    capped_parallel = build_visibility_library(
+        case,
+        candidates,
+        VisibilityConfig(sample_step_sec=600.0, max_windows=2, worker_count=2),
+    )
+
+    expected = [window.as_dict() for window in uncapped.windows[:2]]
+    assert [window.as_dict() for window in capped_serial.windows] == expected
+    assert [window.as_dict() for window in capped_parallel.windows] == expected
+    assert capped_parallel.caps["window_count_capped"] is True
+    assert capped_parallel.caps["uncapped_visibility_window_count"] == len(
+        uncapped.windows
+    )
 
 
 def test_gap_score_matches_boundary_inclusive_benchmark_metrics(tmp_path: Path) -> None:
@@ -574,6 +694,100 @@ def test_scheduler_records_reproduction_fidelity_mode_comparison(tmp_path: Path)
     assert result.debug_summary["high_gap_target_count"] == len(
         result.validation_report.high_gap_target_ids
     )
+    assert result.debug_summary["option_count_by_target"] == {
+        "target_001": 2,
+        "target_002": 1,
+    }
+    assert result.debug_summary["scheduled_action_count_by_target"] == {
+        "target_002": 1
+    }
+
+
+def test_baseline_evidence_records_target_reasons_and_timing(tmp_path: Path) -> None:
+    case = load_case(_scheduler_case_dir(tmp_path))
+    candidates = [_candidate("sat_a"), _candidate("sat_b")]
+    windows = [
+        _window("sat_a", "target_001", case.horizon_start, 10),
+        _window("sat_a", "target_001", case.horizon_start, 40),
+        _window("sat_b", "target_002", case.horizon_start, 30),
+    ]
+    orbit_library = generate_orbit_library(
+        case,
+        OrbitLibraryConfig(
+            max_candidates=2,
+            max_rgt_days=1,
+            min_revolutions_per_day=10,
+            max_revolutions_per_day=18,
+            phase_slot_count=2,
+        ),
+    )
+    visibility_library = type(
+        "VisibilityLibraryStub",
+        (),
+        {
+            "windows": windows,
+            "sample_count": 8,
+            "pair_count": 4,
+        },
+    )()
+    selection_result = select_satellites_greedy(
+        case=case,
+        candidates=candidates,
+        windows=windows,
+        config=SelectionConfig(max_selected_satellites=2),
+    )
+    scheduling_result = schedule_observations(
+        case=case,
+        selected_candidate_ids=["sat_a", "sat_b"],
+        windows=windows,
+        config=SchedulingConfig(
+            max_actions=1,
+            transition_gap_sec=0.0,
+            enforce_simple_energy_budget=False,
+            enable_repair=False,
+        ),
+    )
+
+    evidence = build_baseline_evidence(
+        case=case,
+        orbit_library=orbit_library,
+        visibility_library=visibility_library,
+        selection_result=selection_result,
+        scheduling_result=scheduling_result,
+        timing_seconds={
+            "orbit_library": 1.0,
+            "visibility": 3.0,
+            "selection": 0.5,
+            "scheduling": 5.5,
+            "total": 10.0,
+        },
+    )
+
+    assert evidence["version"] == 1
+    assert evidence["official_verification_boundary"] == OFFICIAL_VERIFICATION_BOUNDARY
+    assert evidence["timing_profile"]["dominant_stage_order"] == [
+        "scheduling",
+        "visibility",
+        "orbit_library",
+        "selection",
+    ]
+    assert evidence["counts"]["candidate_count"] == 2
+    assert evidence["counts"]["option_count"] == 3
+    assert [row["target_id"] for row in evidence["target_evidence"]] == [
+        "target_001",
+        "target_002",
+    ]
+    by_target = {row["target_id"]: row for row in evidence["target_evidence"]}
+    assert by_target["target_001"]["unobserved_reason"] == "options_available_not_scheduled"
+    assert by_target["target_002"]["unobserved_reason"] is None
+    assert by_target["target_001"]["visibility_window_count"] == 2
+    assert by_target["target_002"]["scheduled_action_count"] == 1
+    assert [entry["mode"] for entry in evidence["mode_comparison_compact"]] == [
+        "no_op",
+        "fifo",
+        "constructive",
+        "repaired",
+    ]
 
 
 def test_local_validation_reports_overlap_high_gap_and_battery_risk(tmp_path: Path) -> None:
@@ -736,6 +950,13 @@ def test_solve_sh_smoke_writes_selected_solution_status_and_debug(tmp_path: Path
     assert status["visibility"]["candidate_target_pair_count"] == 1
     assert status["selection"]["selected_candidate_count"] == len(solution["satellites"])
     assert status["scheduling"]["action_count"] == len(solution["actions"])
+    assert status["baseline_evidence"]["version"] == 1
+    assert status["baseline_evidence"]["counts"]["target_count"] == 1
+    assert status["baseline_evidence"]["counts"]["candidate_count"] == 1
+    assert status["baseline_evidence"]["counts"]["action_count"] == len(solution["actions"])
+    boundary = status["baseline_evidence"]["official_verification_boundary"]
+    assert boundary.startswith("Solver output records local metrics only")
+    assert "experiments/main_solver" in boundary
     assert status["reproduction_fidelity"]["mode_comparison"]["mode_order"] == [
         "no_op",
         "fifo",
@@ -754,8 +975,13 @@ def test_solve_sh_smoke_writes_selected_solution_status_and_debug(tmp_path: Path
     assert (solution_dir / "debug" / "local_validation.json").exists()
     assert (solution_dir / "debug" / "repair_steps.json").exists()
     assert (solution_dir / "debug" / "scheduling_summary.json").exists()
+    assert (solution_dir / "debug" / "baseline_summary.json").exists()
     assert (solution_dir / "debug" / "mode_comparison.json").exists()
     assert (solution_dir / "debug" / "adaptation_notes.json").exists()
+    baseline = json.loads(
+        (solution_dir / "debug" / "baseline_summary.json").read_text(encoding="utf-8")
+    )
+    assert baseline == status["baseline_evidence"]
 
 
 def test_solver_source_does_not_import_benchmark_or_experiment_internals() -> None:

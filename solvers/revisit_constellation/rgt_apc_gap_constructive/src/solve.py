@@ -8,6 +8,7 @@ import time
 import traceback
 from pathlib import Path
 
+from .baseline import build_baseline_evidence
 from .case_io import load_case, load_solver_config
 from .orbit_library import OrbitLibraryConfig, generate_orbit_library
 from .scheduling import SchedulingConfig, schedule_observations
@@ -64,6 +65,7 @@ def _build_status(
     selection_result,
     scheduling_result,
     timing_seconds: dict[str, float],
+    baseline_evidence: dict,
 ) -> dict:
     return {
         "status": "phase_6_reproduction_fidelity_validated",
@@ -85,6 +87,7 @@ def _build_status(
         "visibility": visibility_library.as_status_dict(),
         "selection": selection_result.as_status_dict(),
         "scheduling": scheduling_result.as_status_dict(),
+        "baseline_evidence": baseline_evidence,
         "reproduction_fidelity": {
             "mode_comparison": scheduling_result.mode_comparison,
             "debug_summary": scheduling_result.debug_summary,
@@ -184,6 +187,14 @@ def main(argv: list[str] | None = None) -> int:
             "scheduling": scheduling_end - scheduling_start,
             "total": total_end - total_start,
         }
+        baseline_evidence = build_baseline_evidence(
+            case=case,
+            orbit_library=orbit_library,
+            visibility_library=visibility_library,
+            selection_result=selection_result,
+            scheduling_result=scheduling_result,
+            timing_seconds=timing_seconds,
+        )
         status = _build_status(
             case_dir=case_dir,
             config_dir=config_dir,
@@ -198,6 +209,7 @@ def main(argv: list[str] | None = None) -> int:
             selection_result=selection_result,
             scheduling_result=scheduling_result,
             timing_seconds=timing_seconds,
+            baseline_evidence=baseline_evidence,
         )
         write_json(solution_dir / "status.json", status)
         write_json(
@@ -231,6 +243,10 @@ def main(argv: list[str] | None = None) -> int:
         write_json(
             solution_dir / "debug" / "scheduling_summary.json",
             scheduling_result.debug_summary,
+        )
+        write_json(
+            solution_dir / "debug" / "baseline_summary.json",
+            baseline_evidence,
         )
         write_json(
             solution_dir / "debug" / "mode_comparison.json",

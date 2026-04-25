@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from dataclasses import dataclass
 from datetime import UTC, datetime
 
 import brahe
@@ -38,6 +39,14 @@ def datetime_to_epoch(value: datetime) -> brahe.Epoch:
     )
 
 
+@dataclass(frozen=True, slots=True)
+class CandidateStateGrid:
+    candidate_id: str
+    sample_times: tuple[datetime, ...]
+    eci_states: np.ndarray
+    ecef_states: np.ndarray
+
+
 class PropagationCache:
     def __init__(self, candidates: list[OrbitCandidate], start: datetime, end: datetime):
         ensure_brahe_ready()
@@ -57,6 +66,9 @@ class PropagationCache:
             self._propagators[candidate.candidate_id] = propagator
         self._eci_cache: dict[tuple[str, datetime], np.ndarray] = {}
         self._ecef_cache: dict[tuple[str, datetime], np.ndarray] = {}
+        self._state_grid_cache: dict[
+            tuple[str, tuple[datetime, ...]], CandidateStateGrid
+        ] = {}
 
     def state_eci(self, candidate_id: str, instant: datetime) -> np.ndarray:
         key = (candidate_id, instant.astimezone(UTC))
@@ -80,3 +92,38 @@ class PropagationCache:
             self._ecef_cache[key] = state
         return state
 
+    def candidate_state_grid(
+        self,
+        candidate_id: str,
+        sample_times: list[datetime] | tuple[datetime, ...],
+    ) -> CandidateStateGrid:
+        normalized_times = tuple(instant.astimezone(UTC) for instant in sample_times)
+        key = (candidate_id, normalized_times)
+        grid = self._state_grid_cache.get(key)
+        if grid is not None:
+            return grid
+        eci_states = np.asarray(
+            [self.state_eci(candidate_id, instant) for instant in normalized_times],
+            dtype=float,
+        ).reshape((len(normalized_times), 6))
+        ecef_states = np.asarray(
+            [self.state_ecef(candidate_id, instant) for instant in normalized_times],
+            dtype=float,
+        ).reshape((len(normalized_times), 6))
+        grid = CandidateStateGrid(
+            candidate_id=candidate_id,
+            sample_times=normalized_times,
+            eci_states=eci_states,
+            ecef_states=ecef_states,
+        )
+        self._state_grid_cache[key] = grid
+        return grid
+
+    def state_grids(
+        self,
+        sample_times: list[datetime] | tuple[datetime, ...],
+    ) -> dict[str, CandidateStateGrid]:
+        return {
+            candidate_id: self.candidate_state_grid(candidate_id, sample_times)
+            for candidate_id in sorted(self._propagators)
+        }

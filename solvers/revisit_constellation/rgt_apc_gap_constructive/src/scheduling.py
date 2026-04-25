@@ -921,6 +921,23 @@ def build_debug_summary(
     high_gap_rank = [
         item for item in _target_gap_rank(score) if item["threshold_violated"]
     ]
+    option_count_by_target: dict[str, int] = {}
+    for option in options:
+        option_count_by_target[option.target_id] = (
+            option_count_by_target.get(option.target_id, 0) + 1
+        )
+    scheduled_action_count_by_target: dict[str, int] = {}
+    for observation in scheduled:
+        scheduled_action_count_by_target[observation.target_id] = (
+            scheduled_action_count_by_target.get(observation.target_id, 0) + 1
+        )
+    rejected_option_count_by_target: dict[str, int] = {}
+    for item in rejected_options:
+        target_id = item.get("target_id")
+        if isinstance(target_id, str):
+            rejected_option_count_by_target[target_id] = (
+                rejected_option_count_by_target.get(target_id, 0) + 1
+            )
     compact_modes = [
         {
             "mode": entry["mode"],
@@ -938,9 +955,16 @@ def build_debug_summary(
     ]
     return {
         "option_count": len(options),
+        "option_count_by_target": dict(sorted(option_count_by_target.items())),
         "action_count": len(scheduled),
+        "scheduled_action_count_by_target": dict(
+            sorted(scheduled_action_count_by_target.items())
+        ),
         "decision_count": len(decisions),
         "rejection_reason_counts": _reason_counts(rejected_options),
+        "rejected_option_count_by_target": dict(
+            sorted(rejected_option_count_by_target.items())
+        ),
         "repair_step_count": len(repair_steps),
         "repair_counts": _repair_counts(repair_steps),
         "local_valid": validation_report.is_valid,

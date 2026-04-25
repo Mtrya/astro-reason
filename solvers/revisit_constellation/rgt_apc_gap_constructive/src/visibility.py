@@ -2,17 +2,24 @@
 
 from __future__ import annotations
 
+from concurrent.futures import ProcessPoolExecutor
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 from typing import Any
 import math
+import os
 
 import brahe
 import numpy as np
 
 from .case_io import RevisitCase, Target
 from .orbit_library import OrbitCandidate
-from .propagation import PropagationCache, datetime_to_epoch
+from .propagation import (
+    CandidateStateGrid,
+    PropagationCache,
+    datetime_to_epoch,
+    ensure_brahe_ready,
+)
 from .time_grid import horizon_sample_times, iso_z
 
 
@@ -24,6 +31,7 @@ class VisibilityConfig:
     sample_step_sec: float = 120.0
     max_windows: int | None = None
     keep_samples_per_window: int = 6
+    worker_count: int | None = None
 
     @classmethod
     def from_mapping(cls, payload: dict[str, Any]) -> "VisibilityConfig":
@@ -31,10 +39,12 @@ class VisibilityConfig:
         if not isinstance(raw, dict):
             raise ValueError("visibility config must be a mapping/object")
         max_windows = raw.get("max_windows")
+        worker_count = raw.get("worker_count")
         return cls(
             sample_step_sec=float(raw.get("sample_step_sec", 120.0)),
             max_windows=(None if max_windows is None else int(max_windows)),
             keep_samples_per_window=int(raw.get("keep_samples_per_window", 6)),
+            worker_count=(None if worker_count is None else int(worker_count)),
         )
 
     def as_status_dict(self) -> dict[str, Any]:
@@ -42,6 +52,7 @@ class VisibilityConfig:
             "sample_step_sec": self.sample_step_sec,
             "max_windows": self.max_windows,
             "keep_samples_per_window": self.keep_samples_per_window,
+            "worker_count": self.worker_count,
         }
 
 
@@ -121,16 +132,14 @@ def angle_between_deg(vector_a: np.ndarray, vector_b: np.ndarray) -> float:
     return math.degrees(math.acos(cosine))
 
 
-def _geometry_sample(
+def _geometry_sample_from_states(
     *,
     case: RevisitCase,
     target: Target,
-    propagation: PropagationCache,
-    candidate_id: str,
+    state_eci: np.ndarray,
+    state_ecef: np.ndarray,
     instant: datetime,
 ) -> VisibilitySample:
-    state_eci = propagation.state_eci(candidate_id, instant)
-    state_ecef = propagation.state_ecef(candidate_id, instant)
     target_ecef = np.asarray(target.ecef_position_m, dtype=float)
     relative_enz = np.asarray(
         brahe.relative_position_ecef_to_enz(
@@ -161,6 +170,25 @@ def _geometry_sample(
         slant_range_m=slant_range_m,
         off_nadir_deg=off_nadir_deg,
         visible=visible,
+    )
+
+
+def _geometry_sample(
+    *,
+    case: RevisitCase,
+    target: Target,
+    propagation: PropagationCache,
+    candidate_id: str,
+    instant: datetime,
+) -> VisibilitySample:
+    state_eci = propagation.state_eci(candidate_id, instant)
+    state_ecef = propagation.state_ecef(candidate_id, instant)
+    return _geometry_sample_from_states(
+        case=case,
+        target=target,
+        state_eci=state_eci,
+        state_ecef=state_ecef,
+        instant=instant,
     )
 
 
@@ -230,6 +258,59 @@ def group_visible_samples(
     return windows
 
 
+def _resolved_worker_count(config: VisibilityConfig, candidate_count: int) -> int:
+    if candidate_count <= 0:
+        return 0
+    if config.worker_count is not None:
+        return max(1, min(int(config.worker_count), candidate_count))
+    return max(1, min(8, os.cpu_count() or 1, candidate_count))
+
+
+def _candidate_visibility_windows(
+    args: tuple[
+        RevisitCase,
+        CandidateStateGrid,
+        tuple[Target, ...],
+        float,
+        int,
+    ],
+) -> list[VisibilityWindow]:
+    case, state_grid, targets, sample_step_sec, keep_samples_per_window = args
+    ensure_brahe_ready()
+    windows: list[VisibilityWindow] = []
+    for target in targets:
+        samples = [
+            _geometry_sample_from_states(
+                case=case,
+                target=target,
+                state_eci=state_grid.eci_states[index],
+                state_ecef=state_grid.ecef_states[index],
+                instant=instant,
+            )
+            for index, instant in enumerate(state_grid.sample_times)
+        ]
+        windows.extend(
+            group_visible_samples(
+                candidate_id=state_grid.candidate_id,
+                target_id=target.target_id,
+                horizon_start=case.horizon_start,
+                horizon_end=case.horizon_end,
+                sample_step_sec=sample_step_sec,
+                min_duration_sec=target.min_duration_sec,
+                samples=samples,
+                keep_samples_per_window=keep_samples_per_window,
+            )
+        )
+    return windows
+
+
+def _sort_windows(windows: list[VisibilityWindow]) -> list[VisibilityWindow]:
+    return sorted(
+        windows,
+        key=lambda item: (item.candidate_id, item.target_id, item.start, item.window_id),
+    )
+
+
 def build_visibility_library(
     case: RevisitCase,
     candidates: list[OrbitCandidate],
@@ -243,53 +324,50 @@ def build_visibility_library(
         config.sample_step_sec,
     )
     propagation = PropagationCache(candidates, case.horizon_start, case.horizon_end)
+    state_grids = propagation.state_grids(sample_times)
+    candidate_ids = [candidate.candidate_id for candidate in candidates]
+    targets = tuple(case.targets.values())
+    worker_count = _resolved_worker_count(config, len(candidates))
+    worker_args = [
+        (
+            case,
+            state_grids[candidate_id],
+            targets,
+            config.sample_step_sec,
+            config.keep_samples_per_window,
+        )
+        for candidate_id in candidate_ids
+    ]
     windows: list[VisibilityWindow] = []
-    sample_count = 0
+    if worker_count > 1 and worker_args:
+        with ProcessPoolExecutor(max_workers=worker_count) as executor:
+            for candidate_windows in executor.map(_candidate_visibility_windows, worker_args):
+                windows.extend(candidate_windows)
+    else:
+        for item in worker_args:
+            windows.extend(_candidate_visibility_windows(item))
+    windows = _sort_windows(windows)
+    uncapped_window_count = len(windows)
     max_windows = config.max_windows
-    for candidate in candidates:
-        for target in case.targets.values():
-            samples = [
-                _geometry_sample(
-                    case=case,
-                    target=target,
-                    propagation=propagation,
-                    candidate_id=candidate.candidate_id,
-                    instant=instant,
-                )
-                for instant in sample_times
-            ]
-            sample_count += len(samples)
-            windows.extend(
-                group_visible_samples(
-                    candidate_id=candidate.candidate_id,
-                    target_id=target.target_id,
-                    horizon_start=case.horizon_start,
-                    horizon_end=case.horizon_end,
-                    sample_step_sec=config.sample_step_sec,
-                    min_duration_sec=target.min_duration_sec,
-                    samples=samples,
-                    keep_samples_per_window=config.keep_samples_per_window,
-                )
-            )
-            if max_windows is not None and len(windows) >= max_windows:
-                windows = windows[:max_windows]
-                return VisibilityLibrary(
-                    windows=windows,
-                    sample_count=sample_count,
-                    pair_count=len(candidates) * len(case.targets),
-                    caps={
-                        **config.as_status_dict(),
-                        "window_count_capped": True,
-                    },
-                )
-    windows.sort(key=lambda item: (item.start, item.candidate_id, item.target_id, item.window_id))
+    if max_windows is not None and len(windows) >= max_windows:
+        windows = windows[:max_windows]
     return VisibilityLibrary(
         windows=windows,
-        sample_count=sample_count,
+        sample_count=len(candidates) * len(case.targets) * len(sample_times),
         pair_count=len(candidates) * len(case.targets),
         caps={
             **config.as_status_dict(),
-            "window_count_capped": False,
+            "window_count_capped": (
+                max_windows is not None and uncapped_window_count >= max_windows
+            ),
+            "uncapped_visibility_window_count": uncapped_window_count,
+            "worker_count_configured": config.worker_count,
+            "worker_count_used": worker_count,
+            "parallel_strategy": "candidate_state_grid",
+            "state_cache": {
+                "cached_candidate_count": len(state_grids),
+                "sample_time_count": len(sample_times),
+                "state_frames": ["eci", "ecef"],
+            },
         },
     )
-

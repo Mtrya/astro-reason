@@ -21,6 +21,8 @@ visibility:
   max_windows: null
   # Number of representative samples retained in each debug visibility window.
   keep_samples_per_window: 6
+  # Null auto-selects a bounded worker count. Use 1 for serial deterministic runs.
+  worker_count: null
 
 # Greedy satellite selection by benchmark-shaped gap improvement.
 selection:
