@@ -10,9 +10,10 @@ candidate_generation:
   # symmetric about nadir and filtered by the public sensor edge-angle limits.
   roll_step_deg: 4.0
 
-  # Deterministic global cap for smoke-speed candidate generation. Set to null
-  # for fuller sweeps after validating runtime and debug artifact size.
+  # Deterministic cap for smoke-speed candidate generation. Set to null for
+  # fuller sweeps after validating runtime and debug artifact size.
   max_candidates_total: 512
+  cap_strategy: balanced_stride
 
   # Optional explicit grids. Invalid values are filtered against the public
   # action-grid, sensor-duration, and sensor-edge constraints.

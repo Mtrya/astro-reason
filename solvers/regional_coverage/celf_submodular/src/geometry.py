@@ -9,7 +9,10 @@ CELF selection.
 from __future__ import annotations
 
 import math
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
+
+import brahe
+import numpy as np
 
 from case_io import Manifest, Satellite
 from candidates import StripCandidate
@@ -17,6 +20,61 @@ from candidates import StripCandidate
 EARTH_RADIUS_M = 6_378_137.0
 EARTH_ROTATION_RAD_PER_S = 7.2921159e-5
 MU_EARTH_M3_PER_S2 = 3.986004418e14
+WGS84_A_M = 6_378_137.0
+WGS84_B_M = 6_356_752.314245179
+NUMERICAL_EPS = 1.0e-12
+_BRAHE_READY = False
+
+
+class PropagationContext:
+    def __init__(self, satellites: dict[str, Satellite], step_s: float):
+        ensure_brahe_ready()
+        self.propagators = {
+            satellite_id: brahe.SGPPropagator.from_tle(
+                satellite.tle_line1,
+                satellite.tle_line2,
+                step_s,
+            )
+            for satellite_id, satellite in satellites.items()
+        }
+        self._state_ecef_cache: dict[tuple[str, datetime], np.ndarray] = {}
+
+    def state_ecef(self, satellite_id: str, instant: datetime) -> np.ndarray:
+        key = (satellite_id, instant.astimezone(UTC))
+        cached = self._state_ecef_cache.get(key)
+        if cached is not None:
+            return cached
+        state = np.asarray(
+            self.propagators[satellite_id].state_ecef(datetime_to_epoch(key[1])),
+            dtype=float,
+        ).reshape(6)
+        self._state_ecef_cache[key] = state
+        return state
+
+
+def ensure_brahe_ready() -> None:
+    global _BRAHE_READY
+    if _BRAHE_READY:
+        return
+    brahe.set_global_eop_provider_from_static_provider(
+        brahe.StaticEOPProvider.from_zero()
+    )
+    _BRAHE_READY = True
+
+
+def datetime_to_epoch(value: datetime) -> brahe.Epoch:
+    value = value.astimezone(UTC)
+    second = float(value.second) + (value.microsecond / 1_000_000.0)
+    return brahe.Epoch.from_datetime(
+        value.year,
+        value.month,
+        value.day,
+        value.hour,
+        value.minute,
+        second,
+        0.0,
+        brahe.TimeSystem.UTC,
+    )
 
 
 def _deg(value: float) -> float:
@@ -71,6 +129,75 @@ def bearing_deg(lon_a: float, lat_a: float, lon_b: float, lat_b: float) -> float
     return (_deg(math.atan2(y, x)) + 360.0) % 360.0
 
 
+def _satellite_local_axes(
+    sat_pos_m: np.ndarray, sat_vel_mps: np.ndarray
+) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+    nadir = -sat_pos_m / np.linalg.norm(sat_pos_m)
+    along = sat_vel_mps - float(np.dot(sat_vel_mps, nadir)) * nadir
+    if float(np.linalg.norm(along)) <= NUMERICAL_EPS:
+        fallback = np.array([0.0, 0.0, 1.0])
+        if abs(float(np.dot(fallback, nadir))) > 0.9:
+            fallback = np.array([0.0, 1.0, 0.0])
+        along = fallback - float(np.dot(fallback, nadir)) * nadir
+    along = along / np.linalg.norm(along)
+    across = np.cross(along, nadir)
+    if float(np.linalg.norm(across)) <= NUMERICAL_EPS:
+        across = np.array([1.0, 0.0, 0.0], dtype=float)
+    else:
+        across = across / np.linalg.norm(across)
+    return along, across, nadir
+
+
+def _boresight_unit_vector(
+    sat_pos_m: np.ndarray, sat_vel_mps: np.ndarray, roll_deg: float
+) -> np.ndarray:
+    _, across_hat, nadir_hat = _satellite_local_axes(sat_pos_m, sat_vel_mps)
+    vector = nadir_hat + (math.tan(_rad(float(roll_deg))) * across_hat)
+    return vector / np.linalg.norm(vector)
+
+
+def _ray_ellipsoid_intersection_m(
+    origin_m: np.ndarray, direction_unit: np.ndarray
+) -> float | None:
+    ox, oy, oz = (float(origin_m[index]) for index in range(3))
+    dx, dy, dz = (float(direction_unit[index]) for index in range(3))
+    inv_a2 = 1.0 / (WGS84_A_M * WGS84_A_M)
+    inv_b2 = 1.0 / (WGS84_B_M * WGS84_B_M)
+    aa = ((dx * dx) + (dy * dy)) * inv_a2 + (dz * dz) * inv_b2
+    bb = 2.0 * (((ox * dx) + (oy * dy)) * inv_a2 + (oz * dz) * inv_b2)
+    cc = ((ox * ox) + (oy * oy)) * inv_a2 + (oz * oz) * inv_b2 - 1.0
+    disc = (bb * bb) - (4.0 * aa * cc)
+    if disc < 0.0 or abs(aa) < 1.0e-30:
+        return None
+    sqrt_disc = math.sqrt(disc)
+    roots = (
+        (-bb - sqrt_disc) / (2.0 * aa),
+        (-bb + sqrt_disc) / (2.0 * aa),
+    )
+    positive_roots = [root for root in roots if root > NUMERICAL_EPS]
+    if not positive_roots:
+        return None
+    return min(positive_roots)
+
+
+def _ground_intercept_ecef_m(
+    sat_pos_m: np.ndarray, sat_vel_mps: np.ndarray, roll_deg: float
+) -> np.ndarray | None:
+    direction = _boresight_unit_vector(sat_pos_m, sat_vel_mps, roll_deg)
+    distance_m = _ray_ellipsoid_intersection_m(sat_pos_m, direction)
+    if distance_m is None:
+        return None
+    return sat_pos_m + (distance_m * direction)
+
+
+def _ecef_to_lonlat_deg(ecef_position_m: np.ndarray) -> tuple[float, float]:
+    lon_deg, lat_deg, _ = brahe.position_ecef_to_geodetic(
+        ecef_position_m,
+        brahe.AngleFormat.DEGREES,
+    )
+    return (float(lon_deg), float(lat_deg))
+
+
 def _tle_line2_elements(line2: str) -> tuple[float, float, float, float, float]:
     inclination_deg = float(line2[8:16])
     raan_deg = float(line2[17:25])
@@ -108,37 +235,78 @@ def _subpoint_from_circular_tle(
 
 
 def strip_centerline_lon_lat(
-    manifest: Manifest, satellite: Satellite, candidate: StripCandidate
+    manifest: Manifest,
+    satellite: Satellite,
+    candidate: StripCandidate,
+    context: PropagationContext | None = None,
 ) -> tuple[tuple[float, float], ...]:
+    centerline, _ = strip_centerline_and_half_width_m(
+        manifest,
+        satellite,
+        candidate,
+        context=context,
+    )
+    return centerline
+
+
+def strip_centerline_and_half_width_m(
+    manifest: Manifest,
+    satellite: Satellite,
+    candidate: StripCandidate,
+    context: PropagationContext | None = None,
+) -> tuple[tuple[tuple[float, float], ...], float]:
     start = manifest.horizon_start + timedelta(seconds=candidate.start_offset_s)
     sample_step_s = max(1, manifest.coverage_sample_step_s)
     offsets = list(range(0, candidate.duration_s + 1, sample_step_s))
     if offsets[-1] != candidate.duration_s:
         offsets.append(candidate.duration_s)
-    ground_points = [
-        _subpoint_from_circular_tle(satellite, start + timedelta(seconds=offset_s))
-        for offset_s in offsets
-    ]
+    if context is None:
+        context = PropagationContext(
+            {candidate.satellite_id: satellite},
+            step_s=float(sample_step_s),
+        )
+    signed_inner = math.copysign(candidate.theta_inner_deg, candidate.roll_deg)
+    signed_outer = math.copysign(candidate.theta_outer_deg, candidate.roll_deg)
     centerline: list[tuple[float, float]] = []
-    for index, (lon, lat, altitude_m) in enumerate(ground_points):
-        if len(ground_points) == 1:
-            heading = 0.0
-        elif index == len(ground_points) - 1:
-            prev_lon, prev_lat, _ = ground_points[index - 1]
-            heading = bearing_deg(prev_lon, prev_lat, lon, lat)
-        else:
-            next_lon, next_lat, _ = ground_points[index + 1]
-            heading = bearing_deg(lon, lat, next_lon, next_lat)
-        look_bearing = heading + (90.0 if candidate.roll_deg >= 0.0 else -90.0)
-        center_offset_m = altitude_m * math.tan(_rad(abs(candidate.roll_deg)))
-        centerline.append(destination_point(lon, lat, look_bearing, center_offset_m))
-    return tuple(centerline)
+    half_widths_m: list[float] = []
+    for offset_s in offsets:
+        state_ecef = context.state_ecef(
+            candidate.satellite_id,
+            start + timedelta(seconds=offset_s),
+        )
+        sat_pos_m = state_ecef[:3]
+        sat_vel_mps = state_ecef[3:]
+        center_hit = _ground_intercept_ecef_m(sat_pos_m, sat_vel_mps, candidate.roll_deg)
+        inner_hit = _ground_intercept_ecef_m(sat_pos_m, sat_vel_mps, signed_inner)
+        outer_hit = _ground_intercept_ecef_m(sat_pos_m, sat_vel_mps, signed_outer)
+        if center_hit is None or inner_hit is None or outer_hit is None:
+            return ((), 0.0)
+        centerline.append(_ecef_to_lonlat_deg(center_hit))
+        inner_lon, inner_lat = _ecef_to_lonlat_deg(inner_hit)
+        outer_lon, outer_lat = _ecef_to_lonlat_deg(outer_hit)
+        half_widths_m.append(
+            0.5 * haversine_m(inner_lon, inner_lat, outer_lon, outer_lat)
+        )
+    return (tuple(centerline), max(half_widths_m) if half_widths_m else 0.0)
 
 
-def approximate_half_width_m(satellite: Satellite, candidate: StripCandidate) -> float:
-    # Use mean altitude over the action start as a stable local scale estimate.
+def approximate_half_width_m(
+    satellite: Satellite,
+    candidate: StripCandidate,
+    manifest: Manifest | None = None,
+    context: PropagationContext | None = None,
+) -> float:
+    if manifest is not None:
+        _, half_width_m = strip_centerline_and_half_width_m(
+            manifest,
+            satellite,
+            candidate,
+            context=context,
+        )
+        return max(1.0, half_width_m)
     _, _, altitude_m = _subpoint_from_circular_tle(
-        satellite, satellite.tle_epoch
+        satellite,
+        satellite.tle_epoch,
     )
     inner = math.tan(_rad(candidate.theta_inner_deg))
     outer = math.tan(_rad(candidate.theta_outer_deg))

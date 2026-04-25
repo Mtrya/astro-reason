@@ -18,6 +18,7 @@ class CandidateConfig:
     time_stride_s: int = 600
     roll_step_deg: float = 4.0
     max_candidates_total: int | None = 512
+    cap_strategy: str = "balanced_stride"
     duration_values_s: tuple[int, ...] | None = None
     roll_values_deg: tuple[float, ...] | None = None
     debug_candidate_limit: int = 50
@@ -27,6 +28,7 @@ class CandidateConfig:
             "time_stride_s": self.time_stride_s,
             "roll_step_deg": self.roll_step_deg,
             "max_candidates_total": self.max_candidates_total,
+            "cap_strategy": self.cap_strategy,
             "duration_values_s": list(self.duration_values_s) if self.duration_values_s else None,
             "roll_values_deg": list(self.roll_values_deg) if self.roll_values_deg else None,
             "debug_candidate_limit": self.debug_candidate_limit,
@@ -63,21 +65,27 @@ class StripCandidate:
 @dataclass(frozen=True, slots=True)
 class CandidateSummary:
     candidate_count: int
+    full_candidate_count: int
+    removed_by_cap_count: int
     truncated_by_cap: bool
     active_caps: dict[str, Any]
     per_satellite: dict[str, int]
     per_roll: dict[str, int]
     per_duration: dict[str, int]
+    per_time_bucket: dict[str, int]
     first_candidate_ids: tuple[str, ...]
 
     def as_dict(self) -> dict[str, Any]:
         return {
             "candidate_count": self.candidate_count,
+            "full_candidate_count": self.full_candidate_count,
+            "removed_by_cap_count": self.removed_by_cap_count,
             "truncated_by_cap": self.truncated_by_cap,
             "active_caps": self.active_caps,
             "per_satellite": self.per_satellite,
             "per_roll": self.per_roll,
             "per_duration": self.per_duration,
+            "per_time_bucket": self.per_time_bucket,
             "first_candidate_ids": list(self.first_candidate_ids),
         }
 
@@ -97,6 +105,13 @@ def load_candidate_config(config_dir: Path | None) -> CandidateConfig:
     max_candidates_raw = section.get(
         "max_candidates_total", DEFAULT_CANDIDATE_CONFIG.max_candidates_total
     )
+    cap_strategy = str(
+        section.get("cap_strategy", DEFAULT_CANDIDATE_CONFIG.cap_strategy)
+    )
+    if cap_strategy not in {"balanced_stride", "first_n"}:
+        raise ValueError(
+            f"{path}: candidate_generation.cap_strategy must be balanced_stride or first_n"
+        )
     return CandidateConfig(
         time_stride_s=int(section.get("time_stride_s", DEFAULT_CANDIDATE_CONFIG.time_stride_s)),
         roll_step_deg=float(section.get("roll_step_deg", DEFAULT_CANDIDATE_CONFIG.roll_step_deg)),
@@ -105,6 +120,7 @@ def load_candidate_config(config_dir: Path | None) -> CandidateConfig:
             if max_candidates_raw is not None
             else None
         ),
+        cap_strategy=cap_strategy,
         duration_values_s=(
             tuple(int(v) for v in section["duration_values_s"])
             if section.get("duration_values_s") is not None
@@ -185,11 +201,33 @@ def _candidate_id(satellite_id: str, duration_s: int, roll_deg: float, start_off
     return f"{satellite_id}|dur={duration_s:04d}|roll={roll_deg:+08.3f}|start={start_offset_s:07d}"
 
 
+def _time_bucket_label(start_offset_s: int) -> str:
+    bucket_start = (start_offset_s // 3600) * 3600
+    return f"{bucket_start:07d}-{bucket_start + 3599:07d}"
+
+
+def _apply_candidate_cap(
+    candidates: list[StripCandidate], config: CandidateConfig
+) -> tuple[list[StripCandidate], bool]:
+    cap = config.max_candidates_total
+    if cap is None or cap >= len(candidates):
+        return candidates, False
+    if cap <= 0:
+        return [], bool(candidates)
+    if config.cap_strategy == "first_n":
+        return candidates[:cap], True
+    if config.cap_strategy != "balanced_stride":
+        raise ValueError(f"unsupported candidate cap strategy {config.cap_strategy!r}")
+
+    total = len(candidates)
+    indices = [(index * total) // cap for index in range(cap)]
+    return [candidates[index] for index in indices], True
+
+
 def generate_candidates(
     case: RegionalCoverageCase, config: CandidateConfig
 ) -> tuple[list[StripCandidate], CandidateSummary]:
-    candidates: list[StripCandidate] = []
-    truncated = False
+    full_candidates: list[StripCandidate] = []
     for satellite_id in sorted(case.satellites):
         satellite = case.satellites[satellite_id]
         durations = _duration_values(case, satellite, config)
@@ -203,7 +241,7 @@ def generate_candidates(
                 for start_offset_s in starts:
                     if start_offset_s + duration_s > case.manifest.horizon_seconds:
                         continue
-                    candidates.append(
+                    full_candidates.append(
                         StripCandidate(
                             candidate_id=_candidate_id(
                                 satellite_id, duration_s, roll_deg, start_offset_s
@@ -217,26 +255,19 @@ def generate_candidates(
                             theta_outer_deg=edge_angles[1],
                         )
                     )
-                    if (
-                        config.max_candidates_total is not None
-                        and len(candidates) >= config.max_candidates_total
-                    ):
-                        truncated = True
-                        break
-                if truncated:
-                    break
-            if truncated:
-                break
-        if truncated:
-            break
+    candidates, truncated = _apply_candidate_cap(full_candidates, config)
     per_satellite = Counter(candidate.satellite_id for candidate in candidates)
     per_roll = Counter(f"{candidate.roll_deg:.6f}" for candidate in candidates)
     per_duration = Counter(str(candidate.duration_s) for candidate in candidates)
+    per_time_bucket = Counter(_time_bucket_label(candidate.start_offset_s) for candidate in candidates)
     summary = CandidateSummary(
         candidate_count=len(candidates),
+        full_candidate_count=len(full_candidates),
+        removed_by_cap_count=max(0, len(full_candidates) - len(candidates)),
         truncated_by_cap=truncated,
         active_caps={
             "max_candidates_total": config.max_candidates_total,
+            "cap_strategy": config.cap_strategy,
             "time_stride_s": config.time_stride_s,
             "default_duration_policy": (
                 "min_mid_max" if config.duration_values_s is None else "configured"
@@ -250,6 +281,7 @@ def generate_candidates(
         per_satellite=dict(sorted(per_satellite.items())),
         per_roll=dict(sorted(per_roll.items(), key=lambda kv: float(kv[0]))),
         per_duration=dict(sorted(per_duration.items(), key=lambda kv: int(kv[0]))),
+        per_time_bucket=dict(sorted(per_time_bucket.items())),
         first_candidate_ids=tuple(c.candidate_id for c in candidates[:10]),
     )
     return candidates, summary

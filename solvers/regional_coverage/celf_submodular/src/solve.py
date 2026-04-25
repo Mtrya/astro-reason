@@ -12,11 +12,12 @@ from typing import Any
 from candidates import generate_candidates, load_candidate_config
 from case_io import load_case
 from celf import load_selection_config, run_celf_selection, sample_weight_lookup
-from coverage import build_candidate_coverage
+from coverage import build_candidate_coverage, build_coverage_diagnostics
 from schedule import feasibility_summary, repair_schedule
 from solution_io import (
     write_candidate_debug,
     write_celf_debug,
+    write_coverage_diagnostics,
     write_json,
     write_repair_debug,
     write_reproduction_debug,
@@ -70,7 +71,7 @@ def _reproduction_summary(*, celf_result, repair_result) -> dict[str, Any]:
                 "estimated_energy",
                 "transition_burden",
             ],
-            "candidate_geometry": "solver-local circular-orbit strip approximation; official geometry remains benchmark-owned",
+            "candidate_geometry": "solver-local Brahe SGP4/WGS84 strip approximation; official geometry remains benchmark-owned",
             "schedule_repair": "same-satellite overlap, slew, action-cap, battery, and duty checks are deterministic benchmark adaptations after fixed-set CELF selection",
             "official_validation": "experiments/main_solver runs the benchmark verifier through CLI/file contracts",
         },
@@ -108,6 +109,7 @@ def _build_status(
     candidate_config,
     candidate_summary,
     coverage_summary,
+    coverage_diagnostics,
     selection_config,
     celf_result,
     repair_result,
@@ -143,6 +145,7 @@ def _build_status(
         "selection_config": selection_config.as_status_dict(),
         "candidate_summary": candidate_summary.as_dict(),
         "coverage_summary": coverage_summary.as_dict(),
+        "coverage_diagnostics": coverage_diagnostics,
         "celf_summary": celf_result.as_dict(),
         "feasibility_summary": feasibility_summary(repair_result),
         "repair_summary": repair_result.as_dict(),
@@ -154,7 +157,7 @@ def _build_status(
             "sequence_feasibility_deferred_to_phase": None,
             "satellite_repair_enabled": True,
             "experiment_registration_enabled": True,
-            "coverage_geometry": "solver-local circular-orbit approximation",
+            "coverage_geometry": "solver-local Brahe SGP4/WGS84 strip approximation",
             "battery_and_duty_checks": "approximate_solver_local",
         },
         "timing_seconds": timing_seconds,
@@ -178,6 +181,12 @@ def run(case_dir: Path, config_dir: Path | None, solution_dir: Path) -> int:
 
     start = time.perf_counter()
     coverage_by_candidate, coverage_summary = build_candidate_coverage(case, candidates)
+    coverage_diagnostics = build_coverage_diagnostics(
+        case,
+        candidates,
+        coverage_by_candidate,
+        limit=candidate_config.debug_candidate_limit,
+    )
     timings["coverage_mapping"] = _round_seconds(time.perf_counter() - start)
 
     start = time.perf_counter()
@@ -249,6 +258,7 @@ def run(case_dir: Path, config_dir: Path | None, solution_dir: Path) -> int:
         repair_log=[event.as_dict() for event in repair_result.repair_log],
         repaired_candidates=repaired_candidates,
     )
+    write_coverage_diagnostics(solution_dir, coverage_diagnostics)
     reproduction_summary = _reproduction_summary(
         celf_result=celf_result,
         repair_result=repair_result,
@@ -264,6 +274,7 @@ def run(case_dir: Path, config_dir: Path | None, solution_dir: Path) -> int:
         candidate_config=candidate_config,
         candidate_summary=candidate_summary,
         coverage_summary=coverage_summary,
+        coverage_diagnostics=coverage_diagnostics,
         selection_config=selection_config,
         celf_result=celf_result,
         repair_result=repair_result,

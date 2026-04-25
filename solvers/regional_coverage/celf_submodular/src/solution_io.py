@@ -78,6 +78,13 @@ def write_celf_debug(
         write_jsonl(debug_dir / "celf_iterations.jsonl", iteration_rows)
 
 
+def write_coverage_diagnostics(
+    solution_dir: Path,
+    coverage_diagnostics: dict[str, Any],
+) -> None:
+    write_json(solution_dir / "debug" / "coverage_diagnostics.json", coverage_diagnostics)
+
+
 def write_repair_debug(
     solution_dir: Path,
     *,

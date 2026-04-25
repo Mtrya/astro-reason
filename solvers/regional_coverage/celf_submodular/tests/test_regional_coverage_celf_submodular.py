@@ -24,7 +24,12 @@ from celf import (  # noqa: E402
     naive_forward_selection,
     run_celf_selection,
 )
-from coverage import sample_indices_near_centerline  # noqa: E402
+from coverage import (  # noqa: E402
+    build_candidate_coverage,
+    build_coverage_diagnostics,
+    sample_indices_near_centerline,
+)
+from geometry import strip_centerline_and_half_width_m  # noqa: E402
 from schedule import (  # noqa: E402
     repair_schedule,
     required_gap_s,
@@ -189,6 +194,54 @@ def test_candidate_generation_is_grid_aligned_filtered_and_stable(tmp_path: Path
     assert candidates[-1].candidate_id == "sat_b|dur=0020|roll=+012.000|start=0000020"
 
 
+def test_balanced_candidate_cap_spans_eligible_satellites(tmp_path: Path) -> None:
+    _write_case(tmp_path)
+    case = load_case(tmp_path)
+    config = CandidateConfig(
+        time_stride_s=10,
+        duration_values_s=(10, 20),
+        roll_values_deg=(-18.0, 12.0),
+        max_candidates_total=4,
+    )
+
+    candidates, summary = generate_candidates(case, config)
+
+    assert summary.truncated_by_cap is True
+    assert summary.full_candidate_count == 28
+    assert summary.removed_by_cap_count == 24
+    assert summary.active_caps["cap_strategy"] == "balanced_stride"
+    assert summary.candidate_count == 4
+    assert set(summary.per_satellite) == {"sat_a", "sat_b"}
+    assert summary.per_satellite == {"sat_a": 2, "sat_b": 2}
+    assert {candidate.satellite_id for candidate in candidates} == {"sat_a", "sat_b"}
+
+
+def test_balanced_candidate_cap_is_deterministic(tmp_path: Path) -> None:
+    _write_case(tmp_path)
+    manifest_path = tmp_path / "manifest.json"
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    manifest["horizon_end"] = "2025-07-17T02:00:00Z"
+    manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
+    case = load_case(tmp_path)
+    config = CandidateConfig(
+        time_stride_s=600,
+        duration_values_s=(10, 20),
+        roll_values_deg=(-18.0, 12.0),
+        max_candidates_total=16,
+    )
+
+    first, first_summary = generate_candidates(case, config)
+    second, second_summary = generate_candidates(case, config)
+
+    assert [candidate.candidate_id for candidate in first] == [
+        candidate.candidate_id for candidate in second
+    ]
+    assert first_summary.as_dict() == second_summary.as_dict()
+    assert len(first_summary.per_duration) > 1
+    assert len(first_summary.per_roll) > 1
+    assert len(first_summary.per_time_bucket) > 1
+
+
 def test_empty_experiment_config_uses_candidate_defaults(tmp_path: Path) -> None:
     (tmp_path / "config.yaml").write_text("{}\n", encoding="utf-8")
 
@@ -196,6 +249,7 @@ def test_empty_experiment_config_uses_candidate_defaults(tmp_path: Path) -> None
 
     assert config.max_candidates_total == 512
     assert config.time_stride_s == 600
+    assert config.cap_strategy == "balanced_stride"
 
 
 def test_coverage_sample_indexing_is_duplicate_free() -> None:
@@ -208,6 +262,139 @@ def test_coverage_sample_indexing_is_duplicate_free() -> None:
     covered = sample_indices_near_centerline(((0.0, 0.0), (0.0, 0.0)), samples, 2_000.0)
 
     assert covered == (0, 1)
+
+
+def test_solver_local_geometry_can_produce_nonzero_candidate_coverage(tmp_path: Path) -> None:
+    _write_case(tmp_path)
+    initial_case = load_case(tmp_path)
+    candidates, _ = generate_candidates(
+        initial_case,
+        CandidateConfig(
+            time_stride_s=10,
+            duration_values_s=(20,),
+            roll_values_deg=(12.0,),
+            max_candidates_total=1,
+        ),
+    )
+    candidate = candidates[0]
+    centerline, half_width_m = strip_centerline_and_half_width_m(
+        initial_case.manifest,
+        initial_case.satellites[candidate.satellite_id],
+        candidate,
+    )
+    assert centerline
+    assert half_width_m > 0.0
+    lon_deg, lat_deg = centerline[len(centerline) // 2]
+    (tmp_path / "coverage_grid.json").write_text(
+        json.dumps(
+            {
+                "grid_version": 1,
+                "sample_spacing_m": 5000.0,
+                "regions": [
+                    {
+                        "region_id": "region_a",
+                        "total_weight_m2": 7.0,
+                        "samples": [
+                            {
+                                "sample_id": "on_strip",
+                                "longitude_deg": lon_deg,
+                                "latitude_deg": lat_deg,
+                                "weight_m2": 7.0,
+                            }
+                        ],
+                    }
+                ],
+            }
+        ),
+        encoding="utf-8",
+    )
+    case = load_case(tmp_path)
+
+    coverage_by_candidate, summary = build_candidate_coverage(case, candidates)
+
+    assert summary.zero_coverage_count == 0
+    assert summary.unique_sample_count == 1
+    assert coverage_by_candidate[candidate.candidate_id] == (0,)
+
+    selected = lazy_forward_selection(
+        candidates,
+        coverage_by_candidate,
+        {0: 7.0},
+        budget=1.0,
+        policy="unit_cost",
+    )
+    assert selected.selected_candidate_ids == (candidate.candidate_id,)
+    assert selected.objective_value == 7.0
+
+
+def test_coverage_diagnostics_report_bounds_and_zero_signal(tmp_path: Path) -> None:
+    _write_case(tmp_path)
+    case = load_case(tmp_path)
+    candidates = [
+        _candidate("zero", start_offset_s=0, roll_deg=12.0),
+        _candidate("nonzero", start_offset_s=10, roll_deg=-12.0),
+    ]
+    coverage_by_candidate = {"zero": (), "nonzero": (0,)}
+
+    diagnostics = build_coverage_diagnostics(
+        case,
+        candidates,
+        coverage_by_candidate,
+        limit=1,
+    )
+
+    region_bounds = diagnostics["sample_bounds_by_region"]["region_a"]
+    assert region_bounds["sample_count"] == 2
+    assert region_bounds["min_longitude_deg"] == 0.0
+    assert region_bounds["max_longitude_deg"] == 10.0
+    assert region_bounds["min_latitude_deg"] == 0.0
+    assert region_bounds["max_latitude_deg"] == 10.0
+    assert region_bounds["sample_weight_sum_m2"] == 3.0
+    assert region_bounds["total_weight_m2"] == 3.0
+    assert diagnostics["all_candidates_zero_coverage"] is False
+    assert diagnostics["zero_coverage_count"] == 1
+    assert diagnostics["nonzero_coverage_count"] == 1
+
+    buckets = diagnostics["coverage_buckets"]
+    assert buckets["time_bucket_width_s"] == 3600
+    assert buckets["by_satellite"]["sat_a"]["candidate_count"] == 2
+    assert buckets["by_satellite"]["sat_a"]["zero_coverage_count"] == 1
+    assert buckets["by_satellite"]["sat_a"]["unique_sample_count"] == 1
+    assert buckets["by_duration"]["10"]["candidate_count"] == 2
+    assert buckets["by_roll"]["12.000000"]["zero_coverage_count"] == 1
+    assert buckets["by_roll"]["-12.000000"]["unique_sample_count"] == 1
+    assert buckets["by_time_bucket"]["0000000-0003599"]["candidate_count"] == 2
+
+    rows = diagnostics["candidate_diagnostics"]
+    assert len(rows) == 1
+    assert rows[0]["candidate_id"] == "zero"
+    assert rows[0]["covered_sample_count"] == 0
+    assert rows[0]["centerline_bbox"] is not None
+    assert rows[0]["coverage_bbox"] is not None
+    assert rows[0]["half_width_m"] > 0.0
+    assert rows[0]["nearest_sample"]["sample_id"] in {"region_a_s1", "region_a_s2"}
+    assert rows[0]["nearest_sample_margin_m"] is not None
+
+
+def test_coverage_diagnostics_flag_all_zero_coverage(tmp_path: Path) -> None:
+    _write_case(tmp_path)
+    case = load_case(tmp_path)
+    candidates = [
+        _candidate("zero_a", start_offset_s=0, roll_deg=12.0),
+        _candidate("zero_b", start_offset_s=10, roll_deg=-12.0),
+    ]
+
+    diagnostics = build_coverage_diagnostics(
+        case,
+        candidates,
+        {"zero_a": (), "zero_b": ()},
+        limit=0,
+    )
+
+    assert diagnostics["all_candidates_zero_coverage"] is True
+    assert diagnostics["zero_coverage_count"] == 2
+    assert diagnostics["nonzero_coverage_count"] == 0
+    assert diagnostics["candidate_diagnostics"] == []
 
 
 def test_marginal_gain_counts_only_fresh_weighted_samples() -> None:
@@ -533,6 +720,10 @@ def test_solver_writes_solution_status_and_repair_debug(tmp_path: Path) -> None:
         "sample_count": 2,
     }
     assert status["candidate_summary"]["candidate_count"] == 3
+    assert status["coverage_diagnostics"]["candidate_count"] == 3
+    assert "sample_bounds_by_region" in status["coverage_diagnostics"]
+    assert "coverage_buckets" in status["coverage_diagnostics"]
+    assert len(status["coverage_diagnostics"]["candidate_diagnostics"]) == 2
     assert "celf_summary" in status
     assert status["phase"] == "phase_5_validation_tuning_and_reproduction_fidelity"
     assert "feasibility_summary" in status
@@ -542,6 +733,7 @@ def test_solver_writes_solution_status_and_repair_debug(tmp_path: Path) -> None:
     assert status["output_policy"]["experiment_registration_enabled"] is True
     assert len(debug) == 2
     assert (solution_dir / "debug" / "celf_summary.json").is_file()
+    assert (solution_dir / "debug" / "coverage_diagnostics.json").is_file()
     assert (solution_dir / "debug" / "feasibility_summary.json").is_file()
     assert (solution_dir / "debug" / "repair_log.json").is_file()
     assert (solution_dir / "debug" / "repaired_candidates.json").is_file()

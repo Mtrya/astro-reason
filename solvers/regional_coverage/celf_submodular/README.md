@@ -83,8 +83,9 @@ The benchmark differs from the paper in several important ways:
   `max_actions_total` unless an explicit solver selection budget is configured.
 - Nonuniform cost is optional. Supported cost modes are action count, imaging
   time, estimated imaging energy, and a simple roll transition burden.
-- Candidate geometry is solver-local and approximate. Official region geometry,
-  validity, and scoring remain benchmark-owned.
+- Candidate geometry is solver-local and approximate. It uses public TLEs,
+  Brahe SGP4 propagation, roll-only WGS84 ray hits, and coverage-grid samples.
+  Official region geometry, validity, and scoring remain benchmark-owned.
 - Schedule feasibility is not part of the paper's pure set-selection model, so
   this solver reports CELF selection and deterministic post-selection repair
   separately.
@@ -124,7 +125,9 @@ Candidate-generation knobs:
 
 - `time_stride_s`: start-time stride over the public action grid
 - `roll_step_deg`: default symmetric roll-grid spacing
-- `max_candidates_total`: deterministic global candidate cap; `null` disables it
+- `max_candidates_total`: deterministic candidate cap; `null` disables it
+- `cap_strategy`: `balanced_stride` evenly samples the stable full candidate
+  grid, while `first_n` keeps the legacy prefix behavior for debugging
 - `duration_values_s`: optional explicit strip durations
 - `roll_values_deg`: optional explicit roll values
 - `debug_candidate_limit`: number of candidates copied to `candidate_debug.json`
@@ -171,7 +174,8 @@ Useful checks:
 - If `estimated_lazy_recomputations_saved` is zero on a tiny unit test, the
   lazy queue is not demonstrating CELF behavior.
 - If `zero_coverage_count` equals `candidate_count`, inspect solver-local
-  candidate geometry, roll values, and coverage-grid placement.
+  candidate geometry, roll values, candidate cap balance, and coverage-grid
+  placement.
 - If repair removes many actions, inspect `repair_log.json` before tuning CELF
   selection; the bottleneck is likely sequence feasibility or power risk.
 
@@ -239,8 +243,9 @@ geometry and candidate cap.
   every experiment table or online-bound calculation from the paper.
 - The online optimality bound from Leskovec et al. Section 3.2 is not
   implemented.
-- Candidate coverage uses a deterministic circular-orbit approximation from
-  public TLE fields, not benchmark verifier internals.
+- Candidate coverage uses deterministic solver-local Brahe SGP4 propagation and
+  WGS84 ray intersections from public TLE fields, not benchmark verifier
+  internals.
 - Post-selection repair can remove CELF-selected candidates, so repaired output
   may have lower reward than the pure fixed-set selection result.
 - Battery and duty checks are conservative solver-local approximations; the
