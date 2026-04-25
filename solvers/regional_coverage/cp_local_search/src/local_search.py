@@ -8,6 +8,7 @@ from typing import Any, Iterable, Literal
 from .candidates import Candidate
 from .case_io import RegionalCoverageCase
 from .coverage import CoverageIndex
+from .cp_repair import CPRepairConfig, CPMetrics, CPRepairResult, exact_repair
 from .greedy import GreedyConfig, GreedyResult, _best_feasible_evaluation
 from .sequence import (
     SequenceState,
@@ -116,6 +117,7 @@ class MoveResult:
     inserted_candidate_ids: tuple[str, ...]
     removed_candidate_ids: tuple[str, ...]
     stop_reason: str
+    cp_repair: CPRepairResult | None = None
 
     def as_dict(self) -> dict[str, Any]:
         return {
@@ -126,6 +128,7 @@ class MoveResult:
             "inserted_candidate_ids": list(self.inserted_candidate_ids),
             "removed_candidate_ids": list(self.removed_candidate_ids),
             "stop_reason": self.stop_reason,
+            "cp_repair": None if self.cp_repair is None else self.cp_repair.as_dict(),
         }
 
 
@@ -139,6 +142,7 @@ class LocalSearchSummary:
     generated_neighborhoods: int = 0
     initial_objective: ScheduleObjective | None = None
     final_objective: ScheduleObjective | None = None
+    cp_metrics: dict[str, Any] = field(default_factory=dict)
     incumbent_progression: list[dict[str, Any]] = field(default_factory=list)
 
     def as_dict(self) -> dict[str, Any]:
@@ -151,6 +155,7 @@ class LocalSearchSummary:
             "generated_neighborhoods": self.generated_neighborhoods,
             "initial_objective": None if self.initial_objective is None else self.initial_objective.as_dict(),
             "final_objective": None if self.final_objective is None else self.final_objective.as_dict(),
+            "cp_metrics": dict(self.cp_metrics),
             "incumbent_progression": list(self.incumbent_progression),
         }
 
@@ -175,7 +180,10 @@ def local_search(
     greedy_result: GreedyResult,
     greedy_config: GreedyConfig,
     config: LocalSearchConfig,
+    cp_config: CPRepairConfig | None = None,
 ) -> LocalSearchResult:
+    cp_config = cp_config or CPRepairConfig(enabled=False)
+    cp_metrics = CPMetrics(backend=cp_config.backend)
     incumbent = _solution_order(greedy_result.selected_candidates)
     incumbent_state = state_from_candidates(case, incumbent)
     incumbent_coverage = covered_sample_ids(incumbent)
@@ -184,6 +192,7 @@ def local_search(
         enabled=config.enabled,
         initial_objective=incumbent_objective,
         final_objective=incumbent_objective,
+        cp_metrics=cp_metrics.as_dict(),
     )
     moves: list[MoveResult] = []
     if not config.enabled:
@@ -212,6 +221,8 @@ def local_search(
                 candidate_by_id=candidate_by_id,
                 coverage_index=coverage_index,
                 greedy_config=greedy_config,
+                cp_config=cp_config,
+                cp_metrics=cp_metrics,
             )
             if len(moves) < config.move_debug_limit:
                 moves.append(move)
@@ -241,6 +252,7 @@ def local_search(
             )
             accepted_in_iteration = True
             break
+        summary.cp_metrics = cp_metrics.as_dict()
         summary.iterations = iteration + 1
         if not accepted_in_iteration:
             summary.stop_reason = "local_minimum"
@@ -251,6 +263,7 @@ def local_search(
     if accepted_this_run == 0 and summary.stop_reason == "not_started":
         summary.stop_reason = "local_minimum"
     summary.final_objective = incumbent_objective
+    summary.cp_metrics = cp_metrics.as_dict()
     return LocalSearchResult(
         state=incumbent_state,
         selected_candidates=incumbent,
@@ -315,6 +328,8 @@ def rebuild_neighborhood(
     candidate_by_id: dict[str, Candidate],
     coverage_index: CoverageIndex,
     greedy_config: GreedyConfig,
+    cp_config: CPRepairConfig | None = None,
+    cp_metrics: CPMetrics | None = None,
 ) -> MoveResult:
     before = schedule_objective(case, incumbent, coverage_index)
     removed_ids = set(neighborhood.remove_candidate_ids)
@@ -356,14 +371,51 @@ def rebuild_neighborhood(
     rebuilt = _solution_order(kept + inserted)
     after = schedule_objective(case, rebuilt, coverage_index)
     accepted = objective_key(after) > objective_key(before)
+    if accepted:
+        return MoveResult(
+            neighborhood=neighborhood,
+            accepted=True,
+            before=before,
+            after=after,
+            inserted_candidate_ids=tuple(candidate.candidate_id for candidate in inserted),
+            removed_candidate_ids=neighborhood.remove_candidate_ids,
+            stop_reason="greedy_strict_improvement",
+        )
+
+    cp_result = None
+    if cp_config is not None and cp_metrics is not None:
+        cp_result = exact_repair(
+            case,
+            kept_candidates=kept,
+            neighborhood_candidates=pool,
+            coverage_index=coverage_index,
+            before_key=objective_key(before),
+            config=cp_config,
+            metrics=cp_metrics,
+        )
+        if cp_result.improving:
+            cp_selected = [candidate_by_id[cid] for cid in cp_result.selected_candidate_ids]
+            cp_after = schedule_objective(case, _solution_order(kept + cp_selected), coverage_index)
+            return MoveResult(
+                neighborhood=neighborhood,
+                accepted=True,
+                before=before,
+                after=cp_after,
+                inserted_candidate_ids=cp_result.selected_candidate_ids,
+                removed_candidate_ids=neighborhood.remove_candidate_ids,
+                stop_reason="cp_strict_improvement",
+                cp_repair=cp_result,
+            )
+
     return MoveResult(
         neighborhood=neighborhood,
-        accepted=accepted,
+        accepted=False,
         before=before,
         after=after,
         inserted_candidate_ids=tuple(candidate.candidate_id for candidate in inserted),
         removed_candidate_ids=neighborhood.remove_candidate_ids,
-        stop_reason="strict_improvement" if accepted else "not_improving",
+        stop_reason="not_improving" if cp_result is None else f"cp_{cp_result.stop_reason}",
+        cp_repair=cp_result,
     )
 
 
@@ -569,4 +621,3 @@ def _non_negative_int(value: Any, field: str) -> int:
     if parsed < 0:
         raise ValueError(f"{field} must be non-negative")
     return parsed
-

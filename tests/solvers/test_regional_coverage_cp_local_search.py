@@ -22,6 +22,10 @@ from solvers.regional_coverage.cp_local_search.src.coverage import (
     CoverageFootprint,
     CoverageIndex,
 )
+from solvers.regional_coverage.cp_local_search.src.cp_repair import (
+    CPRepairConfig,
+    CPMetrics,
+)
 from solvers.regional_coverage.cp_local_search.src.greedy import (
     GreedyConfig,
     GreedyResult,
@@ -499,3 +503,111 @@ def test_local_search_is_deterministic_for_same_inputs() -> None:
         candidate.candidate_id for candidate in second.selected_candidates
     ]
     assert first.summary.as_dict() == second.summary.as_dict()
+
+
+def test_cp_exact_fallback_improves_when_greedy_rebuild_is_blocked() -> None:
+    case = load_case(CASE_DIR)
+    incumbent = [
+        _candidate(
+            "c_old",
+            start_offset_s=10,
+            end_offset_s=110,
+            samples=frozenset({"a", "b", "c", "d", "e"}),
+        )
+    ]
+    left = _candidate(
+        "c_left",
+        start_offset_s=0,
+        end_offset_s=40,
+        samples=frozenset({"f", "g", "h"}),
+    )
+    right = _candidate(
+        "c_right",
+        start_offset_s=80,
+        end_offset_s=120,
+        samples=frozenset({"i", "j", "k"}),
+    )
+    candidate_by_id = {
+        candidate.candidate_id: candidate
+        for candidate in incumbent + [left, right]
+    }
+    index = _coverage_index({key: 1.0 for key in "abcdefghijk"})
+    neighborhood = Neighborhood(
+        neighborhood_id="n_cp",
+        kind="satellite_time_component",
+        satellite_id="sat_iceye-x2",
+        start_offset_s=0,
+        end_offset_s=120,
+        remove_candidate_ids=("c_old",),
+        candidate_ids=("c_old", "c_left", "c_right"),
+        reason="unit test cp fallback",
+    )
+    metrics = CPMetrics()
+
+    move = rebuild_neighborhood(
+        case,
+        incumbent,
+        neighborhood,
+        candidate_by_id=candidate_by_id,
+        coverage_index=index,
+        greedy_config=GreedyConfig(),
+        cp_config=CPRepairConfig(max_candidates=4, max_calls=4, max_subsets=16),
+        cp_metrics=metrics,
+    )
+
+    assert move.accepted is True
+    assert move.stop_reason == "cp_strict_improvement"
+    assert move.before.coverage_weight_m2 == pytest.approx(5.0)
+    assert move.after.coverage_weight_m2 == pytest.approx(6.0)
+    assert move.inserted_candidate_ids == ("c_left", "c_right")
+    assert move.cp_repair is not None
+    assert move.cp_repair.improving is True
+    assert metrics.calls == 1
+    assert metrics.feasible_solutions == 1
+    assert metrics.improving_solutions == 1
+
+
+def test_local_search_reports_cp_metrics() -> None:
+    case = load_case(CASE_DIR)
+    incumbent = [
+        _candidate(
+            "c_old",
+            start_offset_s=10,
+            end_offset_s=110,
+            samples=frozenset({"a", "b", "c", "d", "e"}),
+        )
+    ]
+    all_candidates = incumbent + [
+        _candidate("c_left", start_offset_s=0, end_offset_s=40, samples=frozenset({"f", "g", "h"})),
+        _candidate("c_right", start_offset_s=80, end_offset_s=120, samples=frozenset({"i", "j", "k"})),
+    ]
+    index = _coverage_index({key: 1.0 for key in "abcdefghijk"})
+    greedy_result = GreedyResult(
+        state=state_from_candidates(case, incumbent),
+        selected_candidates=list(incumbent),
+        covered_sample_ids=covered_sample_ids(incumbent),
+        summary=GreedySummary(policy="best_marginal_coverage"),
+        accepted_evaluations=[],
+        attempt_debug=[],
+    )
+
+    result = local_search(
+        case,
+        all_candidates,
+        coverage_index=index,
+        greedy_result=greedy_result,
+        greedy_config=GreedyConfig(),
+        config=LocalSearchConfig(
+            max_iterations=1,
+            component_gap_s=1000,
+            time_padding_s=20,
+            max_neighborhoods_per_iteration=1,
+            max_neighborhood_candidates=4,
+        ),
+        cp_config=CPRepairConfig(max_candidates=4, max_calls=4, max_subsets=16),
+    )
+
+    assert result.summary.accepted_moves == 1
+    assert result.summary.cp_metrics["calls"] == 1
+    assert result.summary.cp_metrics["improving_solutions"] == 1
+    assert [candidate.candidate_id for candidate in result.selected_candidates] == ["c_left", "c_right"]

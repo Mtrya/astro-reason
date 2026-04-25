@@ -12,6 +12,7 @@ from pathlib import Path
 from .candidates import generate_candidates
 from .case_io import SolverConfig, load_case, load_solver_config
 from .coverage import CoverageIndex
+from .cp_repair import CPRepairConfig
 from .greedy import GreedyConfig, greedy_insertion
 from .local_search import LocalSearchConfig, local_search
 from .sequence import is_consistent
@@ -38,6 +39,7 @@ def main(argv: list[str] | None = None) -> int:
         config = SolverConfig.from_mapping(config_payload)
         greedy_config = GreedyConfig.from_mapping(config_payload)
         local_search_config = LocalSearchConfig.from_mapping(config_payload)
+        cp_config = CPRepairConfig.from_mapping(config_payload)
         case = load_case(case_dir)
         coverage_index = CoverageIndex.from_case(case)
         candidates, candidate_summary = generate_candidates(case, config, coverage_index)
@@ -54,6 +56,7 @@ def main(argv: list[str] | None = None) -> int:
             greedy_result=greedy_result,
             greedy_config=greedy_config,
             config=local_search_config,
+            cp_config=cp_config,
         )
         selected_candidates = local_search_result.selected_in_solution_order()
         write_json(solution_path, candidates_to_solution(case.mission, selected_candidates))
@@ -130,12 +133,13 @@ def main(argv: list[str] | None = None) -> int:
                 "greedy_summary": greedy_result.summary.as_dict(),
                 "local_search_config": local_search_config.as_dict(),
                 "local_search_summary": local_search_result.summary.as_dict(),
+                "cp_config": cp_config.as_dict(),
                 "sequence_model": local_search_result.state.as_dict(),
                 "local_validation": local_validation,
                 "timing_seconds": {"total": elapsed},
                 "reproduction_notes": {
                     "method_reference": "Antuori, Wojtowicz, and Hebrard, CP 2025, Sections 2 and 4.1",
-                    "phase": "3_local_search_neighborhoods",
+                    "phase": "4_cp_assisted_sequence_repair",
                     "implemented": [
                         "standalone case parser",
                         "deterministic fixed-start strip candidates",
@@ -145,11 +149,16 @@ def main(argv: list[str] | None = None) -> int:
                         "marginal unique coverage greedy insertion",
                         "bounded deterministic local-search neighborhoods",
                         "greedy neighborhood rebuild",
+                        "bounded CP-style exact sequence repair fallback",
                     ],
                     "omitted_until_later_phases": [
-                        "CP-assisted TSPTW repair",
                         "battery and duty repair",
                     ],
+                    "backend_note": (
+                        "pyproject.toml does not include OR-Tools or another public CP backend; "
+                        "CP assistance is implemented as a solver-local tiny exact fallback over fixed-start "
+                        "TSPTW-style neighborhood subproblems."
+                    ),
                 },
             },
         )
