@@ -48,6 +48,14 @@
       "evidence_type": "reproduced_solver",
       "runnable": true,
       "ci_smoke": true
+    },
+    {
+      "benchmark": "revisit_constellation",
+      "solver": "rgt_apc_gap_constructive",
+      "path": "solvers/revisit_constellation/rgt_apc_gap_constructive",
+      "evidence_type": "reproduced_solver",
+      "runnable": true,
+      "ci_smoke": true
     }
   ]
 }
