@@ -6,7 +6,13 @@ Every audit targets a single endpoint:
 
 **faithful reproduction adapted to the benchmark**
 
-The report should explain what prevents that endpoint today, with compute and implementation realism treated as the main issue whenever they are the real bottleneck.
+The report should explicitly report which envelope is currently covered, because `no timeout` is not enough to prove fair optimization realism:
+
+1. Contract/smoke envelope
+2. Reproduction envelope
+3. Quality/optimization envelope
+
+In short: separate reproducibility from quality-claims.
 
 ## Priority Order
 
@@ -16,6 +22,8 @@ Write the report in this order:
 2. What optimization, parallelization, and time-budget work is needed?
 3. What literature elements are still partial or missing?
 4. Is there any benchmark-validity note worth adding as a short footnote?
+
+The report should avoid collapsing “valid reproduce” with “quality-optimization proven.”
 
 Do not center the report on choosing a weaker claim.
 
@@ -67,6 +75,8 @@ The implementation adds logic beyond the reference. This is usually secondary un
 
 Use sections, short paragraphs, and bullets. Do not use tables.
 
+A solver can be validly reproduced in smoke/reproduction envelopes without yet being quality-fair under optimization controls.
+
 Prefer this posture:
 - "the target is fixed; here is what blocks it,"
 - "this solver is not getting a fair run yet because ...",
@@ -88,7 +98,8 @@ Avoid this posture:
 
 ## Bottom Line
 - Target claim: faithful reproduction adapted to the benchmark
-- Status: <READY / NOT_YET>
+- Status: <VALID_REPRODUCED / QUALITY_FAIR_REPRODUCED / NOT_YET>
+- Envelope status: <CONTRACT_SMOKE / REPRODUCTION / QUALITY_OPTIMIZATION>
 - Compute status: <FAIR_TO_EVALUATE / UNDERPROVISIONED / OPTIMIZATION_BLOCKED / BOTH>
 - Headline blockers:
   - <highest-impact compute or implementation blocker>
@@ -100,7 +111,7 @@ Avoid this posture:
 - <runtime, hardware, multi-run policy, exact subcalls, search depth, etc.>
 
 ### Current regime
-- <timeout, threads, restart policy, population size, refinement caps, hot-path language choices>
+- <timeout, threads, restart policy, candidate caps, sample/grid density, population size, refinement caps, hot-path language choices>
 
 ### Execution model
 - <single-threaded Python / multiprocessing / threaded native backend / external compiled solver / mixed>
