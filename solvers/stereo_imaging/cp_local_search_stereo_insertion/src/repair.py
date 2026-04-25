@@ -19,13 +19,15 @@ from sequence import (
 
 
 def _clone_sequence_state(state: SequenceState) -> SequenceState:
-    """Deep-copy sequence state (observations, earliest, latest).  sf_sats shared."""
+    """Deep-copy sequence state bookkeeping. sf_sats shared."""
     sequences: dict[str, SatelliteSequence] = {}
     for sid, seq in state.sequences.items():
         new_seq = SatelliteSequence(satellite_id=sid)
         new_seq.observations = list(seq.observations)
         new_seq.earliest = dict(seq.earliest)
         new_seq.latest = dict(seq.latest)
+        new_seq.ordering_keys = list(seq.ordering_keys)
+        new_seq.slew_cache = dict(seq.slew_cache)
         sequences[sid] = new_seq
     return SequenceState(sequences=sequences, sf_sats=state.sf_sats)
 
