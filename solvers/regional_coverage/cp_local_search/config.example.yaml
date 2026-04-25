@@ -1,0 +1,54 @@
+# Example configuration for the regional_coverage CP/local-search solver.
+#
+# Copy this file into a config directory as config.yaml, pass it directly to
+# solve.sh as the config path, or let experiments/main_solver provide its
+# experiment-owned config directory.
+
+# ---------------------------------------------------------------------------
+# Candidate generation
+# ---------------------------------------------------------------------------
+# candidate_stride_s: 600
+# roll_samples_per_side: 3
+# max_candidates_per_satellite: 256
+# include_zero_coverage_candidates: false
+# max_zero_coverage_candidates_per_satellite: 8
+# candidate_debug_limit: 250
+
+# ---------------------------------------------------------------------------
+# Greedy insertion
+# ---------------------------------------------------------------------------
+# greedy_policy: best_marginal_coverage
+#   Choices:
+#     - best_marginal_coverage
+#     - coverage_per_transition_burden
+#     - coverage_per_imaging_time
+# greedy_max_iterations: null
+# greedy_wall_time_limit_s: null
+
+# ---------------------------------------------------------------------------
+# Local search neighborhoods
+# ---------------------------------------------------------------------------
+# local_search_enabled: true
+# local_search_max_iterations: 2
+# local_search_component_gap_s: 3600
+# local_search_time_padding_s: 1200
+# local_search_max_neighborhoods_per_iteration: 24
+# local_search_max_neighborhood_candidates: 40
+
+# ---------------------------------------------------------------------------
+# CP-style repair fallback
+# ---------------------------------------------------------------------------
+# cp_enabled: true
+# cp_backend: tiny_exact_fallback
+# cp_max_calls: 32
+# cp_max_candidates: 10
+# cp_max_subsets: 2048
+# cp_time_limit_s: 0.25
+
+# ---------------------------------------------------------------------------
+# Debug artifacts
+# ---------------------------------------------------------------------------
+# write_insertion_attempts: false
+# insertion_attempt_debug_limit: 2000
+# write_local_search_moves: false
+# local_search_move_debug_limit: 1000
