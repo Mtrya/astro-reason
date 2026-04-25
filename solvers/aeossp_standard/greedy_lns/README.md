@@ -167,6 +167,12 @@ uv run python experiments/main_solver/run.py \
   --case test/case_0001
 ```
 
+Solver-local tests:
+
+```bash
+./solvers/aeossp_standard/greedy_lns/test.sh
+```
+
 Aggregate experiment results:
 
 ```bash

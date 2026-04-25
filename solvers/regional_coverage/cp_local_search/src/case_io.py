@@ -220,7 +220,7 @@ def load_solver_config(config_dir: str | Path | None) -> dict[str, Any]:
         candidates = [path / "config.yaml", path / "config.yml", path / "config.json"]
         found = next((item for item in candidates if item.is_file()), None)
         if found is None:
-            raise FileNotFoundError(f"no supported config file found in {path}")
+            return {}
         path = found
     if path.suffix.lower() == ".json":
         data = _load_json(path)
