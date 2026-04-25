@@ -3,23 +3,25 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from datetime import timedelta
+from datetime import UTC, datetime, timedelta
+import math
 from typing import Any
 
-from skyfield.api import EarthSatellite
+import brahe
+import numpy as np
+from shapely.geometry import Polygon
 
 from .case_io import RegionalCoverageCase, Satellite, SolverConfig, iso_z
-from .coverage import CoverageFootprint, CoverageIndex
+from .coverage import CoverageIndex
 from .geometry import (
-    _TS,
-    destination_point,
-    haversine_m,
     initial_bearing_deg,
-    roll_ground_range_m,
-    satellite_subpoint,
-    swath_width_m,
 )
 from .time_grid import candidate_duration_s, grid_offsets, offset_to_datetime
+
+_NUMERICAL_EPS = 1.0e-9
+_WGS84_A_M = 6_378_137.0
+_WGS84_B_M = 6_356_752.314_245_179
+_BRAHE_EOP_INITIALIZED = False
 
 
 @dataclass(frozen=True, slots=True)
@@ -65,20 +67,28 @@ class Candidate:
 class CandidateSummary:
     candidate_count: int = 0
     zero_coverage_candidate_count: int = 0
+    positive_coverage_candidate_count: int = 0
+    max_candidate_weight_m2: float = 0.0
     skipped_roll_band: int = 0
     skipped_satellite_cap: int = 0
     per_satellite_candidate_counts: dict[str, int] = field(default_factory=dict)
     per_satellite_zero_coverage_counts: dict[str, int] = field(default_factory=dict)
+    per_satellite_positive_coverage_counts: dict[str, int] = field(default_factory=dict)
 
     def as_dict(self) -> dict[str, Any]:
         return {
             "candidate_count": self.candidate_count,
             "zero_coverage_candidate_count": self.zero_coverage_candidate_count,
+            "positive_coverage_candidate_count": self.positive_coverage_candidate_count,
+            "max_candidate_weight_m2": self.max_candidate_weight_m2,
             "skipped_roll_band": self.skipped_roll_band,
             "skipped_satellite_cap": self.skipped_satellite_cap,
             "per_satellite_candidate_counts": dict(sorted(self.per_satellite_candidate_counts.items())),
             "per_satellite_zero_coverage_counts": dict(
                 sorted(self.per_satellite_zero_coverage_counts.items())
+            ),
+            "per_satellite_positive_coverage_counts": dict(
+                sorted(self.per_satellite_positive_coverage_counts.items())
             ),
         }
 
@@ -95,12 +105,18 @@ def generate_candidates(
     for satellite_id, satellite in sorted(case.satellites.items()):
         summary.per_satellite_candidate_counts[satellite_id] = 0
         summary.per_satellite_zero_coverage_counts[satellite_id] = 0
+        summary.per_satellite_positive_coverage_counts[satellite_id] = 0
         sat_candidates = _generate_for_satellite(case, satellite, config, index, summary)
         candidates.extend(sat_candidates)
 
     candidates.sort(key=candidate_sort_key)
     summary.candidate_count = len(candidates)
     summary.zero_coverage_candidate_count = sum(1 for candidate in candidates if not candidate.coverage_sample_ids)
+    summary.positive_coverage_candidate_count = summary.candidate_count - summary.zero_coverage_candidate_count
+    summary.max_candidate_weight_m2 = max(
+        (candidate.base_coverage_weight_m2 for candidate in candidates),
+        default=0.0,
+    )
     return candidates, summary
 
 
@@ -137,11 +153,11 @@ def _generate_for_satellite(
     index: CoverageIndex,
     summary: CandidateSummary,
 ) -> list[Candidate]:
-    sf_sat = EarthSatellite(
+    _ensure_brahe_ready()
+    propagator = brahe.SGPPropagator.from_tle(
         satellite.tle_line1,
         satellite.tle_line2,
-        name=satellite.satellite_id,
-        ts=_TS,
+        float(case.mission.coverage_sample_step_s),
     )
     duration_s = candidate_duration_s(
         case.mission,
@@ -164,7 +180,7 @@ def _generate_for_satellite(
             candidate = _candidate_at(
                 case=case,
                 satellite=satellite,
-                sf_sat=sf_sat,
+                propagator=propagator,
                 start_offset_s=start_offset_s,
                 duration_s=duration_s,
                 roll_deg=roll_deg,
@@ -177,6 +193,8 @@ def _generate_for_satellite(
                     continue
                 zero_kept += 1
                 summary.per_satellite_zero_coverage_counts[satellite.satellite_id] += 1
+            else:
+                summary.per_satellite_positive_coverage_counts[satellite.satellite_id] += 1
             out.append(candidate)
             summary.per_satellite_candidate_counts[satellite.satellite_id] += 1
     return out
@@ -186,7 +204,7 @@ def _candidate_at(
     *,
     case: RegionalCoverageCase,
     satellite: Satellite,
-    sf_sat: EarthSatellite,
+    propagator: brahe.SGPPropagator,
     start_offset_s: int,
     duration_s: int,
     roll_deg: float,
@@ -195,49 +213,15 @@ def _candidate_at(
     start = offset_to_datetime(case.mission, start_offset_s)
     end_offset_s = start_offset_s + duration_s
     end = offset_to_datetime(case.mission, end_offset_s)
-    mid = start + timedelta(seconds=duration_s / 2.0)
-    before = start
-    after = end
-
-    sp_before = satellite_subpoint(sf_sat, before)
-    sp_mid = satellite_subpoint(sf_sat, mid)
-    sp_after = satellite_subpoint(sf_sat, after)
-    heading_deg = initial_bearing_deg(
-        sp_before.latitude_deg,
-        sp_before.longitude_deg,
-        sp_after.latitude_deg,
-        sp_after.longitude_deg,
+    geometry = _strip_geometry(
+        propagator=propagator,
+        start=start,
+        end=end,
+        step_s=case.mission.coverage_sample_step_s,
+        roll_deg=roll_deg,
+        fov_deg=satellite.sensor.cross_track_fov_deg,
     )
-    cross_bearing_deg = (heading_deg + (90.0 if roll_deg >= 0.0 else -90.0)) % 360.0
-    roll_abs = abs(roll_deg)
-    center_shift_m = roll_ground_range_m(sp_mid.altitude_m, roll_abs)
-    center_lat, center_lon = destination_point(
-        sp_mid.latitude_deg,
-        sp_mid.longitude_deg,
-        cross_bearing_deg,
-        center_shift_m,
-    )
-    ground_track_m = haversine_m(
-        sp_before.latitude_deg,
-        sp_before.longitude_deg,
-        sp_after.latitude_deg,
-        sp_after.longitude_deg,
-    )
-    sample_spacing_m = _sample_spacing_m(case)
-    cross_half_m = max(sample_spacing_m, 0.5 * swath_width_m(
-        sp_mid.altitude_m,
-        roll_abs,
-        satellite.sensor.cross_track_fov_deg,
-    ))
-    along_half_m = max(sample_spacing_m, 0.5 * ground_track_m + sample_spacing_m)
-    footprint = CoverageFootprint(
-        center_latitude_deg=center_lat,
-        center_longitude_deg=center_lon,
-        heading_deg=heading_deg,
-        along_half_m=along_half_m,
-        cross_half_m=cross_half_m,
-    )
-    sample_ids = index.samples_for_footprint(footprint)
+    sample_ids = index.samples_for_polygons(geometry.segment_polygons)
     energy_wh = (
         satellite.power.imaging_power_w * duration_s / 3600.0
         + satellite.power.idle_power_w * duration_s / 3600.0
@@ -257,24 +241,187 @@ def _candidate_at(
         base_coverage_weight_m2=index.total_weight(sample_ids),
         estimated_energy_wh=energy_wh,
         estimated_slew_in_gap_s=satellite.agility.settling_time_s,
-        footprint_center_latitude_deg=center_lat,
-        footprint_center_longitude_deg=center_lon,
-        footprint_heading_deg=heading_deg,
-        along_half_m=along_half_m,
-        cross_half_m=cross_half_m,
+        footprint_center_latitude_deg=geometry.center_latitude_deg,
+        footprint_center_longitude_deg=geometry.center_longitude_deg,
+        footprint_heading_deg=geometry.heading_deg,
+        along_half_m=0.0,
+        cross_half_m=0.0,
     )
 
 
-def _sample_spacing_m(case: RegionalCoverageCase) -> float:
-    manifest_path = case.case_dir / "manifest.json"
-    # The parsed case intentionally keeps only solver-needed fields. Re-reading
-    # this public value here avoids threading a rarely used grid detail through
-    # every core data structure.
-    try:
-        import json
+@dataclass(frozen=True, slots=True)
+class _StripGeometry:
+    segment_polygons: tuple[Polygon, ...]
+    center_latitude_deg: float
+    center_longitude_deg: float
+    heading_deg: float
 
-        raw = json.loads(manifest_path.read_text(encoding="utf-8"))
-        return float(raw.get("grid_parameters", {}).get("sample_spacing_m", 5000.0))
-    except (OSError, ValueError, TypeError):
-        return 5000.0
 
+def _strip_geometry(
+    *,
+    propagator: brahe.SGPPropagator,
+    start: datetime,
+    end: datetime,
+    step_s: int,
+    roll_deg: float,
+    fov_deg: float,
+) -> _StripGeometry:
+    times = _sample_times(start, end, step_s)
+    center_lonlat: list[tuple[float, float]] = []
+    edge_hits: list[tuple[np.ndarray, np.ndarray]] = []
+    center_abs = abs(roll_deg)
+    signed_inner = math.copysign(center_abs - (0.5 * fov_deg), roll_deg)
+    signed_outer = math.copysign(center_abs + (0.5 * fov_deg), roll_deg)
+
+    for sample_time in times:
+        epoch = _datetime_to_epoch(sample_time)
+        state_ecef = np.asarray(propagator.state_ecef(epoch), dtype=float).reshape(6)
+        sat_pos_m = state_ecef[:3]
+        sat_vel_mps = state_ecef[3:]
+        center_hit = _ground_intercept_ecef_m(sat_pos_m, sat_vel_mps, roll_deg)
+        inner_hit = _ground_intercept_ecef_m(sat_pos_m, sat_vel_mps, signed_inner)
+        outer_hit = _ground_intercept_ecef_m(sat_pos_m, sat_vel_mps, signed_outer)
+        if center_hit is None or inner_hit is None or outer_hit is None:
+            return _StripGeometry((), 0.0, 0.0, 0.0)
+        center_lonlat.append(_ecef_to_lonlat_deg(center_hit))
+        edge_hits.append((inner_hit, outer_hit))
+
+    polygons: list[Polygon] = []
+    for (inner_a, outer_a), (inner_b, outer_b) in zip(edge_hits, edge_hits[1:]):
+        polygon = Polygon(
+            [
+                _ecef_to_lonlat_deg(inner_a),
+                _ecef_to_lonlat_deg(outer_a),
+                _ecef_to_lonlat_deg(outer_b),
+                _ecef_to_lonlat_deg(inner_b),
+            ]
+        )
+        if polygon.is_empty or polygon.area <= _NUMERICAL_EPS:
+            continue
+        polygons.append(polygon)
+
+    if center_lonlat:
+        mid_lon, mid_lat = center_lonlat[len(center_lonlat) // 2]
+        first_lon, first_lat = center_lonlat[0]
+        last_lon, last_lat = center_lonlat[-1]
+        heading_deg = initial_bearing_deg(first_lat, first_lon, last_lat, last_lon)
+    else:
+        mid_lat = 0.0
+        mid_lon = 0.0
+        heading_deg = 0.0
+    return _StripGeometry(tuple(polygons), mid_lat, mid_lon, heading_deg)
+
+
+def _ensure_brahe_ready() -> None:
+    global _BRAHE_EOP_INITIALIZED
+    if _BRAHE_EOP_INITIALIZED:
+        return
+    brahe.set_global_eop_provider_from_static_provider(
+        brahe.StaticEOPProvider.from_zero()
+    )
+    _BRAHE_EOP_INITIALIZED = True
+
+
+def _datetime_to_epoch(value: datetime) -> brahe.Epoch:
+    value = value.astimezone(UTC)
+    second = float(value.second) + (value.microsecond / 1_000_000.0)
+    return brahe.Epoch.from_datetime(
+        value.year,
+        value.month,
+        value.day,
+        value.hour,
+        value.minute,
+        second,
+        0.0,
+        brahe.TimeSystem.UTC,
+    )
+
+
+def _sample_times(start: datetime, end: datetime, step_s: int) -> list[datetime]:
+    if end <= start:
+        return [start]
+    points = [start]
+    current = start
+    delta = timedelta(seconds=step_s)
+    while current + delta < end:
+        current = current + delta
+        points.append(current)
+    if points[-1] != end:
+        points.append(end)
+    return points
+
+
+def _satellite_local_axes(
+    sat_pos_m: np.ndarray, sat_vel_mps: np.ndarray
+) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+    nadir = -sat_pos_m / np.linalg.norm(sat_pos_m)
+    along = sat_vel_mps - float(np.dot(sat_vel_mps, nadir)) * nadir
+    if float(np.linalg.norm(along)) <= _NUMERICAL_EPS:
+        fallback = np.array([0.0, 0.0, 1.0])
+        if abs(float(np.dot(fallback, nadir))) > 0.9:
+            fallback = np.array([0.0, 1.0, 0.0])
+        along = fallback - float(np.dot(fallback, nadir)) * nadir
+    along = along / np.linalg.norm(along)
+    across = np.cross(along, nadir)
+    if float(np.linalg.norm(across)) <= _NUMERICAL_EPS:
+        across = np.array([1.0, 0.0, 0.0], dtype=float)
+    else:
+        across = across / np.linalg.norm(across)
+    return along, across, nadir
+
+
+def _boresight_unit_vector(
+    sat_pos_m: np.ndarray,
+    sat_vel_mps: np.ndarray,
+    across_track_off_nadir_deg: float,
+) -> np.ndarray:
+    _, across_hat, nadir_hat = _satellite_local_axes(sat_pos_m, sat_vel_mps)
+    vector = nadir_hat + (
+        math.tan(math.radians(float(across_track_off_nadir_deg))) * across_hat
+    )
+    return vector / np.linalg.norm(vector)
+
+
+def _ray_ellipsoid_intersection_m(
+    origin_m: np.ndarray,
+    direction_unit: np.ndarray,
+) -> float | None:
+    ox, oy, oz = (float(origin_m[i]) for i in range(3))
+    dx, dy, dz = (float(direction_unit[i]) for i in range(3))
+    a2 = _WGS84_A_M * _WGS84_A_M
+    b2 = _WGS84_B_M * _WGS84_B_M
+    inv_a2 = 1.0 / a2
+    inv_b2 = 1.0 / b2
+    aa = (dx * dx + dy * dy) * inv_a2 + dz * dz * inv_b2
+    bb = 2.0 * ((ox * dx + oy * dy) * inv_a2 + oz * dz * inv_b2)
+    cc = (ox * ox + oy * oy) * inv_a2 + oz * oz * inv_b2 - 1.0
+    disc = bb * bb - 4.0 * aa * cc
+    if disc < 0.0 or abs(aa) < 1.0e-30:
+        return None
+    sqrt_disc = math.sqrt(disc)
+    t1 = (-bb - sqrt_disc) / (2.0 * aa)
+    t2 = (-bb + sqrt_disc) / (2.0 * aa)
+    candidates = [value for value in (t1, t2) if value > _NUMERICAL_EPS]
+    if not candidates:
+        return None
+    return min(candidates)
+
+
+def _ground_intercept_ecef_m(
+    sat_pos_m: np.ndarray,
+    sat_vel_mps: np.ndarray,
+    roll_deg: float,
+) -> np.ndarray | None:
+    direction = _boresight_unit_vector(sat_pos_m, sat_vel_mps, roll_deg)
+    distance = _ray_ellipsoid_intersection_m(sat_pos_m, direction)
+    if distance is None:
+        return None
+    return sat_pos_m + (distance * direction)
+
+
+def _ecef_to_lonlat_deg(ecef_position_m: np.ndarray) -> tuple[float, float]:
+    lon_deg, lat_deg, _ = brahe.position_ecef_to_geodetic(
+        ecef_position_m,
+        brahe.AngleFormat.DEGREES,
+    )
+    return float(lon_deg), float(lat_deg)

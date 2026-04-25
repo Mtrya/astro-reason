@@ -7,6 +7,8 @@ CONFIG_DIR="${2:-}"
 SOLUTION_DIR="${3:-solution}"
 
 REPO_ROOT="$(cd "${SCRIPT_DIR}/../../.." && pwd)"
+export MPLCONFIGDIR="${MPLCONFIGDIR:-/tmp/astroreason-matplotlib}"
+mkdir -p "${MPLCONFIGDIR}"
 
 PYTHONPATH="${REPO_ROOT}${PYTHONPATH:+:${PYTHONPATH}}" python -m solvers.regional_coverage.cp_local_search.src.solve \
   --case-dir "${CASE_DIR}" \

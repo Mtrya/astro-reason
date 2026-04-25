@@ -110,9 +110,9 @@ class RegionalCoverageCase:
 
 @dataclass(frozen=True, slots=True)
 class SolverConfig:
-    candidate_stride_s: int = 3600
-    roll_samples_per_side: int = 1
-    max_candidates_per_satellite: int = 96
+    candidate_stride_s: int = 600
+    roll_samples_per_side: int = 3
+    max_candidates_per_satellite: int = 256
     max_zero_coverage_candidates_per_satellite: int = 8
     include_zero_coverage_candidates: bool = True
     candidate_debug_limit: int = 250
@@ -121,12 +121,12 @@ class SolverConfig:
     def from_mapping(cls, payload: dict[str, Any] | None) -> "SolverConfig":
         payload = payload or {}
         return cls(
-            candidate_stride_s=_positive_int(payload.get("candidate_stride_s", 3600), "candidate_stride_s"),
+            candidate_stride_s=_positive_int(payload.get("candidate_stride_s", 600), "candidate_stride_s"),
             roll_samples_per_side=_positive_int(
-                payload.get("roll_samples_per_side", 1), "roll_samples_per_side"
+                payload.get("roll_samples_per_side", 3), "roll_samples_per_side"
             ),
             max_candidates_per_satellite=_positive_int(
-                payload.get("max_candidates_per_satellite", 96),
+                payload.get("max_candidates_per_satellite", 256),
                 "max_candidates_per_satellite",
             ),
             max_zero_coverage_candidates_per_satellite=_non_negative_int(
@@ -408,4 +408,3 @@ def _non_negative_int(value: Any, field: str) -> int:
     if parsed < 0:
         raise ValueError(f"{field} must be non-negative")
     return parsed
-

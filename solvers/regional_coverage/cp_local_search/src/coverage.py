@@ -3,7 +3,11 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+import math
 from typing import Iterable
+
+from shapely.geometry import Point, Polygon
+from shapely.prepared import prep
 
 from .case_io import CoverageSample, RegionalCoverageCase
 from .geometry import haversine_m, oriented_offsets_m
@@ -23,6 +27,15 @@ class CoverageIndex:
     samples: tuple[CoverageSample, ...]
     total_weight_m2: float
     sample_weight_by_id: dict[str, float]
+    sample_bins: dict[tuple[int, int], tuple[CoverageSample, ...]] = field(default_factory=dict)
+
+    def __post_init__(self) -> None:
+        if self.sample_bins or not self.samples:
+            return
+        bins: dict[tuple[int, int], list[CoverageSample]] = {}
+        for sample in self.samples:
+            bins.setdefault(_sample_bin_key(sample.longitude_deg, sample.latitude_deg), []).append(sample)
+        self.sample_bins = {key: tuple(rows) for key, rows in bins.items()}
 
     @classmethod
     def from_case(cls, case: RegionalCoverageCase) -> "CoverageIndex":
@@ -57,8 +70,43 @@ class CoverageIndex:
                 hits.add(sample.sample_id)
         return frozenset(hits)
 
+    def samples_for_polygons(self, polygons: Iterable[Polygon]) -> frozenset[str]:
+        """Return grid samples covered by verifier-shaped lon/lat strip segments."""
+
+        hits: set[str] = set()
+        for polygon in polygons:
+            if polygon.is_empty:
+                continue
+            min_lon, min_lat, max_lon, max_lat = polygon.bounds
+            prepared = prep(polygon)
+            for sample in self._samples_in_bbox(min_lon, min_lat, max_lon, max_lat):
+                if sample.sample_id in hits:
+                    continue
+                if prepared.covers(Point(sample.longitude_deg, sample.latitude_deg)):
+                    hits.add(sample.sample_id)
+        return frozenset(hits)
+
     def total_weight(self, sample_ids: Iterable[str]) -> float:
         return sum(self.sample_weight_by_id.get(sample_id, 0.0) for sample_id in sample_ids)
+
+    def _samples_in_bbox(
+        self,
+        min_lon: float,
+        min_lat: float,
+        max_lon: float,
+        max_lat: float,
+    ) -> Iterable[CoverageSample]:
+        if not self.sample_bins:
+            return ()
+        min_lon_bin = math.floor(min_lon)
+        max_lon_bin = math.floor(max_lon)
+        min_lat_bin = math.floor(min_lat)
+        max_lat_bin = math.floor(max_lat)
+        rows: list[CoverageSample] = []
+        for lon_bin in range(min_lon_bin, max_lon_bin + 1):
+            for lat_bin in range(min_lat_bin, max_lat_bin + 1):
+                rows.extend(self.sample_bins.get((lon_bin, lat_bin), ()))
+        return rows
 
 
 @dataclass(slots=True)
@@ -78,3 +126,6 @@ class CoverageAccumulator:
         self.covered_sample_ids.update(sample_ids)
         return weight
 
+
+def _sample_bin_key(longitude_deg: float, latitude_deg: float) -> tuple[int, int]:
+    return (math.floor(longitude_deg), math.floor(latitude_deg))

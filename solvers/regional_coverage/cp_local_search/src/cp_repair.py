@@ -27,6 +27,7 @@ class CPRepairConfig:
     max_candidates: int = 10
     max_subsets: int = 2048
     time_limit_s: float = 0.25
+    min_improvement_weight_m2: float = 1.0e-6
 
     @classmethod
     def from_mapping(cls, payload: dict[str, Any] | None) -> "CPRepairConfig":
@@ -43,6 +44,10 @@ class CPRepairConfig:
             max_candidates=_positive_int(payload.get("cp_max_candidates", 10), "cp_max_candidates"),
             max_subsets=_positive_int(payload.get("cp_max_subsets", 2048), "cp_max_subsets"),
             time_limit_s=_positive_float(payload.get("cp_time_limit_s", 0.25), "cp_time_limit_s"),
+            min_improvement_weight_m2=_non_negative_float(
+                payload.get("cp_min_improvement_weight_m2", 1.0e-6),
+                "cp_min_improvement_weight_m2",
+            ),
         )
 
     def as_dict(self) -> dict[str, Any]:
@@ -53,6 +58,7 @@ class CPRepairConfig:
             "max_candidates": self.max_candidates,
             "max_subsets": self.max_subsets,
             "time_limit_s": self.time_limit_s,
+            "min_improvement_weight_m2": self.min_improvement_weight_m2,
         }
 
 
@@ -71,12 +77,19 @@ class CPMetrics:
     solve_time_s: float = 0.0
 
     def as_dict(self) -> dict[str, Any]:
+        skipped_calls = self.skipped_disabled + self.skipped_call_limit + self.skipped_size_limit
+        call_success_rate = 0.0 if self.calls == 0 else self.feasible_solutions / self.calls
+        improving_success_rate = 0.0 if self.calls == 0 else self.improving_solutions / self.calls
         return {
             "backend": self.backend,
             "backend_note": "solver-local bounded exact fallback for fixed-start TSPTW-style neighborhoods",
             "calls": self.calls,
+            "successful_calls": self.feasible_solutions,
+            "call_success_rate": call_success_rate,
             "feasible_solutions": self.feasible_solutions,
             "improving_solutions": self.improving_solutions,
+            "improving_success_rate": improving_success_rate,
+            "skipped_calls": skipped_calls,
             "skipped_disabled": self.skipped_disabled,
             "skipped_call_limit": self.skipped_call_limit,
             "skipped_size_limit": self.skipped_size_limit,
@@ -221,7 +234,11 @@ def _finish_result(
     stop_reason: str,
 ) -> CPRepairResult:
     feasible = best_key is not None
-    improving = feasible and best_key > before_key
+    improving = feasible and _objective_key_strictly_better(
+        best_key,
+        before_key,
+        min_improvement_weight_m2=config.min_improvement_weight_m2,
+    )
     if feasible:
         metrics.feasible_solutions += 1
     if improving:
@@ -253,6 +270,24 @@ def _not_attempted(config: CPRepairConfig, reason: str) -> CPRepairResult:
         model_build_time_s=0.0,
         solve_time_s=0.0,
     )
+
+
+def _objective_key_strictly_better(
+    candidate_key: tuple[Any, ...] | None,
+    before_key: tuple[Any, ...],
+    *,
+    min_improvement_weight_m2: float,
+) -> bool:
+    if candidate_key is None:
+        return False
+    if candidate_key[0] != before_key[0]:
+        return candidate_key[0] > before_key[0]
+    coverage_delta = float(candidate_key[1]) - float(before_key[1])
+    if coverage_delta > min_improvement_weight_m2:
+        return True
+    if abs(coverage_delta) > min_improvement_weight_m2:
+        return False
+    return candidate_key[2:] > before_key[2:]
 
 
 def _schedule_valid(case: RegionalCoverageCase, candidates: Iterable[Candidate]) -> bool:
@@ -319,4 +354,11 @@ def _positive_float(value: Any, field: str) -> float:
     parsed = float(value)
     if parsed <= 0.0:
         raise ValueError(f"{field} must be positive")
+    return parsed
+
+
+def _non_negative_float(value: Any, field: str) -> float:
+    parsed = float(value)
+    if parsed < 0.0:
+        raise ValueError(f"{field} must be non-negative")
     return parsed

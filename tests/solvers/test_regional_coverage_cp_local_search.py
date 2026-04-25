@@ -139,6 +139,22 @@ def test_candidate_generation_is_deterministic_and_grid_aligned() -> None:
     assert all(candidate.start_offset_s % case.mission.time_step_s == 0 for candidate in first)
 
 
+def test_tuned_candidate_generation_finds_positive_smoke_coverage() -> None:
+    case = load_case(CASE_DIR)
+    config = SolverConfig(
+        candidate_stride_s=600,
+        roll_samples_per_side=3,
+        include_zero_coverage_candidates=False,
+    )
+
+    candidates, summary = generate_candidates(case, config)
+
+    assert candidates
+    assert summary.positive_coverage_candidate_count == len(candidates)
+    assert summary.max_candidate_weight_m2 > 0.0
+    assert all(candidate.coverage_sample_ids for candidate in candidates)
+
+
 def test_coverage_mapping_selects_samples_inside_oriented_strip() -> None:
     case = load_case(CASE_DIR)
     samples = case.samples[:2]
@@ -459,6 +475,59 @@ def test_local_search_rejects_non_improving_move_and_keeps_incumbent() -> None:
     assert result.summary.accepted_moves == 0
     assert [candidate.candidate_id for candidate in result.selected_candidates] == ["c1", "c2"]
     assert result.summary.final_objective == schedule_objective(case, incumbent, index)
+    assert result.summary.objective_delta["coverage_weight_m2"] == pytest.approx(0.0)
+
+
+def test_cp_repair_does_not_accept_float_noise_tie() -> None:
+    case = load_case(CASE_DIR)
+    incumbent = [
+        _candidate(
+            "c_old",
+            start_offset_s=0,
+            end_offset_s=20,
+            samples=frozenset({"a"}),
+        )
+    ]
+    equivalent = _candidate(
+        "c_equivalent",
+        start_offset_s=100,
+        end_offset_s=120,
+        samples=frozenset({"a"}),
+    )
+    candidate_by_id = {
+        candidate.candidate_id: candidate
+        for candidate in incumbent + [equivalent]
+    }
+    index = _coverage_index({"a": 1.0})
+    neighborhood = Neighborhood(
+        neighborhood_id="n_cp_tie",
+        kind="satellite_time_component",
+        satellite_id="sat_iceye-x2",
+        start_offset_s=0,
+        end_offset_s=120,
+        remove_candidate_ids=("c_old",),
+        candidate_ids=("c_old", "c_equivalent"),
+        reason="unit test equivalent cp fallback",
+    )
+    metrics = CPMetrics()
+
+    move = rebuild_neighborhood(
+        case,
+        incumbent,
+        neighborhood,
+        candidate_by_id=candidate_by_id,
+        coverage_index=index,
+        greedy_config=GreedyConfig(),
+        cp_config=CPRepairConfig(max_candidates=4, max_calls=4, max_subsets=16),
+        cp_metrics=metrics,
+    )
+
+    assert move.accepted is False
+    assert move.cp_repair is not None
+    assert move.cp_repair.improving is False
+    assert metrics.calls == 1
+    assert metrics.feasible_solutions == 1
+    assert metrics.improving_solutions == 0
 
 
 def test_local_search_is_deterministic_for_same_inputs() -> None:
@@ -609,5 +678,25 @@ def test_local_search_reports_cp_metrics() -> None:
 
     assert result.summary.accepted_moves == 1
     assert result.summary.cp_metrics["calls"] == 1
+    assert result.summary.cp_metrics["successful_calls"] == 1
+    assert result.summary.cp_metrics["call_success_rate"] == pytest.approx(1.0)
     assert result.summary.cp_metrics["improving_solutions"] == 1
+    assert result.summary.cp_metrics["improving_success_rate"] == pytest.approx(1.0)
     assert [candidate.candidate_id for candidate in result.selected_candidates] == ["c_left", "c_right"]
+
+
+def test_cp_metrics_reports_success_rates_and_skips() -> None:
+    metrics = CPMetrics(
+        calls=4,
+        feasible_solutions=3,
+        improving_solutions=1,
+        skipped_disabled=1,
+        skipped_size_limit=2,
+    )
+
+    payload = metrics.as_dict()
+
+    assert payload["successful_calls"] == 3
+    assert payload["call_success_rate"] == pytest.approx(0.75)
+    assert payload["improving_success_rate"] == pytest.approx(0.25)
+    assert payload["skipped_calls"] == 3

@@ -119,11 +119,12 @@ def main(argv: list[str] | None = None) -> int:
         write_json(
             solution_dir / "status.json",
             {
-                "status": "greedy_solution_generated",
+                "status": "solution_generated",
                 "case_dir": str(case_dir),
                 "config_dir": str(config_dir) if config_dir is not None else None,
                 "solution": str(solution_path),
                 "case_id": case.mission.case_id,
+                "execution_mode": _execution_mode(local_search_config, cp_config),
                 "satellite_count": len(case.satellites),
                 "region_count": len(case.regions),
                 "coverage_sample_count": len(case.samples),
@@ -134,12 +135,13 @@ def main(argv: list[str] | None = None) -> int:
                 "local_search_config": local_search_config.as_dict(),
                 "local_search_summary": local_search_result.summary.as_dict(),
                 "cp_config": cp_config.as_dict(),
+                "cp_summary": local_search_result.summary.cp_metrics,
                 "sequence_model": local_search_result.state.as_dict(),
                 "local_validation": local_validation,
                 "timing_seconds": {"total": elapsed},
                 "reproduction_notes": {
                     "method_reference": "Antuori, Wojtowicz, and Hebrard, CP 2025, Sections 2 and 4.1",
-                    "phase": "4_cp_assisted_sequence_repair",
+                    "phase": "6_tuning_and_reproduction_fidelity",
                     "implemented": [
                         "standalone case parser",
                         "deterministic fixed-start strip candidates",
@@ -150,6 +152,8 @@ def main(argv: list[str] | None = None) -> int:
                         "bounded deterministic local-search neighborhoods",
                         "greedy neighborhood rebuild",
                         "bounded CP-style exact sequence repair fallback",
+                        "verifier-shaped solver-local strip coverage scoring",
+                        "CP call success and improvement-rate reporting",
                     ],
                     "omitted_until_later_phases": [
                         "battery and duty repair",
@@ -194,6 +198,14 @@ def _local_validation_summary(case, greedy_result) -> dict:
         "covered_sample_count": len(greedy_result.covered_sample_ids),
         "per_satellite": per_satellite,
     }
+
+
+def _execution_mode(local_search_config: LocalSearchConfig, cp_config: CPRepairConfig) -> str:
+    if not local_search_config.enabled:
+        return "greedy_only"
+    if not cp_config.enabled:
+        return "local_search_greedy_rebuild"
+    return "cp_enabled_local_search"
 
 
 if __name__ == "__main__":

@@ -11,6 +11,6 @@ This solver currently parses public `regional_coverage` case files, builds deter
 
 Solver code is standalone and does not import benchmark, experiment, runtime, or other solver internals.
 
-Greedy and local-search debug artifacts are written under `debug/greedy_summary.json`, `debug/local_search_summary.json`, and `debug/selected_candidates.json`. Optional JSONL logs can be enabled with `write_insertion_attempts: true` or `write_local_search_moves: true` in the solver config.
+Greedy and local-search debug artifacts are written under `debug/greedy_summary.json`, `debug/local_search_summary.json`, and `debug/selected_candidates.json`. The status and local-search summaries report the execution mode, objective deltas, candidate coverage counts, and CP call success/improvement rates. Optional JSONL logs can be enabled with `write_insertion_attempts: true` or `write_local_search_moves: true` in the solver config.
 
 `pyproject.toml` does not currently include OR-Tools or another public CP backend, so `cp_backend: tiny_exact_fallback` is a solver-local bounded exact fallback over fixed-start TSPTW-style neighborhood subproblems. This is a public-backend substitution point, not a Tempo integration.

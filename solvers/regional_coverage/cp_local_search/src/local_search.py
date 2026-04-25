@@ -144,6 +144,7 @@ class LocalSearchSummary:
     final_objective: ScheduleObjective | None = None
     cp_metrics: dict[str, Any] = field(default_factory=dict)
     incumbent_progression: list[dict[str, Any]] = field(default_factory=list)
+    objective_delta: dict[str, Any] = field(default_factory=dict)
 
     def as_dict(self) -> dict[str, Any]:
         return {
@@ -155,6 +156,7 @@ class LocalSearchSummary:
             "generated_neighborhoods": self.generated_neighborhoods,
             "initial_objective": None if self.initial_objective is None else self.initial_objective.as_dict(),
             "final_objective": None if self.final_objective is None else self.final_objective.as_dict(),
+            "objective_delta": dict(self.objective_delta),
             "cp_metrics": dict(self.cp_metrics),
             "incumbent_progression": list(self.incumbent_progression),
         }
@@ -197,9 +199,11 @@ def local_search(
     moves: list[MoveResult] = []
     if not config.enabled:
         summary.stop_reason = "disabled"
+        summary.objective_delta = _objective_delta(summary.initial_objective, summary.final_objective)
         return LocalSearchResult(incumbent_state, incumbent, incumbent_coverage, summary, moves)
     if not incumbent:
         summary.stop_reason = "empty_incumbent"
+        summary.objective_delta = _objective_delta(summary.initial_objective, summary.final_objective)
         return LocalSearchResult(incumbent_state, incumbent, incumbent_coverage, summary, moves)
 
     candidate_by_id = {candidate.candidate_id: candidate for candidate in candidates}
@@ -263,6 +267,7 @@ def local_search(
     if accepted_this_run == 0 and summary.stop_reason == "not_started":
         summary.stop_reason = "local_minimum"
     summary.final_objective = incumbent_objective
+    summary.objective_delta = _objective_delta(summary.initial_objective, summary.final_objective)
     summary.cp_metrics = cp_metrics.as_dict()
     return LocalSearchResult(
         state=incumbent_state,
@@ -370,7 +375,7 @@ def rebuild_neighborhood(
 
     rebuilt = _solution_order(kept + inserted)
     after = schedule_objective(case, rebuilt, coverage_index)
-    accepted = objective_key(after) > objective_key(before)
+    accepted = objective_strictly_better(after, before)
     if accepted:
         return MoveResult(
             neighborhood=neighborhood,
@@ -396,6 +401,17 @@ def rebuild_neighborhood(
         if cp_result.improving:
             cp_selected = [candidate_by_id[cid] for cid in cp_result.selected_candidate_ids]
             cp_after = schedule_objective(case, _solution_order(kept + cp_selected), coverage_index)
+            if not objective_strictly_better(cp_after, before):
+                return MoveResult(
+                    neighborhood=neighborhood,
+                    accepted=False,
+                    before=before,
+                    after=cp_after,
+                    inserted_candidate_ids=cp_result.selected_candidate_ids,
+                    removed_candidate_ids=neighborhood.remove_candidate_ids,
+                    stop_reason="cp_not_improving",
+                    cp_repair=cp_result,
+                )
             return MoveResult(
                 neighborhood=neighborhood,
                 accepted=True,
@@ -444,6 +460,45 @@ def objective_key(objective: ScheduleObjective) -> tuple[Any, ...]:
         -objective.slew_burden_s,
         -objective.action_count,
     )
+
+
+def objective_strictly_better(
+    candidate: ScheduleObjective,
+    incumbent: ScheduleObjective,
+    *,
+    min_coverage_delta_m2: float = 1.0e-6,
+) -> bool:
+    if candidate.valid != incumbent.valid:
+        return candidate.valid and not incumbent.valid
+    coverage_delta = candidate.coverage_weight_m2 - incumbent.coverage_weight_m2
+    if coverage_delta > min_coverage_delta_m2:
+        return True
+    if coverage_delta < -min_coverage_delta_m2:
+        return False
+    return (
+        -candidate.estimated_energy_wh,
+        -candidate.slew_burden_s,
+        -candidate.action_count,
+    ) > (
+        -incumbent.estimated_energy_wh,
+        -incumbent.slew_burden_s,
+        -incumbent.action_count,
+    )
+
+
+def _objective_delta(
+    initial: ScheduleObjective | None,
+    final: ScheduleObjective | None,
+) -> dict[str, Any]:
+    if initial is None or final is None:
+        return {}
+    return {
+        "coverage_weight_m2": final.coverage_weight_m2 - initial.coverage_weight_m2,
+        "estimated_energy_wh": final.estimated_energy_wh - initial.estimated_energy_wh,
+        "slew_burden_s": final.slew_burden_s - initial.slew_burden_s,
+        "action_count": final.action_count - initial.action_count,
+        "valid_changed": final.valid != initial.valid,
+    }
 
 
 def state_from_candidates(case: RegionalCoverageCase, candidates: Iterable[Candidate]) -> SequenceState:

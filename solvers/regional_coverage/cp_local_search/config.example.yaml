@@ -10,7 +10,7 @@
 # candidate_stride_s: 600
 # roll_samples_per_side: 3
 # max_candidates_per_satellite: 256
-# include_zero_coverage_candidates: false
+# include_zero_coverage_candidates: true
 # max_zero_coverage_candidates_per_satellite: 8
 # candidate_debug_limit: 250
 
@@ -44,6 +44,7 @@
 # cp_max_candidates: 10
 # cp_max_subsets: 2048
 # cp_time_limit_s: 0.25
+# cp_min_improvement_weight_m2: 0.000001
 
 # ---------------------------------------------------------------------------
 # Debug artifacts
