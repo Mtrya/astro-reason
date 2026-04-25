@@ -94,6 +94,7 @@ Key knobs:
 - `max_local_search_iterations`
 - `max_local_search_time_s`
 - `restart_count`
+- `local_search_workers`
 - `random_seed`
 - `stochastic_ordering`
 - `enable_exact_reinsertion`
@@ -104,7 +105,7 @@ Key knobs:
 - `max_repair_iterations`
 - `debug`
 
-`max_local_search_time_s` only bounds the local-search loop. It does not cap candidate generation or local validation. If the time budget is reached, the solver returns the best incumbent found so far and still performs local validation and repair.
+`max_local_search_time_s` only bounds the local-search loop. It does not cap candidate generation or local validation. If the time budget is reached, the solver returns the best incumbent found so far and still performs local validation and repair. When `local_search_workers > 1`, restart starts run in deterministic process-pool waves; each connected-component descent remains sequential.
 
 ## Debug Artifacts
 
@@ -187,7 +188,7 @@ If raw greedy/local-search selection looks strong but repair removes many action
 - This is a reproduction of the paper's acquisition-planning method, not a claim to reproduce every runtime or every table from the paper.
 - The solver does not include the paper's proprietary Tempo CP-SAT TSPTW backend. Its optional exact reinsertion path is a bounded benchmark-adapted equivalent for small connected components.
 - Battery feasibility is handled by optional solver-local guardrails and bounded repair instead of being fully encoded inside the greedy/LNS core.
-- Candidate generation is currently unoptimized and dominates runtime on larger cases. A future issue may address efficiency.
+- Candidate generation remains non-interruptible and can still consume noticeable runtime before local search receives its budget.
 - Download and memory scheduling are omitted because the benchmark is observation-only.
 
 ## Evidence Type

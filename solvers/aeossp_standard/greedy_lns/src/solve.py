@@ -135,9 +135,16 @@ def _candidate_generation_execution_model(
 
 def _execution_model(
     candidate_config: CandidateConfig,
+    local_search_config: LocalSearchConfig,
     *,
     satellite_count: int,
 ) -> dict[str, dict[str, Any]]:
+    search_effective_workers = (
+        min(local_search_config.local_search_workers, local_search_config.restart_count + 1)
+        if local_search_config.local_search_workers > 1
+        and local_search_config.restart_count > 0
+        else 1
+    )
     return {
         "case_load": {
             "model": "single_threaded_python",
@@ -154,10 +161,24 @@ def _execution_model(
             "notes": "deterministic greedy insertion in Python control flow",
         },
         "search": {
-            "model": "single_threaded_python",
+            "model": (
+                "process_pool_python"
+                if search_effective_workers > 1
+                else "single_threaded_python"
+            ),
             "bounded_by_search_budget": True,
             "budget_field": "max_local_search_time_s",
-            "notes": "connected-component local search; budget applies only to this stage when configured",
+            "parallelism_scope": (
+                "restart_waves" if search_effective_workers > 1 else "none"
+            ),
+            "configured_workers": local_search_config.local_search_workers,
+            "effective_workers": search_effective_workers,
+            "notes": (
+                "connected-component local search; each start remains sequential, "
+                "but configured restarts can run in deterministic process-pool waves"
+                if search_effective_workers > 1
+                else "connected-component local search; budget applies only to this stage when configured"
+            ),
         },
         "validation": {
             "model": "single_threaded_python",
@@ -189,6 +210,7 @@ def _build_status(
     solution_path: Path,
     case,
     candidate_config: CandidateConfig,
+    local_search_config: LocalSearchConfig,
     candidate_summary,
     insertion_result,
     local_search_result,
@@ -213,6 +235,7 @@ def _build_status(
         "utility_policy": "weight_over_duration",
         "execution_model": _execution_model(
             candidate_config,
+            local_search_config,
             satellite_count=len(case.satellites),
         ),
         **candidate_summary.as_debug_dict(case),
@@ -453,6 +476,7 @@ def main(argv: list[str] | None = None) -> int:
             solution_path=solution_path,
             case=case,
             candidate_config=candidate_config,
+            local_search_config=local_search_config,
             candidate_summary=candidate_summary,
             insertion_result=insertion_result,
             local_search_result=local_search_result,

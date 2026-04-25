@@ -46,6 +46,10 @@ total_time_budget_s: null
 # to the experiment envelope.
 restart_count: 0
 
+# Process workers for deterministic restart waves.
+# 1 = sequential restart policy.
+local_search_workers: 1
+
 # Random seed for stochastic ordering and restart perturbation.
 # null = use system time (non-deterministic).
 # Only matters when restart_count > 0 or stochastic_ordering is true.

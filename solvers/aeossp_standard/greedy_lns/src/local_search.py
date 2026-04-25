@@ -5,6 +5,7 @@ from __future__ import annotations
 import random
 import time
 from bisect import bisect_left
+from concurrent.futures import ProcessPoolExecutor
 from copy import deepcopy
 from dataclasses import asdict, dataclass, field
 from datetime import timedelta
@@ -26,6 +27,7 @@ class LocalSearchConfig:
     restart_count: int = 0
     random_seed: int | None = None
     stochastic_ordering: bool = False
+    local_search_workers: int = 1
     enable_exact_reinsertion: bool = False
     max_exact_component_size: int = 8
     exact_subproblem_timeout_s: float | None = 0.05
@@ -39,6 +41,7 @@ class LocalSearchConfig:
             restart_count=max(0, int(payload.get("restart_count", 0))),
             random_seed=_optional_int(payload.get("random_seed")),
             stochastic_ordering=bool(payload.get("stochastic_ordering", False)),
+            local_search_workers=_positive_int(payload.get("local_search_workers", 1)),
             enable_exact_reinsertion=bool(payload.get("enable_exact_reinsertion", False)),
             max_exact_component_size=max(0, int(payload.get("max_exact_component_size", 8))),
             exact_subproblem_timeout_s=_optional_positive_float(
@@ -121,6 +124,13 @@ def _optional_int(value: Any) -> int | None:
     if value is None:
         return None
     return int(value)
+
+
+def _positive_int(value: Any) -> int:
+    parsed = int(value)
+    if parsed <= 0:
+        raise ValueError("local_search_workers must be a positive integer")
+    return parsed
 
 
 def _total_weight(candidates: list[Candidate]) -> float:
@@ -587,6 +597,318 @@ def _start_seeds(config: LocalSearchConfig, start_count: int) -> list[int | None
     return [rng.randrange(0, 2**63) for _ in range(start_count)]
 
 
+@dataclass(slots=True)
+class _SearchStartResult:
+    start_stats: LocalSearchStartStats
+    by_satellite: dict[str, list[Candidate]]
+    scheduled_tasks: dict[str, Candidate]
+    exact_reinsertion: dict[str, Any]
+    battery_guard: dict[str, Any]
+    iterations: int = 0
+    moves_attempted: int = 0
+    moves_accepted: int = 0
+    insertion_failures: int = 0
+
+
+def _build_runtime_helpers(
+    case: AeosspCase,
+    propagation: PropagationContext | None,
+    vector_cache: TransitionVectorCache | None,
+) -> tuple[PropagationContext, TransitionVectorCache]:
+    if propagation is None:
+        step_s = float(min(case.mission.action_time_step_s, case.mission.geometry_sample_step_s))
+        propagation = PropagationContext(case.satellites, step_s=step_s)
+    if vector_cache is None:
+        vector_cache = TransitionVectorCache(case, propagation)
+    return propagation, vector_cache
+
+
+def _run_search_start(
+    case: AeosspCase,
+    component_index: ComponentIndex,
+    base_by_satellite: dict[str, list[Candidate]],
+    base_scheduled_tasks: dict[str, Candidate],
+    config: LocalSearchConfig,
+    battery_guard_config: BatteryGuardConfig,
+    *,
+    start_index: int,
+    seed: int | None,
+    time_slice_s: float | None,
+    propagation: PropagationContext | None = None,
+    vector_cache: TransitionVectorCache | None = None,
+) -> _SearchStartResult:
+    propagation, vector_cache = _build_runtime_helpers(case, propagation, vector_cache)
+    exact_stats = _exact_reinsertion_stats(config)
+    battery_stats = _battery_guard_stats(battery_guard_config)
+    start_rng = random.Random(seed)
+    is_restart = start_index > 0
+    start_begin = time.perf_counter()
+
+    if is_restart:
+        by_satellite, scheduled_tasks, perturbation_removals = _perturb(
+            base_by_satellite, base_scheduled_tasks, start_rng
+        )
+    else:
+        by_satellite, scheduled_tasks = _copy_state(
+            base_by_satellite, base_scheduled_tasks
+        )
+        perturbation_removals = 0
+
+    initial_objective = _objective(scheduled_tasks)
+    start_stats = LocalSearchStartStats(
+        start_index=start_index,
+        is_restart=is_restart,
+        seed=seed,
+        time_slice_s=time_slice_s,
+        initial_objective=initial_objective,
+        best_objective=initial_objective,
+        final_objective=initial_objective,
+        perturbation_removals=perturbation_removals,
+    )
+    totals = {
+        "iterations": 0,
+        "moves_attempted": 0,
+        "moves_accepted": 0,
+        "insertion_failures": 0,
+    }
+
+    for _ in range(config.max_local_search_iterations):
+        if time_slice_s is not None and time.perf_counter() - start_begin >= time_slice_s:
+            start_stats.stop_reason = "time_slice"
+            break
+
+        totals["iterations"] += 1
+        start_stats.iterations += 1
+
+        improved = False
+        components = _ordered_components(
+            component_index, config.stochastic_ordering, start_rng
+        )
+
+        for component in components:
+            totals["moves_attempted"] += 1
+            start_stats.moves_attempted += 1
+
+            old_by_satellite, old_scheduled_tasks = _copy_state(
+                by_satellite, scheduled_tasks
+            )
+
+            _, failures = _recompute_component(
+                case,
+                component,
+                by_satellite,
+                scheduled_tasks,
+                propagation,
+                vector_cache,
+                exact_config=config,
+                exact_stats=exact_stats,
+            )
+            totals["insertion_failures"] += failures
+            start_stats.insertion_failures += failures
+
+            new_objective = _objective(scheduled_tasks)
+            old_objective = _objective(old_scheduled_tasks)
+
+            if new_objective > old_objective:
+                if battery_guard_config.enable_battery_guardrails:
+                    guard_decision = evaluate_battery_guard(
+                        case,
+                        _flatten_schedule(old_by_satellite),
+                        _flatten_schedule(by_satellite),
+                        affected_satellite_ids=_changed_satellite_ids(
+                            old_by_satellite, by_satellite
+                        ),
+                        config=battery_guard_config,
+                        propagation=propagation,
+                        vector_cache=vector_cache,
+                    )
+                    battery_stats["checks"] += 1
+                    battery_stats["affected_satellites_checked"] += len(
+                        guard_decision.affected_satellites
+                    )
+                    if not guard_decision.allowed:
+                        battery_stats["rejected_moves"] += 1
+                        battery_stats["last_rejection"] = guard_decision.as_dict()
+                        by_satellite, scheduled_tasks = (
+                            old_by_satellite,
+                            old_scheduled_tasks,
+                        )
+                        continue
+                    battery_stats["accepted_checks"] += 1
+
+                totals["moves_accepted"] += 1
+                start_stats.moves_accepted += 1
+                improved = True
+                if new_objective > start_stats.best_objective:
+                    start_stats.best_objective = new_objective
+                break
+
+            by_satellite, scheduled_tasks = old_by_satellite, old_scheduled_tasks
+
+        if not improved:
+            start_stats.stop_reason = "local_minimum"
+            break
+
+        if start_stats.stop_reason:
+            break
+
+    if not start_stats.stop_reason:
+        start_stats.stop_reason = "max_iterations"
+    start_stats.final_objective = _objective(scheduled_tasks)
+    start_stats.elapsed_s = time.perf_counter() - start_begin
+    return _SearchStartResult(
+        start_stats=start_stats,
+        by_satellite=by_satellite,
+        scheduled_tasks=scheduled_tasks,
+        exact_reinsertion=exact_stats,
+        battery_guard=battery_stats,
+        iterations=totals["iterations"],
+        moves_attempted=totals["moves_attempted"],
+        moves_accepted=totals["moves_accepted"],
+        insertion_failures=totals["insertion_failures"],
+    )
+
+
+_ADDITIVE_START_STAT_KEYS = {
+    "accepted_checks",
+    "affected_satellites_checked",
+    "checks",
+    "components_considered",
+    "components_fell_back_to_greedy",
+    "components_skipped_oversized",
+    "components_solved_exactly",
+    "components_timed_out",
+    "feasible_subsets",
+    "infeasible_subsets",
+    "rejected_moves",
+    "subsets_evaluated",
+}
+
+
+def _merge_numeric_stats(target: dict[str, Any], source: dict[str, Any]) -> None:
+    for key, value in source.items():
+        if isinstance(value, bool):
+            continue
+        if key in _ADDITIVE_START_STAT_KEYS and isinstance(value, int | float):
+            target[key] = target.get(key, 0) + value
+    if source.get("last_rejection") is not None:
+        target["last_rejection"] = source["last_rejection"]
+
+
+def _apply_start_result(stats: LocalSearchStats, result: _SearchStartResult) -> None:
+    stats.starts.append(result.start_stats)
+    stats.iterations += result.iterations
+    stats.moves_attempted += result.moves_attempted
+    stats.moves_accepted += result.moves_accepted
+    stats.insertion_failures_during_local_search += result.insertion_failures
+    if result.start_stats.is_restart:
+        stats.restarts_executed += 1
+    _merge_numeric_stats(stats.exact_reinsertion, result.exact_reinsertion)
+    _merge_numeric_stats(stats.battery_guard, result.battery_guard)
+
+
+def _better_than_incumbent(
+    result: _SearchStartResult,
+    incumbent: tuple[dict[str, list[Candidate]], dict[str, Candidate]],
+) -> bool:
+    return _objective(result.scheduled_tasks) > _objective(incumbent[1]) + 1.0e-9
+
+
+def _run_parallel_restart_waves(
+    *,
+    case: AeosspCase,
+    component_index: ComponentIndex,
+    initial_by_satellite: dict[str, list[Candidate]],
+    initial_scheduled_tasks: dict[str, Candidate],
+    config: LocalSearchConfig,
+    battery_guard_config: BatteryGuardConfig,
+    seeds: list[int | None],
+    time_limit: float | None,
+    propagation: PropagationContext,
+    vector_cache: TransitionVectorCache,
+    stats: LocalSearchStats,
+) -> tuple[dict[str, list[Candidate]], dict[str, Candidate]]:
+    start_count = len(seeds)
+    per_start_time_slice_s = None if time_limit is None else time_limit / float(start_count)
+    effective_workers = min(config.local_search_workers, max(1, start_count - 1))
+    stats.run_policy["effective_local_search_workers"] = effective_workers
+    stats.run_policy["parallel_restart_policy"] = "process_pool_restart_waves"
+    stats.run_policy["per_start_time_slice_s"] = per_start_time_slice_s
+
+    best_by_satellite, best_scheduled_tasks = _copy_state(
+        initial_by_satellite, initial_scheduled_tasks
+    )
+
+    first_result = _run_search_start(
+        case,
+        component_index,
+        best_by_satellite,
+        best_scheduled_tasks,
+        config,
+        battery_guard_config,
+        start_index=0,
+        seed=seeds[0],
+        time_slice_s=per_start_time_slice_s,
+        propagation=propagation,
+        vector_cache=vector_cache,
+    )
+    _apply_start_result(stats, first_result)
+    stats.run_policy["attempted_start_count"] = len(stats.starts)
+    stats.run_policy["completed_start_count"] = len(stats.starts)
+    if _better_than_incumbent(first_result, (best_by_satellite, best_scheduled_tasks)):
+        best_by_satellite, best_scheduled_tasks = _copy_state(
+            first_result.by_satellite, first_result.scheduled_tasks
+        )
+        stats.best_objective = _objective(best_scheduled_tasks)
+
+    pending_start_indices = list(range(1, start_count))
+    with ProcessPoolExecutor(max_workers=effective_workers) as executor:
+        for wave_offset in range(0, len(pending_start_indices), effective_workers):
+            wave_indices = pending_start_indices[
+                wave_offset : wave_offset + effective_workers
+            ]
+            base_by_satellite, base_scheduled_tasks = _copy_state(
+                best_by_satellite, best_scheduled_tasks
+            )
+            futures = [
+                executor.submit(
+                    _run_search_start,
+                    case,
+                    component_index,
+                    base_by_satellite,
+                    base_scheduled_tasks,
+                    config,
+                    battery_guard_config,
+                    start_index=start_index,
+                    seed=seeds[start_index],
+                    time_slice_s=per_start_time_slice_s,
+                )
+                for start_index in wave_indices
+            ]
+            for result in [future.result() for future in futures]:
+                _apply_start_result(stats, result)
+                stats.run_policy["attempted_start_count"] = len(stats.starts)
+                stats.run_policy["completed_start_count"] = len(stats.starts)
+                if _better_than_incumbent(
+                    result, (best_by_satellite, best_scheduled_tasks)
+                ):
+                    best_by_satellite, best_scheduled_tasks = _copy_state(
+                        result.by_satellite, result.scheduled_tasks
+                    )
+                    stats.best_objective = _objective(best_scheduled_tasks)
+
+    stats.starts.sort(key=lambda item: item.start_index)
+    if time_limit is not None and any(
+        start.stop_reason in {"time_slice", "time_limit"} for start in stats.starts
+    ):
+        stats.stop_reason = "time_limit"
+    elif stats.starts:
+        stats.stop_reason = stats.starts[-1].stop_reason
+    else:
+        stats.stop_reason = "time_limit"
+    return best_by_satellite, best_scheduled_tasks
+
+
 def local_search(
     case: AeosspCase,
     all_candidates: list[Candidate],
@@ -658,7 +980,28 @@ def local_search(
         "max_iterations_per_start": config.max_local_search_iterations,
         "max_local_search_time_s": time_limit,
         "fair_time_slicing": time_limit is not None and start_count > 1,
+        "configured_local_search_workers": config.local_search_workers,
+        "effective_local_search_workers": 1,
+        "parallel_restart_policy": "sequential",
     }
+
+    if config.local_search_workers > 1 and start_count > 1:
+        best_by_satellite, scheduled_tasks = _run_parallel_restart_waves(
+            case=case,
+            component_index=component_index,
+            initial_by_satellite=by_satellite,
+            initial_scheduled_tasks=scheduled_tasks,
+            config=config,
+            battery_guard_config=battery_guard_config,
+            seeds=seeds,
+            time_limit=time_limit,
+            propagation=propagation,
+            vector_cache=vector_cache,
+            stats=stats,
+        )
+        stats.final_objective = _objective(scheduled_tasks)
+        final_candidates = _flatten_schedule(best_by_satellite)
+        return LocalSearchResult(candidates=final_candidates, stats=stats)
 
     for start_index in range(start_count):
         now = time.perf_counter()
@@ -671,123 +1014,28 @@ def local_search(
                 break
             time_slice_s = remaining_total / float(start_count - start_index)
 
-        start_begin = time.perf_counter()
-        start_rng = random.Random(seeds[start_index])
-        if start_index == 0:
-            by_satellite, scheduled_tasks = _copy_state(best_by_satellite[0], best_by_satellite[1])
-            perturbation_removals = 0
-        else:
-            by_satellite, scheduled_tasks, perturbation_removals = _perturb(
-                best_by_satellite[0], best_by_satellite[1], start_rng
-            )
-            stats.restarts_executed += 1
-
-        start_stats = LocalSearchStartStats(
+        result = _run_search_start(
+            case,
+            component_index,
+            best_by_satellite[0],
+            best_by_satellite[1],
+            config,
+            battery_guard_config,
             start_index=start_index,
-            is_restart=start_index > 0,
             seed=seeds[start_index],
             time_slice_s=time_slice_s,
-            initial_objective=_objective(scheduled_tasks),
-            best_objective=_objective(scheduled_tasks),
-            final_objective=_objective(scheduled_tasks),
-            perturbation_removals=perturbation_removals,
+            propagation=propagation,
+            vector_cache=vector_cache,
         )
-        stats.starts.append(start_stats)
+        _apply_start_result(stats, result)
         stats.run_policy["attempted_start_count"] = len(stats.starts)
-
-        for _ in range(config.max_local_search_iterations):
-            if time_limit is not None:
-                elapsed_total = time.perf_counter() - start_time
-                elapsed_start = time.perf_counter() - start_begin
-                if elapsed_total >= time_limit:
-                    start_stats.stop_reason = "time_limit"
-                    break
-                if time_slice_s is not None and elapsed_start >= time_slice_s:
-                    start_stats.stop_reason = "time_slice"
-                    break
-
-            stats.iterations += 1
-            start_stats.iterations += 1
-
-            improved = False
-            components = _ordered_components(
-                component_index, config.stochastic_ordering, start_rng
-            )
-
-            for component in components:
-                stats.moves_attempted += 1
-                start_stats.moves_attempted += 1
-
-                # Snapshot state before the move
-                old_by_satellite, old_scheduled_tasks = _copy_state(
-                    by_satellite, scheduled_tasks
-                )
-
-                _, failures = _recompute_component(
-                    case,
-                    component,
-                    by_satellite,
-                    scheduled_tasks,
-                    propagation,
-                    vector_cache,
-                    exact_config=config,
-                    exact_stats=stats.exact_reinsertion,
-                )
-                stats.insertion_failures_during_local_search += failures
-                start_stats.insertion_failures += failures
-
-                new_objective = _objective(scheduled_tasks)
-                old_objective = _objective(old_scheduled_tasks)
-
-                if new_objective > old_objective:
-                    if battery_guard_config.enable_battery_guardrails:
-                        guard_decision = evaluate_battery_guard(
-                            case,
-                            _flatten_schedule(old_by_satellite),
-                            _flatten_schedule(by_satellite),
-                            affected_satellite_ids=_changed_satellite_ids(
-                                old_by_satellite, by_satellite
-                            ),
-                            config=battery_guard_config,
-                            propagation=propagation,
-                            vector_cache=vector_cache,
-                        )
-                        stats.battery_guard["checks"] += 1
-                        stats.battery_guard["affected_satellites_checked"] += len(
-                            guard_decision.affected_satellites
-                        )
-                        if not guard_decision.allowed:
-                            stats.battery_guard["rejected_moves"] += 1
-                            stats.battery_guard["last_rejection"] = guard_decision.as_dict()
-                            by_satellite, scheduled_tasks = old_by_satellite, old_scheduled_tasks
-                            continue
-                        stats.battery_guard["accepted_checks"] += 1
-
-                    stats.moves_accepted += 1
-                    start_stats.moves_accepted += 1
-                    improved = True
-                    if new_objective > start_stats.best_objective:
-                        start_stats.best_objective = new_objective
-                    if new_objective > stats.best_objective:
-                        stats.best_objective = new_objective
-                        best_by_satellite = _copy_state(by_satellite, scheduled_tasks)
-                    break  # first-improving
-                else:
-                    # Rollback
-                    by_satellite, scheduled_tasks = old_by_satellite, old_scheduled_tasks
-
-            if not improved:
-                start_stats.stop_reason = "local_minimum"
-                break
-
-            if start_stats.stop_reason:
-                break
-
-        if not start_stats.stop_reason:
-            start_stats.stop_reason = "max_iterations"
-        start_stats.final_objective = _objective(scheduled_tasks)
-        start_stats.elapsed_s = time.perf_counter() - start_begin
         stats.run_policy["completed_start_count"] = len(stats.starts)
+        by_satellite, scheduled_tasks = result.by_satellite, result.scheduled_tasks
+        start_stats = result.start_stats
+
+        if _better_than_incumbent(result, best_by_satellite):
+            stats.best_objective = _objective(result.scheduled_tasks)
+            best_by_satellite = _copy_state(result.by_satellite, result.scheduled_tasks)
 
         if start_stats.stop_reason == "time_limit":
             stats.stop_reason = "time_limit"
