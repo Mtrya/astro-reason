@@ -278,7 +278,13 @@ def _run_runnable_job(
     config_dir.mkdir(parents=True, exist_ok=True)
     solution_dir.mkdir(parents=True, exist_ok=True)
     log_dir.mkdir(parents=True, exist_ok=True)
-    (config_dir / "config.yaml").write_text("{}\n", encoding="utf-8")
+    solver_config = job.solver.get("config", {})
+    if not isinstance(solver_config, dict):
+        raise ValueError(f"solver profile {job.solver_id!r} config must be a mapping")
+    (config_dir / "config.yaml").write_text(
+        yaml.safe_dump(solver_config, sort_keys=True),
+        encoding="utf-8",
+    )
 
     setup = _run_setup(job.solver, results_root=results_root, setup_cache=setup_cache)
     payload: dict[str, Any] = {
@@ -289,6 +295,7 @@ def _run_runnable_job(
         "evidence_type": job.solver["evidence_type"],
         "runnable": True,
         "setup": setup,
+        "solver_config": solver_config,
         "solution_dir": str(solution_dir),
     }
     if setup["returncode"] != 0:

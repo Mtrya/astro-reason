@@ -39,7 +39,7 @@ This reproduction keeps that structure and adapts it to `aeossp_standard`:
 - same-satellite overlap edge: two observations overlap in time
 - same-satellite transition edge: the later observation does not leave enough slew-plus-settle time after the earlier one
 
-Before component search, the solver applies a small deterministic weighted-MWIS reduction pass for isolated vertices and strict weighted domination. For small reduced components, the solver searches exactly. For larger reduced components, it builds deterministic greedy seeds, improves them with bounded local search, and refines the best incumbents with bounded recombination.
+Before component search, the solver applies a small deterministic weighted-MWIS reduction pass for isolated vertices and strict weighted domination. For small reduced components, the solver searches exactly with a deterministic bitmask dynamic program. For larger reduced components, it builds deterministic greedy seeds, improves them with bounded local search, and refines the best incumbents with bounded recombination.
 
 ## Benchmark Adaptation
 
@@ -120,7 +120,7 @@ Key knobs:
 
 Use `total_time_budget_s` as the main fair-run runtime knob. Candidate generation and graph construction are accounted for before selection starts, and the remaining budget is passed into MWIS refinement. `time_limit_s` remains backward-compatible as a refinement-only cap; when both are set, the earlier deadline wins. If the budget is reached, the solver returns the best incumbent found so far and still performs local validation and repair.
 
-For hard cases, tune refinement effort with `max_local_passes`, `population_size`, and `recombination_rounds` inside the total budget. `graph_workers` can enable satellite-scoped graph-build workers while preserving deterministic edge sets. `status.json` reports the graph-build execution model, the effective selection budget, the deadline source, whether selection began after the total budget was consumed, backend selection, reduction counts, and compact per-component stop reasons.
+For hard cases, tune refinement effort with `max_local_passes`, `population_size`, and `recombination_rounds` inside the total budget. `graph_workers` can enable satellite-scoped graph-build workers while preserving deterministic edge sets. `status.json` reports the graph-build execution model, the effective selection budget, the deadline source, whether selection began after the total budget was consumed, backend selection, reduction counts, reduction elapsed time, and compact per-component stop reasons.
 
 `backend` defaults to `internal_reduction`, the solver-local reduction-backed Python path. `fallback_python` explicitly selects the same deterministic pure-Python fallback machinery. `redumis` is accepted as an optional backend request, but no external ReduMIS binary is bundled; until one is installed and integrated, the solver reports it unavailable and falls back to `fallback_python`.
 
