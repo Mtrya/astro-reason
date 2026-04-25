@@ -1,9 +1,9 @@
-"""Solver-local approximate strip geometry for Phase 1 coverage indexing.
+"""Solver-local approximate strip geometry for coverage indexing.
 
 This module intentionally does not reproduce verifier internals. It builds a
 deterministic circular-orbit ground-track approximation from public TLE fields
 and uses it only to map candidates to coverage-grid sample indices for later
-selection scaffolding.
+CELF selection.
 """
 
 from __future__ import annotations

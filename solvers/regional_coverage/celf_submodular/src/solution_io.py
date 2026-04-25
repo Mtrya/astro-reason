@@ -1,4 +1,4 @@
-"""Output helpers for the regional-coverage CELF scaffold."""
+"""Output helpers for the regional-coverage CELF solver."""
 
 from __future__ import annotations
 
@@ -12,12 +12,6 @@ from candidates import StripCandidate
 def write_json(path: Path, payload: dict[str, Any] | list[Any]) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n", encoding="utf-8")
-
-
-def write_empty_solution(solution_dir: Path) -> Path:
-    solution_path = solution_dir / "solution.json"
-    write_json(solution_path, {"actions": []})
-    return solution_path
 
 
 def write_solution_from_candidates(

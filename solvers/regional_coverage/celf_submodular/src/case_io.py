@@ -1,4 +1,4 @@
-"""Public case-file loading for the regional-coverage CELF solver scaffold."""
+"""Public case-file loading for the regional-coverage CELF solver."""
 
 from __future__ import annotations
 

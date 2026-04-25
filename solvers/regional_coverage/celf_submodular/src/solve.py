@@ -1,4 +1,4 @@
-"""Regional-coverage CELF scaffold and fixed-candidate selection entrypoint."""
+"""Regional-coverage CELF fixed-candidate selection entrypoint."""
 
 from __future__ import annotations
 
@@ -291,7 +291,7 @@ def main(argv: list[str] | None = None) -> int:
                 "traceback": traceback.format_exc(),
             },
         )
-        print(f"regional coverage CELF scaffold failed: {exc}", file=sys.stderr)
+        print(f"regional coverage CELF solver failed: {exc}", file=sys.stderr)
         return 2
 
 
