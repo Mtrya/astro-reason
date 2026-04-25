@@ -7,6 +7,7 @@ from pathlib import Path
 
 from .case_io import load_case, load_solver_config
 from .design_models import build_design_problem, select_design_slots
+from .observation_windows import enumerate_observation_windows
 from .slot_library import build_slot_library
 from .solution_io import write_preprocessing_artifacts, write_slot_solution
 from .time_grid import build_time_grid
@@ -24,6 +25,7 @@ def solve(case_dir: Path, config_dir: str | None, solution_dir: Path) -> None:
     matrix = build_visibility_matrix(case, slots, samples)
     design_problem = build_design_problem(case, config, slots, matrix)
     design_result = select_design_slots(design_problem, config)
+    window_result = enumerate_observation_windows(case, config, slots, design_result)
 
     solution_dir.mkdir(parents=True, exist_ok=True)
     write_slot_solution(solution_dir, slots, design_result.selected_slot_indices)
@@ -35,6 +37,7 @@ def solve(case_dir: Path, config_dir: str | None, solution_dir: Path) -> None:
         samples,
         matrix,
         design_result,
+        window_result,
         issue_88_url=ISSUE_88_URL,
     )
 

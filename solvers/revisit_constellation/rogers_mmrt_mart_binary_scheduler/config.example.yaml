@@ -16,4 +16,9 @@ design_max_backend_time_samples: 200
 design_max_backend_variables: 20000
 design_max_backend_constraints: 50000
 fallback_exhaustive_max_combinations: 20000
+window_stride_sec: 600
+window_geometry_sample_step_sec: 10
+max_observation_windows: 5000
+max_windows_per_satellite_target: 100
+write_observation_windows: false
 debug: false

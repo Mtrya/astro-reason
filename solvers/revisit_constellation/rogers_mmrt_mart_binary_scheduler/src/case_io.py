@@ -96,6 +96,11 @@ class SolverConfig:
     design_max_backend_variables: int = 20000
     design_max_backend_constraints: int = 50000
     fallback_exhaustive_max_combinations: int = 20000
+    window_stride_sec: float = 600.0
+    window_geometry_sample_step_sec: float = 10.0
+    max_observation_windows: int = 5000
+    max_windows_per_satellite_target: int = 100
+    write_observation_windows: bool = False
     debug: bool = False
 
 
@@ -374,6 +379,30 @@ def load_solver_config(config_dir: str | Path | None) -> SolverConfig:
                 SolverConfig.fallback_exhaustive_max_combinations,
             )
         ),
+        window_stride_sec=float(
+            payload.get("window_stride_sec", SolverConfig.window_stride_sec)
+        ),
+        window_geometry_sample_step_sec=float(
+            payload.get(
+                "window_geometry_sample_step_sec",
+                SolverConfig.window_geometry_sample_step_sec,
+            )
+        ),
+        max_observation_windows=int(
+            payload.get("max_observation_windows", SolverConfig.max_observation_windows)
+        ),
+        max_windows_per_satellite_target=int(
+            payload.get(
+                "max_windows_per_satellite_target",
+                SolverConfig.max_windows_per_satellite_target,
+            )
+        ),
+        write_observation_windows=bool(
+            payload.get(
+                "write_observation_windows",
+                SolverConfig.write_observation_windows,
+            )
+        ),
         debug=bool(payload.get("debug", SolverConfig.debug)),
     )
     if config.sample_step_sec <= 0.0:
@@ -408,4 +437,12 @@ def load_solver_config(config_dir: str | Path | None) -> SolverConfig:
         raise ValueError("design_max_backend_constraints must be positive")
     if config.fallback_exhaustive_max_combinations <= 0:
         raise ValueError("fallback_exhaustive_max_combinations must be positive")
+    if config.window_stride_sec <= 0.0:
+        raise ValueError("window_stride_sec must be positive")
+    if config.window_geometry_sample_step_sec <= 0.0:
+        raise ValueError("window_geometry_sample_step_sec must be positive")
+    if config.max_observation_windows <= 0:
+        raise ValueError("max_observation_windows must be positive")
+    if config.max_windows_per_satellite_target <= 0:
+        raise ValueError("max_windows_per_satellite_target must be positive")
     return config

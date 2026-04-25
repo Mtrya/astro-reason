@@ -3,23 +3,42 @@ from __future__ import annotations
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 import json
+import math
 import sys
+
+import brahe
+import numpy as np
 
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(REPO_ROOT))
 
 from solvers.revisit_constellation.rogers_mmrt_mart_binary_scheduler.src.case_io import (  # noqa: E402
+    AttitudeModel,
+    ResourceModel,
+    RevisitCase,
+    SatelliteModel,
+    SensorModel,
     SolverConfig,
+    Target,
     iso_z,
     load_case,
     parse_iso_z,
 )
 from solvers.revisit_constellation.rogers_mmrt_mart_binary_scheduler.src.design_models import (  # noqa: E402
     DesignProblem,
+    DesignResult,
     select_design_slots,
 )
+from solvers.revisit_constellation.rogers_mmrt_mart_binary_scheduler.src.observation_windows import (  # noqa: E402
+    enumerate_observation_windows,
+)
+from solvers.revisit_constellation.rogers_mmrt_mart_binary_scheduler.src.propagation import (  # noqa: E402
+    datetime_to_epoch,
+    ensure_brahe_ready,
+)
 from solvers.revisit_constellation.rogers_mmrt_mart_binary_scheduler.src.slot_library import (  # noqa: E402
+    OrbitSlot,
     build_slot_library,
 )
 from solvers.revisit_constellation.rogers_mmrt_mart_binary_scheduler.src.solution_io import (  # noqa: E402
@@ -43,6 +62,7 @@ CASE_DIR = (
     / "test"
     / "case_0001"
 )
+MU_EARTH_M3_S2 = 3.986004418e14
 
 
 def _small_config() -> SolverConfig:
@@ -91,6 +111,120 @@ def _problem(
         expected_revisit_hours=expected_hours,
         max_selected_slots=max_selected,
         fixed_satellite_count=fixed_count,
+    )
+
+
+def _target_ecef() -> tuple[float, float, float]:
+    position = np.asarray(
+        brahe.position_geodetic_to_ecef(
+            [0.0, 0.0, 0.0],
+            brahe.AngleFormat.DEGREES,
+        ),
+        dtype=float,
+    )
+    return tuple(float(item) for item in position)
+
+
+def _surface_eci_unit_vector(timestamp: datetime) -> np.ndarray:
+    ensure_brahe_ready()
+    epoch = datetime_to_epoch(timestamp)
+    eci_position = np.asarray(
+        brahe.position_ecef_to_eci(epoch, np.asarray(_target_ecef(), dtype=float)),
+        dtype=float,
+    )
+    return eci_position / np.linalg.norm(eci_position)
+
+
+def _orthogonal_unit_vector(vector: np.ndarray) -> np.ndarray:
+    tangent = np.cross(np.asarray([0.0, 0.0, 1.0]), vector)
+    if np.linalg.norm(tangent) < 1e-9:
+        tangent = np.cross(np.asarray([0.0, 1.0, 0.0]), vector)
+    return tangent / np.linalg.norm(tangent)
+
+
+def _overhead_slot(start: datetime) -> OrbitSlot:
+    radial_unit = _surface_eci_unit_vector(start)
+    radius_m = brahe.R_EARTH + 500000.0
+    position = radial_unit * radius_m
+    velocity = _orthogonal_unit_vector(radial_unit) * math.sqrt(MU_EARTH_M3_S2 / radius_m)
+    return OrbitSlot(
+        slot_id="slot_test",
+        altitude_m=500000.0,
+        inclination_deg=0.0,
+        raan_deg=0.0,
+        phase_deg=0.0,
+        state_eci_m_mps=tuple(float(item) for item in np.concatenate((position, velocity))),
+    )
+
+
+def _window_case(*, max_range_m: float = 1.0e9, min_duration_sec: float = 20.0) -> RevisitCase:
+    start = datetime(2025, 1, 1, 0, 0, tzinfo=UTC)
+    end = start + timedelta(seconds=60)
+    return RevisitCase(
+        case_dir=Path("."),
+        assets_path=Path("assets.json"),
+        mission_path=Path("mission.json"),
+        horizon_start=start,
+        horizon_end=end,
+        satellite_model=SatelliteModel(
+            model_name="test_bus",
+            sensor=SensorModel(
+                max_off_nadir_angle_deg=180.0,
+                max_range_m=max_range_m,
+                obs_discharge_rate_w=1.0,
+            ),
+            resource_model=ResourceModel(
+                battery_capacity_wh=1000.0,
+                initial_battery_wh=1000.0,
+                idle_discharge_rate_w=1.0,
+                sunlight_charge_rate_w=0.0,
+            ),
+            attitude_model=AttitudeModel(
+                max_slew_velocity_deg_per_sec=1.0,
+                max_slew_acceleration_deg_per_sec2=1.0,
+                settling_time_sec=1.0,
+                maneuver_discharge_rate_w=1.0,
+            ),
+            min_altitude_m=100000.0,
+            max_altitude_m=1000000.0,
+        ),
+        max_num_satellites=1,
+        targets=(
+            Target(
+                target_id="target_001",
+                name="Target",
+                latitude_deg=0.0,
+                longitude_deg=0.0,
+                altitude_m=0.0,
+                expected_revisit_period_hours=1.0,
+                min_elevation_deg=-90.0,
+                max_slant_range_m=max_range_m,
+                min_duration_sec=min_duration_sec,
+                ecef_position_m=_target_ecef(),
+            ),
+        ),
+    )
+
+
+def _window_config(*, stride_sec: float = 20.0, sample_step_sec: float = 10.0) -> SolverConfig:
+    return SolverConfig(
+        window_stride_sec=stride_sec,
+        window_geometry_sample_step_sec=sample_step_sec,
+        max_observation_windows=20,
+        max_windows_per_satellite_target=20,
+    )
+
+
+def _design_result() -> DesignResult:
+    return DesignResult(
+        mode="hybrid",
+        backend="fallback",
+        fallback_reason=None,
+        selected_slot_indices=(0,),
+        selected_slot_ids=("slot_test",),
+        objective={},
+        target_stats=(),
+        model_size={},
     )
 
 
@@ -241,3 +375,50 @@ def test_design_fallback_trigger_is_deterministic() -> None:
     assert first.fallback_reason is not None
     assert "slot_bound_exceeded" in first.fallback_reason
     assert first.selected_slot_ids == second.selected_slot_ids
+
+
+def test_observation_windows_with_gap_metadata_and_conflicts() -> None:
+    case = _window_case()
+    slots = (_overhead_slot(case.horizon_start),)
+
+    result = enumerate_observation_windows(case, _window_config(), slots, _design_result())
+
+    assert [window.window_id for window in result.windows] == [
+        "win_sat_001_target_001_20250101T000000Z",
+        "win_sat_001_target_001_20250101T000020Z",
+        "win_sat_001_target_001_20250101T000040Z",
+    ]
+    assert all(case.horizon_start <= window.start < window.end <= case.horizon_end for window in result.windows)
+    assert result.windows[0].midpoint == case.horizon_start + timedelta(seconds=10)
+    assert result.windows[0].estimated_max_gap_reduction_hours > 0.0
+    assert result.windows[0].estimated_mean_gap_reduction_hours == 0.5 / 60.0
+    assert result.conflict_edge_count == 0
+    assert result.candidate_count_by_satellite == {"sat_001": 3}
+    assert result.candidate_count_by_target == {"target_001": 3}
+
+
+def test_observation_window_conflicts_for_overlapping_same_satellite_windows() -> None:
+    case = _window_case()
+    slots = (_overhead_slot(case.horizon_start),)
+
+    result = enumerate_observation_windows(
+        case,
+        _window_config(stride_sec=10.0),
+        slots,
+        _design_result(),
+    )
+
+    first = result.windows[0]
+    assert result.conflict_edge_count > 0
+    assert "win_sat_001_target_001_20250101T000010Z" in first.conflict_ids
+
+
+def test_observation_window_geometry_filter_rejects_range_violation() -> None:
+    case = _window_case(max_range_m=1.0)
+    slots = (_overhead_slot(case.horizon_start),)
+
+    result = enumerate_observation_windows(case, _window_config(), slots, _design_result())
+
+    assert result.windows == ()
+    assert result.zero_window_targets == ("target_001",)
+    assert result.zero_window_satellites == ("sat_001",)

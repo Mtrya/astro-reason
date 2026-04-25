@@ -8,6 +8,7 @@ import json
 
 from .case_io import RevisitCase, SolverConfig, iso_z
 from .design_models import DesignResult
+from .observation_windows import WindowEnumerationResult
 from .slot_library import OrbitSlot, slots_to_records
 from .time_grid import TimeSample, time_grid_to_records
 from .visibility_matrix import VisibilityMatrix, target_visibility_counts, visibility_to_sparse_records
@@ -18,6 +19,14 @@ def write_json(path: Path, payload: Any) -> None:
     with path.open("w", encoding="utf-8") as handle:
         json.dump(payload, handle, indent=2, sort_keys=True)
         handle.write("\n")
+
+
+def write_jsonl(path: Path, records: list[dict[str, object]]) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with path.open("w", encoding="utf-8") as handle:
+        for record in records:
+            handle.write(json.dumps(record, sort_keys=True))
+            handle.write("\n")
 
 
 def write_empty_solution(solution_dir: Path) -> Path:
@@ -59,6 +68,7 @@ def write_preprocessing_artifacts(
     samples: tuple[TimeSample, ...],
     matrix: VisibilityMatrix,
     design_result: DesignResult,
+    window_result: WindowEnumerationResult,
     *,
     issue_88_url: str | None,
 ) -> None:
@@ -78,11 +88,17 @@ def write_preprocessing_artifacts(
             ]
         },
     )
+    write_json(debug_dir / "window_summary.json", window_result.to_summary())
+    if config.write_observation_windows:
+        write_jsonl(
+            debug_dir / "observation_windows.jsonl",
+            [window.to_record() for window in window_result.windows],
+        )
 
     capacity = matrix.shape[0] * matrix.shape[1] * matrix.shape[2]
     status = {
         "solver": "rogers_mmrt_mart_binary_scheduler",
-        "phase": "phase_2_mmrt_mart_design_models",
+        "phase": "phase_3_observation_window_enumeration",
         "case_dir": str(case.case_dir),
         "horizon_start": iso_z(case.horizon_start),
         "horizon_end": iso_z(case.horizon_end),
@@ -107,11 +123,20 @@ def write_preprocessing_artifacts(
         "design_model_size": design_result.model_size,
         "selected_slot_count": len(design_result.selected_slot_indices),
         "selected_slot_ids": list(design_result.selected_slot_ids),
+        "observation_window_count": len(window_result.windows),
+        "candidate_count_by_satellite": window_result.candidate_count_by_satellite,
+        "candidate_count_by_target": window_result.candidate_count_by_target,
+        "zero_window_targets": list(window_result.zero_window_targets),
+        "zero_window_satellites": list(window_result.zero_window_satellites),
+        "window_conflict_edge_count": window_result.conflict_edge_count,
+        "window_caps": window_result.caps,
+        "window_capped": window_result.capped,
         "target_visibility_counts": target_visibility_counts(matrix, case.targets),
         "issue_88_exists": issue_88_url is not None,
         "issue_88_url": issue_88_url,
         "solution_note": (
-            "Phase 2 emits selected design satellites with an empty schedule; "
+            "Phase 3 emits selected design satellites with enumerated candidate windows "
+            "and an empty schedule; "
             "observation scheduling is out of scope."
         ),
     }
