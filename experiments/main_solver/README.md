@@ -21,6 +21,8 @@ experiments/main_solver/
 
 Each solver profile carries the benchmark name, case list or reported metrics, executable verifier command when the solver is runnable, and optional solver-owned config written to each job's `config/config.yaml`.
 
+Experiment profiles own evidence metadata such as `evidence_type`. The hardened solver-contract registry at `solvers/finished_solvers.json` owns only `repro_ci` metadata and case/fixture paths.
+
 ## Evidence Types
 
 Rows keep an explicit `evidence_type`:
@@ -77,6 +79,13 @@ uv run python experiments/main_solver/run.py \
     --config experiments/main_solver/config_regional_coverage_cp_local_search_reproduction.yaml
 uv run python experiments/main_solver/aggregate.py
 ```
+
+The latest regional-coverage CP/local-search comparison verifies all fifteen
+jobs. Greedy-only, local-search, and CP-enabled modes currently have the same
+average official weighted coverage ratio, `0.2270705015379178`, while the
+CP-enabled profile records `75` OR-Tools CP-SAT calls and `22` improving local
+repairs across the five public cases. Those CP repairs do not yet lift the final
+official score over greedy-only under the current bounded envelope.
 
 ## Result Layout
 

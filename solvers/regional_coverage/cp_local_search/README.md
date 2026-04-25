@@ -1,6 +1,6 @@
 # Regional Coverage CP-Assisted Local-Search Solver
 
-This solver is a runnable reproduced solver for `regional_coverage`.
+This solver is a runnable benchmark-adapted reproduction of the acquisition-planning control flow for `regional_coverage`.
 
 It follows the acquisition-planning method described by Valentin Antuori, Damien T. Wojtowicz, and Emmanuel Hebrard in "Solving the Agile Earth Observation Satellite Scheduling Problem with CP and Local Search", adapted to the benchmark's public strip-coverage contract.
 
@@ -47,7 +47,7 @@ The benchmark differs from the paper in several important ways:
 - The benchmark has hard battery and imaging-duty constraints. This solver avoids known sequence conflicts and reports solver-local validation, while official validity remains owned by `experiments/main_solver` plus the benchmark verifier.
 - The paper uses Tempo for CP-SAT TSPTW insertion; this solver uses a solver-local OR-Tools CP-SAT backend prepared by `setup.sh`.
 
-That means this solver is a faithful adaptation of the paper's acquisition-planning control flow, not a reproduction of every industrial subsystem or every result table.
+That means this solver reproduces the paper's acquisition-planning structure under the benchmark contract, not every industrial subsystem or every result table. Current evidence supports a valid, auditable reproduction scaffold with CP-assisted neighborhood repair; it does not yet support the stronger claim of a faithful reproduction with a fully fair optimization and compute envelope.
 
 ## Solver Contract
 
@@ -93,7 +93,7 @@ The solver pipeline is:
 9. Emit the selected candidate sequence as `strip_observation` actions.
 10. Write debug summaries and status metadata for reproduction auditing.
 
-The defaults are deterministic and bounded. There is no hidden random restart path.
+The defaults are deterministic and bounded. Restart and randomized-neighborhood behavior is explicit in config and recorded in `status.json`.
 
 ## CP Backend
 
@@ -107,7 +107,7 @@ It is a solver-local CP-SAT model over a small fixed-start TSPTW-style neighborh
 - objective key: valid first, coverage weight, lower energy estimate, lower slew burden, fewer actions
 - limits: `cp_max_calls`, `cp_max_candidates`, `cp_max_conflicts`, and `cp_time_limit_s`
 
-This backend is not Tempo and does not claim Tempo performance. It preserves the paper's control flow: try greedy sequence repair first, then call bounded CP repair when the neighborhood warrants it.
+This backend is not Tempo and does not claim Tempo performance. It preserves the paper's control flow: try greedy sequence repair first, then call bounded CP repair when the neighborhood warrants it. OR-Tools is installed only into the solver-local `.venv/` created by `setup.sh`; no system-wide dependency is required.
 
 CP metrics are recorded in `status.json` and `debug/local_search_summary.json`:
 
@@ -155,6 +155,10 @@ Key knobs:
 - `cp_min_improvement_weight_m2`
 - `write_insertion_attempts`
 - `write_local_search_moves`
+- `search_restart_count`
+- `search_run_seeds`
+- `greedy_random_choice_probability`
+- `local_search_randomize_neighborhood_order`
 
 `greedy_wall_time_limit_s` bounds greedy insertion only. `cp_time_limit_s` bounds each CP-SAT repair call only. Candidate generation, solution writing, and local validation still run before the solver exits.
 
@@ -232,6 +236,36 @@ The official smoke case currently verifies through `experiments/main_solver` wit
 
 Greedy-only, local-search-without-CP, and CP-enabled modes produce the same smoke objective with the current defaults. This is acceptable evidence for the paper-style control flow because CP calls are observable and successful, but the sampled smoke neighborhood does not need CP to improve over greedy insertion.
 
+## Public Evidence Snapshot
+
+The public reproduction comparison lives in:
+
+```bash
+uv run python experiments/main_solver/run.py \
+  --config experiments/main_solver/config_regional_coverage_cp_local_search_reproduction.yaml
+uv run python experiments/main_solver/aggregate.py
+```
+
+The profile compares greedy-only, local-search-without-CP, and CP-enabled modes over all five public regional-coverage `test` cases. All fifteen jobs verify. The current average official metrics are:
+
+| mode | average coverage ratio | average weighted coverage ratio | average actions | average solve time |
+| --- | ---: | ---: | ---: | ---: |
+| greedy-only | `0.23803063869818217` | `0.2270705015379178` | `11.6` | `3.6300766345986633 s` |
+| local-search | `0.23803063869818217` | `0.2270705015379178` | `11.6` | `3.7190439471916763 s` |
+| CP-enabled | `0.23803063869818217` | `0.2270705015379178` | `11.6` | `4.338756058795843 s` |
+
+The CP-enabled profile made `75` OR-Tools CP-SAT calls across the five cases, all feasible, with `22` improving neighborhood repairs. Those repairs occurred on `test/case_0004`; they did not change the final official weighted-coverage score relative to greedy-only under the current candidate grid and neighborhood policy.
+
+Candidate generation remains the dominant solver-side phase in these artifacts: about `3.226 s` per CP-enabled case on average, compared with about `0.633 s` for search.
+
+## Audit Status
+
+The current audit status for the stronger target claim, "faithful reproduction adapted to the benchmark with fair optimization and compute envelope", is `NOT_YET`.
+
+Implemented and adapted pieces include standalone case parsing, deterministic candidate generation, verifier-shaped unique-coverage scoring, satellite-local sequences, greedy insertion, bounded local-search neighborhoods, restart/multi-start plumbing, OR-Tools CP-SAT neighborhood repair, structured timings, and official main-solver validation.
+
+The remaining blocker is not benchmark validity. It is optimization and runtime realism: the public evidence still shows no official score lift from local search or CP over greedy-only, very small neighborhoods, fixed-start CP repair rather than Tempo-like rescheduling, single-process candidate generation, and a short seconds-scale reproduction envelope rather than a sustained search regime.
+
 ## Known Limitations
 
 - This solver reproduces the Antuori acquisition-planning method family, not the full integrated acquisition/download/memory planner.
@@ -240,8 +274,8 @@ Greedy-only, local-search-without-CP, and CP-enabled modes produce the same smok
 - The CP backend searches fixed-start candidate subsets; it does not continuously reschedule action start times.
 - Battery and duty constraints are not globally optimized inside the search objective. Official validity is still checked by the benchmark verifier through experiments.
 - Local search is intentionally bounded and deterministic. It is not an ALNS or broad metaheuristic sweep.
-- Full multi-case tuning may need broader candidate budgets than are comfortable for quick development-laptop smoke runs.
+- Full multi-case tuning needs broader candidate budgets, stronger neighborhood policy, and a longer fair-run envelope than the current development-laptop smoke and reproduction profiles.
 
 ## Evidence Type
 
-This solver is registered in `experiments/main_solver` and `solvers/finished_solvers.json` with `evidence_type: reproduced_solver`.
+The `experiments/main_solver` profile carries `evidence_type: reproduced_solver`, meaning the experiment can run the solver and verify benchmark-shaped outputs through the public verifier. `solvers/finished_solvers.json` is only the hardened solver-contract registry; it carries `repro_ci` metadata and case paths, not experiment evidence metadata.
