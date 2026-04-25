@@ -48,6 +48,14 @@
       "evidence_type": "reproduced_solver",
       "runnable": true,
       "ci_smoke": true
+    },
+    {
+      "benchmark": "regional_coverage",
+      "solver": "cp_local_search",
+      "path": "solvers/regional_coverage/cp_local_search",
+      "evidence_type": "reproduced_solver",
+      "runnable": true,
+      "ci_smoke": true
     }
   ]
 }
