@@ -70,6 +70,8 @@ class SelectionStep:
 @dataclass(frozen=True, slots=True)
 class SelectionResult:
     policy: SelectionPolicy
+    candidate_count: int
+    initial_queue_count: int
     selected_candidate_ids: tuple[str, ...]
     objective_value: float
     budget: float
@@ -88,14 +90,28 @@ class SelectionResult:
         return len(self.covered_sample_indices)
 
     def as_dict(self, *, include_iterations: bool = False) -> dict[str, Any]:
+        naive_bound = naive_recomputation_bound(
+            self.initial_queue_count,
+            self.accepted_count,
+            stop_reason=self.stop_reason,
+        )
         payload = {
             "policy": self.policy,
+            "candidate_count": self.candidate_count,
+            "initial_queue_count": self.initial_queue_count,
             "selected_candidate_ids": list(self.selected_candidate_ids),
             "objective_value": self.objective_value,
             "budget": self.budget,
             "budget_used": self.budget_used,
             "covered_sample_count": self.covered_sample_count,
             "marginal_recomputations": self.marginal_recomputations,
+            "estimated_naive_recomputations": naive_bound,
+            "estimated_lazy_recomputations_saved": max(
+                0, naive_bound - self.marginal_recomputations
+            ),
+            "lazy_recomputation_ratio": (
+                self.marginal_recomputations / naive_bound if naive_bound > 0 else None
+            ),
             "stale_pops": self.stale_pops,
             "accepted_count": self.accepted_count,
             "rejected_nonpositive_count": self.rejected_nonpositive_count,
@@ -114,11 +130,21 @@ class CelfRunResult:
     unit_cost: SelectionResult | None
     cost_benefit: SelectionResult | None
     cost_mode: CostMode
+    candidate_count: int
 
     def as_dict(self) -> dict[str, Any]:
         return {
             "best_policy": self.best_policy,
             "cost_mode": self.cost_mode,
+            "candidate_count": self.candidate_count,
+            "algorithm": {
+                "paper": "Leskovec et al. CELF / CEF lazy forward selection",
+                "unit_cost_variant": self.unit_cost is not None,
+                "cost_benefit_variant": self.cost_benefit is not None,
+                "returns_higher_reward_variant": True,
+                "fixed_ground_set": True,
+                "reward_model": "monotone unique weighted coverage over fixed sample sets",
+            },
             "best": self.best.as_dict(),
             "unit_cost": self.unit_cost.as_dict() if self.unit_cost else None,
             "cost_benefit": self.cost_benefit.as_dict() if self.cost_benefit else None,
@@ -179,6 +205,21 @@ def marginal_gain(
         for index in coverage_by_candidate.get(candidate_id, ())
         if index not in covered_samples
     )
+
+
+def naive_recomputation_bound(
+    initial_queue_count: int, accepted_count: int, *, stop_reason: str
+) -> int:
+    rounds = accepted_count
+    if stop_reason in {"no_positive_gain", "candidate_queue_exhausted"}:
+        rounds += 1
+    total = 0
+    for index in range(rounds):
+        remaining = initial_queue_count - index
+        if remaining <= 0:
+            break
+        total += remaining
+    return total
 
 
 def candidate_cost(candidate: StripCandidate, cost_mode: CostMode) -> float:
@@ -246,6 +287,8 @@ def lazy_forward_selection(
     if budget <= 0.0:
         return SelectionResult(
             policy=policy,
+            candidate_count=len(candidates),
+            initial_queue_count=0,
             selected_candidate_ids=(),
             objective_value=0.0,
             budget=budget,
@@ -286,6 +329,7 @@ def lazy_forward_selection(
                 float("inf"),
             ),
         )
+    initial_queue_count = len(heap)
 
     selected_ids: list[str] = []
     selected_id_set: set[str] = set()
@@ -390,6 +434,8 @@ def lazy_forward_selection(
 
     return SelectionResult(
         policy=policy,
+        candidate_count=len(candidates),
+        initial_queue_count=initial_queue_count,
         selected_candidate_ids=tuple(selected_ids),
         objective_value=objective_value,
         budget=budget,
@@ -422,6 +468,7 @@ def naive_forward_selection(
     costs = cost_by_candidate or {
         candidate.candidate_id: candidate_cost(candidate, cost_mode) for candidate in candidates
     }
+    initial_queue_count = sum(1 for cost in costs.values() if cost <= budget + 1.0e-9)
     covered_samples: set[int] = set()
     budget_used = 0.0
     objective_value = 0.0
@@ -484,6 +531,8 @@ def naive_forward_selection(
 
     return SelectionResult(
         policy=policy,
+        candidate_count=len(candidates),
+        initial_queue_count=initial_queue_count,
         selected_candidate_ids=tuple(selected_ids),
         objective_value=objective_value,
         budget=budget,
@@ -552,4 +601,5 @@ def run_celf_selection(
         unit_cost=unit,
         cost_benefit=cost_benefit,
         cost_mode=config.cost_mode,
+        candidate_count=len(candidates),
     )

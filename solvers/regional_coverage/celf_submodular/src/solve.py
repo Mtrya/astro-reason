@@ -19,6 +19,7 @@ from solution_io import (
     write_celf_debug,
     write_json,
     write_repair_debug,
+    write_reproduction_debug,
     write_solution_from_candidates,
 )
 
@@ -45,6 +46,60 @@ def _round_seconds(value: float) -> float:
     return round(value, 6)
 
 
+def _reproduction_summary(*, celf_result, repair_result) -> dict[str, Any]:
+    return {
+        "source": {
+            "primary_reference": "Leskovec et al. 2007, Sections 3 and 4",
+            "issue": "https://github.com/Mtrya/astro-reason/issues/82",
+        },
+        "paper_faithful_elements": {
+            "fixed_ground_set": "candidate strip observations are fixed before selection",
+            "reward": "R(A) is unique weighted coverage over fixed coverage-grid samples",
+            "unit_cost_greedy": "LazyForward UC maximizes marginal gain",
+            "cost_benefit_greedy": "LazyForward CB maximizes marginal gain divided by candidate cost",
+            "celf_lazy_updates": "stale marginal gains are recomputed only when a candidate reaches the queue head",
+            "cef_comparison": "unit-cost and cost-benefit variants are both run when configured, then the higher-reward result is kept",
+        },
+        "benchmark_adaptations": {
+            "node_mapping": "paper sensor/node -> timed regional-coverage strip candidate",
+            "scenario_mapping": "paper scenario/covered item -> coverage_grid sample index",
+            "budget_mapping": "paper budget B -> max_actions_total or configured selection budget",
+            "cost_modes": [
+                "action_count",
+                "imaging_time",
+                "estimated_energy",
+                "transition_burden",
+            ],
+            "candidate_geometry": "solver-local circular-orbit strip approximation; official geometry remains benchmark-owned",
+            "schedule_repair": "same-satellite overlap, slew, action-cap, battery, and duty checks are deterministic benchmark adaptations after fixed-set CELF selection",
+            "official_validation": "experiments/main_solver runs the benchmark verifier through CLI/file contracts",
+        },
+        "known_fidelity_limits": {
+            "no_online_bound": "Leskovec online optimality bounds are not implemented",
+            "geometry_drift_risk": "solver-local coverage mapping may differ from verifier-derived WGS84 strip geometry",
+            "repair_breaks_pure_set_selection": "post-selection repair can remove candidates and therefore is reported separately from paper-faithful CELF",
+            "battery_duty_are_approximate": "solver-local battery and duty checks are conservative approximations, not a proof of verifier feasibility",
+        },
+        "selection_audit": {
+            "best_policy": celf_result.best_policy,
+            "best_objective_value": celf_result.best.objective_value,
+            "best_selected_before_repair": celf_result.best.accepted_count,
+            "repaired_selected_count": len(repair_result.repaired_candidate_ids),
+            "removed_by_repair": len(repair_result.removed_candidate_ids),
+            "unit_cost_lazy_recomputation_ratio": (
+                celf_result.unit_cost.as_dict().get("lazy_recomputation_ratio")
+                if celf_result.unit_cost
+                else None
+            ),
+            "cost_benefit_lazy_recomputation_ratio": (
+                celf_result.cost_benefit.as_dict().get("lazy_recomputation_ratio")
+                if celf_result.cost_benefit
+                else None
+            ),
+        },
+    }
+
+
 def _build_status(
     *,
     case,
@@ -58,9 +113,13 @@ def _build_status(
     repair_result,
     timing_seconds: dict[str, float],
 ) -> dict[str, Any]:
+    reproduction_summary = _reproduction_summary(
+        celf_result=celf_result,
+        repair_result=repair_result,
+    )
     return {
         "status": "ok",
-        "phase": "phase_3_sequence_feasibility_and_repair",
+        "phase": "phase_5_validation_tuning_and_reproduction_fidelity",
         "case_dir": str(case.case_dir),
         "config_dir": str(config_dir) if config_dir is not None else None,
         "solution": str(solution_path),
@@ -87,13 +146,14 @@ def _build_status(
         "celf_summary": celf_result.as_dict(),
         "feasibility_summary": feasibility_summary(repair_result),
         "repair_summary": repair_result.as_dict(),
+        "reproduction_summary": reproduction_summary,
         "output_policy": {
             "solution_actions": len(repair_result.repaired_candidate_ids),
             "empty_solution_only": len(repair_result.repaired_candidate_ids) == 0,
             "selection_deferred_to_phase": None,
             "sequence_feasibility_deferred_to_phase": None,
             "satellite_repair_enabled": True,
-            "experiment_registration_enabled": False,
+            "experiment_registration_enabled": True,
             "coverage_geometry": "solver-local circular-orbit approximation",
             "battery_and_duty_checks": "approximate_solver_local",
         },
@@ -189,6 +249,11 @@ def run(case_dir: Path, config_dir: Path | None, solution_dir: Path) -> int:
         repair_log=[event.as_dict() for event in repair_result.repair_log],
         repaired_candidates=repaired_candidates,
     )
+    reproduction_summary = _reproduction_summary(
+        celf_result=celf_result,
+        repair_result=repair_result,
+    )
+    write_reproduction_debug(solution_dir, reproduction_summary)
     timings["output"] = _round_seconds(time.perf_counter() - start)
     timings["total"] = _round_seconds(time.perf_counter() - total_start)
 

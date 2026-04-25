@@ -95,3 +95,10 @@ def write_repair_debug(
     write_json(debug_dir / "feasibility_summary.json", feasibility_summary)
     write_json(debug_dir / "repair_log.json", repair_log)
     write_json(debug_dir / "repaired_candidates.json", repaired_candidates)
+
+
+def write_reproduction_debug(
+    solution_dir: Path,
+    reproduction_summary: dict[str, Any],
+) -> None:
+    write_json(solution_dir / "debug" / "reproduction_summary.json", reproduction_summary)

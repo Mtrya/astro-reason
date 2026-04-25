@@ -1,16 +1,17 @@
 # Regional Coverage CELF Submodular Solver
 
-Phase 3 scaffold for issue #82.
+Phase 5 reproduction-fidelity scaffold for issue #82.
 
 This solver reads only public `regional_coverage` case files, enumerates
 deterministic strip candidates on the public action grid, maps those candidates
 to coverage-grid sample indices using solver-local approximate geometry, and
 selects candidates with unit-cost and cost-benefit CELF lazy forward selection,
-then applies deterministic solver-local schedule repair.
+keeps the higher-reward CEF variant, then applies deterministic solver-local
+schedule repair.
 
-Experiment registration and verifier-guided validation are intentionally
-deferred to later roadmap phases. The repaired `solution.json` includes only
-public `strip_observation` action fields.
+The solver is wired into `experiments/main_solver` through CLI/file contracts.
+The repaired `solution.json` includes only public `strip_observation` action
+fields.
 
 ## Entrypoints
 
@@ -56,16 +57,34 @@ The solver writes:
 - `debug/feasibility_summary.json`
 - `debug/repair_log.json`
 - `debug/repaired_candidates.json`
+- `debug/reproduction_summary.json`
 
 CELF uses fixed candidate coverage sets and the unique weighted sample objective.
-The debug summary records true marginal recomputations so later phases can
-compare lazy and naive behavior.
+The debug summary records true marginal recomputations, an estimated naive
+recomputation bound, lazy recomputation savings, and the unit-cost versus
+cost-benefit CEF comparison outcome.
 
 The repair pass locally checks action caps, public candidate shape rules,
 same-satellite half-open interval overlap, the benchmark bang-coast-bang slew
 formula plus settling, and approximate battery/duty risk. It removes conflicting
 candidates deterministically by lowest estimated unique coverage loss, then
 higher energy burden, duration, start offset, and candidate id.
+
+## Paper-To-Benchmark Adaptation
+
+The paper's sensor-node ground set is adapted to fixed timed strip-observation
+candidates. Scenario/item coverage is adapted to public coverage-grid sample
+indices with weighted unique coverage. The paper budget is adapted to the
+benchmark action cap or explicit solver selection budget. Both unit-cost
+greedy and cost-benefit greedy are run when configured, matching the CEF
+comparison pattern, and the higher-reward result is reported.
+
+The main benchmark-specific adaptation is that schedule feasibility is not part
+of the paper's pure set selection model. This solver reports CELF selection and
+post-selection repair separately: repair can remove same-satellite overlaps,
+slew-infeasible actions, action-cap excess, and conservative battery/duty risks.
+Coverage geometry also remains solver-local and approximate; official validity
+comes from `experiments/main_solver` invoking the benchmark verifier.
 
 ## Main Solver Smoke
 
@@ -79,5 +98,5 @@ uv run python experiments/main_solver/run.py \
 ```
 
 This solver is registered in `experiments/main_solver` with
-`evidence_type: reproduced_solver`. Current Phase 4 smoke verification passes on
-`test/case_0001`; broader tuning and non-smoke verification remain Phase 5 work.
+`evidence_type: reproduced_solver`. Current Phase 5 smoke verification passes on
+`test/case_0001`; broader non-smoke tuning remains future work.

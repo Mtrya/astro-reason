@@ -19,6 +19,7 @@ from celf import (  # noqa: E402
     SelectionConfig,
     lazy_forward_selection,
     marginal_gain,
+    naive_recomputation_bound,
     naive_forward_selection,
     run_celf_selection,
 )
@@ -250,6 +251,49 @@ def test_lazy_and_naive_unit_cost_greedy_agree_on_fixed_candidates() -> None:
     assert lazy.selected_candidate_ids == naive.selected_candidate_ids == ("b", "a")
     assert lazy.objective_value == naive.objective_value == 9.0
     assert lazy.marginal_recomputations < naive.marginal_recomputations
+    assert lazy.as_dict()["estimated_naive_recomputations"] == naive.marginal_recomputations
+    assert lazy.as_dict()["estimated_lazy_recomputations_saved"] > 0
+    assert lazy.as_dict()["lazy_recomputation_ratio"] < 1.0
+
+
+def test_lazy_and_naive_cost_benefit_greedy_agree_on_fixed_candidates() -> None:
+    candidates = [
+        _candidate("large_slow", start_offset_s=0, duration_s=40),
+        _candidate("small_fast", start_offset_s=10, duration_s=10),
+        _candidate("medium", start_offset_s=20, duration_s=20),
+    ]
+    coverage_by_candidate = {
+        "large_slow": (0, 1, 2, 3),
+        "small_fast": (0, 4),
+        "medium": (2, 5),
+    }
+    sample_weights = {0: 4.0, 1: 1.0, 2: 2.0, 3: 1.0, 4: 4.0, 5: 2.0}
+
+    lazy = lazy_forward_selection(
+        candidates,
+        coverage_by_candidate,
+        sample_weights,
+        budget=50.0,
+        policy="cost_benefit",
+        cost_mode="imaging_time",
+    )
+    naive = naive_forward_selection(
+        candidates,
+        coverage_by_candidate,
+        sample_weights,
+        budget=50.0,
+        policy="cost_benefit",
+        cost_mode="imaging_time",
+    )
+
+    assert lazy.selected_candidate_ids == naive.selected_candidate_ids
+    assert lazy.objective_value == naive.objective_value
+    assert lazy.marginal_recomputations <= naive.marginal_recomputations
+
+
+def test_naive_recomputation_bound_matches_simple_greedy_rounds() -> None:
+    assert naive_recomputation_bound(5, 3, stop_reason="budget_exhausted") == 12
+    assert naive_recomputation_bound(5, 3, stop_reason="no_positive_gain") == 14
 
 
 def test_cost_benefit_can_differ_from_unit_cost_when_costs_differ() -> None:
@@ -326,6 +370,10 @@ def test_run_celf_selection_keeps_higher_reward_variant() -> None:
 
     assert result.unit_cost is not None
     assert result.cost_benefit is not None
+    assert result.as_dict()["algorithm"]["paper"] == (
+        "Leskovec et al. CELF / CEF lazy forward selection"
+    )
+    assert result.as_dict()["algorithm"]["fixed_ground_set"] is True
     assert result.best_policy == "unit_cost"
     assert result.best.selected_candidate_ids == ("expensive",)
 
@@ -485,11 +533,15 @@ def test_solver_writes_solution_status_and_repair_debug(tmp_path: Path) -> None:
     }
     assert status["candidate_summary"]["candidate_count"] == 3
     assert "celf_summary" in status
-    assert status["phase"] == "phase_3_sequence_feasibility_and_repair"
+    assert status["phase"] == "phase_5_validation_tuning_and_reproduction_fidelity"
     assert "feasibility_summary" in status
+    assert status["reproduction_summary"]["paper_faithful_elements"]["celf_lazy_updates"]
+    assert status["reproduction_summary"]["benchmark_adaptations"]["official_validation"]
     assert status["output_policy"]["satellite_repair_enabled"] is True
+    assert status["output_policy"]["experiment_registration_enabled"] is True
     assert len(debug) == 2
     assert (solution_dir / "debug" / "celf_summary.json").is_file()
     assert (solution_dir / "debug" / "feasibility_summary.json").is_file()
     assert (solution_dir / "debug" / "repair_log.json").is_file()
     assert (solution_dir / "debug" / "repaired_candidates.json").is_file()
+    assert (solution_dir / "debug" / "reproduction_summary.json").is_file()
