@@ -40,6 +40,14 @@
       "evidence_type": "reproduced_solver",
       "runnable": true,
       "ci_smoke": true
+    },
+    {
+      "benchmark": "relay_constellation",
+      "solver": "mclp_teg_contact_plan",
+      "path": "solvers/relay_constellation/mclp_teg_contact_plan",
+      "evidence_type": "reproduced_solver",
+      "runnable": true,
+      "ci_smoke": true
     }
   ]
 }

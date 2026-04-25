@@ -1,0 +1,17 @@
+{
+  "mclp_mode": "auto",
+  "scheduler_mode": "auto",
+  "parallel_mode": "auto",
+  "time_budget_s": 300,
+  "orbit_grid": {
+    "altitude_step_m": null,
+    "inclination_step_deg": null,
+    "num_raan_planes": 3,
+    "num_phase_slots": 2
+  },
+  "milp_config": {
+    "max_total_variables": 500,
+    "max_samples": 50,
+    "milp_time_limit_per_sample": 5.0
+  }
+}

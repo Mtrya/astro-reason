@@ -6,3 +6,4 @@ solvers:
   - satnet_rl_ppo_goh2021
   - aeossp_standard_mwis_conflict_graph
   - aeossp_standard_greedy_lns
+  - relay_mclp_teg
