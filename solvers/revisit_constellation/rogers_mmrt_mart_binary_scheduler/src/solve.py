@@ -3,7 +3,10 @@
 from __future__ import annotations
 
 import argparse
+from contextlib import contextmanager
 from pathlib import Path
+import time
+from typing import Iterator
 
 from .binary_scheduler import compare_scheduler_modes, schedule_observation_windows
 from .case_io import load_case, load_solver_config
@@ -19,23 +22,80 @@ from .visibility_matrix import build_visibility_matrix
 ISSUE_88_URL = "https://github.com/Mtrya/astro-reason/issues/88"
 
 
+class RunProfiler:
+    def __init__(self) -> None:
+        self.started_at = time.perf_counter()
+        self.stage_durations_sec: dict[str, float] = {}
+
+    @contextmanager
+    def stage(self, name: str) -> Iterator[None]:
+        started_at = time.perf_counter()
+        try:
+            yield
+        finally:
+            self.stage_durations_sec[name] = round(time.perf_counter() - started_at, 6)
+
+    def to_accounting(self, config) -> dict[str, object]:
+        return {
+            "timing": {
+                "clock": "time.perf_counter",
+                "total_elapsed_sec": round(time.perf_counter() - self.started_at, 6),
+                "stage_durations_sec": dict(self.stage_durations_sec),
+            },
+            "run_policy": {
+                "policy_name": "ci_smoke_defaults",
+                "bounded": True,
+                "sample_step_sec": config.sample_step_sec,
+                "window_stride_sec": config.window_stride_sec,
+                "window_geometry_sample_step_sec": config.window_geometry_sample_step_sec,
+                "geometry_worker_count": config.geometry_worker_count,
+                "max_slots": config.max_slots,
+                "max_observation_windows": config.max_observation_windows,
+                "scheduler_max_selected_windows": config.scheduler_max_selected_windows,
+                "design_time_limit_sec": config.design_time_limit_sec,
+                "scheduler_time_limit_sec": config.scheduler_time_limit_sec,
+                "design_backend": config.design_backend,
+                "scheduler_backend": config.scheduler_backend,
+                "write_visibility_matrix": config.write_visibility_matrix,
+                "write_observation_windows": config.write_observation_windows,
+            },
+        }
+
+
 def solve(case_dir: Path, config_dir: str | None, solution_dir: Path) -> None:
-    case = load_case(case_dir)
-    config = load_solver_config(config_dir)
-    slots = build_slot_library(case, config)
-    samples = build_time_grid(case.horizon_start, case.horizon_end, config.sample_step_sec)
-    matrix = build_visibility_matrix(case, slots, samples)
-    design_problem = build_design_problem(case, config, slots, matrix)
-    design_result = select_design_slots(design_problem, config)
-    window_result = enumerate_observation_windows(case, config, slots, design_result)
-    schedule_result = schedule_observation_windows(case, config, window_result)
-    validation_result = validate_and_repair_schedule(case, config, slots, schedule_result)
-    design_mode_comparison = compare_design_modes(design_problem, config)
-    scheduler_mode_comparison = compare_scheduler_modes(
-        case, config, window_result, schedule_result
-    )
+    profiler = RunProfiler()
+    with profiler.stage("case_config_loading"):
+        case = load_case(case_dir)
+        config = load_solver_config(config_dir)
+    with profiler.stage("slot_library_generation"):
+        slots = build_slot_library(case, config)
+    with profiler.stage("time_grid_generation"):
+        samples = build_time_grid(case.horizon_start, case.horizon_end, config.sample_step_sec)
+    with profiler.stage("visibility_matrix_generation"):
+        matrix = build_visibility_matrix(
+            case,
+            slots,
+            samples,
+            worker_count=config.geometry_worker_count,
+        )
+    with profiler.stage("design_solve"):
+        design_problem = build_design_problem(case, config, slots, matrix)
+        design_result = select_design_slots(design_problem, config)
+    with profiler.stage("observation_window_enumeration"):
+        window_result = enumerate_observation_windows(case, config, slots, design_result)
+    with profiler.stage("scheduler_solve"):
+        schedule_result = schedule_observation_windows(case, config, window_result)
+    with profiler.stage("local_validation_repair"):
+        validation_result = validate_and_repair_schedule(case, config, slots, schedule_result)
+    with profiler.stage("debug_comparisons"):
+        design_mode_comparison = compare_design_modes(design_problem, config)
+        scheduler_mode_comparison = compare_scheduler_modes(
+            case, config, window_result, schedule_result
+        )
 
     solution_dir.mkdir(parents=True, exist_ok=True)
+    run_accounting = profiler.to_accounting(config)
+    artifact_write_started_at = time.perf_counter()
     write_slot_solution(
         solution_dir,
         slots,
@@ -57,6 +117,8 @@ def solve(case_dir: Path, config_dir: str | None, solution_dir: Path) -> None:
         design_mode_comparison,
         scheduler_mode_comparison,
         issue_88_url=ISSUE_88_URL,
+        run_accounting=run_accounting,
+        artifact_write_started_at=artifact_write_started_at,
     )
 
 

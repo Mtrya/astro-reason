@@ -4,6 +4,7 @@ inclination_deg: [55.0, 97.6]
 raan_count: 4
 phase_count: 2
 max_slots: 16
+geometry_worker_count: 1
 write_visibility_matrix: true
 design_mode: mmrt
 design_backend: auto

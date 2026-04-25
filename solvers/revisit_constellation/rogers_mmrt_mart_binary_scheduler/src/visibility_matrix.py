@@ -2,7 +2,8 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from concurrent.futures import ProcessPoolExecutor
+from dataclasses import dataclass, field
 import math
 
 import brahe
@@ -21,6 +22,7 @@ NUMERICAL_EPS = 1.0e-9
 class VisibilityMatrix:
     shape: tuple[int, int, int]
     visible: frozenset[tuple[int, int, int]]
+    execution: dict[str, object] = field(default_factory=dict)
 
     @property
     def visible_count(self) -> int:
@@ -85,7 +87,42 @@ def build_visibility_matrix(
     case: RevisitCase,
     slots: tuple[OrbitSlot, ...],
     samples: tuple[TimeSample, ...],
+    worker_count: int = 1,
 ) -> VisibilityMatrix:
+    if worker_count <= 0:
+        raise ValueError("worker_count must be positive")
+    task_count = len(slots)
+    actual_workers = min(worker_count, task_count) if task_count else 1
+    parallel = worker_count > 1 and task_count > 1
+    tasks = tuple((case, slot_index, slot, samples) for slot_index, slot in enumerate(slots))
+    if parallel:
+        with ProcessPoolExecutor(max_workers=actual_workers) as executor:
+            slot_records = tuple(executor.map(_visible_entries_for_slot, tasks))
+    else:
+        slot_records = tuple(_visible_entries_for_slot(task) for task in tasks)
+
+    visible = frozenset(
+        entry
+        for entries in slot_records
+        for entry in entries
+    )
+    execution = {
+        "mode": "parallel" if parallel else "serial",
+        "configured_worker_count": worker_count,
+        "actual_worker_count": actual_workers if parallel else 1,
+        "task_count": task_count,
+    }
+    return VisibilityMatrix(
+        shape=(len(samples), len(slots), len(case.targets)),
+        visible=frozenset(sorted(visible)),
+        execution=execution,
+    )
+
+
+def _visible_entries_for_slot(
+    task: tuple[RevisitCase, int, OrbitSlot, tuple[TimeSample, ...]],
+) -> tuple[tuple[int, int, int], ...]:
+    case, slot_index, slot, samples = task
     ensure_brahe_ready()
     start_epoch = datetime_to_epoch(case.horizon_start)
     end_epoch = datetime_to_epoch(case.horizon_end)
@@ -93,25 +130,21 @@ def build_visibility_matrix(
     visible: set[tuple[int, int, int]] = set()
     targets = case.targets
 
-    for slot_index, slot in enumerate(slots):
-        propagator = brahe.NumericalOrbitPropagator.from_eci(
-            start_epoch,
-            np.asarray(slot.state_eci_m_mps, dtype=float),
-            force_config=config,
-        )
-        propagator.propagate_to(end_epoch)
-        for sample in samples:
-            epoch = datetime_to_epoch(sample.instant)
-            state_eci = np.asarray(propagator.state_eci(epoch), dtype=float)
-            state_ecef = np.asarray(propagator.state_ecef(epoch), dtype=float)
-            for target_index, target in enumerate(targets):
-                if _observation_geometry_ok(case, target, state_eci, state_ecef, epoch):
-                    visible.add((sample.index, slot_index, target_index))
-
-    return VisibilityMatrix(
-        shape=(len(samples), len(slots), len(targets)),
-        visible=frozenset(visible),
+    propagator = brahe.NumericalOrbitPropagator.from_eci(
+        start_epoch,
+        np.asarray(slot.state_eci_m_mps, dtype=float),
+        force_config=config,
     )
+    propagator.propagate_to(end_epoch)
+    for sample in samples:
+        epoch = datetime_to_epoch(sample.instant)
+        state_eci = np.asarray(propagator.state_eci(epoch), dtype=float)
+        state_ecef = np.asarray(propagator.state_ecef(epoch), dtype=float)
+        for target_index, target in enumerate(targets):
+            if _observation_geometry_ok(case, target, state_eci, state_ecef, epoch):
+                visible.add((sample.index, slot_index, target_index))
+
+    return tuple(sorted(visible))
 
 
 def visibility_to_sparse_records(matrix: VisibilityMatrix) -> dict[str, object]:
@@ -119,6 +152,7 @@ def visibility_to_sparse_records(matrix: VisibilityMatrix) -> dict[str, object]:
         "shape": list(matrix.shape),
         "visible_count": matrix.visible_count,
         "density": matrix.density,
+        "execution": matrix.execution,
         "entries": [
             {"time_index": t, "slot_index": j, "target_index": p}
             for t, j, p in sorted(matrix.visible)
@@ -133,4 +167,3 @@ def target_visibility_counts(
     for _, _, target_index in matrix.visible:
         counts[targets[target_index].target_id] += 1
     return counts
-

@@ -84,6 +84,7 @@ class SolverConfig:
     raan_count: int = 4
     phase_count: int = 2
     max_slots: int = 16
+    geometry_worker_count: int = 1
     write_visibility_matrix: bool = True
     design_mode: str = "mmrt"
     design_backend: str = "auto"
@@ -343,6 +344,9 @@ def load_solver_config(config_dir: str | Path | None) -> SolverConfig:
         raan_count=int(payload.get("raan_count", SolverConfig.raan_count)),
         phase_count=int(payload.get("phase_count", SolverConfig.phase_count)),
         max_slots=int(payload.get("max_slots", SolverConfig.max_slots)),
+        geometry_worker_count=int(
+            payload.get("geometry_worker_count", SolverConfig.geometry_worker_count)
+        ),
         write_visibility_matrix=bool(
             payload.get("write_visibility_matrix", SolverConfig.write_visibility_matrix)
         ),
@@ -471,6 +475,8 @@ def load_solver_config(config_dir: str | Path | None) -> SolverConfig:
         raise ValueError("raan_count and phase_count must be positive")
     if config.max_slots <= 0:
         raise ValueError("max_slots must be positive")
+    if config.geometry_worker_count <= 0:
+        raise ValueError("geometry_worker_count must be positive")
     if not config.inclination_deg:
         raise ValueError("at least one inclination is required")
     if config.design_mode not in {"mmrt", "mart", "threshold_first", "hybrid"}:

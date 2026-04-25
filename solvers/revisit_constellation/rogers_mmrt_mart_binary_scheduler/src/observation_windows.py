@@ -2,8 +2,8 @@
 
 from __future__ import annotations
 
-from collections import defaultdict
-from dataclasses import dataclass, replace
+from concurrent.futures import ProcessPoolExecutor
+from dataclasses import dataclass, field, replace
 from datetime import datetime, timedelta
 import math
 
@@ -64,6 +64,7 @@ class WindowEnumerationResult:
     conflict_edge_count: int
     capped: bool
     caps: dict[str, int | float | bool]
+    execution: dict[str, object] = field(default_factory=dict)
 
     def to_summary(self) -> dict[str, object]:
         return {
@@ -76,6 +77,7 @@ class WindowEnumerationResult:
             "conflict_edge_count": self.conflict_edge_count,
             "capped": self.capped,
             "caps": self.caps,
+            "execution": self.execution,
         }
 
 
@@ -226,73 +228,35 @@ def enumerate_observation_windows(
     slots: tuple[OrbitSlot, ...],
     design_result: DesignResult,
 ) -> WindowEnumerationResult:
-    ensure_brahe_ready()
-    start_epoch = datetime_to_epoch(case.horizon_start)
-    end_epoch = datetime_to_epoch(case.horizon_end)
-    force_config = force_model_config()
-    windows: list[ObservationWindow] = []
-    pair_counts: defaultdict[str, int] = defaultdict(int)
-    capped = False
-
-    for satellite_number, slot_index in enumerate(design_result.selected_slot_indices, start=1):
-        slot = slots[slot_index]
-        satellite_id = f"sat_{satellite_number:03d}"
-        propagator = brahe.NumericalOrbitPropagator.from_eci(
-            start_epoch,
-            np.asarray(slot.state_eci_m_mps, dtype=float),
-            force_config=force_config,
+    worker_count = config.geometry_worker_count
+    if worker_count <= 0:
+        raise ValueError("geometry_worker_count must be positive")
+    tasks = tuple(
+        (case, config, slots[slot_index], slot_index, satellite_number)
+        for satellite_number, slot_index in enumerate(
+            design_result.selected_slot_indices, start=1
         )
-        propagator.propagate_to(end_epoch)
-        for target_index, target in enumerate(case.targets):
-            starts = _candidate_start_times(
-                case.horizon_start,
-                case.horizon_end,
-                target.min_duration_sec,
-                config.window_stride_sec,
-            )
-            pair_key = f"{satellite_id}|{target.target_id}"
-            for start in starts:
-                if len(windows) >= config.max_observation_windows:
-                    capped = True
-                    break
-                if pair_counts[pair_key] >= config.max_windows_per_satellite_target:
-                    capped = True
-                    break
-                end = start + timedelta(seconds=target.min_duration_sec)
-                if not window_geometry_ok(
-                    case,
-                    target,
-                    propagator,
-                    start,
-                    end,
-                    config.window_geometry_sample_step_sec,
-                ):
-                    continue
-                midpoint = start + ((end - start) / 2)
-                max_reduction, mean_reduction = _neutral_gap_reduction_hours(case, midpoint)
-                windows.append(
-                    ObservationWindow(
-                        window_id=_window_id(satellite_id, target.target_id, start),
-                        satellite_id=satellite_id,
-                        slot_id=slot.slot_id,
-                        slot_index=slot_index,
-                        target_id=target.target_id,
-                        target_index=target_index,
-                        start=start,
-                        end=end,
-                        midpoint=midpoint,
-                        duration_sec=target.min_duration_sec,
-                        estimated_max_gap_reduction_hours=max_reduction,
-                        estimated_mean_gap_reduction_hours=mean_reduction,
-                    )
-                )
-                pair_counts[pair_key] += 1
-            if len(windows) >= config.max_observation_windows:
-                break
-        if len(windows) >= config.max_observation_windows:
-            break
+    )
+    task_count = len(tasks)
+    actual_workers = min(worker_count, task_count) if task_count else 1
+    parallel = worker_count > 1 and task_count > 1
+    if parallel:
+        with ProcessPoolExecutor(max_workers=actual_workers) as executor:
+            pair_results = tuple(executor.map(_windows_for_satellite, tasks))
+    else:
+        pair_results = tuple(_windows_for_satellite(task) for task in tasks)
 
+    windows = [
+        window
+        for pair_windows, _pair_capped in pair_results
+        for window in pair_windows
+    ]
     windows.sort(key=lambda item: (item.start, item.satellite_id, item.target_id, item.window_id))
+    pair_capped = any(capped for _pair_windows, capped in pair_results)
+    global_capped = len(windows) > config.max_observation_windows
+    if global_capped:
+        windows = windows[: config.max_observation_windows]
+    capped = pair_capped or global_capped
     windows_with_conflicts, edge_count = _with_conflicts(tuple(windows))
 
     by_satellite: dict[str, int] = {
@@ -307,6 +271,12 @@ def enumerate_observation_windows(
         pair_key = f"{window.satellite_id}|{window.target_id}"
         by_pair[pair_key] = by_pair.get(pair_key, 0) + 1
 
+    execution = {
+        "mode": "parallel" if parallel else "serial",
+        "configured_worker_count": worker_count,
+        "actual_worker_count": actual_workers if parallel else 1,
+        "task_count": task_count,
+    }
     return WindowEnumerationResult(
         windows=windows_with_conflicts,
         candidate_count_by_satellite=dict(sorted(by_satellite.items())),
@@ -326,6 +296,75 @@ def enumerate_observation_windows(
             "max_observation_windows": config.max_observation_windows,
             "max_windows_per_satellite_target": config.max_windows_per_satellite_target,
             "write_observation_windows": config.write_observation_windows,
+            "geometry_worker_count": config.geometry_worker_count,
         },
+        execution=execution,
     )
 
+
+def _windows_for_satellite(
+    task: tuple[
+        RevisitCase,
+        SolverConfig,
+        OrbitSlot,
+        int,
+        int,
+    ],
+) -> tuple[tuple[ObservationWindow, ...], bool]:
+    case, config, slot, slot_index, satellite_number = task
+    ensure_brahe_ready()
+    start_epoch = datetime_to_epoch(case.horizon_start)
+    end_epoch = datetime_to_epoch(case.horizon_end)
+    force_config = force_model_config()
+    windows: list[ObservationWindow] = []
+    capped = False
+    satellite_id = f"sat_{satellite_number:03d}"
+    propagator = brahe.NumericalOrbitPropagator.from_eci(
+        start_epoch,
+        np.asarray(slot.state_eci_m_mps, dtype=float),
+        force_config=force_config,
+    )
+    propagator.propagate_to(end_epoch)
+    for target_index, target in enumerate(case.targets):
+        pair_count = 0
+        starts = _candidate_start_times(
+            case.horizon_start,
+            case.horizon_end,
+            target.min_duration_sec,
+            config.window_stride_sec,
+        )
+        for start in starts:
+            if pair_count >= config.max_windows_per_satellite_target:
+                capped = True
+                break
+            end = start + timedelta(seconds=target.min_duration_sec)
+            if not window_geometry_ok(
+                case,
+                target,
+                propagator,
+                start,
+                end,
+                config.window_geometry_sample_step_sec,
+            ):
+                continue
+            midpoint = start + ((end - start) / 2)
+            max_reduction, mean_reduction = _neutral_gap_reduction_hours(case, midpoint)
+            windows.append(
+                ObservationWindow(
+                    window_id=_window_id(satellite_id, target.target_id, start),
+                    satellite_id=satellite_id,
+                    slot_id=slot.slot_id,
+                    slot_index=slot_index,
+                    target_id=target.target_id,
+                    target_index=target_index,
+                    start=start,
+                    end=end,
+                    midpoint=midpoint,
+                    duration_sec=target.min_duration_sec,
+                    estimated_max_gap_reduction_hours=max_reduction,
+                    estimated_mean_gap_reduction_hours=mean_reduction,
+                )
+            )
+            pair_count += 1
+
+    return tuple(sorted(windows, key=lambda item: (item.start, item.satellite_id, item.target_id, item.window_id))), capped
