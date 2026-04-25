@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from datetime import timedelta
 from pathlib import Path
 import sys
 
@@ -34,6 +35,13 @@ from solvers.relay_constellation.umcf_srr_contact_plan.src.srr import (
     heuristic_probabilities,
     sequential_rounding,
     run_srr_oracle,
+)
+from solvers.relay_constellation.umcf_srr_contact_plan.src.action_generation import (
+    LinkAction,
+    actions_to_json,
+    compact_actions,
+    extract_edge_samples,
+    repair_degree_caps,
 )
 
 
@@ -128,6 +136,39 @@ def _graph_with_intermediate_endpoint() -> SampleGraph:
     g.add_edge(GraphEdge("ground_link", "ep2", "sat2", 1000.0))
     g.add_edge(GraphEdge("ground_link", "sat2", "ep3", 1000.0))
     return g
+
+
+def _make_instance(
+    sample_index: int,
+    commodities: list[Commodity],
+    adjacency: dict[str, list[tuple[str, float]]],
+) -> UMCFInstance:
+    edge_capacity: dict[tuple[str, str], int] = {}
+    seen: set[tuple[str, str]] = set()
+    for node, neighbors in adjacency.items():
+        for neighbor, _ in neighbors:
+            canonical = (node, neighbor) if node < neighbor else (neighbor, node)
+            if canonical not in seen:
+                seen.add(canonical)
+                edge_capacity[canonical] = 1
+
+    all_nodes = set(adjacency)
+    endpoint_ids = {node for node in all_nodes if node.startswith("ep")}
+    satellite_ids = all_nodes - endpoint_ids
+    node_capacity = {
+        node: 2 if node in endpoint_ids else 4
+        for node in all_nodes
+    }
+
+    return UMCFInstance(
+        sample_index=sample_index,
+        commodities=commodities,
+        adjacency=adjacency,
+        edge_capacity=edge_capacity,
+        node_capacity=node_capacity,
+        endpoint_ids=endpoint_ids,
+        satellite_ids=satellite_ids,
+    )
 
 
 class TestUMCFConstruction:
@@ -268,6 +309,123 @@ class TestSequentialRounding:
         assert len(assignments) == 1
         assert "d1" in assignments
 
+    def test_satellite_node_capacity_blocks_edge_disjoint_path(self) -> None:
+        """A shared satellite degree cap should block otherwise edge-disjoint paths."""
+        inst = UMCFInstance(
+            sample_index=0,
+            commodities=[
+                Commodity("d_low", "ep3", "ep4", 5.0),
+                Commodity("d_high", "ep1", "ep2", 10.0),
+            ],
+            adjacency={
+                "ep1": [("sat1", 100.0)],
+                "ep2": [("sat1", 100.0)],
+                "ep3": [("sat1", 100.0)],
+                "ep4": [("sat1", 100.0)],
+                "sat1": [
+                    ("ep1", 100.0), ("ep2", 100.0),
+                    ("ep3", 100.0), ("ep4", 100.0),
+                ],
+            },
+            edge_capacity={
+                ("ep1", "sat1"): 1,
+                ("ep2", "sat1"): 1,
+                ("ep3", "sat1"): 1,
+                ("ep4", "sat1"): 1,
+            },
+            node_capacity={
+                "ep1": 1, "ep2": 1, "ep3": 1, "ep4": 1,
+                "sat1": 2,
+            },
+            endpoint_ids={"ep1", "ep2", "ep3", "ep4"},
+            satellite_ids={"sat1"},
+        )
+
+        config = SRRConfig(deterministic=True, k_paths=4)
+        import random
+
+        assignments, timing = sequential_rounding(inst, None, config, random.Random(42))
+        assert set(assignments) == {"d_high"}
+        diagnostics = timing["diagnostics"]
+        assert diagnostics["paths_rejected_node_capacity"] == 1
+        assert diagnostics["commodities_dropped_node_capacity"] == 1
+
+    def test_endpoint_node_capacity_blocks_edge_disjoint_path(self) -> None:
+        """A shared endpoint degree cap should be consumed inside rounding."""
+        inst = UMCFInstance(
+            sample_index=0,
+            commodities=[
+                Commodity("d1", "ep1", "ep2", 10.0),
+                Commodity("d2", "ep1", "ep3", 5.0),
+            ],
+            adjacency={
+                "ep1": [("sat1", 100.0), ("sat2", 100.0)],
+                "ep2": [("sat1", 100.0)],
+                "ep3": [("sat2", 100.0)],
+                "sat1": [("ep1", 100.0), ("ep2", 100.0)],
+                "sat2": [("ep1", 100.0), ("ep3", 100.0)],
+            },
+            edge_capacity={
+                ("ep1", "sat1"): 1,
+                ("ep2", "sat1"): 1,
+                ("ep1", "sat2"): 1,
+                ("ep3", "sat2"): 1,
+            },
+            node_capacity={
+                "ep1": 1, "ep2": 1, "ep3": 1,
+                "sat1": 2, "sat2": 2,
+            },
+            endpoint_ids={"ep1", "ep2", "ep3"},
+            satellite_ids={"sat1", "sat2"},
+        )
+
+        config = SRRConfig(deterministic=True, k_paths=4)
+        import random
+
+        assignments, timing = sequential_rounding(inst, None, config, random.Random(42))
+        assert set(assignments) == {"d1"}
+        diagnostics = timing["diagnostics"]
+        assert diagnostics["paths_rejected_node_capacity"] == 1
+        assert diagnostics["commodities_dropped_node_capacity"] == 1
+
+    def test_higher_weight_wins_node_capacity_conflict(self) -> None:
+        """Commodity weight should dominate demand-id order when node capacity is scarce."""
+        inst = UMCFInstance(
+            sample_index=0,
+            commodities=[
+                Commodity("a_low", "ep3", "ep4", 1.0),
+                Commodity("z_high", "ep1", "ep2", 10.0),
+            ],
+            adjacency={
+                "ep1": [("sat1", 100.0)],
+                "ep2": [("sat1", 100.0)],
+                "ep3": [("sat1", 100.0)],
+                "ep4": [("sat1", 100.0)],
+                "sat1": [
+                    ("ep1", 100.0), ("ep2", 100.0),
+                    ("ep3", 100.0), ("ep4", 100.0),
+                ],
+            },
+            edge_capacity={
+                ("ep1", "sat1"): 1,
+                ("ep2", "sat1"): 1,
+                ("ep3", "sat1"): 1,
+                ("ep4", "sat1"): 1,
+            },
+            node_capacity={
+                "ep1": 1, "ep2": 1, "ep3": 1, "ep4": 1,
+                "sat1": 2,
+            },
+            endpoint_ids={"ep1", "ep2", "ep3", "ep4"},
+            satellite_ids={"sat1"},
+        )
+
+        config = SRRConfig(deterministic=True, k_paths=4)
+        import random
+
+        assignments, _ = sequential_rounding(inst, None, config, random.Random(42))
+        assert set(assignments) == {"z_high"}
+
     def test_deterministic_mode(self) -> None:
         graph = _graph_triangle()
         adj = {}
@@ -377,3 +535,193 @@ class TestSequentialRounding:
         config = SRRConfig(deterministic=True, multi_run_count=0)
         with pytest.raises(ValueError):
             run_srr_oracle(instances, config)
+
+    def test_run_srr_oracle_exposes_rounding_diagnostics(self) -> None:
+        inst = UMCFInstance(
+            sample_index=0,
+            commodities=[
+                Commodity("d1", "ep1", "ep2", 10.0),
+                Commodity("d2", "ep1", "ep3", 5.0),
+            ],
+            adjacency={
+                "ep1": [("sat1", 100.0), ("sat2", 100.0)],
+                "ep2": [("sat1", 100.0)],
+                "ep3": [("sat2", 100.0)],
+                "sat1": [("ep1", 100.0), ("ep2", 100.0)],
+                "sat2": [("ep1", 100.0), ("ep3", 100.0)],
+            },
+            edge_capacity={
+                ("ep1", "sat1"): 1,
+                ("ep2", "sat1"): 1,
+                ("ep1", "sat2"): 1,
+                ("ep3", "sat2"): 1,
+            },
+            node_capacity={
+                "ep1": 1, "ep2": 1, "ep3": 1,
+                "sat1": 2, "sat2": 2,
+            },
+            endpoint_ids={"ep1", "ep2", "ep3"},
+            satellite_ids={"sat1", "sat2"},
+        )
+
+        result = run_srr_oracle([inst], SRRConfig(deterministic=True, k_paths=4))
+        assert result.rounding_diagnostics["paths_rejected_node_capacity"] == 1
+        assert result.rounding_diagnostics["commodities_dropped_node_capacity"] == 1
+
+
+class TestActionGeneration:
+    def test_extract_edge_samples_basic(self) -> None:
+        inst = _make_instance(
+            0,
+            [Commodity("d1", "ep1", "ep2", 1.0)],
+            {
+                "ep1": [("sat1", 100.0)],
+                "sat1": [("ep1", 100.0), ("ep2", 100.0)],
+                "ep2": [("sat1", 100.0)],
+            },
+        )
+        assignments = [
+            {
+                "d1": SRRPath(
+                    ("ep1", "sat1", "ep2"),
+                    (("ep1", "sat1"), ("ep2", "sat1")),
+                    200.0,
+                    2,
+                )
+            }
+        ]
+
+        edge_samples = extract_edge_samples([inst], assignments)
+
+        assert edge_samples == {
+            ("ep1", "sat1"): {0},
+            ("ep2", "sat1"): {0},
+        }
+
+    def test_repair_no_op_when_srr_consumes_node_caps(self) -> None:
+        inst = _make_instance(
+            0,
+            [
+                Commodity("d1", "ep1", "ep2", 10.0),
+                Commodity("d2", "ep1", "ep3", 5.0),
+            ],
+            {
+                "ep1": [("sat1", 100.0), ("sat2", 100.0)],
+                "ep2": [("sat1", 100.0)],
+                "ep3": [("sat2", 100.0)],
+                "sat1": [("ep1", 100.0), ("ep2", 100.0)],
+                "sat2": [("ep1", 100.0), ("ep3", 100.0)],
+            },
+        )
+        inst.node_capacity["ep1"] = 1
+
+        import random
+
+        assignments, _ = sequential_rounding(
+            inst,
+            None,
+            SRRConfig(deterministic=True, k_paths=4),
+            random.Random(42),
+        )
+        edge_samples = extract_edge_samples([inst], [assignments])
+        repaired, summary = repair_degree_caps(
+            edge_samples,
+            [inst],
+            [assignments],
+            max_links_per_satellite=4,
+            max_links_per_endpoint=1,
+            endpoint_ids={"ep1", "ep2", "ep3"},
+        )
+
+        assert summary["total_dropped_edges"] == 0
+        assert repaired == edge_samples
+
+    def test_repair_drops_lowest_importance_first(self) -> None:
+        inst = _make_instance(
+            0,
+            [
+                Commodity("d1", "ep1", "ep2", 10.0),
+                Commodity("d2", "ep3", "ep4", 5.0),
+                Commodity("d3", "ep5", "ep6", 1.0),
+            ],
+            {
+                "ep1": [("sat1", 100.0)],
+                "ep2": [("sat1", 100.0)],
+                "ep3": [("sat1", 100.0)],
+                "ep4": [("sat1", 100.0)],
+                "ep5": [("sat1", 100.0)],
+                "ep6": [("sat1", 100.0)],
+                "sat1": [
+                    ("ep1", 100.0),
+                    ("ep2", 100.0),
+                    ("ep3", 100.0),
+                    ("ep4", 100.0),
+                    ("ep5", 100.0),
+                    ("ep6", 100.0),
+                ],
+            },
+        )
+        assignments = [
+            {
+                "d1": SRRPath(("ep1", "sat1", "ep2"), (("ep1", "sat1"), ("ep2", "sat1")), 200.0, 2),
+                "d2": SRRPath(("ep3", "sat1", "ep4"), (("ep3", "sat1"), ("ep4", "sat1")), 200.0, 2),
+                "d3": SRRPath(("ep5", "sat1", "ep6"), (("ep5", "sat1"), ("ep6", "sat1")), 200.0, 2),
+            }
+        ]
+
+        edge_samples = extract_edge_samples([inst], assignments)
+        repaired, summary = repair_degree_caps(
+            edge_samples,
+            [inst],
+            assignments,
+            max_links_per_satellite=4,
+            max_links_per_endpoint=2,
+            endpoint_ids={"ep1", "ep2", "ep3", "ep4", "ep5", "ep6"},
+        )
+
+        assert summary["total_dropped_edges"] == 2
+        assert sum(1 for edge in repaired if "sat1" in edge) == 4
+        assert ("ep5", "sat1") not in repaired or 0 not in repaired[("ep5", "sat1")]
+        assert ("ep6", "sat1") not in repaired or 0 not in repaired[("ep6", "sat1")]
+
+    def test_compact_actions_merges_consecutive_samples(self) -> None:
+        manifest = _make_manifest()
+        edge_samples = {
+            ("ep1", "sat1"): {0, 1, 2, 4},
+        }
+
+        actions, summary = compact_actions(edge_samples, {"ep1"}, manifest)
+
+        assert summary["num_actions"] == 2
+        assert actions[0].start_time == manifest.horizon_start
+        assert actions[0].end_time == manifest.horizon_start + timedelta(hours=3)
+        assert actions[1].start_time == manifest.horizon_start + timedelta(hours=4)
+        assert actions[1].end_time == manifest.horizon_start + timedelta(hours=5)
+
+    def test_actions_to_json_ground_and_isl_schema(self) -> None:
+        manifest = _make_manifest()
+        ground = LinkAction(
+            action_type="ground_link",
+            start_time=manifest.horizon_start,
+            end_time=manifest.horizon_start + timedelta(seconds=manifest.routing_step_s),
+            endpoint_id="ep1",
+            satellite_id="sat1",
+        )
+        isl = LinkAction(
+            action_type="inter_satellite_link",
+            start_time=manifest.horizon_start,
+            end_time=manifest.horizon_start + timedelta(seconds=manifest.routing_step_s),
+            satellite_id_1="sat1",
+            satellite_id_2="sat2",
+        )
+
+        payload = actions_to_json([isl, ground])
+
+        assert payload[0]["action_type"] == "ground_link"
+        assert payload[0]["endpoint_id"] == "ep1"
+        assert payload[0]["satellite_id"] == "sat1"
+        assert "satellite_id_1" not in payload[0]
+        assert payload[1]["action_type"] == "inter_satellite_link"
+        assert payload[1]["satellite_id_1"] == "sat1"
+        assert payload[1]["satellite_id_2"] == "sat2"
+        assert "endpoint_id" not in payload[1]

@@ -46,6 +46,7 @@ class SRRResult:
     deterministic: bool
     execution_time_s: float
     timing_breakdown: dict[str, float] = field(default_factory=dict)
+    rounding_diagnostics: dict[str, int] = field(default_factory=dict)
 
 
 def _canonical_edge(a: str, b: str) -> tuple[str, str]:
@@ -220,28 +221,38 @@ def heuristic_probabilities(
     return [w / total for w in weights]
 
 
+def path_node_usage(path: Path) -> dict[str, int]:
+    """Return per-node degree consumed by a selected path."""
+    usage: dict[str, int] = {}
+    for a, b in path.edges:
+        usage[a] = usage.get(a, 0) + 1
+        usage[b] = usage.get(b, 0) + 1
+    return usage
+
+
 def sequential_rounding(
     instance: UMCFInstance,
     prev_assignments: dict[str, Path] | None,
     config: SRRConfig,
     rng: random.Random,
-) -> tuple[dict[str, Path], dict[str, float]]:
+) -> tuple[dict[str, Path], dict[str, Any]]:
     """Fix one path per commodity using SRR-style sequential rounding.
 
     Commodities are processed in decreasing weight order.  Edge capacities
-    are updated after each fixation.  Node capacities in the instance are
-    present but not consumed in this implementation (they are reserved for
-    future action-generation stages where degree caps must be respected at
-    the action level).
+    and node degree capacities are updated after each fixation.  Node
+    capacities approximate the benchmark's per-sample endpoint and satellite
+    link caps inside the oracle; action-generation repair remains a final
+    validity backstop.
 
     Returns (assignments, timing) where timing contains ``path_generation_s``
-    and ``rounding_s``.
+    and ``rounding_s`` plus a nested ``diagnostics`` mapping.
     """
     if prev_assignments is None:
         prev_assignments = {}
 
-    # Working copy of edge capacities
+    # Working copies of per-sample capacities.
     edge_cap: dict[tuple[str, str], int] = dict(instance.edge_capacity)
+    node_cap: dict[str, int] = dict(instance.node_capacity)
 
     # Sort commodities by decreasing weight, then deterministic id tie-break
     commodities = sorted(
@@ -252,6 +263,14 @@ def sequential_rounding(
     assignments: dict[str, Path] = {}
     t_path = 0.0
     t_round = 0.0
+    diagnostics = {
+        "paths_rejected_edge_capacity": 0,
+        "paths_rejected_node_capacity": 0,
+        "commodities_dropped_no_paths": 0,
+        "commodities_dropped_edge_capacity": 0,
+        "commodities_dropped_node_capacity": 0,
+        "commodities_dropped_mixed_capacity": 0,
+    }
 
     for commodity in commodities:
         t0 = time.perf_counter()
@@ -266,21 +285,43 @@ def sequential_rounding(
         t_path += time.perf_counter() - t0
 
         if not paths:
+            diagnostics["commodities_dropped_no_paths"] += 1
             continue
 
         t0 = time.perf_counter()
-        # Filter to paths with available edge capacity on every edge
+        # Filter to paths with available edge and node capacity.
         feasible: list[Path] = []
+        rejected_by_edge = False
+        rejected_by_node = False
         for p in paths:
-            ok = True
+            edge_ok = True
             for e in p.edges:
                 if edge_cap.get(e, 0) < 1:
-                    ok = False
+                    edge_ok = False
                     break
-            if ok:
+            node_usage = path_node_usage(p)
+            node_ok = all(
+                node_cap.get(node, 0) >= demand
+                for node, demand in node_usage.items()
+            )
+
+            if edge_ok and node_ok:
                 feasible.append(p)
+            else:
+                if not edge_ok:
+                    diagnostics["paths_rejected_edge_capacity"] += 1
+                    rejected_by_edge = True
+                if not node_ok:
+                    diagnostics["paths_rejected_node_capacity"] += 1
+                    rejected_by_node = True
 
         if not feasible:
+            if rejected_by_edge and rejected_by_node:
+                diagnostics["commodities_dropped_mixed_capacity"] += 1
+            elif rejected_by_edge:
+                diagnostics["commodities_dropped_edge_capacity"] += 1
+            elif rejected_by_node:
+                diagnostics["commodities_dropped_node_capacity"] += 1
             t_round += time.perf_counter() - t0
             continue
 
@@ -303,9 +344,15 @@ def sequential_rounding(
         assignments[commodity.demand_id] = chosen
         for e in chosen.edges:
             edge_cap[e] = edge_cap.get(e, 0) - 1
+        for node, demand in path_node_usage(chosen).items():
+            node_cap[node] = node_cap.get(node, 0) - demand
         t_round += time.perf_counter() - t0
 
-    return assignments, {"path_generation_s": t_path, "rounding_s": t_round}
+    return assignments, {
+        "path_generation_s": t_path,
+        "rounding_s": t_round,
+        "diagnostics": diagnostics,
+    }
 
 
 def run_srr_oracle(
@@ -330,6 +377,7 @@ def run_srr_oracle(
     best_path_changes = 0
     best_served_weight = -1.0
     best_seed = config.seed
+    best_diagnostics: dict[str, int] = {}
 
     base_seed = config.seed if config.seed is not None else 0
 
@@ -344,11 +392,21 @@ def run_srr_oracle(
         total_served_weight = 0.0
         run_path_time = 0.0
         run_round_time = 0.0
+        run_diagnostics = {
+            "paths_rejected_edge_capacity": 0,
+            "paths_rejected_node_capacity": 0,
+            "commodities_dropped_no_paths": 0,
+            "commodities_dropped_edge_capacity": 0,
+            "commodities_dropped_node_capacity": 0,
+            "commodities_dropped_mixed_capacity": 0,
+        }
 
         for instance in umcf_instances:
             assignments, timing = sequential_rounding(instance, prev, config, rng)
             run_path_time += timing["path_generation_s"]
             run_round_time += timing["rounding_s"]
+            for key, value in timing.get("diagnostics", {}).items():
+                run_diagnostics[key] = run_diagnostics.get(key, 0) + int(value)
 
             # Compute dropped commodities and served weight
             assigned_ids = set(assignments.keys())
@@ -384,6 +442,7 @@ def run_srr_oracle(
             best_dropped = dropped_by_sample
             best_path_changes = path_changes
             best_seed = seed
+            best_diagnostics = run_diagnostics
 
     total_time = time.perf_counter() - t0
 
@@ -401,4 +460,5 @@ def run_srr_oracle(
             "path_generation_s": round(path_gen_time, 6),
             "rounding_s": round(rounding_time, 6),
         },
+        rounding_diagnostics=best_diagnostics,
     )

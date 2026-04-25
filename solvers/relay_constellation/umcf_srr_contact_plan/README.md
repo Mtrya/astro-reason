@@ -43,7 +43,7 @@ This reproduction keeps the core UMCF/SRR structure and adapts it to `relay_cons
 - A greedy marginal selection step chooses which candidates to add.
 - For each routing-sample instant, it builds a dynamic communication graph from propagated positions.
 - An internal UMCF instance is formed from active demands and feasible paths.
-- The SRR heuristic assigns one path per commodity, tracking unit edge capacities.
+- The SRR heuristic assigns one path per commodity, tracking unit edge capacities and benchmark-adapted node degree capacities.
 - Paths are converted into interval-based link actions, repaired for degree caps, and compacted.
 
 ## Benchmark Adaptation
@@ -54,7 +54,7 @@ The benchmark differs from the papers in several important ways:
 - **Unit edge capacities**: The verifier allocates routes under unit-capacity edge usage (edge-disjoint). The solver's internal oracle uses the same unit-capacity model, so capacity reasoning is aligned, but the verifier's deterministic shortest-path allocation may choose different paths than SRR's randomized rounding.
 - **Per-sample graphs, not per-block**: The Lamothe paper optimizes over sequences of time steps (blocks) with path-change penalties aggregated across blocks. The benchmark evaluates each sample independently, so the solver applies path-change penalties per-sample instead. This is a necessary adaptation because the benchmark's validity and scoring are per-sample.
 - **Added satellites, not fixed constellations**: The papers assume a known fixed constellation. The benchmark provides a MEO backbone and asks the solver to augment it with LEO relays. The solver therefore adds a candidate-generation and candidate-selection stage that does not exist in the literature.
-- **Node-degree caps are action-level constraints**: The papers model arc capacities. The benchmark also enforces per-sample limits on how many links a satellite or endpoint may maintain. These degree caps are enforced by a post-hoc repair step, not modeled as node capacities inside the oracle.
+- **Node-degree caps are benchmark constraints**: The papers model arc capacities. The benchmark also enforces per-sample limits on how many links a satellite or endpoint may maintain. The solver adapts these as per-sample node capacities inside the SRR oracle, while retaining post-hoc repair as a defensive validity backstop.
 
 ## Solver Contract
 
@@ -82,9 +82,9 @@ The solver pipeline is:
 3. **Propagate and build graphs** — Propagate all satellites (backbone + candidates) to routing-sample epochs using `brahe.NumericalOrbitPropagator`. Build per-sample communication graphs from ISL range, Earth occlusion, and ground-elevation geometry.
 4. **Select candidates** — Evaluate each candidate's marginal contribution to demand connectivity using a Union-Find reachability proxy on a strided subset of samples. Select greedily up to the manifest limit.
 5. **Rebuild graphs** — Rebuild per-sample graphs using only the selected satellites so that routing does not traverse unselected candidates.
-6. **Build UMCF instances** — For each sample, enumerate k-shortest simple paths per commodity and build a UMCF instance with unit edge capacities.
-7. **Run SRR oracle** — For each sample, sort commodities by decreasing demand weight, assign paths via sequential randomized rounding (or deterministic highest-probability selection), and track remaining edge capacities.
-8. **Generate actions** — Extract edges from assigned paths, filter ground links against exact verifier elevation geometry, repair per-sample degree caps, compact consecutive samples into interval actions, and emit the benchmark JSON schema.
+6. **Build UMCF instances** — For each sample, enumerate k-shortest simple paths per commodity and build a UMCF instance with unit edge capacities plus endpoint/satellite node degree capacities.
+7. **Run SRR oracle** — For each sample, sort commodities by decreasing demand weight, assign paths via sequential randomized rounding (or deterministic highest-probability selection), and track remaining edge and node capacities.
+8. **Generate actions** — Extract edges from assigned paths, filter ground links against exact verifier elevation geometry, defensively repair any remaining per-sample degree-cap violations, compact consecutive samples into interval actions, and emit the benchmark JSON schema.
 
 ## Dependency And Backend Choices
 
@@ -123,7 +123,7 @@ Written to `<solution_dir>/debug/`:
 - `selected_candidates.json` — Candidate selection scores, policy, and per-iteration marginal contributions.
 - `routed_potential_summary.json` — Full candidate selection debug.
 - `umcf_instances.json` — Summary of UMCF instances per sample (commodities, edges, nodes).
-- `srr_summary.json` — Served/dropped commodities, path changes, seed, timing, and approximation disclosure.
+- `srr_summary.json` — Served/dropped commodities, path changes, seed, timing, node/edge capacity rejection counters, and approximation disclosure.
 - `rounded_paths.json` — Per-sample, per-demand path chosen by SRR.
 - `active_link_summary.json` — Edge counts before and after degree-cap repair for each sample.
 - `action_summary.json` — Repair and compaction statistics.
@@ -198,7 +198,7 @@ If service fraction looks unexpectedly low, inspect:
 
 - This is a reproduction of the paper's method family, not a claim to reproduce every runtime or every table from the papers.
 - No LP relaxation is used. Heuristic uniform probabilities replace the fractional flow optimization that drives the SRR heuristic in the literature. An LP backend would be the single largest improvement to reproduction fidelity.
-- Node-degree caps (`max_links_per_satellite`, `max_links_per_endpoint`) are enforced by post-hoc repair, not modeled as node capacities inside the oracle. The oracle may select paths that violate caps, relying on repair to drop edges afterward.
+- Node-degree caps (`max_links_per_satellite`, `max_links_per_endpoint`) are modeled inside the oracle as per-sample node capacities, but this remains a benchmark adaptation rather than a direct paper component. Post-hoc repair is retained as a final validity backstop.
 - The solver processes each sample independently. The Lamothe paper's path-sequence and block-based formulations, which optimize over sequences of time steps, are not implemented.
 - Column generation and the associated pricing schemes are not implemented.
 - The k-nearest first/last hop restriction studied in Grislain is not implemented.
@@ -220,8 +220,9 @@ The following table maps paper components to their status in this solver. `IMPLE
 - **UMCF commodities and capacities**: ADAPTED — Commodities derived from benchmark demand windows. Edge capacities fixed to 1 (unit edge-disjoint), matching verifier allocation rather than flow-based capacities from the paper.
 - **Unsplittable one-path-per-commodity constraint**: IMPLEMENTED — SRR assigns exactly one path per commodity per sample.
 - **LP relaxation for fractional flows**: MISSING — No LP solver is used. Heuristic uniform probabilities plus path-change boost replace LP-derived fractional flows. This is the largest gap.
-- **SRR sequential rounding control flow**: IMPLEMENTED — Commodities processed in decreasing-weight order with edge-capacity updates.
+- **SRR sequential rounding control flow**: IMPLEMENTED — Commodities processed in decreasing-weight order with edge-capacity updates plus benchmark-adapted node degree-cap updates.
 - **Randomized rounding from LP solution**: ADAPTED — Probabilities are heuristic (uniform base plus exponential boost for the previous path) instead of sampled from LP relaxation values.
+- **Node-degree cap modeling**: ADAPTED — Benchmark endpoint and satellite link limits are consumed as per-sample node capacities during SRR path feasibility and rounding. Post-hoc repair remains as a validity backstop.
 - **k-shortest path restriction**: IMPLEMENTED — k=4 shortest simple paths by hop count then distance.
 - **Dynamic path-change penalty**: ADAPTED — Per-sample boost to the previous path instead of the paper's per-block MILP objective term.
 - **k-nearest first/last hop restriction**: MISSING — Not implemented.
@@ -229,7 +230,7 @@ The following table maps paper components to their status in this solver. `IMPLE
 - **Column generation pricing**: MISSING — No column generation or pricing schemes are used.
 - **Candidate orbit library**: IMPLEMENTED — Deterministic grid generated from manifest constraints. Solver-local addition, not from the papers.
 - **Greedy marginal candidate selection**: IMPLEMENTED — Union-Find reachability proxy. Solver-local heuristic, not from the papers.
-- **Degree-cap repair and interval compaction**: IMPLEMENTED — Post-hoc repair and compaction are benchmark adaptations.
+- **Degree-cap repair and interval compaction**: IMPLEMENTED — Defensive post-hoc repair and compaction are benchmark adaptations.
 
 ## Evidence Type
 

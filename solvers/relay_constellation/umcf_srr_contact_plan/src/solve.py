@@ -172,12 +172,13 @@ def solve(
                 "deterministic": srr_result.deterministic,
                 "execution_time_s": round(srr_result.execution_time_s, 6),
                 "timing_breakdown": srr_result.timing_breakdown,
+                "rounding_diagnostics": srr_result.rounding_diagnostics,
                 "approximation_disclosure": {
                     "lp_relaxation": "MISSING (heuristic probabilities used instead of LP fractional flows)",
                     "path_set_restriction": "IMPLEMENTED (k-shortest simple paths, k=4 default)",
                     "srr_control_flow": "IMPLEMENTED (sequential, demand-sorted, capacity-tracking)",
                     "dynamic_path_change_penalty": "ADAPTED (per-sample instead of per-block)",
-                    "node_degree_modeling": "PARTIAL (approximated as node capacities, not consumed in rounding)",
+                    "node_degree_modeling": "ADAPTED (benchmark degree caps consumed as per-sample node capacities during rounding)",
                 },
             },
             indent=2,
@@ -251,7 +252,7 @@ def solve(
             },
             "srr_sequential_rounding": {
                 "status": "IMPLEMENTED",
-                "note": "Commodities processed in decreasing-weight order. Edge capacities updated after each fixation. Matches Grislain Algorithm 1 lines 1-10.",
+                "note": "Commodities processed in decreasing-weight order. Edge and benchmark-adapted node degree capacities updated after each fixation. Matches Grislain Algorithm 1 lines 1-10 with relay_constellation degree-cap adaptation.",
             },
             "randomized_rounding_from_lp_solution": {
                 "status": "ADAPTED",
@@ -264,6 +265,10 @@ def solve(
             "dynamic_path_change_penalty": {
                 "status": "ADAPTED",
                 "note": "Per-sample boost to previous path (exp(penalty_alpha)) instead of Lamothe per-block MILP objective term P * sum(1 - x_k).",
+            },
+            "node_degree_cap_modeling": {
+                "status": "ADAPTED",
+                "note": "Benchmark max_links_per_satellite and max_links_per_endpoint caps are consumed as per-sample node capacities during SRR path feasibility and rounding. Post-hoc repair remains as a verifier-validity backstop.",
             },
             "k_nearest_first_last_hop": {
                 "status": "MISSING",
@@ -319,7 +324,7 @@ def solve(
             },
         },
         "drift_notes": {
-            "oracle_vs_verifier_service": "Internal SRR serves commodities on per-sample graphs; verifier re-allocates routes from compacted intervals. Drift arises because: (1) verifier uses edge-disjoint shortest-path allocation per sample, not SRR paths; (2) repair drops edges that SRR selected; (3) compaction creates intervals where some interior samples may lack verifier-feasible geometry.",
+            "oracle_vs_verifier_service": "Internal SRR serves commodities on per-sample graphs; verifier re-allocates routes from compacted intervals. Drift arises because: (1) verifier uses edge-disjoint shortest-path allocation per sample, not SRR paths; (2) geometry filtering or defensive repair can still remove selected edges; (3) compaction creates intervals where some interior samples may lack verifier-feasible geometry.",
             "latency_drift": "SRR paths optimize hop count then distance; verifier uses shortest-path by distance. UMCF may prefer longer paths for load balancing, increasing mean latency vs verifier's optimal routing.",
             "action_count_drift": "SRR path changes create many short intervals. Path-change penalty reduces churn but cannot eliminate it because the underlying graph changes dynamically.",
         },
@@ -347,6 +352,7 @@ def solve(
         "srr_dropped_commodities": total_dropped,
         "srr_path_changes": srr_result.path_changes,
         "srr_execution_time_s": round(srr_result.execution_time_s, 6),
+        "srr_rounding_diagnostics": srr_result.rounding_diagnostics,
         "srr_seed": srr_result.seed,
         "srr_deterministic": srr_result.deterministic,
         "num_actions": compaction_summary["num_actions"],
