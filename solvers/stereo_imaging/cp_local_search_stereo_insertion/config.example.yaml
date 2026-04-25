@@ -32,9 +32,13 @@
 # ---------------------------------------------------------------------------
 # Local search
 # ---------------------------------------------------------------------------
-# max_passes: 10                      # Maximum number of local-search passes over the seed
-# max_moves_per_pass: 500             # Move-attempt budget per pass
-# max_time_seconds: 120.0             # Hard time limit for local search
+# run_profile: smoke                  # smoke | benchmark | profile
+#                                      # smoke: deterministic single-run check
+#                                      # benchmark: fair-search 5-run profile, construction reused once
+#                                      # profile: extended 10-run profiling sweep
+# max_passes: 10                      # Override profile max local-search passes
+# max_moves_per_pass: 500             # Override profile move-attempt budget per pass
+# max_time_seconds: 30.0              # Override profile per-run local-search time limit
 # enable_repair: true                 # Enable swap / remove-then-repair fallback moves
 # repair_candidates_limit: 20         # Max candidates to try after removing a product in swap move
 # remove_move_enabled: true           # Enable dedicated remove-then-re-insert moves
@@ -43,7 +47,7 @@
 # ---------------------------------------------------------------------------
 # Multi-run harness
 # ---------------------------------------------------------------------------
-# num_runs: 1                         # Number of independent runs with deterministic perturbation
+# num_runs: 1                         # Override profile number of deterministic-perturbed runs
 # random_seed: 42                     # Base seed for multi-run randomization
 
 # ---------------------------------------------------------------------------

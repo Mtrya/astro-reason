@@ -31,6 +31,62 @@ from solution_io import (
 )
 
 
+def _round_seconds(value: float) -> float:
+    return round(value, 6)
+
+
+def _run_policy_summary(
+    local_search_config: LocalSearchConfig | None,
+    timing_seconds: dict[str, float],
+    multi_run_stats: dict[str, Any] | None,
+) -> dict[str, Any] | None:
+    if local_search_config is None:
+        return None
+
+    construction_seconds = (
+        timing_seconds.get("candidate_generation", 0.0)
+        + timing_seconds.get("product_library", 0.0)
+        + timing_seconds.get("sequence_sanity", 0.0)
+    )
+    search_pipeline_seconds = timing_seconds.get("search_pipeline_total", 0.0)
+    total_seconds = timing_seconds.get("total", 0.0)
+    local_search_total = timing_seconds.get("local_search_total", 0.0)
+    num_runs = max(1, local_search_config.num_runs)
+
+    return {
+        "run_profile": local_search_config.run_profile,
+        "profile_kind": (
+            "deterministic_smoke"
+            if local_search_config.num_runs <= 1
+            else "deterministic_multi_run_profile"
+        ),
+        "construction_reused_across_runs": True,
+        "construction_seconds": _round_seconds(construction_seconds),
+        "search_pipeline_seconds": _round_seconds(search_pipeline_seconds),
+        "total_seconds": _round_seconds(total_seconds),
+        "local_search_seconds_total": _round_seconds(local_search_total),
+        "local_search_seconds_selected_run": _round_seconds(
+            timing_seconds.get("local_search", 0.0)
+        ),
+        "local_search_budget_seconds_per_run": local_search_config.max_time_seconds,
+        "local_search_budget_seconds_total": local_search_config.max_time_seconds * num_runs,
+        "num_runs": local_search_config.num_runs,
+        "random_seed": local_search_config.random_seed,
+        "best_run": multi_run_stats.get("best_run") if multi_run_stats else 0,
+        "construction_share_of_total": (
+            construction_seconds / total_seconds if total_seconds > 0 else 0.0
+        ),
+        "local_search_share_of_total": (
+            local_search_total / total_seconds if total_seconds > 0 else 0.0
+        ),
+        "local_search_share_after_construction": (
+            local_search_total / search_pipeline_seconds
+            if search_pipeline_seconds > 0
+            else 0.0
+        ),
+    }
+
+
 def _build_status(
     *,
     case_dir: Path,
@@ -70,6 +126,9 @@ def _build_status(
         "local_search_summary": local_search_result.as_dict() if local_search_result else None,
         "repair_summary": repair_result.as_dict() if repair_result else None,
         "timing_seconds": timing_seconds,
+        "run_policy": _run_policy_summary(
+            local_search_config, timing_seconds, multi_run_stats
+        ),
         "reproduction_summary": {
             "candidate_count": candidate_summary.candidate_count,
             "product_count": product_library.summary.total_products,
@@ -129,12 +188,18 @@ def _run_pipeline(
 ) -> tuple:
     """Run one full pass: seed -> local search -> repair.
 
-    Returns (seed_result, local_search_result, repair_result, repaired_state).
+    Returns (seed_result, local_search_result, repair_result, repaired_state, timing).
     """
+    pipeline_start = time.perf_counter()
+
+    seed_start = time.perf_counter()
     seed_result = build_greedy_seed(product_library, case, seed_config, rng=rng)
+    seed_end = time.perf_counter()
 
     local_search_result = None
+    local_search_seconds = 0.0
     if not seed_config.seed_only:
+        local_search_start = time.perf_counter()
         local_search_result = run_local_search(
             seed_result.state,
             seed_result.accepted_products,
@@ -143,16 +208,28 @@ def _run_pipeline(
             local_search_config,
             rng=rng,
         )
+        local_search_end = time.perf_counter()
+        local_search_seconds = local_search_end - local_search_start
         best_state = local_search_result.best_state.sequence_state
         scheduled_products = local_search_result.best_state.scheduled_products
     else:
         best_state = seed_result.state
         scheduled_products = {p.product_id: p for p in seed_result.accepted_products}
 
+    repair_start = time.perf_counter()
     repair_result, repaired_state, _ = repair_state(
         best_state, scheduled_products, case, repair_config
     )
-    return seed_result, local_search_result, repair_result, repaired_state
+    repair_end = time.perf_counter()
+    pipeline_end = time.perf_counter()
+
+    pipeline_timing = {
+        "seed": seed_end - seed_start,
+        "local_search": local_search_seconds,
+        "repair": repair_end - repair_start,
+        "pipeline_total": pipeline_end - pipeline_start,
+    }
+    return seed_result, local_search_result, repair_result, repaired_state, pipeline_timing
 
 
 def _pipeline_objective(repair_result) -> tuple[int, float]:
@@ -202,42 +279,75 @@ def main(argv: list[str] | None = None) -> int:
 
         # Single run (default) or multi-run harness
         if num_runs <= 1:
-            seed_start = time.perf_counter()
-            seed_result, local_search_result, repair_result, repaired_state = _run_pipeline(
+            seed_result, local_search_result, repair_result, repaired_state, run_timing = _run_pipeline(
                 case, product_library, seed_config, local_search_config, repair_config
             )
-            seed_end = time.perf_counter()
-            timing_local_search = 0.0
-            if local_search_result is not None:
-                timing_local_search = local_search_result.time_seconds
+            selected_run_timing = run_timing
+            timing_seed_total = run_timing["seed"]
+            timing_local_search_total = run_timing["local_search"]
+            timing_repair_total = run_timing["repair"]
+            timing_pipeline_total = run_timing["pipeline_total"]
             multi_run_stats = None
         else:
             # Multi-run harness
             run_results: list[tuple] = []
+            run_timings: list[dict[str, float]] = []
             coverages: list[int] = []
             qualities: list[float] = []
-            pipeline_start = time.perf_counter()
+            run_details: list[dict[str, Any]] = []
 
             for run_index in range(num_runs):
                 run_seed = random_seed + run_index
                 rng = random.Random(run_seed)
-                seed_result, local_search_result, repair_result, repaired_state = _run_pipeline(
+                seed_result, local_search_result, repair_result, repaired_state, run_timing = _run_pipeline(
                     case, product_library, seed_config, local_search_config, repair_config, rng=rng
                 )
                 run_results.append((seed_result, local_search_result, repair_result, repaired_state))
+                run_timings.append(run_timing)
                 coverages.append(repair_result.final_coverage)
                 qualities.append(repair_result.final_quality)
+                run_details.append(
+                    {
+                        "run_index": run_index,
+                        "random_seed": run_seed,
+                        "coverage": repair_result.final_coverage,
+                        "quality": repair_result.final_quality,
+                        "seed_accepted": seed_result.accepted_count,
+                        "seed_covered_targets": seed_result.covered_target_count,
+                        "local_search_passes": (
+                            local_search_result.passes_completed
+                            if local_search_result
+                            else 0
+                        ),
+                        "local_search_moves_attempted": (
+                            local_search_result.moves_attempted
+                            if local_search_result
+                            else 0
+                        ),
+                        "local_search_moves_accepted": (
+                            local_search_result.moves_accepted
+                            if local_search_result
+                            else 0
+                        ),
+                        "timing_seconds": {
+                            key: _round_seconds(value)
+                            for key, value in sorted(run_timing.items())
+                        },
+                    }
+                )
 
             # Pick best run by lexicographic (coverage, quality)
             best_idx = max(range(num_runs), key=lambda i: (coverages[i], qualities[i]))
             seed_result, local_search_result, repair_result, repaired_state = run_results[best_idx]
-
-            pipeline_end = time.perf_counter()
-            seed_end = pipeline_end
-            seed_start = pipeline_start
-            timing_local_search = 0.0
-            if local_search_result is not None:
-                timing_local_search = local_search_result.time_seconds
+            selected_run_timing = run_timings[best_idx]
+            timing_seed_total = sum(timing["seed"] for timing in run_timings)
+            timing_local_search_total = sum(
+                timing["local_search"] for timing in run_timings
+            )
+            timing_repair_total = sum(timing["repair"] for timing in run_timings)
+            timing_pipeline_total = sum(
+                timing["pipeline_total"] for timing in run_timings
+            )
 
             multi_run_stats = {
                 "num_runs": num_runs,
@@ -251,12 +361,8 @@ def main(argv: list[str] | None = None) -> int:
                 "min_quality": min(qualities),
                 "all_coverages": coverages,
                 "all_qualities": qualities,
+                "run_details": run_details,
             }
-
-        repair_start = time.perf_counter()
-        # repair already done in _run_pipeline
-        repair_end = time.perf_counter()
-        timing_repair = repair_end - repair_start
 
         solution_path = write_solution_from_state(solution_dir, repaired_state)
 
@@ -266,9 +372,19 @@ def main(argv: list[str] | None = None) -> int:
             "candidate_generation": candidate_end - candidate_start,
             "product_library": product_end - product_start,
             "sequence_sanity": sanity_end - sanity_start,
-            "seed": seed_end - seed_start,
-            "local_search": timing_local_search,
-            "repair": timing_repair,
+            "construction": (
+                candidate_end - candidate_start
+                + product_end - product_start
+                + sanity_end - sanity_start
+            ),
+            "seed": selected_run_timing["seed"],
+            "seed_total": timing_seed_total,
+            "local_search": selected_run_timing["local_search"],
+            "local_search_total": timing_local_search_total,
+            "repair": selected_run_timing["repair"],
+            "repair_total": timing_repair_total,
+            "selected_run_pipeline": selected_run_timing["pipeline_total"],
+            "search_pipeline_total": timing_pipeline_total,
             "total": total_end - total_start,
         }
 

@@ -1230,6 +1230,107 @@ def test_seed_repeatability(solver_imports) -> None:
     ]
 
 
+def test_greedy_seed_tie_selection_is_deterministic(solver_imports) -> None:
+    ProductType = solver_imports["ProductType"]
+    ProductLibrary = solver_imports["ProductLibrary"]
+    ProductSummary = solver_imports["ProductSummary"]
+    SeedConfig = solver_imports["SeedConfig"]
+    build_greedy_seed = solver_imports["build_greedy_seed"]
+
+    p_a = _make_product(solver_imports, "p_a", ProductType.PAIR, "t1", quality=0.5)
+    p_b = _make_product(solver_imports, "p_b", ProductType.PAIR, "t1", quality=0.5)
+    library = ProductLibrary(
+        products=[p_a, p_b],
+        per_target_products={"t1": [p_a, p_b]},
+        summary=ProductSummary(
+            total_products=2,
+            pair_products=2,
+            feasible_products=2,
+            per_target_product_counts={"t1": 2},
+        ),
+    )
+
+    class _FakeCase:
+        satellites = {"sat_test": _make_sat_def()}
+        targets = {"t1": None}
+
+    seed = build_greedy_seed(library, _FakeCase(), SeedConfig(max_seed_products=1))
+    assert [p.product_id for p in seed.accepted_products] == ["p_b"]
+
+
+def test_greedy_seed_prefers_scarce_target_head(solver_imports) -> None:
+    ProductType = solver_imports["ProductType"]
+    ProductLibrary = solver_imports["ProductLibrary"]
+    ProductSummary = solver_imports["ProductSummary"]
+    SeedConfig = solver_imports["SeedConfig"]
+    build_greedy_seed = solver_imports["build_greedy_seed"]
+
+    scarce = _make_product(solver_imports, "scarce", ProductType.PAIR, "t1", quality=0.5)
+    abundant = [
+        _make_product(
+            solver_imports, f"abundant_{i}", ProductType.PAIR, "t2", quality=0.5
+        )
+        for i in range(10)
+    ]
+    products = [scarce, *abundant]
+    library = ProductLibrary(
+        products=products,
+        per_target_products={"t1": [scarce], "t2": abundant},
+        summary=ProductSummary(
+            total_products=len(products),
+            pair_products=len(products),
+            feasible_products=len(products),
+            per_target_product_counts={"t1": 1, "t2": 10},
+        ),
+    )
+
+    class _FakeCase:
+        satellites = {"sat_test": _make_sat_def()}
+        targets = {"t1": None, "t2": None}
+
+    seed = build_greedy_seed(library, _FakeCase(), SeedConfig(max_seed_products=1))
+    assert [p.product_id for p in seed.accepted_products] == ["scarce"]
+
+
+def test_greedy_seed_rng_perturbation_is_seeded(solver_imports) -> None:
+    import random
+
+    ProductType = solver_imports["ProductType"]
+    ProductLibrary = solver_imports["ProductLibrary"]
+    ProductSummary = solver_imports["ProductSummary"]
+    SeedConfig = solver_imports["SeedConfig"]
+    build_greedy_seed = solver_imports["build_greedy_seed"]
+
+    p1 = _make_product(solver_imports, "p1", ProductType.PAIR, "t1", quality=0.5)
+    p2 = _make_product(solver_imports, "p2", ProductType.PAIR, "t2", quality=0.5)
+    library = ProductLibrary(
+        products=[p1, p2],
+        per_target_products={"t1": [p1], "t2": [p2]},
+        summary=ProductSummary(
+            total_products=2,
+            pair_products=2,
+            feasible_products=2,
+            per_target_product_counts={"t1": 1, "t2": 1},
+        ),
+    )
+
+    class _FakeCase:
+        satellites = {"sat_test": _make_sat_def()}
+        targets = {"t1": None, "t2": None}
+
+    config = SeedConfig(max_seed_products=1)
+    seed_a = build_greedy_seed(library, _FakeCase(), config, rng=random.Random(1))
+    seed_b = build_greedy_seed(library, _FakeCase(), config, rng=random.Random(1))
+    seed_c = build_greedy_seed(library, _FakeCase(), config, rng=random.Random(2))
+
+    assert [p.product_id for p in seed_a.accepted_products] == [
+        p.product_id for p in seed_b.accepted_products
+    ]
+    assert [p.product_id for p in seed_a.accepted_products] != [
+        p.product_id for p in seed_c.accepted_products
+    ]
+
+
 def test_seed_only_mode_empty_solution_when_no_products(solver_imports) -> None:
     ProductLibrary = solver_imports["ProductLibrary"]
     ProductSummary = solver_imports["ProductSummary"]
@@ -1374,6 +1475,106 @@ def test_tri_stereo_pre_phase_disabled(solver_imports) -> None:
     )
     assert seed.tri_accepted == 0
     assert "p_pair" in [p.product_id for p in seed.accepted_products]
+
+
+def test_tri_upgrade_rolls_back_when_replacement_conflicts(solver_imports) -> None:
+    ProductType = solver_imports["ProductType"]
+    ProductLibrary = solver_imports["ProductLibrary"]
+    ProductSummary = solver_imports["ProductSummary"]
+    SeedConfig = solver_imports["SeedConfig"]
+    build_greedy_seed = solver_imports["build_greedy_seed"]
+
+    blocker = _make_product(
+        solver_imports,
+        "blocker",
+        ProductType.PAIR,
+        "t2",
+        quality=1.0,
+        observations=(
+            _make_candidate(
+                target_id="t2",
+                start="2026-04-22T22:04:00Z",
+                end="2026-04-22T22:04:06Z",
+                candidate_id="blocker_a",
+            ),
+            _make_candidate(
+                target_id="t2",
+                start="2026-04-22T22:08:00Z",
+                end="2026-04-22T22:08:06Z",
+                candidate_id="blocker_b",
+            ),
+        ),
+    )
+    pair = _make_product(
+        solver_imports,
+        "pair",
+        ProductType.PAIR,
+        "t1",
+        quality=0.6,
+        observations=(
+            _make_candidate(
+                start="2026-04-22T21:40:00Z",
+                end="2026-04-22T21:40:06Z",
+                candidate_id="pair_a",
+            ),
+            _make_candidate(
+                start="2026-04-22T21:50:00Z",
+                end="2026-04-22T21:50:06Z",
+                candidate_id="pair_b",
+            ),
+        ),
+    )
+    tri = _make_product(
+        solver_imports,
+        "tri",
+        ProductType.TRI,
+        "t1",
+        quality=0.9,
+        observations=(
+            _make_candidate(
+                start="2026-04-22T21:55:00Z",
+                end="2026-04-22T21:55:06Z",
+                candidate_id="tri_a",
+            ),
+            _make_candidate(
+                start="2026-04-22T22:04:00Z",
+                end="2026-04-22T22:04:06Z",
+                candidate_id="tri_b",
+            ),
+            _make_candidate(
+                start="2026-04-22T22:12:00Z",
+                end="2026-04-22T22:12:06Z",
+                candidate_id="tri_c",
+            ),
+        ),
+    )
+    products = [blocker, tri, pair]
+    library = ProductLibrary(
+        products=products,
+        per_target_products={"t1": [tri, pair], "t2": [blocker]},
+        summary=ProductSummary(
+            total_products=3,
+            pair_products=2,
+            tri_products=1,
+            feasible_products=3,
+            per_target_product_counts={"t1": 2, "t2": 1},
+        ),
+    )
+
+    class _FakeCase:
+        satellites = {"sat_test": _make_sat_def()}
+        targets = {"t1": None, "t2": None}
+
+    seed = build_greedy_seed(library, _FakeCase(), SeedConfig())
+    accepted_ids = [p.product_id for p in seed.accepted_products]
+
+    assert "blocker" in accepted_ids
+    assert "pair" in accepted_ids
+    assert "tri" not in accepted_ids
+    assert any(
+        record.product_id == "tri" and "tri_upgrade_failed" in record.reasons
+        for record in seed.rejected_records
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -1894,6 +2095,7 @@ def test_output_schema(solver_imports, tmp_path: Path) -> None:
 def test_local_search_config_parses_num_runs_and_seed(solver_imports) -> None:
     LocalSearchConfig = solver_imports["LocalSearchConfig"]
     config = LocalSearchConfig.from_mapping({"num_runs": 10, "random_seed": 123})
+    assert config.run_profile == "smoke"
     assert config.num_runs == 10
     assert config.random_seed == 123
 
@@ -1901,8 +2103,36 @@ def test_local_search_config_parses_num_runs_and_seed(solver_imports) -> None:
 def test_local_search_config_defaults(solver_imports) -> None:
     LocalSearchConfig = solver_imports["LocalSearchConfig"]
     config = LocalSearchConfig.from_mapping({})
+    assert config.run_profile == "smoke"
     assert config.num_runs == 1
     assert config.random_seed == 42
+    assert config.max_time_seconds == pytest.approx(30.0)
+
+
+def test_local_search_config_benchmark_profile_defaults(solver_imports) -> None:
+    LocalSearchConfig = solver_imports["LocalSearchConfig"]
+    config = LocalSearchConfig.from_mapping({"run_profile": "benchmark"})
+    assert config.run_profile == "benchmark"
+    assert config.num_runs == 5
+    assert config.max_passes == 50
+    assert config.max_moves_per_pass == 2000
+    assert config.max_time_seconds == pytest.approx(120.0)
+
+
+def test_local_search_config_profile_explicit_overrides(solver_imports) -> None:
+    LocalSearchConfig = solver_imports["LocalSearchConfig"]
+    config = LocalSearchConfig.from_mapping(
+        {"run_profile": "profile", "num_runs": 2, "max_time_seconds": 7.5}
+    )
+    assert config.run_profile == "profile"
+    assert config.num_runs == 2
+    assert config.max_time_seconds == pytest.approx(7.5)
+
+
+def test_local_search_config_rejects_unknown_profile(solver_imports) -> None:
+    LocalSearchConfig = solver_imports["LocalSearchConfig"]
+    with pytest.raises(ValueError, match="run_profile"):
+        LocalSearchConfig.from_mapping({"run_profile": "surprise"})
 
 
 def test_candidate_config_parses_parallel_workers(solver_imports) -> None:
@@ -2113,6 +2343,7 @@ def test_status_includes_multi_run_stats_when_enabled(solver_imports) -> None:
         "min_quality": 1.0,
         "all_coverages": [3, 5, 5],
         "all_qualities": [1.0, 3.0, 3.5],
+        "run_details": [],
     }
 
     status = _build_status(
@@ -2126,13 +2357,32 @@ def test_status_includes_multi_run_stats_when_enabled(solver_imports) -> None:
         product_config=solver_imports["CandidateConfig"](),
         product_library=product_library,
         sequence_sanity={},
-        timing_seconds={"total": 1.0},
+        timing_seconds={
+            "candidate_generation": 0.2,
+            "product_library": 0.3,
+            "sequence_sanity": 0.01,
+            "construction": 0.51,
+            "seed": 0.02,
+            "seed_total": 0.06,
+            "local_search": 0.1,
+            "local_search_total": 0.3,
+            "repair": 0.01,
+            "repair_total": 0.03,
+            "selected_run_pipeline": 0.13,
+            "search_pipeline_total": 0.39,
+            "total": 1.0,
+        },
         seed_result=seed_result,
         repair_result=repair_result,
         repair_config=RepairConfig(),
-        local_search_config=LocalSearchConfig(),
+        local_search_config=LocalSearchConfig.from_mapping({"run_profile": "benchmark"}),
         multi_run_stats=multi_run_stats,
     )
 
     assert status["multi_run_stats"] == multi_run_stats
     assert status["status"] == "multi_run"
+    assert status["run_policy"]["run_profile"] == "benchmark"
+    assert status["run_policy"]["construction_reused_across_runs"] is True
+    assert status["run_policy"]["construction_seconds"] == pytest.approx(0.51)
+    assert status["run_policy"]["local_search_seconds_total"] == pytest.approx(0.3)
+    assert status["run_policy"]["best_run"] == 1

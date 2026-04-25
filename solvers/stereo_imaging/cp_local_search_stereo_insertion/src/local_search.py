@@ -16,7 +16,7 @@ from __future__ import annotations
 
 import random
 import time
-from dataclasses import asdict, dataclass, field
+from dataclasses import asdict, dataclass
 from typing import Any
 
 from case_io import StereoCase
@@ -37,9 +37,10 @@ from sequence import (
 
 @dataclass(frozen=True, slots=True)
 class LocalSearchConfig:
+    run_profile: str = "smoke"
     max_passes: int = 10
     max_moves_per_pass: int = 500
-    max_time_seconds: float = 120.0
+    max_time_seconds: float = 30.0
     enable_repair: bool = True
     repair_candidates_limit: int = 20
     remove_move_enabled: bool = True
@@ -50,15 +51,45 @@ class LocalSearchConfig:
     @classmethod
     def from_mapping(cls, payload: dict[str, Any] | None) -> "LocalSearchConfig":
         payload = payload or {}
+        run_profile = str(payload.get("run_profile", "smoke"))
+        presets: dict[str, dict[str, int | float]] = {
+            "smoke": {
+                "max_passes": 10,
+                "max_moves_per_pass": 500,
+                "max_time_seconds": 30.0,
+                "num_runs": 1,
+            },
+            "benchmark": {
+                "max_passes": 50,
+                "max_moves_per_pass": 2000,
+                "max_time_seconds": 120.0,
+                "num_runs": 5,
+            },
+            "profile": {
+                "max_passes": 50,
+                "max_moves_per_pass": 2000,
+                "max_time_seconds": 120.0,
+                "num_runs": 10,
+            },
+        }
+        if run_profile not in presets:
+            allowed = ", ".join(sorted(presets))
+            raise ValueError(f"run_profile must be one of: {allowed}")
+        preset = presets[run_profile]
         return cls(
-            max_passes=int(payload.get("max_passes", 10)),
-            max_moves_per_pass=int(payload.get("max_moves_per_pass", 500)),
-            max_time_seconds=float(payload.get("max_time_seconds", 120.0)),
+            run_profile=run_profile,
+            max_passes=int(payload.get("max_passes", preset["max_passes"])),
+            max_moves_per_pass=int(
+                payload.get("max_moves_per_pass", preset["max_moves_per_pass"])
+            ),
+            max_time_seconds=float(
+                payload.get("max_time_seconds", preset["max_time_seconds"])
+            ),
             enable_repair=bool(payload.get("enable_repair", True)),
             repair_candidates_limit=int(payload.get("repair_candidates_limit", 20)),
             remove_move_enabled=bool(payload.get("remove_move_enabled", True)),
             remove_candidates_limit=int(payload.get("remove_candidates_limit", 50)),
-            num_runs=int(payload.get("num_runs", 1)),
+            num_runs=int(payload.get("num_runs", preset["num_runs"])),
             random_seed=int(payload.get("random_seed", 42)),
         )
 

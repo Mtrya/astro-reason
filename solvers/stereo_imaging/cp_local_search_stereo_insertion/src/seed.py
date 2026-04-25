@@ -5,15 +5,15 @@ search spends effort improving quality.  Products are ranked coverage-first
 with dynamic scarcity updates, then inserted atomically via sequence.py.
 
 Changes:
-- Dedicated tri-stereo-first pre-pass: attempt best feasible tri-stereo per
-  target before falling back to pair-stereo greedy.
+- Target-indexed greedy queues replace repeated full-pool scans while keeping
+  the same coverage-first scarcity/quality ranking.
 - Lexicographic sort key replaces ad-hoc composite bonus formula.
 """
 
 from __future__ import annotations
 
 import random
-from dataclasses import asdict, dataclass, field
+from dataclasses import asdict, dataclass
 from typing import Any
 
 from case_io import StereoCase
@@ -158,59 +158,69 @@ def _product_sort_key(
     return (coverage_value, scarcity + weighted_quality + epsilon, scarcity, weighted_quality, product.product_id)
 
 
-def _attempt_tri_stereo_pre_pass(
-    product_library: ProductLibrary,
-    state: SequenceState,
-    case: StereoCase,
+def _weighted_quality(product: StereoProduct, config: SeedConfig) -> float:
+    weight = config.tri_weight if product.product_type == ProductType.TRI else config.pair_weight
+    return product.quality * weight
+
+
+@dataclass(frozen=True, slots=True)
+class _RankedProduct:
+    product: StereoProduct
+    epsilon: float = 0.0
+
+
+def _ranked_product_key(
+    ranked: _RankedProduct,
+    remaining_count: int,
     config: SeedConfig,
-) -> tuple[list[StereoProduct], list[SeedDecisionRecord], set[str], int]:
-    """Attempt to insert the best feasible tri-stereo product for each target.
+) -> tuple[float, float, float, str]:
+    """Ranking key for the current head product of one uncovered target."""
+    scarcity = 1.0 / max(1, remaining_count)
+    weighted_quality = _weighted_quality(ranked.product, config)
+    return (
+        scarcity + weighted_quality + ranked.epsilon,
+        scarcity,
+        weighted_quality,
+        ranked.product.product_id,
+    )
 
-    Returns (accepted_products, rejected_records, covered_targets, tri_accepted).
-    """
-    accepted: list[StereoProduct] = []
-    rejected: list[SeedDecisionRecord] = []
-    covered: set[str] = set()
-    tri_accepted = 0
 
-    # Gather feasible tri-stereo products grouped by target
-    tri_by_target: dict[str, list[StereoProduct]] = {}
+def _build_target_product_queues(
+    product_library: ProductLibrary,
+    config: SeedConfig,
+    rng: random.Random | None,
+) -> tuple[dict[str, list[_RankedProduct]], dict[str, int]]:
+    """Pre-sort feasible products once per target and return queue cursors."""
+    queues: dict[str, list[_RankedProduct]] = {}
+    cursors: dict[str, int] = {}
+    initial_counts = {
+        target_id: len(products)
+        for target_id, products in product_library.per_target_products.items()
+        if products
+    }
+
     for target_id, products in sorted(product_library.per_target_products.items()):
-        tri_products = [p for p in products if p.product_type == ProductType.TRI]
-        if tri_products:
-            tri_by_target[target_id] = tri_products
-
-    # Process targets in deterministic order
-    for target_id in sorted(tri_by_target):
-        if config.max_seed_products is not None and len(accepted) >= config.max_seed_products:
-            break
-
-        # Sort by quality desc, product_id asc for deterministic selection
-        candidates = sorted(
-            tri_by_target[target_id],
-            key=lambda p: (-p.quality, p.product_id),
+        if not products:
+            continue
+        ranked = [
+            _RankedProduct(
+                product=product,
+                epsilon=(rng.random() * 1e-9 if rng is not None else 0.0),
+            )
+            for product in products
+        ]
+        ranked.sort(
+            key=lambda rp: _ranked_product_key(
+                rp,
+                initial_counts[target_id],
+                config,
+            ),
+            reverse=True,
         )
+        queues[target_id] = ranked
+        cursors[target_id] = 0
 
-        for tri_product in candidates:
-            result = insert_product(tri_product, state, case)
-            if result.success:
-                accepted.append(tri_product)
-                covered.add(target_id)
-                tri_accepted += 1
-                break
-            else:
-                rejected.append(
-                    SeedDecisionRecord(
-                        product_id=tri_product.product_id,
-                        target_id=target_id,
-                        product_type=tri_product.product_type.value,
-                        quality=tri_product.quality,
-                        decision="rejected",
-                        reasons=result.reject_reasons,
-                    )
-                )
-
-    return accepted, rejected, covered, tri_accepted
+    return queues, cursors
 
 
 def build_greedy_seed(
@@ -222,14 +232,15 @@ def build_greedy_seed(
     """Construct a deterministic greedy seed schedule.
 
     Algorithm:
-    1. Pair-stereo coverage-first greedy: iteratively select highest-ranked
-       feasible product (pair or tri) and attempt atomic insertion.
+    1. Coverage-first greedy: pre-sort each target's feasible products once,
+       then repeatedly select the best current target head and attempt atomic
+       insertion. Rejected products advance only their target queue.
     2. Optional tri-stereo upgrade pass: for each target covered by a pair,
        try to replace it with a higher-quality tri-stereo product.  This
        preserves coverage while improving quality where tri-stereo fits.
 
-    Ranking is recomputed after each accepted insertion so that covered targets
-    and scarce remaining alternatives are reflected immediately.
+    The indexed queues preserve the original dynamic scarcity ranking for
+    uncovered targets without recomputing counts over the full product pool.
     """
     config = config or SeedConfig()
     state = create_empty_state(case)
@@ -240,24 +251,31 @@ def build_greedy_seed(
     tri_accepted = 0
     iterations = 0
 
-    # Step 1 — build pair-primary seed (pairs compete with tri in same pool)
-    pool: list[StereoProduct] = list(product_library.products)
+    # Step 1 -- build the coverage seed. Products compete through one queue
+    # head per uncovered target instead of repeatedly rescanning the full pool.
+    target_queues, cursors = _build_target_product_queues(
+        product_library, config, rng
+    )
+    active_targets = {
+        target_id
+        for target_id, queue in target_queues.items()
+        if queue
+    }
 
-    while pool:
+    while active_targets:
         if config.max_seed_products is not None and len(accepted_products) >= config.max_seed_products:
             break
 
-        remaining_counts = _compute_remaining_counts(pool)
-
-        best_idx = max(
-            range(len(pool)),
-            key=lambda i: _product_sort_key(pool[i], covered_targets, remaining_counts, config, rng),
+        best_target = max(
+            active_targets,
+            key=lambda target_id: _ranked_product_key(
+                target_queues[target_id][cursors[target_id]],
+                len(target_queues[target_id]) - cursors[target_id],
+                config,
+            ),
         )
-        best = pool.pop(best_idx)
-
-        # Skip products for targets already covered by a previous insertion
-        if best.target_id in covered_targets:
-            continue
+        best = target_queues[best_target][cursors[best_target]].product
+        cursors[best_target] += 1
 
         iterations += 1
 
@@ -265,6 +283,7 @@ def build_greedy_seed(
         if result.success:
             accepted_products.append(best)
             covered_targets.add(best.target_id)
+            active_targets.remove(best_target)
             if best.product_type == ProductType.TRI:
                 tri_accepted += 1
         else:
@@ -278,6 +297,8 @@ def build_greedy_seed(
                     reasons=result.reject_reasons,
                 )
             )
+            if cursors[best_target] >= len(target_queues[best_target]):
+                active_targets.remove(best_target)
 
     # Step 2 — tri-stereo upgrade pass
     # For targets covered by a pair, try to upgrade to tri-stereo if a
