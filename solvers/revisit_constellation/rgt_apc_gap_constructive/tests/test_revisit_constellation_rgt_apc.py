@@ -25,6 +25,7 @@ from src.case_io import (  # noqa: E402
 from src.gaps import (  # noqa: E402
     IncrementalGapState,
     gap_improvement,
+    interval_split_value_hours,
     score_observation_timelines,
 )
 from src.envelope import build_opportunity_envelope_artifacts  # noqa: E402
@@ -925,6 +926,64 @@ def test_incremental_gap_state_from_timelines_preserves_duplicate_counts(
     assert state.score.as_dict() == score_observation_timelines(case, {}).as_dict()
 
 
+def test_interval_split_value_rewards_worst_interval_midpoint(tmp_path: Path) -> None:
+    case = load_case(_gap_case_dir(tmp_path, expected_revisit_period_hours=0.25))
+    first = case.horizon_start + timedelta(minutes=10)
+    adjacent = case.horizon_start + timedelta(minutes=10, seconds=30)
+    middle_of_worst = case.horizon_start + timedelta(minutes=35)
+
+    adjacent_value, adjacent_interval = interval_split_value_hours(
+        case.horizon_start,
+        case.horizon_end,
+        [first],
+        adjacent,
+    )
+    middle_value, middle_interval = interval_split_value_hours(
+        case.horizon_start,
+        case.horizon_end,
+        [first],
+        middle_of_worst,
+    )
+
+    assert adjacent_interval.gap_hours == pytest.approx(middle_interval.gap_hours)
+    assert adjacent_value < 0.01
+    assert middle_value == pytest.approx(25.0 / 60.0)
+
+
+def test_scheduler_rejects_back_to_back_mean_gap_hack(tmp_path: Path) -> None:
+    case = load_case(_gap_case_dir(tmp_path, expected_revisit_period_hours=0.25))
+    windows = [
+        _window("sat_a", "target_001", case.horizon_start, 10),
+        _window("sat_b", "target_001", case.horizon_start, 11),
+        _window("sat_c", "target_001", case.horizon_start, 35),
+    ]
+
+    result = schedule_observations(
+        case=case,
+        selected_candidate_ids=["sat_a", "sat_b", "sat_c"],
+        windows=windows,
+        config=SchedulingConfig(
+            transition_gap_sec=0.0,
+            enforce_simple_energy_budget=False,
+            enable_repair=False,
+            enable_local_search=False,
+        ),
+    )
+
+    assert [item.option_id for item in result.scheduled_observations] == [
+        "sat_b_target_001_11",
+        "sat_c_target_001_35",
+    ]
+    rejected_reasons = {
+        item["option_id"]: item["reason"]
+        for item in result.rejected_options
+    }
+    assert rejected_reasons["sat_a_target_001_10"] in {
+        "does_not_split_current_worst_interval",
+        "non_positive_gap_improvement",
+    }
+
+
 def test_greedy_selection_respects_case_and_config_caps(tmp_path: Path) -> None:
     case = load_case(_gap_case_dir(tmp_path))
     candidates = [
@@ -1068,7 +1127,7 @@ def test_scheduler_prioritizes_lower_flexibility_when_freshness_ties(tmp_path: P
     assert result.actions[0]["action_type"] == "observation"
 
 
-def test_scheduler_prioritizes_staler_target_after_freshness_update(tmp_path: Path) -> None:
+def test_scheduler_prioritizes_minmax_interval_gain_after_update(tmp_path: Path) -> None:
     case = load_case(_scheduler_case_dir(tmp_path))
     windows = [
         _window("sat_a", "target_001", case.horizon_start, 10),
@@ -1090,13 +1149,16 @@ def test_scheduler_prioritizes_staler_target_after_freshness_update(tmp_path: Pa
     )
 
     assert [decision.selected_option.target_id for decision in result.decisions] == [
-        "target_001",
+        "target_002",
         "target_002",
     ]
     second_score = result.decisions[1].score_before.target_gap_summary
     assert second_score["target_002"].max_revisit_gap_hours > second_score[
         "target_001"
-    ].max_revisit_gap_hours
+    ].max_revisit_gap_hours / 2.0
+    assert result.final_score.capped_max_revisit_gap_hours < (
+        result.decisions[1].score_before.capped_max_revisit_gap_hours
+    )
 
 
 def test_scheduler_prioritizes_primary_gap_improvement_before_opportunity_cost(
@@ -1306,14 +1368,16 @@ def test_scheduler_records_reproduction_fidelity_mode_comparison(tmp_path: Path)
         "constructive",
         "repaired",
         "local_search",
+        "minmax_refined",
     ]
     assert entries["no_op"]["action_count"] == 0
     assert entries["fifo"]["scheduled_option_ids"] == ["sat_a_target_001_10"]
     assert entries["constructive"]["scheduled_option_ids"] == ["sat_b_target_002_30"]
     assert entries["repaired"]["action_count"] == len(result.scheduled_observations)
     assert entries["local_search"]["action_count"] == len(result.scheduled_observations)
+    assert entries["minmax_refined"]["action_count"] == len(result.scheduled_observations)
     assert result.debug_summary["mode_comparison_compact"][0]["mode"] == "no_op"
-    assert result.debug_summary["mode_comparison_compact"][-1]["mode"] == "local_search"
+    assert result.debug_summary["mode_comparison_compact"][-1]["mode"] == "minmax_refined"
     assert result.debug_summary["high_gap_target_count"] == len(
         result.validation_report.high_gap_target_ids
     )
@@ -1416,6 +1480,7 @@ def test_baseline_evidence_records_target_reasons_and_timing(tmp_path: Path) -> 
         "constructive",
         "repaired",
         "local_search",
+        "minmax_refined",
     ]
 
 
@@ -1573,7 +1638,8 @@ def test_local_search_swaps_to_reduce_high_gap_target(tmp_path: Path) -> None:
 
     assert searched[0].option_id == "sat_a_target_001_30"
     assert moves[0].accepted is True
-    assert moves[0].action == "swap"
+    assert moves[0].action == "replace"
+    assert moves[0].removed_observations[0].option_id == "sat_c_target_001_5"
     assert report.score.max_revisit_gap_hours < before.max_revisit_gap_hours
 
 
@@ -1672,8 +1738,8 @@ def test_solve_sh_smoke_writes_selected_solution_status_and_debug(tmp_path: Path
     assert isinstance(solution["actions"], list)
     assert isinstance(solution["satellites"], list)
     status = json.loads((solution_dir / "status.json").read_text(encoding="utf-8"))
-    assert status["status"] == "phase_10_scaled_compute_profiles_validated"
-    assert status["phase"] == 10
+    assert status["status"] == "phase_11_minmax_scheduling_validated"
+    assert status["phase"] == 11
     assert status["run_profile"]["active_profile"] == "custom"
     assert status["parameter_sweep"]["point_count"] == 0
     assert status["target_count"] == 1
@@ -1696,6 +1762,7 @@ def test_solve_sh_smoke_writes_selected_solution_status_and_debug(tmp_path: Path
         "constructive",
         "repaired",
         "local_search",
+        "minmax_refined",
     ]
     assert status["reproduction_fidelity"]["paper_adaptation_notes"]["issue"].endswith(
         "/issues/87"

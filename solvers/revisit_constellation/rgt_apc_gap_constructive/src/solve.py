@@ -72,8 +72,8 @@ def _build_status(
     baseline_evidence: dict,
 ) -> dict:
     return {
-        "status": "phase_10_scaled_compute_profiles_validated",
-        "phase": 10,
+        "status": "phase_11_minmax_scheduling_validated",
+        "phase": 11,
         "case_dir": str(case_dir),
         "config_dir": str(config_dir) if config_dir is not None else None,
         "solution": str(solution_path),

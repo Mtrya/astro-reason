@@ -16,6 +16,7 @@ from .gaps import (
     GapScore,
     IncrementalGapState,
     gap_improvement,
+    interval_split_value_hours,
     score_observation_timelines,
 )
 from .orbit_library import OrbitCandidate
@@ -165,6 +166,8 @@ class SchedulingDecision:
     target_freshness_hours: float
     target_flexibility: int
     opportunity_cost: float
+    interval_split_value_hours: float
+    target_worst_interval_hours: float
     score_before: GapScore
     score_after: GapScore
     improvement: GapImprovement
@@ -176,6 +179,8 @@ class SchedulingDecision:
             "target_freshness_hours": self.target_freshness_hours,
             "target_flexibility": self.target_flexibility,
             "opportunity_cost": self.opportunity_cost,
+            "interval_split_value_hours": self.interval_split_value_hours,
+            "target_worst_interval_hours": self.target_worst_interval_hours,
             "score_before": self.score_before.as_dict(),
             "score_after": self.score_after.as_dict(),
             "improvement": self.improvement.as_dict(),
@@ -294,8 +299,12 @@ class LocalSearchMove:
     removed_observation: ScheduledObservation | None = None
     inserted_observation: ScheduledObservation | None = None
     blocked_reason: str | None = None
+    removed_observations: tuple[ScheduledObservation, ...] = ()
 
     def as_dict(self) -> dict[str, Any]:
+        removed_items = self.removed_observations
+        if not removed_items and self.removed_observation is not None:
+            removed_items = (self.removed_observation,)
         return {
             "iteration": self.iteration,
             "action": self.action,
@@ -310,6 +319,9 @@ class LocalSearchMove:
                 if self.removed_observation is None
                 else self.removed_observation.as_dict()
             ),
+            "removed_observations": [
+                observation.as_dict() for observation in removed_items
+            ],
             "inserted_observation": (
                 None
                 if self.inserted_observation is None
@@ -914,6 +926,26 @@ def _score_delta_dict(before: GapScore, after: GapScore) -> dict[str, float | in
     return gap_improvement(before, after).as_dict()
 
 
+def _target_interval_split_value(
+    *,
+    case: RevisitCase,
+    scheduled: list[ScheduledObservation],
+    option: ObservationOption,
+) -> tuple[float, float]:
+    midpoints = [
+        observation.midpoint
+        for observation in scheduled
+        if observation.target_id == option.target_id
+    ]
+    split_value, interval = interval_split_value_hours(
+        case.horizon_start,
+        case.horizon_end,
+        midpoints,
+        option.midpoint,
+    )
+    return split_value, interval.gap_hours
+
+
 def _target_gap_rank(score: GapScore) -> list[dict[str, Any]]:
     return [
         {
@@ -1126,6 +1158,14 @@ def build_mode_comparison(
         _mode_entry(
             mode="local_search",
             description="Repaired schedule after deterministic high-gap insertion/swap local search.",
+            scheduled=local_search,
+            report=local_search_report,
+            no_op_score=no_op_score,
+            fifo_score=fifo_score,
+        ),
+        _mode_entry(
+            mode="minmax_refined",
+            description="Final min-max interval-splitting schedule emitted by the solver.",
             scheduled=local_search,
             report=local_search_report,
             no_op_score=no_op_score,
@@ -1608,6 +1648,36 @@ def _ranked_local_search_targets(score: GapScore) -> list[str]:
 
 def _ranked_candidate_options_for_target(
     *,
+    case: RevisitCase,
+    options: list[ObservationOption],
+    scheduled: list[ScheduledObservation],
+    consumed_option_ids: set[str],
+    target_id: str,
+    limit: int,
+) -> list[ObservationOption]:
+    candidates = [
+        option
+        for option in options
+        if option.target_id == target_id and option.option_id not in consumed_option_ids
+    ]
+    candidates.sort(
+        key=lambda option: (
+            -_target_interval_split_value(
+                case=case,
+                scheduled=scheduled,
+                option=option,
+            )[0],
+            option.start,
+            option.satellite_id,
+            option.target_id,
+            option.window_id,
+        )
+    )
+    return candidates[: max(0, limit)]
+
+
+def _ranked_replacement_options_for_target(
+    *,
     options: list[ObservationOption],
     consumed_option_ids: set[str],
     target_id: str,
@@ -1771,7 +1841,7 @@ def local_search_schedule_deterministic(
             tuple[
                 tuple[Any, ...],
                 str,
-                ScheduledObservation | None,
+                tuple[ScheduledObservation, ...],
                 ScheduledObservation | None,
                 GapScore,
                 GapImprovement,
@@ -1780,14 +1850,138 @@ def local_search_schedule_deterministic(
         iteration_rejections: list[LocalSearchMove] = []
         for target_id in _ranked_local_search_targets(score_before):
             target_gap_hours = score_before.target_gap_summary[target_id].max_revisit_gap_hours
-            target_options = _ranked_candidate_options_for_target(
+            replacement_options = _ranked_replacement_options_for_target(
                 options=options,
+                consumed_option_ids=consumed_option_ids,
+                target_id=target_id,
+                limit=max(
+                    config.local_search_options_per_target,
+                    config.local_search_options_per_target
+                    * max(1, config.local_search_removals_per_option),
+                ),
+            )
+            target_removals = [
+                observation
+                for observation in searched
+                if observation.target_id == target_id
+            ]
+            target_removals.sort(
+                key=lambda item: (item.start, item.satellite_id, item.option_id)
+            )
+            for option in replacement_options:
+                inserted = _as_scheduled(option)
+                for removed in target_removals:
+                    if removed.option_id == option.option_id:
+                        continue
+                    candidate_schedule = [
+                        observation for observation in searched if observation is not removed
+                    ]
+                    target_counts = _target_counts_without(searched, removed)
+                    feasible, blocked_reason = _base_feasible_indexed(
+                        case=case,
+                        option=option,
+                        scheduled=candidate_schedule,
+                        target_counts=target_counts,
+                        config=config,
+                        transition_gap_sec=transition_gap_sec,
+                        conflict_index=conflict_index,
+                    )
+                    if not feasible:
+                        iteration_rejections.append(
+                            LocalSearchMove(
+                                iteration=iteration,
+                                action="replace",
+                                accepted=False,
+                                reason="infeasible",
+                                score_before=score_before,
+                                score_after=score_before,
+                                improvement=gap_improvement(score_before, score_before),
+                                tie_key=("replace", option.option_id, removed.option_id),
+                                removed_observation=removed,
+                                removed_observations=(removed,),
+                                inserted_observation=inserted,
+                                blocked_reason=blocked_reason,
+                            )
+                        )
+                        continue
+                    candidate_schedule.append(inserted)
+                    candidate_schedule.sort(
+                        key=lambda item: (
+                            item.start,
+                            item.satellite_id,
+                            item.target_id,
+                            item.option_id,
+                        )
+                    )
+                    score_after = score_observation_timelines(
+                        case,
+                        _timelines_from_schedule(candidate_schedule),
+                    )
+                    improvement = gap_improvement(score_before, score_after)
+                    key = _move_key(
+                        action_rank=1,
+                        improvement=improvement,
+                        target_gap_hours=target_gap_hours,
+                        inserted=inserted,
+                        removed=removed,
+                    )
+                    if improvement.is_positive:
+                        ranked_moves.append(
+                            (
+                                key,
+                                "replace",
+                                (removed,),
+                                inserted,
+                                score_after,
+                                improvement,
+                            )
+                        )
+                    else:
+                        iteration_rejections.append(
+                            LocalSearchMove(
+                                iteration=iteration,
+                                action="replace",
+                                accepted=False,
+                                reason="non_positive_gap_improvement",
+                                score_before=score_before,
+                                score_after=score_after,
+                                improvement=improvement,
+                                tie_key=key,
+                                removed_observation=removed,
+                                removed_observations=(removed,),
+                                inserted_observation=inserted,
+                            )
+                        )
+            target_options = _ranked_candidate_options_for_target(
+                case=case,
+                options=options,
+                scheduled=searched,
                 consumed_option_ids=consumed_option_ids,
                 target_id=target_id,
                 limit=config.local_search_options_per_target,
             )
             for option in target_options:
                 inserted = _as_scheduled(option)
+                split_value, _ = _target_interval_split_value(
+                    case=case,
+                    scheduled=searched,
+                    option=option,
+                )
+                if split_value <= NUMERICAL_EPS:
+                    iteration_rejections.append(
+                        LocalSearchMove(
+                            iteration=iteration,
+                            action="insert",
+                            accepted=False,
+                            reason="does_not_split_current_worst_interval",
+                            score_before=score_before,
+                            score_after=score_before,
+                            improvement=gap_improvement(score_before, score_before),
+                            tie_key=("insert", option.option_id),
+                            inserted_observation=inserted,
+                        )
+                    )
+                    continue
                 target_counts = _target_counts_without(searched, None)
                 if len(searched) < action_limit:
                     feasible, blocked_reason = _base_feasible_indexed(
@@ -1814,7 +2008,7 @@ def local_search_schedule_deterministic(
                         )
                         if improvement.is_positive:
                             ranked_moves.append(
-                                (key, "insert", None, inserted, score_after, improvement)
+                                (key, "insert", (), inserted, score_after, improvement)
                             )
                         else:
                             iteration_rejections.append(
@@ -1907,7 +2101,7 @@ def local_search_schedule_deterministic(
                     )
                     if improvement.is_positive:
                         ranked_moves.append(
-                            (key, "swap", removed, inserted, score_after, improvement)
+                            (key, "swap", (removed,), inserted, score_after, improvement)
                         )
                     else:
                         iteration_rejections.append(
@@ -1924,13 +2118,123 @@ def local_search_schedule_deterministic(
                                 inserted_observation=inserted,
                             )
                         )
+                removal_candidates = _ranked_removal_candidates(
+                    case=case,
+                    scheduled=searched,
+                    score_before=score_before,
+                    inserted_option=option,
+                    limit=min(4, config.local_search_removals_per_option),
+                )
+                for first_index, first_removed in enumerate(removal_candidates):
+                    for second_removed in removal_candidates[first_index + 1:]:
+                        if first_removed.option_id == option.option_id:
+                            continue
+                        if second_removed.option_id == option.option_id:
+                            continue
+                        removed_items = (first_removed, second_removed)
+                        candidate_schedule = [
+                            observation
+                            for observation in searched
+                            if observation not in removed_items
+                        ]
+                        target_counts = _target_counts(scheduled=candidate_schedule)
+                        feasible, blocked_reason = _base_feasible_indexed(
+                            case=case,
+                            option=option,
+                            scheduled=candidate_schedule,
+                            target_counts=target_counts,
+                            config=config,
+                            transition_gap_sec=transition_gap_sec,
+                            conflict_index=conflict_index,
+                        )
+                        if not feasible:
+                            iteration_rejections.append(
+                                LocalSearchMove(
+                                    iteration=iteration,
+                                    action="multi_swap",
+                                    accepted=False,
+                                    reason="infeasible",
+                                    score_before=score_before,
+                                    score_after=score_before,
+                                    improvement=gap_improvement(score_before, score_before),
+                                    tie_key=(
+                                        "multi_swap",
+                                        option.option_id,
+                                        first_removed.option_id,
+                                        second_removed.option_id,
+                                    ),
+                                    removed_observation=first_removed,
+                                    removed_observations=removed_items,
+                                    inserted_observation=inserted,
+                                    blocked_reason=blocked_reason,
+                                )
+                            )
+                            continue
+                        candidate_schedule.append(inserted)
+                        candidate_schedule.sort(
+                            key=lambda item: (
+                                item.start,
+                                item.satellite_id,
+                                item.target_id,
+                                item.option_id,
+                            )
+                        )
+                        score_after = score_observation_timelines(
+                            case,
+                            _timelines_from_schedule(candidate_schedule),
+                        )
+                        improvement = gap_improvement(score_before, score_after)
+                        key = (
+                            *_move_key(
+                                action_rank=2,
+                                improvement=improvement,
+                                target_gap_hours=target_gap_hours,
+                                inserted=inserted,
+                                removed=first_removed,
+                            ),
+                            second_removed.start,
+                            second_removed.satellite_id,
+                            second_removed.target_id,
+                            second_removed.option_id,
+                        )
+                        if improvement.is_positive:
+                            ranked_moves.append(
+                                (
+                                    key,
+                                    "multi_swap",
+                                    removed_items,
+                                    inserted,
+                                    score_after,
+                                    improvement,
+                                )
+                            )
+                        else:
+                            iteration_rejections.append(
+                                LocalSearchMove(
+                                    iteration=iteration,
+                                    action="multi_swap",
+                                    accepted=False,
+                                    reason="non_positive_gap_improvement",
+                                    score_before=score_before,
+                                    score_after=score_after,
+                                    improvement=improvement,
+                                    tie_key=key,
+                                    removed_observation=first_removed,
+                                    removed_observations=removed_items,
+                                    inserted_observation=inserted,
+                                )
+                            )
         if not ranked_moves:
             moves.extend(iteration_rejections)
             break
         ranked_moves.sort(key=lambda item: item[0])
-        key, action, removed, inserted, score_after, improvement = ranked_moves[0]
-        if removed is not None:
-            searched = [observation for observation in searched if observation is not removed]
+        key, action, removed_items, inserted, score_after, improvement = ranked_moves[0]
+        if removed_items:
+            searched = [
+                observation
+                for observation in searched
+                if observation not in removed_items
+            ]
         if inserted is not None:
             searched.append(inserted)
         searched.sort(
@@ -1946,7 +2250,8 @@ def local_search_schedule_deterministic(
                 score_after=score_after,
                 improvement=improvement,
                 tie_key=key,
-                removed_observation=removed,
+                removed_observation=removed_items[0] if removed_items else None,
+                removed_observations=removed_items,
                 inserted_observation=inserted,
             )
         )
@@ -2088,7 +2393,19 @@ def schedule_observations(
             option for option in options if option.option_id not in consumed_option_ids
         ]
         remaining_option_ids = {option.option_id for option in remaining_options}
-        feasible_by_target: dict[str, list[ObservationOption]] = {}
+        target_feasible_counts: dict[str, int] = {}
+        ranked_options: list[
+            tuple[
+                tuple[float, float, float, int, int, float, float, float, int, datetime, str, str, str],
+                ObservationOption,
+                GapScore,
+                GapImprovement,
+                float,
+                float,
+                float,
+                int,
+            ]
+        ] = []
         for option in remaining_options:
             feasible, reason = _base_feasible_indexed(
                 case=case,
@@ -2111,71 +2428,103 @@ def schedule_observations(
                 continue
             after_score = gap_state.score_with_added(option.target_id, option.midpoint)
             improvement = gap_improvement(current_score, after_score)
+            split_value, target_worst_interval_hours = _target_interval_split_value(
+                case=case,
+                scheduled=scheduled,
+                option=option,
+            )
             if config.require_positive_gap_improvement and not improvement.is_positive:
                 rejected.append(
                     {
                         **option.as_dict(),
                         "reason": "non_positive_gap_improvement",
+                        "interval_split_value_hours": split_value,
+                        "target_worst_interval_hours": target_worst_interval_hours,
                         "round_index": len(decisions),
                     }
                 )
-                consumed_option_ids.add(option.option_id)
                 continue
-            feasible_by_target.setdefault(option.target_id, []).append(option)
-
-        if not feasible_by_target:
-            break
-
-        target_id = min(
-            feasible_by_target,
-            key=lambda candidate_target: (
-                -current_score.target_gap_summary[
-                    candidate_target
-                ].max_revisit_gap_hours,
-                len(feasible_by_target[candidate_target]),
-                candidate_target,
-            ),
-        )
-        target_options = feasible_by_target[target_id]
-        target_freshness = current_score.target_gap_summary[
-            target_id
-        ].max_revisit_gap_hours
-        target_flexibility = len(target_options)
-
-        ranked_options: list[
-            tuple[
-                tuple[float, int, float, float, float, datetime, str, str, str],
-                ObservationOption,
-                GapScore,
-                GapImprovement,
-                float,
-            ]
-        ] = []
-        for option in target_options:
-            after_score = gap_state.score_with_added(option.target_id, option.midpoint)
-            improvement = gap_improvement(current_score, after_score)
+            if split_value <= NUMERICAL_EPS:
+                rejected.append(
+                    {
+                        **option.as_dict(),
+                        "reason": "does_not_split_current_worst_interval",
+                        "interval_split_value_hours": split_value,
+                        "target_worst_interval_hours": target_worst_interval_hours,
+                        "round_index": len(decisions),
+                    }
+                )
+                continue
+            target_feasible_counts[option.target_id] = (
+                target_feasible_counts.get(option.target_id, 0) + 1
+            )
             opportunity_cost = conflict_index.opportunity_cost(
                 option=option,
                 remaining_option_ids=remaining_option_ids,
                 score=current_score,
                 horizon_hours=horizon_hours,
             )
+            target_freshness = current_score.target_gap_summary[
+                option.target_id
+            ].max_revisit_gap_hours
             key = (
-                opportunity_cost,
                 -improvement.capped_max_revisit_gap_reduction_hours,
                 -improvement.worst_target_capped_max_revisit_gap_reduction_hours,
                 -improvement.max_revisit_gap_reduction_hours,
                 -improvement.target_count_above_12h_reduction,
                 -improvement.threshold_violation_reduction,
+                -split_value,
+                -target_freshness,
+                opportunity_cost,
+                0,
                 option.start,
                 option.satellite_id,
                 option.target_id,
                 option.window_id,
             )
-            ranked_options.append((key, option, after_score, improvement, opportunity_cost))
+            ranked_options.append(
+                (
+                    key,
+                    option,
+                    after_score,
+                    improvement,
+                    opportunity_cost,
+                    split_value,
+                    target_worst_interval_hours,
+                    0,
+                )
+            )
+
+        if not ranked_options:
+            break
+
+        ranked_options = [
+            (
+                (
+                    *item[0][:8],
+                    target_feasible_counts.get(item[1].target_id, 0),
+                    *item[0][9:],
+                ),
+                *item[1:7],
+                target_feasible_counts.get(item[1].target_id, 0),
+            )
+            for item in ranked_options
+        ]
 
         ranked_options.sort(key=lambda item: item[0])
-        _, selected_option, after_score, improvement, opportunity_cost = ranked_options[0]
+        (
+            _,
+            selected_option,
+            after_score,
+            improvement,
+            opportunity_cost,
+            split_value,
+            target_worst_interval_hours,
+            target_flexibility,
+        ) = ranked_options[0]
+        target_freshness = current_score.target_gap_summary[
+            selected_option.target_id
+        ].max_revisit_gap_hours
         selected = _as_scheduled(selected_option)
         scheduled.append(selected)
         scheduled.sort(key=lambda item: (item.start, item.satellite_id, item.target_id))
@@ -2189,6 +2538,8 @@ def schedule_observations(
                 target_freshness_hours=target_freshness,
                 target_flexibility=target_flexibility,
                 opportunity_cost=opportunity_cost,
+                interval_split_value_hours=split_value,
+                target_worst_interval_hours=target_worst_interval_hours,
                 score_before=current_score,
                 score_after=after_score,
                 improvement=improvement,

@@ -56,6 +56,69 @@ class TargetGapScore:
         }
 
 
+@dataclass(frozen=True, slots=True)
+class GapInterval:
+    start: datetime
+    end: datetime
+    gap_hours: float
+
+    def as_dict(self) -> dict[str, Any]:
+        return {
+            "start": self.start.isoformat(),
+            "end": self.end.isoformat(),
+            "gap_hours": self.gap_hours,
+        }
+
+
+def revisit_gap_intervals(
+    horizon_start: datetime,
+    horizon_end: datetime,
+    observation_midpoints: list[datetime],
+) -> list[GapInterval]:
+    unique_midpoints = sorted(set(observation_midpoints))
+    times = [horizon_start, *unique_midpoints, horizon_end]
+    return [
+        GapInterval(
+            start=left,
+            end=right,
+            gap_hours=(right - left).total_seconds() / 3600.0,
+        )
+        for left, right in zip(times, times[1:])
+    ]
+
+
+def worst_revisit_gap_interval(
+    horizon_start: datetime,
+    horizon_end: datetime,
+    observation_midpoints: list[datetime],
+) -> GapInterval:
+    intervals = revisit_gap_intervals(horizon_start, horizon_end, observation_midpoints)
+    return max(intervals, key=lambda item: (item.gap_hours, -item.start.timestamp()))
+
+
+def interval_split_value_hours(
+    horizon_start: datetime,
+    horizon_end: datetime,
+    observation_midpoints: list[datetime],
+    candidate_midpoint: datetime,
+) -> tuple[float, GapInterval]:
+    """Return how much the candidate splits the current worst interval.
+
+    Values outside the current worst interval, duplicate midpoints, and
+    endpoint-adjacent placements have zero min-max service value.
+    """
+    if candidate_midpoint in set(observation_midpoints):
+        worst = worst_revisit_gap_interval(horizon_start, horizon_end, observation_midpoints)
+        return 0.0, worst
+    worst = worst_revisit_gap_interval(horizon_start, horizon_end, observation_midpoints)
+    if not (worst.start < candidate_midpoint < worst.end):
+        return 0.0, worst
+    left_hours = (candidate_midpoint - worst.start).total_seconds() / 3600.0
+    right_hours = (worst.end - candidate_midpoint).total_seconds() / 3600.0
+    split_value = worst.gap_hours - max(left_hours, right_hours)
+    return max(0.0, split_value), worst
+
+
 def _target_gap_score(
     *,
     case: RevisitCase,
