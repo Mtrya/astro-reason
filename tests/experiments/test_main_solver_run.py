@@ -7,13 +7,8 @@ from pathlib import Path
 REPO_ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(REPO_ROOT))
 
-from experiments.main_solver.aggregate import _revisit_metric
-from experiments.main_solver.run import (
-    DEFAULT_CONFIG,
-    _load_yaml,
-    _parse_json_verifier,
-    _select_jobs,
-)
+from experiments.main_solver.aggregate import _revisit_metric, _rows
+from experiments.main_solver.run import Job, _parse_json_verifier, _result_dir
 
 
 def test_parse_json_verifier_records_aeossp_report() -> None:
@@ -108,31 +103,26 @@ def test_parse_json_verifier_rejects_extra_stdout() -> None:
     assert "could not be parsed" in parsed["parse_error"]
 
 
-def test_main_solver_selects_regional_coverage_cp_local_search_smoke_case() -> None:
-    matrix = _load_yaml(DEFAULT_CONFIG)
-
-    jobs = _select_jobs(
-        matrix,
-        benchmark_filter="regional_coverage",
-        solver_filter="regional_coverage_cp_local_search",
-        case_filter="test/case_0001",
+def test_policy_result_directory_preserves_policy_artifacts(tmp_path: Path) -> None:
+    job = Job(
+        solver={"benchmark": "example_benchmark", "id": "example_solver"},
+        case={"id": "suite/case_001"},
+        solver_config={},
+        policy_id="large_policy",
+        policy={},
     )
 
-    assert len(jobs) == 1
-    job = jobs[0]
-    assert job.benchmark_id == "regional_coverage"
-    assert job.solver_id == "regional_coverage_cp_local_search"
-    assert job.case["case_dir"] == "benchmarks/regional_coverage/dataset/cases/test/case_0001"
-    assert job.solver["evidence_type"] == "reproduced_solver"
-    assert job.solver["verifier"]["command"][:4] == [
-        "uv",
-        "run",
-        "python",
-        "benchmarks/regional_coverage/verifier.py",
-    ]
+    result_dir = _result_dir(tmp_path, job)
+
+    assert result_dir == (
+        tmp_path
+        / "example_benchmark"
+        / "example_solver"
+        / "suite__case_001__large_policy"
+    )
 
 
-def test_parse_json_verifier_records_regional_coverage_metrics() -> None:
+def test_parse_json_verifier_records_coverage_metrics() -> None:
     payload = {
         "valid": True,
         "metrics": {
@@ -151,3 +141,42 @@ def test_parse_json_verifier_records_regional_coverage_metrics() -> None:
     assert parsed["valid"] is True
     assert parsed["metrics"]["coverage_ratio"] == 0.1
     assert parsed["metrics"]["weighted_coverage_ratio"] == 0.2
+
+
+def test_aggregate_rows_include_coverage_metrics(tmp_path: Path) -> None:
+    run_dir = (
+        tmp_path
+        / "example_benchmark"
+        / "example_solver"
+        / "suite__case_001"
+    )
+    run_dir.mkdir(parents=True)
+    (run_dir / "run.json").write_text(
+        json.dumps(
+            {
+                "benchmark": "example_benchmark",
+                "solver": "example_solver",
+                "case_id": "suite/case_001",
+                "status": "verified",
+                "evidence_type": "reproduced_solver",
+                "runnable": True,
+                "verifier": {
+                    "valid": True,
+                    "metrics": {
+                        "coverage_ratio": 0.25,
+                        "weighted_coverage_ratio": 0.2,
+                        "num_actions": 3,
+                        "min_battery_wh": 12.5,
+                    },
+                },
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    rows = _rows(tmp_path)
+
+    assert rows[0]["coverage_ratio"] == 0.25
+    assert rows[0]["weighted_coverage_ratio"] == 0.2
+    assert rows[0]["num_actions"] == 3
+    assert rows[0]["min_battery_wh"] == 12.5

@@ -57,6 +57,26 @@ uv run python experiments/main_solver/run.py \
     --case test/8
 ```
 
+Run one solver case:
+
+```bash
+uv run python experiments/main_solver/run.py \
+    --benchmark <benchmark_id> \
+    --solver <solver_id> \
+    --case <case_id>
+```
+
+Run a named solver policy:
+
+```bash
+uv run python experiments/main_solver/run.py \
+    --benchmark <benchmark_id> \
+    --solver <solver_id> \
+    --policy <policy_id>
+```
+
+Policy metadata is recorded in `run.json`. Solver-specific quality interpretation belongs in solver documentation and solver profile metadata, not in the shared experiment runner.
+
 Materialize SatNet citation-backed rows:
 
 ```bash
@@ -87,6 +107,8 @@ results/main_solver/<benchmark>/<solver>/<case_slug>/
 ├── logs/
 └── run.json
 ```
+
+Named solver policies append the policy id to the case slug, for example `suite__case_001__large_policy`, so policy artifacts do not overwrite one another.
 
 Benchmark verifiers are consumed as executables. The runner does not import benchmark-internal functions, classes, or modules.
 

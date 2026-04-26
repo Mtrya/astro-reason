@@ -9,4 +9,5 @@ solvers:
   - aeossp_standard_greedy_lns
   - stereo_imaging_cp_local_search_stereo_insertion
   - revisit_constellation_rgt_apc_gap_constructive
+  - regional_coverage_celf_submodular
   - regional_coverage_cp_local_search
