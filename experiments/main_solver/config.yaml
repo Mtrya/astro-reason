@@ -8,3 +8,4 @@ solvers:
   - stereo_imaging_time_window_pruned_stereo_milp
   - aeossp_standard_greedy_lns
   - stereo_imaging_cp_local_search_stereo_insertion
+  - regional_coverage_cp_local_search

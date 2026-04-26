@@ -45,6 +45,17 @@
       "repro_ci": false,
       "repro_ci_reason": "too_expensive",
       "case_and_fixture_paths": []
+    },
+    {
+      "benchmark": "regional_coverage",
+      "solver": "cp_local_search",
+      "repro_ci": true,
+      "case_and_fixture_paths": [
+        {
+          "case_path": "benchmarks/regional_coverage/dataset/cases/test/case_0001",
+          "fixture_path": ""
+        }
+      ]
     }
   ]
 }

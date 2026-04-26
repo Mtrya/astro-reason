@@ -147,7 +147,7 @@ For `repro_ci: true`, `case_and_fixture_paths` contains objects:
 - `requires_external_data`
 - `not_reproducible_yet`
 
-Experiment profiles own evidence type, verifier commands, result layout, solver-specific configs, and reporting metadata.
+Experiment profiles own evidence type, verifier commands, result layout, solver-specific configs, and reporting metadata. Do not add experiment metadata such as `evidence_type`, `runnable`, solver paths, verifier commands, or smoke labels to `solvers/finished_solvers.json`.
 
 ## Ownership Boundaries
 

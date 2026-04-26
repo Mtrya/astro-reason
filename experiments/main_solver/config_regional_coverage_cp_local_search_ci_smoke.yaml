@@ -1,0 +1,4 @@
+results_root: results/main_solver
+
+solvers:
+  - regional_coverage_cp_local_search_ci_smoke
