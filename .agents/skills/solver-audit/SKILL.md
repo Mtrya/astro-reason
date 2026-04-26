@@ -1,23 +1,28 @@
 ---
 name: solver-audit
-description: Audit a solver against the fixed target of faithful reproduction adapted to the benchmark, prioritizing compute realism, optimization, and remaining paper-to-code gaps.
+description: Audit a solver against the fixed target of faithful reproduction adapted to the benchmark, prioritizing explicit compute-envelope realism, optimization, and remaining paper-to-code gaps.
 ---
 
 # Solver Audit
 
-The target claim is fixed: **faithful reproduction adapted to the benchmark with fair optimization and compute envelope**.
+The target claim is fixed: **faithful reproduction adapted to the benchmark with an explicit optimization-and-compute envelope**.
 
-The audit identifies what blocks that target today, especially when the blocker is insufficient computation, weak implementation, or an unfair runtime envelope. You focus on two main aspects:
-1. whether the code, the control flow is correct
-2. whether the optimization, parallelization, and runtime regime is fair
+The audit identifies what blocks that target today, especially when the blocker is insufficient computation, weak implementation, or an unfair/runtime-light envelope. A short run or the absence of timeout is not sufficient evidence of fairness.
+
+You focus on three main aspects:
+1. whether the code, the control flow is correct,
+2. whether the adaptation is benchmark-faithful,
+3. whether the optimization, parallelization, and runtime regime is fair for the intended method.
 
 ## Priorities
 
 Audit in this order:
-1. whether the solver is being given a fair compute envelope,
-2. what optimization, parallelization, or run-policy work is needed,
-3. what literature elements are still partial or missing after benchmark adaptation,
-4. benchmark-validity only as a short sanity note if relevant.
+1. whether the solver is given a contract/smoke envelope,
+2. whether it reaches a meaningful reproduction envelope,
+3. whether it is currently in a quality/optimization envelope,
+4. what optimization, parallelization, or run-policy work is needed,
+5. what literature elements are still partial or missing after benchmark adaptation,
+6. benchmark-validity only as a short sanity note if relevant.
 
 ## Inputs
 
@@ -32,6 +37,24 @@ Strongly preferred:
 If any required input is missing, ask before proceeding.
 
 ## Workflow
+
+### Envelope model
+
+Treat envelopes explicitly:
+
+1. **Contract or smoke envelope**
+   - Enough for a runnable, standalone solver that is verifier-compatible and CI-safe.
+   - Typical checks: command/run completes, status is well-formed, outputs are structurally valid, and no obvious crash path.
+
+2. **Reproduction envelope**
+   - Enough to show the method is implemented and adapted faithfully on meaningful benchmark-sized data.
+   - Typical checks: representative candidate sizes, constraint modeling behavior, and core algorithm stages are executed.
+
+3. **Quality/optimization envelope**
+   - Sufficient search depth, candidate density, restart policy, refinement limits, parallelism, and budget so score reflects method merit instead of configuration poverty.
+   - Typical checks: parameter values and policies that materially exercise the planner (candidate caps, sample/grid density, restarts, refinement caps, and time allocation).
+
+Never treat `valid` or `no timeout` as equivalent to quality envelope adequacy.
 
 ### 1. Read the target method and benchmark adaptation
 
@@ -65,8 +88,12 @@ If there is no meaningful parallelism or native acceleration in the hot path, sa
 ### 3. Judge compute realism first
 
 Answer these questions:
+- Does the current run meet at least the contract/smoke envelope?
+- Is it in a meaningful reproduction envelope, not just smoke-level verification?
+- Is timeout configured for realism, or is it merely an upper bound that does not resolve underpowered method parameters?
+- Is there enough parameter space (candidate cap, restart count, refinement depth, etc.) to characterize optimization quality?
 - Is the current timeout, thread count, and run policy fair for the target method?
-- Is the implementation leaving obvious performance on the table?
+- Is the implementation leaving obvious performance on the table (single-thread hot path, missing vectorization/native acceleration)?
 - Would more time materially help right now?
 - Or is the solver blocked by missing optimization, missing parallelism, or missing heavy-search components? (very likely)
 - Is the time budget long enough for the algorithm to genuinely execute as a planning method, rather than being artificially forced to finish in 60-120 s when a fair evaluation should often allow at least several minutes? (very likely)
@@ -76,6 +103,8 @@ Call out cases like:
 - single-threaded Python in candidate generation, graph construction, repair, or other dominant hot paths,
 - single-thread Python preprocessing consuming most of the budget,
 - literature expecting multi-run or restart-heavy evaluation but implementation using one run,
+- very modest candidate caps, seed counts, or iteration limits that keep the method in a tiny-search regime despite available compute headroom,
+- one run with a small timeout or tiny settings followed by no schedule to test larger caps/restarts before declaring optimizer behavior blocked,
 - exact or refinement phases capped so tightly that the claimed method never really executes,
 - short benchmark budgets that only measure setup overhead,
 - implementations being shaped around "always finish quickly" instead of using a realistic multi-minute or multi-hour time budget that lets the planning algorithm actually work.
@@ -117,9 +146,10 @@ Required structure:
 # Solver Audit: <solver-name>
 
 ## Bottom Line
-- Target claim: faithful reproduction adapted to the benchmark with fair optimization and compute envelope
-- Status: <READY / NOT_YET>
+- Target claim: faithful reproduction adapted to the benchmark with explicit optimization-and-compute envelope
+- Status: <VALID_REPRODUCED / QUALITY_FAIR_REPRODUCED / NOT_YET>
 - Compute status: <FAIR_TO_EVALUATE / UNDERPROVISIONED / OPTIMIZATION_BLOCKED / BOTH>
+- Envelope status: <CONTRACT_SMOKE / REPRODUCTION / QUALITY_OPTIMIZATION>
 - Headline blockers:
 
 ## Compute And Runtime

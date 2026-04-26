@@ -877,4 +877,4 @@ def test_compute_metrics_capped_gap_uses_per_target_threshold(tmp_path: Path) ->
 
     assert metrics["target_gap_summary"]["t1"]["max_revisit_gap_hours"] == pytest.approx(0.75)
     assert metrics["target_gap_summary"]["t2"]["max_revisit_gap_hours"] == pytest.approx(1.0)
-    assert metrics["capped_max_revisit_gap_hours"] == pytest.approx(1.0)
+    assert metrics["capped_max_revisit_gap_hours"] == pytest.approx(0.875)

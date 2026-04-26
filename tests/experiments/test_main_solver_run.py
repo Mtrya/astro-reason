@@ -61,7 +61,28 @@ def test_policy_result_directory_preserves_policy_artifacts(tmp_path: Path) -> N
     )
 
 
-def test_aggregate_rows_include_regional_coverage_metrics(tmp_path: Path) -> None:
+def test_parse_json_verifier_records_coverage_metrics() -> None:
+    payload = {
+        "valid": True,
+        "metrics": {
+            "coverage_ratio": 0.1,
+            "weighted_coverage_ratio": 0.2,
+            "num_actions": 3,
+            "min_battery_wh": 12.5,
+        },
+        "violations": [],
+        "diagnostics": {"actions": []},
+    }
+
+    parsed = _parse_json_verifier(json.dumps(payload), 0)
+
+    assert parsed["status"] == "valid"
+    assert parsed["valid"] is True
+    assert parsed["metrics"]["coverage_ratio"] == 0.1
+    assert parsed["metrics"]["weighted_coverage_ratio"] == 0.2
+
+
+def test_aggregate_rows_include_coverage_metrics(tmp_path: Path) -> None:
     run_dir = (
         tmp_path
         / "example_benchmark"

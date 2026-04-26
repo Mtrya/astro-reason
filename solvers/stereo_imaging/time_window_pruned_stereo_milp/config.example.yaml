@@ -1,0 +1,129 @@
+# Example config for the time-window-pruned stereo MILP solver.
+# Copy this file to config.yaml and modify values to override defaults.
+# Without a config file, the solver uses built-in thorough defaults.
+
+# ---------------------------------------------------------------------------
+# Runtime policy presets
+# ---------------------------------------------------------------------------
+
+# Runtime mode presets:
+# - thorough: denser benchmark-facing run policy; this is also the implicit default
+# - fast: lighter heuristic baseline for quicker public-case sweeps
+#
+# User-specified knobs below override the selected preset rather than replacing it.
+runtime:
+  mode: thorough
+
+# ---------------------------------------------------------------------------
+# Candidate generation
+# ---------------------------------------------------------------------------
+
+# Coarse step for searching access intervals (seconds).
+# Smaller values increase access-interval accuracy but linearly increase runtime.
+# Default: 60.  For quick smoke tests, 120 is acceptable.  For production, 30 or 60.
+time_step_s: 30
+
+# Stride between candidate start times inside an access interval (seconds).
+# Must be >= min_obs_duration_s of the satellite.  Smaller values create more
+# candidates and may improve convergence opportunities at the cost of runtime.
+# Default: 30.
+sample_stride_s: 30
+
+# Hard cap on candidates generated per (satellite, target, access_interval).
+# Default: 20.  Increase only if access intervals are very long.
+max_candidates_per_interval: 20
+
+# When true, steering angles are computed to point the boresight at the target
+# center for each candidate time, rather than using a fixed nadir-centered grid.
+# This dramatically improves overlap fraction and is strongly recommended.
+# Default: true.
+use_target_centered_steering: true
+
+# Steering grid density: number of samples along and across track.
+# With target-centered steering, the grid is centered on the required angles
+# to point at the target, with a small spread (see steering_grid_spread_deg).
+# Total grid points <= along * across after filtering by combined off-nadir.
+# Default: 1 x 1 (exact target pointing).  Increasing to 3 x 3 creates small
+# angular perturbations around the target direction for added diversity.
+steering_along_samples: 1
+steering_across_samples: 1
+
+# Half-width of the steering grid around the target-centered direction (degrees).
+# Only used when use_target_centered_steering is true and samples > 1.
+# A 2° spread is typically enough to stay within the AOI while providing
+# slightly different view angles.
+# Default: 2.0.
+steering_grid_spread_deg: 2.0
+
+# Parallelize candidate generation per satellite when true.
+parallel_candidate_generation: true
+
+# ---------------------------------------------------------------------------
+# Product geometry approximation
+# ---------------------------------------------------------------------------
+
+# Step size for sampling strip polylines during overlap estimation (seconds).
+# Default: 8.0.  Smaller values improve overlap accuracy at modest cost.
+strip_sample_step_s: 8.0
+
+# Polar-grid overlap estimator parameters.
+# n_angles * n_radii grid points are placed inside the AOI circle.
+# Default: 8 angles x 3 radii = 24 points.  The verifier uses Monte Carlo;
+# this grid is deterministic but may differ by a few percent.
+overlap_grid_angles: 8
+overlap_grid_radii: 3
+overlap_approximation: polar_grid_area_uniform
+
+# ---------------------------------------------------------------------------
+# Time-window cluster pruning (Kim-style)
+# ---------------------------------------------------------------------------
+
+pruning:
+  enabled: true
+
+  # Temporal gap threshold for clustering (seconds).
+  # "auto" = (4 * max_off_nadir_deg) / max_slew_velocity_deg_per_s + settling_time_s.
+  # Smaller gaps create more clusters and retain more candidates.
+  cluster_gap_s: auto
+
+  # Max candidates to retain per cluster.
+  # "auto" = lambda lower bound from average obs duration + settle time.
+  max_candidates_per_cluster: auto
+
+  # Hard floor for lambda_cap.
+  min_candidates_per_cluster: 2
+
+  # Global hard cap on total candidates after pruning.
+  max_total_candidates: 10000
+
+  # Force-retain near-nadir anchor candidates (combined off-nadir <= 10°).
+  preserve_anchors: true
+
+  # Force-retain candidates that participate in at least one valid pair or tri.
+  preserve_products: true
+
+# ---------------------------------------------------------------------------
+# Optimization backend
+# ---------------------------------------------------------------------------
+
+optimization:
+  # Backend selection: ortools | greedy
+  # "ortools" is the exact reproduced-solver path. It fails clearly when
+  # OR-Tools is unavailable. Set "greedy" explicitly for fast smoke runs.
+  backend: ortools
+
+  # MILP solver time limit (seconds).
+  # 300s is realistic for the explicit greedy heuristic layer.
+  # 1800s (30 min) is recommended for OR-Tools exact runs when you want better
+  # optimality on dense cases.
+  time_limit_s: 1800
+
+  greedy_max_repair_iterations: 10
+
+# ---------------------------------------------------------------------------
+# Debug artifacts
+# ---------------------------------------------------------------------------
+
+# Emit debug JSON files (candidate_summary, product_summary, pruning_summary,
+# repair_log) when true.
+debug: true

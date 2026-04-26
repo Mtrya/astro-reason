@@ -1,0 +1,197 @@
+# Example configuration for the regional_coverage CP/local-search solver.
+#
+# Copy this file into a config directory as config.yaml, pass it directly to
+# solve.sh as the config path, or let experiments/main_solver provide its
+# experiment-owned config directory.
+#
+# Recommended quick smoke envelope:
+#
+# search_restart_count: 1
+# search_run_seeds: [0]
+# local_search_enabled: true
+# local_search_max_iterations: 2
+# local_search_max_neighborhoods_per_iteration: 24
+# local_search_max_neighborhood_candidates: 40
+# cp_enabled: true
+# cp_backend: ortools_cp_sat
+# cp_max_calls: 32
+# cp_max_candidates: 10
+# cp_time_limit_s: 0.25
+#
+# Selected reproduction envelope:
+#
+# This is the promoted Phase 5 method/configuration. It keeps the strongest
+# verified public-score behavior from Phase 1-4 tuning: dense fixed-start
+# candidates, legacy bounded neighborhoods, thirty seeded restarts, and
+# fixed-start OR-Tools CP-SAT repair. It is intentionally heavier than the
+# smoke profile so the reproduction evidence is not artificially budget-limited.
+#
+# candidate_stride_s: 60
+# roll_samples_per_side: 9
+# max_candidates_per_satellite: 50000
+# include_zero_coverage_candidates: false
+# candidate_debug_limit: 500
+# candidate_workers: 8
+# search_restart_count: 30
+# search_run_seeds: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9,
+#                    10, 11, 12, 13, 14, 15, 16, 17, 18, 19,
+#                    20, 21, 22, 23, 24, 25, 26, 27, 28, 29]
+# greedy_random_choice_probability: 0.05
+# local_search_enabled: true
+# local_search_neighborhood_mode: legacy
+# local_search_max_iterations: 10
+# local_search_wall_time_limit_s: 12.0
+# local_search_max_neighborhoods_per_iteration: 96
+# local_search_max_neighborhood_candidates: 80
+# local_search_randomize_neighborhood_order: true
+# opportunity_grouping_enabled: false
+# cp_enabled: true
+# cp_backend: ortools_cp_sat
+# cp_repair_mode: fixed_start_subset
+# cp_max_calls: 128
+# cp_max_candidates: 12
+# cp_max_conflicts: 4096
+# cp_time_limit_s: 0.35
+#
+# Fidelity audit envelope, not promoted:
+#
+# candidate_stride_s: 120
+# roll_samples_per_side: 7
+# max_candidates_per_satellite: 20000
+# include_zero_coverage_candidates: false
+# candidate_debug_limit: 500
+# candidate_workers: 8
+# search_restart_count: 5
+# search_run_seeds: [0, 1, 2, 3, 4]
+# greedy_random_choice_probability: 0.05
+# local_search_enabled: true
+# local_search_neighborhood_mode: conflict_components
+# local_search_max_component_size: 32
+# local_search_component_subwindow_s: 3600
+# local_search_include_sample_competition: false
+# local_search_max_iterations: 8
+# local_search_wall_time_limit_s: 10.0
+# local_search_max_neighborhoods_per_iteration: 80
+# local_search_max_neighborhood_candidates: 64
+# local_search_randomize_neighborhood_order: true
+# opportunity_grouping_enabled: true
+# opportunity_max_time_gap_s: 1200
+# opportunity_min_coverage_jaccard: 0.5
+# cp_enabled: true
+# cp_backend: ortools_cp_sat
+# cp_repair_mode: interval_tsptw
+# cp_interval_start_window_s: 120
+# cp_max_calls: 96
+# cp_max_candidates: 14
+# cp_max_conflicts: 4096
+# cp_time_limit_s: 0.35
+#
+# Greedy baseline envelope:
+#
+# candidate_stride_s: 120
+# roll_samples_per_side: 7
+# max_candidates_per_satellite: 20000
+# include_zero_coverage_candidates: false
+# candidate_debug_limit: 500
+# candidate_workers: 8
+# local_search_enabled: false
+# cp_enabled: false
+# search_restart_count: 1
+# search_run_seeds: [0]
+#
+# These settings are bounded and mirror the public profiles under
+# experiments/main_solver.
+
+# ---------------------------------------------------------------------------
+# Candidate generation
+# ---------------------------------------------------------------------------
+# candidate_stride_s: 600
+# roll_samples_per_side: 3
+# max_candidates_per_satellite: 256
+# include_zero_coverage_candidates: true
+# max_zero_coverage_candidates_per_satellite: 8
+# candidate_debug_limit: 250
+# candidate_workers: 1
+# candidate_workers can be raised to 16 on machines where that is a fair
+# compute envelope for reproduction runs.
+
+# ---------------------------------------------------------------------------
+# Search restarts
+# ---------------------------------------------------------------------------
+# search_restart_count: 1
+# search_seed: 0
+# search_run_seeds: [0]
+# search_wall_time_limit_s: null
+
+# ---------------------------------------------------------------------------
+# Greedy insertion
+# ---------------------------------------------------------------------------
+# greedy_policy: best_marginal_coverage
+#   Choices:
+#     - best_marginal_coverage
+#     - coverage_per_transition_burden
+#     - coverage_per_imaging_time
+# greedy_max_iterations: null
+# greedy_wall_time_limit_s: null
+# greedy_random_choice_probability: 0.0
+# greedy_random_seed: null
+
+# ---------------------------------------------------------------------------
+# Local search neighborhoods
+# ---------------------------------------------------------------------------
+# local_search_enabled: true
+# local_search_max_iterations: 2
+# local_search_wall_time_limit_s: null
+# local_search_component_gap_s: 3600
+# local_search_time_padding_s: 1200
+# local_search_neighborhood_mode: legacy
+#   Choices:
+#     - legacy
+#     - conflict_components
+# local_search_max_neighborhoods_per_iteration: 24
+# local_search_max_neighborhood_candidates: 40
+# local_search_max_component_size: 24
+# local_search_component_subwindow_s: 3600
+# local_search_include_sample_competition: true
+# local_search_randomize_neighborhood_order: false
+# local_search_random_seed: null
+
+# ---------------------------------------------------------------------------
+# Opportunity grouping
+# ---------------------------------------------------------------------------
+# Opportunity grouping is solver-local diagnostic structure. Emitted solutions
+# still contain only public strip_observation actions snapped to concrete fixed
+# candidates.
+# opportunity_grouping_enabled: false
+# opportunity_max_time_gap_s: 1200
+# opportunity_roll_bucket_deg: 0.001
+# opportunity_min_coverage_jaccard: 0.5
+# opportunity_debug_limit: 250
+
+# ---------------------------------------------------------------------------
+# OR-Tools CP-SAT neighborhood repair
+# ---------------------------------------------------------------------------
+# The only supported CP backend is the solver-local OR-Tools CP-SAT dependency
+# installed by setup.sh. The promoted model repairs bounded fixed-start
+# neighborhoods; fidelity-audit profiles can enable interval_tsptw repair with
+# grid/member snapping. This is still not a Tempo dependency.
+# cp_enabled: true
+# cp_backend: ortools_cp_sat
+# cp_repair_mode: fixed_start_subset
+#   Choices:
+#     - fixed_start_subset
+#     - interval_tsptw
+# cp_interval_start_window_s: 0
+# cp_max_calls: 32
+# cp_max_candidates: 10
+# cp_max_conflicts: 2048
+# cp_time_limit_s: 0.25
+# cp_min_improvement_weight_m2: 0.000001
+
+# ---------------------------------------------------------------------------
+# Debug artifacts
+# ---------------------------------------------------------------------------
+# write_insertion_attempts: false
+# insertion_attempt_debug_limit: 2000
+# write_local_search_moves: false
+# local_search_move_debug_limit: 1000

@@ -85,7 +85,7 @@ def _write_splits_yaml(path: Path) -> None:
                         "maneuver_discharge_rate_w": 90.0,
                     },
                     "min_altitude_m": 500000.0,
-                    "max_altitude_m": 850000.0,
+                    "max_altitude_m": 900000.0,
                 },
             }
         },

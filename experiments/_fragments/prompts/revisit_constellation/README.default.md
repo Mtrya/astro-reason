@@ -21,9 +21,8 @@ This problem combines constellation design and scheduling in one case. You choos
 A strong solution should:
 
 - satisfy all hard validity rules
-- reduce the worst revisit gaps first
-- then reduce average revisit gaps
-- use fewer satellites when the revisit targets are already being met
+- reduce average capped per-target revisit gaps
+- then use fewer satellites when the revisit targets are already being met
 
 In practical terms, feasibility comes first. After that, the solution should drive revisit gaps down as much as possible, and efficient constellation size matters once the required revisit quality is achieved.
 
@@ -132,7 +131,7 @@ target_capped_gap = max(max_revisit_gap_hours, expected_revisit_period_hours)
 The primary metric is:
 
 ```text
-capped_max_revisit_gap_hours = max(target_capped_gap over targets)
+capped_max_revisit_gap_hours = mean(target_capped_gap over targets)
 ```
 
 Lower is better; `num_satellites` is a secondary metric after revisit quality. Poor revisit gaps do not invalidate an otherwise feasible solution. Residual ambiguity remains around numerical orbit and visibility boundaries; validate borderline states and contacts with the local helper.
