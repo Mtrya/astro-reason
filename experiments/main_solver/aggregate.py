@@ -68,40 +68,55 @@ def _execution_duration(payload: dict[str, Any], section: str) -> Any:
 
 
 def _revisit_metric(payload: dict[str, Any], key: str) -> Any:
-    value = _metric(payload, key)
-    if value is not None:
-        return value
     verifier = payload.get("verifier")
-    if not isinstance(verifier, dict):
-        return None
-    metrics = verifier.get("metrics")
-    if not isinstance(metrics, dict):
-        return None
-    target_summary = metrics.get("target_gap_summary")
-    if not isinstance(target_summary, dict) or not target_summary:
-        return None
-    if key == "max_revisit_gap_hours":
-        return max(
-            item.get("max_revisit_gap_hours", 0.0)
-            for item in target_summary.values()
-            if isinstance(item, dict)
-        )
-    if key == "mean_revisit_gap_hours":
-        values = [
-            item.get("mean_revisit_gap_hours", 0.0)
-            for item in target_summary.values()
-            if isinstance(item, dict)
-        ]
-        return (sum(values) / len(values)) if values else None
-    if key == "threshold_violation_count":
-        return sum(
-            1
-            for item in target_summary.values()
-            if isinstance(item, dict)
-            and item.get("max_revisit_gap_hours", 0.0)
-            > item.get("expected_revisit_period_hours", 0.0)
-        )
-    return None
+    if isinstance(verifier, dict):
+        metrics = verifier.get("metrics")
+        if isinstance(metrics, dict):
+            target_summary = metrics.get("target_gap_summary")
+            if isinstance(target_summary, dict) and target_summary:
+                target_rows = [
+                    item
+                    for item in target_summary.values()
+                    if isinstance(item, dict)
+                ]
+                target_capped_max_values = [
+                    max(
+                        item.get("max_revisit_gap_hours", 0.0),
+                        item.get("expected_revisit_period_hours", 0.0),
+                    )
+                    for item in target_rows
+                ]
+                if key == "capped_max_revisit_gap_hours":
+                    return (
+                        sum(target_capped_max_values) / len(target_capped_max_values)
+                        if target_capped_max_values
+                        else None
+                    )
+                if key == "worst_target_capped_max_revisit_gap_hours":
+                    return (
+                        max(target_capped_max_values)
+                        if target_capped_max_values
+                        else None
+                    )
+                if key == "max_revisit_gap_hours":
+                    return max(
+                        item.get("max_revisit_gap_hours", 0.0)
+                        for item in target_rows
+                    )
+                if key == "mean_revisit_gap_hours":
+                    values = [
+                        item.get("mean_revisit_gap_hours", 0.0)
+                        for item in target_rows
+                    ]
+                    return (sum(values) / len(values)) if values else None
+                if key == "threshold_violation_count":
+                    return sum(
+                        1
+                        for item in target_rows
+                        if item.get("max_revisit_gap_hours", 0.0)
+                        > item.get("expected_revisit_period_hours", 0.0)
+                    )
+    return _metric(payload, key)
 
 
 def _rows(results_root: Path) -> list[dict[str, Any]]:
@@ -132,6 +147,10 @@ def _rows(results_root: Path) -> list[dict[str, Any]]:
                 "capped_max_revisit_gap_hours": _revisit_metric(
                     payload,
                     "capped_max_revisit_gap_hours",
+                ),
+                "worst_target_capped_max_revisit_gap_hours": _revisit_metric(
+                    payload,
+                    "worst_target_capped_max_revisit_gap_hours",
                 ),
                 "max_revisit_gap_hours": _revisit_metric(payload, "max_revisit_gap_hours"),
                 "mean_revisit_gap_hours": _revisit_metric(payload, "mean_revisit_gap_hours"),
@@ -180,6 +199,7 @@ def _write_csv(path: Path, rows: list[dict[str, Any]]) -> None:
         "u_max",
         "num_satellites",
         "capped_max_revisit_gap_hours",
+        "worst_target_capped_max_revisit_gap_hours",
         "max_revisit_gap_hours",
         "mean_revisit_gap_hours",
         "threshold_violation_count",

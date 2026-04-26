@@ -78,26 +78,33 @@ def _target_gap_score(
 @dataclass(frozen=True, slots=True)
 class GapScore:
     capped_max_revisit_gap_hours: float
+    worst_target_capped_max_revisit_gap_hours: float
     max_revisit_gap_hours: float
     mean_revisit_gap_hours: float
+    target_count_above_12h: int
     threshold_violation_count: int
     target_gap_summary: dict[str, TargetGapScore]
 
     @property
-    def optimization_key(self) -> tuple[int, float, float, float]:
+    def optimization_key(self) -> tuple[float, float, float, int, int]:
         """Lower-is-better key for greedy marginal improvement."""
         return (
-            self.threshold_violation_count,
             self.capped_max_revisit_gap_hours,
+            self.worst_target_capped_max_revisit_gap_hours,
             self.max_revisit_gap_hours,
-            self.mean_revisit_gap_hours,
+            self.target_count_above_12h,
+            self.threshold_violation_count,
         )
 
     def as_dict(self) -> dict[str, Any]:
         return {
             "capped_max_revisit_gap_hours": self.capped_max_revisit_gap_hours,
+            "worst_target_capped_max_revisit_gap_hours": (
+                self.worst_target_capped_max_revisit_gap_hours
+            ),
             "max_revisit_gap_hours": self.max_revisit_gap_hours,
             "mean_revisit_gap_hours": self.mean_revisit_gap_hours,
+            "target_count_above_12h": self.target_count_above_12h,
             "threshold_violation_count": self.threshold_violation_count,
             "target_gap_summary": {
                 target_id: score.as_dict()
@@ -113,6 +120,7 @@ def _aggregate_gap_score(
     capped_max_values: list[float] = []
     max_values: list[float] = []
     mean_values: list[float] = []
+    target_count_above_12h = 0
     threshold_violation_count = 0
     ordered_summary: dict[str, TargetGapScore] = {}
 
@@ -122,13 +130,23 @@ def _aggregate_gap_score(
         capped_max_values.append(score.capped_max_revisit_gap_hours)
         max_values.append(score.max_revisit_gap_hours)
         mean_values.append(score.mean_revisit_gap_hours)
+        if score.max_revisit_gap_hours > 12.0:
+            target_count_above_12h += 1
         if score.threshold_violated:
             threshold_violation_count += 1
 
     return GapScore(
-        capped_max_revisit_gap_hours=max(capped_max_values) if capped_max_values else 0.0,
+        capped_max_revisit_gap_hours=(
+            (sum(capped_max_values) / len(capped_max_values))
+            if capped_max_values
+            else 0.0
+        ),
+        worst_target_capped_max_revisit_gap_hours=(
+            max(capped_max_values) if capped_max_values else 0.0
+        ),
         max_revisit_gap_hours=max(max_values) if max_values else 0.0,
         mean_revisit_gap_hours=(sum(mean_values) / len(mean_values)) if mean_values else 0.0,
+        target_count_above_12h=target_count_above_12h,
         threshold_violation_count=threshold_violation_count,
         target_gap_summary=ordered_summary,
     )
@@ -293,17 +311,20 @@ class IncrementalGapState:
 class GapImprovement:
     threshold_violation_reduction: int
     capped_max_revisit_gap_reduction_hours: float
+    worst_target_capped_max_revisit_gap_reduction_hours: float
     max_revisit_gap_reduction_hours: float
+    target_count_above_12h_reduction: int
     mean_revisit_gap_reduction_hours: float
 
     @property
-    def optimization_key(self) -> tuple[int, float, float, float]:
+    def optimization_key(self) -> tuple[float, float, float, int, int]:
         """Higher-is-better key matching the score components."""
         return (
-            self.threshold_violation_reduction,
             self.capped_max_revisit_gap_reduction_hours,
+            self.worst_target_capped_max_revisit_gap_reduction_hours,
             self.max_revisit_gap_reduction_hours,
-            self.mean_revisit_gap_reduction_hours,
+            self.target_count_above_12h_reduction,
+            self.threshold_violation_reduction,
         )
 
     @property
@@ -316,7 +337,13 @@ class GapImprovement:
             "capped_max_revisit_gap_reduction_hours": (
                 self.capped_max_revisit_gap_reduction_hours
             ),
+            "worst_target_capped_max_revisit_gap_reduction_hours": (
+                self.worst_target_capped_max_revisit_gap_reduction_hours
+            ),
             "max_revisit_gap_reduction_hours": self.max_revisit_gap_reduction_hours,
+            "target_count_above_12h_reduction": (
+                self.target_count_above_12h_reduction
+            ),
             "mean_revisit_gap_reduction_hours": self.mean_revisit_gap_reduction_hours,
         }
 
@@ -348,8 +375,15 @@ def gap_improvement(before: GapScore, after: GapScore) -> GapImprovement:
         capped_max_revisit_gap_reduction_hours=(
             before.capped_max_revisit_gap_hours - after.capped_max_revisit_gap_hours
         ),
+        worst_target_capped_max_revisit_gap_reduction_hours=(
+            before.worst_target_capped_max_revisit_gap_hours
+            - after.worst_target_capped_max_revisit_gap_hours
+        ),
         max_revisit_gap_reduction_hours=before.max_revisit_gap_hours
         - after.max_revisit_gap_hours,
+        target_count_above_12h_reduction=(
+            before.target_count_above_12h - after.target_count_above_12h
+        ),
         mean_revisit_gap_reduction_hours=before.mean_revisit_gap_hours
         - after.mean_revisit_gap_hours,
     )

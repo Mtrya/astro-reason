@@ -10,7 +10,9 @@ from pathlib import Path
 
 from .baseline import build_baseline_evidence
 from .case_io import load_case, load_solver_config
+from .envelope import build_opportunity_envelope_artifacts
 from .orbit_library import OrbitLibraryConfig, generate_orbit_library
+from .profiles import ProfileResolution, resolve_profile_config
 from .scheduling import SchedulingConfig, schedule_observations
 from .selection import SelectionConfig, select_satellites_greedy
 from .solution_io import write_json, write_solution
@@ -33,7 +35,7 @@ def _paper_adaptation_notes() -> dict:
             },
         ],
         "benchmark_contract_mapping": {
-            "coverage_timeline": "Target observation midpoint timelines scored with capped max, raw max, mean revisit gap, and threshold violation count.",
+            "coverage_timeline": "Target observation midpoint timelines scored with benchmark primary mean-across-target capped max, worst-target capped max diagnostic, raw max, and threshold violation count; mean gap is diagnostic-only.",
             "access_profile": "Solver-local visibility windows sampled from candidate satellite states to benchmark targets.",
             "observation_profit": "Quality-weighted freshness proxy using off-nadir/range/elevation and current target gap.",
             "temporal_constraints": "Same-satellite overlap and bang-coast-bang slew/settle feasibility approximated locally before official experiment verification.",
@@ -55,6 +57,7 @@ def _build_status(
     case_dir: Path,
     config_dir: Path | None,
     solution_path: Path,
+    profile_resolution: ProfileResolution,
     case,
     orbit_config: OrbitLibraryConfig,
     visibility_config: VisibilityConfig,
@@ -64,15 +67,18 @@ def _build_status(
     visibility_library,
     selection_result,
     scheduling_result,
+    envelope_artifacts,
     timing_seconds: dict[str, float],
     baseline_evidence: dict,
 ) -> dict:
     return {
-        "status": "phase_6_reproduction_fidelity_validated",
-        "phase": 6,
+        "status": "phase_10_scaled_compute_profiles_validated",
+        "phase": 10,
         "case_dir": str(case_dir),
         "config_dir": str(config_dir) if config_dir is not None else None,
         "solution": str(solution_path),
+        "run_profile": profile_resolution.summary,
+        "parameter_sweep": profile_resolution.sweep_summary,
         "case_id": case.case_id,
         "target_count": len(case.targets),
         "max_num_satellites": case.max_num_satellites,
@@ -87,6 +93,19 @@ def _build_status(
         "visibility": visibility_library.as_status_dict(),
         "selection": selection_result.as_status_dict(),
         "scheduling": scheduling_result.as_status_dict(),
+        "opportunity_envelope": {
+            "envelopes": [
+                {
+                    "name": item["name"],
+                    "metrics": item["metrics"],
+                }
+                for item in envelope_artifacts.opportunity_envelope["envelopes"]
+            ],
+            "comparison": envelope_artifacts.opportunity_envelope["comparison"],
+            "high_gap_blocker_counts": (
+                envelope_artifacts.high_gap_intervals["blocker_counts"]
+            ),
+        },
         "baseline_evidence": baseline_evidence,
         "reproduction_fidelity": {
             "mode_comparison": scheduling_result.mode_comparison,
@@ -132,7 +151,9 @@ def main(argv: list[str] | None = None) -> int:
 
     try:
         total_start = time.perf_counter()
-        config_payload = load_solver_config(config_dir)
+        raw_config_payload = load_solver_config(config_dir)
+        profile_resolution = resolve_profile_config(raw_config_payload)
+        config_payload = profile_resolution.resolved_config
         case = load_case(case_dir)
 
         orbit_config = OrbitLibraryConfig.from_mapping(config_payload, case)
@@ -170,6 +191,12 @@ def main(argv: list[str] | None = None) -> int:
             config=scheduling_config,
         )
         scheduling_end = time.perf_counter()
+        envelope_artifacts = build_opportunity_envelope_artifacts(
+            case=case,
+            windows=visibility_library.windows,
+            selected_candidate_ids=selection_result.selected_candidate_ids,
+            scheduled_observations=scheduling_result.scheduled_observations,
+        )
 
         solution_path = write_solution(
             solution_dir,
@@ -199,6 +226,7 @@ def main(argv: list[str] | None = None) -> int:
             case_dir=case_dir,
             config_dir=config_dir,
             solution_path=solution_path,
+            profile_resolution=profile_resolution,
             case=case,
             orbit_config=orbit_config,
             visibility_config=visibility_config,
@@ -208,6 +236,7 @@ def main(argv: list[str] | None = None) -> int:
             visibility_library=visibility_library,
             selection_result=selection_result,
             scheduling_result=scheduling_result,
+            envelope_artifacts=envelope_artifacts,
             timing_seconds=timing_seconds,
             baseline_evidence=baseline_evidence,
         )
@@ -259,6 +288,22 @@ def main(argv: list[str] | None = None) -> int:
         write_json(
             solution_dir / "debug" / "baseline_summary.json",
             baseline_evidence,
+        )
+        write_json(
+            solution_dir / "debug" / "run_profile_summary.json",
+            profile_resolution.summary,
+        )
+        write_json(
+            solution_dir / "debug" / "parameter_sweep_summary.json",
+            profile_resolution.sweep_summary,
+        )
+        write_json(
+            solution_dir / "debug" / "opportunity_envelope.json",
+            envelope_artifacts.opportunity_envelope,
+        )
+        write_json(
+            solution_dir / "debug" / "high_gap_intervals.json",
+            envelope_artifacts.high_gap_intervals,
         )
         write_json(
             solution_dir / "debug" / "mode_comparison.json",

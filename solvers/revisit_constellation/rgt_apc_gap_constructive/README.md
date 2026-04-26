@@ -88,7 +88,7 @@ APC visibility/access timelines are not final scheduled observations. They are c
 
 The orbit library enumerates circular RGT-style base orbits from integer revolution/day ratios and expands them into deterministic phase slots. Candidates are filtered against the case's initial-orbit altitude bounds and capped by `orbit_library.max_candidates`, which is intentionally separate from the benchmark's final satellite-output cap.
 
-The default `target_diversified` search mode ranks the candidate pool by target-derived inclination bands and balanced RAAN/mean-anomaly phase slots before falling back to nearby RGT ratios. This keeps the Lee-style APC idea of shifted access profiles while avoiding the earlier smoke-only behavior where the first base orbit exhausted the whole candidate cap. `legacy_base_first` is available for direct comparison with the earlier enumeration.
+The default `minmax_architecture` search mode interleaves RGT repeat families, target-derived inclination bands, and balanced RAAN/mean-anomaly phase slots before the candidate cap binds. This keeps the Lee-style APC idea of shifted access profiles while avoiding the earlier behavior where one nearby base orbit could exhaust the whole candidate cap. `target_diversified` and `legacy_base_first` are available for direct comparison with earlier enumerations.
 
 When no RGT candidate survives the altitude bounds, the solver falls back to a small deterministic circular-altitude grid. This fallback is reported in `status.json`; it is a robustness path, not a claim of APC optimality.
 
@@ -96,12 +96,13 @@ When no RGT candidate survives the altitude bounds, the solver falls back to a s
 
 Candidate satellites are selected greedily from the larger candidate pool. Each round adds the candidate whose opportunity timeline most improves the benchmark-shaped score:
 
-- threshold violation count
-- capped maximum revisit gap
+- capped maximum revisit gap averaged across targets
+- worst-target capped maximum revisit gap as a diagnostic tie
 - raw maximum revisit gap
-- mean revisit gap
+- target count above 12 h
+- threshold violation count
 
-All gap calculations are boundary-inclusive and use observation midpoints, matching the benchmark scoring convention. When scores tie, the selector uses deterministic diversity ties: new target coverage, total target coverage, new latitude-band coverage, phase spread from already selected satellites, and finally candidate ID.
+All gap calculations are boundary-inclusive and use observation midpoints, matching the benchmark scoring convention. Mean revisit gap is reported as a diagnostic only; it is not used as a meaningful optimization objective because adjacent observations can reduce the arithmetic mean without reducing long outages. When scores tie, the selector uses deterministic diversity ties: new target coverage, total target coverage, new latitude-band coverage, phase spread from already selected satellites, and finally candidate ID.
 
 ## Constructive Scheduling And Repair
 
@@ -114,7 +115,7 @@ The scheduler first builds one observation option per visibility window, anchore
 
 Solver-local validation checks unknown references, duration, sampled geometry, same-satellite overlap, required slew/settle gaps, and conservative battery risk.
 
-Repair is deterministic. It removes locally invalid or risky observations with the lowest score damage, then tries to insert feasible observations for high-gap targets. A bounded local-search pass then considers deterministic high-gap insertions and one-for-one swaps. Moves are accepted only when they improve the benchmark-shaped priority order: threshold violations, capped maximum gap, raw maximum gap, and mean gap. The emitted solution uses the local-search mode. The no-op, FIFO, unrepaired constructive, and repaired modes are retained only for reproduction-fidelity diagnostics.
+Repair is deterministic. It removes locally invalid or risky observations with the lowest score damage, then tries to insert feasible observations for high-gap targets. A bounded local-search pass then considers deterministic high-gap insertions and one-for-one swaps. Moves are accepted only when they improve the benchmark-shaped priority order: capped maximum gap averaged across targets, worst-target capped maximum gap, raw maximum gap, target count above 12 h, and threshold violations. The emitted solution uses the local-search mode. The no-op, FIFO, unrepaired constructive, and repaired modes are retained only for reproduction-fidelity diagnostics.
 
 ## Configuration
 
@@ -125,8 +126,18 @@ The solver reads optional config from either:
 
 See [config.example.yaml](./config.example.yaml) for a complete example.
 
+Config files may declare `active_profile` plus named `profiles`. The solver
+first deep-merges the active profile into the shared config and records the
+resolved profile in `status.json`, `debug/run_profile_summary.json`, and
+`debug/parameter_sweep_summary.json`. The experiment-owned default uses
+`smoke` for routine verifier runs; `fair`, `scaled_architecture`, and `stress`
+are deterministic scaled-compute frontiers rather than CI defaults.
+
 Key knobs:
 
+- `active_profile`
+- `profiles.<name>`
+- `parameter_sweep.points`
 - `orbit_library.max_candidates`
 - `orbit_library.search_mode`
 - `orbit_library.max_rgt_days`
@@ -171,6 +182,8 @@ Every run writes:
 - `debug/local_search_moves.json`: accepted and rejected bounded local-search moves
 - `debug/scheduling_summary.json`: compact option, action, rejection, repair, high-gap, and mode counts
 - `debug/baseline_summary.json`: compact profiling, mode, target coverage, and high-gap evidence for future-phase comparisons
+- `debug/run_profile_summary.json`: active profile, available profiles, and resolved compute-critical knobs
+- `debug/parameter_sweep_summary.json`: stable deterministic frontier points and their resolved knobs
 - `debug/mode_comparison.json`: solver-local no-op, FIFO, constructive, repaired, and local-search comparison metrics
 - `debug/adaptation_notes.json`: paper concepts mapped to benchmark mechanics
 
@@ -231,7 +244,7 @@ What matters here is:
 - official verification passes
 - selected satellite count respects the case cap
 - local validation is clean before official verification
-- constructive/repaired modes improve mean revisit gap over no-op
+- constructive/repaired modes improve the primary capped-max metric over no-op
 - repair does not collapse the schedule
 - high-gap and unobserved targets are visible in debug summaries
 

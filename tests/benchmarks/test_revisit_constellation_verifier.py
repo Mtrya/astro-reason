@@ -817,6 +817,56 @@ def test_compute_metrics_multiple_observations_reduce_max_gap() -> None:
     assert metrics["target_gap_summary"]["t1"]["max_revisit_gap_hours"] == pytest.approx(0.5)
 
 
+def test_compute_metrics_back_to_back_observations_do_not_hide_long_outage(
+    tmp_path: Path,
+) -> None:
+    mission = _base_mission()
+    mission["targets"][0]["expected_revisit_period_hours"] = 0.25
+    case_dir = _write_case(tmp_path, mission=mission)
+    instance = load_case(case_dir)
+    balanced = [
+        ObservationRecord(
+            satellite_id="sat1",
+            target_id="t1",
+            start=instance.horizon_start + timedelta(minutes=29),
+            end=instance.horizon_start + timedelta(minutes=31),
+            midpoint=instance.horizon_start + timedelta(minutes=30),
+        )
+    ]
+    adjacent = [
+        ObservationRecord(
+            satellite_id="sat1",
+            target_id="t1",
+            start=instance.horizon_start + timedelta(seconds=30),
+            end=instance.horizon_start + timedelta(seconds=90),
+            midpoint=instance.horizon_start + timedelta(minutes=1),
+        ),
+        ObservationRecord(
+            satellite_id="sat1",
+            target_id="t1",
+            start=instance.horizon_start + timedelta(seconds=90),
+            end=instance.horizon_start + timedelta(seconds=150),
+            midpoint=instance.horizon_start + timedelta(minutes=2),
+        ),
+    ]
+
+    balanced_metrics = _compute_metrics(instance, balanced, satellite_count=1)
+    adjacent_metrics = _compute_metrics(instance, adjacent, satellite_count=1)
+
+    assert (
+        adjacent_metrics["target_gap_summary"]["t1"]["mean_revisit_gap_hours"]
+        < balanced_metrics["target_gap_summary"]["t1"]["mean_revisit_gap_hours"]
+    )
+    assert adjacent_metrics["capped_max_revisit_gap_hours"] == pytest.approx(
+        58.0 / 60.0
+    )
+    assert balanced_metrics["capped_max_revisit_gap_hours"] == pytest.approx(0.5)
+    assert (
+        adjacent_metrics["capped_max_revisit_gap_hours"]
+        > balanced_metrics["capped_max_revisit_gap_hours"]
+    )
+
+
 def test_compute_metrics_deduplicates_simultaneous_target_observations() -> None:
     instance = load_case(ZERO_OBSERVATION_FIXTURE_DIR)
     midpoint = instance.horizon_start + timedelta(minutes=15)

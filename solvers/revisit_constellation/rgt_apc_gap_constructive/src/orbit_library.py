@@ -37,10 +37,14 @@ class OrbitLibraryConfig:
             max_candidates = max(0, case.max_num_satellites * 2)
         phase_slot_count = orbit_raw.get("phase_slot_count")
         search_mode = str(orbit_raw.get("search_mode", "target_diversified"))
-        if search_mode not in {"target_diversified", "legacy_base_first"}:
+        if search_mode not in {
+            "minmax_architecture",
+            "target_diversified",
+            "legacy_base_first",
+        }:
             raise ValueError(
-                "orbit_library.search_mode must be 'target_diversified' or "
-                "'legacy_base_first'"
+                "orbit_library.search_mode must be 'minmax_architecture', "
+                "'target_diversified', or 'legacy_base_first'"
             )
         return cls(
             max_candidates=int(max_candidates),
@@ -423,6 +427,30 @@ def _target_diversified_candidate_pairs(
     return pairs
 
 
+def _minmax_architecture_candidate_pairs(
+    bases: list[dict[str, Any]],
+    slot_count: int,
+) -> list[tuple[dict[str, Any], int]]:
+    """Interleave RGT families and phases before caps bind.
+
+    The earlier target-diversified order keeps a single base RGT family together.
+    This order samples one inclination/phase from many repeat families first, so
+    a small candidate cap still contains temporal and altitude diversity.
+    """
+    phase_order = _balanced_phase_slot_order(slot_count)
+    groups = _base_groups(bases)
+    max_group_size = max((len(group) for group in groups), default=0)
+    pairs: list[tuple[dict[str, Any], int]] = []
+    if not groups or not phase_order:
+        return pairs
+    for tier in range(max_group_size * slot_count):
+        for group_index, group in enumerate(groups):
+            base = group[(tier + group_index) % len(group)]
+            slot_index = phase_order[(tier + group_index) % len(phase_order)]
+            pairs.append((base, slot_index))
+    return pairs
+
+
 def generate_orbit_library(
     case: RevisitCase,
     config: OrbitLibraryConfig,
@@ -434,7 +462,9 @@ def generate_orbit_library(
     bases = [*rgt_bases, *fallback_bases]
     candidates: list[OrbitCandidate] = []
     seen_ids: set[str] = set()
-    if config.search_mode == "target_diversified":
+    if config.search_mode == "minmax_architecture":
+        candidate_pairs = _minmax_architecture_candidate_pairs(bases, slot_count)
+    elif config.search_mode == "target_diversified":
         candidate_pairs = _target_diversified_candidate_pairs(bases, slot_count)
     else:
         candidate_pairs = _legacy_candidate_pairs(bases, slot_count)
@@ -461,6 +491,7 @@ def generate_orbit_library(
             "candidate_inclination_counts": _candidate_inclination_counts(candidates),
             "phase_slot_order_prefix": _balanced_phase_slot_order(slot_count)[: min(12, slot_count)],
             "phase_slots_used": slot_count,
+            "architecture_search_strategy": config.search_mode,
             "max_num_satellites": case.max_num_satellites,
         },
     )

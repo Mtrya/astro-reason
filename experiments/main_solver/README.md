@@ -57,7 +57,8 @@ uv run python experiments/main_solver/run.py \
     --case test/case_0001
 ```
 
-Run the RGT/APC constructive public-case fair profile:
+Run the RGT/APC constructive public cases with the profile declared in the solver
+config:
 
 ```bash
 uv run python experiments/main_solver/run.py \
@@ -66,12 +67,19 @@ uv run python experiments/main_solver/run.py \
 ```
 
 The `revisit_constellation_rgt_apc_gap_constructive` solver profile embeds the
-experiment-owned `fair_public_reproduction` config. It uses a deterministic
-target-diversified RGT/APC candidate pool, bounded candidate-parallel visibility
-generation, greedy gap-aware satellite selection, constructive scheduling,
-repair, and bounded local search. The profile is intentionally not promoted to
-`repro_ci: true`; solver CI remains contract-focused, while this experiment owns
-the verifier command, run policy, and result artifacts.
+experiment-owned `smoke` default plus deterministic `fair`,
+`scaled_architecture`, and `stress` profile definitions. The default is kept
+contract-speed for routine official smoke verification; the scaled profiles
+broaden the minmax-architecture RGT/APC candidate pool, phase grid, RGT ratio
+breadth, and visibility workers for reproduction-frontier evidence. The profile
+is intentionally not promoted to `repro_ci: true`; solver CI remains
+contract-focused, while this experiment owns the verifier command, run policy,
+and result artifacts.
+
+For `revisit_constellation`, aggregated summaries treat
+`capped_max_revisit_gap_hours` as the benchmark primary metric: per-target capped
+maximum revisit gap aggregated by mean. `worst_target_capped_max_revisit_gap_hours`
+and `mean_revisit_gap_hours` are diagnostics.
 
 Materialize SatNet citation-backed rows:
 

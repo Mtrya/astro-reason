@@ -73,8 +73,12 @@ def _mode_compact(mode_comparison: dict[str, Any]) -> list[dict[str, Any]]:
                 "capped_max_revisit_gap_hours": score.get(
                     "capped_max_revisit_gap_hours"
                 ),
+                "worst_target_capped_max_revisit_gap_hours": score.get(
+                    "worst_target_capped_max_revisit_gap_hours"
+                ),
                 "max_revisit_gap_hours": score.get("max_revisit_gap_hours"),
                 "mean_revisit_gap_hours": score.get("mean_revisit_gap_hours"),
+                "target_count_above_12h": score.get("target_count_above_12h"),
                 "threshold_violation_count": score.get("threshold_violation_count"),
                 "improvement_vs_no_op": entry.get("improvement_vs_no_op"),
                 "improvement_vs_fifo": entry.get("improvement_vs_fifo"),

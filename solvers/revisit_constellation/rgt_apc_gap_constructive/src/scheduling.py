@@ -1424,7 +1424,7 @@ def _removal_key(
     case: RevisitCase,
     scheduled: list[ScheduledObservation],
     observation: ScheduledObservation,
-) -> tuple[int, float, float, datetime, str, str, str]:
+) -> tuple[float, float, float, int, int, datetime, str, str, str]:
     before = score_observation_timelines(case, _timelines_from_schedule(scheduled))
     after = score_observation_timelines(
         case,
@@ -1432,9 +1432,11 @@ def _removal_key(
     )
     damage = gap_improvement(after, before)
     return (
-        damage.threshold_violation_reduction,
         damage.capped_max_revisit_gap_reduction_hours,
-        damage.mean_revisit_gap_reduction_hours,
+        damage.worst_target_capped_max_revisit_gap_reduction_hours,
+        damage.max_revisit_gap_reduction_hours,
+        damage.target_count_above_12h_reduction,
+        damage.threshold_violation_reduction,
         observation.start,
         observation.satellite_id,
         observation.target_id,
@@ -1527,10 +1529,11 @@ def _insert_high_gap_observation(
             ranked_options.append(
                 (
                     (
-                        -improvement.threshold_violation_reduction,
                         -improvement.capped_max_revisit_gap_reduction_hours,
+                        -improvement.worst_target_capped_max_revisit_gap_reduction_hours,
                         -improvement.max_revisit_gap_reduction_hours,
-                        -improvement.mean_revisit_gap_reduction_hours,
+                        -improvement.target_count_above_12h_reduction,
+                        -improvement.threshold_violation_reduction,
                         option.start,
                         option.satellite_id,
                         option.window_id,
@@ -1577,10 +1580,11 @@ def _move_key(
         "",
     )
     return (
-        -improvement.threshold_violation_reduction,
         -improvement.capped_max_revisit_gap_reduction_hours,
+        -improvement.worst_target_capped_max_revisit_gap_reduction_hours,
         -improvement.max_revisit_gap_reduction_hours,
-        -improvement.mean_revisit_gap_reduction_hours,
+        -improvement.target_count_above_12h_reduction,
+        -improvement.threshold_violation_reduction,
         -target_gap_hours,
         action_rank,
         *inserted_key,
@@ -1649,10 +1653,11 @@ def _ranked_removal_candidates(
                 (
                     conflict_priority,
                     same_target_priority,
-                    damage.threshold_violation_reduction,
                     damage.capped_max_revisit_gap_reduction_hours,
+                    damage.worst_target_capped_max_revisit_gap_reduction_hours,
                     damage.max_revisit_gap_reduction_hours,
-                    damage.mean_revisit_gap_reduction_hours,
+                    damage.target_count_above_12h_reduction,
+                    damage.threshold_violation_reduction,
                     observation.start,
                     observation.satellite_id,
                     observation.target_id,
@@ -2157,10 +2162,11 @@ def schedule_observations(
             )
             key = (
                 opportunity_cost,
-                -improvement.threshold_violation_reduction,
                 -improvement.capped_max_revisit_gap_reduction_hours,
+                -improvement.worst_target_capped_max_revisit_gap_reduction_hours,
                 -improvement.max_revisit_gap_reduction_hours,
-                -improvement.mean_revisit_gap_reduction_hours,
+                -improvement.target_count_above_12h_reduction,
+                -improvement.threshold_violation_reduction,
                 option.start,
                 option.satellite_id,
                 option.target_id,

@@ -15,7 +15,7 @@ from .visibility import VisibilityWindow
 TimelineMap = dict[str, list[datetime]]
 CandidateTimelineMap = dict[str, TimelineMap]
 SelectionCandidate = tuple[
-    tuple[int, float, float, float, int, int, int, float, str],
+    tuple[float, float, float, int, int, int, int, int, float, str],
     str,
     TimelineMap,
     GapScore,
