@@ -91,14 +91,17 @@ uv run python experiments/main_solver/aggregate.py
 ```
 
 The Phase 5 method decision promotes `regional_coverage_cp_local_search`: dense
-fixed-start candidates, legacy bounded neighborhoods, three seeded restarts,
+fixed-start candidates, legacy bounded neighborhoods, thirty seeded restarts,
 and fixed-start OR-Tools CP-SAT repair. The latest reproduction command verifies
 all ten jobs: five greedy-baseline cases and five promoted-method cases.
 Average official weighted coverage is `0.8961799799329526` for greedy-only and
-`0.9013044997801305` for the promoted method. The faithful audit profile also
-verifies all five cases, with average official weighted coverage
-`0.8983959816877342`, but is not promoted because it is slower and loses the
-`test/case_0003` lift recovered by fixed-start CP repair.
+`0.995301247989109` for the promoted method. The promoted profile uses a
+reviewer-facing compute envelope rather than the earlier quick local envelope:
+60-second candidate stride, nine roll magnitudes per side, and thirty search
+restarts. The faithful audit profile also verifies all five cases, with average
+official weighted coverage `0.8983959816877342`, but is not promoted because
+the interval/opportunity modeling path loses the score lift recovered by the
+promoted fixed-start CP repair.
 
 ## Result Layout
 

@@ -47,7 +47,7 @@ The benchmark differs from the paper in several important ways:
 - The benchmark has hard battery and imaging-duty constraints. This solver avoids known sequence conflicts and reports solver-local validation, while official validity remains owned by `experiments/main_solver` plus the benchmark verifier.
 - The paper uses Tempo for CP-SAT TSPTW insertion; this solver uses a solver-local OR-Tools CP-SAT backend prepared by `setup.sh`.
 
-That means this solver reproduces the paper's acquisition-planning structure under the benchmark contract, not every industrial subsystem or every result table. Current Phase 5 evidence supports the claim of a faithful benchmark-adapted acquisition-planning reproduction with explicit scope limits: the promoted method uses the strongest verified benchmark configuration, while interval/opportunity modeling remains a separate fidelity audit path rather than the normal scoring path.
+That means this solver reproduces the paper's acquisition-planning structure under the benchmark contract, not every industrial subsystem or every result table. Current Phase 5 evidence supports the claim of a faithful benchmark-adapted acquisition-planning reproduction with explicit scope limits: the promoted method uses a reviewer-facing optimization envelope rather than a quick smoke budget, while interval/opportunity modeling remains a separate fidelity audit path rather than the normal scoring path.
 
 ## Solver Contract
 
@@ -260,10 +260,11 @@ The CI smoke profile remains light and unchanged. It is intended for quick
 contract checks, not reproduction evidence.
 
 The Phase 5 promoted reproduction profile uses the strongest verified
-benchmark configuration from tuning: 120-second candidate stride, seven roll
-magnitudes per side, positive-coverage candidates only, three search seeds,
+benchmark configuration from tuning: 60-second candidate stride, nine roll
+magnitudes per side, positive-coverage candidates only, thirty search seeds,
 legacy bounded local-search neighborhoods, fixed-start OR-Tools CP-SAT repair,
-and eight candidate workers.
+and eight candidate workers. This is intentionally heavier than CI smoke so the
+reproduction evidence is not artificially budget-limited.
 
 The faithful audit profile is separately labeled and uses the fidelity modes
 added in the roadmap phases: five search seeds, deterministic same-satellite
@@ -299,14 +300,16 @@ verify. The current average official metrics are:
 
 | mode | role | average coverage ratio | average weighted coverage ratio | average actions | average solve time | average candidate time | average search time |
 | --- | --- | ---: | ---: | ---: | ---: | ---: | ---: |
-| greedy-only | baseline | `0.8964373077399344` | `0.8961799799329526` | `25.4` | `7.24690649579861 s` | `6.71066614520387 s` | `0.0869041444035247 s` |
-| promoted CP/local-search | selected | `0.9018473856666462` | `0.90130449978013` | `25.4` | `12.9726894016028 s` | `6.74653566220659 s` | `5.73757761919405 s` |
+| greedy-only | baseline | `0.8964373077399344` | `0.8961799799329526` | `25.4` | `8.67481389240711 s` | `8.11377289899392 s` | `0.0895575117960107 s` |
+| promoted CP/local-search | selected | `0.995349046379786` | `0.995301247989109` | `19.0` | `81.1616404792003 s` | `18.9080990178045 s` | `61.7307612174016 s` |
 | faithful audit | not promoted | `0.8989836288846341` | `0.8983959816877342` | `25.2` | `15.38245428261 s` | `6.74163373299525 s` | `8.15231614919612 s` |
 
-The promoted method made `214` OR-Tools CP-SAT calls across the five cases,
-with `209` feasible calls and `57` improving neighborhood repairs. It improves
-the final official score on `test/case_0001` and `test/case_0003`; the other
-public cases are already saturated or locally strong under greedy/local-search.
+The promoted method evaluates `3,576,960` grid-roll candidate slots, keeps
+`3,962` positive-coverage candidates, completes `150` search restarts, and
+makes `212` OR-Tools CP-SAT calls across the five cases, all feasible, with
+`28` improving neighborhood repairs. It reaches full official weighted coverage
+on `test/case_0001` and `test/case_0005`, remains saturated on `test/case_0004`,
+and recovers a large `test/case_0003` lift that the quick profile missed.
 
 The faithful audit profile made `203` OR-Tools CP-SAT calls, with `81`
 feasible calls and `29` improving repairs. It improves slightly over the
@@ -314,13 +317,13 @@ greedy-only baseline on average, but it is not promoted because it is slower
 and its conservative opportunity grouping plus interval snapping loses the
 `test/case_0003` improvement.
 
-Phase 5 tuning checked the decisive `test/case_0003` switches before promotion:
-conflict-components with fixed-start repair matched the faithful audit score,
-legacy neighborhoods with interval repair fell back to the greedy score, and a
-larger fixed-start CP budget recovered the promoted score but added runtime
-without score lift. The selected method therefore keeps the fixed-start CP
-budget from the practical profile and demotes interval/opportunity modeling to
-audit evidence.
+Phase 5 tuning checked the decisive `test/case_0003` switches before promotion.
+The earlier quick profile reached weighted coverage `0.7541424674964797`; the
+heavier reviewer-facing profile reaches `0.9776231380048687` on that case with
+60-second candidates, nine roll magnitudes per side, thirty restarts, and
+roughly `112 s` of solver-local time. The selected method therefore promotes
+the high-compute fixed-start CP path and demotes interval/opportunity modeling
+to audit evidence.
 
 ## Audit Status
 
