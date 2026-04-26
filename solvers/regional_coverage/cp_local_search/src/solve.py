@@ -15,6 +15,7 @@ from .coverage import CoverageIndex
 from .cp_repair import CPRepairConfig
 from .greedy import GreedyConfig
 from .local_search import LocalSearchConfig
+from .opportunities import OpportunityConfig, build_opportunity_index
 from .search import SearchConfig, run_search
 from .sequence import is_consistent
 from .solution_io import candidates_to_solution, write_json
@@ -45,12 +46,15 @@ def main(argv: list[str] | None = None) -> int:
         greedy_config = GreedyConfig.from_mapping(config_payload)
         local_search_config = LocalSearchConfig.from_mapping(config_payload)
         cp_config = CPRepairConfig.from_mapping(config_payload)
+        opportunity_config = OpportunityConfig.from_mapping(config_payload)
         with phase_timer.phase("case_parsing"):
             case = load_case(case_dir)
         with phase_timer.phase("coverage_index"):
             coverage_index = CoverageIndex.from_case(case)
         with phase_timer.phase("candidate_generation"):
             candidates, candidate_summary = generate_candidates(case, config, coverage_index)
+        with phase_timer.phase("opportunity_grouping"):
+            opportunity_index = build_opportunity_index(candidates, opportunity_config)
         with phase_timer.phase("search"):
             search_result = run_search(
                 case,
@@ -60,10 +64,12 @@ def main(argv: list[str] | None = None) -> int:
                 greedy_config=greedy_config,
                 local_search_config=local_search_config,
                 cp_config=cp_config,
+                opportunity_index=opportunity_index,
             )
         greedy_result = search_result.greedy_result
         local_search_result = search_result.local_search_result
         selected_candidates = local_search_result.selected_in_solution_order()
+        solution_action_sources = _solution_action_sources(selected_candidates, opportunity_index)
         with phase_timer.phase("solution_writing"):
             write_json(solution_path, candidates_to_solution(case.mission, selected_candidates))
 
@@ -82,6 +88,14 @@ def main(argv: list[str] | None = None) -> int:
                 [candidate.as_dict() for candidate in candidates[: config.candidate_debug_limit]],
             )
             write_json(
+                debug_dir / "opportunities.json",
+                {
+                    "case_id": case.mission.case_id,
+                    "config": opportunity_config.as_dict(),
+                    **opportunity_index.debug_payload(limit=opportunity_config.debug_limit),
+                },
+            )
+            write_json(
                 debug_dir / "greedy_summary.json",
                 {
                     "case_id": case.mission.case_id,
@@ -92,6 +106,15 @@ def main(argv: list[str] | None = None) -> int:
             write_json(
                 debug_dir / "selected_candidates.json",
                 [candidate.as_dict() for candidate in selected_candidates],
+            )
+            write_json(
+                debug_dir / "selected_opportunity_mapping.json",
+                {
+                    "case_id": case.mission.case_id,
+                    "source": "opportunity_index",
+                    "actions_are_public_strip_observations": True,
+                    "selected": solution_action_sources,
+                },
             )
             write_json(
                 debug_dir / "local_search_summary.json",
@@ -151,6 +174,8 @@ def main(argv: list[str] | None = None) -> int:
                 "coverage_sample_count": len(case.samples),
                 "candidate_config": config.as_dict(),
                 "candidate_summary": candidate_summary.as_dict(),
+                "opportunity_config": opportunity_config.as_dict(),
+                "opportunity_summary": opportunity_index.summary.as_dict(),
                 "search_config": search_config.as_dict(),
                 "search_summary": search_result.summary.as_dict(),
                 "greedy_config": greedy_config.as_dict(),
@@ -159,6 +184,7 @@ def main(argv: list[str] | None = None) -> int:
                 "local_search_summary": local_search_result.summary.as_dict(),
                 "cp_config": cp_config.as_dict(),
                 "cp_summary": local_search_result.summary.cp_metrics,
+                "solution_action_sources": solution_action_sources,
                 "sequence_model": local_search_result.state.as_dict(),
                 "local_validation": local_validation,
                 "timing_seconds": timing_seconds,
@@ -168,24 +194,27 @@ def main(argv: list[str] | None = None) -> int:
                     "implemented": [
                         "standalone case parser",
                         "deterministic fixed-start strip candidates",
+                        "conservative benchmark-safe opportunity grouping over fixed candidates",
                         "solver-local coverage-grid mapping",
                         "benchmark-compatible roll transition helpers",
                         "satellite-local sequence model",
                         "marginal unique coverage greedy insertion",
                         "bounded deterministic local-search neighborhoods",
                         "greedy neighborhood rebuild",
-                        "bounded OR-Tools CP-SAT sequence repair in local neighborhoods",
+                        "selectable fixed-start or interval/TSPTW OR-Tools CP-SAT repair in local neighborhoods",
+                        "opportunity-selected repairs snapped back to public fixed strip actions",
                         "verifier-shaped solver-local strip coverage scoring",
                         "CP call success and improvement-rate reporting",
                         "seeded restart and multi-start search orchestration",
                     ],
                     "omitted_until_later_phases": [
                         "battery and duty repair",
+                        "benchmark-provided access-window identifiers",
                     ],
                     "backend_note": (
                         "OR-Tools is installed in the solver-local environment by setup.sh; "
-                        "CP assistance is implemented as bounded CP-SAT repair over fixed-start "
-                        "TSPTW-style neighborhood subproblems."
+                        f"CP assistance is implemented with the {cp_config.repair_mode!r} "
+                        "bounded CP-SAT repair mode."
                     ),
                 },
             },
@@ -244,6 +273,22 @@ def _local_validation_summary(case, greedy_result) -> dict:
         "covered_sample_count": len(greedy_result.covered_sample_ids),
         "per_satellite": per_satellite,
     }
+
+
+def _solution_action_sources(candidates, opportunity_index) -> list[dict]:
+    out = []
+    for candidate in candidates:
+        out.append(
+            {
+                "emitted_candidate_id": candidate.candidate_id,
+                "opportunity_id": opportunity_index.opportunity_id_for_candidate(candidate.candidate_id),
+                "start_offset_s": candidate.start_offset_s,
+                "duration_s": candidate.duration_s,
+                "roll_deg": candidate.roll_deg,
+                "public_action_type": "strip_observation",
+            }
+        )
+    return out
 
 
 def _execution_mode(local_search_config: LocalSearchConfig, cp_config: CPRepairConfig) -> str:

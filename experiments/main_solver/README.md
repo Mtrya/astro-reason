@@ -80,13 +80,25 @@ uv run python experiments/main_solver/run.py \
 uv run python experiments/main_solver/aggregate.py
 ```
 
+Run the regional-coverage faithful evidence profile, which keeps the smoke and
+reproduction defaults separate while enabling the solver's fidelity modes:
+
+```bash
+uv run python experiments/main_solver/run.py \
+    --config experiments/main_solver/config_regional_coverage_cp_local_search_faithful.yaml
+uv run python experiments/main_solver/aggregate.py
+```
+
 The latest regional-coverage CP/local-search comparison verifies all fifteen
-jobs under the dense reproduction envelope. Average official weighted coverage
-is `0.8961799799329526` for greedy-only, `0.8983754575177383` for local search,
-and `0.9013044997801305` for CP-enabled local search. The CP-enabled profile
-records `214` OR-Tools CP-SAT calls and `57` improving local repairs across the
-five public cases. Candidate generation uses deterministic process-pool
-parallelism with `candidate_workers: 8`.
+jobs under the dense reproduction envelope, and the separately labeled faithful
+profile verifies all five public regional cases. Average official weighted
+coverage is `0.8961799799329526` for greedy-only, `0.8983754575177383` for local
+search, `0.9013044997801305` for fixed-start CP-enabled local search, and
+`0.8983959816877342` for the faithful evidence profile. The faithful profile
+uses deterministic conflict-component neighborhoods, conservative opportunity
+grouping, five search seeds, and `interval_tsptw` OR-Tools repair. It is the
+closer benchmark-adapted reproduction evidence profile, while the fixed-start
+CP-enabled reproduction profile remains the current public-score leader.
 
 ## Result Layout
 

@@ -8,26 +8,33 @@ unique benchmark-grid coverage not already supplied by the kept schedule.
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+import math
+from dataclasses import dataclass, field, replace
 from time import perf_counter
-from typing import Any, Iterable
+from typing import Any, Iterable, Literal
 
 from .candidates import Candidate
 from .case_io import RegionalCoverageCase
 from .coverage import CoverageIndex
+from .opportunities import OpportunityIndex
 from .sequence import create_empty_state, insert_candidate, is_consistent
-from .transition import transition_result
+from .transition import required_transition_gap_s, transition_result
+
+
+CPRepairMode = Literal["fixed_start_subset", "interval_tsptw"]
 
 
 @dataclass(frozen=True, slots=True)
 class CPRepairConfig:
     enabled: bool = True
     backend: str = "ortools_cp_sat"
+    repair_mode: CPRepairMode = "fixed_start_subset"
     max_calls: int = 32
     max_candidates: int = 10
     max_conflicts: int = 2048
     time_limit_s: float = 0.25
     min_improvement_weight_m2: float = 1.0e-6
+    interval_start_window_s: int = 0
 
     @classmethod
     def from_mapping(cls, payload: dict[str, Any] | None) -> "CPRepairConfig":
@@ -37,9 +44,13 @@ class CPRepairConfig:
             raise ValueError(
                 "cp_backend must be 'ortools_cp_sat'; run solver-local setup.sh to install OR-Tools"
             )
+        repair_mode = str(payload.get("cp_repair_mode", "fixed_start_subset"))
+        if repair_mode not in {"fixed_start_subset", "interval_tsptw"}:
+            raise ValueError("cp_repair_mode must be 'fixed_start_subset' or 'interval_tsptw'")
         return cls(
             enabled=bool(payload.get("cp_enabled", True)),
             backend=backend,
+            repair_mode=repair_mode,  # type: ignore[arg-type]
             max_calls=_non_negative_int(payload.get("cp_max_calls", 32), "cp_max_calls"),
             max_candidates=_positive_int(payload.get("cp_max_candidates", 10), "cp_max_candidates"),
             max_conflicts=_positive_int(
@@ -51,23 +62,30 @@ class CPRepairConfig:
                 payload.get("cp_min_improvement_weight_m2", 1.0e-6),
                 "cp_min_improvement_weight_m2",
             ),
+            interval_start_window_s=_non_negative_int(
+                payload.get("cp_interval_start_window_s", 0),
+                "cp_interval_start_window_s",
+            ),
         )
 
     def as_dict(self) -> dict[str, Any]:
         return {
             "enabled": self.enabled,
             "backend": self.backend,
+            "repair_mode": self.repair_mode,
             "max_calls": self.max_calls,
             "max_candidates": self.max_candidates,
             "max_conflicts": self.max_conflicts,
             "time_limit_s": self.time_limit_s,
             "min_improvement_weight_m2": self.min_improvement_weight_m2,
+            "interval_start_window_s": self.interval_start_window_s,
         }
 
 
 @dataclass(slots=True)
 class CPMetrics:
     backend: str = "ortools_cp_sat"
+    repair_mode: str = "fixed_start_subset"
     calls: int = 0
     feasible_solutions: int = 0
     improving_solutions: int = 0
@@ -86,10 +104,13 @@ class CPMetrics:
     model_bool_variables: int = 0
     model_constraints: int = 0
     candidate_variables: int = 0
+    start_variables: int = 0
+    order_variables: int = 0
     sample_coverage_variables: int = 0
     transition_conflict_constraints: int = 0
     anchor_conflict_constraints: int = 0
     coverage_link_constraints: int = 0
+    opportunity_choice_constraints: int = 0
     branches: int = 0
     conflicts: int = 0
 
@@ -99,7 +120,8 @@ class CPMetrics:
         improving_success_rate = 0.0 if self.calls == 0 else self.improving_solutions / self.calls
         return {
             "backend": self.backend,
-            "backend_note": "solver-local OR-Tools CP-SAT repair over bounded fixed-start TSPTW-style neighborhoods",
+            "repair_mode": self.repair_mode,
+            "backend_note": _backend_note(self.repair_mode),
             "cp_sat_version": self.cp_sat_version,
             "calls": self.calls,
             "successful_calls": self.feasible_solutions,
@@ -122,10 +144,13 @@ class CPMetrics:
             "model_bool_variables": self.model_bool_variables,
             "model_constraints": self.model_constraints,
             "candidate_variables": self.candidate_variables,
+            "start_variables": self.start_variables,
+            "order_variables": self.order_variables,
             "sample_coverage_variables": self.sample_coverage_variables,
             "transition_conflict_constraints": self.transition_conflict_constraints,
             "anchor_conflict_constraints": self.anchor_conflict_constraints,
             "coverage_link_constraints": self.coverage_link_constraints,
+            "opportunity_choice_constraints": self.opportunity_choice_constraints,
             "branches": self.branches,
             "conflicts": self.conflicts,
         }
@@ -135,7 +160,9 @@ class CPMetrics:
 class CPRepairResult:
     attempted: bool
     backend: str
+    repair_mode: str
     selected_candidate_ids: tuple[str, ...]
+    selected_candidates: tuple[Candidate, ...]
     feasible: bool
     improving: bool
     stop_reason: str
@@ -146,20 +173,30 @@ class CPRepairResult:
     model_bool_variables: int
     model_constraints: int
     candidate_variables: int
+    start_variables: int
+    order_variables: int
     sample_coverage_variables: int
     transition_conflict_constraints: int
     anchor_conflict_constraints: int
     coverage_link_constraints: int
+    opportunity_choice_constraints: int
     branches: int
     conflicts: int
     model_build_time_s: float
     solve_time_s: float
+    selected_candidate_sources: tuple[dict[str, Any], ...] = ()
 
     def as_dict(self) -> dict[str, Any]:
         return {
             "attempted": self.attempted,
             "backend": self.backend,
+            "repair_mode": self.repair_mode,
             "selected_candidate_ids": list(self.selected_candidate_ids),
+            "selected_candidate_start_offsets_s": {
+                candidate.candidate_id: candidate.start_offset_s
+                for candidate in self.selected_candidates
+            },
+            "selected_candidate_sources": list(self.selected_candidate_sources),
             "feasible": self.feasible,
             "improving": self.improving,
             "stop_reason": self.stop_reason,
@@ -170,10 +207,13 @@ class CPRepairResult:
             "model_bool_variables": self.model_bool_variables,
             "model_constraints": self.model_constraints,
             "candidate_variables": self.candidate_variables,
+            "start_variables": self.start_variables,
+            "order_variables": self.order_variables,
             "sample_coverage_variables": self.sample_coverage_variables,
             "transition_conflict_constraints": self.transition_conflict_constraints,
             "anchor_conflict_constraints": self.anchor_conflict_constraints,
             "coverage_link_constraints": self.coverage_link_constraints,
+            "opportunity_choice_constraints": self.opportunity_choice_constraints,
             "branches": self.branches,
             "conflicts": self.conflicts,
             "model_build_time_s": self.model_build_time_s,
@@ -190,6 +230,9 @@ class _ModelStats:
     transition_conflict_constraints: int
     anchor_conflict_constraints: int
     coverage_link_constraints: int
+    start_variables: int = 0
+    order_variables: int = 0
+    opportunity_choice_constraints: int = 0
 
 
 def cp_sat_repair(
@@ -201,7 +244,10 @@ def cp_sat_repair(
     before_key: tuple[Any, ...],
     config: CPRepairConfig,
     metrics: CPMetrics,
+    opportunity_index: OpportunityIndex | None = None,
 ) -> CPRepairResult:
+    metrics.backend = config.backend
+    metrics.repair_mode = config.repair_mode
     if not config.enabled:
         metrics.skipped_disabled += 1
         return _not_attempted(config, "disabled")
@@ -211,6 +257,41 @@ def cp_sat_repair(
     if len(neighborhood_candidates) > config.max_candidates:
         metrics.skipped_size_limit += 1
         return _not_attempted(config, "size_limit")
+
+    if config.repair_mode == "interval_tsptw":
+        return _interval_tsptw_repair(
+            case,
+            kept_candidates=kept_candidates,
+            neighborhood_candidates=neighborhood_candidates,
+            coverage_index=coverage_index,
+            before_key=before_key,
+            config=config,
+            metrics=metrics,
+            opportunity_index=opportunity_index,
+        )
+    return _fixed_start_subset_repair(
+        case,
+        kept_candidates=kept_candidates,
+        neighborhood_candidates=neighborhood_candidates,
+        coverage_index=coverage_index,
+        before_key=before_key,
+        config=config,
+        metrics=metrics,
+        opportunity_index=opportunity_index,
+    )
+
+
+def _fixed_start_subset_repair(
+    case: RegionalCoverageCase,
+    *,
+    kept_candidates: list[Candidate],
+    neighborhood_candidates: list[Candidate],
+    coverage_index: CoverageIndex,
+    before_key: tuple[Any, ...],
+    config: CPRepairConfig,
+    metrics: CPMetrics,
+    opportunity_index: OpportunityIndex | None = None,
+) -> CPRepairResult:
 
     cp_model, ortools_version = _load_cp_sat_backend()
     metrics.cp_sat_version = ortools_version
@@ -226,6 +307,12 @@ def cp_sat_repair(
         candidate.candidate_id: model.NewBoolVar(_safe_var_name(f"sel_{candidate.candidate_id}"))
         for candidate in pool
     }
+    opportunity_choice_constraints = _add_opportunity_choice_constraints(
+        model,
+        pool,
+        selected_vars,
+        opportunity_index,
+    )
 
     transition_conflict_constraints = _add_pool_transition_constraints(
         case,
@@ -259,6 +346,7 @@ def cp_sat_repair(
         transition_conflict_constraints=transition_conflict_constraints,
         anchor_conflict_constraints=anchor_conflict_constraints,
         coverage_link_constraints=coverage_link_constraints,
+        opportunity_choice_constraints=opportunity_choice_constraints,
     )
     _add_model_stats(metrics, stats)
     metrics.model_build_time_s += build_elapsed
@@ -308,6 +396,7 @@ def cp_sat_repair(
             transition_conflict_constraints=transition_conflict_constraints,
             anchor_conflict_constraints=anchor_conflict_constraints,
             coverage_link_constraints=coverage_link_constraints + 1,
+            opportunity_choice_constraints=opportunity_choice_constraints,
         )
         metrics.model_constraints += 1
         metrics.coverage_link_constraints += 1
@@ -347,6 +436,201 @@ def cp_sat_repair(
     )
 
 
+def _interval_tsptw_repair(
+    case: RegionalCoverageCase,
+    *,
+    kept_candidates: list[Candidate],
+    neighborhood_candidates: list[Candidate],
+    coverage_index: CoverageIndex,
+    before_key: tuple[Any, ...],
+    config: CPRepairConfig,
+    metrics: CPMetrics,
+    opportunity_index: OpportunityIndex | None = None,
+) -> CPRepairResult:
+    cp_model, ortools_version = _load_cp_sat_backend()
+    metrics.cp_sat_version = ortools_version
+
+    build_start = perf_counter()
+    pool = sorted(
+        {candidate.candidate_id: candidate for candidate in neighborhood_candidates}.values(),
+        key=_candidate_key,
+    )
+    kept = sorted(kept_candidates, key=_candidate_key)
+    model = cp_model.CpModel()
+    step_s = max(1, int(case.mission.time_step_s))
+
+    selected_vars = {
+        candidate.candidate_id: model.NewBoolVar(_safe_var_name(f"sel_{candidate.candidate_id}"))
+        for candidate in pool
+    }
+    slot_vars: dict[str, Any] = {}
+    start_exprs: dict[str, Any] = {}
+    start_when_selected_vars: dict[str, Any] = {}
+    for candidate in pool:
+        lower_slot, upper_slot = _candidate_window_slots(case, candidate, config, step_s)
+        slot = model.NewIntVar(
+            lower_slot,
+            upper_slot,
+            _safe_var_name(f"slot_{candidate.candidate_id}"),
+        )
+        selected_start = model.NewIntVar(
+            0,
+            upper_slot,
+            _safe_var_name(f"selected_slot_{candidate.candidate_id}"),
+        )
+        selected = selected_vars[candidate.candidate_id]
+        model.Add(selected_start == slot).OnlyEnforceIf(selected)
+        model.Add(selected_start == 0).OnlyEnforceIf(selected.Not())
+        slot_vars[candidate.candidate_id] = slot
+        start_exprs[candidate.candidate_id] = slot * step_s
+        start_when_selected_vars[candidate.candidate_id] = selected_start
+    opportunity_choice_constraints = _add_opportunity_choice_constraints(
+        model,
+        pool,
+        selected_vars,
+        opportunity_index,
+    )
+
+    transition_constraints, order_variables = _add_interval_transition_constraints(
+        case,
+        model,
+        pool,
+        selected_vars,
+        start_exprs,
+    )
+    anchor_constraints = _add_interval_anchor_constraints(
+        case,
+        model,
+        kept,
+        pool,
+        selected_vars,
+        start_exprs,
+    )
+    model.Add(sum(selected_vars.values()) + len(kept) <= case.mission.max_actions_total)
+    anchor_constraints += 1
+
+    coverage_expr, sample_vars, coverage_link_constraints = _add_coverage_objective(
+        model,
+        kept,
+        pool,
+        selected_vars,
+        coverage_index,
+    )
+    model.Maximize(coverage_expr)
+    build_elapsed = perf_counter() - build_start
+    stats = _model_stats(
+        model,
+        candidate_variables=len(selected_vars),
+        start_variables=len(slot_vars),
+        order_variables=order_variables,
+        sample_coverage_variables=len(sample_vars),
+        transition_conflict_constraints=transition_constraints,
+        anchor_conflict_constraints=anchor_constraints,
+        coverage_link_constraints=coverage_link_constraints,
+        opportunity_choice_constraints=opportunity_choice_constraints,
+    )
+    _add_model_stats(metrics, stats)
+    metrics.model_build_time_s += build_elapsed
+    metrics.calls += 1
+
+    solve_start = perf_counter()
+    branches_before = metrics.branches
+    conflicts_before = metrics.conflicts
+    first_solver = _new_solver(cp_model, config, config.time_limit_s)
+    first_status = first_solver.Solve(model)
+    first_status_name = first_solver.StatusName(first_status)
+    _record_solver_stats(metrics, first_status_name, first_solver)
+    solve_elapsed = perf_counter() - solve_start
+    if first_status not in {cp_model.OPTIMAL, cp_model.FEASIBLE}:
+        metrics.solve_time_s += solve_elapsed
+        _record_stop(metrics, first_status_name, first_solver, config)
+        return _finish_result(
+            config,
+            metrics,
+            (),
+            None,
+            before_key,
+            stats,
+            build_elapsed,
+            solve_elapsed,
+            branches=metrics.branches - branches_before,
+            conflicts=metrics.conflicts - conflicts_before,
+            stop_reason=_stop_reason(first_status_name, first_solver, config),
+            solver_status=first_status_name,
+            objective_bound_m2=None,
+        )
+
+    best_coverage = int(round(first_solver.ObjectiveValue()))
+    selected, selected_sources = _interval_selected_candidates(
+        pool,
+        selected_vars,
+        slot_vars,
+        first_solver,
+        step_s,
+        opportunity_index=opportunity_index,
+    )
+    best_status_name = first_status_name
+    best_stop_reason = _stop_reason(first_status_name, first_solver, config)
+    objective_bound_m2 = float(first_solver.BestObjectiveBound())
+
+    remaining_s = config.time_limit_s - solve_elapsed
+    if remaining_s > 1.0e-6:
+        model.Add(coverage_expr == best_coverage)
+        model.Maximize(_interval_tie_break_objective(pool, selected_vars, start_when_selected_vars))
+        stats = _model_stats(
+            model,
+            candidate_variables=len(selected_vars),
+            start_variables=len(slot_vars),
+            order_variables=order_variables,
+            sample_coverage_variables=len(sample_vars),
+            transition_conflict_constraints=transition_constraints,
+            anchor_conflict_constraints=anchor_constraints,
+            coverage_link_constraints=coverage_link_constraints + 1,
+            opportunity_choice_constraints=opportunity_choice_constraints,
+        )
+        metrics.model_constraints += 1
+        metrics.coverage_link_constraints += 1
+        second_solver = _new_solver(cp_model, config, remaining_s)
+        second_status = second_solver.Solve(model)
+        second_status_name = second_solver.StatusName(second_status)
+        _record_solver_stats(metrics, second_status_name, second_solver)
+        solve_elapsed = perf_counter() - solve_start
+        if second_status in {cp_model.OPTIMAL, cp_model.FEASIBLE}:
+            selected, selected_sources = _interval_selected_candidates(
+                pool,
+                selected_vars,
+                slot_vars,
+                second_solver,
+                step_s,
+                opportunity_index=opportunity_index,
+            )
+            best_status_name = second_status_name
+            best_stop_reason = _stop_reason(second_status_name, second_solver, config)
+        else:
+            _record_stop(metrics, second_status_name, second_solver, config)
+
+    metrics.solve_time_s += solve_elapsed
+    schedule = kept + list(selected)
+    key = _objective_key(case, schedule, coverage_index) if _schedule_valid(case, schedule) else None
+    stop_reason = best_stop_reason if key is not None else "infeasible"
+    return _finish_result(
+        config,
+        metrics,
+        selected,
+        key,
+        before_key,
+        stats,
+        build_elapsed,
+        solve_elapsed,
+        branches=metrics.branches - branches_before,
+        conflicts=metrics.conflicts - conflicts_before,
+        stop_reason=stop_reason,
+        solver_status=best_status_name,
+        objective_bound_m2=objective_bound_m2,
+        selected_candidate_sources=selected_sources,
+    )
+
+
 def _finish_result(
     config: CPRepairConfig,
     metrics: CPMetrics,
@@ -362,6 +646,7 @@ def _finish_result(
     stop_reason: str,
     solver_status: str | None,
     objective_bound_m2: float | None,
+    selected_candidate_sources: tuple[dict[str, Any], ...] = (),
 ) -> CPRepairResult:
     feasible = best_key is not None
     improving = feasible and _objective_key_strictly_better(
@@ -380,7 +665,9 @@ def _finish_result(
     return CPRepairResult(
         attempted=True,
         backend=config.backend,
+        repair_mode=config.repair_mode,
         selected_candidate_ids=tuple(candidate.candidate_id for candidate in best_subset),
+        selected_candidates=best_subset,
         feasible=feasible,
         improving=improving,
         stop_reason=stop_reason if feasible else "infeasible",
@@ -391,14 +678,18 @@ def _finish_result(
         model_bool_variables=stats.model_bool_variables,
         model_constraints=stats.model_constraints,
         candidate_variables=stats.candidate_variables,
+        start_variables=stats.start_variables,
+        order_variables=stats.order_variables,
         sample_coverage_variables=stats.sample_coverage_variables,
         transition_conflict_constraints=stats.transition_conflict_constraints,
         anchor_conflict_constraints=stats.anchor_conflict_constraints,
         coverage_link_constraints=stats.coverage_link_constraints,
+        opportunity_choice_constraints=stats.opportunity_choice_constraints,
         branches=branches,
         conflicts=conflicts,
         model_build_time_s=build_elapsed,
         solve_time_s=solve_elapsed,
+        selected_candidate_sources=selected_candidate_sources or _direct_candidate_sources(best_subset),
     )
 
 
@@ -406,7 +697,9 @@ def _not_attempted(config: CPRepairConfig, reason: str) -> CPRepairResult:
     return CPRepairResult(
         attempted=False,
         backend=config.backend,
+        repair_mode=config.repair_mode,
         selected_candidate_ids=(),
+        selected_candidates=(),
         feasible=False,
         improving=False,
         stop_reason=reason,
@@ -417,14 +710,18 @@ def _not_attempted(config: CPRepairConfig, reason: str) -> CPRepairResult:
         model_bool_variables=0,
         model_constraints=0,
         candidate_variables=0,
+        start_variables=0,
+        order_variables=0,
         sample_coverage_variables=0,
         transition_conflict_constraints=0,
         anchor_conflict_constraints=0,
         coverage_link_constraints=0,
+        opportunity_choice_constraints=0,
         branches=0,
         conflicts=0,
         model_build_time_s=0.0,
         solve_time_s=0.0,
+        selected_candidate_sources=(),
     )
 
 
@@ -464,6 +761,127 @@ def _add_anchor_constraints(case, model, kept, pool, selected_vars) -> int:
             count += 1
             break
     return count
+
+
+def _add_opportunity_choice_constraints(model, pool, selected_vars, opportunity_index: OpportunityIndex | None) -> int:
+    if opportunity_index is None or not opportunity_index.enabled:
+        return 0
+    count = 0
+    for candidate_ids in opportunity_index.choice_groups_for_candidates(pool).values():
+        model.Add(sum(selected_vars[candidate_id] for candidate_id in candidate_ids) <= 1)
+        count += 1
+    return count
+
+
+def _candidate_window_slots(
+    case: RegionalCoverageCase,
+    candidate: Candidate,
+    config: CPRepairConfig,
+    step_s: int,
+) -> tuple[int, int]:
+    window_s = int(config.interval_start_window_s)
+    latest_start = case.mission.horizon_duration_s - candidate.duration_s
+    lower = max(0, candidate.start_offset_s - window_s)
+    upper = min(latest_start, candidate.start_offset_s + window_s)
+    lower_slot = _ceil_div(lower, step_s)
+    upper_slot = upper // step_s
+    if lower_slot > upper_slot:
+        fixed_slot = max(0, min(latest_start, candidate.start_offset_s) // step_s)
+        return fixed_slot, fixed_slot
+    return lower_slot, upper_slot
+
+
+def _add_interval_transition_constraints(case, model, pool, selected_vars, start_exprs) -> tuple[int, int]:
+    constraint_count = 0
+    order_count = 0
+    for left_index, left in enumerate(pool):
+        for right in pool[left_index + 1:]:
+            if left.satellite_id != right.satellite_id:
+                continue
+            satellite = case.satellites[left.satellite_id]
+            left_before_right = model.NewBoolVar(
+                _safe_var_name(f"ord_{left.candidate_id}_before_{right.candidate_id}")
+            )
+            order_count += 1
+            left_gap = _required_gap_int_s(left.roll_deg, right.roll_deg, satellite)
+            right_gap = _required_gap_int_s(right.roll_deg, left.roll_deg, satellite)
+            model.Add(
+                start_exprs[left.candidate_id] + left.duration_s + left_gap <= start_exprs[right.candidate_id]
+            ).OnlyEnforceIf([
+                selected_vars[left.candidate_id],
+                selected_vars[right.candidate_id],
+                left_before_right,
+            ])
+            model.Add(
+                start_exprs[right.candidate_id] + right.duration_s + right_gap <= start_exprs[left.candidate_id]
+            ).OnlyEnforceIf([
+                selected_vars[left.candidate_id],
+                selected_vars[right.candidate_id],
+                left_before_right.Not(),
+            ])
+            constraint_count += 2
+    return constraint_count, order_count
+
+
+def _add_interval_anchor_constraints(case, model, kept, pool, selected_vars, start_exprs) -> int:
+    count = 0
+    for candidate in pool:
+        selected = selected_vars[candidate.candidate_id]
+        start = start_exprs[candidate.candidate_id]
+        for anchor in kept:
+            if candidate.satellite_id != anchor.satellite_id:
+                continue
+            satellite = case.satellites[candidate.satellite_id]
+            candidate_before_anchor = model.NewBoolVar(
+                _safe_var_name(f"anchor_{candidate.candidate_id}_before_{anchor.candidate_id}")
+            )
+            candidate_gap = _required_gap_int_s(candidate.roll_deg, anchor.roll_deg, satellite)
+            anchor_gap = _required_gap_int_s(anchor.roll_deg, candidate.roll_deg, satellite)
+            model.Add(
+                start + candidate.duration_s + candidate_gap <= anchor.start_offset_s
+            ).OnlyEnforceIf([selected, candidate_before_anchor])
+            model.Add(
+                anchor.end_offset_s + anchor_gap <= start
+            ).OnlyEnforceIf([selected, candidate_before_anchor.Not()])
+            count += 2
+    return count
+
+
+def _interval_selected_candidates(
+    pool,
+    selected_vars,
+    slot_vars,
+    solver,
+    step_s: int,
+    *,
+    opportunity_index: OpportunityIndex | None,
+) -> tuple[tuple[Candidate, ...], tuple[dict[str, Any], ...]]:
+    selected: list[Candidate] = []
+    sources: list[dict[str, Any]] = []
+    seen_emitted_ids: set[str] = set()
+    for candidate in pool:
+        if not solver.BooleanValue(selected_vars[candidate.candidate_id]):
+            continue
+        start_offset_s = int(solver.Value(slot_vars[candidate.candidate_id])) * step_s
+        if opportunity_index is not None and opportunity_index.enabled:
+            emitted, source = opportunity_index.choose_member(candidate, start_offset_s)
+        else:
+            emitted = replace(
+                candidate,
+                start_offset_s=start_offset_s,
+                end_offset_s=start_offset_s + candidate.duration_s,
+            )
+            source = _direct_source_mapping(candidate, emitted, start_offset_s)
+        if emitted.candidate_id in seen_emitted_ids:
+            continue
+        seen_emitted_ids.add(emitted.candidate_id)
+        selected.append(emitted)
+        sources.append(source)
+    ordered = sorted(zip(selected, sources), key=lambda item: _candidate_key(item[0]))
+    return (
+        tuple(candidate for candidate, _ in ordered),
+        tuple(source for _, source in ordered),
+    )
 
 
 def _add_coverage_objective(model, kept, pool, selected_vars, coverage_index):
@@ -526,14 +944,26 @@ def _tie_break_objective(pool: list[Candidate], selected_vars):
     return sum(terms)
 
 
+def _interval_tie_break_objective(pool: list[Candidate], selected_vars, start_when_selected_vars):
+    base = _tie_break_objective(pool, selected_vars)
+    start_penalty = sum(
+        start_when_selected_vars[candidate.candidate_id]
+        for candidate in pool
+    )
+    return base * 1_000_000 - start_penalty
+
+
 def _model_stats(
     model,
     *,
     candidate_variables: int,
+    start_variables: int = 0,
+    order_variables: int = 0,
     sample_coverage_variables: int,
     transition_conflict_constraints: int,
     anchor_conflict_constraints: int,
     coverage_link_constraints: int,
+    opportunity_choice_constraints: int = 0,
 ) -> _ModelStats:
     proto = model.Proto()
     return _ModelStats(
@@ -544,6 +974,9 @@ def _model_stats(
         transition_conflict_constraints=transition_conflict_constraints,
         anchor_conflict_constraints=anchor_conflict_constraints,
         coverage_link_constraints=coverage_link_constraints,
+        start_variables=start_variables,
+        order_variables=order_variables,
+        opportunity_choice_constraints=opportunity_choice_constraints,
     )
 
 
@@ -551,10 +984,13 @@ def _add_model_stats(metrics: CPMetrics, stats: _ModelStats) -> None:
     metrics.model_bool_variables += stats.model_bool_variables
     metrics.model_constraints += stats.model_constraints
     metrics.candidate_variables += stats.candidate_variables
+    metrics.start_variables += stats.start_variables
+    metrics.order_variables += stats.order_variables
     metrics.sample_coverage_variables += stats.sample_coverage_variables
     metrics.transition_conflict_constraints += stats.transition_conflict_constraints
     metrics.anchor_conflict_constraints += stats.anchor_conflict_constraints
     metrics.coverage_link_constraints += stats.coverage_link_constraints
+    metrics.opportunity_choice_constraints += stats.opportunity_choice_constraints
 
 
 def _record_solver_stats(metrics: CPMetrics, status_name: str, solver) -> None:
@@ -644,11 +1080,40 @@ def _pair_feasible(case: RegionalCoverageCase, left: Candidate, right: Candidate
     return False
 
 
+def _required_gap_int_s(previous_roll_deg: float, current_roll_deg: float, satellite) -> int:
+    return int(math.ceil(required_transition_gap_s(previous_roll_deg, current_roll_deg, satellite) - 1.0e-9))
+
+
 def _covered_sample_ids(candidates: Iterable[Candidate]) -> set[str]:
     covered: set[str] = set()
     for candidate in candidates:
         covered.update(candidate.coverage_sample_ids)
     return covered
+
+
+def _direct_candidate_sources(candidates: tuple[Candidate, ...]) -> tuple[dict[str, Any], ...]:
+    return tuple(
+        _direct_source_mapping(candidate, candidate, candidate.start_offset_s)
+        for candidate in candidates
+    )
+
+
+def _direct_source_mapping(
+    source: Candidate,
+    emitted: Candidate,
+    intended_start_offset_s: int,
+) -> dict[str, Any]:
+    return {
+        "source_candidate_id": source.candidate_id,
+        "emitted_candidate_id": emitted.candidate_id,
+        "opportunity_id": None,
+        "intended_start_offset_s": intended_start_offset_s,
+        "emitted_start_offset_s": emitted.start_offset_s,
+        "emitted_duration_s": emitted.duration_s,
+        "emitted_roll_deg": emitted.roll_deg,
+        "snapped_to_member": source.candidate_id != emitted.candidate_id
+        or source.start_offset_s != emitted.start_offset_s,
+    }
 
 
 def _slew_burden_s(case: RegionalCoverageCase, candidates: list[Candidate]) -> float:
@@ -678,6 +1143,19 @@ def _weight_int(value: float) -> int:
 
 def _energy_int(value: float) -> int:
     return max(0, int(round(float(value) * 1_000.0)))
+
+
+def _ceil_div(value: int, divisor: int) -> int:
+    return -(-int(value) // int(divisor))
+
+
+def _backend_note(repair_mode: str) -> str:
+    if repair_mode == "interval_tsptw":
+        return (
+            "solver-local OR-Tools CP-SAT interval/TSPTW repair over bounded "
+            "grid-snapped local neighborhoods"
+        )
+    return "solver-local OR-Tools CP-SAT repair over bounded fixed-start TSPTW-style neighborhoods"
 
 
 def _positive_int(value: Any, field: str) -> int:

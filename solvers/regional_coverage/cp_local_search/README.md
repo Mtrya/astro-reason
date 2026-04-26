@@ -28,12 +28,12 @@ Antuori et al. decompose AEOS scheduling into acquisition planning and download 
 
 This reproduction keeps the acquisition-planning structure:
 
-- acquisition: one fixed-start `strip_observation` candidate
+- acquisition: fixed-start `strip_observation` candidates, with optional conservative opportunity groups for audit and interval repair
 - satellite sequence: one ordered list of strip candidates per satellite
 - transition time: roll-delta bang-coast-bang slew plus settling time
 - greedy insertion: choose the feasible candidate/position with best marginal unique coverage, with deterministic tie breaks
-- neighborhood move: remove selected satellite-local candidates, then rebuild the neighborhood greedily
-- CP assistance: run bounded OR-Tools CP-SAT TSPTW-style sequence repair inside local neighborhoods
+- neighborhood move: remove selected satellite-local candidates from legacy time windows or deterministic conflict components, then rebuild the neighborhood greedily
+- CP assistance: run bounded OR-Tools CP-SAT sequence repair inside local neighborhoods, either as fixed-start subset repair or interval/TSPTW-style repair snapped back to public candidates
 
 The solver's objective is benchmark-facing rather than paper-native: it maximizes unique weighted coverage over `coverage_grid.json` samples while preserving valid public actions.
 
@@ -66,6 +66,7 @@ That means this solver reproduces the paper's acquisition-planning structure und
 - `debug/candidates.json`
 - `debug/greedy_summary.json`
 - `debug/local_search_summary.json`
+- `debug/opportunities.json` when opportunity grouping is enabled
 - `debug/selected_candidates.json`
 - optional `debug/insertion_attempts.jsonl`
 - optional `debug/moves.jsonl`
@@ -87,7 +88,7 @@ The solver pipeline is:
 3. Score candidate coverage with solver-local strip segment geometry shaped to match the public verifier's roll-only WGS84 strip model.
 4. Build an empty satellite-local sequence state.
 5. Run deterministic greedy insertion with marginal unique coverage scoring.
-6. Build bounded satellite-time and sample-competition neighborhoods.
+6. Build bounded legacy satellite-time neighborhoods or same-satellite conflict-component neighborhoods.
 7. Rebuild each neighborhood with greedy insertion against the current covered-sample set.
 8. If CP is enabled, call bounded OR-Tools CP-SAT repair on non-improving local neighborhoods.
 9. Emit the selected candidate sequence as `strip_observation` actions.
@@ -99,7 +100,12 @@ The defaults are deterministic and bounded. Restart and randomized-neighborhood 
 
 `cp_backend: ortools_cp_sat` is the supported backend.
 
-It is a solver-local CP-SAT model over a small fixed-start TSPTW-style neighborhood:
+It is a solver-local CP-SAT model over a small TSPTW-style neighborhood. Two repair modes are available:
+
+- `fixed_start_subset`: preserves the original fixed-start repair used by the reproduction comparison profile.
+- `interval_tsptw`: gives each selected opportunity a bounded start interval, then snaps the selected member back to a concrete public `strip_observation` candidate before solution emission.
+
+Both modes keep the same public solution contract:
 
 - input: kept incumbent candidates plus one bounded neighborhood candidate pool
 - feasibility: satellite-local transition conflict constraints against selected candidates and outside-neighborhood anchors
@@ -142,13 +148,22 @@ Key knobs:
 - `greedy_max_iterations`
 - `greedy_wall_time_limit_s`
 - `local_search_enabled`
+- `local_search_neighborhood_mode`
 - `local_search_max_iterations`
 - `local_search_component_gap_s`
 - `local_search_time_padding_s`
+- `local_search_max_component_size`
+- `local_search_component_subwindow_s`
+- `local_search_include_sample_competition`
 - `local_search_max_neighborhoods_per_iteration`
 - `local_search_max_neighborhood_candidates`
+- `opportunity_grouping_enabled`
+- `opportunity_max_time_gap_s`
+- `opportunity_min_coverage_jaccard`
 - `cp_enabled`
 - `cp_backend`
+- `cp_repair_mode`
+- `cp_interval_start_window_s`
 - `cp_max_calls`
 - `cp_max_candidates`
 - `cp_max_conflicts`
@@ -169,9 +184,10 @@ Debug summaries are intended to explain fidelity and score drift:
 
 - `candidate_summary.json`: candidate counts, positive-coverage counts, zero-coverage counts, per-satellite counts, and max candidate weight
 - `candidates.json`: first `candidate_debug_limit` candidate records
+- `opportunities.json`: opportunity groups, member counts, public candidate mappings, and omitted-group counts when `opportunity_grouping_enabled` is true
 - `greedy_summary.json`: accepted candidate IDs, marginal coverage totals, insertion attempts, feasibility rejects, and deterministic tie-break order
 - `local_search_summary.json`: generated neighborhoods, accepted moves, objective deltas, incumbent progression, and CP metrics
-- `selected_candidates.json`: final selected candidate records in solution order
+- `selected_candidates.json`: final selected candidate records in solution order, including source opportunity IDs when opportunity grouping is enabled
 - `insertion_attempts.jsonl`: optional greedy insertion-attempt details
 - `moves.jsonl`: optional local-search move details, including CP repair records
 - `status.json`: combined run summary, execution mode, configs, sequence model, validation summary, and reproduction notes
@@ -216,6 +232,22 @@ uv run python experiments/main_solver/run.py \
   --case test/case_0001
 ```
 
+Run the dense reproduction comparison:
+
+```bash
+uv run python experiments/main_solver/run.py \
+  --config experiments/main_solver/config_regional_coverage_cp_local_search_reproduction.yaml
+uv run python experiments/main_solver/aggregate.py
+```
+
+Run the faithful evidence profile:
+
+```bash
+uv run python experiments/main_solver/run.py \
+  --config experiments/main_solver/config_regional_coverage_cp_local_search_faithful.yaml
+uv run python experiments/main_solver/aggregate.py
+```
+
 Aggregate experiment results:
 
 ```bash
@@ -224,23 +256,19 @@ uv run python experiments/main_solver/aggregate.py
 
 ## Validation Notes
 
-The current dense CP-enabled reproduction profile verifies `test/case_0001`
-through `experiments/main_solver` with:
+The CI smoke profile remains light and unchanged. It is intended for quick
+contract checks, not reproduction evidence.
 
-- `valid: true`
-- `num_actions: 50`
-- `coverage_ratio: 0.8983077474393012`
-- `weighted_coverage_ratio: 0.90179098116373`
-- `min_battery_wh: 492.8958333333384`
-- CP calls: `64`
-- CP feasible calls: `64`
-- CP improving calls: `51`
-- candidate generation: process pool with `8` workers
+The dense reproduction profile uses a fairer candidate envelope: 120-second
+candidate stride, seven roll magnitudes per side, positive-coverage candidates
+only, three search seeds, bounded local search, fixed-start OR-Tools CP-SAT
+repair, and eight candidate workers.
 
-The CI smoke profile remains lighter, but the reproduction profile now uses a
-fairer dense candidate envelope: 120-second candidate stride, seven roll
-magnitudes per side, positive-coverage candidates only, and eight candidate
-workers.
+The faithful evidence profile is separately labeled and uses the fidelity modes
+added in the roadmap phases: five search seeds, deterministic same-satellite
+conflict-component neighborhoods, conservative opportunity grouping, and
+`interval_tsptw` OR-Tools repair. Emitted actions remain public
+`strip_observation` actions and all five public test cases verify.
 
 ## Public Evidence Snapshot
 
@@ -252,32 +280,50 @@ uv run python experiments/main_solver/run.py \
 uv run python experiments/main_solver/aggregate.py
 ```
 
-The profile compares greedy-only, local-search-without-CP, and CP-enabled modes over all five public regional-coverage `test` cases. All fifteen jobs verify. The current average official metrics are:
+The faithful profile lives in:
+
+```bash
+uv run python experiments/main_solver/run.py \
+  --config experiments/main_solver/config_regional_coverage_cp_local_search_faithful.yaml
+uv run python experiments/main_solver/aggregate.py
+```
+
+The reproduction profile compares greedy-only, local-search-without-CP, and
+CP-enabled modes over all five public regional-coverage `test` cases. The
+faithful profile adds a separate all-case evidence run using the fidelity modes
+above. All twenty jobs in these two runs verify. The current average official
+metrics are:
 
 | mode | average coverage ratio | average weighted coverage ratio | average actions | average solve time |
 | --- | ---: | ---: | ---: | ---: |
-| greedy-only | `0.8964373077399344` | `0.8961799799329526` | `25.4` | `8.365175425197231 s` |
-| local-search | `0.8989634205760888` | `0.8983754575177383` | `25.2` | `9.137866019795183 s` |
-| CP-enabled | `0.9018473856666462` | `0.9013044997801305` | `25.4` | `13.954553109407424 s` |
+| greedy-only | `0.8964373077399344` | `0.8961799799329526` | `25.4` | `7.056998476211447 s` |
+| local-search | `0.8989634205760888` | `0.8983754575177383` | `25.2` | `8.077798106201225 s` |
+| CP-enabled | `0.9018473856666462` | `0.9013044997801305` | `25.4` | `12.845421841990902 s` |
+| faithful evidence | `0.8989836288846341` | `0.8983959816877342` | `25.2` | `15.61637547960272 s` |
 
 The CP-enabled profile made `214` OR-Tools CP-SAT calls across the five cases, all feasible, with `57` improving neighborhood repairs. CP improves the final official score on `test/case_0001` and `test/case_0003`; the other public cases are already saturated or locally strong under greedy/local-search.
 
-Candidate generation uses deterministic process-pool parallelism. With `candidate_workers: 8`, CP-enabled candidate generation averages about `7.768 s` per case and search averages about `5.701 s`.
+The faithful evidence profile made `203` OR-Tools CP-SAT calls with `29`
+improving repairs. It improves slightly over the greedy-only and local-search
+comparison rows on average, but it does not beat the fixed-start CP-enabled
+profile because `test/case_0003` is worse under the current conservative
+opportunity grouping and interval snapping.
 
 ## Audit Status
 
 The current audit status for the target claim, "faithful reproduction adapted to the benchmark with fair optimization and compute envelope", is `READY`.
 
-Implemented and adapted pieces include standalone case parsing, deterministic candidate generation, verifier-shaped unique-coverage scoring, satellite-local sequences, greedy insertion, bounded local-search neighborhoods, restart/multi-start plumbing, OR-Tools CP-SAT neighborhood repair, structured timings, and official main-solver validation.
+Implemented and adapted pieces include standalone case parsing, deterministic candidate generation, verifier-shaped unique-coverage scoring, satellite-local sequences, greedy insertion, bounded local-search neighborhoods, conflict-component neighborhoods, conservative opportunity grouping, restart/multi-start plumbing, selectable OR-Tools CP-SAT neighborhood repair, structured timings, and official main-solver validation.
 
-The benchmark adaptation is still explicit: this is not Tempo itself and it does not reproduce download or memory planning. Within the public regional-coverage contract, however, the solver now has a fair dense candidate envelope, process-parallel candidate generation, verified all-case results, and observable local-search/CP improvements over greedy.
+The benchmark adaptation is still explicit: this is not Tempo itself and it does not reproduce download or memory planning. Within the public regional-coverage contract, however, the solver now has a fair dense candidate envelope, process-parallel candidate generation, verified all-case results, observable local-search/CP improvements over greedy, and a separately labeled faithful evidence profile.
 
 ## Known Limitations
 
 - This solver reproduces the Antuori acquisition-planning method family, not the full integrated acquisition/download/memory planner.
-- Tempo is not available as a project dependency; OR-Tools CP-SAT is used as the public backend for tiny fixed-start neighborhoods.
+- Tempo is not available as a project dependency; OR-Tools CP-SAT is used as the public backend for bounded fixed-start or interval/TSPTW-style neighborhoods.
 - Candidate generation uses deterministic time and roll grids, so finer opportunities between grid points are intentionally missed.
-- The CP backend searches fixed-start candidate subsets; it does not continuously reschedule action start times.
+- Opportunity grouping is conservative and snaps back to public fixed candidates. It improves audit fidelity but is not yet score-dominant on every case.
+- The interval repair mode permits bounded start flexibility inside the model but still emits concrete public actions, not continuous industrial access-window schedules.
 - Battery and duty constraints are not globally optimized inside the search objective. Official validity is still checked by the benchmark verifier through experiments.
 - Local search is intentionally bounded and deterministic. It is not an ALNS or broad metaheuristic sweep.
 - Server-side reproduction can raise `candidate_workers` to `16`; the public profile uses `8` workers as a fair laptop-safe default.

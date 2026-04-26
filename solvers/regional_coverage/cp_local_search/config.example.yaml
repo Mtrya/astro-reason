@@ -18,6 +18,39 @@
 # cp_max_candidates: 10
 # cp_time_limit_s: 0.25
 #
+# Faithful benchmark-adapted acquisition-planning envelope:
+#
+# candidate_stride_s: 120
+# roll_samples_per_side: 7
+# max_candidates_per_satellite: 20000
+# include_zero_coverage_candidates: false
+# candidate_debug_limit: 500
+# candidate_workers: 8
+# search_restart_count: 5
+# search_run_seeds: [0, 1, 2, 3, 4]
+# greedy_random_choice_probability: 0.05
+# local_search_enabled: true
+# local_search_neighborhood_mode: conflict_components
+# local_search_max_component_size: 32
+# local_search_component_subwindow_s: 3600
+# local_search_include_sample_competition: false
+# local_search_max_iterations: 8
+# local_search_wall_time_limit_s: 10.0
+# local_search_max_neighborhoods_per_iteration: 80
+# local_search_max_neighborhood_candidates: 64
+# local_search_randomize_neighborhood_order: true
+# opportunity_grouping_enabled: true
+# opportunity_max_time_gap_s: 1200
+# opportunity_min_coverage_jaccard: 0.5
+# cp_enabled: true
+# cp_backend: ortools_cp_sat
+# cp_repair_mode: interval_tsptw
+# cp_interval_start_window_s: 120
+# cp_max_calls: 96
+# cp_max_candidates: 14
+# cp_max_conflicts: 4096
+# cp_time_limit_s: 0.35
+#
 # Current reproduction comparison envelope:
 #
 # candidate_stride_s: 120
@@ -35,8 +68,10 @@
 # local_search_max_neighborhoods_per_iteration: 64
 # local_search_max_neighborhood_candidates: 60
 # local_search_randomize_neighborhood_order: true
+# opportunity_grouping_enabled: false
 # cp_enabled: true
 # cp_backend: ortools_cp_sat
+# cp_repair_mode: fixed_start_subset
 # cp_max_calls: 64
 # cp_max_candidates: 10
 # cp_max_conflicts: 2048
@@ -87,19 +122,44 @@
 # local_search_wall_time_limit_s: null
 # local_search_component_gap_s: 3600
 # local_search_time_padding_s: 1200
+# local_search_neighborhood_mode: legacy
+#   Choices:
+#     - legacy
+#     - conflict_components
 # local_search_max_neighborhoods_per_iteration: 24
 # local_search_max_neighborhood_candidates: 40
+# local_search_max_component_size: 24
+# local_search_component_subwindow_s: 3600
+# local_search_include_sample_competition: true
 # local_search_randomize_neighborhood_order: false
 # local_search_random_seed: null
+
+# ---------------------------------------------------------------------------
+# Opportunity grouping
+# ---------------------------------------------------------------------------
+# Opportunity grouping is solver-local diagnostic structure. Emitted solutions
+# still contain only public strip_observation actions snapped to concrete fixed
+# candidates.
+# opportunity_grouping_enabled: false
+# opportunity_max_time_gap_s: 1200
+# opportunity_roll_bucket_deg: 0.001
+# opportunity_min_coverage_jaccard: 0.5
+# opportunity_debug_limit: 250
 
 # ---------------------------------------------------------------------------
 # OR-Tools CP-SAT neighborhood repair
 # ---------------------------------------------------------------------------
 # The only supported CP backend is the solver-local OR-Tools CP-SAT dependency
-# installed by setup.sh. The model repairs bounded fixed-start neighborhoods; it
-# is not Tempo and does not continuously reschedule action start times.
+# installed by setup.sh. The default model repairs bounded fixed-start
+# neighborhoods; faithful profiles can enable interval_tsptw repair with
+# grid/member snapping. This is still not a Tempo dependency.
 # cp_enabled: true
 # cp_backend: ortools_cp_sat
+# cp_repair_mode: fixed_start_subset
+#   Choices:
+#     - fixed_start_subset
+#     - interval_tsptw
+# cp_interval_start_window_s: 0
 # cp_max_calls: 32
 # cp_max_candidates: 10
 # cp_max_conflicts: 2048

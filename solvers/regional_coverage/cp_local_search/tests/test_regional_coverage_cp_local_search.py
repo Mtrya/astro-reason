@@ -39,12 +39,18 @@ from solvers.regional_coverage.cp_local_search.src.greedy import (
 from solvers.regional_coverage.cp_local_search.src.local_search import (
     LocalSearchConfig,
     Neighborhood,
+    build_conflict_components,
     build_neighborhoods,
+    build_neighborhoods_with_summary,
     covered_sample_ids,
     local_search,
     rebuild_neighborhood,
     schedule_objective,
     state_from_candidates,
+)
+from solvers.regional_coverage.cp_local_search.src.opportunities import (
+    OpportunityConfig,
+    build_opportunity_index,
 )
 from solvers.regional_coverage.cp_local_search.src.sequence import (
     SatelliteSequence,
@@ -57,6 +63,7 @@ from solvers.regional_coverage.cp_local_search.src.search import (
     run_search,
 )
 from solvers.regional_coverage.cp_local_search.src.solve import main as solve_main
+from solvers.regional_coverage.cp_local_search.src.solution_io import candidates_to_solution
 from solvers.regional_coverage.cp_local_search.src.time_grid import grid_offsets
 from solvers.regional_coverage.cp_local_search.src.transition import (
     required_transition_gap_s,
@@ -267,6 +274,72 @@ def test_parallel_candidate_generation_matches_serial_fingerprint() -> None:
     assert parallel_payload == serial_payload
     assert parallel_summary.execution_model == "process_pool"
     assert parallel_summary.worker_count == 2
+
+
+def test_opportunity_grouping_is_deterministic_and_maps_every_candidate() -> None:
+    candidates = [
+        _candidate("c3", start_offset_s=200, end_offset_s=220, samples=frozenset({"a", "b"})),
+        _candidate("c1", start_offset_s=0, end_offset_s=20, samples=frozenset({"a", "b"})),
+        _candidate("c2", start_offset_s=100, end_offset_s=120, samples=frozenset({"a", "b", "c"})),
+        _candidate("c4", start_offset_s=1000, end_offset_s=1020, samples=frozenset({"x"})),
+    ]
+    config = OpportunityConfig(
+        enabled=True,
+        max_time_gap_s=250,
+        min_coverage_jaccard=0.5,
+    )
+
+    first = build_opportunity_index(candidates, config)
+    second = build_opportunity_index(list(reversed(candidates)), config)
+
+    assert [item.as_dict() for item in first.opportunities] == [
+        item.as_dict() for item in second.opportunities
+    ]
+    assert first.summary.discarded_candidate_count == 0
+    assert first.summary.mapped_candidate_count == len(candidates)
+    assert set(first.opportunity_by_candidate_id) == {candidate.candidate_id for candidate in candidates}
+    assert first.opportunities[0].candidate_ids == ("c1", "c2", "c3")
+    assert first.summary.grouped_candidate_count == 3
+
+
+def test_opportunity_mapping_snaps_to_nearest_public_member_candidate() -> None:
+    left = _candidate("left", start_offset_s=0, end_offset_s=20, samples=frozenset({"a", "b"}))
+    right = _candidate("right", start_offset_s=100, end_offset_s=120, samples=frozenset({"a", "b"}))
+    index = build_opportunity_index(
+        [left, right],
+        OpportunityConfig(enabled=True, max_time_gap_s=200, min_coverage_jaccard=1.0),
+    )
+
+    emitted, source = index.choose_member(left, 90)
+
+    assert emitted.candidate_id == "right"
+    assert source["source_candidate_id"] == "left"
+    assert source["emitted_candidate_id"] == "right"
+    assert source["opportunity_id"] == index.opportunity_id_for_candidate("left")
+    assert source["snapped_to_member"] is True
+
+
+def test_opportunity_selected_candidates_emit_public_solution_actions() -> None:
+    mission = load_case(CASE_DIR).mission
+    candidate = _candidate(
+        "candidate_public",
+        start_offset_s=120,
+        end_offset_s=140,
+        roll_deg=19.4,
+    )
+    index = build_opportunity_index([candidate], OpportunityConfig(enabled=True))
+    emitted, source = index.choose_member(candidate, 125)
+    solution = candidates_to_solution(mission, [emitted])
+    action = solution["actions"][0]
+
+    assert source["emitted_candidate_id"] == "candidate_public"
+    assert set(action) == {"type", "satellite_id", "start_time", "duration_s", "roll_deg"}
+    assert action["type"] == "strip_observation"
+    assert action["satellite_id"] == candidate.satellite_id
+    assert action["duration_s"] == candidate.duration_s
+    assert action["roll_deg"] == candidate.roll_deg
+    assert "candidate_id" not in action
+    assert "opportunity_id" not in action
 
 
 def test_candidate_generation_reuses_roll_independent_sampled_states() -> None:
@@ -555,6 +628,128 @@ def test_local_search_extracts_satellite_time_component_neighborhoods() -> None:
     assert "u1" in time_components[0].candidate_ids
     assert time_components[1].remove_candidate_ids == ("c3",)
     assert "u2" in time_components[1].candidate_ids
+
+
+def test_conflict_graph_components_split_overlaps_and_independent_acquisitions() -> None:
+    case = load_case(CASE_DIR)
+    overlapping_a = _candidate("overlap_a", start_offset_s=0, end_offset_s=30)
+    overlapping_b = _candidate("overlap_b", start_offset_s=20, end_offset_s=50)
+    independent = _candidate("independent", start_offset_s=300, end_offset_s=320)
+
+    components, edge_count = build_conflict_components(
+        case,
+        [independent, overlapping_b, overlapping_a],
+    )
+    component_ids = [
+        tuple(candidate.candidate_id for candidate in component)
+        for component in components
+    ]
+
+    assert edge_count == 1
+    assert component_ids == [("overlap_a", "overlap_b"), ("independent",)]
+
+
+def test_conflict_component_neighborhood_generation_is_deterministic() -> None:
+    case = load_case(CASE_DIR)
+    selected = [_candidate("selected", start_offset_s=0, end_offset_s=30)]
+    candidates = selected + [
+        _candidate("overlap", start_offset_s=20, end_offset_s=50),
+        _candidate("independent", start_offset_s=300, end_offset_s=320),
+    ]
+    config = LocalSearchConfig(
+        neighborhood_mode="conflict_components",
+        include_sample_competition=False,
+        max_neighborhoods_per_iteration=10,
+    )
+
+    first = build_neighborhoods_with_summary(candidates, selected, config=config, case=case)
+    second = build_neighborhoods_with_summary(list(reversed(candidates)), selected, config=config, case=case)
+
+    assert [item.as_dict() for item in first.neighborhoods] == [
+        item.as_dict() for item in second.neighborhoods
+    ]
+    assert len(first.neighborhoods) == 1
+    neighborhood = first.neighborhoods[0]
+    assert neighborhood.kind == "conflict_component"
+    assert neighborhood.remove_candidate_ids == ("selected",)
+    assert neighborhood.candidate_ids == ("selected", "overlap")
+    assert first.summary.as_dict()["conflict_graph_edge_count"] == 1
+    assert first.summary.as_dict()["conflict_component_size_distribution"] == {"1": 1, "2": 1}
+
+
+def test_conflict_component_cap_reports_skipped_large_components() -> None:
+    case = load_case(CASE_DIR)
+    selected = [_candidate("selected", start_offset_s=0, end_offset_s=40)]
+    candidates = selected + [
+        _candidate("overlap_1", start_offset_s=10, end_offset_s=50),
+        _candidate("overlap_2", start_offset_s=20, end_offset_s=60),
+    ]
+
+    result = build_neighborhoods_with_summary(
+        candidates,
+        selected,
+        config=LocalSearchConfig(
+            neighborhood_mode="conflict_components",
+            include_sample_competition=False,
+            max_component_size=2,
+            component_subwindow_s=0,
+            max_neighborhoods_per_iteration=10,
+        ),
+        case=case,
+    )
+
+    assert result.neighborhoods == []
+    assert result.summary.skipped_large_components == 1
+    assert result.summary.generated_component_neighborhoods == 0
+
+
+def test_conflict_component_neighborhood_includes_selected_incumbent_candidates() -> None:
+    case = load_case(CASE_DIR)
+    selected = [
+        _candidate("selected_a", start_offset_s=0, end_offset_s=40),
+        _candidate("selected_b", start_offset_s=15, end_offset_s=45),
+    ]
+    candidates = selected + [
+        _candidate("candidate_c", start_offset_s=20, end_offset_s=50),
+    ]
+
+    result = build_neighborhoods_with_summary(
+        candidates,
+        selected,
+        config=LocalSearchConfig(
+            neighborhood_mode="conflict_components",
+            include_sample_competition=False,
+            max_neighborhoods_per_iteration=10,
+        ),
+        case=case,
+    )
+
+    assert len(result.neighborhoods) == 1
+    assert result.neighborhoods[0].remove_candidate_ids == ("selected_a", "selected_b")
+    assert set(result.neighborhoods[0].candidate_ids) == {
+        "selected_a",
+        "selected_b",
+        "candidate_c",
+    }
+
+
+def test_old_neighborhood_mode_remains_selectable() -> None:
+    selected = [_candidate("selected", start_offset_s=0, end_offset_s=20)]
+    competitor = _candidate("competitor", start_offset_s=100, end_offset_s=120)
+
+    neighborhoods = build_neighborhoods(
+        selected + [competitor],
+        selected,
+        config=LocalSearchConfig(
+            neighborhood_mode="legacy",
+            include_sample_competition=False,
+            time_padding_s=200,
+            max_neighborhoods_per_iteration=10,
+        ),
+    )
+
+    assert [item.kind for item in neighborhoods] == ["satellite_time_component"]
+    assert neighborhoods[0].remove_candidate_ids == ("selected",)
 
 
 def test_neighborhood_rebuild_recomputes_marginal_after_removal_and_accepts_improvement() -> None:
@@ -878,6 +1073,215 @@ def test_cp_sat_repair_improves_when_greedy_rebuild_is_blocked() -> None:
     assert metrics.improving_solutions == 1
 
 
+def test_interval_tsptw_repair_can_shift_grid_start_to_improve() -> None:
+    case = load_case(CASE_DIR)
+    left = _candidate(
+        "c_left",
+        start_offset_s=0,
+        end_offset_s=40,
+        samples=frozenset({"a"}),
+    )
+    shifted = _candidate(
+        "c_shifted",
+        start_offset_s=30,
+        end_offset_s=50,
+        samples=frozenset({"d", "e", "f"}),
+    )
+    index = _coverage_index({key: 1.0 for key in "abcdef"})
+
+    fixed = cp_sat_repair(
+        case,
+        kept_candidates=[],
+        neighborhood_candidates=[left, shifted],
+        coverage_index=index,
+        before_key=(1, 3.0, -1.0, 0.0, -1),
+        config=CPRepairConfig(
+            repair_mode="fixed_start_subset",
+            max_candidates=4,
+            max_calls=4,
+            max_conflicts=64,
+        ),
+        metrics=CPMetrics(),
+    )
+    interval = cp_sat_repair(
+        case,
+        kept_candidates=[],
+        neighborhood_candidates=[left, shifted],
+        coverage_index=index,
+        before_key=(1, 3.0, -1.0, 0.0, -1),
+        config=CPRepairConfig(
+            repair_mode="interval_tsptw",
+            interval_start_window_s=30,
+            max_candidates=4,
+            max_calls=4,
+            max_conflicts=64,
+        ),
+        metrics=CPMetrics(),
+    )
+
+    assert fixed.improving is False
+    assert interval.improving is True
+    assert interval.repair_mode == "interval_tsptw"
+    assert interval.start_variables == 2
+    assert interval.order_variables == 1
+    assert set(interval.selected_candidate_ids) == {"c_left", "c_shifted"}
+    starts = {
+        candidate.candidate_id: candidate.start_offset_s
+        for candidate in interval.selected_candidates
+    }
+    assert any(starts[candidate.candidate_id] != candidate.start_offset_s for candidate in [left, shifted])
+    state = state_from_candidates(case, list(interval.selected_candidates))
+    ok, reasons = is_consistent(case, state.sequences["sat_iceye-x2"])
+    assert ok, reasons
+
+
+def test_interval_tsptw_opportunity_mode_snaps_to_member_candidate() -> None:
+    case = load_case(CASE_DIR)
+    source = _candidate(
+        "source",
+        start_offset_s=80,
+        end_offset_s=100,
+        samples=frozenset({"a", "b", "c"}),
+    )
+    member = _candidate(
+        "member",
+        start_offset_s=50,
+        end_offset_s=70,
+        samples=frozenset({"a", "b", "c"}),
+    )
+    index = build_opportunity_index(
+        [source, member],
+        OpportunityConfig(enabled=True, max_time_gap_s=30, min_coverage_jaccard=1.0),
+    )
+
+    result = cp_sat_repair(
+        case,
+        kept_candidates=[],
+        neighborhood_candidates=[source],
+        coverage_index=_coverage_index({"a": 1.0, "b": 1.0, "c": 1.0}),
+        before_key=(1, 0.0, 0.0, 0.0, 0),
+        config=CPRepairConfig(
+            repair_mode="interval_tsptw",
+            interval_start_window_s=30,
+            max_candidates=4,
+            max_calls=4,
+            max_conflicts=64,
+        ),
+        metrics=CPMetrics(),
+        opportunity_index=index,
+    )
+
+    assert result.improving is True
+    assert result.selected_candidate_ids == ("member",)
+    assert result.selected_candidates[0].start_offset_s == 50
+    assert result.selected_candidate_sources[0]["source_candidate_id"] == "source"
+    assert result.selected_candidate_sources[0]["emitted_candidate_id"] == "member"
+    assert result.selected_candidate_sources[0]["opportunity_id"] is not None
+    assert result.selected_candidate_sources[0]["snapped_to_member"] is True
+
+
+def test_opportunity_mode_and_fixed_candidate_mode_match_without_shift() -> None:
+    case = load_case(CASE_DIR)
+    candidate = _candidate("fixed", start_offset_s=0, end_offset_s=20, samples=frozenset({"a"}))
+    index = build_opportunity_index([candidate], OpportunityConfig(enabled=True))
+    config = CPRepairConfig(
+        repair_mode="interval_tsptw",
+        interval_start_window_s=0,
+        max_candidates=4,
+        max_calls=4,
+        max_conflicts=64,
+    )
+
+    fixed = cp_sat_repair(
+        case,
+        kept_candidates=[],
+        neighborhood_candidates=[candidate],
+        coverage_index=_coverage_index({"a": 1.0}),
+        before_key=(1, 0.0, 0.0, 0.0, 0),
+        config=config,
+        metrics=CPMetrics(),
+    )
+    opportunity = cp_sat_repair(
+        case,
+        kept_candidates=[],
+        neighborhood_candidates=[candidate],
+        coverage_index=_coverage_index({"a": 1.0}),
+        before_key=(1, 0.0, 0.0, 0.0, 0),
+        config=config,
+        metrics=CPMetrics(),
+        opportunity_index=index,
+    )
+
+    assert opportunity.selected_candidate_ids == fixed.selected_candidate_ids
+    assert opportunity.selected_candidates == fixed.selected_candidates
+
+
+def test_interval_tsptw_repair_respects_transition_gap() -> None:
+    case = load_case(CASE_DIR)
+    left = _candidate(
+        "c_left",
+        start_offset_s=0,
+        end_offset_s=40,
+        roll_deg=-26.0,
+        samples=frozenset({"a", "b"}),
+    )
+    too_close = _candidate(
+        "c_close",
+        start_offset_s=50,
+        end_offset_s=70,
+        roll_deg=26.0,
+        samples=frozenset({"c", "d"}),
+    )
+    index = _coverage_index({key: 1.0 for key in "abcd"})
+
+    result = cp_sat_repair(
+        case,
+        kept_candidates=[],
+        neighborhood_candidates=[left, too_close],
+        coverage_index=index,
+        before_key=(1, 0.0, 0.0, 0.0, 0),
+        config=CPRepairConfig(
+            repair_mode="interval_tsptw",
+            interval_start_window_s=0,
+            max_candidates=4,
+            max_calls=4,
+            max_conflicts=64,
+        ),
+        metrics=CPMetrics(),
+    )
+
+    assert result.feasible is True
+    assert len(result.selected_candidate_ids) == 1
+    assert result.transition_conflict_constraints == 2
+
+
+def test_interval_tsptw_repair_skips_oversized_neighborhood_cleanly() -> None:
+    case = load_case(CASE_DIR)
+    candidates = [
+        _candidate(f"c_{idx}", start_offset_s=idx * 100, end_offset_s=idx * 100 + 20)
+        for idx in range(3)
+    ]
+    metrics = CPMetrics()
+
+    result = cp_sat_repair(
+        case,
+        kept_candidates=[],
+        neighborhood_candidates=candidates,
+        coverage_index=_coverage_index({"sample_a": 1.0}),
+        before_key=(1, 0.0, 0.0, 0.0, 0),
+        config=CPRepairConfig(
+            repair_mode="interval_tsptw",
+            max_candidates=2,
+        ),
+        metrics=metrics,
+    )
+
+    assert result.attempted is False
+    assert result.stop_reason == "size_limit"
+    assert result.repair_mode == "interval_tsptw"
+    assert metrics.skipped_size_limit == 1
+
+
 def test_cp_sat_repair_tie_break_is_deterministic() -> None:
     case = load_case(CASE_DIR)
     candidates = [
@@ -980,12 +1384,26 @@ def test_cp_metrics_reports_success_rates_and_skips() -> None:
     assert payload["call_success_rate"] == pytest.approx(0.75)
     assert payload["improving_success_rate"] == pytest.approx(0.25)
     assert payload["backend"] == "ortools_cp_sat"
+    assert payload["repair_mode"] == "fixed_start_subset"
     assert payload["skipped_calls"] == 3
 
 
 def test_cp_backend_rejects_unsupported_backend() -> None:
     with pytest.raises(ValueError, match="ortools_cp_sat"):
         CPRepairConfig.from_mapping({"cp_backend": "legacy_exact"})
+
+
+def test_cp_repair_config_selects_interval_mode() -> None:
+    config = CPRepairConfig.from_mapping(
+        {
+            "cp_repair_mode": "interval_tsptw",
+            "cp_interval_start_window_s": 30,
+        }
+    )
+
+    assert config.repair_mode == "interval_tsptw"
+    assert config.interval_start_window_s == 30
+    assert config.as_dict()["repair_mode"] == "interval_tsptw"
 
 
 def test_search_multistart_records_runs_and_selects_stable_best() -> None:

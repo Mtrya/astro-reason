@@ -17,6 +17,7 @@ from .local_search import (
     objective_key,
     local_search,
 )
+from .opportunities import OpportunityIndex
 
 
 @dataclass(frozen=True, slots=True)
@@ -129,6 +130,7 @@ def run_search(
     greedy_config: GreedyConfig,
     local_search_config: LocalSearchConfig,
     cp_config: CPRepairConfig,
+    opportunity_index: OpportunityIndex | None = None,
 ) -> SearchResult:
     summary = SearchSummary(
         config=search_config.as_dict(),
@@ -158,6 +160,7 @@ def run_search(
             greedy_config=run_greedy_config,
             config=run_local_search_config,
             cp_config=cp_config,
+            opportunity_index=opportunity_index,
         )
         final_objective = local_result.summary.final_objective
         if final_objective is None:
