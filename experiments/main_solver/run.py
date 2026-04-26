@@ -232,13 +232,27 @@ def _parse_json_verifier(stdout: str, returncode: int) -> dict[str, Any]:
     if not isinstance(diagnostics, dict):
         diagnostics = {}
     if "warnings" in payload:
-        diagnostics = {**diagnostics, "warnings": payload.get("warnings", [])}
+        existing_warnings = diagnostics.get("warnings", [])
+        if not isinstance(existing_warnings, list):
+            existing_warnings = [existing_warnings]
+        payload_warnings = payload.get("warnings", [])
+        if not isinstance(payload_warnings, list):
+            payload_warnings = [payload_warnings]
+        diagnostics = {
+            **diagnostics,
+            "warnings": [*existing_warnings, *payload_warnings],
+        }
+    violations = (
+        payload["violations"]
+        if "violations" in payload and payload["violations"] is not None
+        else payload.get("errors", [])
+    )
     return {
         "status": "valid" if valid else "invalid",
         "valid": valid,
         "returncode": returncode,
         "metrics": payload.get("metrics", {}),
-        "violations": payload.get("violations", payload.get("errors", [])),
+        "violations": violations,
         "diagnostics": diagnostics,
         "report": payload,
     }

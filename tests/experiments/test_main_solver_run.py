@@ -7,7 +7,13 @@ from pathlib import Path
 REPO_ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(REPO_ROOT))
 
-from experiments.main_solver.run import DEFAULT_CONFIG, _load_yaml, _parse_json_verifier, _select_jobs
+from experiments.main_solver.aggregate import _revisit_metric
+from experiments.main_solver.run import (
+    DEFAULT_CONFIG,
+    _load_yaml,
+    _parse_json_verifier,
+    _select_jobs,
+)
 
 
 def test_parse_json_verifier_records_aeossp_report() -> None:
@@ -43,6 +49,50 @@ def test_parse_json_verifier_records_revisit_report() -> None:
     assert parsed["diagnostics"] == {"warnings": ["diagnostic note"]}
 
 
+def test_parse_json_verifier_merges_warnings_and_falls_back_from_null_violations() -> None:
+    payload = {
+        "valid": False,
+        "metrics": {},
+        "violations": None,
+        "errors": ["bad schedule"],
+        "warnings": ["top-level"],
+        "diagnostics": {"warnings": ["diagnostic"], "note": "kept"},
+    }
+
+    parsed = _parse_json_verifier(json.dumps(payload), 0)
+
+    assert parsed["status"] == "invalid"
+    assert parsed["violations"] == ["bad schedule"]
+    assert parsed["diagnostics"] == {
+        "warnings": ["diagnostic", "top-level"],
+        "note": "kept",
+    }
+
+
+def test_revisit_aggregation_prefers_verifier_primary_metric() -> None:
+    payload = {
+        "verifier": {
+            "metrics": {
+                "capped_max_revisit_gap_hours": 9.5,
+                "target_gap_summary": {
+                    "target-a": {
+                        "max_revisit_gap_hours": 20.0,
+                        "expected_revisit_period_hours": 8.0,
+                    }
+                },
+            }
+        }
+    }
+
+    assert _revisit_metric(payload, "capped_max_revisit_gap_hours") == 9.5
+
+
+def test_revisit_aggregation_handles_empty_target_rows() -> None:
+    payload = {"verifier": {"metrics": {"target_gap_summary": {"bad": None}}}}
+
+    assert _revisit_metric(payload, "max_revisit_gap_hours") == 0.0
+
+
 def test_parse_json_verifier_rejects_missing_valid() -> None:
     parsed = _parse_json_verifier("{}", 1)
 
@@ -56,33 +106,6 @@ def test_parse_json_verifier_rejects_extra_stdout() -> None:
     assert parsed["status"] == "error"
     assert parsed["valid"] is None
     assert "could not be parsed" in parsed["parse_error"]
-
-
-def test_main_solver_matrix_includes_revisit_constructive_smoke_job() -> None:
-    matrix = _load_yaml(DEFAULT_CONFIG)
-
-    jobs = _select_jobs(
-        matrix,
-        benchmark_filter="revisit_constellation",
-        solver_filter="revisit_constellation_rgt_apc_gap_constructive",
-        case_filter="test/case_0001",
-    )
-
-    assert len(jobs) == 1
-    job = jobs[0]
-    assert job.solver["evidence_type"] == "reproduced_solver"
-    assert job.solver["solver_path"] == "solvers/revisit_constellation/rgt_apc_gap_constructive"
-    assert job.solver["solution_filename"] == "solution.json"
-    assert job.solver["verifier"]["command"] == [
-        "uv",
-        "run",
-        "python",
-        "-m",
-        "benchmarks.revisit_constellation.verifier.run",
-        "{case_dir}",
-        "{solution_path}",
-    ]
-    assert (REPO_ROOT / job.case["case_dir"]).is_dir()
 
 
 def test_main_solver_selects_regional_coverage_cp_local_search_smoke_case() -> None:

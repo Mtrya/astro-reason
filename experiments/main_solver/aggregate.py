@@ -76,6 +76,10 @@ def _revisit_metric(payload: dict[str, Any], key: str) -> Any:
     if isinstance(verifier, dict):
         metrics = verifier.get("metrics")
         if isinstance(metrics, dict):
+            if key == "capped_max_revisit_gap_hours":
+                value = metrics.get("capped_max_revisit_gap_hours")
+                if value is not None:
+                    return value
             target_summary = metrics.get("target_gap_summary")
             if isinstance(target_summary, dict) and target_summary:
                 target_rows = [
@@ -104,8 +108,11 @@ def _revisit_metric(payload: dict[str, Any], key: str) -> Any:
                     )
                 if key == "max_revisit_gap_hours":
                     return max(
-                        item.get("max_revisit_gap_hours", 0.0)
-                        for item in target_rows
+                        (
+                            item.get("max_revisit_gap_hours", 0.0)
+                            for item in target_rows
+                        ),
+                        default=0.0,
                     )
                 if key == "mean_revisit_gap_hours":
                     values = [
