@@ -263,6 +263,7 @@ def _verify_solution(job: Job, solution_path: Path, *, log_dir: Path) -> dict[st
         "aeossp_standard",
         "relay_constellation",
         "stereo_imaging",
+        "regional_coverage",
     ):
         parsed = _parse_json_verifier(stdout, run["returncode"])
     else:
