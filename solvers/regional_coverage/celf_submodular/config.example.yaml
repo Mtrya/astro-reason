@@ -51,6 +51,14 @@ selection:
   # safety net, not the primary feasibility mechanism.
   schedule_aware: true
 
+  # Optional Phase 11 fixed-candidate tuning pass. When enabled, the solver
+  # tries bounded deterministic insertions and one-for-one swaps that improve
+  # the solver-local coverage objective while preserving solver-local schedule
+  # validity. It does not create continuous-time candidates or call verifiers.
+  local_improvement: false
+  local_improvement_max_passes: 4
+  local_improvement_max_candidate_checks: 1000
+
   # Compute the Leskovec Section 3.2 online upper bound over the same fixed
   # candidate set used by CELF. This is a finite-set certificate, not a bound
   # on continuous satellite scheduling.

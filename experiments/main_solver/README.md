@@ -72,9 +72,9 @@ uv run python experiments/main_solver/run.py \
     --solver regional_coverage_celf_submodular \
     --policy evaluation
 
-# Schedule-aware diagnostic candidate-scaling probes. These are intentionally
-# not promotion evidence for a quality-fair optimization envelope while the
-# verified coverage metrics remain below the documented quality target.
+# Schedule-aware diagnostic candidate-scaling probes. These are diagnostic
+# policies, not promotion evidence by themselves; Phase 12 owns the broader
+# promotion decision.
 uv run python experiments/main_solver/run.py \
     --benchmark regional_coverage \
     --solver regional_coverage_celf_submodular \
@@ -84,16 +84,26 @@ uv run python experiments/main_solver/run.py \
     --benchmark regional_coverage \
     --solver regional_coverage_celf_submodular \
     --policy quality_probe_65536
+
+uv run python experiments/main_solver/run.py \
+    --benchmark regional_coverage \
+    --solver regional_coverage_celf_submodular \
+    --policy quality_probe_full
+
+uv run python experiments/main_solver/run.py \
+    --benchmark regional_coverage \
+    --solver regional_coverage_celf_submodular \
+    --policy quality_probe_stride300_full
 ```
 
 Policy metadata may include `quality_envelope` fields. These distinguish
-contract/smoke, reproduction, and quality-diagnostic envelopes. A solver
-finishing before timeout is not enough to call the optimization envelope fair;
-candidate density, search depth, repair loss, and verifier score must also be
-inspected. For `regional_coverage_celf_submodular`, the current quality probes
-are verifier-valid and schedule-aware, but still documented as
-`NOT_YET_QUALITY_FAIR` because the best official quality metric remains below
-the documented quality target.
+contract/smoke, reproduction, quality-diagnostic, and quality-ready envelopes.
+A solver finishing before timeout is not enough to call the optimization
+envelope fair; candidate density, search depth, repair loss, and verifier score
+must also be inspected. For `regional_coverage_celf_submodular`,
+`quality_probe_stride300_full` is the promoted quality-ready policy. It is
+verifier-valid and uses non-humble fixed-candidate parameters, but remains too
+expensive for CI smoke or broad routine sweeps.
 
 Materialize SatNet citation-backed rows:
 

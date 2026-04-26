@@ -27,6 +27,9 @@ class SelectionConfig:
     budget: float | None = None
     min_marginal_gain: float = 0.0
     schedule_aware: bool = True
+    local_improvement: bool = False
+    local_improvement_max_passes: int = 4
+    local_improvement_max_candidate_checks: int = 1_000
     compute_online_bounds: bool = True
     max_bound_order_debug: int = 50
     write_iteration_trace: bool = True
@@ -40,6 +43,11 @@ class SelectionConfig:
             "budget": self.budget,
             "min_marginal_gain": self.min_marginal_gain,
             "schedule_aware": self.schedule_aware,
+            "local_improvement": self.local_improvement,
+            "local_improvement_max_passes": self.local_improvement_max_passes,
+            "local_improvement_max_candidate_checks": (
+                self.local_improvement_max_candidate_checks
+            ),
             "compute_online_bounds": self.compute_online_bounds,
             "max_bound_order_debug": self.max_bound_order_debug,
             "write_iteration_trace": self.write_iteration_trace,
@@ -272,6 +280,21 @@ def load_selection_config(config_dir: Path | None) -> SelectionConfig:
         ),
         schedule_aware=bool(
             section.get("schedule_aware", DEFAULT_SELECTION_CONFIG.schedule_aware)
+        ),
+        local_improvement=bool(
+            section.get("local_improvement", DEFAULT_SELECTION_CONFIG.local_improvement)
+        ),
+        local_improvement_max_passes=int(
+            section.get(
+                "local_improvement_max_passes",
+                DEFAULT_SELECTION_CONFIG.local_improvement_max_passes,
+            )
+        ),
+        local_improvement_max_candidate_checks=int(
+            section.get(
+                "local_improvement_max_candidate_checks",
+                DEFAULT_SELECTION_CONFIG.local_improvement_max_candidate_checks,
+            )
         ),
         write_iteration_trace=bool(
             section.get(

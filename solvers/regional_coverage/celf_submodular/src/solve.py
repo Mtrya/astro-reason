@@ -23,7 +23,12 @@ from coverage import (
     build_coverage_sample_index,
     load_coverage_mapping_config,
 )
-from schedule import feasibility_summary, repair_schedule, validate_schedule
+from schedule import (
+    feasibility_summary,
+    improve_schedule_locally,
+    repair_schedule,
+    validate_schedule,
+)
 from solution_io import (
     write_candidate_debug,
     write_celf_debug,
@@ -78,6 +83,7 @@ def _round_seconds(value: float) -> float:
 def _reproduction_summary(
     *,
     celf_result,
+    local_improvement_summary: dict[str, Any],
     repair_result,
     repair_objective_summary: dict[str, Any],
 ) -> dict[str, Any]:
@@ -108,6 +114,7 @@ def _reproduction_summary(
             ],
             "candidate_geometry": "solver-local Brahe SGP4/WGS84 strip approximation; official geometry remains benchmark-owned",
             "schedule_aware_selection": "when enabled, CELF accepts only candidates that keep the current fixed-candidate schedule solver-local feasible",
+            "local_improvement": "when enabled, a bounded fixed-candidate insertion/swap pass may improve the solver-local objective before repair without creating new candidates",
             "schedule_repair": "same-satellite overlap, slew, action-cap, battery, and duty checks remain a deterministic safety net after fixed-set CELF selection",
             "official_validation": "experiments/main_solver runs the benchmark verifier through CLI/file contracts",
         },
@@ -122,6 +129,13 @@ def _reproduction_summary(
             "best_policy": celf_result.best_policy,
             "best_objective_value": celf_result.best.objective_value,
             "best_selected_before_repair": celf_result.best.accepted_count,
+            "local_improvement_enabled": local_improvement_summary["enabled"],
+            "local_improvement_objective_delta": local_improvement_summary[
+                "objective_delta"
+            ],
+            "local_improvement_accepted_moves": len(
+                local_improvement_summary["accepted_moves"]
+            ),
             "repaired_selected_count": len(repair_result.repaired_candidate_ids),
             "removed_by_repair": len(repair_result.removed_candidate_ids),
             "repaired_objective_value": repair_objective_summary["repaired_objective_value"],
@@ -162,18 +176,20 @@ def _build_status(
     coverage_runtime_summary,
     selection_config,
     celf_result,
+    local_improvement_summary,
     repair_result,
     repair_objective_summary,
     timing_seconds: dict[str, float],
 ) -> dict[str, Any]:
     reproduction_summary = _reproduction_summary(
         celf_result=celf_result,
+        local_improvement_summary=local_improvement_summary,
         repair_result=repair_result,
         repair_objective_summary=repair_objective_summary,
     )
     return {
         "status": "ok",
-        "phase": "phase_9_schedule_aware_celf_selection",
+        "phase": "phase_11_quality_tuning_and_candidate_alignment",
         "case_dir": str(case.case_dir),
         "config_dir": str(config_dir) if config_dir is not None else None,
         "solution": str(solution_path),
@@ -201,6 +217,7 @@ def _build_status(
         "coverage_diagnostics": coverage_diagnostics,
         "coverage_runtime_summary": coverage_runtime_summary.as_dict(),
         "celf_summary": celf_result.as_dict(),
+        "local_improvement_summary": local_improvement_summary,
         "feasibility_summary": feasibility_summary(repair_result),
         "repair_summary": repair_result.as_dict(),
         "repair_objective_summary": repair_objective_summary,
@@ -211,6 +228,7 @@ def _build_status(
             "selection_deferred_to_phase": None,
             "sequence_feasibility_deferred_to_phase": None,
             "satellite_repair_enabled": True,
+            "local_improvement_enabled": local_improvement_summary["enabled"],
             "experiment_registration_enabled": True,
             "coverage_geometry": "solver-local Brahe SGP4/WGS84 strip approximation",
             "battery_and_duty_checks": "approximate_solver_local",
@@ -291,10 +309,25 @@ def run(case_dir: Path, config_dir: Path | None, solution_dir: Path) -> int:
     )
 
     start = time.perf_counter()
+    local_improvement_result = improve_schedule_locally(
+        case,
+        candidates_by_id,
+        tuple(candidate.candidate_id for candidate in candidates),
+        celf_result.best.selected_candidate_ids,
+        coverage_by_candidate,
+        sample_weights,
+        enabled=selection_config.local_improvement,
+        max_passes=selection_config.local_improvement_max_passes,
+        max_candidate_checks=selection_config.local_improvement_max_candidate_checks,
+    )
+    timings["local_improvement"] = _round_seconds(time.perf_counter() - start)
+    local_improvement_summary = local_improvement_result.as_dict()
+
+    start = time.perf_counter()
     repair_result = repair_schedule(
         case,
         candidates_by_id,
-        celf_result.best.selected_candidate_ids,
+        local_improvement_result.improved_candidate_ids,
         coverage_by_candidate,
         sample_weights,
     )
@@ -305,7 +338,7 @@ def run(case_dir: Path, config_dir: Path | None, solution_dir: Path) -> int:
         coverage_by_candidate,
         sample_weights,
     )
-    pre_repair_objective = celf_result.best.objective_value
+    pre_repair_objective = local_improvement_result.objective_after
     repair_loss = max(0.0, pre_repair_objective - repaired_objective)
     repair_objective_summary = {
         "scope": "solver_local_fixed_sample_objective",
@@ -315,11 +348,12 @@ def run(case_dir: Path, config_dir: Path | None, solution_dir: Path) -> int:
         "repair_objective_loss_ratio": (
             repair_loss / pre_repair_objective if pre_repair_objective > 0.0 else None
         ),
-        "pre_repair_selected_count": len(celf_result.best.selected_candidate_ids),
+        "pre_repair_selected_count": len(local_improvement_result.improved_candidate_ids),
         "repaired_selected_count": len(repair_result.repaired_candidate_ids),
         "removed_by_repair": len(repair_result.removed_candidate_ids),
         "notes": [
             "Repair is a safety net after schedule-aware fixed-set CELF selection.",
+            "Bounded local improvement is fixed-candidate only and is reported separately from CELF.",
             "Official verifier score is benchmark-owned and may differ from this solver-local sample objective.",
         ],
     }
@@ -377,8 +411,13 @@ def run(case_dir: Path, config_dir: Path | None, solution_dir: Path) -> int:
         solution_dir / "debug" / "repair_objective_summary.json",
         repair_objective_summary,
     )
+    write_json(
+        solution_dir / "debug" / "local_improvement_summary.json",
+        local_improvement_summary,
+    )
     reproduction_summary = _reproduction_summary(
         celf_result=celf_result,
+        local_improvement_summary=local_improvement_summary,
         repair_result=repair_result,
         repair_objective_summary=repair_objective_summary,
     )
@@ -398,6 +437,7 @@ def run(case_dir: Path, config_dir: Path | None, solution_dir: Path) -> int:
         coverage_runtime_summary=coverage_runtime_summary,
         selection_config=selection_config,
         celf_result=celf_result,
+        local_improvement_summary=local_improvement_summary,
         repair_result=repair_result,
         repair_objective_summary=repair_objective_summary,
         timing_seconds=timings,

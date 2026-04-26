@@ -437,6 +437,7 @@ def _quality_envelope_diagnostics(payload: dict[str, Any]) -> dict[str, Any] | N
     celf_summary = solver_status.get("celf_summary") or {}
     repair_summary = solver_status.get("repair_summary") or {}
     repair_objective = solver_status.get("repair_objective_summary") or {}
+    local_improvement = solver_status.get("local_improvement_summary") or {}
     timing_seconds = solver_status.get("timing_seconds") or {}
     verifier = payload.get("verifier") or {}
     verifier_metrics = verifier.get("metrics") if isinstance(verifier, dict) else {}
@@ -463,6 +464,11 @@ def _quality_envelope_diagnostics(payload: dict[str, Any]) -> dict[str, Any] | N
         best = {}
     repaired_ids = repair_summary.get("repaired_candidate_ids")
     repaired_count = len(repaired_ids) if isinstance(repaired_ids, list) else None
+    accepted_moves = (
+        local_improvement.get("accepted_moves")
+        if isinstance(local_improvement, dict)
+        else None
+    )
 
     return {
         "declared": envelope,
@@ -477,6 +483,24 @@ def _quality_envelope_diagnostics(payload: dict[str, Any]) -> dict[str, Any] | N
         "celf_selected_count": best.get("accepted_count"),
         "repaired_action_count": repaired_count,
         "repair_objective_loss_ratio": repair_objective.get("repair_objective_loss_ratio"),
+        "local_improvement_enabled": (
+            local_improvement.get("enabled")
+            if isinstance(local_improvement, dict)
+            else None
+        ),
+        "local_improvement_objective_delta": (
+            local_improvement.get("objective_delta")
+            if isinstance(local_improvement, dict)
+            else None
+        ),
+        "local_improvement_move_count": (
+            len(accepted_moves) if isinstance(accepted_moves, list) else None
+        ),
+        "local_improvement_stop_reason": (
+            local_improvement.get("stop_reason")
+            if isinstance(local_improvement, dict)
+            else None
+        ),
         "coverage_ratio": verifier_metrics.get("coverage_ratio"),
         "weighted_coverage_ratio": verifier_metrics.get("weighted_coverage_ratio"),
         "solver_total_seconds": timing_seconds.get("total"),

@@ -3,10 +3,10 @@
 This solver is a runnable reproduced solver for `regional_coverage`. It is
 `READY` as a faithful CELF/CEF reproduction adapted to the benchmark's fixed
 candidate coverage model, with explicit compute-envelope, schedule, repair, and
-fixed-set bound evidence. It is still **NOT_YET** ready for the stronger claim
-of faithful benchmark-adapted reproduction under a meaningful optimization
-envelope because the best current official quality probe remains below the
-documented quality target.
+fixed-set bound evidence. It is also `READY_QUALITY_FAIR` for the stronger
+claim of faithful benchmark-adapted reproduction under a meaningful
+fixed-candidate optimization envelope, scoped to the promoted
+`main_solver` `quality_probe_stride300_full` policy.
 
 It follows the CELF and CEF method family described by Leskovec, Krause,
 Guestrin, Faloutsos, VanBriesen, and Glance in "Cost-effective Outbreak
@@ -163,6 +163,11 @@ Selection knobs:
 - `min_marginal_gain`: stop threshold for accepting candidates
 - `schedule_aware`: accept only candidates that keep the current fixed
   candidate schedule solver-local feasible
+- `local_improvement`: enable the bounded fixed-candidate insertion/swap pass
+  after CELF and before deterministic repair
+- `local_improvement_max_passes`: maximum accepted local-improvement moves
+- `local_improvement_max_candidate_checks`: maximum positive fixed candidates
+  considered per local-improvement pass
 - `compute_online_bounds`: compute Leskovec Section 3.2 fixed-set upper-bound
   evidence for each enabled CELF variant
 - `max_bound_order_debug`: maximum bound-ordering rows retained in debug
@@ -175,10 +180,10 @@ The default candidate cap is reported in `status.json`. It keeps direct and CI
 smoke runs fast on the current 72-hour public cases. Official reproduction
 evidence uses the experiment-owned `evaluation` policy, which raises the cap to
 2048 fixed candidates per case while keeping the same standalone solver
-internals. Official quality diagnostics currently use `quality_probe_32768` and
-`quality_probe_65536`; both are schedule-aware and verifier-valid, but neither
-is promoted to quality-ready while metrics remain below the documented quality
-target.
+internals. Official quality diagnostics include `quality_probe_32768`,
+`quality_probe_65536`, `quality_probe_full`, and
+`quality_probe_stride300_full`; the last of these is the promoted quality-ready
+evidence policy.
 
 ## Debug Artifacts
 
@@ -270,6 +275,16 @@ uv run python experiments/main_solver/run.py \
   --benchmark regional_coverage \
   --solver regional_coverage_celf_submodular \
   --policy quality_probe_65536
+
+uv run python experiments/main_solver/run.py \
+  --benchmark regional_coverage \
+  --solver regional_coverage_celf_submodular \
+  --policy quality_probe_full
+
+uv run python experiments/main_solver/run.py \
+  --benchmark regional_coverage \
+  --solver regional_coverage_celf_submodular \
+  --policy quality_probe_stride300_full
 ```
 
 Aggregate experiment results:
@@ -326,22 +341,30 @@ show:
   ratio `0.188096`
 
 Latest official schedule-aware quality probes on `test/case_0001` are
-verifier-valid and use non-humble candidate caps, but they still remain below
-the documented quality target:
+verifier-valid and use non-humble candidate caps. Phase 12 promotes
+`quality_probe_stride300_full` as the quality-ready envelope:
 
 - `quality_probe_32768`: 32768 candidates, 74 nonzero candidates, 27 selected
-  and repaired actions, repair loss ratio `0.0`, coverage ratio `0.434214`,
-  weighted coverage ratio `0.429571`, solver time about `27.7` seconds.
+  and repaired actions before local improvement, repair loss ratio `0.0`,
+  coverage ratio `0.434214`, weighted coverage ratio `0.429571`.
 - `quality_probe_65536`: 65536 candidates, 133 nonzero candidates, 28 selected
-  and repaired actions, repair loss ratio `0.0`, coverage ratio `0.448566`,
-  weighted coverage ratio `0.443001`, solver time about `47.9` seconds.
+  and repaired actions, 6 local-improvement swaps, repair loss ratio `0.0`,
+  coverage ratio `0.476539`, weighted coverage ratio `0.469457`.
+- `quality_probe_full`: 129600 candidates, 267 nonzero candidates, 29 selected
+  and repaired actions, 6 local-improvement swaps, repair loss ratio `0.0`,
+  coverage ratio `0.498824`, weighted coverage ratio `0.489605`.
+- `quality_probe_stride300_full`: 259200 candidates, 533 nonzero candidates,
+  58 selected and repaired actions, 6 local-improvement swaps, repair loss
+  ratio `0.0`, coverage ratio `0.730189`, weighted coverage ratio `0.722491`,
+  solver time about `149.4` seconds.
 
 These artifacts show that Phase 9 schedule-aware selection removed destructive
-post-selection repair as the dominant blocker on the smoke case. They do not
-promote the stronger quality claim because official coverage is still below
-the documented quality target. Remaining blockers are fixed-candidate density,
-solver-local geometry/coverage drift against verifier scoring, and
-coverage-mapping runtime for still larger caps or broader case sweeps.
+post-selection repair as the dominant blocker on the smoke case, and Phase 11
+shows that denser time alignment is the strongest quality lever. The promoted
+quality-ready claim is scoped to the fixed candidate set, schedule-aware
+CELF/CEF, bounded fixed-candidate local improvement, and experiment-owned
+verification on `test/case_0001`. Coverage-mapping runtime remains the main
+limitation for broader routine sweeps at the denser grid.
 
 ## Known Limitations
 
@@ -356,6 +379,9 @@ coverage-mapping runtime for still larger caps or broader case sweeps.
 - Schedule-aware CELF acceptance is a benchmark adaptation layered onto the
   paper method. It improves verifier-valid output quality but does not imply
   continuous-schedule optimality.
+- Bounded local improvement is another benchmark adaptation after CELF. It uses
+  only fixed candidates and solver-local schedule checks, and reports accepted
+  moves separately from CELF lazy recomputation statistics.
 - Post-selection repair can still remove CELF-selected candidates, although the
   current schedule-aware quality probes on `case_0001` have repair loss ratio
   `0.0`.
@@ -363,8 +389,7 @@ coverage-mapping runtime for still larger caps or broader case sweeps.
   official verifier remains the source of truth.
 - The default `max_candidates_total` is intentionally small for smoke speed.
   Quality comparisons should use experiment-owned quality policies and should
-  remain `NOT_YET_QUALITY_FAIR` until official metrics approach or exceed the
-  documented target.
+  not use the CI smoke configuration as quality evidence.
 
 ## Evidence Type
 

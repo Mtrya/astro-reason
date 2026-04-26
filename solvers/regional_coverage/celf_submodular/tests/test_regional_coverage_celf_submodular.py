@@ -39,6 +39,7 @@ from coverage import (  # noqa: E402
 )
 from geometry import strip_centerline_and_half_width_m  # noqa: E402
 from schedule import (  # noqa: E402
+    improve_schedule_locally,
     repair_schedule,
     required_gap_s,
     slew_time_s,
@@ -846,6 +847,64 @@ def test_schedule_aware_celf_skips_battery_risk_conservatively(
     assert validate_schedule(case, candidates_by_id, aware.selected_candidate_ids).valid
 
 
+def test_local_improvement_swaps_conflicting_fixed_candidate(tmp_path: Path) -> None:
+    _write_case(tmp_path)
+    case = load_case(tmp_path)
+    candidates = [
+        _candidate("blocker", start_offset_s=0, duration_s=30, roll_deg=12.0),
+        _candidate("better_overlap", start_offset_s=10, duration_s=20, roll_deg=12.0),
+    ]
+    candidates_by_id = {candidate.candidate_id: candidate for candidate in candidates}
+    coverage_by_candidate = {
+        "blocker": (0,),
+        "better_overlap": (1, 2),
+    }
+    sample_weights = {0: 1.0, 1: 3.0, 2: 3.0}
+
+    improved = improve_schedule_locally(
+        case,
+        candidates_by_id,
+        tuple(candidate.candidate_id for candidate in candidates),
+        ("blocker",),
+        coverage_by_candidate,
+        sample_weights,
+        enabled=True,
+        max_passes=2,
+        max_candidate_checks=10,
+    )
+
+    assert improved.improved_candidate_ids == ("better_overlap",)
+    assert improved.objective_before == 1.0
+    assert improved.objective_after == 6.0
+    assert improved.objective_delta == 5.0
+    assert len(improved.accepted_moves) == 1
+    assert improved.accepted_moves[0].move_type == "swap"
+    assert improved.accepted_moves[0].removed_candidate_id == "blocker"
+    assert validate_schedule(case, candidates_by_id, improved.improved_candidate_ids).valid
+
+
+def test_local_improvement_disabled_is_noop(tmp_path: Path) -> None:
+    _write_case(tmp_path)
+    case = load_case(tmp_path)
+    candidates = [_candidate("selected"), _candidate("candidate", start_offset_s=20)]
+    candidates_by_id = {candidate.candidate_id: candidate for candidate in candidates}
+
+    improved = improve_schedule_locally(
+        case,
+        candidates_by_id,
+        tuple(candidate.candidate_id for candidate in candidates),
+        ("selected",),
+        {"selected": (0,), "candidate": (1,)},
+        {0: 1.0, 1: 2.0},
+        enabled=False,
+    )
+
+    assert improved.enabled is False
+    assert improved.improved_candidate_ids == ("selected",)
+    assert improved.accepted_moves == ()
+    assert improved.stop_reason == "disabled"
+
+
 def test_lazy_and_naive_cost_benefit_greedy_agree_on_fixed_candidates() -> None:
     candidates = [
         _candidate("large_slow", start_offset_s=0, duration_s=40),
@@ -1270,7 +1329,8 @@ def test_solver_writes_solution_status_and_repair_debug(tmp_path: Path) -> None:
     assert status["celf_summary"]["best"]["online_bound"]["online_upper_bound"] >= (
         status["celf_summary"]["best"]["online_bound"]["selected_reward"]
     )
-    assert status["phase"] == "phase_9_schedule_aware_celf_selection"
+    assert status["phase"] == "phase_11_quality_tuning_and_candidate_alignment"
+    assert status["local_improvement_summary"]["enabled"] is False
     assert "feasibility_summary" in status
     assert status["repair_objective_summary"]["scope"] == (
         "solver_local_fixed_sample_objective"
@@ -1283,11 +1343,13 @@ def test_solver_writes_solution_status_and_repair_debug(tmp_path: Path) -> None:
     )
     assert status["reproduction_summary"]["benchmark_adaptations"]["official_validation"]
     assert status["output_policy"]["satellite_repair_enabled"] is True
+    assert status["output_policy"]["local_improvement_enabled"] is False
     assert status["output_policy"]["experiment_registration_enabled"] is True
     assert "coverage_index_construction" in status["timing_seconds"]
     assert "candidate_coverage_mapping" in status["timing_seconds"]
     assert "celf_unit_cost_selection" in status["timing_seconds"]
     assert "celf_cost_benefit_selection" in status["timing_seconds"]
+    assert "local_improvement" in status["timing_seconds"]
     assert "schedule_validation_and_repair" in status["timing_seconds"]
     assert len(debug) == 2
     assert (solution_dir / "debug" / "celf_summary.json").is_file()
@@ -1295,6 +1357,7 @@ def test_solver_writes_solution_status_and_repair_debug(tmp_path: Path) -> None:
     assert (solution_dir / "debug" / "coverage_runtime_summary.json").is_file()
     assert (solution_dir / "debug" / "feasibility_summary.json").is_file()
     assert (solution_dir / "debug" / "repair_log.json").is_file()
+    assert (solution_dir / "debug" / "local_improvement_summary.json").is_file()
     assert (solution_dir / "debug" / "repair_objective_summary.json").is_file()
     assert (solution_dir / "debug" / "repaired_candidates.json").is_file()
     assert (solution_dir / "debug" / "reproduction_summary.json").is_file()

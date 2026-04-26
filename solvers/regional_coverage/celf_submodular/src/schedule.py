@@ -83,6 +83,56 @@ class RepairResult:
         }
 
 
+@dataclass(frozen=True, slots=True)
+class LocalImprovementMove:
+    move_type: str
+    inserted_candidate_id: str
+    removed_candidate_id: str | None
+    objective_before: float
+    objective_after: float
+    objective_delta: float
+
+    def as_dict(self) -> dict[str, Any]:
+        return {
+            "move_type": self.move_type,
+            "inserted_candidate_id": self.inserted_candidate_id,
+            "removed_candidate_id": self.removed_candidate_id,
+            "objective_before": self.objective_before,
+            "objective_after": self.objective_after,
+            "objective_delta": self.objective_delta,
+        }
+
+
+@dataclass(frozen=True, slots=True)
+class LocalImprovementResult:
+    enabled: bool
+    original_candidate_ids: tuple[str, ...]
+    improved_candidate_ids: tuple[str, ...]
+    objective_before: float
+    objective_after: float
+    objective_delta: float
+    accepted_moves: tuple[LocalImprovementMove, ...]
+    candidate_checks: int
+    rejected_infeasible_count: int
+    rejected_non_improving_count: int
+    stop_reason: str
+
+    def as_dict(self) -> dict[str, Any]:
+        return {
+            "enabled": self.enabled,
+            "original_candidate_ids": list(self.original_candidate_ids),
+            "improved_candidate_ids": list(self.improved_candidate_ids),
+            "objective_before": self.objective_before,
+            "objective_after": self.objective_after,
+            "objective_delta": self.objective_delta,
+            "accepted_moves": [move.as_dict() for move in self.accepted_moves],
+            "candidate_checks": self.candidate_checks,
+            "rejected_infeasible_count": self.rejected_infeasible_count,
+            "rejected_non_improving_count": self.rejected_non_improving_count,
+            "stop_reason": self.stop_reason,
+        }
+
+
 def candidate_end_offset_s(candidate: StripCandidate) -> int:
     return candidate.start_offset_s + candidate.duration_s
 
@@ -140,6 +190,27 @@ def _coverage_loss(
     )
 
 
+def _coverage_objective(
+    candidate_ids: tuple[str, ...],
+    coverage_by_candidate: dict[str, tuple[int, ...]],
+    sample_weights: dict[int, float],
+) -> float:
+    covered: set[int] = set()
+    for candidate_id in candidate_ids:
+        covered.update(coverage_by_candidate.get(candidate_id, ()))
+    return sum(sample_weights[index] for index in covered)
+
+
+def _standalone_reward(
+    candidate_id: str,
+    coverage_by_candidate: dict[str, tuple[int, ...]],
+    sample_weights: dict[int, float],
+) -> float:
+    return sum(
+        sample_weights[index] for index in coverage_by_candidate.get(candidate_id, ())
+    )
+
+
 def _removal_key(
     candidate_id: str,
     active_ids: tuple[str, ...],
@@ -156,6 +227,181 @@ def _removal_key(
         -candidate.duration_s,
         -candidate.start_offset_s,
         candidate.candidate_id,
+    )
+
+
+def _candidate_order_key(candidate: StripCandidate) -> tuple[int, int, float, str]:
+    return (
+        candidate.start_offset_s,
+        candidate.duration_s,
+        abs(candidate.roll_deg),
+        candidate.candidate_id,
+    )
+
+
+def improve_schedule_locally(
+    case: RegionalCoverageCase,
+    candidates_by_id: dict[str, StripCandidate],
+    candidate_order: tuple[str, ...],
+    selected_candidate_ids: tuple[str, ...],
+    coverage_by_candidate: dict[str, tuple[int, ...]],
+    sample_weights: dict[int, float],
+    *,
+    enabled: bool,
+    max_passes: int = 4,
+    max_candidate_checks: int = 1_000,
+    min_objective_delta: float = 1.0e-9,
+) -> LocalImprovementResult:
+    """Try deterministic fixed-candidate insertions and one-for-one swaps.
+
+    This is a benchmark-adaptation stage after CELF. It never creates new
+    candidates and accepts only moves that preserve solver-local schedule
+    validity and improve the fixed-sample coverage objective.
+    """
+
+    active = tuple(dict.fromkeys(selected_candidate_ids))
+    before = _coverage_objective(active, coverage_by_candidate, sample_weights)
+    if not enabled:
+        return LocalImprovementResult(
+            enabled=False,
+            original_candidate_ids=active,
+            improved_candidate_ids=active,
+            objective_before=before,
+            objective_after=before,
+            objective_delta=0.0,
+            accepted_moves=(),
+            candidate_checks=0,
+            rejected_infeasible_count=0,
+            rejected_non_improving_count=0,
+            stop_reason="disabled",
+        )
+
+    moves: list[LocalImprovementMove] = []
+    candidate_checks = 0
+    rejected_infeasible = 0
+    rejected_non_improving = 0
+    stop_reason = "no_improving_move"
+    order_index = {candidate_id: index for index, candidate_id in enumerate(candidate_order)}
+
+    for _ in range(max(0, max_passes)):
+        active_set = set(active)
+        current_objective = _coverage_objective(active, coverage_by_candidate, sample_weights)
+        positive_candidates = [
+            candidate_id
+            for candidate_id in candidate_order
+            if candidate_id not in active_set
+            and _standalone_reward(candidate_id, coverage_by_candidate, sample_weights) > 0.0
+        ]
+        positive_candidates.sort(
+            key=lambda candidate_id: (
+                -_standalone_reward(candidate_id, coverage_by_candidate, sample_weights),
+                order_index[candidate_id],
+                candidate_id,
+            )
+        )
+
+        best_move: tuple[
+            float,
+            tuple[int, str, str],
+            tuple[str, ...],
+            LocalImprovementMove,
+        ] | None = None
+        for candidate_id in positive_candidates[: max(0, max_candidate_checks)]:
+            candidate_checks += 1
+            insert_trial = (*active, candidate_id)
+            insert_report = validate_schedule(case, candidates_by_id, insert_trial)
+            if insert_report.valid:
+                objective_after = _coverage_objective(
+                    insert_trial, coverage_by_candidate, sample_weights
+                )
+                delta = objective_after - current_objective
+                if delta > min_objective_delta:
+                    move = LocalImprovementMove(
+                        move_type="insert",
+                        inserted_candidate_id=candidate_id,
+                        removed_candidate_id=None,
+                        objective_before=current_objective,
+                        objective_after=objective_after,
+                        objective_delta=delta,
+                    )
+                    tie = (0, "", candidate_id)
+                    if best_move is None or (delta, tie) > (best_move[0], best_move[1]):
+                        best_move = (delta, tie, insert_trial, move)
+                else:
+                    rejected_non_improving += 1
+                continue
+
+            removal_candidates: set[str] = set()
+            for issue in insert_report.issues:
+                if issue.issue_type == "action_cap":
+                    removal_candidates.update(active)
+                elif candidate_id in issue.candidate_ids:
+                    removal_candidates.update(
+                        other_id for other_id in issue.candidate_ids if other_id in active_set
+                    )
+            if not removal_candidates:
+                rejected_infeasible += 1
+                continue
+
+            for remove_id in sorted(
+                removal_candidates,
+                key=lambda remove_id: (
+                    _coverage_loss(
+                        remove_id,
+                        active,
+                        coverage_by_candidate,
+                        sample_weights,
+                    ),
+                    _candidate_order_key(candidates_by_id[remove_id]),
+                ),
+            ):
+                swap_trial = tuple(
+                    active_id for active_id in active if active_id != remove_id
+                ) + (candidate_id,)
+                swap_report = validate_schedule(case, candidates_by_id, swap_trial)
+                if not swap_report.valid:
+                    rejected_infeasible += 1
+                    continue
+                objective_after = _coverage_objective(
+                    swap_trial, coverage_by_candidate, sample_weights
+                )
+                delta = objective_after - current_objective
+                if delta <= min_objective_delta:
+                    rejected_non_improving += 1
+                    continue
+                move = LocalImprovementMove(
+                    move_type="swap",
+                    inserted_candidate_id=candidate_id,
+                    removed_candidate_id=remove_id,
+                    objective_before=current_objective,
+                    objective_after=objective_after,
+                    objective_delta=delta,
+                )
+                tie = (1, remove_id, candidate_id)
+                if best_move is None or (delta, tie) > (best_move[0], best_move[1]):
+                    best_move = (delta, tie, swap_trial, move)
+
+        if best_move is None:
+            break
+        _, _, active, move = best_move
+        moves.append(move)
+        stop_reason = "max_passes" if len(moves) >= max(0, max_passes) else "improved"
+
+    after = _coverage_objective(active, coverage_by_candidate, sample_weights)
+    if moves and len(moves) < max(0, max_passes):
+        stop_reason = "no_improving_move"
+    return LocalImprovementResult(
+        enabled=True,
+        original_candidate_ids=tuple(dict.fromkeys(selected_candidate_ids)),
+        improved_candidate_ids=active,
+        objective_before=before,
+        objective_after=after,
+        objective_delta=after - before,
+        accepted_moves=tuple(moves),
+        candidate_checks=candidate_checks,
+        rejected_infeasible_count=rejected_infeasible,
+        rejected_non_improving_count=rejected_non_improving,
+        stop_reason=stop_reason,
     )
 
 

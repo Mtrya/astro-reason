@@ -64,7 +64,7 @@ run_policies:
       blocker_summary:
         - 2048 candidates is small relative to the 85k-171k full candidate grids.
         - Historical evaluation artifacts have only 2-7 nonzero candidates per case.
-        - Larger schedule-aware quality probes improve score, but remain below the documented quality target on case_0001.
+        - Phase 11 diagnostics show denser start-time alignment can clear the documented quality target on case_0001, but broader promotion is deferred to Phase 12.
     cases:
       - test/case_0001
       - test/case_0002
@@ -145,6 +145,9 @@ run_policies:
         spatial_bin_deg: 0.25
       selection:
         schedule_aware: true
+        local_improvement: true
+        local_improvement_max_passes: 12
+        local_improvement_max_candidate_checks: 1000
         compute_online_bounds: true
         max_bound_order_debug: 20
         write_iteration_trace: false
@@ -161,7 +164,7 @@ run_policies:
     quality_envelope:
       level: quality_diagnostic
       status: NOT_YET_QUALITY_FAIR
-      claim: strongest current schedule-aware probe; verifier-valid but still below the documented quality target
+      claim: schedule-aware candidate-scaling probe with bounded local improvement; verifier-valid but below the strongest Phase 11 diagnostic
       non_humble_parameters: diagnostic_only
       expected_blocker: coverage mapping runtime plus remaining fixed-candidate schedule/geometry limits
     cases:
@@ -177,6 +180,9 @@ run_policies:
         spatial_bin_deg: 0.25
       selection:
         schedule_aware: true
+        local_improvement: true
+        local_improvement_max_passes: 12
+        local_improvement_max_candidate_checks: 1000
         compute_online_bounds: true
         max_bound_order_debug: 10
         write_iteration_trace: false
@@ -187,6 +193,81 @@ run_policies:
       min_nonzero_candidate_count: 100
       min_repaired_actions: 20
       max_solver_total_seconds: 120
+      max_verifier_seconds: 90
+  quality_probe_full:
+    description: Full current fixed-candidate grid probe on the smoke case with bounded local improvement.
+    quality_envelope:
+      level: quality_diagnostic
+      status: NOT_YET_QUALITY_FAIR
+      claim: full fixed-grid diagnostic with bounded schedule-feasible local improvement; not promotion evidence by itself
+      non_humble_parameters: diagnostic_only
+      expected_blocker: remaining quality gap may reflect geometry alignment or fixed-grid candidate limits rather than repair
+    cases:
+      - test/case_0001
+    config:
+      candidate_generation:
+        time_stride_s: 600
+        max_candidates_total: 129600
+        cap_strategy: balanced_stride
+        debug_candidate_limit: 5
+      coverage_mapping:
+        method: indexed
+        spatial_bin_deg: 0.25
+      selection:
+        schedule_aware: true
+        local_improvement: true
+        local_improvement_max_passes: 12
+        local_improvement_max_candidate_checks: 1000
+        compute_online_bounds: true
+        max_bound_order_debug: 10
+        write_iteration_trace: false
+        max_iteration_debug: 100
+    quality_gates:
+      requires_valid_verifier: true
+      min_candidate_count: 129600
+      min_nonzero_candidate_count: 200
+      min_repaired_actions: 20
+      max_solver_total_seconds: 150
+      max_verifier_seconds: 90
+  quality_probe_stride300_full:
+    description: Promoted quality-ready fixed-candidate envelope with denser 300-second start grid and bounded local improvement.
+    quality_envelope:
+      level: quality_ready
+      status: READY_QUALITY_FAIR
+      claim: faithful benchmark-adapted CELF/CEF reproduction under a meaningful fixed-candidate optimization envelope
+      non_humble_parameters: true
+      scope:
+        - fixed benchmark-adapted strip candidate set
+        - schedule-aware CELF/CEF selection
+        - bounded fixed-candidate local improvement
+        - experiment-owned verifier validation on test/case_0001
+      remaining_limit: coverage mapping runtime makes this policy unsuitable for CI smoke or broad routine sweeps
+    cases:
+      - test/case_0001
+    config:
+      candidate_generation:
+        time_stride_s: 300
+        max_candidates_total: 259200
+        cap_strategy: balanced_stride
+        debug_candidate_limit: 5
+      coverage_mapping:
+        method: indexed
+        spatial_bin_deg: 0.25
+      selection:
+        schedule_aware: true
+        local_improvement: true
+        local_improvement_max_passes: 12
+        local_improvement_max_candidate_checks: 1000
+        compute_online_bounds: true
+        max_bound_order_debug: 10
+        write_iteration_trace: false
+        max_iteration_debug: 100
+    quality_gates:
+      requires_valid_verifier: true
+      min_candidate_count: 259200
+      min_nonzero_candidate_count: 500
+      min_repaired_actions: 50
+      max_solver_total_seconds: 180
       max_verifier_seconds: 90
 cases:
   - id: test/case_0001
