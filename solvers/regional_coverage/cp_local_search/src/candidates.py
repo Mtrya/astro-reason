@@ -440,28 +440,6 @@ class _StripGeometry:
     heading_deg: float
 
 
-def _strip_geometry(
-    *,
-    propagator: brahe.SGPPropagator,
-    start: datetime,
-    end: datetime,
-    step_s: int,
-    roll_deg: float,
-    fov_deg: float,
-) -> _StripGeometry:
-    sampled_states = _sampled_states(
-        propagator=propagator,
-        start=start,
-        end=end,
-        step_s=step_s,
-    )
-    return _strip_geometry_from_states(
-        sampled_states=sampled_states,
-        roll_deg=roll_deg,
-        fov_deg=fov_deg,
-    )
-
-
 def _sampled_states(
     *,
     propagator: brahe.SGPPropagator,

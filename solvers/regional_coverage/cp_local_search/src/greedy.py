@@ -217,7 +217,7 @@ def greedy_insertion(
             summary.stop_reason = "time_cap_reached"
             break
 
-        best = _best_feasible_evaluation(
+        best = best_feasible_evaluation(
             case,
             candidates,
             selected_ids=selected_ids,
@@ -262,7 +262,7 @@ def greedy_insertion(
     )
 
 
-def _best_feasible_evaluation(
+def best_feasible_evaluation(
     case: RegionalCoverageCase,
     candidates: list[Candidate],
     *,
@@ -425,15 +425,15 @@ def _optional_int(value: Any) -> int | None:
     return int(value)
 
 
-def _probability_float(value: Any, field: str) -> float:
+def _probability_float(value: Any, field_name: str) -> float:
     parsed = float(value)
     if parsed < 0.0 or parsed > 1.0:
-        raise ValueError(f"{field} must be between 0.0 and 1.0")
+        raise ValueError(f"{field_name} must be between 0.0 and 1.0")
     return parsed
 
 
-def _non_negative_int(value: Any, field: str) -> int:
+def _non_negative_int(value: Any, field_name: str) -> int:
     parsed = int(value)
     if parsed < 0:
-        raise ValueError(f"{field} must be non-negative")
+        raise ValueError(f"{field_name} must be non-negative")
     return parsed

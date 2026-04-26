@@ -256,10 +256,10 @@ def _timing_summary(
     }
 
 
-def _local_validation_summary(case, greedy_result) -> dict:
+def _local_validation_summary(case, result) -> dict:
     per_satellite: dict[str, dict] = {}
     valid = True
-    for satellite_id, sequence in sorted(greedy_result.state.sequences.items()):
+    for satellite_id, sequence in sorted(result.state.sequences.items()):
         sequence_valid, reasons = is_consistent(case, sequence)
         valid = valid and sequence_valid
         per_satellite[satellite_id] = {
@@ -269,8 +269,8 @@ def _local_validation_summary(case, greedy_result) -> dict:
         }
     return {
         "valid": valid,
-        "selected_count": len(greedy_result.selected_candidates),
-        "covered_sample_count": len(greedy_result.covered_sample_ids),
+        "selected_count": len(result.selected_candidates),
+        "covered_sample_count": len(result.covered_sample_ids),
         "per_satellite": per_satellite,
     }
 

@@ -10,7 +10,7 @@ from skyfield.api import EarthSatellite, load, wgs84
 
 
 EARTH_RADIUS_M = 6_371_000.0
-_TS = load.timescale()
+_TS = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -21,13 +21,20 @@ class GroundPoint:
 
 
 def satellite_subpoint(satellite: EarthSatellite, instant: datetime) -> GroundPoint:
-    geocentric = satellite.at(_TS.from_datetime(instant))
+    geocentric = satellite.at(_timescale().from_datetime(instant))
     subpoint = wgs84.subpoint(geocentric)
     return GroundPoint(
         latitude_deg=float(subpoint.latitude.degrees),
         longitude_deg=wrap_lon_deg(float(subpoint.longitude.degrees)),
         altitude_m=float(subpoint.elevation.m),
     )
+
+
+def _timescale():
+    global _TS
+    if _TS is None:
+        _TS = load.timescale()
+    return _TS
 
 
 def initial_bearing_deg(
@@ -123,4 +130,3 @@ def swath_width_m(altitude_m: float, roll_abs_deg: float, fov_deg: float) -> flo
 
 def wrap_lon_deg(value: float) -> float:
     return ((value + 180.0) % 360.0) - 180.0
-

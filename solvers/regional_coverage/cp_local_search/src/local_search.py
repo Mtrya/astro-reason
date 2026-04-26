@@ -11,7 +11,7 @@ from .candidates import Candidate
 from .case_io import RegionalCoverageCase
 from .coverage import CoverageIndex
 from .cp_repair import CPRepairConfig, CPMetrics, CPRepairResult, cp_sat_repair
-from .greedy import GreedyConfig, GreedyResult, _best_feasible_evaluation
+from .greedy import GreedyConfig, GreedyResult, best_feasible_evaluation
 from .opportunities import OpportunityIndex
 from .sequence import (
     SequenceState,
@@ -492,7 +492,7 @@ def rebuild_neighborhood(
         if cid in candidate_by_id and cid not in kept_ids
     ]
     while len(kept) + len(inserted) < case.mission.max_actions_total:
-        best = _best_feasible_evaluation(
+        best = best_feasible_evaluation(
             case,
             pool,
             selected_ids=selected_ids,
