@@ -548,7 +548,9 @@ def _compute_metrics(
 
     return {
         "capped_max_revisit_gap_hours": (
-            max(target_capped_max_gaps) if target_capped_max_gaps else 0.0
+            sum(target_capped_max_gaps) / len(target_capped_max_gaps)
+            if target_capped_max_gaps
+            else 0.0
         ),
         "num_satellites": satellite_count,
         "target_gap_summary": target_gap_summary,

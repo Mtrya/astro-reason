@@ -7,7 +7,7 @@
       "max_slew_velocity_deg_per_sec": 1.0,
       "settling_time_sec": 10.0
     },
-    "max_altitude_m": 850000.0,
+    "max_altitude_m": 900000.0,
     "min_altitude_m": 500000.0,
     "model_name": "balanced_leo_eo_bus_v1",
     "resource_model": {
