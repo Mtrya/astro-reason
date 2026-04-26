@@ -139,6 +139,18 @@ def _require_str(row: dict[str, Any], key: str, context: str) -> str:
     return value
 
 
+def _require_int(row: dict[str, Any], key: str, context: str) -> int:
+    if key not in row:
+        raise ValueError(f"{context}: missing required integer field {key}")
+    value = row[key]
+    if isinstance(value, bool):
+        raise ValueError(f"{context}: {key} must be an integer")
+    try:
+        return int(value)
+    except (TypeError, ValueError) as exc:
+        raise ValueError(f"{context}: {key} must be an integer") from exc
+
+
 def _float_or_none(value: Any) -> float | None:
     if value is None:
         return None
@@ -156,8 +168,8 @@ def load_manifest(case_dir: Path) -> Manifest:
         seed=int(raw["seed"]) if raw.get("seed") is not None else None,
         horizon_start=parse_iso_z(_require_str(raw, "horizon_start", str(path)), field="manifest.horizon_start"),
         horizon_end=parse_iso_z(_require_str(raw, "horizon_end", str(path)), field="manifest.horizon_end"),
-        time_step_s=int(raw["time_step_s"]),
-        coverage_sample_step_s=int(raw["coverage_sample_step_s"]),
+        time_step_s=_require_int(raw, "time_step_s", str(path)),
+        coverage_sample_step_s=_require_int(raw, "coverage_sample_step_s", str(path)),
         max_actions_total=(
             int(scoring["max_actions_total"]) if scoring.get("max_actions_total") is not None else None
         ),

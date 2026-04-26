@@ -40,15 +40,20 @@ from solution_io import (
 )
 
 
-def _selection_costs(case, candidates, cost_mode: str) -> dict[str, float] | None:
-    if cost_mode != "estimated_energy":
-        return None
+def _selection_costs(case, candidates, cost_mode: str) -> dict[str, float]:
     costs: dict[str, float] = {}
     for candidate in candidates:
-        satellite = case.satellites[candidate.satellite_id]
-        costs[candidate.candidate_id] = (
-            candidate.duration_s * satellite.power.imaging_power_w / 3600.0
-        )
+        if cost_mode == "imaging_time":
+            costs[candidate.candidate_id] = float(candidate.duration_s)
+        elif cost_mode == "estimated_energy":
+            satellite = case.satellites[candidate.satellite_id]
+            costs[candidate.candidate_id] = (
+                candidate.duration_s * satellite.power.imaging_power_w / 3600.0
+            )
+        elif cost_mode == "transition_burden":
+            costs[candidate.candidate_id] = 1.0 + abs(candidate.roll_deg) / 90.0
+        else:
+            costs[candidate.candidate_id] = 1.0
     return costs
 
 
@@ -289,13 +294,14 @@ def run(case_dir: Path, config_dir: Path | None, solution_dir: Path) -> int:
         tuple(sample.weight_m2 for sample in case.coverage_grid.samples)
     )
     candidates_by_id = {candidate.candidate_id: candidate for candidate in candidates}
+    configured_costs = _selection_costs(case, candidates, selection_config.cost_mode)
     celf_result = run_celf_selection(
         candidates,
         coverage_by_candidate,
         sample_weights,
         max_actions_total=case.manifest.max_actions_total,
         config=selection_config,
-        cost_by_candidate=_selection_costs(case, candidates, selection_config.cost_mode),
+        cost_by_candidate=configured_costs,
         feasibility_check=_schedule_feasibility_check(case, candidates_by_id),
     )
     timings["celf_selection"] = _round_seconds(time.perf_counter() - start)
@@ -309,6 +315,11 @@ def run(case_dir: Path, config_dir: Path | None, solution_dir: Path) -> int:
     )
 
     start = time.perf_counter()
+    local_improvement_costs = (
+        _selection_costs(case, candidates, "action_count")
+        if celf_result.best.policy == "unit_cost"
+        else configured_costs
+    )
     local_improvement_result = improve_schedule_locally(
         case,
         candidates_by_id,
@@ -321,6 +332,8 @@ def run(case_dir: Path, config_dir: Path | None, solution_dir: Path) -> int:
         max_candidate_checks=selection_config.local_improvement_max_candidate_checks,
         worker_count=selection_config.local_improvement_worker_count,
         chunk_size=selection_config.local_improvement_chunk_size,
+        cost_by_candidate=local_improvement_costs,
+        budget=celf_result.best.budget,
     )
     timings["local_improvement"] = _round_seconds(time.perf_counter() - start)
     local_improvement_summary = local_improvement_result.as_dict()

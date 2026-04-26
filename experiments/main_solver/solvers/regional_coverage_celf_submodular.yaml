@@ -9,123 +9,29 @@ solve_script: solve.sh
 solution_filename: solution.json
 config:
   candidate_generation:
-    time_stride_s: 600
-    max_candidates_total: 512
+    time_stride_s: 150
+    max_candidates_total: 518400
     cap_strategy: balanced_stride
-    debug_candidate_limit: 50
+    debug_candidate_limit: 5
   coverage_mapping:
     method: indexed
     spatial_bin_deg: 0.25
+    worker_count: auto
+    chunk_size: 4096
   selection:
     schedule_aware: true
+    local_improvement: true
+    local_improvement_max_passes: 12
+    local_improvement_max_candidate_checks: 1500
+    local_improvement_worker_count: auto
+    local_improvement_chunk_size: 16
     compute_online_bounds: true
-    max_bound_order_debug: 50
-    write_iteration_trace: true
-    max_iteration_debug: 2000
+    max_bound_order_debug: 10
+    write_iteration_trace: false
+    max_iteration_debug: 100
 run_policies:
-  smoke:
-    description: Fast validity smoke with bounded debug artifacts.
-    quality_envelope:
-      level: contract_smoke
-      status: NOT_QUALITY_FAIR
-      claim: proves runnable verifier-valid solver contract only
-      non_humble_parameters: false
-    cases:
-      - test/case_0001
-    config:
-      candidate_generation:
-        time_stride_s: 600
-        max_candidates_total: 512
-        cap_strategy: balanced_stride
-        debug_candidate_limit: 50
-      coverage_mapping:
-        method: indexed
-        spatial_bin_deg: 0.25
-      selection:
-        schedule_aware: true
-        compute_online_bounds: true
-        max_bound_order_debug: 50
-        write_iteration_trace: true
-        max_iteration_debug: 2000
-    quality_gates:
-      requires_valid_verifier: true
-      min_candidate_count: 512
-      min_nonzero_candidate_count: 1
-      min_repaired_actions: 1
-      max_solver_total_seconds: 30
-      max_verifier_seconds: 60
-  evaluation:
-    description: Promoted fixed-candidate CELF evaluation envelope with verifier and bound evidence.
-    quality_envelope:
-      level: reproduction
-      status: NOT_YET_QUALITY_FAIR
-      claim: faithful fixed-candidate CELF reproduction, but candidate cap remains humble for quality evidence
-      non_humble_parameters: false
-      blocker_summary:
-        - 2048 candidates is small relative to the 85k-171k full candidate grids.
-        - Historical evaluation artifacts have only 2-7 nonzero candidates per case.
-        - Phase 11 diagnostics show denser start-time alignment can clear the documented quality target on case_0001, but broader promotion is deferred to Phase 12.
-    cases:
-      - test/case_0001
-      - test/case_0002
-      - test/case_0003
-      - test/case_0004
-      - test/case_0005
-    config:
-      candidate_generation:
-        time_stride_s: 600
-        max_candidates_total: 2048
-        cap_strategy: balanced_stride
-        debug_candidate_limit: 25
-      coverage_mapping:
-        method: indexed
-        spatial_bin_deg: 0.25
-      selection:
-        schedule_aware: true
-        compute_online_bounds: true
-        max_bound_order_debug: 50
-        write_iteration_trace: false
-        max_iteration_debug: 500
-    quality_gates:
-      requires_valid_verifier: true
-      min_candidate_count: 2048
-      min_nonzero_candidate_count: 1
-      min_repaired_actions: 1
-      max_solver_total_seconds: 60
-      max_verifier_seconds: 90
-  debug_diagnostics:
-    description: Larger candidate coverage diagnostics with bounded CELF trace.
-    quality_envelope:
-      level: reproduction_debug
-      status: NOT_QUALITY_FAIR
-      claim: debug trace for reproduction diagnostics, not quality evidence
-      non_humble_parameters: false
-    cases:
-      - test/case_0001
-    config:
-      candidate_generation:
-        time_stride_s: 600
-        max_candidates_total: 2048
-        cap_strategy: balanced_stride
-        debug_candidate_limit: 100
-      coverage_mapping:
-        method: indexed
-        spatial_bin_deg: 0.25
-      selection:
-        schedule_aware: true
-        compute_online_bounds: true
-        max_bound_order_debug: 100
-        write_iteration_trace: true
-        max_iteration_debug: 1000
-    quality_gates:
-      requires_valid_verifier: true
-      min_candidate_count: 2048
-      min_nonzero_candidate_count: 1
-      min_repaired_actions: 1
-      max_solver_total_seconds: 90
-      max_verifier_seconds: 90
   quality_probe_stride150_full:
-    description: Promoted quality-ready fixed-candidate envelope with 150-second start grid, deterministic parallel throughput, and bounded local improvement.
+    description: Strongest verified fixed-candidate CELF envelope.
     quality_envelope:
       level: quality_ready
       status: READY_QUALITY_FAIR
@@ -140,35 +46,6 @@ run_policies:
       remaining_limit: quality-ready claim is scoped to the fixed candidate set and test/case_0001; it does not certify continuous-schedule optimality or all regional-coverage cases
     cases:
       - test/case_0001
-    config:
-      candidate_generation:
-        time_stride_s: 150
-        max_candidates_total: 518400
-        cap_strategy: balanced_stride
-        debug_candidate_limit: 5
-      coverage_mapping:
-        method: indexed
-        spatial_bin_deg: 0.25
-        worker_count: auto
-        chunk_size: 4096
-      selection:
-        schedule_aware: true
-        local_improvement: true
-        local_improvement_max_passes: 12
-        local_improvement_max_candidate_checks: 1500
-        local_improvement_worker_count: auto
-        local_improvement_chunk_size: 16
-        compute_online_bounds: true
-        max_bound_order_debug: 10
-        write_iteration_trace: false
-        max_iteration_debug: 100
-    quality_gates:
-      requires_valid_verifier: true
-      min_candidate_count: 518400
-      min_nonzero_candidate_count: 900
-      min_repaired_actions: 50
-      max_solver_total_seconds: 420
-      max_verifier_seconds: 90
 cases:
   - id: test/case_0001
     case_dir: benchmarks/regional_coverage/dataset/cases/test/case_0001

@@ -4,15 +4,14 @@
 
 candidate_generation:
   # Start-time stride in seconds. Must align with the case time_step_s.
-  time_stride_s: 600
+  time_stride_s: 150
 
   # Used only when roll_values_deg is omitted. The generated default grid is
   # symmetric about nadir and filtered by the public sensor edge-angle limits.
   roll_step_deg: 4.0
 
-  # Deterministic cap for direct smoke-speed candidate generation. The
-  # experiment-owned evaluation policy currently raises this to 2048.
-  max_candidates_total: 512
+  # Deterministic cap for the promoted fixed-candidate quality envelope.
+  max_candidates_total: 518400
   cap_strategy: balanced_stride
 
   # Optional explicit grids. Invalid values are filtered against the public
@@ -21,7 +20,7 @@ candidate_generation:
   roll_values_deg: [-31.0, -27.0, 27.0, 31.0]
 
   # Number of generated candidates copied to root-level candidate_debug.json.
-  debug_candidate_limit: 50
+  debug_candidate_limit: 5
 
 coverage_mapping:
   # indexed builds a solver-local sparse grid over public coverage samples.
@@ -31,9 +30,9 @@ coverage_mapping:
   # Longitude/latitude bin size in degrees for the indexed mapping path.
   spatial_bin_deg: 0.25
 
-  # Serial is the reproducible default. Heavy experiment-owned quality probes
-  # may set worker_count to an integer or auto and tune chunk_size.
-  worker_count: 1
+  # Use an integer for fixed worker count or auto for deterministic parallel
+  # throughput on the current machine.
+  worker_count: auto
   chunk_size: 4096
 
 selection:
@@ -56,22 +55,21 @@ selection:
   # safety net, not the primary feasibility mechanism.
   schedule_aware: true
 
-  # Optional Phase 11 fixed-candidate tuning pass. When enabled, the solver
-  # tries bounded deterministic insertions and one-for-one swaps that improve
-  # the solver-local coverage objective while preserving solver-local schedule
-  # validity. It does not create continuous-time candidates or call verifiers.
-  local_improvement: false
-  local_improvement_max_passes: 4
-  local_improvement_max_candidate_checks: 1000
-  local_improvement_worker_count: 1
-  local_improvement_chunk_size: 128
+  # Bounded deterministic insertions and one-for-one swaps improve the
+  # solver-local coverage objective while preserving solver-local schedule
+  # validity. This does not create continuous-time candidates or call verifiers.
+  local_improvement: true
+  local_improvement_max_passes: 12
+  local_improvement_max_candidate_checks: 1500
+  local_improvement_worker_count: auto
+  local_improvement_chunk_size: 16
 
   # Compute the Leskovec Section 3.2 online upper bound over the same fixed
   # candidate set used by CELF. This is a finite-set certificate, not a bound
   # on continuous satellite scheduling.
   compute_online_bounds: true
-  max_bound_order_debug: 50
+  max_bound_order_debug: 10
 
   # Iteration traces can be large when the candidate cap is raised.
-  write_iteration_trace: true
-  max_iteration_debug: 2000
+  write_iteration_trace: false
+  max_iteration_debug: 100

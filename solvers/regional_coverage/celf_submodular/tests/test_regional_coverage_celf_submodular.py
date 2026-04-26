@@ -15,7 +15,7 @@ sys.path.insert(0, str(SOLVER_SRC))
 
 from candidates import CandidateConfig, generate_candidates, load_candidate_config  # noqa: E402
 from candidates import StripCandidate  # noqa: E402
-from case_io import CoverageSample, iso_z, load_case, parse_iso_z  # noqa: E402
+from case_io import CoverageSample, iso_z, load_case, load_manifest, parse_iso_z  # noqa: E402
 from celf import (  # noqa: E402
     SelectionConfig,
     coverage_objective,
@@ -262,6 +262,21 @@ def test_empty_experiment_config_uses_candidate_defaults(tmp_path: Path) -> None
     assert config.cap_strategy == "balanced_stride"
     assert coverage_config.method == "indexed"
     assert coverage_config.spatial_bin_deg == 0.25
+
+
+def test_manifest_missing_time_step_reports_descriptive_error(tmp_path: Path) -> None:
+    _write_case(tmp_path)
+    manifest_path = tmp_path / "manifest.json"
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    del manifest["time_step_s"]
+    manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
+
+    try:
+        load_manifest(tmp_path)
+    except ValueError as exc:
+        assert "missing required integer field time_step_s" in str(exc)
+    else:
+        raise AssertionError("expected missing time_step_s to raise ValueError")
 
 
 def test_coverage_sample_indexing_is_duplicate_free() -> None:
@@ -960,6 +975,61 @@ def test_local_improvement_swaps_conflicting_fixed_candidate(tmp_path: Path) -> 
     assert improved.accepted_moves[0].move_type == "swap"
     assert improved.accepted_moves[0].removed_candidate_id == "blocker"
     assert validate_schedule(case, candidates_by_id, improved.improved_candidate_ids).valid
+
+
+def test_local_improvement_preserves_selection_budget(tmp_path: Path) -> None:
+    _write_case(tmp_path)
+    case = load_case(tmp_path)
+    candidates = [
+        _candidate("selected", start_offset_s=0, duration_s=10, roll_deg=12.0),
+        _candidate("better", start_offset_s=20, duration_s=10, roll_deg=12.0),
+    ]
+    candidates_by_id = {candidate.candidate_id: candidate for candidate in candidates}
+
+    improved = improve_schedule_locally(
+        case,
+        candidates_by_id,
+        tuple(candidate.candidate_id for candidate in candidates),
+        ("selected",),
+        {"selected": (0,), "better": (1, 2)},
+        {0: 1.0, 1: 3.0, 2: 3.0},
+        enabled=True,
+        max_passes=2,
+        max_candidate_checks=10,
+        cost_by_candidate={"selected": 1.0, "better": 1.0},
+        budget=1.0,
+    )
+
+    assert improved.improved_candidate_ids == ("better",)
+    assert improved.cost_after == 1.0
+    assert len(improved.accepted_moves) == 1
+    assert improved.accepted_moves[0].move_type == "swap"
+
+
+def test_local_improvement_candidate_check_cap_uses_ranked_prefix(tmp_path: Path) -> None:
+    _write_case(tmp_path)
+    case = load_case(tmp_path)
+    candidates = [
+        _candidate("selected", start_offset_s=0, duration_s=10, roll_deg=12.0),
+        _candidate("low", start_offset_s=20, duration_s=10, roll_deg=12.0),
+        _candidate("high", start_offset_s=30, duration_s=10, roll_deg=12.0),
+    ]
+    candidates_by_id = {candidate.candidate_id: candidate for candidate in candidates}
+
+    improved = improve_schedule_locally(
+        case,
+        candidates_by_id,
+        tuple(candidate.candidate_id for candidate in candidates),
+        ("selected",),
+        {"selected": (0,), "low": (1,), "high": (2, 3)},
+        {0: 1.0, 1: 2.0, 2: 5.0, 3: 5.0},
+        enabled=True,
+        max_passes=1,
+        max_candidate_checks=1,
+    )
+
+    assert improved.candidate_checks == 1
+    assert improved.improved_candidate_ids == ("selected", "high")
 
 
 def test_parallel_local_improvement_matches_serial_path(tmp_path: Path) -> None:

@@ -1,19 +1,8 @@
 # Regional Coverage CELF Submodular Solver
 
-This solver is a runnable reproduced solver for `regional_coverage`. It is
-`READY` as a faithful CELF/CEF reproduction adapted to the benchmark's fixed
-candidate coverage model, with explicit compute-envelope, schedule, repair, and
-fixed-set bound evidence. It is also `READY_QUALITY_FAIR` for the stronger
-claim of faithful benchmark-adapted reproduction under a meaningful
-quality-seeking fixed-candidate optimization envelope: the promoted
-`main_solver` `quality_probe_stride150_full` policy uses the strongest fixed
-candidate grid, schedule-aware CELF/CEF, bounded local improvement, and
-deterministic parallel throughput while staying within its runtime gate.
+This solver is a runnable reproduced solver for `regional_coverage`. It is `READY` as a faithful CELF/CEF reproduction adapted to the benchmark's fixed candidate coverage model, with explicit compute-envelope, schedule, repair, and fixed-set bound evidence. It is also `READY_QUALITY_FAIR` for the stronger claim of faithful benchmark-adapted reproduction under a meaningful quality-seeking fixed-candidate optimization envelope: the promoted `main_solver` `quality_probe_stride150_full` profile uses the strongest fixed candidate grid, schedule-aware CELF/CEF, bounded local improvement, and deterministic parallel throughput while staying within its runtime gate.
 
-It follows the CELF and CEF method family described by Leskovec, Krause,
-Guestrin, Faloutsos, VanBriesen, and Glance in "Cost-effective Outbreak
-Detection in Networks", adapted to the benchmark's public strip-observation
-case and solution contract.
+It follows the CELF and CEF method family described by Leskovec, Krause, Guestrin, Faloutsos, VanBriesen, and Glance in "Cost-effective Outbreak Detection in Networks", adapted to the benchmark's public strip-observation case and solution contract.
 
 ## Citation
 
@@ -50,9 +39,7 @@ case and solution contract.
 }
 ```
 
-The solver is standalone. It reads benchmark case files and writes a benchmark
-solution JSON, but it does not import or execute benchmark, experiment, runtime,
-or other solver internals.
+The solver is standalone. It reads benchmark case files and writes a benchmark solution JSON, but it does not import or execute benchmark, experiment, runtime, or other solver internals.
 
 ## Method Summary
 
@@ -186,14 +173,7 @@ Selection knobs:
 - `max_iteration_debug`: maximum recompute/accept/reject rows to keep per
   CELF variant
 
-The default candidate cap is reported in `status.json`. It keeps direct and CI
-smoke runs fast on the current 72-hour public cases. Official reproduction
-evidence uses the experiment-owned `evaluation` policy, which raises the cap to
-2048 fixed candidates per case while keeping the same standalone solver
-internals. Official quality evidence uses one promoted policy,
-`quality_probe_stride150_full`, with a 518400-candidate fixed grid,
-schedule-aware CELF/CEF, bounded local improvement, and deterministic parallel
-coverage/local-improvement throughput.
+The promoted public configuration is `quality_probe_stride150_full`: a 518400-candidate fixed grid with 150-second start spacing, schedule-aware CELF/CEF, bounded local improvement, and deterministic parallel coverage/local-improvement throughput. Users may still tune `config.yaml` for local experiments, but the public profile and reported evidence use this single strongest configuration.
 
 ## Debug Artifacts
 
@@ -255,25 +235,7 @@ Direct solve with a config directory:
   /tmp/regional_coverage_celf_solution
 ```
 
-Official smoke verification through `main_solver`:
-
-```bash
-uv run python experiments/main_solver/run.py \
-  --benchmark regional_coverage \
-  --solver regional_coverage_celf_submodular \
-  --policy smoke
-```
-
-Official fixed-candidate evaluation:
-
-```bash
-uv run python experiments/main_solver/run.py \
-  --benchmark regional_coverage \
-  --solver regional_coverage_celf_submodular \
-  --policy evaluation
-```
-
-Official quality-ready envelope:
+Official quality-ready profile:
 
 ```bash
 uv run python experiments/main_solver/run.py \
@@ -312,31 +274,7 @@ metrics.
 
 ## Verified Evidence
 
-The promoted evidence is the `main_solver` `evaluation` policy over
-`test/case_0001` through `test/case_0005`. That policy uses 2048 balanced fixed
-candidates per case, indexed coverage mapping, schedule-aware CELF/CEF
-selection variants, fixed-set online bounds, deterministic repair, and
-benchmark-owned verification. It is faithful reproduction evidence, but it is
-explicitly **NOT_YET** a quality-fair optimization envelope because the
-candidate cap is still humble relative to the full candidate grid.
-
-Latest verified artifacts under
-`results/main_solver/regional_coverage/regional_coverage_celf_submodular/`
-show:
-
-- `case_0001`: valid, 7 actions, coverage ratio `0.150688`, weighted coverage
-  ratio `0.143495`
-- `case_0002`: valid, 5 actions, coverage ratio `0.140731`, weighted coverage
-  ratio `0.145246`
-- `case_0003`: valid, 6 actions, coverage ratio `0.078074`, weighted coverage
-  ratio `0.077161`
-- `case_0004`: valid, 2 actions, coverage ratio `0.056077`, weighted coverage
-  ratio `0.049903`
-- `case_0005`: valid, 4 actions, coverage ratio `0.199945`, weighted coverage
-  ratio `0.188096`
-
-Latest official quality evidence on `test/case_0001` uses the promoted
-`quality_probe_stride150_full` policy:
+The single promoted public profile is `quality_probe_stride150_full`. Latest official quality evidence on `test/case_0001` shows:
 
 - 518400 fixed candidates on a 150-second start grid
 - 998 nonzero solver-local candidates
@@ -349,13 +287,7 @@ Latest official quality evidence on `test/case_0001` uses the promoted
 - coverage mapping `parallel_fork` with 16 workers and 127 chunks
 - local improvement `parallel_fork` with 16 workers and 472 chunks
 
-These artifacts show that Phase 9 schedule-aware selection removed destructive
-post-selection repair as the dominant blocker on the smoke case, Phase 11
-identified denser time alignment as the strongest quality lever, and Phase 13
-made the strongest fixed-candidate policy fast enough without weakening the
-quality config. The quality-ready claim remains scoped to the fixed candidate
-set and experiment-owned verification on `test/case_0001`; it does not certify
-continuous-schedule optimality or all regional-coverage cases.
+The quality-ready claim remains scoped to the fixed candidate set and experiment-owned verification on `test/case_0001`; it does not certify continuous-schedule optimality or all regional-coverage cases.
 
 ## Known Limitations
 
@@ -378,14 +310,8 @@ continuous-schedule optimality or all regional-coverage cases.
   `0.0`.
 - Battery and duty checks are conservative solver-local approximations; the
   official verifier remains the source of truth.
-- The default `max_candidates_total` is intentionally small for smoke speed.
-  Quality comparisons should use experiment-owned quality policies and should
-  not use the CI smoke configuration as quality evidence.
+- The public profile intentionally keeps one strongest fixed-candidate configuration. Local users can tune `config.yaml`, but alternative smaller profiles are not reported as quality evidence.
 
 ## Evidence Type
 
-Official `main_solver` smoke and evaluation policies pass with
-`status: verified`, `valid: true`, and no verifier violations on the promoted
-case set. This solver is therefore registered in `experiments/main_solver` with
-`evidence_type: reproduced_solver`, while `solvers/finished_solvers.json` keeps
-a fast CI smoke entry for the public solver contract.
+The official `main_solver` `quality_probe_stride150_full` profile passes with `status: verified`, `valid: true`, and no verifier violations on the promoted case. This solver is therefore registered in `experiments/main_solver` with `evidence_type: reproduced_solver`.

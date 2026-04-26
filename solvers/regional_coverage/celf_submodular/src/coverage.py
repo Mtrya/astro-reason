@@ -8,6 +8,7 @@ import os
 from bisect import bisect_left, bisect_right
 from collections import Counter, defaultdict
 from dataclasses import dataclass
+from operator import itemgetter
 from pathlib import Path
 from typing import Any
 
@@ -375,21 +376,16 @@ def sample_indices_near_centerline_indexed(
         bin_deg=sample_index.bin_deg,
     )
     covered: set[int] = set()
-    seen_samples: set[int] = set()
     nonempty_cell_visits = 0
     lon_index_start = bisect_left(sample_index.lon_cells, lon_start)
     lon_index_end = bisect_right(sample_index.lon_cells, lon_end)
     for lon_cell in sample_index.lon_cells[lon_index_start:lon_index_end]:
         lat_rows = sample_index.cells_by_lon.get(lon_cell, ())
-        lat_cells = tuple(lat_cell for lat_cell, _ in lat_rows)
-        start_index = bisect_left(lat_cells, lat_start)
-        end_index = bisect_right(lat_cells, lat_end)
+        start_index = bisect_left(lat_rows, lat_start, key=itemgetter(0))
+        end_index = bisect_right(lat_rows, lat_end, key=itemgetter(0))
         for _, samples in lat_rows[start_index:end_index]:
             nonempty_cell_visits += 1
             for sample in samples:
-                if sample.index in seen_samples:
-                    continue
-                seen_samples.add(sample.index)
                 if stats is not None:
                     stats.candidate_bbox_sample_checks += 1
                 if not (min_lat <= sample.latitude_deg <= max_lat):

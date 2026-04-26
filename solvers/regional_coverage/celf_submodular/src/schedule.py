@@ -116,8 +116,12 @@ class LocalImprovementResult:
     accepted_moves: tuple[LocalImprovementMove, ...]
     candidate_checks: int
     rejected_infeasible_count: int
+    rejected_over_budget_count: int
     rejected_non_improving_count: int
     stop_reason: str
+    budget: float | None = None
+    cost_before: float | None = None
+    cost_after: float | None = None
     execution_mode: str = "serial"
     worker_count: int = 1
     chunk_size: int = 0
@@ -134,8 +138,12 @@ class LocalImprovementResult:
             "accepted_moves": [move.as_dict() for move in self.accepted_moves],
             "candidate_checks": self.candidate_checks,
             "rejected_infeasible_count": self.rejected_infeasible_count,
+            "rejected_over_budget_count": self.rejected_over_budget_count,
             "rejected_non_improving_count": self.rejected_non_improving_count,
             "stop_reason": self.stop_reason,
+            "budget": self.budget,
+            "cost_before": self.cost_before,
+            "cost_after": self.cost_after,
             "execution_mode": self.execution_mode,
             "worker_count": self.worker_count,
             "chunk_size": self.chunk_size,
@@ -181,23 +189,6 @@ def _tle_mean_motion_rev_per_day(line2: str) -> float | None:
 
 def _issue_counts(issues: tuple[ScheduleIssue, ...]) -> dict[str, int]:
     return dict(sorted(Counter(issue.issue_type for issue in issues).items()))
-
-
-def _coverage_loss(
-    candidate_id: str,
-    active_ids: tuple[str, ...],
-    coverage_by_candidate: dict[str, tuple[int, ...]],
-    sample_weights: dict[int, float],
-) -> float:
-    counts: Counter[int] = Counter()
-    for active_id in active_ids:
-        for sample_index in coverage_by_candidate.get(active_id, ()):
-            counts[sample_index] += 1
-    return sum(
-        sample_weights[index]
-        for index in coverage_by_candidate.get(candidate_id, ())
-        if counts[index] == 1
-    )
 
 
 def _coverage_objective(
@@ -283,6 +274,15 @@ def _swap_delta_from_counts(
     return delta
 
 
+def _cost_sum(
+    candidate_ids: tuple[str, ...],
+    cost_by_candidate: dict[str, float] | None,
+) -> float | None:
+    if cost_by_candidate is None:
+        return None
+    return sum(cost_by_candidate.get(candidate_id, 1.0) for candidate_id in candidate_ids)
+
+
 def _effective_worker_count(worker_count: int | str, item_count: int) -> int:
     if item_count <= 0:
         return 1
@@ -355,7 +355,7 @@ def _better_local_move(
 
 def _removal_key(
     candidate_id: str,
-    active_ids: tuple[str, ...],
+    counts: Counter[int],
     candidates_by_id: dict[str, StripCandidate],
     case: RegionalCoverageCase,
     coverage_by_candidate: dict[str, tuple[int, ...]],
@@ -364,7 +364,7 @@ def _removal_key(
     candidate = candidates_by_id[candidate_id]
     satellite = case.satellites[candidate.satellite_id]
     return (
-        _coverage_loss(candidate_id, active_ids, coverage_by_candidate, sample_weights),
+        _coverage_loss_from_counts(candidate_id, counts, coverage_by_candidate, sample_weights),
         -candidate_energy_burden_wh(candidate, satellite),
         -candidate.duration_s,
         -candidate.start_offset_s,
@@ -392,6 +392,9 @@ _LOCAL_SAMPLE_WEIGHTS: dict[int, float] | None = None
 _LOCAL_LOSS_BY_ACTIVE: dict[str, float] = {}
 _LOCAL_CURRENT_OBJECTIVE: float = 0.0
 _LOCAL_MIN_OBJECTIVE_DELTA: float = 0.0
+_LOCAL_COST_BY_CANDIDATE: dict[str, float] | None = None
+_LOCAL_BUDGET: float | None = None
+_LOCAL_ACTIVE_COST: float | None = None
 
 
 def _set_local_improvement_globals(
@@ -406,6 +409,8 @@ def _set_local_improvement_globals(
     loss_by_active: dict[str, float],
     current_objective: float,
     min_objective_delta: float,
+    cost_by_candidate: dict[str, float] | None,
+    budget: float | None,
 ) -> None:
     global _LOCAL_CASE
     global _LOCAL_CANDIDATES_BY_ID
@@ -418,6 +423,9 @@ def _set_local_improvement_globals(
     global _LOCAL_LOSS_BY_ACTIVE
     global _LOCAL_CURRENT_OBJECTIVE
     global _LOCAL_MIN_OBJECTIVE_DELTA
+    global _LOCAL_COST_BY_CANDIDATE
+    global _LOCAL_BUDGET
+    global _LOCAL_ACTIVE_COST
     _LOCAL_CASE = case
     _LOCAL_CANDIDATES_BY_ID = candidates_by_id
     _LOCAL_CANDIDATE_IDS = candidate_ids
@@ -429,6 +437,9 @@ def _set_local_improvement_globals(
     _LOCAL_LOSS_BY_ACTIVE = loss_by_active
     _LOCAL_CURRENT_OBJECTIVE = current_objective
     _LOCAL_MIN_OBJECTIVE_DELTA = min_objective_delta
+    _LOCAL_COST_BY_CANDIDATE = cost_by_candidate
+    _LOCAL_BUDGET = budget
+    _LOCAL_ACTIVE_COST = _cost_sum(active, cost_by_candidate)
 
 
 def _evaluate_local_improvement_range(
@@ -436,6 +447,7 @@ def _evaluate_local_improvement_range(
 ) -> tuple[
     int,
     tuple[tuple[str, ...], LocalImprovementMove] | None,
+    int,
     int,
     int,
     int,
@@ -458,16 +470,30 @@ def _evaluate_local_improvement_range(
     best_move: tuple[tuple[str, ...], LocalImprovementMove] | None = None
     candidate_checks = 0
     rejected_infeasible = 0
+    rejected_over_budget = 0
     rejected_non_improving = 0
     active = _LOCAL_ACTIVE
     active_set = _LOCAL_ACTIVE_SET
     current_objective = _LOCAL_CURRENT_OBJECTIVE
+    cost_by_candidate = _LOCAL_COST_BY_CANDIDATE
+    budget = _LOCAL_BUDGET
+    active_cost = _LOCAL_ACTIVE_COST
 
     for candidate_id in _LOCAL_CANDIDATE_IDS[start_index:end_index]:
         candidate_checks += 1
+        candidate_cost = (
+            cost_by_candidate.get(candidate_id, 1.0)
+            if cost_by_candidate is not None
+            else 1.0
+        )
+        insert_over_budget = (
+            budget is not None
+            and active_cost is not None
+            and active_cost + candidate_cost > budget + 1.0e-9
+        )
         insert_trial = (*active, candidate_id)
         insert_report = validate_schedule(case, candidates_by_id, insert_trial)
-        if insert_report.valid:
+        if insert_report.valid and not insert_over_budget:
             delta = _insert_delta_from_counts(
                 candidate_id,
                 counts,
@@ -489,6 +515,8 @@ def _evaluate_local_improvement_range(
             continue
 
         removal_candidates: set[str] = set()
+        if insert_over_budget:
+            removal_candidates.update(active)
         for issue in insert_report.issues:
             if issue.issue_type == "action_cap":
                 removal_candidates.update(active)
@@ -508,6 +536,15 @@ def _evaluate_local_improvement_range(
                 _candidate_order_key(candidates_by_id[remove_id]),
             ),
         ):
+            if budget is not None and active_cost is not None and cost_by_candidate is not None:
+                swap_cost = (
+                    active_cost
+                    - cost_by_candidate.get(remove_id, 1.0)
+                    + candidate_cost
+                )
+                if swap_cost > budget + 1.0e-9:
+                    rejected_over_budget += 1
+                    continue
             swap_trial = tuple(
                 active_id for active_id in active if active_id != remove_id
             ) + (candidate_id,)
@@ -548,6 +585,7 @@ def _evaluate_local_improvement_range(
         best_move,
         candidate_checks,
         rejected_infeasible,
+        rejected_over_budget,
         rejected_non_improving,
     )
 
@@ -566,6 +604,8 @@ def improve_schedule_locally(
     min_objective_delta: float = 1.0e-9,
     worker_count: int | str = 1,
     chunk_size: int = 128,
+    cost_by_candidate: dict[str, float] | None = None,
+    budget: float | None = None,
 ) -> LocalImprovementResult:
     """Try deterministic fixed-candidate insertions and one-for-one swaps.
 
@@ -576,6 +616,7 @@ def improve_schedule_locally(
 
     active = tuple(dict.fromkeys(selected_candidate_ids))
     before = _coverage_objective(active, coverage_by_candidate, sample_weights)
+    cost_before = _cost_sum(active, cost_by_candidate)
     if not enabled:
         return LocalImprovementResult(
             enabled=False,
@@ -587,8 +628,12 @@ def improve_schedule_locally(
             accepted_moves=(),
             candidate_checks=0,
             rejected_infeasible_count=0,
+            rejected_over_budget_count=0,
             rejected_non_improving_count=0,
             stop_reason="disabled",
+            budget=budget,
+            cost_before=cost_before,
+            cost_after=cost_before,
             execution_mode="disabled",
             worker_count=1,
             chunk_size=max(0, int(chunk_size)),
@@ -598,6 +643,7 @@ def improve_schedule_locally(
     moves: list[LocalImprovementMove] = []
     candidate_checks = 0
     rejected_infeasible = 0
+    rejected_over_budget = 0
     rejected_non_improving = 0
     stop_reason = "no_improving_move"
     effective_min_objective_delta = max(min_objective_delta, 1.0e-6)
@@ -608,6 +654,20 @@ def improve_schedule_locally(
         )
         for candidate_id in candidate_order
     }
+    ranked_positive_candidates = tuple(
+        sorted(
+            (
+                candidate_id
+                for candidate_id in candidate_order
+                if standalone_rewards[candidate_id] > 0.0
+            ),
+            key=lambda candidate_id: (
+                -standalone_rewards[candidate_id],
+                order_index[candidate_id],
+                candidate_id,
+            ),
+        )
+    )
     execution_mode = "serial"
     effective_workers = 1
     total_chunk_count = 0
@@ -625,22 +685,11 @@ def improve_schedule_locally(
             )
             for candidate_id in active
         }
-        positive_candidates = [
-            candidate_id
-            for candidate_id in candidate_order
-            if candidate_id not in active_set
-            and standalone_rewards[candidate_id] > 0.0
-        ]
-        positive_candidates.sort(
-            key=lambda candidate_id: (
-                -standalone_rewards[candidate_id],
-                order_index[candidate_id],
-                candidate_id,
-            )
-        )
         candidate_ids_to_check = tuple(
-            positive_candidates[: max(0, max_candidate_checks)]
-        )
+            candidate_id
+            for candidate_id in ranked_positive_candidates
+            if candidate_id not in active_set
+        )[: max(0, max_candidate_checks)]
         ranges = _chunk_ranges(len(candidate_ids_to_check), chunk_size)
         total_chunk_count += len(ranges)
         effective_workers = _effective_worker_count(worker_count, len(ranges))
@@ -655,6 +704,8 @@ def improve_schedule_locally(
             loss_by_active=loss_by_active,
             current_objective=current_objective,
             min_objective_delta=effective_min_objective_delta,
+            cost_by_candidate=cost_by_candidate,
+            budget=budget,
         )
 
         best_move: tuple[tuple[str, ...], LocalImprovementMove] | None = None
@@ -662,6 +713,7 @@ def improve_schedule_locally(
             tuple[
                 int,
                 tuple[tuple[str, ...], LocalImprovementMove] | None,
+                int,
                 int,
                 int,
                 int,
@@ -685,12 +737,13 @@ def improve_schedule_locally(
                         pool.imap_unordered(_evaluate_local_improvement_range, ranges)
                     )
 
-        for _, candidate_best, checks, infeasible, non_improving in sorted(
+        for _, candidate_best, checks, infeasible, over_budget, non_improving in sorted(
             range_results, key=lambda row: row[0]
         ):
             best_move = _better_local_move(best_move, candidate_best)
             candidate_checks += checks
             rejected_infeasible += infeasible
+            rejected_over_budget += over_budget
             rejected_non_improving += non_improving
 
         if best_move is None:
@@ -700,6 +753,7 @@ def improve_schedule_locally(
         stop_reason = "max_passes" if len(moves) >= max(0, max_passes) else "improved"
 
     after = _coverage_objective(active, coverage_by_candidate, sample_weights)
+    cost_after = _cost_sum(active, cost_by_candidate)
     if moves and len(moves) < max(0, max_passes):
         stop_reason = "no_improving_move"
     return LocalImprovementResult(
@@ -712,8 +766,12 @@ def improve_schedule_locally(
         accepted_moves=tuple(moves),
         candidate_checks=candidate_checks,
         rejected_infeasible_count=rejected_infeasible,
+        rejected_over_budget_count=rejected_over_budget,
         rejected_non_improving_count=rejected_non_improving,
         stop_reason=stop_reason,
+        budget=budget,
+        cost_before=cost_before,
+        cost_after=cost_after,
         execution_mode=execution_mode,
         worker_count=effective_workers,
         chunk_size=max(0, int(chunk_size)),
@@ -918,11 +976,21 @@ def _battery_and_duty_issues(
             (candidate.start_offset_s, candidate_end_offset_s(candidate), candidate)
             for candidate in sequence
         ]
-        for start_s, end_s, candidate in intervals:
+        active_start = 0
+        active_duration = 0.0
+        for end_index, (start_s, end_s, candidate) in enumerate(intervals):
+            active_duration += end_s - start_s
             window_start = end_s - orbit_period_s
-            total = 0.0
-            for other_start, other_end, _ in intervals:
-                total += max(0.0, min(end_s, other_end) - max(window_start, other_start))
+            while (
+                active_start <= end_index
+                and intervals[active_start][1] <= window_start
+            ):
+                expired_start, expired_end, _ = intervals[active_start]
+                active_duration -= expired_end - expired_start
+                active_start += 1
+            total = active_duration
+            if active_start <= end_index and intervals[active_start][0] < window_start:
+                total -= window_start - intervals[active_start][0]
             if total > duty_limit + 1.0e-6:
                 issues.append(
                     ScheduleIssue(
@@ -1021,13 +1089,19 @@ def repair_schedule(
         candidates = tuple(candidate_id for candidate_id in candidates if candidate_id in active)
         if not candidates:
             break
+        counts = _coverage_counts(active, coverage_by_candidate)
         remove_id = min(
             candidates,
             key=lambda cid: _removal_key(
-                cid, active, candidates_by_id, case, coverage_by_candidate, sample_weights
+                cid, counts, candidates_by_id, case, coverage_by_candidate, sample_weights
             ),
         )
-        loss = _coverage_loss(remove_id, active, coverage_by_candidate, sample_weights)
+        loss = _coverage_loss_from_counts(
+            remove_id,
+            counts,
+            coverage_by_candidate,
+            sample_weights,
+        )
         repair_log.append(
             RepairEvent(
                 removed_candidate_id=remove_id,

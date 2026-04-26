@@ -48,48 +48,25 @@ uv run python experiments/main_solver/run.py \
     --case test/8
 ```
 
-Run the regional-coverage CELF smoke case:
+Run one solver case:
 
 ```bash
 uv run python experiments/main_solver/run.py \
-    --benchmark regional_coverage \
-    --solver regional_coverage_celf_submodular \
-    --case test/case_0001
+    --benchmark <benchmark_id> \
+    --solver <solver_id> \
+    --case <case_id>
 ```
 
-Run the regional-coverage CELF policy envelopes:
+Run a named solver policy:
 
 ```bash
-# Fast verifier smoke.
 uv run python experiments/main_solver/run.py \
-    --benchmark regional_coverage \
-    --solver regional_coverage_celf_submodular \
-    --policy smoke
-
-# Larger fixed-candidate evaluation envelope with verifier and bound evidence.
-uv run python experiments/main_solver/run.py \
-    --benchmark regional_coverage \
-    --solver regional_coverage_celf_submodular \
-    --policy evaluation
-
-# Promoted regional-coverage CELF quality envelope. This is the single public
-# quality policy for the solver; cheaper smoke/evaluation policies remain
-# contract and reproduction checks.
-uv run python experiments/main_solver/run.py \
-    --benchmark regional_coverage \
-    --solver regional_coverage_celf_submodular \
-    --policy quality_probe_stride150_full
+    --benchmark <benchmark_id> \
+    --solver <solver_id> \
+    --policy <policy_id>
 ```
 
-Policy metadata may include `quality_envelope` fields. These distinguish
-contract/smoke, reproduction, quality-diagnostic, and quality-ready envelopes.
-A solver finishing before timeout is not enough to call the optimization
-envelope fair; candidate density, search depth, repair loss, and verifier score
-must also be inspected. For `regional_coverage_celf_submodular`,
-`quality_probe_stride150_full` is the promoted quality-ready policy. It uses the
-strongest fixed candidate grid, schedule-aware CELF/CEF, bounded local
-improvement, and deterministic parallel throughput; cheaper policies remain
-contract or reproduction checks rather than competing quality envelopes.
+Policy metadata is recorded in `run.json`. Solver-specific quality interpretation belongs in solver documentation and solver profile metadata, not in the shared experiment runner.
 
 Materialize SatNet citation-backed rows:
 
@@ -115,8 +92,6 @@ results/main_solver/<benchmark>/<solver>/<case_slug>/
 └── run.json
 ```
 
-Named solver policies append the policy id to the case slug, for example
-`test__case_0001__evaluation`, so smoke and evaluation artifacts do not
-overwrite one another.
+Named solver policies append the policy id to the case slug, for example `suite__case_001__large_policy`, so policy artifacts do not overwrite one another.
 
 Benchmark verifiers are consumed as executables. The runner does not import benchmark-internal functions, classes, or modules.
