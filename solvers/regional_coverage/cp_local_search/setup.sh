@@ -22,6 +22,7 @@ import brahe
 import numpy
 import ortools
 import shapely
+import skyfield
 import yaml
 
 print("regional_coverage cp_local_search setup ok")

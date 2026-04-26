@@ -119,7 +119,7 @@ class CoverageIndex:
         min_lat_bin = math.floor(min_lat)
         max_lat_bin = math.floor(max_lat)
         rows: list[CoverageSample] = []
-        for lon_bin in range(min_lon_bin, max_lon_bin + 1):
+        for lon_bin in _longitude_bins(min_lon_bin, max_lon_bin):
             for lat_bin in range(min_lat_bin, max_lat_bin + 1):
                 rows.extend(self.sample_bins.get((lon_bin, lat_bin), ()))
         return rows
@@ -145,3 +145,9 @@ class CoverageAccumulator:
 
 def _sample_bin_key(longitude_deg: float, latitude_deg: float) -> tuple[int, int]:
     return (math.floor(longitude_deg), math.floor(latitude_deg))
+
+
+def _longitude_bins(min_lon_bin: int, max_lon_bin: int) -> range | tuple[int, ...]:
+    if min_lon_bin <= max_lon_bin:
+        return range(min_lon_bin, max_lon_bin + 1)
+    return tuple(range(min_lon_bin, 181)) + tuple(range(-180, max_lon_bin + 1))

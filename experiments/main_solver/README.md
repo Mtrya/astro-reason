@@ -1,6 +1,8 @@
 # Main Solver Experiment
 
-`main_solver` is the first non-agentic experiment scaffold.
+`main_solver` is the first non-agentic experiment scaffold. It is responsible
+for selecting runnable method profiles, executing them through the public
+solver contract, verifying outputs, and aggregating result rows.
 
 It runs benchmark-grouped solvers through the public solver contract:
 
@@ -11,15 +13,20 @@ It runs benchmark-grouped solvers through the public solver contract:
 
 The experiment owns run selection, result layout, verification, and aggregation. Solvers own implementation details and may use any language behind their shell entrypoints.
 
-Unlike agentic runs, traditional solver entries are benchmark-specific. The experiment therefore keeps one solver-centered config:
+Unlike agentic runs, traditional solver entries are benchmark-specific. The
+experiment therefore keeps one profile registry and one or more run-selection
+configs:
 
 ```text
 experiments/main_solver/
 ├── config.yaml
+├── config_*.yaml
 └── solvers/
 ```
 
-Each solver profile carries the benchmark name, case list or reported metrics, executable verifier command when the solver is runnable, and optional solver-owned config written to each job's `config/config.yaml`.
+Each profile carries the benchmark name, case list or reported metrics,
+executable verifier command when the method is runnable, and optional
+method-owned config written to each job's `config/config.yaml`.
 
 Experiment profiles own evidence metadata such as `evidence_type`. The hardened solver-contract registry at `solvers/finished_solvers.json` owns only `repro_ci` metadata and case/fixture paths.
 
@@ -58,50 +65,18 @@ uv run python experiments/main_solver/run.py \
     --solver satnet_milp_claudet2022
 ```
 
+Run a named experiment selection:
+
+```bash
+uv run python experiments/main_solver/run.py \
+    --config experiments/main_solver/config.yaml
+```
+
 Aggregate results:
 
 ```bash
 uv run python experiments/main_solver/aggregate.py
 ```
-
-Run the regional-coverage CP/local-search CI smoke envelope:
-
-```bash
-uv run python experiments/main_solver/run.py \
-    --config experiments/main_solver/config_regional_coverage_cp_local_search_ci_smoke.yaml
-```
-
-Run the regional-coverage reproduction envelope, comparing the greedy baseline
-and promoted CP/local-search method over all public regional cases:
-
-```bash
-uv run python experiments/main_solver/run.py \
-    --config experiments/main_solver/config_regional_coverage_cp_local_search_reproduction.yaml
-uv run python experiments/main_solver/aggregate.py
-```
-
-Run the regional-coverage faithful audit profile, which keeps the smoke and
-promoted reproduction defaults separate while enabling the interval/opportunity
-fidelity modes:
-
-```bash
-uv run python experiments/main_solver/run.py \
-    --config experiments/main_solver/config_regional_coverage_cp_local_search_faithful.yaml
-uv run python experiments/main_solver/aggregate.py
-```
-
-The Phase 5 method decision promotes `regional_coverage_cp_local_search`: dense
-fixed-start candidates, legacy bounded neighborhoods, thirty seeded restarts,
-and fixed-start OR-Tools CP-SAT repair. The latest reproduction command verifies
-all ten jobs: five greedy-baseline cases and five promoted-method cases.
-Average official weighted coverage is `0.8961799799329526` for greedy-only and
-`0.995301247989109` for the promoted method. The promoted profile uses a
-reviewer-facing compute envelope rather than the earlier quick local envelope:
-60-second candidate stride, nine roll magnitudes per side, and thirty search
-restarts. The faithful audit profile also verifies all five cases, with average
-official weighted coverage `0.8983959816877342`, but is not promoted because
-the interval/opportunity modeling path loses the score lift recovered by the
-promoted fixed-start CP repair.
 
 ## Result Layout
 

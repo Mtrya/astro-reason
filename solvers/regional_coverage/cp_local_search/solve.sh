@@ -6,6 +6,13 @@ CASE_DIR="${1:?usage: ./solve.sh <case_dir> [config_dir] [solution_dir]}"
 CONFIG_DIR="${2:-}"
 SOLUTION_DIR="${3:-solution}"
 
+CASE_DIR="$(cd "${CASE_DIR}" && pwd -P)"
+if [[ -n "${CONFIG_DIR}" ]]; then
+  CONFIG_DIR="$(cd "${CONFIG_DIR}" && pwd -P)"
+fi
+mkdir -p "${SOLUTION_DIR}"
+SOLUTION_DIR="$(cd "${SOLUTION_DIR}" && pwd -P)"
+
 if [[ -z "${SOLVER_PYTHON:-}" && -f "${SCRIPT_DIR}/.solver-env" ]]; then
   # shellcheck disable=SC1091
   source "${SCRIPT_DIR}/.solver-env"

@@ -317,7 +317,7 @@ def _best_feasible_evaluation(
         if random_choice_probability > 0.0:
             feasible.append(candidate_best)
         if len(attempt_debug) < attempt_debug_limit:
-            attempt_debug.append({**candidate_best.as_dict(), "accepted": False})
+            attempt_debug.append({**candidate_best.as_dict(), "considered": True})
         if best is None or _evaluation_key(candidate_best, policy) < _evaluation_key(best, policy):
             best = candidate_best
 

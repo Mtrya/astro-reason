@@ -5,6 +5,7 @@ from __future__ import annotations
 from concurrent.futures import ProcessPoolExecutor
 from dataclasses import dataclass, field
 from datetime import UTC, datetime, timedelta
+from itertools import pairwise
 import math
 from typing import Any
 
@@ -172,7 +173,8 @@ def generate_candidates(
             sat_candidates = _generate_for_satellite(case, satellite, config, index, summary)
             candidates.extend(sat_candidates)
     else:
-        tasks = tuple((case, satellite_id, config) for satellite_id in satellite_ids)
+        index = coverage_index or CoverageIndex.from_case(case)
+        tasks = tuple((case, satellite_id, config, index) for satellite_id in satellite_ids)
         with ProcessPoolExecutor(max_workers=worker_count) as executor:
             for sat_candidates, sat_summary in executor.map(
                 _generate_satellite_worker,
@@ -198,11 +200,10 @@ def generate_candidates(
 
 
 def _generate_satellite_worker(
-    task: tuple[RegionalCoverageCase, str, SolverConfig],
+    task: tuple[RegionalCoverageCase, str, SolverConfig, CoverageIndex],
 ) -> tuple[list[Candidate], CandidateSummary]:
-    case, satellite_id, config = task
+    case, satellite_id, config, index = task
     satellite = case.satellites[satellite_id]
-    index = CoverageIndex.from_case(case)
     summary = CandidateSummary(execution_model="process_pool", worker_count=1)
     _initialise_satellite_summary(summary, satellite_id)
     candidates = _generate_for_satellite(case, satellite, config, index, summary)
@@ -495,9 +496,9 @@ def _strip_geometry_from_states(
 ) -> _StripGeometry:
     center_lonlat: list[tuple[float, float]] = []
     edge_hits: list[tuple[np.ndarray, np.ndarray]] = []
-    center_abs = abs(roll_deg)
-    signed_inner = math.copysign(center_abs - (0.5 * fov_deg), roll_deg)
-    signed_outer = math.copysign(center_abs + (0.5 * fov_deg), roll_deg)
+    half_fov_signed = math.copysign(0.5 * fov_deg, roll_deg)
+    signed_inner = roll_deg - half_fov_signed
+    signed_outer = roll_deg + half_fov_signed
 
     for state in sampled_states:
         center_hit = _ground_intercept_from_axes_ecef_m(state, roll_deg)
@@ -509,7 +510,7 @@ def _strip_geometry_from_states(
         edge_hits.append((inner_hit, outer_hit))
 
     polygons: list[Polygon] = []
-    for (inner_a, outer_a), (inner_b, outer_b) in zip(edge_hits, edge_hits[1:]):
+    for (inner_a, outer_a), (inner_b, outer_b) in pairwise(edge_hits):
         polygon = Polygon(
             [
                 _ecef_to_lonlat_deg(inner_a),

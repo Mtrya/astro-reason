@@ -896,16 +896,21 @@ def _sample_competition_neighborhoods(
     config: LocalSearchConfig,
 ) -> list[Neighborhood]:
     out: list[Neighborhood] = []
+    candidates_by_satellite_sample: dict[tuple[str, str], list[Candidate]] = {}
+    for candidate in candidates:
+        if not candidate.coverage_sample_ids:
+            continue
+        for sample_id in candidate.coverage_sample_ids:
+            candidates_by_satellite_sample.setdefault((candidate.satellite_id, sample_id), []).append(candidate)
     for selected in sorted(selected_candidates, key=lambda item: (-item.base_coverage_weight_m2, item.candidate_id)):
         if not selected.coverage_sample_ids:
             continue
-        competitors = [
-            candidate
-            for candidate in candidates
-            if candidate.satellite_id == selected.satellite_id
-            and candidate.candidate_id != selected.candidate_id
-            and bool(candidate.coverage_sample_ids & selected.coverage_sample_ids)
-        ]
+        competitors_by_id: dict[str, Candidate] = {}
+        for sample_id in selected.coverage_sample_ids:
+            for candidate in candidates_by_satellite_sample.get((selected.satellite_id, sample_id), ()):
+                if candidate.candidate_id != selected.candidate_id:
+                    competitors_by_id[candidate.candidate_id] = candidate
+        competitors = list(competitors_by_id.values())
         if not competitors:
             continue
         pool = _bounded_pool(

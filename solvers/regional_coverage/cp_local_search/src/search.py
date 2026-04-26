@@ -140,18 +140,41 @@ def run_search(
     best: tuple[tuple[Any, ...], int, int, GreedyResult, LocalSearchResult] | None = None
 
     for run_index, seed in enumerate(search_config.run_seeds):
-        if search_config.wall_time_limit_s is not None and perf_counter() - started >= search_config.wall_time_limit_s:
+        remaining_time_s = _remaining_time_s(search_config, started)
+        if remaining_time_s is not None and remaining_time_s <= 0.0:
             summary.stop_reason = "time_cap_reached"
             break
         run_start = perf_counter()
-        run_greedy_config = replace(greedy_config, random_seed=seed)
-        run_local_search_config = replace(local_search_config, random_seed=seed)
+        run_greedy_config = replace(
+            greedy_config,
+            random_seed=seed,
+            wall_time_limit_s=_clamped_limit(greedy_config.wall_time_limit_s, remaining_time_s),
+        )
         greedy_result = greedy_insertion(
             case,
             candidates,
             coverage_index=coverage_index,
             config=run_greedy_config,
         )
+        remaining_time_s = _remaining_time_s(search_config, started)
+        if remaining_time_s is not None and remaining_time_s <= 0.0:
+            run_local_search_config = replace(
+                local_search_config,
+                enabled=False,
+                random_seed=seed,
+                wall_time_limit_s=0.0,
+            )
+            run_cp_config = replace(cp_config, time_limit_s=1.0e-6)
+        else:
+            run_local_search_config = replace(
+                local_search_config,
+                random_seed=seed,
+                wall_time_limit_s=_clamped_limit(local_search_config.wall_time_limit_s, remaining_time_s),
+            )
+            run_cp_config = replace(
+                cp_config,
+                time_limit_s=_clamped_positive_limit(cp_config.time_limit_s, remaining_time_s),
+            )
         local_result = local_search(
             case,
             candidates,
@@ -159,7 +182,7 @@ def run_search(
             greedy_result=greedy_result,
             greedy_config=run_greedy_config,
             config=run_local_search_config,
-            cp_config=cp_config,
+            cp_config=run_cp_config,
             opportunity_index=opportunity_index,
         )
         final_objective = local_result.summary.final_objective
@@ -200,6 +223,26 @@ def run_search(
         local_search_result=best_local,
         summary=summary,
     )
+
+
+def _remaining_time_s(search_config: SearchConfig, started: float) -> float | None:
+    if search_config.wall_time_limit_s is None:
+        return None
+    return max(0.0, search_config.wall_time_limit_s - (perf_counter() - started))
+
+
+def _clamped_limit(configured: float | None, remaining: float | None) -> float | None:
+    if remaining is None:
+        return configured
+    if configured is None:
+        return remaining
+    return min(configured, remaining)
+
+
+def _clamped_positive_limit(configured: float, remaining: float | None) -> float:
+    if remaining is None:
+        return configured
+    return max(1.0e-6, min(configured, remaining))
 
 
 def _best_run_key(objective: tuple[Any, ...], run_index: int, seed: int) -> tuple[Any, ...]:

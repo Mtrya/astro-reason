@@ -406,6 +406,44 @@ def test_polygon_coverage_lookup_reuses_points_and_skips_empty_bbox() -> None:
     assert origin.sample_id in index.sample_points_by_id
 
 
+def test_bbox_lookup_handles_antimeridian_wrap() -> None:
+    west = replace(load_case(CASE_DIR).samples[0], sample_id="west", longitude_deg=179.5, latitude_deg=0.0)
+    east = replace(load_case(CASE_DIR).samples[1], sample_id="east", longitude_deg=-179.5, latitude_deg=0.0)
+    middle = replace(load_case(CASE_DIR).samples[2], sample_id="middle", longitude_deg=0.0, latitude_deg=0.0)
+    index = CoverageIndex(
+        samples=(west, east, middle),
+        total_weight_m2=west.weight_m2 + east.weight_m2 + middle.weight_m2,
+        sample_weight_by_id={
+            west.sample_id: west.weight_m2,
+            east.sample_id: east.weight_m2,
+            middle.sample_id: middle.weight_m2,
+        },
+    )
+
+    rows = index._samples_in_bbox(179.0, -1.0, -179.0, 1.0)
+
+    assert {sample.sample_id for sample in rows} == {"west", "east"}
+
+
+def test_parallel_candidate_generation_honors_supplied_coverage_index() -> None:
+    case = load_case(CASE_DIR)
+    empty_index = CoverageIndex(samples=(), total_weight_m2=0.0, sample_weight_by_id={})
+    config = SolverConfig(
+        candidate_stride_s=7200,
+        roll_samples_per_side=1,
+        max_candidates_per_satellite=1,
+        max_zero_coverage_candidates_per_satellite=1,
+        include_zero_coverage_candidates=True,
+        candidate_workers=2,
+    )
+
+    candidates, summary = generate_candidates(case, config, coverage_index=empty_index)
+
+    assert candidates
+    assert all(not candidate.coverage_sample_ids for candidate in candidates)
+    assert summary.positive_coverage_candidate_count == 0
+
+
 def test_roll_slew_formula_matches_triangular_and_trapezoidal_cases() -> None:
     satellite = load_case(CASE_DIR).satellites["sat_iceye-x2"]
 
@@ -571,6 +609,24 @@ def test_seeded_randomized_greedy_is_reproducible() -> None:
     assert [candidate.candidate_id for candidate in first.selected_candidates] == [
         candidate.candidate_id for candidate in second.selected_candidates
     ]
+
+
+def test_attempt_debug_marks_feasible_candidates_as_considered() -> None:
+    case = load_case(CASE_DIR)
+    index = _coverage_index({"a": 1.0})
+    candidates = [_candidate("c1", start_offset_s=0, end_offset_s=20, samples=frozenset({"a"}))]
+
+    result = greedy_insertion(
+        case,
+        candidates,
+        coverage_index=index,
+        config=GreedyConfig(max_iterations=1, insertion_attempt_debug_limit=10),
+    )
+
+    assert result.attempt_debug[0]["candidate_id"] == "c1"
+    assert result.attempt_debug[0]["considered"] is True
+    assert "accepted" not in result.attempt_debug[0]
+    assert result.attempt_debug[-1]["accepted"] is True
 
 
 def test_seeded_randomized_greedy_can_choose_different_starts() -> None:
@@ -1073,7 +1129,7 @@ def test_cp_sat_repair_improves_when_greedy_rebuild_is_blocked() -> None:
     assert metrics.improving_solutions == 1
 
 
-def test_interval_tsptw_repair_can_shift_grid_start_to_improve() -> None:
+def test_interval_tsptw_repair_snaps_shifted_start_to_opportunity_member() -> None:
     case = load_case(CASE_DIR)
     left = _candidate(
         "c_left",
@@ -1087,7 +1143,17 @@ def test_interval_tsptw_repair_can_shift_grid_start_to_improve() -> None:
         end_offset_s=50,
         samples=frozenset({"d", "e", "f"}),
     )
+    shifted_member = _candidate(
+        "c_shifted_member",
+        start_offset_s=50,
+        end_offset_s=70,
+        samples=frozenset({"d", "e", "f"}),
+    )
     index = _coverage_index({key: 1.0 for key in "abcdef"})
+    opportunity_index = build_opportunity_index(
+        [left, shifted, shifted_member],
+        OpportunityConfig(enabled=True, max_time_gap_s=30, min_coverage_jaccard=1.0),
+    )
 
     fixed = cp_sat_repair(
         case,
@@ -1117,6 +1183,7 @@ def test_interval_tsptw_repair_can_shift_grid_start_to_improve() -> None:
             max_conflicts=64,
         ),
         metrics=CPMetrics(),
+        opportunity_index=opportunity_index,
     )
 
     assert fixed.improving is False
@@ -1124,15 +1191,41 @@ def test_interval_tsptw_repair_can_shift_grid_start_to_improve() -> None:
     assert interval.repair_mode == "interval_tsptw"
     assert interval.start_variables == 2
     assert interval.order_variables == 1
-    assert set(interval.selected_candidate_ids) == {"c_left", "c_shifted"}
+    assert set(interval.selected_candidate_ids) == {"c_left", "c_shifted_member"}
     starts = {
         candidate.candidate_id: candidate.start_offset_s
         for candidate in interval.selected_candidates
     }
-    assert any(starts[candidate.candidate_id] != candidate.start_offset_s for candidate in [left, shifted])
+    assert starts["c_shifted_member"] == 50
+    assert interval.selected_candidate_sources[-1]["source_candidate_id"] == "c_shifted"
+    assert interval.selected_candidate_sources[-1]["snapped_to_member"] is True
     state = state_from_candidates(case, list(interval.selected_candidates))
     ok, reasons = is_consistent(case, state.sequences["sat_iceye-x2"])
     assert ok, reasons
+
+
+def test_interval_tsptw_repair_requires_opportunity_index_for_shifted_mode() -> None:
+    case = load_case(CASE_DIR)
+    result = cp_sat_repair(
+        case,
+        kept_candidates=[],
+        neighborhood_candidates=[
+            _candidate("c1", start_offset_s=0, end_offset_s=20, samples=frozenset({"a"})),
+        ],
+        coverage_index=_coverage_index({"a": 1.0}),
+        before_key=(1, 0.0, 0.0, 0.0, 0),
+        config=CPRepairConfig(
+            repair_mode="interval_tsptw",
+            interval_start_window_s=30,
+            max_candidates=4,
+            max_calls=4,
+            max_conflicts=64,
+        ),
+        metrics=CPMetrics(),
+    )
+
+    assert result.attempted is False
+    assert result.stop_reason == "missing_opportunity_index"
 
 
 def test_interval_tsptw_opportunity_mode_snaps_to_member_candidate() -> None:

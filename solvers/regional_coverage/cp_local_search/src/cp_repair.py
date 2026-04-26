@@ -93,6 +93,7 @@ class CPMetrics:
     skipped_disabled: int = 0
     skipped_call_limit: int = 0
     skipped_size_limit: int = 0
+    skipped_missing_opportunity_index: int = 0
     timeout_stops: int = 0
     conflict_limit_stops: int = 0
     infeasible_stops: int = 0
@@ -115,7 +116,12 @@ class CPMetrics:
     conflicts: int = 0
 
     def as_dict(self) -> dict[str, Any]:
-        skipped_calls = self.skipped_disabled + self.skipped_call_limit + self.skipped_size_limit
+        skipped_calls = (
+            self.skipped_disabled
+            + self.skipped_call_limit
+            + self.skipped_size_limit
+            + self.skipped_missing_opportunity_index
+        )
         call_success_rate = 0.0 if self.calls == 0 else self.feasible_solutions / self.calls
         improving_success_rate = 0.0 if self.calls == 0 else self.improving_solutions / self.calls
         return {
@@ -134,6 +140,7 @@ class CPMetrics:
             "skipped_disabled": self.skipped_disabled,
             "skipped_call_limit": self.skipped_call_limit,
             "skipped_size_limit": self.skipped_size_limit,
+            "skipped_missing_opportunity_index": self.skipped_missing_opportunity_index,
             "timeout_stops": self.timeout_stops,
             "conflict_limit_stops": self.conflict_limit_stops,
             "infeasible_stops": self.infeasible_stops,
@@ -259,6 +266,11 @@ def cp_sat_repair(
         return _not_attempted(config, "size_limit")
 
     if config.repair_mode == "interval_tsptw":
+        if config.interval_start_window_s > 0 and not (
+            opportunity_index is not None and opportunity_index.enabled
+        ):
+            metrics.skipped_missing_opportunity_index += 1
+            return _not_attempted(config, "missing_opportunity_index")
         return _interval_tsptw_repair(
             case,
             kept_candidates=kept_candidates,
@@ -328,7 +340,6 @@ def _fixed_start_subset_repair(
         selected_vars,
     )
     model.Add(sum(selected_vars.values()) + len(kept) <= case.mission.max_actions_total)
-    anchor_conflict_constraints += 1
 
     coverage_expr, sample_vars, coverage_link_constraints = _add_coverage_objective(
         model,
@@ -466,6 +477,7 @@ def _interval_tsptw_repair(
     slot_vars: dict[str, Any] = {}
     start_exprs: dict[str, Any] = {}
     start_when_selected_vars: dict[str, Any] = {}
+    opportunity_start_constraints = 0
     for candidate in pool:
         lower_slot, upper_slot = _candidate_window_slots(case, candidate, config, step_s)
         slot = model.NewIntVar(
@@ -473,6 +485,10 @@ def _interval_tsptw_repair(
             upper_slot,
             _safe_var_name(f"slot_{candidate.candidate_id}"),
         )
+        allowed_slots = _opportunity_start_slots(candidate, lower_slot, upper_slot, step_s, opportunity_index)
+        if allowed_slots is not None:
+            model.AddAllowedAssignments([slot], [(slot_value,) for slot_value in allowed_slots])
+            opportunity_start_constraints += 1
         selected_start = model.NewIntVar(
             0,
             upper_slot,
@@ -489,7 +505,7 @@ def _interval_tsptw_repair(
         pool,
         selected_vars,
         opportunity_index,
-    )
+    ) + opportunity_start_constraints
 
     transition_constraints, order_variables = _add_interval_transition_constraints(
         case,
@@ -507,7 +523,6 @@ def _interval_tsptw_repair(
         start_exprs,
     )
     model.Add(sum(selected_vars.values()) + len(kept) <= case.mission.max_actions_total)
-    anchor_constraints += 1
 
     coverage_expr, sample_vars, coverage_link_constraints = _add_coverage_objective(
         model,
@@ -789,6 +804,34 @@ def _candidate_window_slots(
         fixed_slot = max(0, min(latest_start, candidate.start_offset_s) // step_s)
         return fixed_slot, fixed_slot
     return lower_slot, upper_slot
+
+
+def _opportunity_start_slots(
+    candidate: Candidate,
+    lower_slot: int,
+    upper_slot: int,
+    step_s: int,
+    opportunity_index: OpportunityIndex | None,
+) -> tuple[int, ...] | None:
+    if opportunity_index is None or not opportunity_index.enabled:
+        return None
+    opportunity = opportunity_index.opportunity_by_candidate_id.get(candidate.candidate_id)
+    if opportunity is None:
+        fixed_slot = candidate.start_offset_s // step_s
+        return (fixed_slot,) if lower_slot <= fixed_slot <= upper_slot else (lower_slot,)
+    slots = sorted(
+        {
+            member.start_offset_s // step_s
+            for candidate_id in opportunity.candidate_ids
+            for member in (opportunity_index.candidate_by_id[candidate_id],)
+            if member.start_offset_s % step_s == 0
+            and lower_slot <= member.start_offset_s // step_s <= upper_slot
+        }
+    )
+    if not slots:
+        fixed_slot = candidate.start_offset_s // step_s
+        return (fixed_slot,) if lower_slot <= fixed_slot <= upper_slot else (lower_slot,)
+    return tuple(slots)
 
 
 def _add_interval_transition_constraints(case, model, pool, selected_vars, start_exprs) -> tuple[int, int]:
