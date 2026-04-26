@@ -3,6 +3,7 @@ benchmark: regional_coverage
 solver: cp_local_search
 solver_path: solvers/regional_coverage/cp_local_search
 evidence_type: reproduced_solver
+method_role: fidelity_audit_not_promoted
 runnable: true
 setup_script: setup.sh
 solve_script: solve.sh

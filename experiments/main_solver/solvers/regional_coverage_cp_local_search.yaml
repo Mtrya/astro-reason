@@ -3,6 +3,7 @@ benchmark: regional_coverage
 solver: cp_local_search
 solver_path: solvers/regional_coverage/cp_local_search
 evidence_type: reproduced_solver
+method_role: promoted_reproduction
 runnable: true
 setup_script: setup.sh
 solve_script: solve.sh
@@ -16,6 +17,7 @@ config:
   candidate_workers: 8
   cp_enabled: true
   cp_backend: ortools_cp_sat
+  cp_repair_mode: fixed_start_subset
   cp_max_calls: 64
   cp_max_candidates: 10
   cp_max_conflicts: 2048
@@ -27,11 +29,13 @@ config:
     - 2
   greedy_random_choice_probability: 0.05
   local_search_enabled: true
+  local_search_neighborhood_mode: legacy
   local_search_max_iterations: 8
   local_search_wall_time_limit_s: 8.0
   local_search_max_neighborhoods_per_iteration: 64
   local_search_max_neighborhood_candidates: 60
   local_search_randomize_neighborhood_order: true
+  opportunity_grouping_enabled: false
 cases:
   - id: test/case_0001
     case_dir: benchmarks/regional_coverage/dataset/cases/test/case_0001

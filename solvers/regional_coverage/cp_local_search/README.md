@@ -47,7 +47,7 @@ The benchmark differs from the paper in several important ways:
 - The benchmark has hard battery and imaging-duty constraints. This solver avoids known sequence conflicts and reports solver-local validation, while official validity remains owned by `experiments/main_solver` plus the benchmark verifier.
 - The paper uses Tempo for CP-SAT TSPTW insertion; this solver uses a solver-local OR-Tools CP-SAT backend prepared by `setup.sh`.
 
-That means this solver reproduces the paper's acquisition-planning structure under the benchmark contract, not every industrial subsystem or every result table. Current evidence supports a valid, auditable reproduction scaffold with CP-assisted neighborhood repair; it does not yet support the stronger claim of a faithful reproduction with a fully fair optimization and compute envelope.
+That means this solver reproduces the paper's acquisition-planning structure under the benchmark contract, not every industrial subsystem or every result table. Current Phase 5 evidence supports the claim of a faithful benchmark-adapted acquisition-planning reproduction with explicit scope limits: the promoted method uses the strongest verified benchmark configuration, while interval/opportunity modeling remains a separate fidelity audit path rather than the normal scoring path.
 
 ## Solver Contract
 
@@ -232,7 +232,7 @@ uv run python experiments/main_solver/run.py \
   --case test/case_0001
 ```
 
-Run the dense reproduction comparison:
+Run the promoted reproduction comparison:
 
 ```bash
 uv run python experiments/main_solver/run.py \
@@ -240,7 +240,7 @@ uv run python experiments/main_solver/run.py \
 uv run python experiments/main_solver/aggregate.py
 ```
 
-Run the faithful evidence profile:
+Run the faithful audit profile:
 
 ```bash
 uv run python experiments/main_solver/run.py \
@@ -259,20 +259,23 @@ uv run python experiments/main_solver/aggregate.py
 The CI smoke profile remains light and unchanged. It is intended for quick
 contract checks, not reproduction evidence.
 
-The dense reproduction profile uses a fairer candidate envelope: 120-second
-candidate stride, seven roll magnitudes per side, positive-coverage candidates
-only, three search seeds, bounded local search, fixed-start OR-Tools CP-SAT
-repair, and eight candidate workers.
+The Phase 5 promoted reproduction profile uses the strongest verified
+benchmark configuration from tuning: 120-second candidate stride, seven roll
+magnitudes per side, positive-coverage candidates only, three search seeds,
+legacy bounded local-search neighborhoods, fixed-start OR-Tools CP-SAT repair,
+and eight candidate workers.
 
-The faithful evidence profile is separately labeled and uses the fidelity modes
+The faithful audit profile is separately labeled and uses the fidelity modes
 added in the roadmap phases: five search seeds, deterministic same-satellite
 conflict-component neighborhoods, conservative opportunity grouping, and
 `interval_tsptw` OR-Tools repair. Emitted actions remain public
-`strip_observation` actions and all five public test cases verify.
+`strip_observation` actions and all five public test cases verify, but Phase 5
+does not promote this profile because it is slower and loses score on
+`test/case_0003`.
 
 ## Public Evidence Snapshot
 
-The public reproduction comparison lives in:
+The promoted reproduction comparison lives in:
 
 ```bash
 uv run python experiments/main_solver/run.py \
@@ -280,7 +283,7 @@ uv run python experiments/main_solver/run.py \
 uv run python experiments/main_solver/aggregate.py
 ```
 
-The faithful profile lives in:
+The faithful audit profile lives in:
 
 ```bash
 uv run python experiments/main_solver/run.py \
@@ -288,26 +291,36 @@ uv run python experiments/main_solver/run.py \
 uv run python experiments/main_solver/aggregate.py
 ```
 
-The reproduction profile compares greedy-only, local-search-without-CP, and
-CP-enabled modes over all five public regional-coverage `test` cases. The
-faithful profile adds a separate all-case evidence run using the fidelity modes
-above. All twenty jobs in these two runs verify. The current average official
-metrics are:
+The promoted reproduction profile compares greedy-only and the selected
+CP/local-search method over all five public regional-coverage `test` cases. The
+faithful audit profile adds a separate all-case run using the interval and
+opportunity fidelity modes above. All fifteen jobs in these two current runs
+verify. The current average official metrics are:
 
-| mode | average coverage ratio | average weighted coverage ratio | average actions | average solve time |
-| --- | ---: | ---: | ---: | ---: |
-| greedy-only | `0.8964373077399344` | `0.8961799799329526` | `25.4` | `7.056998476211447 s` |
-| local-search | `0.8989634205760888` | `0.8983754575177383` | `25.2` | `8.077798106201225 s` |
-| CP-enabled | `0.9018473856666462` | `0.9013044997801305` | `25.4` | `12.845421841990902 s` |
-| faithful evidence | `0.8989836288846341` | `0.8983959816877342` | `25.2` | `15.61637547960272 s` |
+| mode | role | average coverage ratio | average weighted coverage ratio | average actions | average solve time | average candidate time | average search time |
+| --- | --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| greedy-only | baseline | `0.8964373077399344` | `0.8961799799329526` | `25.4` | `7.24690649579861 s` | `6.71066614520387 s` | `0.0869041444035247 s` |
+| promoted CP/local-search | selected | `0.9018473856666462` | `0.90130449978013` | `25.4` | `12.9726894016028 s` | `6.74653566220659 s` | `5.73757761919405 s` |
+| faithful audit | not promoted | `0.8989836288846341` | `0.8983959816877342` | `25.2` | `15.38245428261 s` | `6.74163373299525 s` | `8.15231614919612 s` |
 
-The CP-enabled profile made `214` OR-Tools CP-SAT calls across the five cases, all feasible, with `57` improving neighborhood repairs. CP improves the final official score on `test/case_0001` and `test/case_0003`; the other public cases are already saturated or locally strong under greedy/local-search.
+The promoted method made `214` OR-Tools CP-SAT calls across the five cases,
+with `209` feasible calls and `57` improving neighborhood repairs. It improves
+the final official score on `test/case_0001` and `test/case_0003`; the other
+public cases are already saturated or locally strong under greedy/local-search.
 
-The faithful evidence profile made `203` OR-Tools CP-SAT calls with `29`
-improving repairs. It improves slightly over the greedy-only and local-search
-comparison rows on average, but it does not beat the fixed-start CP-enabled
-profile because `test/case_0003` is worse under the current conservative
-opportunity grouping and interval snapping.
+The faithful audit profile made `203` OR-Tools CP-SAT calls, with `81`
+feasible calls and `29` improving repairs. It improves slightly over the
+greedy-only baseline on average, but it is not promoted because it is slower
+and its conservative opportunity grouping plus interval snapping loses the
+`test/case_0003` improvement.
+
+Phase 5 tuning checked the decisive `test/case_0003` switches before promotion:
+conflict-components with fixed-start repair matched the faithful audit score,
+legacy neighborhoods with interval repair fell back to the greedy score, and a
+larger fixed-start CP budget recovered the promoted score but added runtime
+without score lift. The selected method therefore keeps the fixed-start CP
+budget from the practical profile and demotes interval/opportunity modeling to
+audit evidence.
 
 ## Audit Status
 
@@ -315,7 +328,7 @@ The current audit status for the target claim, "faithful reproduction adapted to
 
 Implemented and adapted pieces include standalone case parsing, deterministic candidate generation, verifier-shaped unique-coverage scoring, satellite-local sequences, greedy insertion, bounded local-search neighborhoods, conflict-component neighborhoods, conservative opportunity grouping, restart/multi-start plumbing, selectable OR-Tools CP-SAT neighborhood repair, structured timings, and official main-solver validation.
 
-The benchmark adaptation is still explicit: this is not Tempo itself and it does not reproduce download or memory planning. Within the public regional-coverage contract, however, the solver now has a fair dense candidate envelope, process-parallel candidate generation, verified all-case results, observable local-search/CP improvements over greedy, and a separately labeled faithful evidence profile.
+The benchmark adaptation is still explicit: this is not Tempo itself and it does not reproduce download or memory planning. Within the public regional-coverage contract, however, the solver now has one promoted method with a fair dense candidate envelope, process-parallel candidate generation, verified all-case results, and observable local-search/CP improvements over greedy. Non-promoted Phase 1-4 branches are retained only as code-level fallback/test paths or as the separately labeled faithful audit profile.
 
 ## Known Limitations
 

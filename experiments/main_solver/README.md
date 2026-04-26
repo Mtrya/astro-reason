@@ -71,8 +71,8 @@ uv run python experiments/main_solver/run.py \
     --config experiments/main_solver/config_regional_coverage_cp_local_search_ci_smoke.yaml
 ```
 
-Run the regional-coverage reproduction envelope, comparing greedy-only,
-local-search, and CP-enabled modes over all public regional cases:
+Run the regional-coverage reproduction envelope, comparing the greedy baseline
+and promoted CP/local-search method over all public regional cases:
 
 ```bash
 uv run python experiments/main_solver/run.py \
@@ -80,8 +80,9 @@ uv run python experiments/main_solver/run.py \
 uv run python experiments/main_solver/aggregate.py
 ```
 
-Run the regional-coverage faithful evidence profile, which keeps the smoke and
-reproduction defaults separate while enabling the solver's fidelity modes:
+Run the regional-coverage faithful audit profile, which keeps the smoke and
+promoted reproduction defaults separate while enabling the interval/opportunity
+fidelity modes:
 
 ```bash
 uv run python experiments/main_solver/run.py \
@@ -89,16 +90,15 @@ uv run python experiments/main_solver/run.py \
 uv run python experiments/main_solver/aggregate.py
 ```
 
-The latest regional-coverage CP/local-search comparison verifies all fifteen
-jobs under the dense reproduction envelope, and the separately labeled faithful
-profile verifies all five public regional cases. Average official weighted
-coverage is `0.8961799799329526` for greedy-only, `0.8983754575177383` for local
-search, `0.9013044997801305` for fixed-start CP-enabled local search, and
-`0.8983959816877342` for the faithful evidence profile. The faithful profile
-uses deterministic conflict-component neighborhoods, conservative opportunity
-grouping, five search seeds, and `interval_tsptw` OR-Tools repair. It is the
-closer benchmark-adapted reproduction evidence profile, while the fixed-start
-CP-enabled reproduction profile remains the current public-score leader.
+The Phase 5 method decision promotes `regional_coverage_cp_local_search`: dense
+fixed-start candidates, legacy bounded neighborhoods, three seeded restarts,
+and fixed-start OR-Tools CP-SAT repair. The latest reproduction command verifies
+all ten jobs: five greedy-baseline cases and five promoted-method cases.
+Average official weighted coverage is `0.8961799799329526` for greedy-only and
+`0.9013044997801305` for the promoted method. The faithful audit profile also
+verifies all five cases, with average official weighted coverage
+`0.8983959816877342`, but is not promoted because it is slower and loses the
+`test/case_0003` lift recovered by fixed-start CP repair.
 
 ## Result Layout
 
