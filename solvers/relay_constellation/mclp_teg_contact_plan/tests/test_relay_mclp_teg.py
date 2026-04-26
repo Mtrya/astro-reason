@@ -18,7 +18,16 @@ import brahe
 import numpy as np
 import pytest
 
-REPO_ROOT = Path(__file__).resolve().parents[2]
+def _resolve_repo_root() -> Path:
+    for candidate in Path(__file__).resolve().parents:
+        if (candidate / "pytest.ini").exists() and (candidate / "benchmarks").exists():
+            return candidate
+    raise RuntimeError("Could not locate repository root from test file location")
+
+
+REPO_ROOT = _resolve_repo_root()
+if str(REPO_ROOT) not in sys.path:
+    sys.path.insert(0, str(REPO_ROOT))
 CASE_0001 = REPO_ROOT / "benchmarks" / "relay_constellation" / "dataset" / "cases" / "test" / "case_0001"
 SOLVER_MODULE = "solvers.relay_constellation.mclp_teg_contact_plan.src.solve"
 VERIFIER_MODULE = "benchmarks.relay_constellation.verifier.run"
