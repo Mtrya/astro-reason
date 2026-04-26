@@ -26,5 +26,8 @@ jobs:
       - name: Validate finished benchmark contract
         run: uv run python scripts/validate_benchmark_contract.py
 
+      - name: Validate finished solver contract
+        run: uv run python scripts/validate_solver_contract.py
+
       - name: Run tests
         run: uv run pytest tests/

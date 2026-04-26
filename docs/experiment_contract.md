@@ -75,6 +75,15 @@ aggregation. Since traditional solvers are benchmark-specific, solver-backed
 experiment profiles may be solver-centered instead of using separate benchmark
 and method axes.
 
+Experiments should not assume that a solver runs in the repository's project
+Python environment. A solver may prepare a Python virtual environment, compiled
+binary, language-native build output, or other solver-local runtime through
+`setup.sh`. If setup writes a solver-owned handoff file such as `.solver-env`,
+the experiment runner may read simple `SOLVER_*` assignments from that file and
+pass them into the `solve.sh` subprocess. Experiment profiles own evidence
+labels, verifier commands, solver-specific configs, and result layout; those
+fields do not belong in `solvers/finished_solvers.json`.
+
 ## Family Config
 
 Experiment families may keep one or more runner-owned YAML config files under `configs/`.

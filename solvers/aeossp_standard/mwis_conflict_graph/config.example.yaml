@@ -7,12 +7,18 @@
 # candidate_stride_multiplier: 1
 # max_candidates: null
 # max_candidates_per_task: null
+# candidate_workers: 1
+
+# Graph build
+# graph_workers: 1
 
 # Graph selection policy
+# backend: internal_reduction
 # selection_policy: weight_degree_end
 # max_exact_component_size: 20
 
-# Bounded refinement on larger components
+# Bounded refinement on larger components. Increase these together for fair-run
+# profiles after candidate generation and graph build have completed.
 # max_local_passes: 8
 # population_size: 4
 # recombination_rounds: 6
@@ -21,8 +27,21 @@
 # This only bounds the refinement search, not total solve time.
 # time_limit_s: null
 
+# Optional end-to-end wall-clock accounting budget in seconds.
+# When set, remaining budget is passed into MWIS refinement after preprocessing.
+# Candidate generation, graph build, and repair are not interrupted in this phase.
+# total_time_budget_s: null
+#
+# Example fair-run effort profile:
+# total_time_budget_s: 300
+# max_local_passes: 16
+# population_size: 8
+# recombination_rounds: 24
+# graph_workers: 2
+
 # Solver-local repair
 # max_repair_iterations: 200
+# enable_incremental_repair: true
 
 # Debug artifacts
 # debug: false
