@@ -99,7 +99,7 @@ def test_regional_coverage_celf_evaluation_policy_selects_all_cases() -> None:
     )
 
 
-def test_regional_coverage_celf_quality_probe_uses_large_diagnostic_cap() -> None:
+def test_regional_coverage_celf_quality_probe_uses_strongest_ready_config() -> None:
     matrix = _load_yaml(DEFAULT_CONFIG)
 
     jobs = _select_jobs(
@@ -107,15 +107,17 @@ def test_regional_coverage_celf_quality_probe_uses_large_diagnostic_cap() -> Non
         benchmark_filter="regional_coverage",
         solver_filter="regional_coverage_celf_submodular",
         case_filter=None,
-        policy_filter="quality_probe_32768",
+        policy_filter="quality_probe_stride150_full",
     )
 
     assert [job.case_id for job in jobs] == ["test/case_0001"]
-    assert jobs[0].solver_config["candidate_generation"]["max_candidates_total"] == 32768
-    assert jobs[0].solver_config["candidate_generation"]["debug_candidate_limit"] == 10
+    assert jobs[0].solver_config["candidate_generation"]["max_candidates_total"] == 518400
+    assert jobs[0].solver_config["candidate_generation"]["time_stride_s"] == 150
+    assert jobs[0].solver_config["coverage_mapping"]["worker_count"] == "auto"
+    assert jobs[0].solver_config["selection"]["local_improvement_worker_count"] == "auto"
     assert jobs[0].solver_config["selection"]["write_iteration_trace"] is False
-    assert jobs[0].policy["quality_envelope"]["level"] == "quality_diagnostic"
-    assert jobs[0].policy["quality_envelope"]["status"] == "NOT_YET_QUALITY_FAIR"
+    assert jobs[0].policy["quality_envelope"]["level"] == "quality_ready"
+    assert jobs[0].policy["quality_envelope"]["status"] == "READY_QUALITY_FAIR"
 
 
 def test_quality_envelope_diagnostics_summarize_effective_search() -> None:

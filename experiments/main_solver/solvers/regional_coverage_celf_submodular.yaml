@@ -124,113 +124,8 @@ run_policies:
       min_repaired_actions: 1
       max_solver_total_seconds: 90
       max_verifier_seconds: 90
-  quality_probe_32768:
-    description: Schedule-aware quality-envelope probe with a larger fixed candidate cap on the smoke case.
-    quality_envelope:
-      level: quality_diagnostic
-      status: NOT_YET_QUALITY_FAIR
-      claim: schedule-aware fixed-candidate probe; verifier-valid but still below the documented quality target
-      non_humble_parameters: diagnostic_only
-      expected_blocker: schedule-aware CELF may still be limited by fixed candidate density and geometry drift
-    cases:
-      - test/case_0001
-    config:
-      candidate_generation:
-        time_stride_s: 600
-        max_candidates_total: 32768
-        cap_strategy: balanced_stride
-        debug_candidate_limit: 10
-      coverage_mapping:
-        method: indexed
-        spatial_bin_deg: 0.25
-      selection:
-        schedule_aware: true
-        local_improvement: true
-        local_improvement_max_passes: 12
-        local_improvement_max_candidate_checks: 1000
-        compute_online_bounds: true
-        max_bound_order_debug: 20
-        write_iteration_trace: false
-        max_iteration_debug: 200
-    quality_gates:
-      requires_valid_verifier: true
-      min_candidate_count: 32768
-      min_nonzero_candidate_count: 50
-      min_repaired_actions: 20
-      max_solver_total_seconds: 90
-      max_verifier_seconds: 90
-  quality_probe_65536:
-    description: Larger schedule-aware quality-envelope probe for candidate scaling limits on the smoke case.
-    quality_envelope:
-      level: quality_diagnostic
-      status: NOT_YET_QUALITY_FAIR
-      claim: schedule-aware candidate-scaling probe with bounded local improvement; verifier-valid but below the strongest Phase 11 diagnostic
-      non_humble_parameters: diagnostic_only
-      expected_blocker: coverage mapping runtime plus remaining fixed-candidate schedule/geometry limits
-    cases:
-      - test/case_0001
-    config:
-      candidate_generation:
-        time_stride_s: 600
-        max_candidates_total: 65536
-        cap_strategy: balanced_stride
-        debug_candidate_limit: 5
-      coverage_mapping:
-        method: indexed
-        spatial_bin_deg: 0.25
-      selection:
-        schedule_aware: true
-        local_improvement: true
-        local_improvement_max_passes: 12
-        local_improvement_max_candidate_checks: 1000
-        compute_online_bounds: true
-        max_bound_order_debug: 10
-        write_iteration_trace: false
-        max_iteration_debug: 100
-    quality_gates:
-      requires_valid_verifier: true
-      min_candidate_count: 65536
-      min_nonzero_candidate_count: 100
-      min_repaired_actions: 20
-      max_solver_total_seconds: 120
-      max_verifier_seconds: 90
-  quality_probe_full:
-    description: Full current fixed-candidate grid probe on the smoke case with bounded local improvement.
-    quality_envelope:
-      level: quality_diagnostic
-      status: NOT_YET_QUALITY_FAIR
-      claim: full fixed-grid diagnostic with bounded schedule-feasible local improvement; not promotion evidence by itself
-      non_humble_parameters: diagnostic_only
-      expected_blocker: remaining quality gap may reflect geometry alignment or fixed-grid candidate limits rather than repair
-    cases:
-      - test/case_0001
-    config:
-      candidate_generation:
-        time_stride_s: 600
-        max_candidates_total: 129600
-        cap_strategy: balanced_stride
-        debug_candidate_limit: 5
-      coverage_mapping:
-        method: indexed
-        spatial_bin_deg: 0.25
-      selection:
-        schedule_aware: true
-        local_improvement: true
-        local_improvement_max_passes: 12
-        local_improvement_max_candidate_checks: 1000
-        compute_online_bounds: true
-        max_bound_order_debug: 10
-        write_iteration_trace: false
-        max_iteration_debug: 100
-    quality_gates:
-      requires_valid_verifier: true
-      min_candidate_count: 129600
-      min_nonzero_candidate_count: 200
-      min_repaired_actions: 20
-      max_solver_total_seconds: 150
-      max_verifier_seconds: 90
-  quality_probe_stride300_full:
-    description: Promoted quality-ready fixed-candidate envelope with denser 300-second start grid and bounded local improvement.
+  quality_probe_stride150_full:
+    description: Promoted quality-ready fixed-candidate envelope with 150-second start grid, deterministic parallel throughput, and bounded local improvement.
     quality_envelope:
       level: quality_ready
       status: READY_QUALITY_FAIR
@@ -240,34 +135,39 @@ run_policies:
         - fixed benchmark-adapted strip candidate set
         - schedule-aware CELF/CEF selection
         - bounded fixed-candidate local improvement
+        - deterministic parallel coverage mapping and local-improvement evaluation
         - experiment-owned verifier validation on test/case_0001
-      remaining_limit: coverage mapping runtime makes this policy unsuitable for CI smoke or broad routine sweeps
+      remaining_limit: quality-ready claim is scoped to the fixed candidate set and test/case_0001; it does not certify continuous-schedule optimality or all regional-coverage cases
     cases:
       - test/case_0001
     config:
       candidate_generation:
-        time_stride_s: 300
-        max_candidates_total: 259200
+        time_stride_s: 150
+        max_candidates_total: 518400
         cap_strategy: balanced_stride
         debug_candidate_limit: 5
       coverage_mapping:
         method: indexed
         spatial_bin_deg: 0.25
+        worker_count: auto
+        chunk_size: 4096
       selection:
         schedule_aware: true
         local_improvement: true
         local_improvement_max_passes: 12
-        local_improvement_max_candidate_checks: 1000
+        local_improvement_max_candidate_checks: 1500
+        local_improvement_worker_count: auto
+        local_improvement_chunk_size: 16
         compute_online_bounds: true
         max_bound_order_debug: 10
         write_iteration_trace: false
         max_iteration_debug: 100
     quality_gates:
       requires_valid_verifier: true
-      min_candidate_count: 259200
-      min_nonzero_candidate_count: 500
+      min_candidate_count: 518400
+      min_nonzero_candidate_count: 900
       min_repaired_actions: 50
-      max_solver_total_seconds: 180
+      max_solver_total_seconds: 420
       max_verifier_seconds: 90
 cases:
   - id: test/case_0001

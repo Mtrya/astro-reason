@@ -189,7 +189,7 @@ def _build_status(
     )
     return {
         "status": "ok",
-        "phase": "phase_11_quality_tuning_and_candidate_alignment",
+        "phase": "phase_13_parallel_quality_envelope",
         "case_dir": str(case.case_dir),
         "config_dir": str(config_dir) if config_dir is not None else None,
         "solution": str(solution_path),
@@ -319,6 +319,8 @@ def run(case_dir: Path, config_dir: Path | None, solution_dir: Path) -> int:
         enabled=selection_config.local_improvement,
         max_passes=selection_config.local_improvement_max_passes,
         max_candidate_checks=selection_config.local_improvement_max_candidate_checks,
+        worker_count=selection_config.local_improvement_worker_count,
+        chunk_size=selection_config.local_improvement_chunk_size,
     )
     timings["local_improvement"] = _round_seconds(time.perf_counter() - start)
     local_improvement_summary = local_improvement_result.as_dict()

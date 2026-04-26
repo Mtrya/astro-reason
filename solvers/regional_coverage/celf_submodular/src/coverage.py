@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import math
+import multiprocessing
+import os
 from bisect import bisect_left, bisect_right
 from collections import Counter, defaultdict
 from dataclasses import dataclass
@@ -29,11 +31,15 @@ DEFAULT_SPATIAL_BIN_DEG = 0.25
 class CoverageMappingConfig:
     method: str = "indexed"
     spatial_bin_deg: float = DEFAULT_SPATIAL_BIN_DEG
+    worker_count: int | str = 1
+    chunk_size: int = 4096
 
     def as_status_dict(self) -> dict[str, Any]:
         return {
             "method": self.method,
             "spatial_bin_deg": self.spatial_bin_deg,
+            "worker_count": self.worker_count,
+            "chunk_size": self.chunk_size,
         }
 
 
@@ -44,6 +50,10 @@ DEFAULT_COVERAGE_MAPPING_CONFIG = CoverageMappingConfig()
 class CoverageRuntimeSummary:
     method: str
     spatial_bin_deg: float | None
+    execution_mode: str
+    worker_count: int
+    chunk_size: int
+    chunk_count: int
     sample_count: int
     spatial_cell_count: int
     candidate_count: int
@@ -61,6 +71,10 @@ class CoverageRuntimeSummary:
         return {
             "method": self.method,
             "spatial_bin_deg": self.spatial_bin_deg,
+            "execution_mode": self.execution_mode,
+            "worker_count": self.worker_count,
+            "chunk_size": self.chunk_size,
+            "chunk_count": self.chunk_count,
             "sample_count": self.sample_count,
             "spatial_cell_count": self.spatial_cell_count,
             "candidate_count": self.candidate_count,
@@ -114,6 +128,16 @@ class CoverageStats:
         self.candidate_bbox_sample_checks = 0
         self.candidate_centerline_latitude_prefilter_skips = 0
         self.candidate_exact_distance_checks = 0
+
+    def merge(self, other: "CoverageStats") -> None:
+        self.candidate_cell_range_visits += other.candidate_cell_range_visits
+        self.candidate_cell_visits += other.candidate_cell_visits
+        self.candidate_empty_cell_skips += other.candidate_empty_cell_skips
+        self.candidate_bbox_sample_checks += other.candidate_bbox_sample_checks
+        self.candidate_centerline_latitude_prefilter_skips += (
+            other.candidate_centerline_latitude_prefilter_skips
+        )
+        self.candidate_exact_distance_checks += other.candidate_exact_distance_checks
 
 
 @dataclass(frozen=True, slots=True)
@@ -177,6 +201,18 @@ def load_coverage_mapping_config(config_dir: Path | None) -> CoverageMappingConf
     method = str(section.get("method", DEFAULT_COVERAGE_MAPPING_CONFIG.method))
     if method not in {"indexed", "simple"}:
         raise ValueError(f"{path}: coverage_mapping.method must be indexed or simple")
+    worker_count_raw = section.get(
+        "worker_count", DEFAULT_COVERAGE_MAPPING_CONFIG.worker_count
+    )
+    if isinstance(worker_count_raw, str):
+        worker_count: int | str = worker_count_raw
+        if worker_count != "auto":
+            raise ValueError(f"{path}: coverage_mapping.worker_count must be an integer or auto")
+    else:
+        worker_count = int(worker_count_raw)
+    chunk_size = int(section.get("chunk_size", DEFAULT_COVERAGE_MAPPING_CONFIG.chunk_size))
+    if chunk_size <= 0:
+        raise ValueError(f"{path}: coverage_mapping.chunk_size must be positive")
     return CoverageMappingConfig(
         method=method,
         spatial_bin_deg=float(
@@ -185,6 +221,8 @@ def load_coverage_mapping_config(config_dir: Path | None) -> CoverageMappingConf
                 DEFAULT_COVERAGE_MAPPING_CONFIG.spatial_bin_deg,
             )
         ),
+        worker_count=worker_count,
+        chunk_size=chunk_size,
     )
 
 
@@ -592,26 +630,44 @@ def _summarize_coverage(
     )
 
 
-def build_candidate_coverage_with_runtime(
+_COVERAGE_WORKER_CASE: RegionalCoverageCase | None = None
+_COVERAGE_WORKER_CANDIDATES: list[StripCandidate] | None = None
+_COVERAGE_WORKER_CONFIG: CoverageMappingConfig | None = None
+_COVERAGE_WORKER_SAMPLE_INDEX: SpatialSampleIndex | None = None
+_COVERAGE_WORKER_CONTEXT: PropagationContext | None = None
+
+
+def _effective_worker_count(worker_count: int | str, item_count: int) -> int:
+    if item_count <= 0:
+        return 1
+    if worker_count == "auto":
+        return max(1, min(os.cpu_count() or 1, item_count))
+    return max(1, min(int(worker_count), item_count))
+
+
+def _chunk_ranges(item_count: int, chunk_size: int) -> tuple[tuple[int, int], ...]:
+    if item_count <= 0:
+        return ()
+    size = max(1, int(chunk_size))
+    return tuple(
+        (start, min(item_count, start + size))
+        for start in range(0, item_count, size)
+    )
+
+
+def _map_candidate_chunk(
     case: RegionalCoverageCase,
     candidates: list[StripCandidate],
     *,
-    config: CoverageMappingConfig | None = None,
-    context: PropagationContext | None = None,
-    sample_index: SpatialSampleIndex | None = None,
-) -> tuple[dict[str, tuple[int, ...]], CoverageSummary, CoverageRuntimeSummary]:
-    config = config or CoverageMappingConfig()
-    if context is None:
-        context = PropagationContext(
-            case.satellites,
-            step_s=float(max(1, case.manifest.coverage_sample_step_s)),
-        )
+    config: CoverageMappingConfig,
+    sample_index: SpatialSampleIndex | None,
+    context: PropagationContext,
+    start_index: int,
+    end_index: int,
+) -> tuple[list[tuple[str, tuple[int, ...]]], CoverageStats]:
     stats = CoverageStats()
-    mapping: dict[str, tuple[int, ...]] = {}
-    if sample_index is None:
-        sample_index = build_coverage_sample_index(case, config)
-
-    for candidate in candidates:
+    rows: list[tuple[str, tuple[int, ...]]] = []
+    for candidate in candidates[start_index:end_index]:
         satellite = case.satellites[candidate.satellite_id]
         centerline, half_width_m = strip_centerline_and_half_width_m(
             case.manifest,
@@ -633,12 +689,129 @@ def build_candidate_coverage_with_runtime(
                 half_width_m,
                 stats=stats,
             )
-        mapping[candidate.candidate_id] = sample_indices
+        rows.append((candidate.candidate_id, sample_indices))
+    return rows, stats
+
+
+def _coverage_worker_init(
+    case: RegionalCoverageCase,
+    candidates: list[StripCandidate],
+    config: CoverageMappingConfig,
+    sample_index: SpatialSampleIndex | None,
+) -> None:
+    global _COVERAGE_WORKER_CASE
+    global _COVERAGE_WORKER_CANDIDATES
+    global _COVERAGE_WORKER_CONFIG
+    global _COVERAGE_WORKER_SAMPLE_INDEX
+    global _COVERAGE_WORKER_CONTEXT
+    _COVERAGE_WORKER_CASE = case
+    _COVERAGE_WORKER_CANDIDATES = candidates
+    _COVERAGE_WORKER_CONFIG = config
+    _COVERAGE_WORKER_SAMPLE_INDEX = sample_index
+    _COVERAGE_WORKER_CONTEXT = None
+
+
+def _coverage_worker_map_range(
+    bounds: tuple[int, int],
+) -> tuple[int, list[tuple[str, tuple[int, ...]]], CoverageStats]:
+    case = _COVERAGE_WORKER_CASE
+    candidates = _COVERAGE_WORKER_CANDIDATES
+    config = _COVERAGE_WORKER_CONFIG
+    sample_index = _COVERAGE_WORKER_SAMPLE_INDEX
+    if case is None or candidates is None or config is None:
+        raise RuntimeError("coverage worker was not initialized")
+    global _COVERAGE_WORKER_CONTEXT
+    if _COVERAGE_WORKER_CONTEXT is None:
+        _COVERAGE_WORKER_CONTEXT = PropagationContext(
+            case.satellites,
+            step_s=float(max(1, case.manifest.coverage_sample_step_s)),
+        )
+    start_index, end_index = bounds
+    rows, stats = _map_candidate_chunk(
+        case,
+        candidates,
+        config=config,
+        sample_index=sample_index,
+        context=_COVERAGE_WORKER_CONTEXT,
+        start_index=start_index,
+        end_index=end_index,
+    )
+    return start_index, rows, stats
+
+
+def build_candidate_coverage_with_runtime(
+    case: RegionalCoverageCase,
+    candidates: list[StripCandidate],
+    *,
+    config: CoverageMappingConfig | None = None,
+    context: PropagationContext | None = None,
+    sample_index: SpatialSampleIndex | None = None,
+) -> tuple[dict[str, tuple[int, ...]], CoverageSummary, CoverageRuntimeSummary]:
+    config = config or CoverageMappingConfig()
+    if context is None:
+        context = PropagationContext(
+            case.satellites,
+            step_s=float(max(1, case.manifest.coverage_sample_step_s)),
+        )
+    stats = CoverageStats()
+    mapping: dict[str, tuple[int, ...]] = {}
+    if sample_index is None:
+        sample_index = build_coverage_sample_index(case, config)
+    ranges = _chunk_ranges(len(candidates), config.chunk_size)
+    worker_count = _effective_worker_count(config.worker_count, len(ranges))
+    execution_mode = "serial"
+
+    if worker_count <= 1 or not ranges:
+        rows, stats = _map_candidate_chunk(
+            case,
+            candidates,
+            config=config,
+            sample_index=sample_index,
+            context=context,
+            start_index=0,
+            end_index=len(candidates),
+        )
+        mapping.update(rows)
+    else:
+        try:
+            fork_context = multiprocessing.get_context("fork")
+        except ValueError:
+            rows, stats = _map_candidate_chunk(
+                case,
+                candidates,
+                config=config,
+                sample_index=sample_index,
+                context=context,
+                start_index=0,
+                end_index=len(candidates),
+            )
+            mapping.update(rows)
+            worker_count = 1
+            execution_mode = "serial_no_fork"
+        else:
+            execution_mode = "parallel_fork"
+            chunk_results: list[
+                tuple[int, list[tuple[str, tuple[int, ...]]], CoverageStats]
+            ] = []
+            with fork_context.Pool(
+                processes=worker_count,
+                initializer=_coverage_worker_init,
+                initargs=(case, candidates, config, sample_index),
+            ) as pool:
+                for result in pool.imap_unordered(_coverage_worker_map_range, ranges):
+                    chunk_results.append(result)
+            for _, rows, chunk_stats in sorted(chunk_results, key=lambda row: row[0]):
+                mapping.update(rows)
+                stats.merge(chunk_stats)
 
     summary = _summarize_coverage(candidates, mapping)
     runtime = CoverageRuntimeSummary(
         method=config.method,
         spatial_bin_deg=config.spatial_bin_deg if sample_index is not None else None,
+        execution_mode=execution_mode,
+        worker_count=worker_count,
+        chunk_size=config.chunk_size,
+        chunk_count=len(ranges),
         sample_count=len(case.coverage_grid.samples),
         spatial_cell_count=sample_index.cell_count if sample_index is not None else 0,
         candidate_count=len(candidates),

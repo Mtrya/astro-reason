@@ -400,6 +400,85 @@ def test_indexed_candidate_coverage_matches_simple_path(tmp_path: Path) -> None:
     )
 
 
+def test_parallel_candidate_coverage_matches_serial_path(tmp_path: Path) -> None:
+    _write_case(tmp_path)
+    initial_case = load_case(tmp_path)
+    candidates, _ = generate_candidates(
+        initial_case,
+        CandidateConfig(
+            time_stride_s=10,
+            duration_values_s=(20,),
+            roll_values_deg=(12.0,),
+            max_candidates_total=4,
+        ),
+    )
+    centerline, _ = strip_centerline_and_half_width_m(
+        initial_case.manifest,
+        initial_case.satellites[candidates[0].satellite_id],
+        candidates[0],
+    )
+    lon_deg, lat_deg = centerline[len(centerline) // 2]
+    (tmp_path / "coverage_grid.json").write_text(
+        json.dumps(
+            {
+                "grid_version": 1,
+                "sample_spacing_m": 5000.0,
+                "regions": [
+                    {
+                        "region_id": "region_a",
+                        "total_weight_m2": 10.0,
+                        "samples": [
+                            {
+                                "sample_id": "on_strip",
+                                "longitude_deg": lon_deg,
+                                "latitude_deg": lat_deg,
+                                "weight_m2": 9.0,
+                            },
+                            {
+                                "sample_id": "near_strip",
+                                "longitude_deg": lon_deg + 0.01,
+                                "latitude_deg": lat_deg,
+                                "weight_m2": 1.0,
+                            },
+                        ],
+                    }
+                ],
+            }
+        ),
+        encoding="utf-8",
+    )
+    case = load_case(tmp_path)
+
+    serial_mapping, serial_summary, _ = build_candidate_coverage_with_runtime(
+        case,
+        candidates,
+        config=CoverageMappingConfig(
+            method="indexed",
+            spatial_bin_deg=0.25,
+            worker_count=1,
+            chunk_size=2,
+        ),
+    )
+    parallel_mapping, parallel_summary, parallel_runtime = (
+        build_candidate_coverage_with_runtime(
+            case,
+            candidates,
+            config=CoverageMappingConfig(
+                method="indexed",
+                spatial_bin_deg=0.25,
+                worker_count=2,
+                chunk_size=1,
+            ),
+        )
+    )
+
+    assert parallel_mapping == serial_mapping
+    assert parallel_summary.as_dict() == serial_summary.as_dict()
+    assert parallel_runtime.as_dict()["execution_mode"] == "parallel_fork"
+    assert parallel_runtime.as_dict()["worker_count"] == 2
+    assert parallel_runtime.as_dict()["chunk_count"] == 4
+
+
 def test_indexed_mapping_and_celf_selection_are_deterministic(tmp_path: Path) -> None:
     _write_case(tmp_path)
     initial_case = load_case(tmp_path)
@@ -883,6 +962,55 @@ def test_local_improvement_swaps_conflicting_fixed_candidate(tmp_path: Path) -> 
     assert validate_schedule(case, candidates_by_id, improved.improved_candidate_ids).valid
 
 
+def test_parallel_local_improvement_matches_serial_path(tmp_path: Path) -> None:
+    _write_case(tmp_path)
+    case = load_case(tmp_path)
+    candidates = [
+        _candidate("blocker", start_offset_s=0, duration_s=30, roll_deg=12.0),
+        _candidate("better_overlap", start_offset_s=10, duration_s=20, roll_deg=12.0),
+        _candidate("later", start_offset_s=30, duration_s=10, roll_deg=12.0),
+        _candidate("tie_later", start_offset_s=30, duration_s=10, roll_deg=16.0),
+    ]
+    candidates_by_id = {candidate.candidate_id: candidate for candidate in candidates}
+    coverage_by_candidate = {
+        "blocker": (0,),
+        "better_overlap": (1, 2),
+        "later": (3,),
+        "tie_later": (4,),
+    }
+    sample_weights = {0: 1.0, 1: 3.0, 2: 3.0, 3: 2.0, 4: 2.0}
+    common_kwargs = {
+        "case": case,
+        "candidates_by_id": candidates_by_id,
+        "candidate_order": tuple(candidate.candidate_id for candidate in candidates),
+        "selected_candidate_ids": ("blocker",),
+        "coverage_by_candidate": coverage_by_candidate,
+        "sample_weights": sample_weights,
+        "enabled": True,
+        "max_passes": 2,
+        "max_candidate_checks": 10,
+        "chunk_size": 1,
+    }
+
+    serial = improve_schedule_locally(
+        **common_kwargs,
+        worker_count=1,
+    )
+    parallel = improve_schedule_locally(
+        **common_kwargs,
+        worker_count=2,
+    )
+
+    assert parallel.improved_candidate_ids == serial.improved_candidate_ids
+    assert parallel.objective_after == serial.objective_after
+    assert [move.as_dict() for move in parallel.accepted_moves] == [
+        move.as_dict() for move in serial.accepted_moves
+    ]
+    assert parallel.execution_mode == "parallel_fork"
+    assert parallel.worker_count == 2
+    assert parallel.chunk_count >= 1
+
+
 def test_local_improvement_disabled_is_noop(tmp_path: Path) -> None:
     _write_case(tmp_path)
     case = load_case(tmp_path)
@@ -1304,12 +1432,17 @@ def test_solver_writes_solution_status_and_repair_debug(tmp_path: Path) -> None:
     assert status["coverage_mapping_config"] == {
         "method": "indexed",
         "spatial_bin_deg": 0.25,
+        "worker_count": 1,
+        "chunk_size": 4096,
     }
     assert status["selection_config"]["compute_online_bounds"] is True
     assert status["selection_config"]["max_bound_order_debug"] == 50
     assert status["coverage_runtime_summary"]["method"] == "indexed"
     assert status["coverage_runtime_summary"]["candidate_count"] == 3
     assert status["coverage_runtime_summary"]["sample_count"] == 2
+    assert status["coverage_runtime_summary"]["execution_mode"] == "serial"
+    assert status["coverage_runtime_summary"]["worker_count"] == 1
+    assert status["coverage_runtime_summary"]["chunk_count"] == 1
     assert "bbox_prefilter_reduction_ratio" in status["coverage_runtime_summary"]
     assert "candidate_cell_range_visits" in status["coverage_runtime_summary"]
     assert "candidate_empty_cell_skips" in status["coverage_runtime_summary"]
@@ -1329,8 +1462,9 @@ def test_solver_writes_solution_status_and_repair_debug(tmp_path: Path) -> None:
     assert status["celf_summary"]["best"]["online_bound"]["online_upper_bound"] >= (
         status["celf_summary"]["best"]["online_bound"]["selected_reward"]
     )
-    assert status["phase"] == "phase_11_quality_tuning_and_candidate_alignment"
+    assert status["phase"] == "phase_13_parallel_quality_envelope"
     assert status["local_improvement_summary"]["enabled"] is False
+    assert status["local_improvement_summary"]["execution_mode"] == "disabled"
     assert "feasibility_summary" in status
     assert status["repair_objective_summary"]["scope"] == (
         "solver_local_fixed_sample_objective"

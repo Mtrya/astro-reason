@@ -30,6 +30,8 @@ class SelectionConfig:
     local_improvement: bool = False
     local_improvement_max_passes: int = 4
     local_improvement_max_candidate_checks: int = 1_000
+    local_improvement_worker_count: int | str = 1
+    local_improvement_chunk_size: int = 128
     compute_online_bounds: bool = True
     max_bound_order_debug: int = 50
     write_iteration_trace: bool = True
@@ -48,6 +50,8 @@ class SelectionConfig:
             "local_improvement_max_candidate_checks": (
                 self.local_improvement_max_candidate_checks
             ),
+            "local_improvement_worker_count": self.local_improvement_worker_count,
+            "local_improvement_chunk_size": self.local_improvement_chunk_size,
             "compute_online_bounds": self.compute_online_bounds,
             "max_bound_order_debug": self.max_bound_order_debug,
             "write_iteration_trace": self.write_iteration_trace,
@@ -266,6 +270,28 @@ def load_selection_config(config_dir: Path | None) -> SelectionConfig:
         return SelectionConfig()
     if not isinstance(section, dict):
         raise ValueError(f"{path}: selection must be a mapping")
+    worker_count_raw = section.get(
+        "local_improvement_worker_count",
+        DEFAULT_SELECTION_CONFIG.local_improvement_worker_count,
+    )
+    if isinstance(worker_count_raw, str):
+        if worker_count_raw != "auto":
+            raise ValueError(
+                f"{path}: selection.local_improvement_worker_count must be an integer or auto"
+            )
+        local_improvement_worker_count: int | str = worker_count_raw
+    else:
+        local_improvement_worker_count = int(worker_count_raw)
+    local_improvement_chunk_size = int(
+        section.get(
+            "local_improvement_chunk_size",
+            DEFAULT_SELECTION_CONFIG.local_improvement_chunk_size,
+        )
+    )
+    if local_improvement_chunk_size <= 0:
+        raise ValueError(
+            f"{path}: selection.local_improvement_chunk_size must be positive"
+        )
     return SelectionConfig(
         run_unit_cost=bool(section.get("run_unit_cost", DEFAULT_SELECTION_CONFIG.run_unit_cost)),
         run_cost_benefit=bool(
@@ -296,6 +322,8 @@ def load_selection_config(config_dir: Path | None) -> SelectionConfig:
                 DEFAULT_SELECTION_CONFIG.local_improvement_max_candidate_checks,
             )
         ),
+        local_improvement_worker_count=local_improvement_worker_count,
+        local_improvement_chunk_size=local_improvement_chunk_size,
         write_iteration_trace=bool(
             section.get(
                 "write_iteration_trace", DEFAULT_SELECTION_CONFIG.write_iteration_trace

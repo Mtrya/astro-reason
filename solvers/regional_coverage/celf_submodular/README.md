@@ -5,8 +5,10 @@ This solver is a runnable reproduced solver for `regional_coverage`. It is
 candidate coverage model, with explicit compute-envelope, schedule, repair, and
 fixed-set bound evidence. It is also `READY_QUALITY_FAIR` for the stronger
 claim of faithful benchmark-adapted reproduction under a meaningful
-fixed-candidate optimization envelope, scoped to the promoted
-`main_solver` `quality_probe_stride300_full` policy.
+quality-seeking fixed-candidate optimization envelope: the promoted
+`main_solver` `quality_probe_stride150_full` policy uses the strongest fixed
+candidate grid, schedule-aware CELF/CEF, bounded local improvement, and
+deterministic parallel throughput while staying within its runtime gate.
 
 It follows the CELF and CEF method family described by Leskovec, Krause,
 Guestrin, Faloutsos, VanBriesen, and Glance in "Cost-effective Outbreak
@@ -151,6 +153,10 @@ Coverage-mapping knobs:
   samples; `simple` scans all samples and is kept for debugging/equivalence
   tests
 - `spatial_bin_deg`: longitude/latitude bin size used by the indexed mapper
+- `worker_count`: serial integer worker count or `auto` for experiment-owned
+  heavy policies
+- `chunk_size`: deterministic contiguous candidate chunk size for parallel
+  mapping
 
 Selection knobs:
 
@@ -168,6 +174,10 @@ Selection knobs:
 - `local_improvement_max_passes`: maximum accepted local-improvement moves
 - `local_improvement_max_candidate_checks`: maximum positive fixed candidates
   considered per local-improvement pass
+- `local_improvement_worker_count`: serial integer worker count or `auto` for
+  deterministic parallel move evaluation
+- `local_improvement_chunk_size`: deterministic candidate chunk size for
+  local-improvement move evaluation
 - `compute_online_bounds`: compute Leskovec Section 3.2 fixed-set upper-bound
   evidence for each enabled CELF variant
 - `max_bound_order_debug`: maximum bound-ordering rows retained in debug
@@ -180,10 +190,10 @@ The default candidate cap is reported in `status.json`. It keeps direct and CI
 smoke runs fast on the current 72-hour public cases. Official reproduction
 evidence uses the experiment-owned `evaluation` policy, which raises the cap to
 2048 fixed candidates per case while keeping the same standalone solver
-internals. Official quality diagnostics include `quality_probe_32768`,
-`quality_probe_65536`, `quality_probe_full`, and
-`quality_probe_stride300_full`; the last of these is the promoted quality-ready
-evidence policy.
+internals. Official quality evidence uses one promoted policy,
+`quality_probe_stride150_full`, with a 518400-candidate fixed grid,
+schedule-aware CELF/CEF, bounded local improvement, and deterministic parallel
+coverage/local-improvement throughput.
 
 ## Debug Artifacts
 
@@ -263,28 +273,13 @@ uv run python experiments/main_solver/run.py \
   --policy evaluation
 ```
 
-Official schedule-aware quality diagnostics:
+Official quality-ready envelope:
 
 ```bash
 uv run python experiments/main_solver/run.py \
   --benchmark regional_coverage \
   --solver regional_coverage_celf_submodular \
-  --policy quality_probe_32768
-
-uv run python experiments/main_solver/run.py \
-  --benchmark regional_coverage \
-  --solver regional_coverage_celf_submodular \
-  --policy quality_probe_65536
-
-uv run python experiments/main_solver/run.py \
-  --benchmark regional_coverage \
-  --solver regional_coverage_celf_submodular \
-  --policy quality_probe_full
-
-uv run python experiments/main_solver/run.py \
-  --benchmark regional_coverage \
-  --solver regional_coverage_celf_submodular \
-  --policy quality_probe_stride300_full
+  --policy quality_probe_stride150_full
 ```
 
 Aggregate experiment results:
@@ -340,31 +335,27 @@ show:
 - `case_0005`: valid, 4 actions, coverage ratio `0.199945`, weighted coverage
   ratio `0.188096`
 
-Latest official schedule-aware quality probes on `test/case_0001` are
-verifier-valid and use non-humble candidate caps. Phase 12 promotes
-`quality_probe_stride300_full` as the quality-ready envelope:
+Latest official quality evidence on `test/case_0001` uses the promoted
+`quality_probe_stride150_full` policy:
 
-- `quality_probe_32768`: 32768 candidates, 74 nonzero candidates, 27 selected
-  and repaired actions before local improvement, repair loss ratio `0.0`,
-  coverage ratio `0.434214`, weighted coverage ratio `0.429571`.
-- `quality_probe_65536`: 65536 candidates, 133 nonzero candidates, 28 selected
-  and repaired actions, 6 local-improvement swaps, repair loss ratio `0.0`,
-  coverage ratio `0.476539`, weighted coverage ratio `0.469457`.
-- `quality_probe_full`: 129600 candidates, 267 nonzero candidates, 29 selected
-  and repaired actions, 6 local-improvement swaps, repair loss ratio `0.0`,
-  coverage ratio `0.498824`, weighted coverage ratio `0.489605`.
-- `quality_probe_stride300_full`: 259200 candidates, 533 nonzero candidates,
-  58 selected and repaired actions, 6 local-improvement swaps, repair loss
-  ratio `0.0`, coverage ratio `0.730189`, weighted coverage ratio `0.722491`,
-  solver time about `149.4` seconds.
+- 518400 fixed candidates on a 150-second start grid
+- 998 nonzero solver-local candidates
+- 64 selected and repaired actions
+- 7 bounded local-improvement swaps
+- repair objective loss ratio `0.0`
+- verifier coverage ratio `0.905533`
+- verifier weighted coverage ratio `0.897791`
+- solver time about `73.8` seconds, below the `420` second runtime gate
+- coverage mapping `parallel_fork` with 16 workers and 127 chunks
+- local improvement `parallel_fork` with 16 workers and 472 chunks
 
 These artifacts show that Phase 9 schedule-aware selection removed destructive
-post-selection repair as the dominant blocker on the smoke case, and Phase 11
-shows that denser time alignment is the strongest quality lever. The promoted
-quality-ready claim is scoped to the fixed candidate set, schedule-aware
-CELF/CEF, bounded fixed-candidate local improvement, and experiment-owned
-verification on `test/case_0001`. Coverage-mapping runtime remains the main
-limitation for broader routine sweeps at the denser grid.
+post-selection repair as the dominant blocker on the smoke case, Phase 11
+identified denser time alignment as the strongest quality lever, and Phase 13
+made the strongest fixed-candidate policy fast enough without weakening the
+quality config. The quality-ready claim remains scoped to the fixed candidate
+set and experiment-owned verification on `test/case_0001`; it does not certify
+continuous-schedule optimality or all regional-coverage cases.
 
 ## Known Limitations
 

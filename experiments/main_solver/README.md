@@ -72,28 +72,13 @@ uv run python experiments/main_solver/run.py \
     --solver regional_coverage_celf_submodular \
     --policy evaluation
 
-# Schedule-aware diagnostic candidate-scaling probes. These are diagnostic
-# policies, not promotion evidence by themselves; Phase 12 owns the broader
-# promotion decision.
+# Promoted regional-coverage CELF quality envelope. This is the single public
+# quality policy for the solver; cheaper smoke/evaluation policies remain
+# contract and reproduction checks.
 uv run python experiments/main_solver/run.py \
     --benchmark regional_coverage \
     --solver regional_coverage_celf_submodular \
-    --policy quality_probe_32768
-
-uv run python experiments/main_solver/run.py \
-    --benchmark regional_coverage \
-    --solver regional_coverage_celf_submodular \
-    --policy quality_probe_65536
-
-uv run python experiments/main_solver/run.py \
-    --benchmark regional_coverage \
-    --solver regional_coverage_celf_submodular \
-    --policy quality_probe_full
-
-uv run python experiments/main_solver/run.py \
-    --benchmark regional_coverage \
-    --solver regional_coverage_celf_submodular \
-    --policy quality_probe_stride300_full
+    --policy quality_probe_stride150_full
 ```
 
 Policy metadata may include `quality_envelope` fields. These distinguish
@@ -101,9 +86,10 @@ contract/smoke, reproduction, quality-diagnostic, and quality-ready envelopes.
 A solver finishing before timeout is not enough to call the optimization
 envelope fair; candidate density, search depth, repair loss, and verifier score
 must also be inspected. For `regional_coverage_celf_submodular`,
-`quality_probe_stride300_full` is the promoted quality-ready policy. It is
-verifier-valid and uses non-humble fixed-candidate parameters, but remains too
-expensive for CI smoke or broad routine sweeps.
+`quality_probe_stride150_full` is the promoted quality-ready policy. It uses the
+strongest fixed candidate grid, schedule-aware CELF/CEF, bounded local
+improvement, and deterministic parallel throughput; cheaper policies remain
+contract or reproduction checks rather than competing quality envelopes.
 
 Materialize SatNet citation-backed rows:
 
