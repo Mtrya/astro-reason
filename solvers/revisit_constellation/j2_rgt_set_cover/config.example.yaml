@@ -6,3 +6,10 @@ rgt_search:
   max_templates: 12
   closure_tolerance_m: 5000.0
   refinement_iterations: 8
+
+coverage:
+  raan_count: 24
+  raan_start_deg: 0.0
+  sample_step_sec: 300.0
+  keep_samples_per_window: 4
+  worker_count: 1

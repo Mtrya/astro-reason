@@ -1,4 +1,4 @@
-"""Phase 1 CLI for the J2 RGT set-cover solver."""
+"""Phase 3 CLI for the J2 RGT set-cover solver."""
 
 from __future__ import annotations
 
@@ -9,7 +9,9 @@ import sys
 import time
 
 from .case_io import load_case, load_solver_config
+from .coverage import CoverageConfig, build_coverage_summary
 from .rgt import RgtSearchConfig, search_rgt_templates
+from .selection import select_candidates
 
 
 def write_json(path: Path, payload: Any) -> None:
@@ -26,14 +28,23 @@ def solve(case_dir: str, config_dir: str | None, solution_dir: str | None) -> in
         config = load_solver_config(config_dir)
         search_config = RgtSearchConfig.from_mapping(config)
         result = search_rgt_templates(case, search_config)
+        coverage_config = CoverageConfig.from_mapping(config)
+        coverage = build_coverage_summary(
+            case,
+            result.accepted_templates,
+            coverage_config,
+        )
+        selection = select_candidates(case, coverage)
 
         solution = {"satellites": [], "actions": []}
         write_json(output_dir / "solution.json", solution)
         write_json(debug_dir / "closure_search.json", result.as_debug_dict())
+        write_json(debug_dir / "coverage_summary.json", coverage.as_debug_dict())
+        write_json(debug_dir / "selection_summary.json", selection.as_debug_dict())
         status = {
             "status": "completed",
-            "phase": 1,
-            "phase_tag": "j2_rgt_orbit_construction",
+            "phase": 3,
+            "phase_tag": "satellite_cost_set_cover",
             "case_dir": str(case.case_dir),
             "timing_seconds": {"total": time.perf_counter() - start_time},
             "closure_search": {
@@ -48,12 +59,18 @@ def solve(case_dir: str, config_dir: str | None, solution_dir: str | None) -> in
                     else result.accepted_templates[0].closure.surface_error_m
                 ),
             },
+            "coverage": coverage.as_status_dict(),
+            "selection": selection.as_status_dict(),
         }
         write_json(output_dir / "status.json", status)
         print(
-            "phase1 rgt templates: "
+            "phase3 rgt templates/candidates/selection: "
             f"{len(result.accepted_templates)} accepted, "
-            f"{len(result.rejected_templates)} rejected"
+            f"{len(result.rejected_templates)} rejected, "
+            f"{len(coverage.candidates)} candidates, "
+            f"{len(coverage.windows)} windows, "
+            f"{len(selection.selected_candidates)} selected, "
+            f"{selection.total_required_satellites} satellites"
         )
         return 0
     except Exception as exc:
@@ -61,7 +78,7 @@ def solve(case_dir: str, config_dir: str | None, solution_dir: str | None) -> in
             output_dir / "status.json",
             {
                 "status": "error",
-                "phase": 1,
+                "phase": 3,
                 "error": f"{type(exc).__name__}: {exc}",
                 "timing_seconds": {"total": time.perf_counter() - start_time},
             },
