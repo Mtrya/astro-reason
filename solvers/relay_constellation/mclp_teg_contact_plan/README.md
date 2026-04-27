@@ -117,6 +117,7 @@ Key knobs:
 | `mclp_mode` | `"auto"`, `"greedy"`, `"milp"`, `"none"` | `"auto"` | Candidate selection strategy. `"none"` skips MCLP and uses backbone only. `"auto"` tries MILP for small problems and falls back to greedy. |
 | `scheduler_mode` | `"auto"`, `"greedy"`, `"route_aware"`, `"milp"` | `"auto"` | Contact scheduling strategy. `"route_aware"` greedily selects complete endpoint-to-endpoint paths under degree caps. `"auto"` tries MILP within bounds, then falls back according to `milp_config.auto_fallback_strategy`. |
 | `parallel_mode` | `"auto"`, `"parallel"`, `"sequential"` | `"auto"` | Execution model. `"auto"` uses process parallelism when there are multiple satellites or >1000 samples. |
+| `max_parallel_workers` | integer or `null` | profile-specific | Upper bound on process-pool workers. Larger candidate profiles use conservative caps to avoid duplicating large propagated-state payloads across too many workers. |
 | `time_budget_s` | positive number | `300` | Expected per-case compute budget in seconds. Informational; the solver does not hard-cut at this limit. |
 | `orbit_grid.altitude_step_m` | number or `null` | `null` | Altitude grid step in meters. `null` uses min and max altitude only (2 shells). |
 | `orbit_grid.inclination_step_deg` | number or `null` | `null` | Inclination grid step in degrees. `null` uses min and max inclination only (2 bands). |

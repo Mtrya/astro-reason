@@ -7,6 +7,7 @@
   "mclp_mode": "auto",
   "scheduler_mode": "route_aware",
   "parallel_mode": "auto",
+  "max_parallel_workers": 6,
   "time_budget_s": 900,
   "orbit_grid": {
     "altitude_step_m": 250000.0,

@@ -111,10 +111,23 @@ class _EndpointData:
 class _LinkCacheChunkArgs:
     start_idx: int
     end_idx: int
+
+
+@dataclass(frozen=True)
+class _LinkCacheContext:
     endpoint_data: tuple[_EndpointData, ...]
     sat_positions: dict[str, dict[int, tuple[float, float, float]]]
     max_ground_range_m: float | None
     max_isl_range_m: float
+
+
+_LINK_CACHE_CONTEXT: _LinkCacheContext | None = None
+
+
+def _init_link_cache_context(context: _LinkCacheContext) -> None:
+    """Store link-cache context once per worker instead of once per chunk."""
+    global _LINK_CACHE_CONTEXT
+    _LINK_CACHE_CONTEXT = context
 
 
 def _build_link_cache_chunk(args: _LinkCacheChunkArgs) -> list[tuple[str, int, str, str, float]]:
@@ -122,20 +135,23 @@ def _build_link_cache_chunk(args: _LinkCacheChunkArgs) -> list[tuple[str, int, s
 
     Returns flat list of (link_type, sample_index, node_a, node_b, distance_m).
     """
-    import brahe
     from .link_geometry import ground_link_feasible, isl_feasible
 
+    if _LINK_CACHE_CONTEXT is None:
+        raise RuntimeError("link-cache worker context was not initialized")
+
     records: list[tuple[str, int, str, str, float]] = []
-    sat_ids = list(args.sat_positions.keys())
+    context = _LINK_CACHE_CONTEXT
+    sat_ids = list(context.sat_positions.keys())
 
     for sidx in range(args.start_idx, args.end_idx):
         # Ground links
-        for ep in args.endpoint_data:
+        for ep in context.endpoint_data:
             ep_arr = np.array(ep.ecef_m, dtype=float)
             for sat_id in sat_ids:
-                pos = np.array(args.sat_positions[sat_id][sidx], dtype=float)
+                pos = np.array(context.sat_positions[sat_id][sidx], dtype=float)
                 is_feasible, distance_m = ground_link_feasible(
-                    ep.ecef_m, pos, ep.min_elevation_deg, args.max_ground_range_m
+                    ep.ecef_m, pos, ep.min_elevation_deg, context.max_ground_range_m
                 )
                 if is_feasible:
                     records.append(("ground", sidx, ep.endpoint_id, sat_id, distance_m))
@@ -145,9 +161,9 @@ def _build_link_cache_chunk(args: _LinkCacheChunkArgs) -> list[tuple[str, int, s
             for j in range(i + 1, len(sat_ids)):
                 sat_a = sat_ids[i]
                 sat_b = sat_ids[j]
-                pos_a = np.array(args.sat_positions[sat_a][sidx], dtype=float)
-                pos_b = np.array(args.sat_positions[sat_b][sidx], dtype=float)
-                is_feasible, distance_m = isl_feasible(pos_a, pos_b, args.max_isl_range_m)
+                pos_a = np.array(context.sat_positions[sat_a][sidx], dtype=float)
+                pos_b = np.array(context.sat_positions[sat_b][sidx], dtype=float)
+                is_feasible, distance_m = isl_feasible(pos_a, pos_b, context.max_isl_range_m)
                 if is_feasible:
                     records.append(("isl", sidx, sat_a, sat_b, distance_m))
 
@@ -228,20 +244,20 @@ def build_link_cache_parallel(
         chunks.append((start, end))
         start = end
 
-    args_list = [
-        _LinkCacheChunkArgs(
-            start_idx=s,
-            end_idx=e,
-            endpoint_data=tuple(endpoint_data),
-            sat_positions=all_sat_positions,
-            max_ground_range_m=constraints.max_ground_range_m,
-            max_isl_range_m=constraints.max_isl_range_m,
-        )
-        for s, e in chunks
-    ]
+    context = _LinkCacheContext(
+        endpoint_data=tuple(endpoint_data),
+        sat_positions=all_sat_positions,
+        max_ground_range_m=constraints.max_ground_range_m,
+        max_isl_range_m=constraints.max_isl_range_m,
+    )
+    args_list = [_LinkCacheChunkArgs(start_idx=s, end_idx=e) for s, e in chunks]
 
     try:
-        with ProcessPoolExecutor(max_workers=max_workers) as executor:
+        with ProcessPoolExecutor(
+            max_workers=max_workers,
+            initializer=_init_link_cache_context,
+            initargs=(context,),
+        ) as executor:
             chunk_results = list(executor.map(_build_link_cache_chunk, args_list))
     except Exception as exc:
         raise ParallelExecutionError(f"Process pool link cache failed: {exc}") from exc

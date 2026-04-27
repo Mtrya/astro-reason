@@ -124,6 +124,7 @@ def _propagate_with_timings(
     epoch: Any,
     sample_times: tuple[Any, ...],
     use_parallel: bool,
+    worker_count: int | None = None,
 ) -> tuple[dict[str, Any], list[float], bool]:
     """Propagate satellites and return (positions, per-satellite ms, fallback_happened)."""
     if not satellites:
@@ -134,7 +135,7 @@ def _propagate_with_timings(
             from .parallel import ParallelExecutionError, propagate_satellites_parallel
 
             positions, timings = propagate_satellites_parallel(
-                satellites, epoch, sample_times
+                satellites, epoch, sample_times, max_workers=worker_count
             )
             return positions, timings, False
         except ParallelExecutionError:
@@ -155,6 +156,7 @@ def _build_link_cache_with_mode(
     backbone_positions: dict[str, Any],
     candidate_positions: dict[str, Any],
     use_parallel: bool,
+    worker_count: int | None = None,
 ) -> tuple[tuple[Any, ...], dict[str, object], bool]:
     """Build link cache and return (records, summary, fallback_happened)."""
     if use_parallel:
@@ -162,7 +164,7 @@ def _build_link_cache_with_mode(
             from .parallel import ParallelExecutionError, build_link_cache_parallel
 
             records, summary = build_link_cache_parallel(
-                case, backbone_positions, candidate_positions
+                case, backbone_positions, candidate_positions, max_workers=worker_count
             )
             return records, summary, False
         except ParallelExecutionError:
@@ -197,6 +199,7 @@ def main() -> None:
     time_budget_s = config.get("time_budget_s", 300)
     budget_policy = config.get("budget_policy", "informational")
     orbit_grid = config.get("orbit_grid", {})
+    max_parallel_workers = config.get("max_parallel_workers")
     mclp_milp_bounds = {
         "max_candidates_for_milp": mclp_milp_config.get("max_candidates_for_milp", 20),
         "max_added_for_milp": mclp_milp_config.get("max_added_for_milp", 5),
@@ -244,7 +247,8 @@ def main() -> None:
     n_satellites = len(case.network.backbone_satellites) + len(candidates)
     auto_parallel = n_satellites > 1 or len(sample_times) > 1000
     use_parallel = parallel_mode == "parallel" or (parallel_mode == "auto" and auto_parallel)
-    worker_count = min(os.cpu_count() or 1, n_satellites) if use_parallel else 1
+    worker_cap = int(max_parallel_workers) if max_parallel_workers else (os.cpu_count() or 1)
+    worker_count = min(os.cpu_count() or 1, n_satellites, worker_cap) if use_parallel else 1
 
     # Propagate backbone satellites
     backbone_tasks = [
@@ -252,7 +256,7 @@ def main() -> None:
         for sat in case.network.backbone_satellites
     ]
     backbone_positions, backbone_timings_ms, bb_fallback = _propagate_with_timings(
-        backbone_tasks, case.manifest.epoch, sample_times, use_parallel
+        backbone_tasks, case.manifest.epoch, sample_times, use_parallel, worker_count
     )
     t4 = time.monotonic()
 
@@ -262,13 +266,13 @@ def main() -> None:
         for cand in candidates
     ]
     candidate_positions, candidate_timings_ms, cand_fallback = _propagate_with_timings(
-        candidate_tasks, case.manifest.epoch, sample_times, use_parallel
+        candidate_tasks, case.manifest.epoch, sample_times, use_parallel, worker_count
     )
     t5 = time.monotonic()
 
     # Build link-feasibility cache
     link_records, link_summary, lc_fallback = _build_link_cache_with_mode(
-        case, backbone_positions, candidate_positions, use_parallel
+        case, backbone_positions, candidate_positions, use_parallel, worker_count
     )
     t6 = time.monotonic()
 
@@ -409,6 +413,7 @@ def main() -> None:
             "mclp_mode": mclp_mode,
             "scheduler_mode": scheduler_mode,
             "parallel_mode": parallel_mode,
+            "max_parallel_workers": max_parallel_workers,
             "orbit_grid": orbit_grid,
             "mclp_milp_config": mclp_milp_config,
             "scheduler_milp_config": milp_config,
@@ -420,6 +425,7 @@ def main() -> None:
         "execution_model": {
             "parallel_mode": parallel_mode,
             "parallel_enabled": use_parallel,
+            "max_parallel_workers": max_parallel_workers,
             "worker_count": worker_count,
             "propagation_mode": "parallel" if (use_parallel and not bb_fallback) else "sequential",
             "link_cache_mode": "parallel" if (use_parallel and not lc_fallback) else "sequential",

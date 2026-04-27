@@ -3,6 +3,7 @@
   "mclp_mode": "auto",
   "scheduler_mode": "auto",
   "parallel_mode": "auto",
+  "max_parallel_workers": 8,
   "time_budget_s": 300,
   "orbit_grid": {
     "altitude_step_m": null,
