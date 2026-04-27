@@ -6,23 +6,17 @@ CASE_DIR="${1:?usage: ./solve.sh <case_dir> [config_dir] [solution_dir]}"
 CONFIG_DIR="${2:-}"
 SOLUTION_DIR="${3:-solution}"
 
-REPO_ROOT="$(cd "${SCRIPT_DIR}/../../.." && pwd)"
-
-# Prefer system/project Python for base deps (brahe, numpy, yaml).
-# Append solver-local venv site-packages so optional local deps (e.g. pulp) are importable.
-PYTHON="python3"
-PYTHONPATH="${REPO_ROOT}${PYTHONPATH:+:${PYTHONPATH}}"
-
-# If a solver-local venv exists, append its site-packages so optional local deps (e.g. pulp) are importable.
-if [[ -x "${SCRIPT_DIR}/.venv/bin/python" ]]; then
-    VENV_SITE_PACKAGES=$("${SCRIPT_DIR}/.venv/bin/python" -c "import sys, os; print(os.path.join(os.path.dirname(os.path.dirname(sys.executable)), 'lib', f'python{sys.version_info.major}.{sys.version_info.minor}', 'site-packages'))" 2>/dev/null || true)
-    if [[ -n "${VENV_SITE_PACKAGES}" && -d "${VENV_SITE_PACKAGES}" ]]; then
-        PYTHONPATH="${PYTHONPATH}:${VENV_SITE_PACKAGES}"
-    fi
+if [[ -z "${SOLVER_PYTHON:-}" && -f "${SCRIPT_DIR}/.solver-env" ]]; then
+  # shellcheck disable=SC1091
+  source "${SCRIPT_DIR}/.solver-env"
+fi
+SOLVER_PYTHON="${SOLVER_PYTHON:-${SCRIPT_DIR}/.venv/bin/python}"
+if [[ ! -x "${SOLVER_PYTHON}" ]]; then
+  echo "mclp_teg_contact_plan requires solver-local setup; run ./setup.sh first" >&2
+  exit 2
 fi
 
-PYTHONPATH="${PYTHONPATH}" \
-  "${PYTHON}" -m solvers.relay_constellation.mclp_teg_contact_plan.src.solve \
-    --case-dir "${CASE_DIR}" \
-    --config-dir "${CONFIG_DIR}" \
-    --solution-dir "${SOLUTION_DIR}"
+PYTHONPATH="${SCRIPT_DIR}${PYTHONPATH:+:${PYTHONPATH}}" "${SOLVER_PYTHON}" -m src.solve \
+  --case-dir "${CASE_DIR}" \
+  --config-dir "${CONFIG_DIR}" \
+  --solution-dir "${SOLUTION_DIR}"

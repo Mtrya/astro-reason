@@ -9,17 +9,17 @@ import numpy as np
 import pytest
 
 
-REPO_ROOT = Path(__file__).resolve().parents[4]
-sys.path.insert(0, str(REPO_ROOT))
+SOLVER_ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(SOLVER_ROOT))
 
-from solvers.aeossp_standard.mwis_conflict_graph.src.candidates import (  # noqa: E402
+from src.candidates import (  # noqa: E402
     Candidate,
     CandidateConfig,
     CandidateSummary,
     generate_candidates,
     start_offsets_for_task,
 )
-from solvers.aeossp_standard.mwis_conflict_graph.src.case_io import (  # noqa: E402
+from src.case_io import (  # noqa: E402
     AeosspCase,
     AttitudeModel,
     Mission,
@@ -31,33 +31,33 @@ from solvers.aeossp_standard.mwis_conflict_graph.src.case_io import (  # noqa: E
     load_solver_config,
     parse_iso_z,
 )
-from solvers.aeossp_standard.mwis_conflict_graph.src.geometry import (  # noqa: E402
+from src.geometry import (  # noqa: E402
     action_sample_times,
     initial_slew_feasible_from_vectors,
 )
-from solvers.aeossp_standard.mwis_conflict_graph.src.graph import (  # noqa: E402
+from src.graph import (  # noqa: E402
     GraphBuildConfig,
     _build_conflict_graph_legacy,
     build_conflict_graph,
     connected_components,
 )
-from solvers.aeossp_standard.mwis_conflict_graph.src.mwis import (  # noqa: E402
+from src.mwis import (  # noqa: E402
     MwisConfig,
     select_weighted_independent_set,
     solve_exact_component,
     validate_independent_set,
 )
-from solvers.aeossp_standard.mwis_conflict_graph.src.reduction import (  # noqa: E402
+from src.reduction import (  # noqa: E402
     reduce_component,
 )
-from solvers.aeossp_standard.mwis_conflict_graph.src.solution_io import (  # noqa: E402
+from src.solution_io import (  # noqa: E402
     candidates_to_actions,
 )
-from solvers.aeossp_standard.mwis_conflict_graph.src.transition import (  # noqa: E402
+from src.transition import (  # noqa: E402
     TransitionVectorCache,
     transition_gap_conflict,
 )
-from solvers.aeossp_standard.mwis_conflict_graph.src.validation import (  # noqa: E402
+from src.validation import (  # noqa: E402
     RepairConfig,
     ValidationIssue,
     ValidationReport,
@@ -66,7 +66,7 @@ from solvers.aeossp_standard.mwis_conflict_graph.src.validation import (  # noqa
     repair_candidates,
     validate_candidates,
 )
-from solvers.aeossp_standard.mwis_conflict_graph.src.solve import (  # noqa: E402
+from src.solve import (  # noqa: E402
     BudgetConfig,
     _build_status as build_status_payload,
     _budget_status,

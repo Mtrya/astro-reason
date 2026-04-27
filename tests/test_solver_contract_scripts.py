@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import stat
 import sys
+import os
 from pathlib import Path
 
 from scripts import validate_solver_contract as solver_contract
@@ -28,6 +29,74 @@ def test_run_command_reports_timeouts(tmp_path: Path) -> None:
     assert returncode == 124
     assert launch_error is not None
     assert "timed out" in launch_error
+
+
+def test_solver_subprocess_env_scrubs_workspace_python_leakage(monkeypatch) -> None:
+    repo_bin = solver_contract.REPO_ROOT / ".venv" / "bin"
+    monkeypatch.setenv("PATH", f"{repo_bin}:/usr/local/bin:/usr/bin")
+    monkeypatch.setenv("PYTHONPATH", str(solver_contract.REPO_ROOT))
+    monkeypatch.setenv("PYTHONHOME", "/tmp/pythonhome")
+    monkeypatch.setenv("PYTHONUSERBASE", "/tmp/pythonuserbase")
+    monkeypatch.setenv("VIRTUAL_ENV", str(solver_contract.REPO_ROOT / ".venv"))
+    monkeypatch.setenv("UV_CACHE_DIR", "/tmp/repo-uv-cache")
+    monkeypatch.setenv("UV_PROJECT", str(solver_contract.REPO_ROOT))
+    monkeypatch.setenv("SOLVER_PYTHON", "/tmp/solver-python")
+
+    env = solver_contract._solver_subprocess_env()
+
+    assert "PYTHONPATH" not in env
+    assert "PYTHONHOME" not in env
+    assert "PYTHONUSERBASE" not in env
+    assert "VIRTUAL_ENV" not in env
+    assert "UV_CACHE_DIR" not in env
+    assert "UV_PROJECT" not in env
+    assert str(repo_bin) not in env["PATH"].split(":")
+    assert env["SOLVER_PYTHON"] == "/tmp/solver-python"
+    assert env["UV_NO_PROJECT"] == "1"
+    assert env["UV_NO_CONFIG"] == "1"
+
+
+def test_run_command_uses_explicit_environment(tmp_path: Path) -> None:
+    script = tmp_path / "check_env.py"
+    marker = tmp_path / "marker"
+    script.write_text(
+        "from pathlib import Path\n"
+        "import os\n"
+        "Path(os.environ['MARKER']).write_text(os.environ.get('PYTHONPATH', ''), encoding='utf-8')\n",
+        encoding="utf-8",
+    )
+
+    returncode, launch_error = solver_contract._run_command(
+        [sys.executable, str(script)],
+        cwd=tmp_path,
+        env={"PATH": os.environ.get("PATH", ""), "MARKER": str(marker)},
+    )
+
+    assert returncode == 0
+    assert launch_error is None
+    assert marker.read_text(encoding="utf-8") == ""
+
+
+def test_entrypoint_isolation_rejects_uv_run(tmp_path: Path, monkeypatch) -> None:
+    repo_root = tmp_path
+    solver_dir = repo_root / "solvers" / "demo_benchmark" / "demo_solver"
+    solver_dir.mkdir(parents=True)
+    (solver_dir / "test.sh").write_text(
+        "#!/usr/bin/env bash\nuv run pytest tests\n",
+        encoding="utf-8",
+    )
+
+    monkeypatch.setattr(solver_contract, "REPO_ROOT", repo_root)
+
+    errors: list[str] = []
+    solver_contract._validate_entrypoint_isolation(
+        [{"benchmark": "demo_benchmark", "solver": "demo_solver"}],
+        errors,
+    )
+
+    assert errors
+    assert "test.sh uses 'uv run'" in errors[0]
+    assert "solver-local environment" in errors[0]
 
 
 def test_boundary_scan_skips_generated_solver_dirs(tmp_path: Path, monkeypatch) -> None:

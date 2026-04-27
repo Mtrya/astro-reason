@@ -28,10 +28,11 @@ def _resolve_repo_root() -> Path:
 
 
 REPO_ROOT = _resolve_repo_root()
-if str(REPO_ROOT) not in sys.path:
-    sys.path.insert(0, str(REPO_ROOT))
+SOLVER_ROOT = Path(__file__).resolve().parents[1]
+if str(SOLVER_ROOT) not in sys.path:
+    sys.path.insert(0, str(SOLVER_ROOT))
 CASE_0001 = REPO_ROOT / "benchmarks" / "relay_constellation" / "dataset" / "cases" / "test" / "case_0001"
-SOLVER_MODULE = "solvers.relay_constellation.mclp_teg_contact_plan.src.solve"
+SOLVER_MODULE = "src.solve"
 VERIFIER_MODULE = "benchmarks.relay_constellation.verifier.run"
 
 # ---------------------------------------------------------------------------
@@ -47,7 +48,7 @@ def _make_tiny_case(
     max_links_per_endpoint: int = 1,
 ) -> object:
     """Build a minimal synthetic Case for cheap unit tests."""
-    from solvers.relay_constellation.mclp_teg_contact_plan.src.case_io import (
+    from src.case_io import (
         BackboneSatellite,
         Constraints,
         DemandWindow,
@@ -144,8 +145,8 @@ def _run_solver(case_dir: Path, config: dict) -> tuple[Path, dict]:
         ],
         capture_output=True,
         text=True,
-        cwd=str(REPO_ROOT),
-        env={**dict(os.environ), "PYTHONPATH": str(REPO_ROOT)},
+        cwd=str(SOLVER_ROOT),
+        env={**dict(os.environ), "PYTHONPATH": str(SOLVER_ROOT)},
     )
     assert result.returncode == 0, f"solver failed: {result.stderr}"
     status = json.loads((solution_dir / "status.json").read_text(encoding="utf-8"))
@@ -173,7 +174,7 @@ def _run_verifier(case_dir: Path, solution_path: Path) -> dict:
 
 
 def test_load_smoke_case() -> None:
-    from solvers.relay_constellation.mclp_teg_contact_plan.src.case_io import load_case
+    from src.case_io import load_case
 
     if not CASE_0001.exists():
         pytest.skip("Smoke case not available")
@@ -184,8 +185,8 @@ def test_load_smoke_case() -> None:
 
 
 def test_candidate_generation_respects_bounds() -> None:
-    from solvers.relay_constellation.mclp_teg_contact_plan.src.case_io import Constraints
-    from solvers.relay_constellation.mclp_teg_contact_plan.src.orbit_library import generate_candidates
+    from src.case_io import Constraints
+    from src.orbit_library import generate_candidates
 
     constraints = Constraints(
         max_added_satellites=6,
@@ -219,7 +220,7 @@ def test_candidate_generation_respects_bounds() -> None:
 
 
 def test_ground_link_elevation_filtering() -> None:
-    from solvers.relay_constellation.mclp_teg_contact_plan.src.link_geometry import ground_link_feasible
+    from src.link_geometry import ground_link_feasible
 
     endpoint_ecef = np.array([brahe.R_EARTH, 0.0, 0.0], dtype=float)
     satellite_ecef = np.array([brahe.R_EARTH + 400_000.0, 0.0, 0.0], dtype=float)
@@ -237,7 +238,7 @@ def test_ground_link_elevation_filtering() -> None:
 
 
 def test_isl_range_and_occultation() -> None:
-    from solvers.relay_constellation.mclp_teg_contact_plan.src.link_geometry import isl_feasible
+    from src.link_geometry import isl_feasible
 
     pos_a = np.array([brahe.R_EARTH + 500_000.0, 0.0, 0.0], dtype=float)
     pos_b = np.array([brahe.R_EARTH + 500_000.0, 100_000.0, 0.0], dtype=float)
@@ -254,8 +255,8 @@ def test_isl_range_and_occultation() -> None:
 
 
 def test_selection_cache_skips_candidate_candidate_isl_pairs() -> None:
-    from solvers.relay_constellation.mclp_teg_contact_plan.src.case_io import DemandWindow
-    from solvers.relay_constellation.mclp_teg_contact_plan.src.link_cache import build_link_cache
+    from src.case_io import DemandWindow
+    from src.link_cache import build_link_cache
 
     epoch = datetime(2026, 1, 1, 0, 0, 0, tzinfo=timezone.utc)
     case = _make_tiny_case(
@@ -314,8 +315,8 @@ def test_selection_cache_skips_candidate_candidate_isl_pairs() -> None:
 
 
 def test_scheduler_cache_matches_full_cache_for_selected_satellites() -> None:
-    from solvers.relay_constellation.mclp_teg_contact_plan.src.case_io import DemandWindow
-    from solvers.relay_constellation.mclp_teg_contact_plan.src.link_cache import build_link_cache
+    from src.case_io import DemandWindow
+    from src.link_cache import build_link_cache
 
     epoch = datetime(2026, 1, 1, 0, 0, 0, tzinfo=timezone.utc)
     case = _make_tiny_case(
@@ -385,9 +386,9 @@ def test_scheduler_cache_matches_full_cache_for_selected_satellites() -> None:
 
 
 def test_build_demand_sample_indices() -> None:
-    from solvers.relay_constellation.mclp_teg_contact_plan.src.case_io import DemandWindow
-    from solvers.relay_constellation.mclp_teg_contact_plan.src.mclp import build_demand_sample_indices
-    from solvers.relay_constellation.mclp_teg_contact_plan.src.time_grid import build_time_grid
+    from src.case_io import DemandWindow
+    from src.mclp import build_demand_sample_indices
+    from src.time_grid import build_time_grid
 
     epoch = datetime(2026, 1, 1, 0, 0, 0, tzinfo=timezone.utc)
     # Align to the case's routing_step_s=300 grid
@@ -409,8 +410,8 @@ def test_build_demand_sample_indices() -> None:
 
 
 def test_compute_covered_samples_two_hop_relay() -> None:
-    from solvers.relay_constellation.mclp_teg_contact_plan.src.case_io import DemandWindow
-    from solvers.relay_constellation.mclp_teg_contact_plan.src.mclp import (
+    from src.case_io import DemandWindow
+    from src.mclp import (
         DemandSample,
         _compute_covered_samples,
         build_demand_sample_indices,
@@ -441,7 +442,7 @@ def test_compute_covered_samples_two_hop_relay() -> None:
     #   backbone_1 sees ep_src at sample 0
     #   backbone_1 has ISL to backbone_2 at sample 0
     #   backbone_2 sees ep_dst at sample 0
-    from solvers.relay_constellation.mclp_teg_contact_plan.src.link_cache import LinkRecord
+    from src.link_cache import LinkRecord
 
     link_records = [
         LinkRecord(sample_index=0, node_a="ep_src", node_b="backbone_1", distance_m=1_000_000.0, link_type="ground"),
@@ -459,9 +460,9 @@ def test_compute_covered_samples_two_hop_relay() -> None:
 
 
 def test_greedy_select_marginal_gain() -> None:
-    from solvers.relay_constellation.mclp_teg_contact_plan.src.case_io import DemandWindow
-    from solvers.relay_constellation.mclp_teg_contact_plan.src.mclp import greedy_select
-    from solvers.relay_constellation.mclp_teg_contact_plan.src.link_cache import LinkRecord
+    from src.case_io import DemandWindow
+    from src.mclp import greedy_select
+    from src.link_cache import LinkRecord
 
     epoch = datetime(2026, 1, 1, 0, 0, 0, tzinfo=timezone.utc)
     case = _make_tiny_case(
@@ -481,7 +482,7 @@ def test_greedy_select_marginal_gain() -> None:
 
     # Candidate A: sees both endpoints (direct relay, high marginal gain)
     # Candidate B: sees only source (needs ISL to backbone that sees dest)
-    from solvers.relay_constellation.mclp_teg_contact_plan.src.orbit_library import CandidateSatellite
+    from src.orbit_library import CandidateSatellite
 
     cand_a = CandidateSatellite(
         satellite_id="cand_A",
@@ -520,10 +521,10 @@ def test_greedy_select_marginal_gain() -> None:
 
 
 def test_greedy_select_is_deterministic_with_indexed_scoring() -> None:
-    from solvers.relay_constellation.mclp_teg_contact_plan.src.case_io import DemandWindow
-    from solvers.relay_constellation.mclp_teg_contact_plan.src.link_cache import LinkRecord
-    from solvers.relay_constellation.mclp_teg_contact_plan.src.mclp import greedy_select
-    from solvers.relay_constellation.mclp_teg_contact_plan.src.orbit_library import CandidateSatellite
+    from src.case_io import DemandWindow
+    from src.link_cache import LinkRecord
+    from src.mclp import greedy_select
+    from src.orbit_library import CandidateSatellite
 
     epoch = datetime(2026, 1, 1, 0, 0, 0, tzinfo=timezone.utc)
     case = _make_tiny_case(
@@ -577,8 +578,8 @@ def test_greedy_select_is_deterministic_with_indexed_scoring() -> None:
 
 
 def test_greedy_scheduler_respects_degree_caps() -> None:
-    from solvers.relay_constellation.mclp_teg_contact_plan.src.link_cache import LinkRecord
-    from solvers.relay_constellation.mclp_teg_contact_plan.src.scheduler import greedy_select_links
+    from src.link_cache import LinkRecord
+    from src.scheduler import greedy_select_links
 
     sample_index = 0
     feasible = [
@@ -596,9 +597,9 @@ def test_greedy_scheduler_respects_degree_caps() -> None:
 
 
 def test_route_aware_scheduler_selects_complete_demand_path() -> None:
-    from solvers.relay_constellation.mclp_teg_contact_plan.src.case_io import DemandWindow
-    from solvers.relay_constellation.mclp_teg_contact_plan.src.link_cache import LinkRecord
-    from solvers.relay_constellation.mclp_teg_contact_plan.src.scheduler import route_aware_select_links
+    from src.case_io import DemandWindow
+    from src.link_cache import LinkRecord
+    from src.scheduler import route_aware_select_links
 
     epoch = datetime(2026, 1, 1, 0, 0, 0, tzinfo=timezone.utc)
     demand = DemandWindow(
@@ -636,7 +637,7 @@ def test_route_aware_scheduler_selects_complete_demand_path() -> None:
 
 @pytest.mark.parametrize("gap,expected_runs", [(0, 1), (1, 2)])
 def test_compact_intervals(gap: int, expected_runs: int) -> None:
-    from solvers.relay_constellation.mclp_teg_contact_plan.src.scheduler import compact_intervals
+    from src.scheduler import compact_intervals
 
     epoch = datetime(2026, 1, 1, 0, 0, 0, tzinfo=timezone.utc)
     sample_times = tuple(epoch + timedelta(seconds=i * 60) for i in range(6))
@@ -661,8 +662,8 @@ def test_compact_intervals(gap: int, expected_runs: int) -> None:
 
 
 def test_milp_returns_none_when_too_large() -> None:
-    from solvers.relay_constellation.mclp_teg_contact_plan.src.mclp import milp_select
-    from solvers.relay_constellation.mclp_teg_contact_plan.src.orbit_library import CandidateSatellite
+    from src.mclp import milp_select
+    from src.orbit_library import CandidateSatellite
 
     # Create 30 dummy candidates (> default max_candidates_for_milp=20)
     candidates = tuple(
@@ -686,9 +687,9 @@ def test_milp_returns_none_when_too_large() -> None:
 def test_scheduler_auto_fallback_when_too_large() -> None:
     pytest.importorskip("pulp")
 
-    from solvers.relay_constellation.mclp_teg_contact_plan.src.case_io import DemandWindow
-    from solvers.relay_constellation.mclp_teg_contact_plan.src.scheduler import run_scheduler
-    from solvers.relay_constellation.mclp_teg_contact_plan.src.link_cache import LinkRecord
+    from src.case_io import DemandWindow
+    from src.scheduler import run_scheduler
+    from src.link_cache import LinkRecord
 
     epoch = datetime(2026, 1, 1, 0, 0, 0, tzinfo=timezone.utc)
     case = _make_tiny_case(
@@ -727,13 +728,13 @@ def test_scheduler_auto_fallback_when_too_large() -> None:
 
 
 def test_parallel_matches_sequential() -> None:
-    from solvers.relay_constellation.mclp_teg_contact_plan.src.parallel import (
+    from src.parallel import (
         propagate_satellites_parallel,
         build_link_cache_parallel,
     )
-    from solvers.relay_constellation.mclp_teg_contact_plan.src.propagation import propagate_satellite
-    from solvers.relay_constellation.mclp_teg_contact_plan.src.link_cache import build_link_cache
-    from solvers.relay_constellation.mclp_teg_contact_plan.src.time_grid import build_time_grid
+    from src.propagation import propagate_satellite
+    from src.link_cache import build_link_cache
+    from src.time_grid import build_time_grid
 
     epoch = datetime(2026, 1, 1, 0, 0, 0, tzinfo=timezone.utc)
     sample_times = tuple(epoch + timedelta(seconds=i * 60) for i in range(6))
@@ -758,7 +759,7 @@ def test_parallel_matches_sequential() -> None:
     assert len(timings) == 2
 
     # Link cache equivalence (using the propagated positions)
-    from solvers.relay_constellation.mclp_teg_contact_plan.src.case_io import (
+    from src.case_io import (
         BackboneSatellite, Constraints, GroundEndpoint, Manifest, Network, Case, Demands,
     )
 
@@ -834,8 +835,8 @@ def test_end_to_end_smoke() -> None:
 
 
 def test_default_grid_generates_24_candidates() -> None:
-    from solvers.relay_constellation.mclp_teg_contact_plan.src.case_io import load_case
-    from solvers.relay_constellation.mclp_teg_contact_plan.src.orbit_library import generate_candidates
+    from src.case_io import load_case
+    from src.orbit_library import generate_candidates
 
     if not CASE_0001.exists():
         pytest.skip("Smoke case not available")
@@ -851,8 +852,8 @@ def test_default_grid_generates_24_candidates() -> None:
 
 
 def test_reproduction_config_generates_scaled_candidate_library() -> None:
-    from solvers.relay_constellation.mclp_teg_contact_plan.src.case_io import load_case
-    from solvers.relay_constellation.mclp_teg_contact_plan.src.orbit_library import generate_candidates
+    from src.case_io import load_case
+    from src.orbit_library import generate_candidates
 
     if not CASE_0001.exists():
         pytest.skip("Smoke case not available")

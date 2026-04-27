@@ -8,17 +8,17 @@ import numpy as np
 import pytest
 
 
-REPO_ROOT = Path(__file__).resolve().parents[4]
-sys.path.insert(0, str(REPO_ROOT))
+SOLVER_ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(SOLVER_ROOT))
 
-from solvers.aeossp_standard.greedy_lns.src.candidates import (  # noqa: E402
+from src.candidates import (  # noqa: E402
     Candidate,
     CandidateConfig,
     CandidateSummary,
     generate_candidates,
     start_offsets_for_task,
 )
-from solvers.aeossp_standard.greedy_lns.src.case_io import (  # noqa: E402
+from src.case_io import (  # noqa: E402
     AeosspCase,
     AttitudeModel,
     Mission,
@@ -30,22 +30,22 @@ from solvers.aeossp_standard.greedy_lns.src.case_io import (  # noqa: E402
     load_solver_config,
     parse_iso_z,
 )
-from solvers.aeossp_standard.greedy_lns.src.components import (  # noqa: E402
+from src.components import (  # noqa: E402
     Component,
     build_component_index,
 )
-from solvers.aeossp_standard.greedy_lns.src.geometry import (  # noqa: E402
+from src.geometry import (  # noqa: E402
     action_sample_times,
     angle_between_deg,
     initial_slew_feasible_from_vectors,
     slew_time_s,
 )
-from solvers.aeossp_standard.greedy_lns.src.insertion import (  # noqa: E402
+from src.insertion import (  # noqa: E402
     InsertionConfig,
     InsertionResult,
     greedy_insertion,
 )
-from solvers.aeossp_standard.greedy_lns.src.local_search import (  # noqa: E402
+from src.local_search import (  # noqa: E402
     LocalSearchConfig,
     LocalSearchResult,
     _component_objective_upper_bound,
@@ -55,16 +55,16 @@ from solvers.aeossp_standard.greedy_lns.src.local_search import (  # noqa: E402
     _by_satellite,
     local_search,
 )
-from solvers.aeossp_standard.greedy_lns.src.solution_io import (  # noqa: E402
+from src.solution_io import (  # noqa: E402
     candidates_to_actions,
     write_empty_solution,
 )
-from solvers.aeossp_standard.greedy_lns.src.transition import (  # noqa: E402
+from src.transition import (  # noqa: E402
     TransitionVectorCache,
     transition_gap_conflict,
     transition_result,
 )
-from solvers.aeossp_standard.greedy_lns.src.validation import (  # noqa: E402
+from src.validation import (  # noqa: E402
     BatteryGuardConfig,
     BatteryGuardDecision,
     BatteryTrace,
@@ -74,7 +74,7 @@ from solvers.aeossp_standard.greedy_lns.src.validation import (  # noqa: E402
     evaluate_battery_guard,
     repair_schedule,
 )
-from solvers.aeossp_standard.greedy_lns.src.solve import (  # noqa: E402
+from src.solve import (  # noqa: E402
     BudgetConfig,
     _build_status as build_status_payload,
     _budget_status,
