@@ -233,7 +233,7 @@ def k_shortest_paths(
     while stack and len(unique_paths) < k and visit_budget > 0:
         node, path_nodes, visited = stack.pop()
         visit_budget -= 1
-        if len(path_nodes) > max_hops:
+        if len(path_nodes) - 1 > max_hops:
             continue
         if node == destination and len(path_nodes) > 1:
             p = _path_from_nodes(path_nodes, adjacency)
@@ -478,7 +478,7 @@ def sequential_rounding(
             r = rng.random()
             cumulative = 0.0
             chosen = feasible_paths[-1]
-            for p, pr in zip(feasible_paths, probs):
+            for p, pr in zip(feasible_paths, probs, strict=True):
                 cumulative += pr
                 if r <= cumulative:
                     chosen = p

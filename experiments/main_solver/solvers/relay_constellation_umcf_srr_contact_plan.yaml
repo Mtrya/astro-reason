@@ -3,6 +3,7 @@ benchmark: relay_constellation
 solver: umcf_srr_contact_plan
 solver_path: solvers/relay_constellation/umcf_srr_contact_plan
 evidence_type: reproduced_solver
+method_role: promoted_reproduction
 runnable: true
 setup_script: setup.sh
 solve_script: solve.sh
@@ -41,44 +42,6 @@ config:
     first_last_hop_k: null
     lp_reactualization_policy: once_per_sample
     path_change_penalty: 1.0
-run_policies:
-  smoke:
-    description: CI-safe one-case profile with strided candidate evaluation.
-    cases:
-      - test/case_0001
-    config:
-      profile: smoke
-      compute_envelope:
-        timeout_seconds: 60
-      candidate_selection:
-        evaluation_sample_stride: 20
-      srr:
-        deterministic: true
-        multi_run_count: 1
-        lp_path_cost_epsilon: 0.0
-  reproduction:
-    description: Canonical deterministic UMCF/SRR reproduction envelope.
-    config:
-      profile: reproduction
-  quality:
-    description: Larger candidate and multi-run stochastic envelope for calibration.
-    config:
-      profile: quality
-      candidate_generation:
-        max_candidates: 128
-        altitude_steps: 5
-        inclination_steps: 5
-        raan_steps: 8
-        true_anomaly_steps: 4
-      candidate_selection:
-        evaluation_sample_stride: 5
-      srr:
-        deterministic: false
-        multi_run_count: 5
-        lp_path_cost_epsilon: 1.0e-4
-        lp_path_cost_mode: hop_count
-        first_last_hop_k: null
-        lp_reactualization_policy: once_per_sample
 cases:
   - id: test/case_0001
     case_dir: benchmarks/relay_constellation/dataset/cases/test/case_0001

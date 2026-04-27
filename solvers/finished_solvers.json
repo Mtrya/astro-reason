@@ -49,10 +49,9 @@
     {
       "benchmark": "relay_constellation",
       "solver": "umcf_srr_contact_plan",
-      "path": "solvers/relay_constellation/umcf_srr_contact_plan",
-      "evidence_type": "reproduced_solver",
-      "runnable": true,
-      "ci_smoke": true
+      "repro_ci": false,
+      "repro_ci_reason": "too_expensive",
+      "case_and_fixture_paths": []
     },
     {
       "benchmark": "stereo_imaging",

@@ -190,7 +190,7 @@ def solve_path_restricted_lp(
         commodity.demand_id: [0.0] * len(path_sets.get(commodity.demand_id, []))
         for commodity in instance.commodities
     }
-    for value, (demand_id, path_index) in zip(values, variable_keys):
+    for value, (demand_id, path_index) in zip(values, variable_keys, strict=True):
         if abs(value) <= config.tolerance:
             value = 0.0
         elif abs(value - 1.0) <= config.tolerance:

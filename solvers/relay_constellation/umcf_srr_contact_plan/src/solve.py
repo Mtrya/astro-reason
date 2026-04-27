@@ -165,8 +165,8 @@ def _load_solver_run_config(config_dir: str | Path | None) -> dict[str, Any]:
         if config_path.is_file():
             try:
                 loaded = yaml.safe_load(config_path.read_text(encoding="utf-8")) or {}
-            except Exception:
-                loaded = {}
+            except (OSError, UnicodeDecodeError, yaml.YAMLError) as exc:
+                raise ValueError(f"failed to load config {config_path}: {exc}") from exc
             if not isinstance(loaded, dict):
                 loaded = {}
             raw = loaded
@@ -331,7 +331,7 @@ def _oracle_drift_summary(
     }
     internal_served_weight = 0.0
     internal_assignments = 0
-    for instance, assignments in zip(umcf_instances, sample_assignments):
+    for instance, assignments in zip(umcf_instances, sample_assignments, strict=True):
         internal_assignments += len(assignments)
         for demand_id in assignments:
             internal_served_weight += weight_by_sample_demand.get(
@@ -629,7 +629,7 @@ def solve(
 
     # Rounded path log — one entry per (sample, demand) with chosen path
     rounded_path_log: list[dict[str, Any]] = []
-    for instance, assignments in zip(umcf_instances, srr_result.sample_assignments):
+    for instance, assignments in zip(umcf_instances, srr_result.sample_assignments, strict=True):
         for demand_id, path in assignments.items():
             rounded_path_log.append({
                 "sample_index": instance.sample_index,
@@ -723,7 +723,7 @@ def solve(
             },
             "flow_penalization_epsilon": {
                 "status": "ADAPTED",
-                "note": "Optional LP path-cost epsilon is implemented. Reproduction and quality profiles use hop-count mode with epsilon=1e-4, matching the literature scale while preserving benchmark configurability.",
+                "note": "Optional LP path-cost epsilon is implemented. The promoted reproduction profile uses hop-count mode with epsilon=1e-4, matching the literature scale while preserving benchmark configurability.",
             },
             "multi_time_step_methods": {
                 "status": "MISSING",
