@@ -1,0 +1,20 @@
+name: difficulty_ablation_interactive
+mode: interactive
+
+benchmark: aeossp_standard
+split: test_easy
+case: case_0001
+harnesses:
+  - codex
+  - opencode_dpsk
+
+timeout_seconds: 7200
+
+resources:
+  cpus: 8
+  memory: 32g
+  shm_size: 16g
+
+results:
+  root: results/agent_runs/experiments/difficulty_ablation
+  aggregate_dir: summaries

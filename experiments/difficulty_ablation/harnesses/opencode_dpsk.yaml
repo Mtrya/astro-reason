@@ -1,0 +1,26 @@
+harness: opencode_dpsk
+runtime: base
+
+assemble:
+  - source: experiments/_fragments/configs/opencode_dpsk/opencode
+    target: /home/korolev/.config/opencode
+    example: experiments/_fragments/configs/opencode_dpsk/opencode.example
+  - source: .agents/skills/brahe
+    target: /home/korolev/.config/opencode/skills/brahe
+
+commands:
+  headless_shell_command: >-
+    opencode run --dangerously-skip-permissions "$(cat ~/PROMPT.md)"
+
+collect:
+  - source: /home/korolev/.config/opencode/sessions
+    target: results_root/session_logs/opencode/sessions
+    missing_ok: true
+  - source: /home/korolev/.config/opencode/history.jsonl
+    target: results_root/session_logs/opencode/history.jsonl
+    missing_ok: true
+  - source: /home/korolev/.config/opencode/log
+    target: results_root/session_logs/opencode/log
+    missing_ok: true
+
+forward_env_keys: []

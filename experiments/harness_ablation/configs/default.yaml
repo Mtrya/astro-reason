@@ -1,0 +1,36 @@
+name: harness_ablation
+mode: batch
+
+benchmark: aeossp_standard
+splits:
+  - test
+cases:
+  - case_0001
+  - case_0002
+  - case_0003
+  - case_0004
+  - case_0005
+harnesses:
+  - claude_code_kimi
+  - kimi_cli
+  - opencode_kimi
+
+timeout_seconds: 7200
+
+batch:
+  max_concurrency: 2
+  max_retries: 1
+  skip_completed: true
+  retry_statuses:
+    - runner_error
+    - timeout
+    - agent_failed
+
+resources:
+  cpus: 8
+  memory: 32g
+  shm_size: 16g
+
+results:
+  root: results/agent_runs/experiments/harness_ablation
+  aggregate_dir: summaries

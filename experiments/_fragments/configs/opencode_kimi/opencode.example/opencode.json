@@ -1,0 +1,24 @@
+{
+  "$schema": "https://opencode.ai/config.json",
+  "autoupdate": false,
+  "share": "disabled",
+  "enabled_providers": ["kimi"],
+  "model": "kimi/kimi-for-coding",
+  "small_model": "kimi/kimi-for-coding",
+  "permission": "allow",
+  "provider": {
+    "kimi": {
+      "npm": "@ai-sdk/openai-compatible",
+      "name": "Kimi",
+      "options": {
+        "baseURL": "https://api.kimi.com/coding/v1",
+        "apiKey": "replace_with_your_kimi_api_key"
+      },
+      "models": {
+        "kimi-for-coding": {
+          "name": "kimi-for-coding"
+        }
+      }
+    }
+  }
+}
