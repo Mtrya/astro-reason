@@ -1,0 +1,8 @@
+[project]
+name = "mclp-teg-contact-plan"
+version = "0.1.0"
+description = "MCLP+TEG contact-plan solver for relay_constellation benchmark"
+requires-python = ">=3.11"
+dependencies = [
+    "pulp>=2.8",
+]

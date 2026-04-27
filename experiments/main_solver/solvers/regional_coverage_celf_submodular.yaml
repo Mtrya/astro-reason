@@ -1,0 +1,67 @@
+id: regional_coverage_celf_submodular
+benchmark: regional_coverage
+solver: celf_submodular
+solver_path: solvers/regional_coverage/celf_submodular
+evidence_type: reproduced_solver
+runnable: true
+setup_script: setup.sh
+solve_script: solve.sh
+solution_filename: solution.json
+config:
+  candidate_generation:
+    time_stride_s: 150
+    max_candidates_total: 518400
+    cap_strategy: balanced_stride
+    debug_candidate_limit: 5
+  coverage_mapping:
+    method: indexed
+    spatial_bin_deg: 0.25
+    worker_count: auto
+    chunk_size: 4096
+  selection:
+    schedule_aware: true
+    local_improvement: true
+    local_improvement_max_passes: 12
+    local_improvement_max_candidate_checks: 1500
+    local_improvement_worker_count: auto
+    local_improvement_chunk_size: 16
+    compute_online_bounds: true
+    max_bound_order_debug: 10
+    write_iteration_trace: false
+    max_iteration_debug: 100
+run_policies:
+  quality_probe_stride150_full:
+    description: Strongest verified fixed-candidate CELF envelope.
+    quality_envelope:
+      level: quality_ready
+      status: READY_QUALITY_FAIR
+      claim: faithful benchmark-adapted CELF/CEF reproduction under a meaningful fixed-candidate optimization envelope
+      non_humble_parameters: true
+      scope:
+        - fixed benchmark-adapted strip candidate set
+        - schedule-aware CELF/CEF selection
+        - bounded fixed-candidate local improvement
+        - deterministic parallel coverage mapping and local-improvement evaluation
+        - experiment-owned verifier validation on test/case_0001
+      remaining_limit: quality-ready claim is scoped to the fixed candidate set and test/case_0001; it does not certify continuous-schedule optimality or all regional-coverage cases
+    cases:
+      - test/case_0001
+cases:
+  - id: test/case_0001
+    case_dir: benchmarks/regional_coverage/dataset/cases/test/case_0001
+  - id: test/case_0002
+    case_dir: benchmarks/regional_coverage/dataset/cases/test/case_0002
+  - id: test/case_0003
+    case_dir: benchmarks/regional_coverage/dataset/cases/test/case_0003
+  - id: test/case_0004
+    case_dir: benchmarks/regional_coverage/dataset/cases/test/case_0004
+  - id: test/case_0005
+    case_dir: benchmarks/regional_coverage/dataset/cases/test/case_0005
+verifier:
+  command:
+    - uv
+    - run
+    - python
+    - benchmarks/regional_coverage/verifier.py
+    - "{case_dir}"
+    - "{solution_path}"

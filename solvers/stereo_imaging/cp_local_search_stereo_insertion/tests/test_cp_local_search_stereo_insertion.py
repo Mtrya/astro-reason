@@ -13,7 +13,7 @@ import brahe
 import numpy as np
 import pytest
 
-REPO_ROOT = Path(__file__).resolve().parents[2]
+REPO_ROOT = Path(__file__).resolve().parents[4]
 SOLVER_DIR = REPO_ROOT / "solvers" / "stereo_imaging" / "cp_local_search_stereo_insertion"
 CASE_DIR = REPO_ROOT / "benchmarks" / "stereo_imaging" / "dataset" / "cases" / "test" / "case_0001"
 

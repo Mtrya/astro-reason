@@ -7,6 +7,19 @@ runnable: true
 setup_script: setup.sh
 solve_script: solve.sh
 solution_filename: solution.json
+config:
+  total_time_budget_s: 300
+  candidate_workers: 4
+  restart_count: 8
+  local_search_workers: 4
+  random_seed: 106
+  stochastic_ordering: true
+  enable_exact_reinsertion: true
+  max_exact_component_size: 10
+  exact_subproblem_timeout_s: 0.05
+  enable_battery_guardrails: true
+  battery_guard_min_wh: 0.0
+  max_repair_iterations: 300
 cases:
   - id: test/case_0001
     case_dir: benchmarks/aeossp_standard/dataset/cases/test/case_0001

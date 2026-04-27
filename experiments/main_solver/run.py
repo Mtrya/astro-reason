@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import re
 import shutil
 import subprocess
@@ -22,6 +23,9 @@ DEFAULT_CONFIG = EXPERIMENT_DIR / "config.yaml"
 class Job:
     solver: dict[str, Any]
     case: dict[str, Any]
+    solver_config: dict[str, Any]
+    policy_id: str | None = None
+    policy: dict[str, Any] | None = None
 
     @property
     def benchmark_id(self) -> str:
@@ -53,7 +57,10 @@ def _slug(value: str) -> str:
 
 
 def _result_dir(results_root: Path, job: Job) -> Path:
-    return results_root / job.benchmark_id / job.solver_id / _slug(job.case_id)
+    case_slug = _slug(job.case_id)
+    if job.policy_id:
+        case_slug = f"{case_slug}__{_slug(job.policy_id)}"
+    return results_root / job.benchmark_id / job.solver_id / case_slug
 
 
 def _select_jobs(
@@ -62,6 +69,7 @@ def _select_jobs(
     benchmark_filter: str | None,
     solver_filter: str | None,
     case_filter: str | None,
+    policy_filter: str | None = None,
 ) -> list[Job]:
     solvers = [_load_profile("solvers", name) for name in matrix["solvers"]]
 
@@ -72,7 +80,26 @@ def _select_jobs(
         if solver_filter and solver["id"] != solver_filter:
             continue
 
-        cases = solver.get("cases")
+        base_config = solver.get("config", {})
+        if not isinstance(base_config, dict):
+            raise ValueError(f"solver profile {solver['id']!r} config must be a mapping")
+        policies = solver.get("run_policies") or {}
+        if policy_filter:
+            if not isinstance(policies, dict) or policy_filter not in policies:
+                raise ValueError(
+                    f"solver profile {solver['id']!r} has no run policy {policy_filter!r}"
+                )
+            policy = policies[policy_filter]
+            if not isinstance(policy, dict):
+                raise ValueError(
+                    f"solver profile {solver['id']!r} policy {policy_filter!r} must be a mapping"
+                )
+            cases = _policy_cases(solver, policy)
+            solver_config = _deep_merge(base_config, policy.get("config", {}))
+        else:
+            policy = None
+            cases = solver.get("cases")
+            solver_config = dict(base_config)
         if cases is None and not solver.get("runnable", False):
             metrics_path = solver.get("metrics_path")
             if metrics_path:
@@ -83,8 +110,53 @@ def _select_jobs(
         for case in cases or []:
             if case_filter and case["id"] != case_filter:
                 continue
-            jobs.append(Job(solver=solver, case=case))
+            jobs.append(
+                Job(
+                    solver=solver,
+                    case=case,
+                    solver_config=solver_config,
+                    policy_id=policy_filter,
+                    policy=policy,
+                )
+            )
     return jobs
+
+
+def _deep_merge(base: dict[str, Any], override: dict[str, Any]) -> dict[str, Any]:
+    if not isinstance(override, dict):
+        raise ValueError("policy config must be a mapping")
+    merged = dict(base)
+    for key, value in override.items():
+        if isinstance(value, dict) and isinstance(merged.get(key), dict):
+            merged[key] = _deep_merge(merged[key], value)
+        else:
+            merged[key] = value
+    return merged
+
+
+def _policy_cases(solver: dict[str, Any], policy: dict[str, Any]) -> list[dict[str, Any]] | None:
+    cases = policy.get("cases")
+    if cases is None:
+        return solver.get("cases")
+    if not isinstance(cases, list):
+        raise ValueError(f"solver profile {solver['id']!r} policy cases must be a list")
+    base_cases = solver.get("cases") or []
+    cases_by_id = {case["id"]: case for case in base_cases}
+    selected: list[dict[str, Any]] = []
+    for item in cases:
+        if isinstance(item, str):
+            if item not in cases_by_id:
+                raise ValueError(
+                    f"solver profile {solver['id']!r} policy references unknown case {item!r}"
+                )
+            selected.append(cases_by_id[item])
+        elif isinstance(item, dict):
+            selected.append(item)
+        else:
+            raise ValueError(
+                f"solver profile {solver['id']!r} policy cases must contain strings or mappings"
+            )
+    return selected
 
 
 def _run_command(
@@ -93,6 +165,7 @@ def _run_command(
     cwd: Path,
     stdout_path: Path,
     stderr_path: Path,
+    env: dict[str, str] | None = None,
     timeout_seconds: float | None = None,
 ) -> dict[str, Any]:
     stdout_path.parent.mkdir(parents=True, exist_ok=True)
@@ -103,6 +176,7 @@ def _run_command(
                 completed = subprocess.run(
                     command,
                     cwd=cwd,
+                    env=env,
                     stdout=stdout_obj,
                     stderr=stderr_obj,
                     check=False,
@@ -133,6 +207,25 @@ def _script_command(solver_path: Path, script_path: Path) -> str:
     return f"./{script_path.relative_to(solver_path).as_posix()}"
 
 
+def _read_solver_env_file(solver_path: Path) -> dict[str, str]:
+    env_path = solver_path / ".solver-env"
+    if not env_path.exists():
+        return {}
+
+    values: dict[str, str] = {}
+    for line_number, raw_line in enumerate(env_path.read_text(encoding="utf-8").splitlines(), start=1):
+        line = raw_line.strip()
+        if not line or line.startswith("#"):
+            continue
+        if "=" not in line:
+            raise ValueError(f"malformed solver env line {line_number} in {env_path}")
+        key, value = line.split("=", 1)
+        if not re.fullmatch(r"SOLVER_[A-Z0-9_]*", key):
+            raise ValueError(f"unsupported solver env key {key!r} in {env_path}")
+        values[key] = value
+    return values
+
+
 def _run_setup(
     solver: dict[str, Any],
     *,
@@ -153,6 +246,11 @@ def _run_setup(
         stderr_path=log_dir / "setup.stderr.log",
         timeout_seconds=solver.get("timeout_seconds"),
     )
+    if result["returncode"] == 0:
+        solver_env = _read_solver_env_file(solver_path)
+        if solver_env:
+            result["solver_env_file"] = str(solver_path / ".solver-env")
+            result["solver_env"] = solver_env
     setup_cache[solver_id] = result
     return result
 
@@ -207,20 +305,41 @@ def _parse_json_verifier(stdout: str, returncode: int) -> dict[str, Any]:
         }
     valid = payload.get("valid")
     if not isinstance(valid, bool):
+        valid = payload.get("is_valid")
+    if not isinstance(valid, bool):
         return {
             "status": "error",
             "valid": None,
             "returncode": returncode,
-            "parse_error": "JSON verifier report must contain boolean key 'valid'",
+            "parse_error": "JSON verifier report must contain boolean key 'valid' or 'is_valid'",
             "report": payload,
         }
+    diagnostics = payload.get("diagnostics", {})
+    if not isinstance(diagnostics, dict):
+        diagnostics = {}
+    if "warnings" in payload:
+        existing_warnings = diagnostics.get("warnings", [])
+        if not isinstance(existing_warnings, list):
+            existing_warnings = [existing_warnings]
+        payload_warnings = payload.get("warnings", [])
+        if not isinstance(payload_warnings, list):
+            payload_warnings = [payload_warnings]
+        diagnostics = {
+            **diagnostics,
+            "warnings": [*existing_warnings, *payload_warnings],
+        }
+    violations = (
+        payload["violations"]
+        if "violations" in payload and payload["violations"] is not None
+        else payload.get("errors", [])
+    )
     return {
         "status": "valid" if valid else "invalid",
         "valid": valid,
         "returncode": returncode,
         "metrics": payload.get("metrics", {}),
-        "violations": payload.get("violations", []),
-        "diagnostics": payload.get("diagnostics", {}),
+        "violations": violations,
+        "diagnostics": diagnostics,
         "report": payload,
     }
 
@@ -247,7 +366,13 @@ def _verify_solution(job: Job, solution_path: Path, *, log_dir: Path) -> dict[st
     stdout = (log_dir / "verifier.stdout.log").read_text(encoding="utf-8")
     if job.benchmark_id == "spot5":
         parsed = _parse_spot5_verifier(stdout, run["returncode"])
-    elif job.benchmark_id in {"aeossp_standard", "relay_constellation", "stereo_imaging"}:
+    elif job.benchmark_id in (
+        "aeossp_standard",
+        "relay_constellation",
+        "stereo_imaging",
+        "revisit_constellation",
+        "regional_coverage",
+    ):
         parsed = _parse_json_verifier(stdout, run["returncode"])
     else:
         parsed = {
@@ -278,6 +403,16 @@ def _read_solver_status(path: Path) -> dict[str, Any]:
     return status
 
 
+def _policy_metadata(policy: dict[str, Any] | None) -> dict[str, Any] | None:
+    if policy is None:
+        return None
+    return {
+        key: value
+        for key, value in policy.items()
+        if key not in {"config", "cases"}
+    }
+
+
 def _run_runnable_job(
     job: Job,
     *,
@@ -293,7 +428,10 @@ def _run_runnable_job(
     config_dir.mkdir(parents=True, exist_ok=True)
     solution_dir.mkdir(parents=True, exist_ok=True)
     log_dir.mkdir(parents=True, exist_ok=True)
-    (config_dir / "config.yaml").write_text("{}\n", encoding="utf-8")
+    (config_dir / "config.yaml").write_text(
+        yaml.safe_dump(job.solver_config, sort_keys=True),
+        encoding="utf-8",
+    )
 
     setup = _run_setup(job.solver, results_root=results_root, setup_cache=setup_cache)
     payload: dict[str, Any] = {
@@ -304,6 +442,9 @@ def _run_runnable_job(
         "evidence_type": job.solver["evidence_type"],
         "runnable": True,
         "setup": setup,
+        "run_policy": job.policy_id,
+        "run_policy_metadata": _policy_metadata(job.policy),
+        "solver_config": job.solver_config,
         "solution_dir": str(solution_dir),
     }
     if setup.get("timeout"):
@@ -317,6 +458,8 @@ def _run_runnable_job(
 
     solver_path = REPO_ROOT / job.solver["solver_path"]
     solve_script = solver_path / job.solver.get("solve_script", "solve.sh")
+    solve_env = os.environ.copy()
+    solve_env.update(setup.get("solver_env", {}))
     solve = _run_command(
         [
             _script_command(solver_path, solve_script),
@@ -327,6 +470,7 @@ def _run_runnable_job(
         cwd=solver_path,
         stdout_path=log_dir / "solve.stdout.log",
         stderr_path=log_dir / "solve.stderr.log",
+        env=solve_env,
         timeout_seconds=job.solver.get("timeout_seconds"),
     )
     payload["solve"] = solve
@@ -394,6 +538,7 @@ def main() -> int:
     parser.add_argument("--benchmark")
     parser.add_argument("--solver")
     parser.add_argument("--case")
+    parser.add_argument("--policy", help="Optional solver profile run policy")
     parser.add_argument("--dry-run", action="store_true")
     args = parser.parse_args()
 
@@ -404,11 +549,13 @@ def main() -> int:
         benchmark_filter=args.benchmark,
         solver_filter=args.solver,
         case_filter=args.case,
+        policy_filter=args.policy,
     )
 
     if args.dry_run:
         for job in jobs:
-            print(f"{job.benchmark_id} {job.solver_id} {job.case_id}")
+            policy = f" policy={job.policy_id}" if job.policy_id else ""
+            print(f"{job.benchmark_id} {job.solver_id} {job.case_id}{policy}")
         print(f"{len(jobs)} job(s)")
         return 0
 

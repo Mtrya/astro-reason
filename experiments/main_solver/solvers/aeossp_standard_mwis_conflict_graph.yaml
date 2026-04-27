@@ -7,6 +7,17 @@ runnable: true
 setup_script: setup.sh
 solve_script: solve.sh
 solution_filename: solution.json
+config:
+  total_time_budget_s: 300
+  candidate_workers: 8
+  graph_workers: 8
+  backend: internal_reduction
+  max_exact_component_size: 24
+  max_local_passes: 16
+  population_size: 8
+  recombination_rounds: 24
+  max_repair_iterations: 300
+  enable_incremental_repair: true
 cases:
   - id: test/case_0001
     case_dir: benchmarks/aeossp_standard/dataset/cases/test/case_0001

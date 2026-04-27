@@ -192,6 +192,12 @@ uv run python experiments/main_solver/run.py \
   --case test/case_0001
 ```
 
+Solver-local tests:
+
+```bash
+./solvers/stereo_imaging/cp_local_search_stereo_insertion/test.sh
+```
+
 Aggregate experiment results:
 
 ```bash

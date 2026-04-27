@@ -27,28 +27,102 @@ class PropagationContext:
         }
         self._eci_cache: dict[tuple[str, datetime], np.ndarray] = {}
         self._ecef_cache: dict[tuple[str, datetime], np.ndarray] = {}
+        self._target_ecef_cache: dict[str, np.ndarray] = {}
+        self._target_eci_cache: dict[tuple[str, datetime], np.ndarray] = {}
+        self._target_vector_cache: dict[tuple[str, str, datetime], np.ndarray] = {}
+        self._cache_stats = {
+            "state_eci_hits": 0,
+            "state_eci_misses": 0,
+            "state_ecef_hits": 0,
+            "state_ecef_misses": 0,
+            "target_ecef_hits": 0,
+            "target_ecef_misses": 0,
+            "target_eci_hits": 0,
+            "target_eci_misses": 0,
+            "target_vector_eci_hits": 0,
+            "target_vector_eci_misses": 0,
+        }
 
     def state_eci(self, satellite_id: str, instant: datetime) -> np.ndarray:
         key = (satellite_id, instant.astimezone(UTC))
         state = self._eci_cache.get(key)
-        if state is None:
-            state = np.asarray(
-                self.propagators[satellite_id].state_eci(datetime_to_epoch(key[1])),
-                dtype=float,
-            ).reshape(6)
-            self._eci_cache[key] = state
+        if state is not None:
+            self._cache_stats["state_eci_hits"] += 1
+            return state
+        self._cache_stats["state_eci_misses"] += 1
+        state = np.asarray(
+            self.propagators[satellite_id].state_eci(datetime_to_epoch(key[1])),
+            dtype=float,
+        ).reshape(6)
+        self._eci_cache[key] = state
         return state
 
     def state_ecef(self, satellite_id: str, instant: datetime) -> np.ndarray:
         key = (satellite_id, instant.astimezone(UTC))
         state = self._ecef_cache.get(key)
-        if state is None:
-            state = np.asarray(
-                self.propagators[satellite_id].state_ecef(datetime_to_epoch(key[1])),
-                dtype=float,
-            ).reshape(6)
-            self._ecef_cache[key] = state
+        if state is not None:
+            self._cache_stats["state_ecef_hits"] += 1
+            return state
+        self._cache_stats["state_ecef_misses"] += 1
+        state = np.asarray(
+            self.propagators[satellite_id].state_ecef(datetime_to_epoch(key[1])),
+            dtype=float,
+        ).reshape(6)
+        self._ecef_cache[key] = state
         return state
+
+    def target_ecef_array(self, task: Task) -> np.ndarray:
+        target = self._target_ecef_cache.get(task.task_id)
+        if target is not None:
+            self._cache_stats["target_ecef_hits"] += 1
+            return target
+        self._cache_stats["target_ecef_misses"] += 1
+        target = np.asarray(task.target_ecef_m, dtype=float)
+        self._target_ecef_cache[task.task_id] = target
+        return target
+
+    def target_eci(self, task: Task, instant: datetime) -> np.ndarray:
+        key = (task.task_id, instant.astimezone(UTC))
+        target = self._target_eci_cache.get(key)
+        if target is not None:
+            self._cache_stats["target_eci_hits"] += 1
+            return target
+        self._cache_stats["target_eci_misses"] += 1
+        target = np.asarray(
+            brahe.position_ecef_to_eci(
+                datetime_to_epoch(key[1]),
+                self.target_ecef_array(task),
+            ),
+            dtype=float,
+        ).reshape(3)
+        self._target_eci_cache[key] = target
+        return target
+
+    def target_vector_eci(
+        self,
+        task: Task,
+        satellite_id: str,
+        instant: datetime,
+    ) -> np.ndarray:
+        key = (satellite_id, task.task_id, instant.astimezone(UTC))
+        vector = self._target_vector_cache.get(key)
+        if vector is not None:
+            self._cache_stats["target_vector_eci_hits"] += 1
+            return vector
+        self._cache_stats["target_vector_eci_misses"] += 1
+        vector = self.target_eci(task, key[2]) - self.state_eci(satellite_id, key[2])[:3]
+        self._target_vector_cache[key] = vector
+        return vector
+
+    def cache_summary(self) -> dict[str, int]:
+        return {
+            **self._cache_stats,
+            "state_eci_entries": len(self._eci_cache),
+            "state_ecef_entries": len(self._ecef_cache),
+            "target_ecef_entries": len(self._target_ecef_cache),
+            "target_eci_entries": len(self._target_eci_cache),
+            "target_vector_eci_entries": len(self._target_vector_cache),
+        }
 
 
 def ensure_brahe_ready() -> None:
@@ -157,13 +231,7 @@ def target_vector_eci(
     satellite_id: str,
     instant: datetime,
 ) -> np.ndarray:
-    epoch = datetime_to_epoch(instant)
-    target_eci = np.asarray(
-        brahe.position_ecef_to_eci(epoch, np.asarray(task.target_ecef_m, dtype=float)),
-        dtype=float,
-    ).reshape(3)
-    sat_state_eci = propagation.state_eci(satellite_id, instant)
-    return target_eci - sat_state_eci[:3]
+    return propagation.target_vector_eci(task, satellite_id, instant)
 
 
 def off_nadir_deg(
@@ -196,7 +264,7 @@ def observation_geometry_valid(
     start_time: datetime,
     end_time: datetime,
 ) -> bool:
-    target_ecef_m = np.asarray(task.target_ecef_m, dtype=float)
+    target_ecef_m = propagation.target_ecef_array(task)
     for sample_time in action_sample_times(mission, start_time, end_time):
         sat_pos_ecef = propagation.state_ecef(satellite.satellite_id, sample_time)[:3]
         if not target_visible(sat_pos_ecef, target_ecef_m):

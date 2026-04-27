@@ -1,0 +1,55 @@
+id: relay_constellation_mclp_teg_contact_plan
+benchmark: relay_constellation
+solver: mclp_teg_contact_plan
+solver_path: solvers/relay_constellation/mclp_teg_contact_plan
+evidence_type: reproduced_solver
+method_role: promoted_reproduction
+runnable: true
+setup_script: setup.sh
+solve_script: solve.sh
+solution_filename: solution.json
+config:
+  profile: reproduction
+  profile_version: "1"
+  profile_envelope: reproduction
+  profile_description: Benchmark-adapted Rogers MCLP plus Gerard TEG reproduction profile.
+  budget_policy: informational
+  mclp_mode: auto
+  scheduler_mode: route_aware
+  parallel_mode: auto
+  max_parallel_workers: 6
+  time_budget_s: 900
+  orbit_grid:
+    altitude_step_m: 250000.0
+    inclination_step_deg: 15.0
+    num_raan_planes: 4
+    num_phase_slots: 3
+  mclp_milp_config:
+    max_candidates_for_milp: 80
+    max_added_for_milp: 10
+    time_limit_seconds: 120.0
+  milp_config:
+    max_total_variables: 5000
+    max_samples: 500
+    milp_time_limit_per_sample: 5.0
+    auto_fallback_strategy: route_aware
+cases:
+  - id: test/case_0001
+    case_dir: benchmarks/relay_constellation/dataset/cases/test/case_0001
+  - id: test/case_0002
+    case_dir: benchmarks/relay_constellation/dataset/cases/test/case_0002
+  - id: test/case_0003
+    case_dir: benchmarks/relay_constellation/dataset/cases/test/case_0003
+  - id: test/case_0004
+    case_dir: benchmarks/relay_constellation/dataset/cases/test/case_0004
+  - id: test/case_0005
+    case_dir: benchmarks/relay_constellation/dataset/cases/test/case_0005
+verifier:
+  command:
+    - uv
+    - run
+    - python
+    - -m
+    - benchmarks.relay_constellation.verifier.run
+    - "{case_dir}"
+    - "{solution_path}"
