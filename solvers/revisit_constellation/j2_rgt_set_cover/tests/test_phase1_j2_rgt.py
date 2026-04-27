@@ -33,6 +33,7 @@ from src.rgt import (
     SIDEREAL_DAY_SEC,
     RgtSearchConfig,
     analytical_brouwer_closure_score,
+    brouwer_j2_state_eci,
     circular_state_eci,
     closure_score_from_geocentric,
     enumerate_seeds,
@@ -586,7 +587,7 @@ def test_equal_phasing_produces_expected_spacing_for_repeat_periods() -> None:
             candidate_to_targets={one_day_candidate.candidate_id: ["t1"]},
         ),
     )
-    one_day_satellites = generate_phased_satellites(one_day_selection)
+    one_day_satellites = generate_phased_satellites(one_day_case, one_day_selection)
 
     assert [satellite.phase_offset_sec for satellite in one_day_satellites] == [
         0.0,
@@ -603,11 +604,55 @@ def test_equal_phasing_produces_expected_spacing_for_repeat_periods() -> None:
             candidate_to_targets={two_day_candidate.candidate_id: ["t1"]},
         ),
     )
-    two_day_satellites = generate_phased_satellites(two_day_selection)
+    two_day_satellites = generate_phased_satellites(two_day_case, two_day_selection)
 
     assert len(two_day_satellites) == 6
     assert two_day_satellites[1].phase_offset_sec == pytest.approx(8.0 * 3600.0)
     assert two_day_satellites[-1].phase_offset_sec == pytest.approx(40.0 * 3600.0)
+
+
+def test_equal_phasing_uses_rotating_frame_time_shift() -> None:
+    case = _synthetic_case(["t1"], revisit_hours=8.0, max_num_satellites=12)
+    candidate = _synthetic_candidate("candidate", repeat_hours=24.0)
+    selection = select_candidates(
+        case,
+        _synthetic_coverage(
+            candidates=[candidate],
+            candidate_to_targets={candidate.candidate_id: ["t1"]},
+        ),
+    )
+    satellite = generate_phased_satellites(case, selection)[1]
+    future_epoch = datetime_to_epoch(
+        case.horizon_start + timedelta(seconds=satellite.phase_offset_sec)
+    )
+    start_epoch = datetime_to_epoch(case.horizon_start)
+    future_base_state = np.asarray(
+        brouwer_j2_state_eci(
+            candidate.semi_major_axis_m,
+            candidate.inclination_deg,
+            eccentricity=candidate.eccentricity,
+            raan_deg=candidate.raan_deg,
+            argument_of_perigee_deg=candidate.argument_of_perigee_deg,
+            mean_anomaly_deg=candidate.mean_anomaly_deg,
+            duration_sec=satellite.phase_offset_sec,
+        ),
+        dtype=float,
+    )
+
+    expected_ecef = np.asarray(
+        brahe.state_eci_to_ecef(future_epoch, future_base_state),
+        dtype=float,
+    )
+    actual_ecef = np.asarray(
+        brahe.state_eci_to_ecef(
+            start_epoch,
+            np.asarray(satellite.state_eci_m_mps, dtype=float),
+        ),
+        dtype=float,
+    )
+
+    assert np.allclose(actual_ecef[:3], expected_ecef[:3], atol=1e-6)
+    assert np.allclose(actual_ecef[3:], expected_ecef[3:], atol=1e-6)
 
 
 def test_generated_satellite_states_are_unique_and_within_bounds() -> None:
@@ -621,7 +666,7 @@ def test_generated_satellite_states_are_unique_and_within_bounds() -> None:
         ),
     )
 
-    satellites = generate_phased_satellites(selection)
+    satellites = generate_phased_satellites(case, selection)
 
     positions = {
         tuple(round(value, 3) for value in satellite.state_eci_m_mps[:3])
@@ -644,7 +689,7 @@ def test_gap_aware_action_selection_improves_with_phased_opportunities() -> None
             candidate_to_targets={candidate.candidate_id: ["t1"]},
         ),
     )
-    satellites = generate_phased_satellites(selection)
+    satellites = generate_phased_satellites(case, selection)
     opportunities = [
         ObservationAction(
             action_type="observation",
@@ -679,7 +724,7 @@ def test_action_builder_avoids_same_satellite_overlap() -> None:
             candidate_to_targets={candidate.candidate_id: ["t1", "t2"]},
         ),
     )
-    satellite = generate_phased_satellites(selection)[0]
+    satellite = generate_phased_satellites(case, selection)[0]
     opportunities = [
         ObservationAction(
             action_type="observation",
@@ -722,7 +767,7 @@ def test_local_validation_catches_overlap_and_visibility_failures() -> None:
             candidate_to_targets={candidate.candidate_id: ["t1"]},
         ),
     )
-    satellite = generate_phased_satellites(selection)[0]
+    satellite = generate_phased_satellites(case, selection)[0]
     first = ObservationAction(
         action_type="observation",
         satellite_id=satellite.satellite_id,
@@ -830,6 +875,7 @@ def test_solve_sh_writes_phase4_status_solution_and_debug(tmp_path: Path) -> Non
                 "  worker_count: 1",
                 "scheduling:",
                 "  observation_duration_sec: 60.0",
+                "  opportunity_sample_step_sec: 300.0",
                 "  min_gap_improvement_sec: 60.0",
                 "  validation_sample_step_sec: 10.0",
                 "  max_actions: 100",

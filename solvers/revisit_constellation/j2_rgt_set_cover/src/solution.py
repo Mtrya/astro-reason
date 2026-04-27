@@ -28,6 +28,7 @@ NUMERICAL_EPS = 1.0e-9
 @dataclass(frozen=True, slots=True)
 class SchedulingConfig:
     observation_duration_sec: float = 30.0
+    opportunity_sample_step_sec: float = 60.0
     min_gap_improvement_sec: float = 60.0
     validation_sample_step_sec: float = 10.0
     max_actions: int = 3000
@@ -42,6 +43,12 @@ class SchedulingConfig:
             observation_duration_sec=float(
                 raw.get("observation_duration_sec", defaults.observation_duration_sec)
             ),
+            opportunity_sample_step_sec=float(
+                raw.get(
+                    "opportunity_sample_step_sec",
+                    defaults.opportunity_sample_step_sec,
+                )
+            ),
             min_gap_improvement_sec=float(
                 raw.get("min_gap_improvement_sec", defaults.min_gap_improvement_sec)
             ),
@@ -54,6 +61,7 @@ class SchedulingConfig:
     def as_dict(self) -> dict[str, Any]:
         return {
             "observation_duration_sec": self.observation_duration_sec,
+            "opportunity_sample_step_sec": self.opportunity_sample_step_sec,
             "min_gap_improvement_sec": self.min_gap_improvement_sec,
             "validation_sample_step_sec": self.validation_sample_step_sec,
             "max_actions": self.max_actions,
@@ -223,17 +231,56 @@ def _candidate_state_with_mean_anomaly(
     )
 
 
-def generate_phased_satellites(selection: SelectionSummary) -> list[SatellitePlan]:
+def _ground_track_phased_state(
+    selected: SelectedCandidate,
+    *,
+    mission_start: datetime,
+    mission_offset_sec: float,
+    phase_offset_sec: float,
+) -> tuple[float, float, float, float, float, float]:
+    """Return a state whose Earth-fixed ground track is shifted in time.
+
+    Equal revisit phasing is a repeat-cycle phase in the rotating frame, not an
+    equal true/mean anomaly train in one inertial plane.  We therefore sample
+    the base candidate at ``t + phase_offset`` in ECI, convert that state into
+    ECEF at its own epoch, then reinterpret the same rotating-frame state at
+    epoch ``t``.
+    """
+
+    source_offset = mission_offset_sec + phase_offset_sec
+    source_epoch = datetime_to_epoch(mission_start + timedelta(seconds=source_offset))
+    target_epoch = datetime_to_epoch(mission_start + timedelta(seconds=mission_offset_sec))
+    source_state_eci = np.asarray(
+        _candidate_state_with_mean_anomaly(
+            selected,
+            selected.candidate.mean_anomaly_deg,
+            source_offset,
+        ),
+        dtype=float,
+    )
+    source_state_ecef = np.asarray(
+        brahe.state_eci_to_ecef(source_epoch, source_state_eci),
+        dtype=float,
+    )
+    target_state_eci = np.asarray(
+        brahe.state_ecef_to_eci(target_epoch, source_state_ecef),
+        dtype=float,
+    )
+    return tuple(float(value) for value in target_state_eci)
+
+
+def generate_phased_satellites(
+    case: RevisitCase,
+    selection: SelectionSummary,
+) -> list[SatellitePlan]:
     satellites: list[SatellitePlan] = []
     for candidate_index, selected in enumerate(selection.selected_candidates):
         phase_count = selected.required_satellites
         if phase_count <= 0:
             continue
         for phase_index in range(phase_count):
-            mean_anomaly_deg = _phase_mean_anomaly(
-                selected.candidate.mean_anomaly_deg,
-                phase_index,
-                phase_count,
+            phase_offset_sec = (
+                selected.candidate.repeat_period_sec * phase_index / phase_count
             )
             satellites.append(
                 SatellitePlan(
@@ -242,16 +289,17 @@ def generate_phased_satellites(selection: SelectionSummary) -> list[SatellitePla
                     template_id=selected.candidate.template_id,
                     phase_index=phase_index,
                     phase_count=phase_count,
-                    phase_offset_sec=(
-                        selected.candidate.repeat_period_sec
-                        * phase_index
-                        / phase_count
+                    phase_offset_sec=phase_offset_sec,
+                    mean_anomaly_deg=_phase_mean_anomaly(
+                        selected.candidate.mean_anomaly_deg,
+                        phase_index,
+                        phase_count,
                     ),
-                    mean_anomaly_deg=mean_anomaly_deg,
-                    state_eci_m_mps=_candidate_state_with_mean_anomaly(
+                    state_eci_m_mps=_ground_track_phased_state(
                         selected,
-                        mean_anomaly_deg,
-                        0.0,
+                        mission_start=case.horizon_start,
+                        mission_offset_sec=0.0,
+                        phase_offset_sec=phase_offset_sec,
                     ),
                 )
             )
@@ -274,6 +322,7 @@ def _sample_offsets(start: datetime, end: datetime, step_sec: float) -> list[flo
 
 
 def satellite_state_at(
+    case: RevisitCase,
     selection: SelectionSummary,
     satellite: SatellitePlan,
     offset_sec: float,
@@ -281,10 +330,11 @@ def satellite_state_at(
     selected_by_candidate = {
         item.candidate.candidate_id: item for item in selection.selected_candidates
     }
-    return _candidate_state_with_mean_anomaly(
+    return _ground_track_phased_state(
         selected_by_candidate[satellite.candidate_id],
-        satellite.mean_anomaly_deg,
-        offset_sec,
+        mission_start=case.horizon_start,
+        mission_offset_sec=offset_sec,
+        phase_offset_sec=satellite.phase_offset_sec,
     )
 
 
@@ -301,7 +351,7 @@ def _action_geometry_valid(
     for sample_offset in _sample_offsets(start, end, sample_step_sec):
         instant = start + timedelta(seconds=sample_offset)
         mission_offset = (instant - case.horizon_start).total_seconds()
-        state = satellite_state_at(selection, satellite, mission_offset)
+        state = satellite_state_at(case, selection, satellite, mission_offset)
         sample = geometry_sample_from_state(
             case=case,
             target=target,
@@ -352,7 +402,7 @@ def build_opportunities(
 
     opportunities: list[ObservationAction] = []
     considered = 0
-    sample_step_sec = coverage.config.sample_step_sec
+    sample_step_sec = config.opportunity_sample_step_sec
     sample_offsets = []
     current_offset = 0.0
     while current_offset <= horizon_sec + NUMERICAL_EPS:
@@ -368,7 +418,7 @@ def build_opportunities(
                 samples = []
                 for offset in sample_offsets:
                     instant = case.horizon_start + timedelta(seconds=offset)
-                    state = satellite_state_at(selection, satellite, offset)
+                    state = satellite_state_at(case, selection, satellite, offset)
                     samples.append(
                         geometry_sample_from_state(
                             case=case,
@@ -457,7 +507,7 @@ def _target_vector_eci(
     instant: datetime,
 ) -> np.ndarray:
     mission_offset = (instant - case.horizon_start).total_seconds()
-    state = np.asarray(satellite_state_at(selection, satellite, mission_offset))
+    state = np.asarray(satellite_state_at(case, selection, satellite, mission_offset))
     target_eci = np.asarray(
         brahe.position_ecef_to_eci(
             datetime_to_epoch(instant),
@@ -782,7 +832,7 @@ def build_solution(
     selection: SelectionSummary,
     config: SchedulingConfig,
 ) -> SolutionBuildSummary:
-    satellites = generate_phased_satellites(selection)
+    satellites = generate_phased_satellites(case, selection)
     opportunities, considered = build_opportunities(
         case=case,
         coverage=coverage,
