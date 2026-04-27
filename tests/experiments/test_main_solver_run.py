@@ -7,7 +7,7 @@ from pathlib import Path
 REPO_ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(REPO_ROOT))
 
-from experiments.main_solver.aggregate import _revisit_metric, _rows
+from experiments.main_solver.aggregate import _rows
 from experiments.main_solver.run import Job, _parse_json_verifier, _result_dir
 
 
@@ -62,30 +62,6 @@ def test_parse_json_verifier_merges_warnings_and_falls_back_from_null_violations
         "warnings": ["diagnostic", "top-level"],
         "note": "kept",
     }
-
-
-def test_revisit_aggregation_prefers_verifier_primary_metric() -> None:
-    payload = {
-        "verifier": {
-            "metrics": {
-                "capped_max_revisit_gap_hours": 9.5,
-                "target_gap_summary": {
-                    "target-a": {
-                        "max_revisit_gap_hours": 20.0,
-                        "expected_revisit_period_hours": 8.0,
-                    }
-                },
-            }
-        }
-    }
-
-    assert _revisit_metric(payload, "capped_max_revisit_gap_hours") == 9.5
-
-
-def test_revisit_aggregation_handles_empty_target_rows() -> None:
-    payload = {"verifier": {"metrics": {"target_gap_summary": {"bad": None}}}}
-
-    assert _revisit_metric(payload, "max_revisit_gap_hours") == 0.0
 
 
 def test_parse_json_verifier_rejects_missing_valid() -> None:
@@ -169,16 +145,16 @@ def test_parse_json_verifier_records_coverage_metrics() -> None:
 def test_aggregate_rows_include_coverage_metrics(tmp_path: Path) -> None:
     run_dir = (
         tmp_path
-        / "example_benchmark"
-        / "example_solver"
+        / "regional_coverage"
+        / "regional_coverage_cp_local_search"
         / "suite__case_001"
     )
     run_dir.mkdir(parents=True)
     (run_dir / "run.json").write_text(
         json.dumps(
             {
-                "benchmark": "example_benchmark",
-                "solver": "example_solver",
+                "benchmark": "regional_coverage",
+                "solver": "regional_coverage_cp_local_search",
                 "case_id": "suite/case_001",
                 "status": "verified",
                 "evidence_type": "reproduced_solver",
@@ -203,3 +179,57 @@ def test_aggregate_rows_include_coverage_metrics(tmp_path: Path) -> None:
     assert rows[0]["weighted_coverage_ratio"] == 0.2
     assert rows[0]["num_actions"] == 3
     assert rows[0]["min_battery_wh"] == 12.5
+    assert rows[0]["verifier_metrics_json"] == (
+        '{"coverage_ratio":0.25,"min_battery_wh":12.5,'
+        '"num_actions":3,"weighted_coverage_ratio":0.2}'
+    )
+
+
+def test_aggregate_rows_project_revisit_metrics_from_declared_paths(tmp_path: Path) -> None:
+    run_dir = (
+        tmp_path
+        / "revisit_constellation"
+        / "revisit_constellation_rgt_apc_gap_constructive"
+        / "test__case_0001"
+    )
+    run_dir.mkdir(parents=True)
+    (run_dir / "run.json").write_text(
+        json.dumps(
+            {
+                "benchmark": "revisit_constellation",
+                "solver": "revisit_constellation_rgt_apc_gap_constructive",
+                "case_id": "test/case_0001",
+                "status": "verified",
+                "evidence_type": "reproduced_solver",
+                "runnable": True,
+                "verifier": {
+                    "valid": True,
+                    "metrics": {
+                        "num_satellites": 4,
+                        "capped_max_revisit_gap_hours": 9.5,
+                        "worst_target_capped_max_revisit_gap_hours": 12.0,
+                        "max_revisit_gap_hours": 11.0,
+                        "mean_revisit_gap_hours": 7.25,
+                        "threshold_violation_count": 2,
+                    },
+                },
+                "solver_status": {
+                    "baseline_evidence": {
+                        "counts": {
+                            "selected_satellite_count": 4,
+                            "action_count": 12,
+                        }
+                    }
+                },
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    rows = _rows(tmp_path)
+
+    assert rows[0]["num_satellites"] == 4
+    assert rows[0]["capped_max_revisit_gap_hours"] == 9.5
+    assert rows[0]["worst_target_capped_max_revisit_gap_hours"] == 12.0
+    assert rows[0]["threshold_violation_count"] == 2
+    assert rows[0]["selected_satellite_count"] == 4

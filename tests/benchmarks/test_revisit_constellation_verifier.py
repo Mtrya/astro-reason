@@ -763,6 +763,10 @@ def test_compute_metrics_zero_observations() -> None:
     metrics = _compute_metrics(instance, [], satellite_count=1)
 
     assert metrics["capped_max_revisit_gap_hours"] == pytest.approx(1.0)
+    assert metrics["worst_target_capped_max_revisit_gap_hours"] == pytest.approx(1.0)
+    assert metrics["max_revisit_gap_hours"] == pytest.approx(1.0)
+    assert metrics["mean_revisit_gap_hours"] == pytest.approx(1.0)
+    assert metrics["threshold_violation_count"] == 1
     assert metrics["num_satellites"] == 1
     assert metrics["target_gap_summary"]["t1"]["max_revisit_gap_hours"] == pytest.approx(1.0)
     assert metrics["target_gap_summary"]["t1"]["mean_revisit_gap_hours"] == pytest.approx(1.0)

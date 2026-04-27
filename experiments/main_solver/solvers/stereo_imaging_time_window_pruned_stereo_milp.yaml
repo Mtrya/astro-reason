@@ -7,6 +7,11 @@ runnable: true
 setup_script: setup.sh
 solve_script: solve.sh
 solution_filename: solution.json
+aggregate_metrics:
+  - name: coverage_ratio
+    source: verifier.metrics.coverage_ratio
+  - name: normalized_quality
+    source: verifier.metrics.normalized_quality
 config:
   runtime:
     mode: thorough

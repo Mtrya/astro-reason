@@ -7,6 +7,11 @@ runnable: true
 setup_script: setup.sh
 solve_script: solve.sh
 solution_filename: solution.spot_sol.txt
+aggregate_metrics:
+  - name: computed_profit
+    source: verifier.computed_profit
+  - name: computed_weight
+    source: verifier.computed_weight
 cases:
   - id: test/8
     case_dir: benchmarks/spot5/dataset/cases/test/8
