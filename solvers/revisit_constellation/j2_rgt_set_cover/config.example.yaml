@@ -13,3 +13,9 @@ coverage:
   sample_step_sec: 300.0
   keep_samples_per_window: 4
   worker_count: 1
+
+scheduling:
+  observation_duration_sec: 30.0
+  min_gap_improvement_sec: 60.0
+  validation_sample_step_sec: 10.0
+  max_actions: 3000

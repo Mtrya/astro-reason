@@ -22,8 +22,26 @@ class SensorModel:
 
 
 @dataclass(frozen=True, slots=True)
+class ResourceModel:
+    battery_capacity_wh: float
+    initial_battery_wh: float
+    idle_discharge_rate_w: float
+    sunlight_charge_rate_w: float
+
+
+@dataclass(frozen=True, slots=True)
+class AttitudeModel:
+    max_slew_velocity_deg_per_sec: float
+    max_slew_acceleration_deg_per_sec2: float
+    settling_time_sec: float
+    maneuver_discharge_rate_w: float
+
+
+@dataclass(frozen=True, slots=True)
 class SatelliteModel:
     sensor: SensorModel
+    resource_model: ResourceModel
+    attitude_model: AttitudeModel
     min_altitude_m: float
     max_altitude_m: float
 
@@ -127,6 +145,14 @@ def load_case(case_dir: str | Path) -> RevisitCase:
     sensor_raw = _require_mapping(
         satellite_raw.get("sensor"), "assets.json.satellite_model.sensor"
     )
+    resource_raw = _require_mapping(
+        satellite_raw.get("resource_model"),
+        "assets.json.satellite_model.resource_model",
+    )
+    attitude_raw = _require_mapping(
+        satellite_raw.get("attitude_model"),
+        "assets.json.satellite_model.attitude_model",
+    )
     satellite_model = SatelliteModel(
         sensor=SensorModel(
             max_off_nadir_angle_deg=_require_float(
@@ -145,6 +171,50 @@ def load_case(case_dir: str | Path) -> RevisitCase:
                 "assets.json.satellite_model.sensor",
             ),
         ),
+        resource_model=ResourceModel(
+            battery_capacity_wh=_require_float(
+                resource_raw,
+                "battery_capacity_wh",
+                "assets.json.satellite_model.resource_model",
+            ),
+            initial_battery_wh=_require_float(
+                resource_raw,
+                "initial_battery_wh",
+                "assets.json.satellite_model.resource_model",
+            ),
+            idle_discharge_rate_w=_require_float(
+                resource_raw,
+                "idle_discharge_rate_w",
+                "assets.json.satellite_model.resource_model",
+            ),
+            sunlight_charge_rate_w=_require_float(
+                resource_raw,
+                "sunlight_charge_rate_w",
+                "assets.json.satellite_model.resource_model",
+            ),
+        ),
+        attitude_model=AttitudeModel(
+            max_slew_velocity_deg_per_sec=_require_float(
+                attitude_raw,
+                "max_slew_velocity_deg_per_sec",
+                "assets.json.satellite_model.attitude_model",
+            ),
+            max_slew_acceleration_deg_per_sec2=_require_float(
+                attitude_raw,
+                "max_slew_acceleration_deg_per_sec2",
+                "assets.json.satellite_model.attitude_model",
+            ),
+            settling_time_sec=_require_float(
+                attitude_raw,
+                "settling_time_sec",
+                "assets.json.satellite_model.attitude_model",
+            ),
+            maneuver_discharge_rate_w=_require_float(
+                attitude_raw,
+                "maneuver_discharge_rate_w",
+                "assets.json.satellite_model.attitude_model",
+            ),
+        ),
         min_altitude_m=_require_float(
             satellite_raw, "min_altitude_m", "assets.json.satellite_model"
         ),
@@ -158,6 +228,29 @@ def load_case(case_dir: str | Path) -> RevisitCase:
         raise ValueError("assets.json.satellite_model.max_altitude_m must be >= min")
     if satellite_model.sensor.max_range_m <= 0:
         raise ValueError("assets.json.satellite_model.sensor.max_range_m must be > 0")
+    if satellite_model.resource_model.battery_capacity_wh <= 0:
+        raise ValueError(
+            "assets.json.satellite_model.resource_model.battery_capacity_wh must be > 0"
+        )
+    if satellite_model.resource_model.initial_battery_wh < 0:
+        raise ValueError(
+            "assets.json.satellite_model.resource_model.initial_battery_wh must be >= 0"
+        )
+    if (
+        satellite_model.resource_model.initial_battery_wh
+        > satellite_model.resource_model.battery_capacity_wh
+    ):
+        raise ValueError(
+            "assets.json.satellite_model.resource_model.initial_battery_wh must be <= capacity"
+        )
+    if satellite_model.attitude_model.max_slew_velocity_deg_per_sec <= 0:
+        raise ValueError(
+            "assets.json.satellite_model.attitude_model.max_slew_velocity_deg_per_sec must be > 0"
+        )
+    if satellite_model.attitude_model.max_slew_acceleration_deg_per_sec2 <= 0:
+        raise ValueError(
+            "assets.json.satellite_model.attitude_model.max_slew_acceleration_deg_per_sec2 must be > 0"
+        )
 
     targets: dict[str, Target] = {}
     for index, target_raw in enumerate(

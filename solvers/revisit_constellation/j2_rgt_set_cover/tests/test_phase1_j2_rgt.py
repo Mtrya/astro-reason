@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 import json
 import subprocess
@@ -9,7 +9,15 @@ import brahe
 import numpy as np
 import pytest
 
-from src.case_io import RevisitCase, SatelliteModel, SensorModel, Target, load_case
+from src.case_io import (
+    AttitudeModel,
+    ResourceModel,
+    RevisitCase,
+    SatelliteModel,
+    SensorModel,
+    Target,
+    load_case,
+)
 from src.coverage import (
     CoverageConfig,
     CoverageSummary,
@@ -33,6 +41,14 @@ from src.rgt import (
     solve_rgt_semimajor_axis,
 )
 from src.selection import satellites_required_for_target, select_candidates
+from src.solution import (
+    ObservationAction,
+    SchedulingConfig,
+    build_solution,
+    generate_phased_satellites,
+    select_gap_aware_actions,
+    validate_solution_locally,
+)
 from src.time_utils import datetime_to_epoch
 
 
@@ -71,6 +87,18 @@ def _synthetic_case(
                 max_off_nadir_angle_deg=30.0,
                 max_range_m=1_000_000.0,
                 obs_discharge_rate_w=100.0,
+            ),
+            resource_model=ResourceModel(
+                battery_capacity_wh=2000.0,
+                initial_battery_wh=1600.0,
+                idle_discharge_rate_w=5.0,
+                sunlight_charge_rate_w=100.0,
+            ),
+            attitude_model=AttitudeModel(
+                max_slew_velocity_deg_per_sec=1.0,
+                max_slew_acceleration_deg_per_sec2=0.45,
+                settling_time_sec=10.0,
+                maneuver_discharge_rate_w=90.0,
             ),
             min_altitude_m=500_000.0,
             max_altitude_m=900_000.0,
@@ -146,6 +174,18 @@ def test_load_case_rejects_bool_integer(tmp_path: Path) -> None:
                         "max_off_nadir_angle_deg": 25.0,
                         "max_range_m": 1000000.0,
                         "obs_discharge_rate_w": 120.0,
+                    },
+                    "resource_model": {
+                        "battery_capacity_wh": 2000.0,
+                        "initial_battery_wh": 1600.0,
+                        "idle_discharge_rate_w": 5.0,
+                        "sunlight_charge_rate_w": 100.0,
+                    },
+                    "attitude_model": {
+                        "max_slew_velocity_deg_per_sec": 1.0,
+                        "max_slew_acceleration_deg_per_sec2": 0.45,
+                        "settling_time_sec": 10.0,
+                        "maneuver_discharge_rate_w": 90.0,
                     },
                     "min_altitude_m": 500000.0,
                     "max_altitude_m": 900000.0,
@@ -536,6 +576,210 @@ def test_local_improvement_removes_redundant_selected_candidates() -> None:
     assert set(selection.target_assignments) == {"t1", "t2", "t3"}
 
 
+def test_equal_phasing_produces_expected_spacing_for_repeat_periods() -> None:
+    one_day_case = _synthetic_case(["t1"], revisit_hours=8.0, max_num_satellites=12)
+    one_day_candidate = _synthetic_candidate("one_day", repeat_hours=24.0)
+    one_day_selection = select_candidates(
+        one_day_case,
+        _synthetic_coverage(
+            candidates=[one_day_candidate],
+            candidate_to_targets={one_day_candidate.candidate_id: ["t1"]},
+        ),
+    )
+    one_day_satellites = generate_phased_satellites(one_day_selection)
+
+    assert [satellite.phase_offset_sec for satellite in one_day_satellites] == [
+        0.0,
+        pytest.approx(8.0 * 3600.0),
+        pytest.approx(16.0 * 3600.0),
+    ]
+
+    two_day_case = _synthetic_case(["t1"], revisit_hours=8.0, max_num_satellites=12)
+    two_day_candidate = _synthetic_candidate("two_day", repeat_hours=48.0)
+    two_day_selection = select_candidates(
+        two_day_case,
+        _synthetic_coverage(
+            candidates=[two_day_candidate],
+            candidate_to_targets={two_day_candidate.candidate_id: ["t1"]},
+        ),
+    )
+    two_day_satellites = generate_phased_satellites(two_day_selection)
+
+    assert len(two_day_satellites) == 6
+    assert two_day_satellites[1].phase_offset_sec == pytest.approx(8.0 * 3600.0)
+    assert two_day_satellites[-1].phase_offset_sec == pytest.approx(40.0 * 3600.0)
+
+
+def test_generated_satellite_states_are_unique_and_within_bounds() -> None:
+    case = _synthetic_case(["t1"], revisit_hours=8.0, max_num_satellites=12)
+    candidate = _synthetic_candidate("candidate", repeat_hours=24.0)
+    selection = select_candidates(
+        case,
+        _synthetic_coverage(
+            candidates=[candidate],
+            candidate_to_targets={candidate.candidate_id: ["t1"]},
+        ),
+    )
+
+    satellites = generate_phased_satellites(selection)
+
+    positions = {
+        tuple(round(value, 3) for value in satellite.state_eci_m_mps[:3])
+        for satellite in satellites
+    }
+    assert len(positions) == len(satellites)
+    for satellite in satellites:
+        altitude_m = np.linalg.norm(satellite.state_eci_m_mps[:3]) - EARTH_RADIUS_M
+        assert case.satellite_model.min_altitude_m <= altitude_m
+        assert altitude_m <= case.satellite_model.max_altitude_m
+
+
+def test_gap_aware_action_selection_improves_with_phased_opportunities() -> None:
+    case = _synthetic_case(["t1"], revisit_hours=8.0, max_num_satellites=3)
+    candidate = _synthetic_candidate("candidate", repeat_hours=24.0)
+    selection = select_candidates(
+        case,
+        _synthetic_coverage(
+            candidates=[candidate],
+            candidate_to_targets={candidate.candidate_id: ["t1"]},
+        ),
+    )
+    satellites = generate_phased_satellites(selection)
+    opportunities = [
+        ObservationAction(
+            action_type="observation",
+            satellite_id=satellite.satellite_id,
+            target_id="t1",
+            start=case.horizon_start + timedelta(hours=8 * index),
+            end=case.horizon_start + timedelta(hours=8 * index, seconds=60),
+            candidate_id=candidate.candidate_id,
+            opportunity_midpoint_offset_sec=8.0 * index * 3600.0 + 30.0,
+        )
+        for index, satellite in enumerate(satellites, start=1)
+    ]
+
+    selected = select_gap_aware_actions(
+        case=case,
+        selection=selection,
+        satellites=satellites,
+        opportunities=opportunities,
+        config=SchedulingConfig(min_gap_improvement_sec=1.0),
+    )
+
+    assert len(selected) >= 2
+
+
+def test_action_builder_avoids_same_satellite_overlap() -> None:
+    case = _synthetic_case(["t1", "t2"], revisit_hours=8.0, max_num_satellites=3)
+    candidate = _synthetic_candidate("candidate", repeat_hours=24.0)
+    selection = select_candidates(
+        case,
+        _synthetic_coverage(
+            candidates=[candidate],
+            candidate_to_targets={candidate.candidate_id: ["t1", "t2"]},
+        ),
+    )
+    satellite = generate_phased_satellites(selection)[0]
+    opportunities = [
+        ObservationAction(
+            action_type="observation",
+            satellite_id=satellite.satellite_id,
+            target_id="t1",
+            start=case.horizon_start + timedelta(hours=12),
+            end=case.horizon_start + timedelta(hours=12, seconds=120),
+            candidate_id=candidate.candidate_id,
+            opportunity_midpoint_offset_sec=12.0 * 3600.0,
+        ),
+        ObservationAction(
+            action_type="observation",
+            satellite_id=satellite.satellite_id,
+            target_id="t2",
+            start=case.horizon_start + timedelta(hours=12, seconds=30),
+            end=case.horizon_start + timedelta(hours=12, seconds=150),
+            candidate_id=candidate.candidate_id,
+            opportunity_midpoint_offset_sec=12.0 * 3600.0 + 30.0,
+        ),
+    ]
+
+    selected = select_gap_aware_actions(
+        case=case,
+        selection=selection,
+        satellites=[satellite],
+        opportunities=opportunities,
+        config=SchedulingConfig(min_gap_improvement_sec=1.0),
+    )
+
+    assert len(selected) == 1
+
+
+def test_local_validation_catches_overlap_and_visibility_failures() -> None:
+    case = _synthetic_case(["t1"], revisit_hours=8.0, max_num_satellites=3)
+    candidate = _synthetic_candidate("candidate", repeat_hours=24.0)
+    selection = select_candidates(
+        case,
+        _synthetic_coverage(
+            candidates=[candidate],
+            candidate_to_targets={candidate.candidate_id: ["t1"]},
+        ),
+    )
+    satellite = generate_phased_satellites(selection)[0]
+    first = ObservationAction(
+        action_type="observation",
+        satellite_id=satellite.satellite_id,
+        target_id="t1",
+        start=case.horizon_start + timedelta(hours=1),
+        end=case.horizon_start + timedelta(hours=1, seconds=120),
+        candidate_id=candidate.candidate_id,
+        opportunity_midpoint_offset_sec=3600.0,
+    )
+    second = ObservationAction(
+        action_type="observation",
+        satellite_id=satellite.satellite_id,
+        target_id="t1",
+        start=case.horizon_start + timedelta(hours=1, seconds=30),
+        end=case.horizon_start + timedelta(hours=1, seconds=150),
+        candidate_id=candidate.candidate_id,
+        opportunity_midpoint_offset_sec=3630.0,
+    )
+
+    validation = validate_solution_locally(
+        case=case,
+        selection=selection,
+        satellites=[satellite],
+        actions=[first, second],
+        config=SchedulingConfig(),
+    )
+
+    assert not validation.is_valid
+    assert any("overlapping" in error for error in validation.errors)
+    assert any("visibility" in error for error in validation.errors)
+
+
+def test_solution_writer_emits_benchmark_shaped_json() -> None:
+    case = _synthetic_case(["t1"], revisit_hours=8.0, max_num_satellites=3)
+    candidate = _synthetic_candidate("candidate", repeat_hours=24.0)
+    coverage = _synthetic_coverage(
+        candidates=[candidate],
+        candidate_to_targets={candidate.candidate_id: ["t1"]},
+    )
+    selection = select_candidates(case, coverage)
+
+    result = build_solution(
+        case=case,
+        coverage=coverage,
+        selection=selection,
+        config=SchedulingConfig(),
+    )
+    payload = result.solution_json()
+
+    assert set(payload) == {"satellites", "actions"}
+    assert len(payload["satellites"]) == 3
+    assert isinstance(payload["actions"], list)
+    assert {"satellite_id", "x_m", "y_m", "z_m", "vx_m_s", "vy_m_s", "vz_m_s"} <= set(
+        payload["satellites"][0]
+    )
+
+
 def test_full_profile_analytical_rgt_matches_numerical_j2_oracle() -> None:
     case = load_case(CASE_DIR)
     config = RgtSearchConfig(
@@ -564,7 +808,7 @@ def test_full_profile_analytical_rgt_matches_numerical_j2_oracle() -> None:
         ) < config.closure_tolerance_m
 
 
-def test_solve_sh_writes_phase3_status_and_debug(tmp_path: Path) -> None:
+def test_solve_sh_writes_phase4_status_solution_and_debug(tmp_path: Path) -> None:
     config_dir = tmp_path / "config"
     output_dir = tmp_path / "solution"
     config_dir.mkdir()
@@ -584,6 +828,11 @@ def test_solve_sh_writes_phase3_status_and_debug(tmp_path: Path) -> None:
                 "  sample_step_sec: 7200.0",
                 "  keep_samples_per_window: 2",
                 "  worker_count: 1",
+                "scheduling:",
+                "  observation_duration_sec: 60.0",
+                "  min_gap_improvement_sec: 60.0",
+                "  validation_sample_step_sec: 10.0",
+                "  max_actions: 100",
             ]
         ),
         encoding="utf-8",
@@ -615,14 +864,19 @@ def test_solve_sh_writes_phase3_status_and_debug(tmp_path: Path) -> None:
     selection = json.loads(
         (output_dir / "debug/selection_summary.json").read_text(encoding="utf-8")
     )
+    solution_debug = json.loads(
+        (output_dir / "debug/solution_summary.json").read_text(encoding="utf-8")
+    )
     assert status["status"] == "completed"
-    assert status["phase"] == 3
+    assert status["phase"] == 4
     assert status["closure_search"]["accepted_count"] == 1
     assert status["coverage"]["candidate_count"] == 2
     assert status["selection"]["selected_candidate_count"] >= 0
-    assert solution == {"satellites": [], "actions": []}
+    assert set(solution) == {"satellites", "actions"}
     assert debug["accepted_count"] == 1
     assert coverage["candidate_count"] == 2
     assert "target_to_candidates" in coverage
     assert "selected_candidates" in selection
     assert "target_assignments" in selection
+    assert "validation" in solution_debug
+    assert status["solution"]["satellite_count"] == len(solution["satellites"])

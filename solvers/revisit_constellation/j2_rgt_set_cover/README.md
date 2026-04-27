@@ -2,10 +2,11 @@
 
 This solver is being built for `revisit_constellation` issue #133.
 
-Phase 3 implements the foundation for architecture search: J2-aware
+Phase 4 implements the first concrete solution path: J2-aware
 repeat-ground-track orbit-template construction, RAAN-phased candidate coverage
-envelopes, and satellite-cost set-cover selection. Equal-phase satellite
-population and scheduling are intentionally left for later phases.
+envelopes, satellite-cost set-cover selection, equal-phase satellite
+population, and a gap-aware observation scheduler. Main-solver experiment
+wiring and public-case profiling are intentionally left for later phases.
 
 The solver is standalone. It reads benchmark case files directly and does not
 import benchmark, experiment, runtime, or other solver internals.
@@ -17,13 +18,14 @@ import benchmark, experiment, runtime, or other solver internals.
 ./solve.sh <case_dir> [config_dir] [solution_dir]
 ```
 
-Phase 3 writes:
+Phase 4 writes:
 
-- `solution.json`: an empty benchmark-shaped solution placeholder
+- `solution.json`: phased satellites plus locally validated observation actions
 - `status.json`: closure-search, candidate-coverage, and selection summaries
 - `debug/closure_search.json`: accepted and rejected J2 RGT template records
 - `debug/coverage_summary.json`: RAAN-phased candidates, access windows, and deterministic target/candidate indexes
 - `debug/selection_summary.json`: selected candidates, assigned targets, total satellite cost, and budget blockers
+- `debug/solution_summary.json`: phased satellites, selected actions, target gaps, and local validation details
 
 ## Terminology
 
@@ -120,7 +122,21 @@ difficult target coverage, lower closure error, shorter repeat period, stronger
 coverage margin, then candidate ID.
 
 The selection summary assigns covered targets to selected candidates and reports
-budget blockers, but it still emits no final satellites or observation actions.
+budget blockers. Phase 4 consumes that summary to generate concrete satellites
+and scheduled observations.
+
+## Phase 4 Method
+
+Each selected RAAN-phased candidate is expanded into the selected satellite
+count by equal mean-anomaly spacing. The scheduler directly samples the selected
+phased satellites over the mission horizon, builds target-specific opportunity
+timelines, and greedily inserts observations that reduce capped maximum revisit
+gap. Same-satellite overlap and slew/settle gaps are checked before insertion.
+
+The solver-local validator checks benchmark-shaped references, timing, orbit
+bounds, sampled visibility, same-satellite overlap, conservative slew gaps, and
+a conservative no-charge battery risk. This validation is intentionally local;
+official experiment-owned verification remains a later phase.
 
 ## Validation
 
