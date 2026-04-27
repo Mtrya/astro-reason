@@ -8,7 +8,7 @@ Rogers et al. formulate constellation configuration design as a family of MILPs,
 
 This solver reproduces the Rogers layer through:
 
-- **Finite orbital slot library** (`orbit_library.py`) — deterministic grid of candidate orbits within case altitude, inclination, eccentricity, and RAAN bounds. Default: 2 altitude shells × 2 inclination bands × 3 RAAN planes × 2 phase slots = 24 candidates.
+- **Finite orbital slot library** (`orbit_library.py`) — deterministic grid of candidate orbits within case altitude, inclination, eccentricity, and RAAN bounds. The `smoke` profile uses the historical 2 altitude shells × 2 inclination bands × 3 RAAN planes × 2 phase slots = 24 candidates. The `reproduction` and `quality` profiles scale this to materially larger candidate libraries for public-case evidence.
 - **Cardinality constraint** — selects up to `max_added_satellites` (benchmark upper bound), not an exact fixed number.
 - **Coverage reward scoring** — each candidate is scored by its marginal contribution to demand-window service potential (the set of demand-samples that become reachable when the candidate is added).
 - **Greedy selection** — iterative marginal-gain heuristic that adds the highest-scoring candidate until the budget is exhausted or marginal gain drops to zero.
@@ -21,7 +21,7 @@ Gerard et al. introduce a **time-expanded graph (TEG)** contact-plan scheduler f
 This solver reproduces the Gerard layer through:
 
 - **Time-expanded graph representation** — feasibility of every ground link and inter-satellite link is precomputed at every routing sample (default 60 s step) over the full horizon.
-- **Per-sample greedy max-weight matching** — at each sample, feasible links are scored by active demand weight, then selected greedily respecting per-satellite and per-endpoint degree caps.
+- **Per-sample scalable scheduling** — the smoke path keeps the original greedy edge-utility scheduler. Reproduction and quality profiles use a route-aware scheduler that selects complete endpoint-to-endpoint paths through the time-expanded feasible-link graph while respecting per-satellite and per-endpoint degree caps.
 - **Interval compaction** — consecutive samples with the same link selected are merged into compact interval actions.
 - **Bounded per-sample MILP** — for small problems (≤ 50 samples with links, ≤ 500 total binary variables), a PuLP/CBC MILP selects links at each sample to maximize total utility. Falls back to greedy if bounds are exceeded or the solver fails.
 - **Degree-cap enforcement** — both greedy and MILP respect `max_links_per_satellite` and `max_links_per_endpoint`.
@@ -38,13 +38,15 @@ The original papers target different mission contexts. The following adaptations
 | Gerard retargeting delay (pointing/acquisition overhead) | **Not modeled** — benchmark assumes instant link switching |
 | Gerard route tables and DTN forwarding | **Not modeled** — benchmark verifier owns route allocation and latency scoring |
 | Rogers MILP over full candidate set | Greedy marginal-gain heuristic with optional small MILP for ≤20 candidates |
-| Gerard full-horizon MILP scheduler | Bounded per-sample MILP with deterministic greedy fallback |
+| Gerard full-horizon MILP scheduler | Bounded per-sample MILP with deterministic greedy or route-aware fallback |
 
 ## Known Limitations
 
 - **Coarse candidate grid**: default 24 candidates is much smaller than Rogers' hundreds-to-thousands. This is configurable via `orbit_grid` but trades fidelity for compute time.
+- **Envelope-dependent candidate grid**: smoke output is not sufficient evidence for the final reproduction claim. Reproduction and quality profiles record candidate-library scale and MCLP MILP fallback reasons in `status.json`.
 - **Greedy MCLP**: the default greedy selector is not guaranteed optimal. The optional MILP mode is exact but bounded to small instances.
 - **Per-sample MILP scheduler**: solves each sample independently, not a full-horizon MILP as in Gerard. This is a scalability adaptation.
+- **Route-aware fallback**: reproduction and quality profiles use a scalable path-aware scheduler, not Gerard's full temporal-capacity MILP. This is stronger than independent edge scoring but remains a benchmark-adapted heuristic.
 - **No retargeting delay**: benchmark does not model optical PAT overhead, so the solver does not account for it.
 - **Verifier-owned routing**: the solver cannot influence which routes the verifier chooses. High link utility does not guarantee high verifier service fraction if the verifier selects different paths.
 

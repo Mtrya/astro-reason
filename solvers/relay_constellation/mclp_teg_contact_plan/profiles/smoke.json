@@ -1,5 +1,9 @@
 {
   "profile": "smoke",
+  "profile_version": "1",
+  "profile_envelope": "contract_smoke",
+  "profile_description": "Lightweight verifier-compatible profile matching the historical default settings.",
+  "budget_policy": "informational",
   "mclp_mode": "auto",
   "scheduler_mode": "auto",
   "parallel_mode": "auto",

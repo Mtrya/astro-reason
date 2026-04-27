@@ -412,6 +412,45 @@ def test_greedy_scheduler_respects_degree_caps() -> None:
     assert sat1_count <= 2
 
 
+def test_route_aware_scheduler_selects_complete_demand_path() -> None:
+    from solvers.relay_constellation.mclp_teg_contact_plan.src.case_io import DemandWindow
+    from solvers.relay_constellation.mclp_teg_contact_plan.src.link_cache import LinkRecord
+    from solvers.relay_constellation.mclp_teg_contact_plan.src.scheduler import route_aware_select_links
+
+    epoch = datetime(2026, 1, 1, 0, 0, 0, tzinfo=timezone.utc)
+    demand = DemandWindow(
+        demand_id="d1",
+        source_endpoint_id="ep_src",
+        destination_endpoint_id="ep_dst",
+        start_time=epoch,
+        end_time=epoch + timedelta(seconds=60),
+        weight=10.0,
+    )
+    feasible = [
+        LinkRecord(sample_index=0, node_a="ep_src", node_b="sat_a", distance_m=1.0, link_type="ground"),
+        LinkRecord(sample_index=0, node_a="sat_a", node_b="sat_b", distance_m=1.0, link_type="isl"),
+        LinkRecord(sample_index=0, node_a="ep_dst", node_b="sat_b", distance_m=1.0, link_type="ground"),
+        # This tempting unrelated endpoint must not become an intermediate ground transit node.
+        LinkRecord(sample_index=0, node_a="ep_other", node_b="sat_a", distance_m=0.1, link_type="ground"),
+    ]
+
+    selected, summary = route_aware_select_links(
+        0,
+        feasible,
+        [demand],
+        max_links_per_satellite=2,
+        max_links_per_endpoint=1,
+    )
+
+    assert selected == {
+        ("ground", "ep_src", "sat_a"),
+        ("isl", "sat_a", "sat_b"),
+        ("ground", "ep_dst", "sat_b"),
+    }
+    assert summary["route_aware_demands_routed"] == 1
+    assert all("ep_other" not in key for key in selected)
+
+
 @pytest.mark.parametrize("gap,expected_runs", [(0, 1), (1, 2)])
 def test_compact_intervals(gap: int, expected_runs: int) -> None:
     from solvers.relay_constellation.mclp_teg_contact_plan.src.scheduler import compact_intervals
@@ -623,3 +662,30 @@ def test_default_grid_generates_24_candidates() -> None:
         num_phase_slots=2,
     )
     assert len(cands) == 24
+
+
+def test_scaled_profiles_generate_larger_candidate_libraries() -> None:
+    from solvers.relay_constellation.mclp_teg_contact_plan.src.case_io import load_case
+    from solvers.relay_constellation.mclp_teg_contact_plan.src.orbit_library import generate_candidates
+
+    if not CASE_0001.exists():
+        pytest.skip("Smoke case not available")
+
+    case = load_case(CASE_0001)
+    profile_dir = REPO_ROOT / "solvers" / "relay_constellation" / "mclp_teg_contact_plan" / "profiles"
+    expected_min_counts = {
+        "reproduction": 100,
+        "quality": 500,
+    }
+
+    for profile_name, min_count in expected_min_counts.items():
+        profile = json.loads((profile_dir / f"{profile_name}.json").read_text(encoding="utf-8"))
+        grid = profile["orbit_grid"]
+        cands = generate_candidates(
+            case.manifest.constraints,
+            altitude_step_m=grid["altitude_step_m"],
+            inclination_step_deg=grid["inclination_step_deg"],
+            num_raan_planes=grid["num_raan_planes"],
+            num_phase_slots=grid["num_phase_slots"],
+        )
+        assert len(cands) >= min_count

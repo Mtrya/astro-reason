@@ -6,12 +6,13 @@ import argparse
 import json
 import os
 import time
+from copy import deepcopy
 from pathlib import Path
 from typing import Any
 
 from .case_io import load_case
 from .link_cache import build_link_cache
-from .mclp import greedy_select, milp_select
+from .mclp import greedy_select, mclp_milp_eligibility, milp_select
 from .orbit_library import generate_candidates
 from .propagation import propagate_satellite
 from .scheduler import run_scheduler
@@ -25,6 +26,97 @@ def _load_config(config_dir: Path) -> dict[str, Any]:
     if config_path.exists():
         return json.loads(config_path.read_text(encoding="utf-8"))
     return {}
+
+
+def _deep_merge(base: dict[str, Any], override: dict[str, Any]) -> dict[str, Any]:
+    """Return a recursive merge of override onto base."""
+    merged = deepcopy(base)
+    for key, value in override.items():
+        if (
+            key in merged
+            and isinstance(merged[key], dict)
+            and isinstance(value, dict)
+        ):
+            merged[key] = _deep_merge(merged[key], value)
+        else:
+            merged[key] = deepcopy(value)
+    return merged
+
+
+def _profile_dir() -> Path:
+    return Path(__file__).resolve().parents[1] / "profiles"
+
+
+def _load_profile(profile_name: str) -> tuple[dict[str, Any], str | None]:
+    """Load a named solver profile, returning (config, source_path)."""
+    profile_path = _profile_dir() / f"{profile_name}.json"
+    if not profile_path.exists():
+        raise FileNotFoundError(
+            f"Unknown solver profile '{profile_name}'. Expected {profile_path}"
+        )
+    return json.loads(profile_path.read_text(encoding="utf-8")), str(profile_path)
+
+
+def _resolve_config(
+    *,
+    cli_profile: str | None,
+    config_dir: Path | None,
+) -> tuple[dict[str, Any], dict[str, Any]]:
+    """Resolve profile plus optional config overrides.
+
+    The default no-config path intentionally resolves to the smoke profile so
+    existing solver invocations keep the same lightweight behavior while status
+    output can name the envelope honestly.
+    """
+    config_override = _load_config(config_dir) if config_dir else {}
+    requested_profile = (
+        cli_profile
+        or config_override.get("profile")
+        or config_override.get("profile_name")
+        or "smoke"
+    )
+
+    profile_config, profile_source = _load_profile(str(requested_profile))
+    resolved = _deep_merge(profile_config, config_override)
+    resolved["profile"] = str(requested_profile)
+
+    metadata = {
+        "profile": str(requested_profile),
+        "profile_version": resolved.get("profile_version", profile_config.get("profile_version", "unknown")),
+        "profile_description": resolved.get("profile_description", profile_config.get("profile_description", "")),
+        "profile_envelope": resolved.get("profile_envelope", profile_config.get("profile_envelope", "")),
+        "profile_source": profile_source,
+        "config_dir": str(config_dir.resolve()) if config_dir else None,
+        "config_override_keys": sorted(config_override.keys()),
+    }
+    return resolved, metadata
+
+
+def _candidate_library_summary(
+    *,
+    candidates: list[Any] | tuple[Any, ...],
+    orbit_grid: dict[str, Any],
+    profile_metadata: dict[str, Any],
+) -> dict[str, Any]:
+    """Summarize the generated candidate library for status/debug artifacts."""
+    altitudes = sorted({round(float(c.altitude_m), 6) for c in candidates})
+    inclinations = sorted({round(float(c.inclination_deg), 6) for c in candidates})
+    raans = sorted({round(float(c.raan_deg), 6) for c in candidates})
+    phases = sorted({round(float(c.mean_anomaly_deg), 6) for c in candidates})
+    return {
+        "profile": profile_metadata["profile"],
+        "profile_envelope": profile_metadata["profile_envelope"],
+        "candidate_count": len(candidates),
+        "orbit_grid": orbit_grid,
+        "altitude_shell_count": len(altitudes),
+        "inclination_band_count": len(inclinations),
+        "raan_plane_count": len(raans),
+        "phase_slot_count": len(phases),
+        "altitude_min_m": altitudes[0] if altitudes else None,
+        "altitude_max_m": altitudes[-1] if altitudes else None,
+        "inclination_min_deg": inclinations[0] if inclinations else None,
+        "inclination_max_deg": inclinations[-1] if inclinations else None,
+    }
 
 
 def _propagate_with_timings(
@@ -85,15 +177,31 @@ def main() -> None:
     parser.add_argument("--case-dir", required=True, help="Path to benchmark case directory")
     parser.add_argument("--config-dir", default="", help="Optional config directory")
     parser.add_argument("--solution-dir", default="solution", help="Output directory for solution artifacts")
+    parser.add_argument(
+        "--profile",
+        default=None,
+        help="Named compute profile to load from profiles/<name>.json. Optional config.json values override it.",
+    )
     args = parser.parse_args()
 
-    config = _load_config(Path(args.config_dir)) if args.config_dir else {}
+    config_dir = Path(args.config_dir) if args.config_dir else None
+    config, profile_metadata = _resolve_config(
+        cli_profile=args.profile,
+        config_dir=config_dir,
+    )
     mclp_mode = config.get("mclp_mode", "auto")  # "auto", "greedy", "milp", or "none"
     scheduler_mode = config.get("scheduler_mode", "auto")  # "auto", "greedy", or "milp"
     milp_config = config.get("milp_config", {})
+    mclp_milp_config = config.get("mclp_milp_config", {})
     parallel_mode = config.get("parallel_mode", "auto")  # "auto", "parallel", or "sequential"
     time_budget_s = config.get("time_budget_s", 300)
+    budget_policy = config.get("budget_policy", "informational")
     orbit_grid = config.get("orbit_grid", {})
+    mclp_milp_bounds = {
+        "max_candidates_for_milp": mclp_milp_config.get("max_candidates_for_milp", 20),
+        "max_added_for_milp": mclp_milp_config.get("max_added_for_milp", 5),
+        "time_limit_seconds": mclp_milp_config.get("time_limit_seconds", 30.0),
+    }
 
     t0 = time.monotonic()
     case = load_case(Path(args.case_dir))
@@ -126,6 +234,11 @@ def main() -> None:
             num_phase_slots=num_phase,
         )
         t3 = time.monotonic()
+    candidate_summary = _candidate_library_summary(
+        candidates=candidates,
+        orbit_grid=orbit_grid,
+        profile_metadata=profile_metadata,
+    )
 
     # Decide whether to use parallel execution
     n_satellites = len(case.network.backbone_satellites) + len(candidates)
@@ -161,24 +274,71 @@ def main() -> None:
 
     # MCLP candidate selection
     selected: list[Any] = []
-    mclp_summary: dict[str, Any] = {"policy": "none", "selected_count": 0}
+    mclp_summary: dict[str, Any] = {
+        "policy": "none",
+        "selected_count": 0,
+        "candidate_count": len(candidates),
+        "candidate_library": candidate_summary,
+        "mclp_milp_bounds": mclp_milp_bounds,
+        "mclp_milp_eligible": False,
+        "mclp_milp_attempted": False,
+        "mclp_milp_fallback_reason": "mclp_mode_none" if mclp_mode == "none" else None,
+    }
 
     if candidates and mclp_mode != "none":
+        mclp_milp_eligible, mclp_milp_ineligible_reason = mclp_milp_eligibility(
+            candidates,
+            case,
+            max_candidates_for_milp=mclp_milp_bounds["max_candidates_for_milp"],
+            max_added_for_milp=mclp_milp_bounds["max_added_for_milp"],
+        )
         if mclp_mode == "milp":
-            milp_result = milp_select(candidates, case, sample_times, link_records)
+            milp_result = milp_select(
+                candidates,
+                case,
+                sample_times,
+                link_records,
+                max_candidates_for_milp=mclp_milp_bounds["max_candidates_for_milp"],
+                max_added_for_milp=mclp_milp_bounds["max_added_for_milp"],
+                time_limit_seconds=mclp_milp_bounds["time_limit_seconds"],
+            )
             if milp_result is not None:
                 selected, mclp_summary = milp_result
             else:
                 selected, mclp_summary = greedy_select(candidates, case, sample_times, link_records)
                 mclp_summary["policy"] = "greedy (milp fallback)"
+                mclp_summary["mclp_milp_fallback_reason"] = (
+                    mclp_milp_ineligible_reason or "mclp_milp_solver_failed_or_not_optimal"
+                )
         elif mclp_mode == "greedy":
             selected, mclp_summary = greedy_select(candidates, case, sample_times, link_records)
+            mclp_summary["mclp_milp_fallback_reason"] = "mclp_mode_greedy"
         else:  # auto
-            milp_result = milp_select(candidates, case, sample_times, link_records)
+            milp_result = milp_select(
+                candidates,
+                case,
+                sample_times,
+                link_records,
+                max_candidates_for_milp=mclp_milp_bounds["max_candidates_for_milp"],
+                max_added_for_milp=mclp_milp_bounds["max_added_for_milp"],
+                time_limit_seconds=mclp_milp_bounds["time_limit_seconds"],
+            )
             if milp_result is not None:
                 selected, mclp_summary = milp_result
             else:
                 selected, mclp_summary = greedy_select(candidates, case, sample_times, link_records)
+                mclp_summary["mclp_milp_fallback_reason"] = (
+                    mclp_milp_ineligible_reason or "mclp_milp_solver_failed_or_not_optimal"
+                )
+        mclp_summary["candidate_count"] = len(candidates)
+        mclp_summary["candidate_library"] = candidate_summary
+        mclp_summary["mclp_milp_bounds"] = mclp_milp_bounds
+        mclp_summary["mclp_milp_eligible"] = mclp_milp_eligible
+        mclp_summary["mclp_milp_attempted"] = (
+            mclp_mode in ("auto", "milp") and mclp_milp_eligible
+        )
+        if mclp_summary.get("policy") == "milp":
+            mclp_summary["mclp_milp_fallback_reason"] = None
     t7 = time.monotonic()
 
     # Build added_satellites output
@@ -222,6 +382,13 @@ def main() -> None:
         "benchmark": case.manifest.benchmark,
         "case_id": case.manifest.case_id,
         "case_path": str(Path(args.case_dir).resolve()),
+        "profile": profile_metadata["profile"],
+        "profile_version": profile_metadata["profile_version"],
+        "profile_description": profile_metadata["profile_description"],
+        "profile_envelope": profile_metadata["profile_envelope"],
+        "profile_source": profile_metadata["profile_source"],
+        "config_dir": profile_metadata["config_dir"],
+        "config_override_keys": profile_metadata["config_override_keys"],
         "horizon_start": case.manifest.horizon_start.isoformat().replace("+00:00", "Z"),
         "horizon_end": case.manifest.horizon_end.isoformat().replace("+00:00", "Z"),
         "routing_step_s": case.manifest.routing_step_s,
@@ -230,7 +397,22 @@ def main() -> None:
         "num_ground_endpoints": len(case.network.ground_endpoints),
         "num_demanded_windows": len(case.demands.demanded_windows),
         "num_candidate_satellites": len(candidates),
+        "candidate_library": candidate_summary,
         "compute_budget_s": time_budget_s,
+        "budget_policy": budget_policy,
+        "compute_envelope": {
+            "profile": profile_metadata["profile"],
+            "profile_version": profile_metadata["profile_version"],
+            "profile_envelope": profile_metadata["profile_envelope"],
+            "budget_policy": budget_policy,
+            "time_budget_s": time_budget_s,
+            "mclp_mode": mclp_mode,
+            "scheduler_mode": scheduler_mode,
+            "parallel_mode": parallel_mode,
+            "orbit_grid": orbit_grid,
+            "mclp_milp_config": mclp_milp_config,
+            "scheduler_milp_config": milp_config,
+        },
         "budget_warning": (
             f"Total time {total_time:.1f}s exceeds 90% of budget {time_budget_s}s"
             if total_time > time_budget_s * 0.9 else None
@@ -244,6 +426,10 @@ def main() -> None:
             "parallel_fallback": any_fallback,
         },
         "mclp_policy": mclp_summary.get("policy", "none"),
+        "mclp_milp_bounds": mclp_summary.get("mclp_milp_bounds", mclp_milp_bounds),
+        "mclp_milp_eligible": mclp_summary.get("mclp_milp_eligible", False),
+        "mclp_milp_attempted": mclp_summary.get("mclp_milp_attempted", False),
+        "mclp_milp_fallback_reason": mclp_summary.get("mclp_milp_fallback_reason"),
         "mclp_baseline_score": mclp_summary.get("baseline_score", 0.0),
         "mclp_selected_score": mclp_summary.get("selected_score", 0.0),
         "mclp_selected_count": mclp_summary.get("selected_count", 0),
@@ -275,6 +461,10 @@ def main() -> None:
         "scheduler_num_ground_actions": sched_summary.get("num_ground_actions", 0),
         "scheduler_num_isl_actions": sched_summary.get("num_isl_actions", 0),
         "scheduler_local_violations": sched_summary.get("local_violations", []),
+        "scheduler_route_aware_demands_considered": sched_summary.get("route_aware_demands_considered"),
+        "scheduler_route_aware_demands_routed": sched_summary.get("route_aware_demands_routed"),
+        "scheduler_route_aware_demands_unrouted": sched_summary.get("route_aware_demands_unrouted"),
+        "scheduler_route_aware_capacity_rejects": sched_summary.get("route_aware_capacity_rejects"),
     }
     write_status(solution_dir, status)
 
@@ -283,6 +473,7 @@ def main() -> None:
         solution_dir,
         "orbit_candidates",
         {
+            "summary": candidate_summary,
             "count": len(candidates),
             "candidates": [
                 {

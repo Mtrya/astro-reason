@@ -276,6 +276,26 @@ def _weighted_score(
     return score
 
 
+def mclp_milp_eligibility(
+    candidates: tuple[CandidateSatellite, ...],
+    case: Case,
+    *,
+    max_candidates_for_milp: int = 20,
+    max_added_for_milp: int = 5,
+) -> tuple[bool, str | None]:
+    """Return whether the exact MCLP MILP path is eligible under current bounds."""
+    try:
+        import pulp  # noqa: F401
+    except Exception:
+        return False, "pulp_unavailable"
+
+    if len(candidates) > max_candidates_for_milp:
+        return False, "candidate_count_exceeds_mclp_milp_bound"
+    if case.manifest.constraints.max_added_satellites > max_added_for_milp:
+        return False, "max_added_satellites_exceeds_mclp_milp_bound"
+    return True, None
+
+
 def greedy_select(
     candidates: tuple[CandidateSatellite, ...],
     case: Case,
@@ -475,15 +495,16 @@ def milp_select(
 
     Returns None if problem is too large or PuLP is unavailable.
     """
-    try:
-        import pulp
-    except Exception:
+    eligible, _reason = mclp_milp_eligibility(
+        candidates,
+        case,
+        max_candidates_for_milp=max_candidates_for_milp,
+        max_added_for_milp=max_added_for_milp,
+    )
+    if not eligible:
         return None
 
-    if len(candidates) > max_candidates_for_milp:
-        return None
-    if case.manifest.constraints.max_added_satellites > max_added_for_milp:
-        return None
+    import pulp
 
     # Materialize iterables to allow multiple iterations
     sample_times_tuple = tuple(sample_times)

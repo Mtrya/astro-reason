@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import heapq
+from collections import Counter
 from collections import defaultdict
 from datetime import datetime, timedelta
 from typing import Any, Iterable
@@ -191,6 +193,164 @@ def greedy_select_links(
     return selected
 
 
+def _link_nodes(key: tuple[str, str, str]) -> tuple[str, str]:
+    _link_type, node_a, node_b = key
+    return node_a, node_b
+
+
+def _build_route_graph_for_demand(
+    feasible_links: list[LinkRecord],
+    demand: DemandWindow,
+    sat_degree: dict[str, int],
+    ep_degree: dict[str, int],
+    max_links_per_satellite: int,
+    max_links_per_endpoint: int,
+    selected: set[tuple[str, str, str]],
+) -> dict[str, list[tuple[float, str, tuple[str, str, str]]]]:
+    """Build a demand-specific graph without illegal intermediate endpoints."""
+    allowed_endpoints = {demand.source_endpoint_id, demand.destination_endpoint_id}
+    graph: dict[str, list[tuple[float, str, tuple[str, str, str]]]] = defaultdict(list)
+
+    for rec in feasible_links:
+        key = _normalize_link_key(rec.link_type, rec.node_a, rec.node_b)
+        node_a, node_b = _link_nodes(key)
+        if rec.link_type == "ground" and node_a not in allowed_endpoints:
+            continue
+        if key not in selected:
+            if rec.link_type == "ground":
+                if ep_degree[node_a] >= max_links_per_endpoint:
+                    continue
+                if sat_degree[node_b] >= max_links_per_satellite:
+                    continue
+            else:
+                if sat_degree[node_a] >= max_links_per_satellite:
+                    continue
+                if sat_degree[node_b] >= max_links_per_satellite:
+                    continue
+        graph[node_a].append((rec.distance_m, node_b, key))
+        graph[node_b].append((rec.distance_m, node_a, key))
+
+    return dict(graph)
+
+
+def _shortest_path_link_keys(
+    graph: dict[str, list[tuple[float, str, tuple[str, str, str]]]],
+    source: str,
+    destination: str,
+) -> list[tuple[str, str, str]] | None:
+    """Return shortest path as link keys using Dijkstra over feasible links."""
+    queue: list[tuple[float, str, list[tuple[str, str, str]]]] = [(0.0, source, [])]
+    best_distance: dict[str, float] = {source: 0.0}
+
+    while queue:
+        distance, node_id, path = heapq.heappop(queue)
+        if node_id == destination:
+            return path
+        if distance > best_distance.get(node_id, float("inf")):
+            continue
+        for edge_distance, next_node, key in graph.get(node_id, []):
+            next_distance = distance + edge_distance
+            if next_distance >= best_distance.get(next_node, float("inf")):
+                continue
+            best_distance[next_node] = next_distance
+            heapq.heappush(queue, (next_distance, next_node, path + [key]))
+
+    return None
+
+
+def route_aware_select_links(
+    sample_index: int,
+    feasible_links: list[LinkRecord],
+    active_demands: list[DemandWindow],
+    max_links_per_satellite: int,
+    max_links_per_endpoint: int,
+) -> tuple[set[tuple[str, str, str]], dict[str, int]]:
+    """Select links by greedily routing active endpoint-pair demands.
+
+    This is a scalable benchmark-adapted TEG fallback: instead of ranking each
+    physical link independently, it selects complete source-to-destination paths
+    through feasible ground links and ISLs while respecting per-sample degree
+    caps. The benchmark verifier still owns final route allocation.
+    """
+    selected: set[tuple[str, str, str]] = set()
+    sat_degree: dict[str, int] = defaultdict(int)
+    ep_degree: dict[str, int] = defaultdict(int)
+    summary = {
+        "route_aware_demands_considered": len(active_demands),
+        "route_aware_demands_routed": 0,
+        "route_aware_demands_unrouted": 0,
+        "route_aware_capacity_rejects": 0,
+    }
+
+    demands_sorted = sorted(
+        active_demands,
+        key=lambda d: (-d.weight, d.start_time, d.end_time, d.demand_id),
+    )
+
+    for demand in demands_sorted:
+        graph = _build_route_graph_for_demand(
+            feasible_links,
+            demand,
+            sat_degree,
+            ep_degree,
+            max_links_per_satellite,
+            max_links_per_endpoint,
+            selected,
+        )
+        path = _shortest_path_link_keys(
+            graph,
+            demand.source_endpoint_id,
+            demand.destination_endpoint_id,
+        )
+        if not path:
+            summary["route_aware_demands_unrouted"] += 1
+            continue
+
+        sat_increments: Counter[str] = Counter()
+        ep_increments: Counter[str] = Counter()
+        for key in path:
+            if key in selected:
+                continue
+            link_type, node_a, node_b = key
+            if link_type == "ground":
+                ep_increments[node_a] += 1
+                sat_increments[node_b] += 1
+            else:
+                sat_increments[node_a] += 1
+                sat_increments[node_b] += 1
+
+        cap_ok = True
+        for sat_id, increment in sat_increments.items():
+            if sat_degree[sat_id] + increment > max_links_per_satellite:
+                cap_ok = False
+                break
+        if cap_ok:
+            for ep_id, increment in ep_increments.items():
+                if ep_degree[ep_id] + increment > max_links_per_endpoint:
+                    cap_ok = False
+                    break
+
+        if not cap_ok:
+            summary["route_aware_capacity_rejects"] += 1
+            summary["route_aware_demands_unrouted"] += 1
+            continue
+
+        for key in path:
+            if key in selected:
+                continue
+            selected.add(key)
+            link_type, node_a, node_b = key
+            if link_type == "ground":
+                ep_degree[node_a] += 1
+                sat_degree[node_b] += 1
+            else:
+                sat_degree[node_a] += 1
+                sat_degree[node_b] += 1
+        summary["route_aware_demands_routed"] += 1
+
+    return selected, summary
+
+
 def compact_intervals(
     selected_links_by_sample: dict[int, set[tuple[str, str, str]]],
     sample_times: tuple[datetime, ...],
@@ -252,6 +412,12 @@ def compact_intervals(
     # Deterministic output order
     actions.sort(key=lambda a: (a["action_type"], a.get("endpoint_id", ""), a.get("satellite_id", ""), a.get("satellite_id_1", ""), a.get("satellite_id_2", ""), a["start_time"]))
     return actions
+
+
+def _summarize_actions(actions: list[dict]) -> tuple[int, int]:
+    num_ground = sum(1 for a in actions if a["action_type"] == "ground_link")
+    num_isl = sum(1 for a in actions if a["action_type"] == "inter_satellite_link")
+    return num_ground, num_isl
 
 
 def _local_validate(
@@ -431,6 +597,70 @@ def _run_greedy_scheduler(
     return actions, summary
 
 
+def _run_route_aware_scheduler(
+    case: Case,
+    sample_times: tuple[datetime, ...],
+    link_records: Iterable[LinkRecord],
+    selected_satellite_ids: set[str] | None = None,
+) -> tuple[list[dict], dict]:
+    """Run the route-aware scalable scheduler and return actions plus summary."""
+    backbone_ids = {s.satellite_id for s in case.network.backbone_satellites}
+    allowed_sats = backbone_ids | (selected_satellite_ids or set())
+    filtered_records = [
+        rec for rec in link_records
+        if (rec.link_type == "ground" and rec.node_b in allowed_sats)
+        or (rec.link_type == "isl" and rec.node_a in allowed_sats and rec.node_b in allowed_sats)
+    ]
+    per_sample = build_per_sample_links(filtered_records)
+    demands_by_sample = _build_demands_by_sample(case, sample_times)
+
+    max_sat = case.manifest.constraints.max_links_per_satellite
+    max_ep = case.manifest.constraints.max_links_per_endpoint
+
+    selected_by_sample: dict[int, set[tuple[str, str, str]]] = {}
+    totals = {
+        "route_aware_demands_considered": 0,
+        "route_aware_demands_routed": 0,
+        "route_aware_demands_unrouted": 0,
+        "route_aware_capacity_rejects": 0,
+    }
+
+    for sidx in sorted(per_sample.keys()):
+        active_demands = demands_by_sample.get(sidx, [])
+        feasible = per_sample[sidx]
+        selected, sample_summary = route_aware_select_links(
+            sidx, feasible, active_demands, max_sat, max_ep
+        )
+        selected_by_sample[sidx] = selected
+        for key in totals:
+            totals[key] += sample_summary[key]
+
+    actions = compact_intervals(
+        selected_by_sample, sample_times, case.manifest.routing_step_s
+    )
+    local_violations = _local_validate(actions, case, sample_times)
+    num_ground, num_isl = _summarize_actions(actions)
+
+    summary = {
+        "scheduler_mode": "route_aware",
+        "milp_attempted": False,
+        "milp_fallback_reason": None,
+        "milp_model_variables": None,
+        "milp_model_constraints": None,
+        "milp_total_solve_time_s": None,
+        "milp_per_sample_solve_times_s": None,
+        "num_samples_with_links": len(selected_by_sample),
+        "total_selected_links": sum(len(v) for v in selected_by_sample.values()),
+        "total_utility": None,
+        "num_actions": len(actions),
+        "num_ground_actions": num_ground,
+        "num_isl_actions": num_isl,
+        "local_violations": local_violations,
+        **totals,
+    }
+    return actions, summary
+
+
 def run_scheduler(
     case: Case,
     sample_times: tuple[datetime, ...],
@@ -443,9 +673,10 @@ def run_scheduler(
 
     Parameters
     ----------
-    scheduler_mode : "auto", "greedy", or "milp"
+    scheduler_mode : "auto", "greedy", "route_aware", or "milp"
         "auto" tries MILP for small problems and falls back to greedy.
         "greedy" always uses the greedy scheduler.
+        "route_aware" uses a scalable path-aware scheduler.
         "milp" requires MILP to succeed; raises RuntimeError on failure.
     milp_config : optional dict with keys:
         - max_total_variables (int, default 500)
@@ -457,6 +688,11 @@ def run_scheduler(
 
     if mode == "greedy":
         return _run_greedy_scheduler(case, sample_times, link_records, selected_satellite_ids)
+
+    if mode == "route_aware":
+        return _run_route_aware_scheduler(
+            case, sample_times, link_records, selected_satellite_ids
+        )
 
     # Lazy import to avoid circular dependency at module load time
     from .milp_scheduler import milp_scheduler_available, run_milp_scheduler
@@ -496,9 +732,15 @@ def run_scheduler(
     if result is not None:
         return result
 
-    actions, summary = _run_greedy_scheduler(
-        case, sample_times, link_records, selected_satellite_ids
-    )
+    fallback_strategy = str(cfg.get("auto_fallback_strategy", "greedy")).lower().strip()
+    if fallback_strategy == "route_aware":
+        actions, summary = _run_route_aware_scheduler(
+            case, sample_times, link_records, selected_satellite_ids
+        )
+    else:
+        actions, summary = _run_greedy_scheduler(
+            case, sample_times, link_records, selected_satellite_ids
+        )
     summary["milp_attempted"] = True
     summary["milp_fallback_reason"] = "problem_too_large_or_solver_failed"
     return actions, summary

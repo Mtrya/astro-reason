@@ -1,0 +1,28 @@
+{
+  "profile": "reproduction",
+  "profile_version": "1",
+  "profile_envelope": "reproduction",
+  "profile_description": "Meaningful public-case reproduction profile with a materially denser candidate grid and larger diagnostic budget.",
+  "budget_policy": "informational",
+  "mclp_mode": "auto",
+  "scheduler_mode": "route_aware",
+  "parallel_mode": "auto",
+  "time_budget_s": 900,
+  "orbit_grid": {
+    "altitude_step_m": 250000.0,
+    "inclination_step_deg": 15.0,
+    "num_raan_planes": 4,
+    "num_phase_slots": 3
+  },
+  "mclp_milp_config": {
+    "max_candidates_for_milp": 80,
+    "max_added_for_milp": 10,
+    "time_limit_seconds": 120.0
+  },
+  "milp_config": {
+    "max_total_variables": 5000,
+    "max_samples": 500,
+    "milp_time_limit_per_sample": 5.0,
+    "auto_fallback_strategy": "route_aware"
+  }
+}

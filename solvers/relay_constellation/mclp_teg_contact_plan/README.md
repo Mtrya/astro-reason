@@ -99,23 +99,36 @@ The primary solution artifact is one JSON object with top-level `added_satellite
 
 ## Configuration
 
-The solver reads optional config from `<config_dir>/config.json`. See [config.example.json](./config.example.json) for a commented example.
+The solver reads a named compute profile from `profiles/<name>.json`, then overlays optional config from `<config_dir>/config.json`. Existing no-profile invocations resolve to the `smoke` profile, preserving the historical lightweight behavior while making the compute envelope explicit in `status.json`.
+
+Available profiles:
+
+- `smoke` — contract/smoke envelope matching the historical 24-candidate default.
+- `reproduction` — denser candidate grid and larger diagnostic budget for meaningful reproduction runs; current public cases generate roughly 300 candidates.
+- `quality` — strongest intended optimization profile for final metrics after scaling work is complete; current public cases generate roughly 1000 candidates.
+
+Use `--profile <name>` with the Python entrypoint, or set `"profile": "<name>"` inside `config.json`. Values in `config.json` recursively override the selected profile. See [config.example.json](./config.example.json) for a smoke-profile override example.
 
 Key knobs:
 
 | Key | Values | Default | Description |
 |-----|--------|---------|-------------|
+| `profile` | `"smoke"`, `"reproduction"`, `"quality"` | `"smoke"` | Named compute envelope loaded before config overrides. |
 | `mclp_mode` | `"auto"`, `"greedy"`, `"milp"`, `"none"` | `"auto"` | Candidate selection strategy. `"none"` skips MCLP and uses backbone only. `"auto"` tries MILP for small problems and falls back to greedy. |
-| `scheduler_mode` | `"auto"`, `"greedy"`, `"milp"` | `"auto"` | Contact scheduling strategy. `"auto"` tries MILP within bounds, falls back to greedy. |
+| `scheduler_mode` | `"auto"`, `"greedy"`, `"route_aware"`, `"milp"` | `"auto"` | Contact scheduling strategy. `"route_aware"` greedily selects complete endpoint-to-endpoint paths under degree caps. `"auto"` tries MILP within bounds, then falls back according to `milp_config.auto_fallback_strategy`. |
 | `parallel_mode` | `"auto"`, `"parallel"`, `"sequential"` | `"auto"` | Execution model. `"auto"` uses process parallelism when there are multiple satellites or >1000 samples. |
 | `time_budget_s` | positive number | `300` | Expected per-case compute budget in seconds. Informational; the solver does not hard-cut at this limit. |
 | `orbit_grid.altitude_step_m` | number or `null` | `null` | Altitude grid step in meters. `null` uses min and max altitude only (2 shells). |
 | `orbit_grid.inclination_step_deg` | number or `null` | `null` | Inclination grid step in degrees. `null` uses min and max inclination only (2 bands). |
 | `orbit_grid.num_raan_planes` | integer | `3` | Number of RAAN planes to distribute candidates across. |
 | `orbit_grid.num_phase_slots` | integer | `2` | Number of phase slots per RAAN plane. |
+| `mclp_milp_config.max_candidates_for_milp` | integer | `20` | Maximum candidate count eligible for exact MCLP MILP. Larger cases fall back to greedy. |
+| `mclp_milp_config.max_added_for_milp` | integer | `5` | Maximum added-satellite cap eligible for exact MCLP MILP. |
+| `mclp_milp_config.time_limit_seconds` | number | `30.0` | CBC time limit for exact MCLP MILP. |
 | `milp_config.max_total_variables` | integer | `500` | Maximum total binary variables across all samples for scheduler MILP. |
 | `milp_config.max_samples` | integer | `50` | Maximum number of samples that may use MILP in scheduler. |
 | `milp_config.milp_time_limit_per_sample` | number | `5.0` | Time limit in seconds per sample for scheduler MILP. |
+| `milp_config.auto_fallback_strategy` | `"greedy"`, `"route_aware"` | `"greedy"` | Scheduler fallback used by `"auto"` when the bounded MILP is unavailable or too large. |
 
 `time_budget_s` is informational and does not hard-cut the solver. It is recorded in `status.json` for reproducibility tracking.
 
@@ -183,6 +196,8 @@ uv run python experiments/main_solver/aggregate.py
 
 This solver is a planning method that propagates satellites over a 96-hour horizon and evaluates link feasibility at 60-second granularity. A fair evaluation should allow **at least 5 minutes (300 s) per case**.
 
+The `smoke` profile is not the fair evaluation profile. It exists for quick contract checks. Reproduction and quality runs should use named profiles so `status.json` records candidate-library scale, MCLP MILP eligibility, fallback reasons, scheduler bounds, and timing breakdowns.
+
 With `parallel_mode=auto` the solver uses all available CPU cores for:
 
 - **Satellite propagation** — embarrassingly parallel across satellites (dominant stage, ~4 s per satellite sequentially).
@@ -208,6 +223,7 @@ If greedy MCLP does not improve over no-added, inspect:
 
 - This is a reproduction of the papers' method families, not a claim to reproduce every runtime or every table.
 - **Coarse candidate grid**: default 24 candidates is much smaller than Rogers' hundreds-to-thousands. This is configurable via `orbit_grid` but trades fidelity for compute time.
+- **Profile-dependent candidate scale**: `reproduction` and `quality` profiles intentionally scale the candidate pool beyond smoke defaults. Final claims should use saved canonical metrics from those profiles, not smoke runs.
 - **Greedy MCLP**: the default greedy selector is not guaranteed optimal. The optional MILP mode is exact but bounded to small instances.
 - **Per-sample MILP scheduler**: solves each sample independently, not a full-horizon MILP as in Gerard. This is a scalability adaptation.
 - **No retargeting delay**: benchmark does not model optical PAT overhead, so the solver does not account for it.
