@@ -7,6 +7,7 @@ if [[ -z "${SOLVER_PYTHON:-}" && -f "${SCRIPT_DIR}/.solver-env" ]]; then
   source "${SCRIPT_DIR}/.solver-env"
 fi
 SOLVER_PYTHON="${SOLVER_PYTHON:-${SCRIPT_DIR}/.venv/bin/python}"
+export SOLVER_PYTHON
 if [[ ! -x "${SOLVER_PYTHON}" ]]; then
   echo "regional_coverage cp_local_search tests require solver-local setup; run ./setup.sh first" >&2
   exit 2
