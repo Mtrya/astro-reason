@@ -44,6 +44,9 @@ class SRRConfig:
     lp_backend: str = "scipy-highs"
     lp_tolerance: float = 1e-9
     lp_path_cost_epsilon: float = 0.0
+    lp_path_cost_mode: str = "hop_count"
+    first_last_hop_k: int | None = None
+    lp_reactualization_policy: str = "once_per_sample"
 
 
 @dataclass
@@ -145,6 +148,41 @@ def _path_from_nodes(
     )
 
 
+def _nearest_endpoint_satellites(
+    adjacency: dict[str, list[tuple[str, float]]],
+    endpoint: str,
+    endpoint_ids: set[str],
+    k: int | None,
+) -> set[str] | None:
+    """Return the k nearest satellite neighbors of an endpoint, or None if unrestricted."""
+    if k is None or k <= 0:
+        return None
+    neighbors = [
+        (distance, node)
+        for node, distance in adjacency.get(endpoint, [])
+        if node not in endpoint_ids
+    ]
+    neighbors.sort(key=lambda item: (item[0], item[1]))
+    return {node for _, node in neighbors[:k]}
+
+
+def _passes_first_last_hop_filter(
+    path: Path,
+    source_allowed: set[str] | None,
+    destination_allowed: set[str] | None,
+) -> bool:
+    """Return whether a path satisfies optional first/last satellite restrictions."""
+    if len(path.nodes) < 3:
+        return True
+    first_satellite = path.nodes[1]
+    last_satellite = path.nodes[-2]
+    if source_allowed is not None and first_satellite not in source_allowed:
+        return False
+    if destination_allowed is not None and last_satellite not in destination_allowed:
+        return False
+    return True
+
+
 def k_shortest_paths(
     adjacency: dict[str, list[tuple[str, float]]],
     source: str,
@@ -152,6 +190,7 @@ def k_shortest_paths(
     k: int,
     endpoint_ids: set[str],
     max_hops: int,
+    first_last_hop_k: int | None = None,
 ) -> list[Path]:
     """Generate up to k shortest simple paths from source to destination.
 
@@ -171,8 +210,17 @@ def k_shortest_paths(
     if spath is None:
         return []
 
+    source_allowed = _nearest_endpoint_satellites(
+        adjacency, source, endpoint_ids, first_last_hop_k
+    )
+    destination_allowed = _nearest_endpoint_satellites(
+        adjacency, destination, endpoint_ids, first_last_hop_k
+    )
+
     unique_paths: dict[tuple[str, ...], Path] = {}
-    if spath.hop_count <= max_hops:
+    if spath.hop_count <= max_hops and _passes_first_last_hop_filter(
+        spath, source_allowed, destination_allowed
+    ):
         unique_paths[spath.nodes] = spath
 
     # 2. DFS enumeration of simple paths, capped by max_hops and a visit limit
@@ -189,7 +237,9 @@ def k_shortest_paths(
             continue
         if node == destination and len(path_nodes) > 1:
             p = _path_from_nodes(path_nodes, adjacency)
-            if p is not None:
+            if p is not None and _passes_first_last_hop_filter(
+                p, source_allowed, destination_allowed
+            ):
                 unique_paths[p.nodes] = p
             continue
         # Expand neighbors in deterministic order for reproducibility
@@ -243,6 +293,7 @@ def build_path_sets(instance: UMCFInstance, config: SRRConfig) -> dict[str, list
             config.k_paths,
             instance.endpoint_ids,
             config.max_path_hops,
+            config.first_last_hop_k,
         )
         for commodity in instance.commodities
     }
@@ -348,6 +399,7 @@ def sequential_rounding(
                 config.k_paths,
                 instance.endpoint_ids,
                 config.max_path_hops,
+                config.first_last_hop_k,
             )
         )
         t_path += time.perf_counter() - t0
@@ -478,6 +530,7 @@ def run_srr_oracle(
                 backend=config.lp_backend,
                 tolerance=config.lp_tolerance,
                 path_cost_epsilon=config.lp_path_cost_epsilon,
+                path_cost_mode=config.lp_path_cost_mode,
             )
             lp_result = solve_path_restricted_lp(instance, path_sets, lp_config)
             lp_time += lp_result.solve_time_s

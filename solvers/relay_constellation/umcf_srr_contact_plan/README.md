@@ -125,7 +125,10 @@ Key knobs:
 - `srr.probability_source` — `"lp"` by default for reproduction mode; `"heuristic"` is available only as an ablation/fallback experiment.
 - `srr.lp_backend` — LP backend identifier. The supported value is `"scipy-highs"`.
 - `srr.lp_tolerance` — Numerical tolerance for interpreting LP fractional values.
-- `srr.lp_path_cost_epsilon` — Optional small path-cost penalty in the LP objective; default `0.0`.
+- `srr.lp_path_cost_epsilon` — Optional small path-cost penalty in the LP objective. The reproduction and quality profiles use `1.0e-4`.
+- `srr.lp_path_cost_mode` — Path-cost mode for the LP penalty. `"hop_count"` matches the Lamothe-style scale used by the registered profiles; `"distance_m"` and `"none"` are also supported.
+- `srr.first_last_hop_k` — Optional Grislain-style restriction to the k nearest visible satellites at source and destination ingress/egress. `null` leaves ingress/egress unrestricted.
+- `srr.lp_reactualization_policy` — Disclosure field for LP update policy. The current adaptation records `"once_per_sample"`; column-generation re-actualization remains deferred.
 - `srr.path_change_penalty` — Boost factor for sticking with the same path across consecutive samples. Higher values reduce interval churn.
 - `candidate_selection.policy` — `"greedy_marginal"`, `"no-added"`, or `"fixed"`.
 - `candidate_selection.evaluation_sample_stride` — Sample stride for marginal evaluation (1 = every sample, 10 = every 10th).
@@ -150,6 +153,9 @@ Written to `<solution_dir>/debug/`:
 - `rounded_paths.json` — Per-sample, per-demand path chosen by SRR.
 - `active_link_summary.json` — Edge counts before and after degree-cap repair for each sample.
 - `action_summary.json` — Repair and compaction statistics.
+- `oracle_drift_diagnostics.json` — Internal SRR assignment weight and
+  edge-sample survival through geometry filtering, degree repair, and action
+  compaction.
 - `compute_envelope.json` — Selected profile and all candidate-generation,
   candidate-selection, SRR/LP, timeout, and propagation-worker knobs.
 

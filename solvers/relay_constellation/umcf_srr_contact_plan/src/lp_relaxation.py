@@ -20,6 +20,7 @@ class LPRelaxationConfig:
     backend: str = "scipy-highs"
     tolerance: float = 1e-9
     path_cost_epsilon: float = 0.0
+    path_cost_mode: str = "hop_count"
 
 
 @dataclass
@@ -64,6 +65,17 @@ def path_node_usage(path: Any) -> dict[str, int]:
         usage[a] = usage.get(a, 0) + 1
         usage[b] = usage.get(b, 0) + 1
     return usage
+
+
+def _path_penalty(path: Any, config: LPRelaxationConfig) -> float:
+    """Return the small flow/path penalty used in the LP objective."""
+    if config.path_cost_epsilon <= 0.0 or config.path_cost_mode == "none":
+        return 0.0
+    if config.path_cost_mode == "hop_count":
+        return config.path_cost_epsilon * float(path.hop_count)
+    if config.path_cost_mode == "distance_m":
+        return config.path_cost_epsilon * float(path.total_distance_m)
+    raise LPBackendError(f"unsupported LP path cost mode: {config.path_cost_mode!r}")
 
 
 def solve_path_restricted_lp(
@@ -114,7 +126,7 @@ def solve_path_restricted_lp(
     for demand_id, path_index in variable_keys:
         commodity = commodity_by_id[demand_id]
         path = path_sets[demand_id][path_index]
-        path_penalty = config.path_cost_epsilon * float(path.total_distance_m)
+        path_penalty = _path_penalty(path, config)
         c.append(-(float(commodity.weight) - path_penalty))
 
     rows: list[list[float]] = []

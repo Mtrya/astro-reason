@@ -330,6 +330,37 @@ class TestPathGeneration:
         )
         assert len(paths) == 0
 
+    def test_first_last_hop_k_filters_to_nearest_endpoint_satellites(self) -> None:
+        adj = {
+            "ep1": [("sat_far", 100.0), ("sat_near", 10.0)],
+            "sat_far": [("ep1", 100.0), ("ep2", 100.0)],
+            "sat_near": [("ep1", 10.0), ("ep2", 10.0)],
+            "ep2": [("sat_far", 100.0), ("sat_near", 10.0)],
+        }
+
+        unrestricted = k_shortest_paths(
+            adj,
+            "ep1",
+            "ep2",
+            k=4,
+            endpoint_ids={"ep1", "ep2"},
+            max_hops=5,
+        )
+        restricted = k_shortest_paths(
+            adj,
+            "ep1",
+            "ep2",
+            k=4,
+            endpoint_ids={"ep1", "ep2"},
+            max_hops=5,
+            first_last_hop_k=1,
+        )
+
+        assert any(path.nodes == ("ep1", "sat_far", "ep2") for path in unrestricted)
+        assert restricted
+        assert all(path.nodes[1] == "sat_near" for path in restricted)
+        assert all(path.nodes[-2] == "sat_near" for path in restricted)
+
     def test_k_shortest_paths_respects_max_hops(self) -> None:
         graph = _graph_triangle()
         adj = {}
@@ -401,6 +432,34 @@ class TestLPRelaxation:
         assert pytest.approx(sum(result.path_values["d1"])) == 1.0
         assert pytest.approx(result.objective_value) == 3.0
         assert result.variable_count == 2
+
+    def test_hop_cost_penalty_prefers_shorter_equal_weight_path(self) -> None:
+        inst = _make_instance(
+            0,
+            [Commodity("d1", "ep1", "ep2", 1.0)],
+            {
+                "ep1": [("sat_short", 100.0), ("sat_long_1", 10.0)],
+                "sat_short": [("ep1", 100.0), ("ep2", 100.0)],
+                "sat_long_1": [("ep1", 10.0), ("sat_long_2", 10.0)],
+                "sat_long_2": [("sat_long_1", 10.0), ("ep2", 10.0)],
+                "ep2": [("sat_short", 100.0), ("sat_long_2", 10.0)],
+            },
+        )
+
+        path_sets = build_path_sets(inst, SRRConfig(k_paths=4))
+        result = solve_path_restricted_lp(
+            inst,
+            path_sets,
+            LPRelaxationConfig(path_cost_epsilon=0.1, path_cost_mode="hop_count"),
+        )
+
+        assert result.success is True
+        shortest_index = next(
+            index
+            for index, path in enumerate(path_sets["d1"])
+            if path.nodes == ("ep1", "sat_short", "ep2")
+        )
+        assert result.path_values["d1"][shortest_index] == 1.0
 
     def test_edge_contention_prioritizes_higher_weight(self) -> None:
         inst = _make_instance(

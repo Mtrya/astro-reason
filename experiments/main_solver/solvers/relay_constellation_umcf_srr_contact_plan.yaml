@@ -36,7 +36,10 @@ config:
     probability_source: lp
     lp_backend: scipy-highs
     lp_tolerance: 1.0e-9
-    lp_path_cost_epsilon: 0.0
+    lp_path_cost_epsilon: 1.0e-4
+    lp_path_cost_mode: hop_count
+    first_last_hop_k: null
+    lp_reactualization_policy: once_per_sample
     path_change_penalty: 1.0
 run_policies:
   smoke:
@@ -52,6 +55,7 @@ run_policies:
       srr:
         deterministic: true
         multi_run_count: 1
+        lp_path_cost_epsilon: 0.0
   reproduction:
     description: Canonical deterministic UMCF/SRR reproduction envelope.
     config:
@@ -71,6 +75,10 @@ run_policies:
       srr:
         deterministic: false
         multi_run_count: 5
+        lp_path_cost_epsilon: 1.0e-4
+        lp_path_cost_mode: hop_count
+        first_last_hop_k: null
+        lp_reactualization_policy: once_per_sample
 cases:
   - id: test/case_0001
     case_dir: benchmarks/relay_constellation/dataset/cases/test/case_0001

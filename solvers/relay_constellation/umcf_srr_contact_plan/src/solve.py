@@ -62,6 +62,9 @@ PROFILE_DEFAULTS: dict[str, dict[str, Any]] = {
             "lp_backend": "scipy-highs",
             "lp_tolerance": 1e-9,
             "lp_path_cost_epsilon": 0.0,
+            "lp_path_cost_mode": "hop_count",
+            "first_last_hop_k": None,
+            "lp_reactualization_policy": "once_per_sample",
         },
     },
     "reproduction": {
@@ -95,7 +98,10 @@ PROFILE_DEFAULTS: dict[str, dict[str, Any]] = {
             "probability_source": "lp",
             "lp_backend": "scipy-highs",
             "lp_tolerance": 1e-9,
-            "lp_path_cost_epsilon": 0.0,
+            "lp_path_cost_epsilon": 1e-4,
+            "lp_path_cost_mode": "hop_count",
+            "first_last_hop_k": None,
+            "lp_reactualization_policy": "once_per_sample",
         },
     },
     "quality": {
@@ -129,7 +135,10 @@ PROFILE_DEFAULTS: dict[str, dict[str, Any]] = {
             "probability_source": "lp",
             "lp_backend": "scipy-highs",
             "lp_tolerance": 1e-9,
-            "lp_path_cost_epsilon": 0.0,
+            "lp_path_cost_epsilon": 1e-4,
+            "lp_path_cost_mode": "hop_count",
+            "first_last_hop_k": None,
+            "lp_reactualization_policy": "once_per_sample",
         },
     },
 }
@@ -217,6 +226,9 @@ def _srr_config_from_mapping(raw: dict[str, Any]) -> SRRConfig:
         lp_backend=srr.get("lp_backend", "scipy-highs"),
         lp_tolerance=srr.get("lp_tolerance", 1e-9),
         lp_path_cost_epsilon=srr.get("lp_path_cost_epsilon", 0.0),
+        lp_path_cost_mode=srr.get("lp_path_cost_mode", "hop_count"),
+        first_last_hop_k=srr.get("first_last_hop_k"),
+        lp_reactualization_policy=srr.get("lp_reactualization_policy", "once_per_sample"),
     )
 
 
@@ -293,6 +305,57 @@ def _graph_scale_summary(
                 6,
             ),
         },
+    }
+
+
+def _edge_sample_count(edge_samples: dict[tuple[str, str], set[int]]) -> int:
+    """Return total active edge-sample count."""
+    return sum(len(samples) for samples in edge_samples.values())
+
+
+def _oracle_drift_summary(
+    umcf_instances: list[Any],
+    sample_assignments: list[dict[str, Any]],
+    edge_samples_raw: dict[tuple[str, str], set[int]],
+    edge_samples_geometry_filtered: dict[tuple[str, str], set[int]],
+    edge_samples_repaired: dict[tuple[str, str], set[int]],
+    geometry_summary: dict[str, Any],
+    repair_summary: dict[str, Any],
+    compaction_summary: dict[str, Any],
+) -> dict[str, Any]:
+    """Summarize how internal SRR intent survives action-generation filters."""
+    weight_by_sample_demand = {
+        (instance.sample_index, commodity.demand_id): commodity.weight
+        for instance in umcf_instances
+        for commodity in instance.commodities
+    }
+    internal_served_weight = 0.0
+    internal_assignments = 0
+    for instance, assignments in zip(umcf_instances, sample_assignments):
+        internal_assignments += len(assignments)
+        for demand_id in assignments:
+            internal_served_weight += weight_by_sample_demand.get(
+                (instance.sample_index, demand_id),
+                0.0,
+            )
+
+    raw_count = _edge_sample_count(edge_samples_raw)
+    geometry_count = _edge_sample_count(edge_samples_geometry_filtered)
+    repaired_count = _edge_sample_count(edge_samples_repaired)
+    return {
+        "diagnostic_scope": "internal_oracle_to_emitted_action_edge_survival",
+        "verifier_note": "The verifier may still route differently from SRR because routes are not submitted.",
+        "internal_assigned_commodity_samples": internal_assignments,
+        "internal_assigned_weight": round(internal_served_weight, 6),
+        "edge_samples_from_srr_paths": raw_count,
+        "edge_samples_after_geometry_filter": geometry_count,
+        "edge_samples_after_degree_repair": repaired_count,
+        "geometry_survival_fraction": geometry_count / raw_count if raw_count else 0.0,
+        "repair_survival_fraction": repaired_count / geometry_count if geometry_count else 0.0,
+        "total_survival_fraction": repaired_count / raw_count if raw_count else 0.0,
+        "geometry_filter": geometry_summary,
+        "degree_repair": repair_summary,
+        "compaction": compaction_summary,
     }
 
 
@@ -411,12 +474,12 @@ def solve(
 
     # 7. Generate actions from SRR paths
     t_action_start = time.perf_counter()
-    edge_samples = extract_edge_samples(umcf_instances, srr_result.sample_assignments)
+    edge_samples_raw = extract_edge_samples(umcf_instances, srr_result.sample_assignments)
     endpoint_ids = set(case.ground_endpoints)
 
     # Tighten ground-link edges against exact verifier geometry
     edge_samples, geometry_summary = filter_infeasible_edges(
-        edge_samples,
+        edge_samples_raw,
         positions_ecef,
         case.ground_endpoints,
         case.manifest,
@@ -432,6 +495,16 @@ def solve(
     )
     actions, compaction_summary = compact_actions(repaired, endpoint_ids, case.manifest)
     action_json = actions_to_json(actions)
+    oracle_drift = _oracle_drift_summary(
+        umcf_instances,
+        srr_result.sample_assignments,
+        edge_samples_raw,
+        edge_samples,
+        repaired,
+        geometry_summary,
+        repair_summary,
+        compaction_summary,
+    )
     t_action = time.perf_counter() - t_action_start
 
     t_total = time.perf_counter() - t0
@@ -506,7 +579,14 @@ def solve(
                 "path_changes": srr_result.path_changes,
                 "seed": srr_result.seed,
                 "deterministic": srr_result.deterministic,
+                "run_policy": {
+                    "deterministic": srr_config.deterministic,
+                    "multi_run_count": srr_config.multi_run_count,
+                    "seed": srr_config.seed,
+                    "lp_reactualization_policy": srr_config.lp_reactualization_policy,
+                },
                 "probability_source": srr_config.probability_source,
+                "first_last_hop_k": srr_config.first_last_hop_k,
                 "execution_time_s": round(srr_result.execution_time_s, 6),
                 "timing_breakdown": srr_result.timing_breakdown,
                 "rounding_diagnostics": srr_result.rounding_diagnostics,
@@ -518,6 +598,9 @@ def solve(
                     "randomized_rounding": "IMPLEMENTED (LP fractional path values drive SRR probabilities)",
                     "dynamic_path_change_penalty": "ADAPTED (per-sample probability boost instead of per-block objective term)",
                     "node_degree_modeling": "ADAPTED (benchmark degree caps consumed as per-sample node capacities during rounding)",
+                    "flow_penalization": "ADAPTED (optional LP path-cost epsilon, hop-count mode by default)",
+                    "first_last_hop_restriction": "IMPLEMENTED AS OPTIONAL (disabled when first_last_hop_k is null)",
+                    "lp_reactualization": "MISSING (LP solved once per sample; policy recorded as once_per_sample)",
                 },
             },
             indent=2,
@@ -532,10 +615,15 @@ def solve(
             {
                 "repair": repair_summary,
                 "compaction": compaction_summary,
+                "oracle_drift": oracle_drift,
             },
             indent=2,
         )
         + "\n",
+        encoding="utf-8",
+    )
+    (debug_dir / "oracle_drift_diagnostics.json").write_text(
+        json.dumps(oracle_drift, indent=2) + "\n",
         encoding="utf-8",
     )
 
@@ -634,8 +722,8 @@ def solve(
                 "note": "LP is solved once per sample before rounding. Lamothe Appendix C recomputation threshold theta is deferred to the dynamic/column-generation phase.",
             },
             "flow_penalization_epsilon": {
-                "status": "MISSING",
-                "note": "Lamotte Appendix C hop-based cost epsilon=1e-4 not used. Paths sorted by hop count then distance instead.",
+                "status": "ADAPTED",
+                "note": "Optional LP path-cost epsilon is implemented. Reproduction and quality profiles use hop-count mode with epsilon=1e-4, matching the literature scale while preserving benchmark configurability.",
             },
             "multi_time_step_methods": {
                 "status": "MISSING",
@@ -706,7 +794,17 @@ def solve(
         "srr_execution_time_s": round(srr_result.execution_time_s, 6),
         "srr_rounding_diagnostics": srr_result.rounding_diagnostics,
         "srr_probability_source": srr_config.probability_source,
+        "srr_run_policy": {
+            "deterministic": srr_config.deterministic,
+            "multi_run_count": srr_config.multi_run_count,
+            "seed": srr_config.seed,
+            "lp_reactualization_policy": srr_config.lp_reactualization_policy,
+            "first_last_hop_k": srr_config.first_last_hop_k,
+            "lp_path_cost_epsilon": srr_config.lp_path_cost_epsilon,
+            "lp_path_cost_mode": srr_config.lp_path_cost_mode,
+        },
         "srr_lp_diagnostics": lp_status,
+        "oracle_drift_diagnostics": oracle_drift,
         "srr_seed": srr_result.seed,
         "srr_deterministic": srr_result.deterministic,
         "num_actions": compaction_summary["num_actions"],

@@ -57,7 +57,17 @@ srr:
   # the solver-local .venv by setup.sh.
   lp_backend: scipy-highs
   lp_tolerance: 1.0e-9
-  lp_path_cost_epsilon: 0.0
+  lp_path_cost_epsilon: 1.0e-4
+  lp_path_cost_mode: hop_count
+
+  # Optional Grislain-style first/last hop restriction. Null means every
+  # visible ingress/egress satellite is allowed.
+  first_last_hop_k: null
+
+  # Current benchmark adaptation solves one LP per sample before rounding.
+  # This records the deliberate policy; column-generation re-actualization is
+  # deferred.
+  lp_reactualization_policy: once_per_sample
 
   # Boost factor for sticking with the same path across consecutive samples.
   # Higher values reduce interval churn and improve compaction.
