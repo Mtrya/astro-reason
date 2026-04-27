@@ -39,7 +39,15 @@ def test_solver_subprocess_env_scrubs_workspace_python_leakage(monkeypatch) -> N
     monkeypatch.setenv("PYTHONUSERBASE", "/tmp/pythonuserbase")
     monkeypatch.setenv("VIRTUAL_ENV", str(solver_contract.REPO_ROOT / ".venv"))
     monkeypatch.setenv("UV_CACHE_DIR", "/tmp/repo-uv-cache")
+    monkeypatch.setenv("UV_DEFAULT_INDEX", "https://mirror.example/simple")
+    monkeypatch.setenv("UV_EXTRA_INDEX_URL", "https://extra.example/simple")
+    monkeypatch.setenv("UV_INDEX_URL", "https://legacy.example/simple")
+    monkeypatch.setenv("UV_INDEX_PRIVATE_USERNAME", "ci-user")
+    monkeypatch.setenv("UV_INDEX_PRIVATE_PASSWORD", "ci-pass")
+    monkeypatch.setenv("UV_KEYRING_PROVIDER", "subprocess")
+    monkeypatch.setenv("UV_PYTHON_INSTALL_DIR", "/tmp/uv-python-dir")
     monkeypatch.setenv("UV_PROJECT", str(solver_contract.REPO_ROOT))
+    monkeypatch.setenv("UV_WORKING_DIR", str(solver_contract.REPO_ROOT))
     monkeypatch.setenv("SOLVER_PYTHON", "/tmp/solver-python")
 
     env = solver_contract._solver_subprocess_env()
@@ -48,8 +56,16 @@ def test_solver_subprocess_env_scrubs_workspace_python_leakage(monkeypatch) -> N
     assert "PYTHONHOME" not in env
     assert "PYTHONUSERBASE" not in env
     assert "VIRTUAL_ENV" not in env
-    assert "UV_CACHE_DIR" not in env
     assert "UV_PROJECT" not in env
+    assert "UV_WORKING_DIR" not in env
+    assert env["UV_CACHE_DIR"] == "/tmp/repo-uv-cache"
+    assert env["UV_DEFAULT_INDEX"] == "https://mirror.example/simple"
+    assert env["UV_EXTRA_INDEX_URL"] == "https://extra.example/simple"
+    assert env["UV_INDEX_URL"] == "https://legacy.example/simple"
+    assert env["UV_INDEX_PRIVATE_USERNAME"] == "ci-user"
+    assert env["UV_INDEX_PRIVATE_PASSWORD"] == "ci-pass"
+    assert env["UV_KEYRING_PROVIDER"] == "subprocess"
+    assert env["UV_PYTHON_INSTALL_DIR"] == "/tmp/uv-python-dir"
     assert str(repo_bin) not in env["PATH"].split(":")
     assert env["SOLVER_PYTHON"] == "/tmp/solver-python"
     assert env["UV_NO_PROJECT"] == "1"

@@ -55,7 +55,13 @@ SCRUBBED_ENV_EXACT_KEYS = {
     "PYTHONUSERBASE",
     "VIRTUAL_ENV",
 }
-SCRUBBED_ENV_PREFIXES = ("PYTHON", "UV_")
+SCRUBBED_ENV_PREFIXES = ("PYTHON",)
+SCRUBBED_UV_EXACT_KEYS = {
+    "UV_CONFIG_FILE",
+    "UV_ENV_FILE",
+    "UV_PROJECT",
+    "UV_WORKING_DIR",
+}
 PRESERVED_ENV_EXACT_KEYS = {
     "CI",
     "HOME",
@@ -69,6 +75,27 @@ PRESERVED_ENV_EXACT_KEYS = {
     "TZ",
 }
 PRESERVED_ENV_SUFFIXES = ("_PROXY", "_proxy")
+PRESERVED_UV_EXACT_KEYS = {
+    "UV_AUTH_TOKEN",
+    "UV_CACHE_DIR",
+    "UV_DEFAULT_INDEX",
+    "UV_EXTRA_INDEX_URL",
+    "UV_FIND_LINKS",
+    "UV_INDEX",
+    "UV_INDEX_STRATEGY",
+    "UV_INDEX_URL",
+    "UV_INSECURE_HOST",
+    "UV_KEYRING_PROVIDER",
+    "UV_LINK_MODE",
+    "UV_NATIVE_TLS",
+    "UV_NO_MANAGED_PYTHON",
+    "UV_NO_PROGRESS",
+    "UV_NO_PYTHON_DOWNLOADS",
+    "UV_OFFLINE",
+    "UV_PYTHON_DOWNLOADS",
+    "UV_PYTHON_INSTALL_DIR",
+}
+PRESERVED_UV_PREFIXES = ("UV_INDEX_",)
 ENTRYPOINT_LEAK_PATTERNS = (
     (
         re.compile(r"\buv\s+run\b"),
@@ -279,7 +306,9 @@ def _scrubbed_path(value: str) -> str:
 def _solver_subprocess_env() -> dict[str, str]:
     env: dict[str, str] = {}
     for key, value in os.environ.items():
-        if key in SCRUBBED_ENV_EXACT_KEYS or key.startswith(SCRUBBED_ENV_PREFIXES):
+        if key in SCRUBBED_ENV_EXACT_KEYS or key in SCRUBBED_UV_EXACT_KEYS:
+            continue
+        if key.startswith(SCRUBBED_ENV_PREFIXES):
             continue
         if key == "PATH":
             cleaned_path = _scrubbed_path(value)
@@ -288,6 +317,8 @@ def _solver_subprocess_env() -> dict[str, str]:
             continue
         if (
             key in PRESERVED_ENV_EXACT_KEYS
+            or key in PRESERVED_UV_EXACT_KEYS
+            or key.startswith(PRESERVED_UV_PREFIXES)
             or key.startswith("LC_")
             or key.endswith(PRESERVED_ENV_SUFFIXES)
             or key.startswith("SOLVER_")
