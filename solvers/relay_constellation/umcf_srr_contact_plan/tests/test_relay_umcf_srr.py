@@ -264,6 +264,95 @@ srr:
         assert debug["selection_evidence"]["proxy_model"] == "union_find_reachability_on_strided_samples"
         assert "d1" in debug["selection_evidence"]["per_demand"]
 
+    def test_selection_scores_only_active_demand_samples(self) -> None:
+        case = _tiny_case()
+        manifest = case.manifest
+        late_demand = Demand(
+            demand_id="d1",
+            source_endpoint_id="ep1",
+            destination_endpoint_id="ep2",
+            start_time=manifest.horizon_start + timedelta(seconds=manifest.routing_step_s),
+            end_time=manifest.horizon_start + timedelta(seconds=2 * manifest.routing_step_s),
+            weight=1.0,
+        )
+        two_sample_manifest = Manifest(
+            case_id=manifest.case_id,
+            epoch=manifest.epoch,
+            horizon_start=manifest.horizon_start,
+            horizon_end=manifest.horizon_start + timedelta(seconds=2 * manifest.routing_step_s),
+            routing_step_s=manifest.routing_step_s,
+            max_added_satellites=manifest.max_added_satellites,
+            min_altitude_m=manifest.min_altitude_m,
+            max_altitude_m=manifest.max_altitude_m,
+            max_eccentricity=manifest.max_eccentricity,
+            min_inclination_deg=manifest.min_inclination_deg,
+            max_inclination_deg=manifest.max_inclination_deg,
+            max_isl_range_m=manifest.max_isl_range_m,
+            max_links_per_satellite=manifest.max_links_per_satellite,
+            max_links_per_endpoint=manifest.max_links_per_endpoint,
+            max_ground_range_m=manifest.max_ground_range_m,
+        )
+        candidate = Satellite(satellite_id="cand1", state_eci_m_mps=None)  # type: ignore[arg-type]
+        off_window_graph = SampleGraph(
+            sample_index=0,
+            endpoint_ids={"ep1", "ep2"},
+            satellite_ids={"sat1", "sat2", "cand1"},
+        )
+        off_window_graph.add_edge(GraphEdge("ground_link", "ep1", "cand1", 1000.0))
+        off_window_graph.add_edge(GraphEdge("ground_link", "cand1", "ep2", 1000.0))
+        on_window_graph = SampleGraph(
+            sample_index=1,
+            endpoint_ids={"ep1", "ep2"},
+            satellite_ids={"sat1", "sat2", "cand1"},
+        )
+        late_case = Case(
+            case_dir=case.case_dir,
+            manifest=two_sample_manifest,
+            backbone_satellites=case.backbone_satellites,
+            ground_endpoints=case.ground_endpoints,
+            demands=[late_demand],
+        )
+
+        selected, debug = select_candidates(
+            late_case,
+            [off_window_graph, on_window_graph],
+            {"cand1": candidate},
+            SelectionConfig(policy="greedy_marginal", evaluation_sample_stride=1),
+        )
+
+        assert selected == {}
+        assert debug["selection_evidence"]["per_demand"]["d1"]["active_sample_count"] == 1
+        assert debug["selected_total_weighted_service"] == 0.0
+
+    def test_selection_rejects_unknown_policy(self) -> None:
+        case = _tiny_case()
+        with pytest.raises(ValueError, match="unknown candidate selection policy"):
+            select_candidates(
+                case,
+                [_graph_triangle()],
+                {},
+                SelectionConfig(policy="typo", evaluation_sample_stride=1),
+            )
+
+    def test_fixed_selection_rejects_more_than_max_added(self) -> None:
+        case = _tiny_case()
+        candidates = {
+            cid: Satellite(satellite_id=cid, state_eci_m_mps=None)  # type: ignore[arg-type]
+            for cid in ("cand1", "cand2", "cand3")
+        }
+
+        with pytest.raises(ValueError, match="exceeding max_added_satellites"):
+            select_candidates(
+                case,
+                [_graph_triangle()],
+                candidates,
+                SelectionConfig(
+                    policy="fixed",
+                    fixed_candidates=["cand1", "cand2", "cand3"],
+                    evaluation_sample_stride=1,
+                ),
+            )
+
 
 class TestUMCFConstruction:
     def test_build_instances_filters_empty_samples(self) -> None:
@@ -388,6 +477,30 @@ class TestPathGeneration:
             adj, "ep1", "ep2", k=10, endpoint_ids={"ep1", "ep2"}, max_hops=0
         )
         assert len(paths) == 0
+
+    def test_k_shortest_paths_sorts_after_bounded_enumeration(self) -> None:
+        adj = {
+            "s": [("a", 1.0), ("z", 1.0)],
+            "a": [("s", 1.0), ("t", 1.0), ("b", 1.0)],
+            "b": [("a", 1.0), ("t", 1.0)],
+            "z": [("s", 1.0), ("y", 50.0)],
+            "y": [("z", 50.0), ("t", 50.0)],
+            "t": [("a", 1.0), ("b", 1.0), ("y", 50.0)],
+        }
+
+        paths = k_shortest_paths(
+            adj,
+            "s",
+            "t",
+            k=2,
+            endpoint_ids={"s", "t"},
+            max_hops=4,
+        )
+
+        assert [path.nodes for path in paths] == [
+            ("s", "a", "t"),
+            ("s", "a", "b", "t"),
+        ]
 
 
 class TestHeuristicProbabilities:
@@ -885,6 +998,20 @@ class TestActionGeneration:
             ("ep1", "sat1"): {0},
             ("ep2", "sat1"): {0},
         }
+
+    def test_extract_edge_samples_rejects_length_mismatch(self) -> None:
+        inst = _make_instance(
+            0,
+            [Commodity("d1", "ep1", "ep2", 1.0)],
+            {
+                "ep1": [("sat1", 100.0)],
+                "sat1": [("ep1", 100.0), ("ep2", 100.0)],
+                "ep2": [("sat1", 100.0)],
+            },
+        )
+
+        with pytest.raises(ValueError, match="same length"):
+            extract_edge_samples([inst], [])
 
     def test_repair_no_op_when_srr_consumes_node_caps(self) -> None:
         inst = _make_instance(

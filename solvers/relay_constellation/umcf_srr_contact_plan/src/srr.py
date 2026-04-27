@@ -230,7 +230,7 @@ def k_shortest_paths(
     ]
     visit_budget = k * 50  # generous cap to avoid explosion
 
-    while stack and len(unique_paths) < k and visit_budget > 0:
+    while stack and visit_budget > 0:
         node, path_nodes, visited = stack.pop()
         visit_budget -= 1
         if len(path_nodes) - 1 > max_hops:
@@ -250,7 +250,7 @@ def k_shortest_paths(
             if neighbor in endpoint_ids and neighbor != destination:
                 continue
             stack.append(
-                (neighbor, path_nodes + [neighbor], visited | {neighbor})
+                (neighbor, [*path_nodes, neighbor], visited | {neighbor})
             )
 
     paths = list(unique_paths.values())

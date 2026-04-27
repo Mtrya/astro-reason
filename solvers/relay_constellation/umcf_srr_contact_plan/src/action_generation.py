@@ -123,8 +123,10 @@ def extract_edge_samples(
     dict[tuple[str, str], set[int]]
         Canonical edge -> sample indices where the edge appears in an SRR path.
     """
+    if len(umcf_instances) != len(sample_assignments):
+        raise ValueError("umcf_instances and sample_assignments must have the same length")
     edge_samples: dict[tuple[str, str], set[int]] = {}
-    for instance, assignments in zip(umcf_instances, sample_assignments):
+    for instance, assignments in zip(umcf_instances, sample_assignments, strict=True):
         sample_idx = instance.sample_index
         for path in assignments.values():
             for edge in path.edges:
@@ -137,8 +139,10 @@ def _build_edge_importance(
     sample_assignments: list[dict[str, Path]],
 ) -> dict[tuple[int, tuple[str, str]], float]:
     """Compute importance = max commodity weight per (sample, edge)."""
+    if len(umcf_instances) != len(sample_assignments):
+        raise ValueError("umcf_instances and sample_assignments must have the same length")
     importance: dict[tuple[int, tuple[str, str]], float] = {}
-    for instance, assignments in zip(umcf_instances, sample_assignments):
+    for instance, assignments in zip(umcf_instances, sample_assignments, strict=True):
         sample_idx = instance.sample_index
         weight_by_demand = {c.demand_id: c.weight for c in instance.commodities}
         for demand_id, path in assignments.items():

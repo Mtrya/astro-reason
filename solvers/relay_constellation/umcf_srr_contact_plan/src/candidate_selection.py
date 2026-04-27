@@ -10,7 +10,7 @@ from typing import Any
 
 import yaml
 
-from .case_io import Case, Demand, Satellite
+from .case_io import Case, Demand, Manifest, Satellite
 from .dynamic_graph import SampleGraph
 from .time_grid import demand_indices
 
@@ -124,14 +124,23 @@ def _evaluate_allowed_set(
     demands: list[Demand],
     allowed_satellites: set[str],
     sample_indices: list[int],
+    active_demands_by_sample: dict[int, list[Demand]] | None = None,
 ) -> dict[str, Any]:
     """Evaluate a full allowed satellite set over sampled indices."""
     total_weighted = 0.0
     per_demand_samples: dict[str, int] = {d.demand_id: 0 for d in demands}
+    per_demand_active_samples: dict[str, int] = {d.demand_id: 0 for d in demands}
 
     for idx in sample_indices:
         graph = sample_graphs[idx]
-        w, pd = _evaluate_sample(graph, demands, allowed_satellites)
+        active_demands = (
+            active_demands_by_sample.get(idx, [])
+            if active_demands_by_sample is not None
+            else demands
+        )
+        for demand in active_demands:
+            per_demand_active_samples[demand.demand_id] += 1
+        w, pd = _evaluate_sample(graph, active_demands, allowed_satellites)
         total_weighted += w
         for did, val in pd.items():
             per_demand_samples[did] += val
@@ -139,6 +148,7 @@ def _evaluate_allowed_set(
     return {
         "total_weighted_service": total_weighted,
         "per_demand_samples": per_demand_samples,
+        "per_demand_active_samples": per_demand_active_samples,
     }
 
 
@@ -154,15 +164,22 @@ def _selection_evidence(
         demand_id = demand.demand_id
         baseline_samples = int(baseline_result["per_demand_samples"].get(demand_id, 0))
         selected_samples = int(selected_result["per_demand_samples"].get(demand_id, 0))
+        active_samples = int(
+            selected_result.get("per_demand_active_samples", {}).get(
+                demand_id,
+                sample_count,
+            )
+        )
         per_demand[demand_id] = {
+            "active_sample_count": active_samples,
             "baseline_served_samples": baseline_samples,
             "selected_served_samples": selected_samples,
             "improved_samples": selected_samples - baseline_samples,
             "baseline_proxy_service_fraction": (
-                baseline_samples / sample_count if sample_count else 0.0
+                baseline_samples / active_samples if active_samples else 0.0
             ),
             "selected_proxy_service_fraction": (
-                selected_samples / sample_count if sample_count else 0.0
+                selected_samples / active_samples if active_samples else 0.0
             ),
             "weight": demand.weight,
         }
@@ -189,10 +206,17 @@ def _evaluate_candidate_worker(
     current_allowed: list[str],
     candidate_id: str,
     sample_indices: list[int],
+    active_demands_by_sample: dict[int, list[Demand]],
 ) -> dict[str, Any]:
     """Pickle-friendly worker for parallel candidate evaluation."""
     allowed = set(current_allowed) | {candidate_id}
-    return _evaluate_allowed_set(sample_graphs, demands, allowed, sample_indices)
+    return _evaluate_allowed_set(
+        sample_graphs,
+        demands,
+        allowed,
+        sample_indices,
+        active_demands_by_sample,
+    )
 
 
 def _compute_marginal_scores(
@@ -202,11 +226,18 @@ def _compute_marginal_scores(
     selected_ids: set[str],
     remaining_candidates: list[str],
     sample_indices: list[int],
+    active_demands_by_sample: dict[int, list[Demand]],
     parallel_eval: bool = False,
 ) -> dict[str, dict[str, Any]]:
     """Compute marginal scores for all remaining candidates."""
     current_allowed = backbone_ids | selected_ids
-    baseline = _evaluate_allowed_set(sample_graphs, demands, current_allowed, sample_indices)
+    baseline = _evaluate_allowed_set(
+        sample_graphs,
+        demands,
+        current_allowed,
+        sample_indices,
+        active_demands_by_sample,
+    )
 
     # Evaluate each candidate.  Sequential evaluation is usually faster because
     # the per-candidate work (Union-Find on ~30 nodes) is tiny compared to
@@ -219,7 +250,8 @@ def _compute_marginal_scores(
                 executor.submit(
                     _evaluate_candidate_worker,
                     sample_graphs, demands,
-                    sorted(current_allowed), cid, sample_indices
+                    sorted(current_allowed), cid, sample_indices,
+                    active_demands_by_sample,
                 ): cid
                 for cid in remaining_candidates
             }
@@ -228,7 +260,8 @@ def _compute_marginal_scores(
         results = {
             cid: _evaluate_allowed_set(
                 sample_graphs, demands,
-                current_allowed | {cid}, sample_indices
+                current_allowed | {cid}, sample_indices,
+                active_demands_by_sample,
             )
             for cid in remaining_candidates
         }
@@ -249,6 +282,21 @@ def _compute_marginal_scores(
         }
 
     return scores
+
+
+def _active_demands_by_sample(
+    manifest: Manifest,
+    demands: list[Demand],
+    sample_indices: list[int],
+) -> dict[int, list[Demand]]:
+    """Return active demands for each sampled index."""
+    sampled = set(sample_indices)
+    active: dict[int, list[Demand]] = {idx: [] for idx in sample_indices}
+    for demand in demands:
+        for idx in demand_indices(manifest, demand):
+            if idx in sampled:
+                active[idx].append(demand)
+    return active
 
 
 def select_candidates(
@@ -275,10 +323,15 @@ def select_candidates(
         sample_indices = all_indices[::config.evaluation_sample_stride]
     else:
         sample_indices = all_indices
+    active_demands = _active_demands_by_sample(
+        case.manifest,
+        case.demands,
+        sample_indices,
+    )
 
     if config.policy == "no-added":
         baseline_result = _evaluate_allowed_set(
-            sample_graphs, case.demands, backbone_ids, sample_indices
+            sample_graphs, case.demands, backbone_ids, sample_indices, active_demands
         )
         return {}, {
             "policy": "no-added",
@@ -303,18 +356,28 @@ def select_candidates(
         invalid = [cid for cid in fixed if cid not in candidates]
         if invalid:
             raise ValueError(f"Fixed candidates not in library: {invalid}")
-        selected = {cid: candidates[cid] for cid in fixed}
+        unique_fixed = list(dict.fromkeys(fixed))
+        if len(unique_fixed) > max_added:
+            raise ValueError(
+                f"fixed_candidates selects {len(unique_fixed)} candidates, "
+                f"exceeding max_added_satellites={max_added}"
+            )
+        selected = {cid: candidates[cid] for cid in unique_fixed}
         baseline_result = _evaluate_allowed_set(
-            sample_graphs, case.demands, backbone_ids, sample_indices
+            sample_graphs, case.demands, backbone_ids, sample_indices, active_demands
         )
         selected_result = _evaluate_allowed_set(
-            sample_graphs, case.demands, backbone_ids | set(fixed), sample_indices
+            sample_graphs,
+            case.demands,
+            backbone_ids | set(unique_fixed),
+            sample_indices,
+            active_demands,
         )
         return selected, {
             "policy": "fixed",
             "candidate_count": len(candidates),
             "selected_candidate_count": len(selected),
-            "selected_candidate_ids": fixed,
+            "selected_candidate_ids": unique_fixed,
             "evaluation_sample_count": len(sample_indices),
             "evaluation_sample_stride": config.evaluation_sample_stride,
             "baseline_total_weighted_service": baseline_result["total_weighted_service"],
@@ -327,6 +390,12 @@ def select_candidates(
             ),
             "scores_by_iteration": [],
         }
+
+    if config.policy != "greedy_marginal":
+        raise ValueError(
+            "unknown candidate selection policy "
+            f"{config.policy!r}; expected one of 'no-added', 'fixed', 'greedy_marginal'"
+        )
 
     # greedy_marginal
     remaining = sorted(candidates.keys())
@@ -341,6 +410,7 @@ def select_candidates(
         scores = _compute_marginal_scores(
             sample_graphs, case.demands,
             backbone_ids, selected_ids, remaining, sample_indices,
+            active_demands,
             parallel_eval=config.parallel_eval,
         )
 
@@ -364,10 +434,14 @@ def select_candidates(
 
     selected = {cid: candidates[cid] for cid in selected_order}
     baseline_result = _evaluate_allowed_set(
-        sample_graphs, case.demands, backbone_ids, sample_indices
+        sample_graphs, case.demands, backbone_ids, sample_indices, active_demands
     )
     selected_result = _evaluate_allowed_set(
-        sample_graphs, case.demands, backbone_ids | selected_ids, sample_indices
+        sample_graphs,
+        case.demands,
+        backbone_ids | selected_ids,
+        sample_indices,
+        active_demands,
     )
 
     debug_info = {
