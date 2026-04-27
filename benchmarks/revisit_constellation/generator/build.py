@@ -427,6 +427,23 @@ def build_index_payload(
         "benchmark": "revisit_constellation",
         "source": source,
         "example_smoke_case": example_smoke_case,
+        "splits": {
+            split_name: {
+                "path": f"cases/{split_name}",
+                "case_count": _require_int(
+                    split_config,
+                    "case_count",
+                    f"splits.{split_name}",
+                ),
+                "seed": _require_int(split_config, "seed", f"splits.{split_name}"),
+                "case_ids": [
+                    case_spec.case_id
+                    for case_spec in case_specs
+                    if case_spec.split == split_name
+                ],
+            }
+            for split_name, split_config in split_configs.items()
+        },
         "cases": [
             {
                 "split": case_spec.split,

@@ -16,6 +16,16 @@ by the verifier. `index.json` records split-aware case paths and
 `example_solution.json` is a single minimal runnable solution (same schema as a
 real submission) for verifier smoke tests; these are not baselines.
 
+The committed split policy is benchmark-owned:
+
+- `cases/train/case_0001` through `cases/train/case_0010` are public
+  development cases for skill, tool, and solver accumulation workflows.
+- `cases/test/case_0001` through `cases/test/case_0005` are held-out
+  evaluation cases.
+
+Train and test cases are generated from disjoint split seeds and
+target-selection offsets declared in [splits.yaml](../splits.yaml).
+
 ## Canonical Generation
 
 This committed dataset is intended to be rebuilt with:

@@ -67,6 +67,13 @@ def download_sources(
     force_download: bool = False,
 ) -> Path:
     destination_dir.mkdir(parents=True, exist_ok=True)
+    final_world_csv = destination_dir / WORLD_CITIES_FILENAME
+    if not force_download and _matches_alias_groups(
+        final_world_csv,
+        WORLD_CITIES_REQUIRED_COLUMNS,
+    ):
+        return final_world_csv
+
     world_root = _download_dataset(
         WORLD_CITIES_DATASET,
         destination_dir / "world_cities_raw",

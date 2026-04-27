@@ -275,7 +275,12 @@ tests/benchmarks/
 
 ## 规范数据集
 
-提交的数据集位于 `dataset/cases/<split>/` 下，数据集级元数据在 `dataset/index.json` 中。当前规范数据集发布了五个 `test` 测试实例：`case_0001` 到 `case_0005`。
+提交的数据集位于 `dataset/cases/<split>/` 下，数据集级元数据在 `dataset/index.json` 中。规范 split 策略由 benchmark 拥有：
+
+- `train`：10 个公开生成的开发用例，`case_0001` 到 `case_0010`，用于 skill、工具和 solver 积累工作流。
+- `test`：5 个保留评估用例，`case_0001` 到 `case_0005`。
+
+split seed 和用例生成控制项在 `splits.yaml` 中声明；train 和 test split 使用互不相同的 seed 和目标选择 offset。
 
 规范生成器入口点为：
 

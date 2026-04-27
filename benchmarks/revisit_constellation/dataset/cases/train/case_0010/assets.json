@@ -1,0 +1,25 @@
+{
+  "max_num_satellites": 13,
+  "satellite_model": {
+    "attitude_model": {
+      "maneuver_discharge_rate_w": 90.0,
+      "max_slew_acceleration_deg_per_sec2": 0.45,
+      "max_slew_velocity_deg_per_sec": 1.0,
+      "settling_time_sec": 10.0
+    },
+    "max_altitude_m": 900000.0,
+    "min_altitude_m": 500000.0,
+    "model_name": "balanced_leo_eo_bus_v1",
+    "resource_model": {
+      "battery_capacity_wh": 2000.0,
+      "idle_discharge_rate_w": 5.0,
+      "initial_battery_wh": 1600.0,
+      "sunlight_charge_rate_w": 100.0
+    },
+    "sensor": {
+      "max_off_nadir_angle_deg": 25.0,
+      "max_range_m": 1000000.0,
+      "obs_discharge_rate_w": 120.0
+    }
+  }
+}
