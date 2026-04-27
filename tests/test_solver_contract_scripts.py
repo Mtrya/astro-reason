@@ -115,6 +115,23 @@ def test_entrypoint_isolation_rejects_uv_run(tmp_path: Path, monkeypatch) -> Non
     assert "solver-local environment" in errors[0]
 
 
+def test_setup_scripts_do_not_install_into_external_solver_python() -> None:
+    setup_scripts = [
+        solver_contract.REPO_ROOT / "solvers" / "aeossp_standard" / "greedy_lns" / "setup.sh",
+        solver_contract.REPO_ROOT / "solvers" / "aeossp_standard" / "mwis_conflict_graph" / "setup.sh",
+        solver_contract.REPO_ROOT / "solvers" / "regional_coverage" / "celf_submodular" / "setup.sh",
+        solver_contract.REPO_ROOT / "solvers" / "relay_constellation" / "mclp_teg_contact_plan" / "setup.sh",
+        solver_contract.REPO_ROOT / "solvers" / "revisit_constellation" / "rgt_apc_gap_constructive" / "setup.sh",
+        solver_contract.REPO_ROOT / "solvers" / "stereo_imaging" / "cp_local_search_stereo_insertion" / "setup.sh",
+    ]
+    for script in setup_scripts:
+        text = script.read_text(encoding="utf-8")
+        assert 'PYTHON_BIN="${VENV_DIR}/bin/python"' in text
+        assert "SOLVER_PYTHON:-" not in text
+        assert "python3.13 -m venv" in text
+        assert "python3 -m venv" not in text
+
+
 def test_boundary_scan_skips_generated_solver_dirs(tmp_path: Path, monkeypatch) -> None:
     repo_root = tmp_path
     solver_root = repo_root / "solvers" / "demo_benchmark" / "demo_solver"
