@@ -5,6 +5,7 @@ from __future__ import annotations
 import argparse
 import json
 import time
+from dataclasses import asdict
 from pathlib import Path
 from typing import Any
 
@@ -18,9 +19,9 @@ from .action_generation import (
     actions_to_json,
 )
 from .case_io import load_case
-from .candidate_selection import load_selection_config, select_candidates
+from .candidate_selection import SelectionConfig, select_candidates
 from .dynamic_graph import build_sample_graphs, graph_summary
-from .orbit_library import generate_candidates
+from .orbit_library import CandidateConfig, generate_candidates
 from .propagation import propagate_all_to_samples
 from .solution_io import write_solution, write_status
 from .lp_relaxation import LPBackendError
@@ -28,18 +29,183 @@ from .srr import SRRConfig, run_srr_oracle
 from .umcf import build_umcf_instances, instance_summary
 
 
-def _load_srr_config(config_dir: str | Path | None) -> SRRConfig:
-    """Load SRR config from config_dir/config.yaml if present."""
+PROFILE_DEFAULTS: dict[str, dict[str, Any]] = {
+    "smoke": {
+        "compute_envelope": {
+            "timeout_seconds": 60,
+            "propagation_max_workers": None,
+        },
+        "candidate_generation": {
+            "max_candidates": 16,
+            "altitude_steps": 4,
+            "inclination_steps": 4,
+            "raan_steps": 4,
+            "true_anomaly_steps": 2,
+            "eccentricity": 0.0,
+        },
+        "candidate_selection": {
+            "policy": "greedy_marginal",
+            "max_added_satellites": None,
+            "fixed_candidates": [],
+            "evaluation_sample_stride": 20,
+            "latency_weight": 0.0,
+            "parallel_eval": False,
+        },
+        "srr": {
+            "seed": 42,
+            "deterministic": True,
+            "k_paths": 4,
+            "path_change_penalty": 1.0,
+            "multi_run_count": 1,
+            "max_path_hops": 10,
+            "probability_source": "lp",
+            "lp_backend": "scipy-highs",
+            "lp_tolerance": 1e-9,
+            "lp_path_cost_epsilon": 0.0,
+        },
+    },
+    "reproduction": {
+        "compute_envelope": {
+            "timeout_seconds": 300,
+            "propagation_max_workers": None,
+        },
+        "candidate_generation": {
+            "max_candidates": 16,
+            "altitude_steps": 4,
+            "inclination_steps": 4,
+            "raan_steps": 4,
+            "true_anomaly_steps": 2,
+            "eccentricity": 0.0,
+        },
+        "candidate_selection": {
+            "policy": "greedy_marginal",
+            "max_added_satellites": None,
+            "fixed_candidates": [],
+            "evaluation_sample_stride": 10,
+            "latency_weight": 0.0,
+            "parallel_eval": False,
+        },
+        "srr": {
+            "seed": 42,
+            "deterministic": True,
+            "k_paths": 4,
+            "path_change_penalty": 1.0,
+            "multi_run_count": 1,
+            "max_path_hops": 10,
+            "probability_source": "lp",
+            "lp_backend": "scipy-highs",
+            "lp_tolerance": 1e-9,
+            "lp_path_cost_epsilon": 0.0,
+        },
+    },
+    "quality": {
+        "compute_envelope": {
+            "timeout_seconds": 300,
+            "propagation_max_workers": None,
+        },
+        "candidate_generation": {
+            "max_candidates": 32,
+            "altitude_steps": 4,
+            "inclination_steps": 4,
+            "raan_steps": 4,
+            "true_anomaly_steps": 2,
+            "eccentricity": 0.0,
+        },
+        "candidate_selection": {
+            "policy": "greedy_marginal",
+            "max_added_satellites": None,
+            "fixed_candidates": [],
+            "evaluation_sample_stride": 5,
+            "latency_weight": 0.0,
+            "parallel_eval": False,
+        },
+        "srr": {
+            "seed": 42,
+            "deterministic": False,
+            "k_paths": 4,
+            "path_change_penalty": 1.0,
+            "multi_run_count": 5,
+            "max_path_hops": 10,
+            "probability_source": "lp",
+            "lp_backend": "scipy-highs",
+            "lp_tolerance": 1e-9,
+            "lp_path_cost_epsilon": 0.0,
+        },
+    },
+}
+
+
+def _deep_merge(base: dict[str, Any], override: dict[str, Any]) -> dict[str, Any]:
+    """Recursively merge profile defaults with user-supplied config."""
+    merged = dict(base)
+    for key, value in override.items():
+        if isinstance(value, dict) and isinstance(merged.get(key), dict):
+            merged[key] = _deep_merge(merged[key], value)
+        else:
+            merged[key] = value
+    return merged
+
+
+def _load_solver_run_config(config_dir: str | Path | None) -> dict[str, Any]:
+    """Load named profile config from config_dir/config.yaml if present."""
+    raw: dict[str, Any] = {}
     if not config_dir:
-        return SRRConfig()
-    config_path = Path(config_dir) / "config.yaml"
-    if not config_path.is_file():
-        return SRRConfig()
-    try:
-        raw = yaml.safe_load(config_path.read_text(encoding="utf-8")) or {}
-    except Exception:
-        return SRRConfig()
+        profile = "smoke"
+    else:
+        config_path = Path(config_dir) / "config.yaml"
+        if config_path.is_file():
+            try:
+                loaded = yaml.safe_load(config_path.read_text(encoding="utf-8")) or {}
+            except Exception:
+                loaded = {}
+            if not isinstance(loaded, dict):
+                loaded = {}
+            raw = loaded
+        profile = str(raw.get("profile", "smoke"))
+    if profile not in PROFILE_DEFAULTS:
+        raise ValueError(
+            f"unsupported profile {profile!r}; expected one of {sorted(PROFILE_DEFAULTS)}"
+        )
+    merged = _deep_merge(PROFILE_DEFAULTS[profile], raw)
+    merged["profile"] = profile
+    return merged
+
+
+def _candidate_config_from_mapping(raw: dict[str, Any]) -> CandidateConfig:
+    """Build candidate-generation config from normalized solver config."""
+    candidate = raw.get("candidate_generation", {})
+    if not isinstance(candidate, dict):
+        candidate = {}
+    return CandidateConfig(
+        max_candidates=int(candidate.get("max_candidates", 16)),
+        altitude_steps=int(candidate.get("altitude_steps", 4)),
+        inclination_steps=int(candidate.get("inclination_steps", 4)),
+        raan_steps=int(candidate.get("raan_steps", 4)),
+        true_anomaly_steps=int(candidate.get("true_anomaly_steps", 2)),
+        eccentricity=float(candidate.get("eccentricity", 0.0)),
+    )
+
+
+def _selection_config_from_mapping(raw: dict[str, Any]) -> SelectionConfig:
+    """Build candidate-selection config from normalized solver config."""
+    selection = raw.get("candidate_selection", {})
+    if not isinstance(selection, dict):
+        selection = {}
+    return SelectionConfig(
+        policy=selection.get("policy", "greedy_marginal"),
+        max_added_satellites=selection.get("max_added_satellites"),
+        fixed_candidates=selection.get("fixed_candidates", []),
+        evaluation_sample_stride=int(selection.get("evaluation_sample_stride", 10)),
+        latency_weight=float(selection.get("latency_weight", 0.0)),
+        parallel_eval=bool(selection.get("parallel_eval", False)),
+    )
+
+
+def _srr_config_from_mapping(raw: dict[str, Any]) -> SRRConfig:
+    """Build SRR config from normalized solver config."""
     srr = raw.get("srr", {})
+    if not isinstance(srr, dict):
+        srr = {}
     return SRRConfig(
         seed=srr.get("seed", 42),
         deterministic=srr.get("deterministic", False),
@@ -52,6 +218,28 @@ def _load_srr_config(config_dir: str | Path | None) -> SRRConfig:
         lp_tolerance=srr.get("lp_tolerance", 1e-9),
         lp_path_cost_epsilon=srr.get("lp_path_cost_epsilon", 0.0),
     )
+
+
+def _compute_envelope_summary(
+    raw: dict[str, Any],
+    candidate_config: CandidateConfig,
+    selection_config: SelectionConfig,
+    srr_config: SRRConfig,
+) -> dict[str, Any]:
+    """Return the reproducibility envelope duplicated into status/debug output."""
+    compute = raw.get("compute_envelope", {})
+    if not isinstance(compute, dict):
+        compute = {}
+    return {
+        "profile": raw.get("profile", "smoke"),
+        "timeout_seconds": compute.get("timeout_seconds"),
+        "propagation": {
+            "max_workers": compute.get("propagation_max_workers"),
+        },
+        "candidate_generation": asdict(candidate_config),
+        "candidate_selection": asdict(selection_config),
+        "srr": asdict(srr_config),
+    }
 
 
 def _compact_lp_status(lp_diagnostics: dict[str, Any]) -> dict[str, Any]:
@@ -85,18 +273,37 @@ def solve(
     t_parse = time.perf_counter() - t_parse_start
 
     # 2. Load config
-    selection_config = load_selection_config(config_dir) if config_dir else load_selection_config(None)
+    run_config = _load_solver_run_config(config_dir)
+    candidate_config = _candidate_config_from_mapping(run_config)
+    selection_config = _selection_config_from_mapping(run_config)
+    srr_config = _srr_config_from_mapping(run_config)
+    compute = run_config.get("compute_envelope", {})
+    if not isinstance(compute, dict):
+        compute = {}
+    propagation_max_workers = compute.get("propagation_max_workers")
+    if propagation_max_workers is not None:
+        propagation_max_workers = int(propagation_max_workers)
+    compute_envelope = _compute_envelope_summary(
+        run_config,
+        candidate_config,
+        selection_config,
+        srr_config,
+    )
 
     # 3. Generate candidates
     t_candidate_start = time.perf_counter()
     all_satellites = dict(case.backbone_satellites)
-    candidates = generate_candidates(case.manifest)
+    candidates = generate_candidates(case.manifest, candidate_config)
     all_satellites.update(candidates)
     t_candidate = time.perf_counter() - t_candidate_start
 
     # 4. Build dynamic graphs (includes propagation + geometry)
     t_graph_start = time.perf_counter()
-    positions_ecef = propagate_all_to_samples(case.manifest, all_satellites)
+    positions_ecef = propagate_all_to_samples(
+        case.manifest,
+        all_satellites,
+        max_workers=propagation_max_workers,
+    )
     sample_graphs = build_sample_graphs(case, all_satellites, positions_ecef)
     t_graph = time.perf_counter() - t_graph_start
 
@@ -120,7 +327,6 @@ def solve(
     umcf_instances = build_umcf_instances(case, sample_graphs_selected)
     t_umcf = time.perf_counter() - t_umcf_start
 
-    srr_config = _load_srr_config(config_dir)
     t_srr_start = time.perf_counter()
     try:
         srr_result = run_srr_oracle(umcf_instances, srr_config)
@@ -134,6 +340,8 @@ def solve(
             {
                 "status": "lp_error",
                 "case_id": case.manifest.case_id,
+                "run_profile": run_config.get("profile", "smoke"),
+                "compute_envelope": compute_envelope,
                 "srr_probability_source": srr_config.probability_source,
                 "lp_backend": srr_config.lp_backend,
                 "error": str(exc),
@@ -193,6 +401,11 @@ def solve(
         (debug_dir / "routed_potential_summary.json").write_text(
             json.dumps(selection_debug, indent=2) + "\n", encoding="utf-8"
         )
+
+    (debug_dir / "compute_envelope.json").write_text(
+        json.dumps(compute_envelope, indent=2) + "\n",
+        encoding="utf-8",
+    )
 
     # UMCF/SRR debug artifacts
     umcf_summary = instance_summary(umcf_instances)
@@ -389,6 +602,8 @@ def solve(
         "num_ground_endpoints": len(case.ground_endpoints),
         "num_demands": len(case.demands),
         "num_routing_samples": case.manifest.total_samples,
+        "run_profile": run_config.get("profile", "smoke"),
+        "compute_envelope": compute_envelope,
         "graph_avg_nodes": graph_stats["avg_nodes"],
         "graph_avg_edges": graph_stats["avg_edges"],
         "graph_total_edges": graph_stats["total_edges"],

@@ -103,10 +103,20 @@ The solver intentionally does not add SciPy to the top-level project dependencie
 
 The solver reads optional config from `<config_dir>/config.yaml`.
 
-See [config.example.yaml](./config.example.yaml) for a commented example.
+The canonical evaluated config is owned by
+`experiments/main_solver/solvers/relay_constellation_umcf_srr_contact_plan.yaml`.
+See [config.example.yaml](./config.example.yaml) for a commented direct-run
+example.
 
 Key knobs:
 
+- `profile` — Named run envelope: `"smoke"`, `"reproduction"`, or `"quality"`.
+- `compute_envelope.timeout_seconds` — Informational run budget recorded in
+  `status.json`; the experiment runner enforces the timeout.
+- `compute_envelope.propagation_max_workers` — Optional process-pool worker
+  cap for orbit propagation.
+- `candidate_generation.*` — Candidate orbit-library size and grid knobs
+  (`max_candidates`, altitude/inclination/RAAN/anomaly steps, eccentricity).
 - `srr.deterministic` — When `true`, pick the highest-probability path deterministically instead of sampling. Makes the solver fully reproducible without multi-run aggregation.
 - `srr.multi_run_count` — Number of independent seeded SRR runs. Keeps the assignment set with the highest total served commodity weight. Ignored when `deterministic` is `true`.
 - `srr.seed` — Random seed base for stochastic rounding.
@@ -121,6 +131,9 @@ Key knobs:
 - `candidate_selection.evaluation_sample_stride` — Sample stride for marginal evaluation (1 = every sample, 10 = every 10th).
 - `candidate_selection.parallel_eval` — Opt-in flag for process-pool candidate evaluation. Not recommended at current scale because per-candidate work is too small to amortize fork/pickle/join overhead.
 
+`status.json` records the selected profile and the complete compute envelope so
+each run can be reconstructed from its artifacts.
+
 ## Debug Artifacts
 
 Written to `<solution_dir>/debug/`:
@@ -134,6 +147,8 @@ Written to `<solution_dir>/debug/`:
 - `rounded_paths.json` — Per-sample, per-demand path chosen by SRR.
 - `active_link_summary.json` — Edge counts before and after degree-cap repair for each sample.
 - `action_summary.json` — Repair and compaction statistics.
+- `compute_envelope.json` — Selected profile and all candidate-generation,
+  candidate-selection, SRR/LP, timeout, and propagation-worker knobs.
 
 These are useful for answering:
 

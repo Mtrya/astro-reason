@@ -1,6 +1,30 @@
 # Example configuration for the relay_constellation UMCF/SRR contact-plan solver.
-# Copy or rename this file to config.yaml in your config directory and adjust
-# values as needed.
+# The canonical evaluated configuration is owned by
+# experiments/main_solver/solvers/relay_constellation_umcf_srr_contact_plan.yaml.
+# Copy or rename this file to config.yaml in an ad hoc config directory only for
+# direct solver runs.
+
+# Profile: "smoke" | "reproduction" | "quality".
+# Explicit values below override the profile defaults.
+profile: reproduction
+
+# --- Compute envelope ---
+compute_envelope:
+  # Informational timeout recorded in status.json. The experiment runner owns
+  # enforcement when launched through experiments/main_solver/run.py.
+  timeout_seconds: 300
+
+  # Null lets ProcessPoolExecutor choose the worker count for propagation.
+  propagation_max_workers: null
+
+# --- Candidate generation ---
+candidate_generation:
+  max_candidates: 16
+  altitude_steps: 4
+  inclination_steps: 4
+  raan_steps: 4
+  true_anomaly_steps: 2
+  eccentricity: 0.0
 
 # --- SRR oracle ---
 srr:
@@ -53,3 +77,10 @@ candidate_selection:
 
   # Sample stride for marginal evaluation (1 = every sample, 10 = every 10th).
   evaluation_sample_stride: 10
+
+  # Optional process-pool candidate evaluation. Leave false unless candidate
+  # pools are large enough to amortize process overhead.
+  parallel_eval: false
+
+  # Reserved for future latency-aware selection scoring.
+  latency_weight: 0.0

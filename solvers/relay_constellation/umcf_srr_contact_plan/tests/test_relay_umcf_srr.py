@@ -8,7 +8,7 @@ import sys
 
 import pytest
 
-REPO_ROOT = Path(__file__).resolve().parents[2]
+REPO_ROOT = Path(__file__).resolve().parents[4]
 sys.path.insert(0, str(REPO_ROOT))
 
 from solvers.relay_constellation.umcf_srr_contact_plan.src.case_io import (
@@ -40,6 +40,13 @@ from solvers.relay_constellation.umcf_srr_contact_plan.src.srr import (
 from solvers.relay_constellation.umcf_srr_contact_plan.src.lp_relaxation import (
     LPRelaxationConfig,
     solve_path_restricted_lp,
+)
+from solvers.relay_constellation.umcf_srr_contact_plan.src.solve import (
+    _candidate_config_from_mapping,
+    _compute_envelope_summary,
+    _load_solver_run_config,
+    _selection_config_from_mapping,
+    _srr_config_from_mapping,
 )
 from solvers.relay_constellation.umcf_srr_contact_plan.src.action_generation import (
     LinkAction,
@@ -177,6 +184,55 @@ def _make_instance(
         endpoint_ids=endpoint_ids,
         satellite_ids=satellite_ids,
     )
+
+
+class TestProfileConfig:
+    def test_default_config_uses_smoke_profile(self) -> None:
+        raw = _load_solver_run_config(None)
+        candidate = _candidate_config_from_mapping(raw)
+        selection = _selection_config_from_mapping(raw)
+        srr = _srr_config_from_mapping(raw)
+        envelope = _compute_envelope_summary(raw, candidate, selection, srr)
+
+        assert raw["profile"] == "smoke"
+        assert candidate.max_candidates == 16
+        assert selection.evaluation_sample_stride == 20
+        assert srr.deterministic is True
+        assert envelope["profile"] == "smoke"
+        assert envelope["candidate_generation"]["max_candidates"] == 16
+        assert envelope["srr"]["probability_source"] == "lp"
+
+    def test_profile_overrides_are_merged_from_config_dir(self, tmp_path: Path) -> None:
+        (tmp_path / "config.yaml").write_text(
+            """
+profile: quality
+compute_envelope:
+  timeout_seconds: 123
+  propagation_max_workers: 2
+candidate_generation:
+  max_candidates: 40
+candidate_selection:
+  evaluation_sample_stride: 3
+srr:
+  multi_run_count: 7
+""",
+            encoding="utf-8",
+        )
+
+        raw = _load_solver_run_config(tmp_path)
+        candidate = _candidate_config_from_mapping(raw)
+        selection = _selection_config_from_mapping(raw)
+        srr = _srr_config_from_mapping(raw)
+        envelope = _compute_envelope_summary(raw, candidate, selection, srr)
+
+        assert raw["profile"] == "quality"
+        assert candidate.max_candidates == 40
+        assert candidate.altitude_steps == 4
+        assert selection.evaluation_sample_stride == 3
+        assert srr.deterministic is False
+        assert srr.multi_run_count == 7
+        assert envelope["timeout_seconds"] == 123
+        assert envelope["propagation"]["max_workers"] == 2
 
 
 class TestUMCFConstruction:

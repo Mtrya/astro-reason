@@ -8,6 +8,65 @@ setup_script: setup.sh
 solve_script: solve.sh
 solution_filename: solution.json
 timeout_seconds: 300
+config:
+  profile: reproduction
+  compute_envelope:
+    timeout_seconds: 300
+    propagation_max_workers: null
+  candidate_generation:
+    max_candidates: 16
+    altitude_steps: 4
+    inclination_steps: 4
+    raan_steps: 4
+    true_anomaly_steps: 2
+    eccentricity: 0.0
+  candidate_selection:
+    policy: greedy_marginal
+    max_added_satellites: null
+    fixed_candidates: []
+    evaluation_sample_stride: 10
+    latency_weight: 0.0
+    parallel_eval: false
+  srr:
+    deterministic: true
+    multi_run_count: 1
+    seed: 42
+    k_paths: 4
+    max_path_hops: 10
+    probability_source: lp
+    lp_backend: scipy-highs
+    lp_tolerance: 1.0e-9
+    lp_path_cost_epsilon: 0.0
+    path_change_penalty: 1.0
+run_policies:
+  smoke:
+    description: CI-safe one-case profile with strided candidate evaluation.
+    cases:
+      - test/case_0001
+    config:
+      profile: smoke
+      compute_envelope:
+        timeout_seconds: 60
+      candidate_selection:
+        evaluation_sample_stride: 20
+      srr:
+        deterministic: true
+        multi_run_count: 1
+  reproduction:
+    description: Canonical deterministic UMCF/SRR reproduction envelope.
+    config:
+      profile: reproduction
+  quality:
+    description: Larger candidate and multi-run stochastic envelope for calibration.
+    config:
+      profile: quality
+      candidate_generation:
+        max_candidates: 32
+      candidate_selection:
+        evaluation_sample_stride: 5
+      srr:
+        deterministic: false
+        multi_run_count: 5
 cases:
   - id: test/case_0001
     case_dir: benchmarks/relay_constellation/dataset/cases/test/case_0001
