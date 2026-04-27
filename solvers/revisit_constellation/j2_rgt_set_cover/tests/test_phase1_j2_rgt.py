@@ -46,6 +46,7 @@ from src.selection import satellites_required_for_target, select_candidates
 from src.solution import (
     ObservationAction,
     SchedulingConfig,
+    build_opportunities,
     build_solution,
     evaluate_phased_candidate_target_quality,
     generate_phased_satellites,
@@ -754,6 +755,54 @@ def test_selection_repair_ties_are_deterministic_under_shuffled_candidates() -> 
     assert right.selection.target_assignments["t1"].candidate_id == first.candidate_id
 
 
+def test_selection_repair_rankings_match_across_worker_counts() -> None:
+    case = _synthetic_case(["t1", "t2"], revisit_hours=8.0, max_num_satellites=6)
+    bad = _synthetic_candidate("a_bad_full_cover", repeat_hours=24.0)
+    good = _synthetic_candidate("b_good_t1", repeat_hours=24.0)
+    coverage = _synthetic_coverage(
+        candidates=[bad, good],
+        candidate_to_targets={
+            bad.candidate_id: ["t1", "t2"],
+            good.candidate_id: ["t1"],
+        },
+        windows=[
+            _synthetic_window(good, "t1", 1.0),
+            _synthetic_window(good, "t1", 25.0),
+        ],
+    )
+    selection = select_candidates(case, coverage)
+    initial_gaps = {
+        "t1": {
+            "max_revisit_gap_hours": 24.0,
+            "expected_revisit_period_hours": 8.0,
+        },
+        "t2": {
+            "max_revisit_gap_hours": 8.0,
+            "expected_revisit_period_hours": 8.0,
+        },
+    }
+
+    serial = repair_selection_with_phased_opportunities(
+        case=case,
+        coverage=coverage,
+        selection=selection,
+        initial_gap_summary=initial_gaps,
+        config=SchedulingConfig(repair_worker_count=1),
+    )
+    parallel = repair_selection_with_phased_opportunities(
+        case=case,
+        coverage=coverage,
+        selection=selection,
+        initial_gap_summary=initial_gaps,
+        config=SchedulingConfig(repair_worker_count=2),
+    )
+
+    assert serial.selection.as_debug_dict() == parallel.selection.as_debug_dict()
+    assert [item.as_dict() for item in serial.rounds] == [
+        item.as_dict() for item in parallel.rounds
+    ]
+
+
 def test_equal_phasing_produces_expected_spacing_for_repeat_periods() -> None:
     one_day_case = _synthetic_case(["t1"], revisit_hours=8.0, max_num_satellites=12)
     one_day_candidate = _synthetic_candidate("one_day", repeat_hours=24.0)
@@ -854,6 +903,61 @@ def test_generated_satellite_states_are_unique_and_within_bounds() -> None:
         altitude_m = np.linalg.norm(satellite.state_eci_m_mps[:3]) - EARTH_RADIUS_M
         assert case.satellite_model.min_altitude_m <= altitude_m
         assert altitude_m <= case.satellite_model.max_altitude_m
+
+
+def test_serial_and_parallel_opportunity_generation_match() -> None:
+    case = load_case(CASE_DIR)
+    search_config = RgtSearchConfig(
+        max_repeat_days=1,
+        min_revolutions_per_day=15,
+        max_revolutions_per_day=15,
+        inclinations_deg=(97.8,),
+        max_templates=1,
+        closure_tolerance_m=5_000.0,
+        refinement_iterations=8,
+    )
+    result = search_rgt_templates(case, search_config)
+    coverage = build_coverage_summary(
+        case,
+        result.accepted_templates,
+        CoverageConfig(
+            raan_count=2,
+            sample_step_sec=7200.0,
+            keep_samples_per_window=2,
+            worker_count=1,
+        ),
+    )
+    selection = select_candidates(case, coverage)
+    satellites = generate_phased_satellites(case, selection)
+    base_config = SchedulingConfig(
+        opportunity_sample_step_sec=1800.0,
+        validation_sample_step_sec=10.0,
+        opportunity_worker_count=1,
+    )
+
+    serial, serial_considered = build_opportunities(
+        case=case,
+        coverage=coverage,
+        selection=selection,
+        satellites=satellites,
+        config=base_config,
+    )
+    parallel, parallel_considered = build_opportunities(
+        case=case,
+        coverage=coverage,
+        selection=selection,
+        satellites=satellites,
+        config=SchedulingConfig(
+            opportunity_sample_step_sec=base_config.opportunity_sample_step_sec,
+            validation_sample_step_sec=base_config.validation_sample_step_sec,
+            opportunity_worker_count=2,
+        ),
+    )
+
+    assert serial_considered == parallel_considered
+    assert [action.as_debug_dict() for action in serial] == [
+        action.as_debug_dict() for action in parallel
+    ]
 
 
 def test_gap_aware_action_selection_improves_with_phased_opportunities() -> None:
@@ -1030,7 +1134,7 @@ def test_full_profile_analytical_rgt_matches_numerical_j2_oracle() -> None:
         ) < config.closure_tolerance_m
 
 
-def test_solve_sh_writes_phase5_status_solution_and_debug(tmp_path: Path) -> None:
+def test_solve_sh_writes_phase6_status_solution_and_debug(tmp_path: Path) -> None:
     config_dir = tmp_path / "config"
     output_dir = tmp_path / "solution"
     config_dir.mkdir()
@@ -1049,7 +1153,7 @@ def test_solve_sh_writes_phase5_status_solution_and_debug(tmp_path: Path) -> Non
                 "  raan_count: 2",
                 "  sample_step_sec: 7200.0",
                 "  keep_samples_per_window: 2",
-                "  worker_count: 1",
+                "  worker_count: 2",
                 "scheduling:",
                 "  observation_duration_sec: 60.0",
                 "  opportunity_sample_step_sec: 300.0",
@@ -1058,6 +1162,8 @@ def test_solve_sh_writes_phase5_status_solution_and_debug(tmp_path: Path) -> Non
                 "  max_actions: 100",
                 "  max_selection_repair_rounds: 2",
                 "  max_repair_alternates_per_target: 4",
+                "  opportunity_worker_count: 2",
+                "  repair_worker_count: 2",
             ]
         ),
         encoding="utf-8",
@@ -1098,9 +1204,14 @@ def test_solve_sh_writes_phase5_status_solution_and_debug(tmp_path: Path) -> Non
         (output_dir / "debug/solution_summary.json").read_text(encoding="utf-8")
     )
     assert status["status"] == "completed"
-    assert status["phase"] == 5
+    assert status["phase"] == 6
     assert status["closure_search"]["accepted_count"] == 1
     assert status["coverage"]["candidate_count"] == 2
+    assert status["compute_profile"]["coverage_worker_count"] == 2
+    assert status["compute_profile"]["opportunity_worker_count"] == 2
+    assert status["compute_profile"]["repair_worker_count"] == 2
+    assert "coverage" in status["timing_seconds"]
+    assert "final_solution_timing_seconds" in status["compute_profile"]
     assert status["selection"]["selected_candidate_count"] >= 0
     assert set(solution) == {"satellites", "actions"}
     assert debug["accepted_count"] == 1
@@ -1110,4 +1221,5 @@ def test_solve_sh_writes_phase5_status_solution_and_debug(tmp_path: Path) -> Non
     assert "target_assignments" in selection
     assert "target_diagnostics" in repair
     assert "validation" in solution_debug
+    assert "timing_seconds" in solution_debug
     assert status["solution"]["satellite_count"] == len(solution["satellites"])

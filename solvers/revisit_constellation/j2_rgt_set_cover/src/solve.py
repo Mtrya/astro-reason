@@ -1,4 +1,4 @@
-"""Phase 4 CLI for the J2 RGT set-cover solver."""
+"""CLI for the J2 RGT set-cover solver."""
 
 from __future__ import annotations
 
@@ -28,18 +28,28 @@ def solve(case_dir: str, config_dir: str | None, solution_dir: str | None) -> in
     start_time = time.perf_counter()
     output_dir = Path(solution_dir or ".").resolve()
     debug_dir = output_dir / "debug"
+    timing_seconds: dict[str, float] = {}
     try:
+        stage_start = time.perf_counter()
         case = load_case(case_dir)
         config = load_solver_config(config_dir)
+        timing_seconds["case_and_config_load"] = time.perf_counter() - stage_start
+        stage_start = time.perf_counter()
         search_config = RgtSearchConfig.from_mapping(config)
         result = search_rgt_templates(case, search_config)
+        timing_seconds["closure_search"] = time.perf_counter() - stage_start
+        stage_start = time.perf_counter()
         coverage_config = CoverageConfig.from_mapping(config)
         coverage = build_coverage_summary(
             case,
             result.accepted_templates,
             coverage_config,
         )
+        timing_seconds["coverage"] = time.perf_counter() - stage_start
+        stage_start = time.perf_counter()
         initial_selection = select_candidates(case, coverage)
+        timing_seconds["initial_selection"] = time.perf_counter() - stage_start
+        stage_start = time.perf_counter()
         scheduling_config = SchedulingConfig.from_mapping(config)
         initial_solution_result = build_solution(
             case=case,
@@ -47,6 +57,8 @@ def solve(case_dir: str, config_dir: str | None, solution_dir: str | None) -> in
             selection=initial_selection,
             config=scheduling_config,
         )
+        timing_seconds["initial_solution_build"] = time.perf_counter() - stage_start
+        stage_start = time.perf_counter()
         repair = repair_selection_with_phased_opportunities(
             case=case,
             coverage=coverage,
@@ -54,6 +66,8 @@ def solve(case_dir: str, config_dir: str | None, solution_dir: str | None) -> in
             initial_gap_summary=initial_solution_result.target_gap_summary,
             config=scheduling_config,
         )
+        timing_seconds["selection_repair"] = time.perf_counter() - stage_start
+        stage_start = time.perf_counter()
         selection = repair.selection
         solution_result = build_solution(
             case=case,
@@ -61,8 +75,11 @@ def solve(case_dir: str, config_dir: str | None, solution_dir: str | None) -> in
             selection=selection,
             config=scheduling_config,
         )
+        timing_seconds["final_solution_build"] = time.perf_counter() - stage_start
+        timing_seconds["total_before_writes"] = time.perf_counter() - start_time
 
         solution = solution_result.solution_json()
+        stage_start = time.perf_counter()
         write_json(output_dir / "solution.json", solution)
         write_json(debug_dir / "closure_search.json", result.as_debug_dict())
         write_json(debug_dir / "coverage_summary.json", coverage.as_debug_dict())
@@ -76,12 +93,22 @@ def solve(case_dir: str, config_dir: str | None, solution_dir: str | None) -> in
             repair.as_debug_dict(final_gap_summary=solution_result.target_gap_summary),
         )
         write_json(debug_dir / "solution_summary.json", solution_result.as_debug_dict())
+        timing_seconds["debug_writes"] = time.perf_counter() - stage_start
+        timing_seconds["total"] = time.perf_counter() - start_time
+        compute_profile = {
+            "coverage_worker_count": coverage.config.worker_count,
+            "opportunity_worker_count": scheduling_config.opportunity_worker_count,
+            "repair_worker_count": scheduling_config.repair_worker_count,
+            "initial_solution_timing_seconds": initial_solution_result.timing_seconds,
+            "final_solution_timing_seconds": solution_result.timing_seconds,
+        }
         status = {
             "status": "completed",
-            "phase": 5,
-            "phase_tag": "phased_opportunity_selection_repair",
+            "phase": 6,
+            "phase_tag": "compute_and_parallel_optimization",
             "case_dir": str(case.case_dir),
-            "timing_seconds": {"total": time.perf_counter() - start_time},
+            "timing_seconds": timing_seconds,
+            "compute_profile": compute_profile,
             "closure_search": {
                 "accepted_count": len(result.accepted_templates),
                 "rejected_count": len(result.rejected_templates),
@@ -103,7 +130,7 @@ def solve(case_dir: str, config_dir: str | None, solution_dir: str | None) -> in
         }
         write_json(output_dir / "status.json", status)
         print(
-            "phase5 rgt templates/candidates/solution: "
+            "phase6 rgt templates/candidates/solution: "
             f"{len(result.accepted_templates)} accepted, "
             f"{len(result.rejected_templates)} rejected, "
             f"{len(coverage.candidates)} candidates, "
@@ -112,6 +139,9 @@ def solve(case_dir: str, config_dir: str | None, solution_dir: str | None) -> in
             f"{len(solution_result.satellites)} satellites, "
             f"{len(solution_result.actions)} actions, "
             f"repair_rounds={len(repair.rounds)}, "
+            f"workers={coverage.config.worker_count}/"
+            f"{scheduling_config.opportunity_worker_count}/"
+            f"{scheduling_config.repair_worker_count}, "
             f"local_valid={solution_result.validation.is_valid}"
         )
         return 0
@@ -120,7 +150,7 @@ def solve(case_dir: str, config_dir: str | None, solution_dir: str | None) -> in
             output_dir / "status.json",
             {
                 "status": "error",
-                "phase": 5,
+                "phase": 6,
                 "error": f"{type(exc).__name__}: {exc}",
                 "timing_seconds": {"total": time.perf_counter() - start_time},
             },

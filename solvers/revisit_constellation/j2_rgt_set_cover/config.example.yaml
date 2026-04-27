@@ -12,7 +12,7 @@ coverage:
   raan_start_deg: 0.0
   sample_step_sec: 300.0
   keep_samples_per_window: 4
-  worker_count: 1
+  worker_count: 4
 
 scheduling:
   observation_duration_sec: 30.0
@@ -22,3 +22,5 @@ scheduling:
   max_actions: 3000
   max_selection_repair_rounds: 8
   max_repair_alternates_per_target: 8
+  opportunity_worker_count: 4
+  repair_worker_count: 4

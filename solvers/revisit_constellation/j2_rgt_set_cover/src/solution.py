@@ -2,10 +2,13 @@
 
 from __future__ import annotations
 
+from concurrent.futures import ProcessPoolExecutor
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from typing import Any
 import math
+import os
+import time
 
 import brahe
 import numpy as np
@@ -39,6 +42,8 @@ class SchedulingConfig:
     max_actions: int = 3000
     max_selection_repair_rounds: int = 8
     max_repair_alternates_per_target: int = 8
+    opportunity_worker_count: int = 1
+    repair_worker_count: int = 1
 
     @classmethod
     def from_mapping(cls, payload: dict[str, Any]) -> "SchedulingConfig":
@@ -75,6 +80,12 @@ class SchedulingConfig:
                     defaults.max_repair_alternates_per_target,
                 )
             ),
+            opportunity_worker_count=int(
+                raw.get("opportunity_worker_count", defaults.opportunity_worker_count)
+            ),
+            repair_worker_count=int(
+                raw.get("repair_worker_count", defaults.repair_worker_count)
+            ),
         )
 
     def as_dict(self) -> dict[str, Any]:
@@ -86,6 +97,8 @@ class SchedulingConfig:
             "max_actions": self.max_actions,
             "max_selection_repair_rounds": self.max_selection_repair_rounds,
             "max_repair_alternates_per_target": self.max_repair_alternates_per_target,
+            "opportunity_worker_count": self.opportunity_worker_count,
+            "repair_worker_count": self.repair_worker_count,
         }
 
 
@@ -185,6 +198,7 @@ class SolutionBuildSummary:
     target_gap_summary: dict[str, dict[str, float]]
     validation: ValidationSummary
     config: SchedulingConfig
+    timing_seconds: dict[str, float]
 
     def solution_json(self) -> dict[str, Any]:
         return {
@@ -205,6 +219,7 @@ class SolutionBuildSummary:
             "actions": [action.as_debug_dict() for action in self.actions],
             "target_gap_summary": self.target_gap_summary,
             "validation": self.validation.as_dict(),
+            "timing_seconds": self.timing_seconds,
         }
 
     def as_status_dict(self) -> dict[str, Any]:
@@ -224,6 +239,7 @@ class SolutionBuildSummary:
             "high_gap_target_count": len(high_gap_targets),
             "high_gap_target_ids": high_gap_targets,
             "config": self.config.as_dict(),
+            "timing_seconds": self.timing_seconds,
         }
 
 
@@ -354,6 +370,7 @@ class SelectionRepairResult:
                 "max_repair_alternates_per_target": (
                     self.config.max_repair_alternates_per_target
                 ),
+                "repair_worker_count": self.config.repair_worker_count,
             },
         }
 
@@ -527,6 +544,14 @@ def _candidate_windows_by_key(
     for windows in windows_by_key.values():
         windows.sort(key=lambda item: (item.midpoint_offset_sec, item.window_id))
     return windows_by_key
+
+
+def _resolved_worker_count(configured: int, work_item_count: int) -> int:
+    if work_item_count <= 0:
+        return 0
+    if configured <= 1:
+        return 1
+    return max(1, min(configured, work_item_count, os.cpu_count() or 1))
 
 
 def _candidate_map(coverage: CoverageSummary) -> dict[str, Any]:
@@ -713,6 +738,58 @@ def evaluate_phased_candidate_target_quality(
     )
 
 
+def _phased_quality_from_windows(
+    *,
+    horizon_sec: float,
+    target: Target,
+    candidate: Any,
+    windows: list[VisibilityWindow],
+) -> PhasedOpportunityQuality:
+    required_satellites = satellites_required_for_target(candidate, target)
+    midpoint_offsets = _phased_midpoint_offsets(
+        candidate_repeat_sec=candidate.repeat_period_sec,
+        phase_count=required_satellites,
+        horizon_sec=horizon_sec,
+        windows=windows,
+    )
+    if midpoint_offsets:
+        max_gap_sec = _offset_max_gap_sec(
+            horizon_sec=horizon_sec,
+            midpoint_offsets_sec=midpoint_offsets,
+        )
+        first_midpoint = midpoint_offsets[0]
+        last_midpoint = midpoint_offsets[-1]
+    else:
+        max_gap_sec = horizon_sec
+        first_midpoint = None
+        last_midpoint = None
+    max_gap_hours = max_gap_sec / 3600.0
+    return PhasedOpportunityQuality(
+        target_id=target.target_id,
+        candidate_id=candidate.candidate_id,
+        required_satellites=required_satellites,
+        opportunity_count=len(midpoint_offsets),
+        max_gap_hours=max_gap_hours,
+        capped_max_gap_hours=max(max_gap_hours, target.expected_revisit_period_hours),
+        repeat_period_hours=candidate.repeat_period_sec / 3600.0,
+        closure_error_m=candidate.template_closure_error_m,
+        first_midpoint_offset_sec=first_midpoint,
+        last_midpoint_offset_sec=last_midpoint,
+    )
+
+
+def _quality_worker(
+    args: tuple[float, Target, Any, list[VisibilityWindow]],
+) -> PhasedOpportunityQuality:
+    horizon_sec, target, candidate, windows = args
+    return _phased_quality_from_windows(
+        horizon_sec=horizon_sec,
+        target=target,
+        candidate=candidate,
+        windows=windows,
+    )
+
+
 def _initial_high_gap_targets(
     initial_gap_summary: dict[str, dict[str, float]],
 ) -> list[str]:
@@ -729,17 +806,35 @@ def _candidate_quality_cache(
     case: RevisitCase,
     coverage: CoverageSummary,
     target_ids: list[str],
+    worker_count: int = 1,
 ) -> dict[tuple[str, str], PhasedOpportunityQuality]:
-    cache: dict[tuple[str, str], PhasedOpportunityQuality] = {}
+    candidate_by_id = _candidate_map(coverage)
+    windows_by_key = _candidate_windows_by_key(coverage)
+    horizon_sec = (case.horizon_end - case.horizon_start).total_seconds()
+    work_items: list[tuple[float, Target, Any, list[VisibilityWindow]]] = []
     for target_id in sorted(target_ids):
         for candidate_id in sorted(coverage.target_to_candidates.get(target_id, [])):
-            cache[(candidate_id, target_id)] = evaluate_phased_candidate_target_quality(
-                case=case,
-                coverage=coverage,
-                candidate_id=candidate_id,
-                target_id=target_id,
+            work_items.append(
+                (
+                    horizon_sec,
+                    case.targets[target_id],
+                    candidate_by_id[candidate_id],
+                    windows_by_key.get((candidate_id, target_id), []),
+                )
             )
-    return cache
+    resolved_worker_count = _resolved_worker_count(worker_count, len(work_items))
+    if resolved_worker_count > 1:
+        with ProcessPoolExecutor(max_workers=resolved_worker_count) as executor:
+            qualities = list(executor.map(_quality_worker, work_items))
+    else:
+        qualities = [_quality_worker(item) for item in work_items]
+    return {
+        (quality.candidate_id, quality.target_id): quality
+        for quality in sorted(
+            qualities,
+            key=lambda item: (item.target_id, item.candidate_id),
+        )
+    }
 
 
 def _top_alternates(
@@ -785,6 +880,7 @@ def repair_selection_with_phased_opportunities(
         case=case,
         coverage=coverage,
         target_ids=high_gap_targets,
+        worker_count=config.repair_worker_count,
     )
     diagnostics: dict[str, dict[str, Any]] = {}
     for target_id in high_gap_targets:
@@ -995,6 +1091,90 @@ def _assigned_targets_by_candidate(
     return assigned
 
 
+def _build_opportunity_worker(
+    args: tuple[
+        RevisitCase,
+        SelectionSummary,
+        SatellitePlan,
+        str,
+        list[float],
+        SchedulingConfig,
+    ],
+) -> tuple[list[ObservationAction], int]:
+    case, selection, satellite, target_id, sample_offsets, config = args
+    horizon_sec = (case.horizon_end - case.horizon_start).total_seconds()
+    target = case.targets[target_id]
+    sample_step_sec = config.opportunity_sample_step_sec
+    samples = []
+    for offset in sample_offsets:
+        instant = case.horizon_start + timedelta(seconds=offset)
+        state = satellite_state_at(case, selection, satellite, offset)
+        samples.append(
+            geometry_sample_from_state(
+                case=case,
+                target=target,
+                state_eci_m_mps=state,
+                instant=instant,
+                offset_sec=offset,
+            )
+        )
+    windows = group_visible_samples(
+        candidate_id=satellite.satellite_id,
+        template_id=satellite.template_id,
+        target_id=target_id,
+        repeat_period_sec=horizon_sec,
+        sample_step_sec=sample_step_sec,
+        min_duration_sec=target.min_duration_sec,
+        samples=samples,
+        keep_samples_per_window=0,
+    )
+    opportunities: list[ObservationAction] = []
+    considered = 0
+    for window in windows:
+        duration_sec = min(
+            window.duration_sec,
+            max(target.min_duration_sec, config.observation_duration_sec),
+        )
+        if duration_sec + NUMERICAL_EPS < target.min_duration_sec:
+            continue
+        best_sample = max(
+            window.samples,
+            key=lambda sample: (
+                sample.elevation_deg,
+                -sample.slant_range_m,
+                -sample.off_nadir_deg,
+            ),
+        )
+        midpoint_offset = best_sample.offset_sec
+        midpoint = case.horizon_start + timedelta(seconds=midpoint_offset)
+        start = midpoint - timedelta(seconds=duration_sec / 2.0)
+        end = midpoint + timedelta(seconds=duration_sec / 2.0)
+        considered += 1
+        if start < case.horizon_start or end > case.horizon_end:
+            continue
+        if _action_geometry_valid(
+            case=case,
+            selection=selection,
+            satellite=satellite,
+            target=target,
+            start=start,
+            end=end,
+            sample_step_sec=config.validation_sample_step_sec,
+        ):
+            opportunities.append(
+                ObservationAction(
+                    action_type="observation",
+                    satellite_id=satellite.satellite_id,
+                    target_id=target_id,
+                    start=start,
+                    end=end,
+                    candidate_id=satellite.candidate_id,
+                    opportunity_midpoint_offset_sec=midpoint_offset,
+                )
+            )
+    return opportunities, considered
+
+
 def build_opportunities(
     *,
     case: RevisitCase,
@@ -1020,75 +1200,34 @@ def build_opportunities(
     if sample_offsets[-1] < horizon_sec:
         sample_offsets.append(horizon_sec)
 
+    work_items: list[
+        tuple[
+            RevisitCase,
+            SelectionSummary,
+            SatellitePlan,
+            str,
+            list[float],
+            SchedulingConfig,
+        ]
+    ] = []
     for candidate_id, target_ids in sorted(assigned_by_candidate.items()):
         for target_id in target_ids:
-            target = case.targets[target_id]
             for satellite in satellites_by_candidate.get(candidate_id, []):
-                samples = []
-                for offset in sample_offsets:
-                    instant = case.horizon_start + timedelta(seconds=offset)
-                    state = satellite_state_at(case, selection, satellite, offset)
-                    samples.append(
-                        geometry_sample_from_state(
-                            case=case,
-                            target=target,
-                            state_eci_m_mps=state,
-                            instant=instant,
-                            offset_sec=offset,
-                        )
-                    )
-                windows = group_visible_samples(
-                    candidate_id=satellite.satellite_id,
-                    template_id=satellite.template_id,
-                    target_id=target_id,
-                    repeat_period_sec=horizon_sec,
-                    sample_step_sec=sample_step_sec,
-                    min_duration_sec=target.min_duration_sec,
-                    samples=samples,
-                    keep_samples_per_window=0,
+                work_items.append(
+                    (case, selection, satellite, target_id, sample_offsets, config)
                 )
-                for window in windows:
-                    duration_sec = min(
-                        window.duration_sec,
-                        max(target.min_duration_sec, config.observation_duration_sec),
-                    )
-                    if duration_sec + NUMERICAL_EPS < target.min_duration_sec:
-                        continue
-                    best_sample = max(
-                        window.samples,
-                        key=lambda sample: (
-                            sample.elevation_deg,
-                            -sample.slant_range_m,
-                            -sample.off_nadir_deg,
-                        ),
-                    )
-                    midpoint_offset = best_sample.offset_sec
-                    midpoint = case.horizon_start + timedelta(seconds=midpoint_offset)
-                    start = midpoint - timedelta(seconds=duration_sec / 2.0)
-                    end = midpoint + timedelta(seconds=duration_sec / 2.0)
-                    considered += 1
-                    if start < case.horizon_start or end > case.horizon_end:
-                        continue
-                    if _action_geometry_valid(
-                        case=case,
-                        selection=selection,
-                        satellite=satellite,
-                        target=target,
-                        start=start,
-                        end=end,
-                        sample_step_sec=config.validation_sample_step_sec,
-                    ):
-                        opportunities.append(
-                            ObservationAction(
-                                action_type="observation",
-                                satellite_id=satellite.satellite_id,
-                                target_id=target_id,
-                                start=start,
-                                end=end,
-                                candidate_id=candidate_id,
-                                opportunity_midpoint_offset_sec=midpoint_offset,
-                            )
-                        )
+    worker_count = _resolved_worker_count(
+        config.opportunity_worker_count,
+        len(work_items),
+    )
+    if worker_count > 1:
+        with ProcessPoolExecutor(max_workers=worker_count) as executor:
+            results = list(executor.map(_build_opportunity_worker, work_items))
+    else:
+        results = [_build_opportunity_worker(item) for item in work_items]
+    for worker_opportunities, worker_considered in results:
+        opportunities.extend(worker_opportunities)
+        considered += worker_considered
     return (
         sorted(
             opportunities,
@@ -1441,7 +1580,11 @@ def build_solution(
     selection: SelectionSummary,
     config: SchedulingConfig,
 ) -> SolutionBuildSummary:
+    start_time = time.perf_counter()
+    stage_start = start_time
     satellites = generate_phased_satellites(case, selection)
+    satellite_generation_sec = time.perf_counter() - stage_start
+    stage_start = time.perf_counter()
     opportunities, considered = build_opportunities(
         case=case,
         coverage=coverage,
@@ -1449,6 +1592,8 @@ def build_solution(
         satellites=satellites,
         config=config,
     )
+    opportunity_generation_sec = time.perf_counter() - stage_start
+    stage_start = time.perf_counter()
     actions = select_gap_aware_actions(
         case=case,
         selection=selection,
@@ -1456,6 +1601,8 @@ def build_solution(
         opportunities=opportunities,
         config=config,
     )
+    action_selection_sec = time.perf_counter() - stage_start
+    stage_start = time.perf_counter()
     validation = validate_solution_locally(
         case=case,
         selection=selection,
@@ -1463,12 +1610,22 @@ def build_solution(
         actions=actions,
         config=config,
     )
+    validation_sec = time.perf_counter() - stage_start
+    target_gap_summary = compute_target_gap_summary(case, actions)
+    total_sec = time.perf_counter() - start_time
     return SolutionBuildSummary(
         satellites=satellites,
         actions=actions,
         opportunities_considered=considered,
         opportunities_visibility_valid=len(opportunities),
-        target_gap_summary=compute_target_gap_summary(case, actions),
+        target_gap_summary=target_gap_summary,
         validation=validation,
         config=config,
+        timing_seconds={
+            "satellite_generation": satellite_generation_sec,
+            "opportunity_generation": opportunity_generation_sec,
+            "action_selection": action_selection_sec,
+            "local_validation": validation_sec,
+            "total": total_sec,
+        },
     )
