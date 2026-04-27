@@ -70,10 +70,10 @@ PROFILE_DEFAULTS: dict[str, dict[str, Any]] = {
             "propagation_max_workers": None,
         },
         "candidate_generation": {
-            "max_candidates": 16,
+            "max_candidates": 64,
             "altitude_steps": 4,
             "inclination_steps": 4,
-            "raan_steps": 4,
+            "raan_steps": 8,
             "true_anomaly_steps": 2,
             "eccentricity": 0.0,
         },
@@ -104,11 +104,11 @@ PROFILE_DEFAULTS: dict[str, dict[str, Any]] = {
             "propagation_max_workers": None,
         },
         "candidate_generation": {
-            "max_candidates": 32,
-            "altitude_steps": 4,
-            "inclination_steps": 4,
-            "raan_steps": 4,
-            "true_anomaly_steps": 2,
+            "max_candidates": 128,
+            "altitude_steps": 5,
+            "inclination_steps": 5,
+            "raan_steps": 8,
+            "true_anomaly_steps": 4,
             "eccentricity": 0.0,
         },
         "candidate_selection": {
@@ -242,6 +242,60 @@ def _compute_envelope_summary(
     }
 
 
+def _candidate_generation_summary(
+    config: CandidateConfig,
+    generated_count: int,
+) -> dict[str, Any]:
+    """Return candidate-library scale diagnostics."""
+    requested_grid_points = (
+        config.altitude_steps
+        * config.inclination_steps
+        * config.raan_steps
+        * config.true_anomaly_steps
+    )
+    return {
+        "requested_grid_points": requested_grid_points,
+        "max_candidates": config.max_candidates,
+        "generated_candidates": generated_count,
+        "filtered_or_capped_candidates": max(0, requested_grid_points - generated_count),
+        "hit_candidate_cap": generated_count >= config.max_candidates,
+    }
+
+
+def _positions_memory_summary(positions_ecef: dict[str, Any]) -> dict[str, Any]:
+    """Return cheap memory diagnostics for propagated position arrays."""
+    total_bytes = sum(int(getattr(array, "nbytes", 0)) for array in positions_ecef.values())
+    return {
+        "position_array_count": len(positions_ecef),
+        "positions_bytes": total_bytes,
+        "positions_mib": round(total_bytes / (1024 * 1024), 6),
+    }
+
+
+def _graph_scale_summary(
+    all_graph_stats: dict[str, Any],
+    selected_graph_stats: dict[str, Any],
+) -> dict[str, Any]:
+    """Return graph-scale diagnostics for memory-conscious calibration."""
+    rough_edge_bytes = 96
+    return {
+        "all_candidates": {
+            **all_graph_stats,
+            "rough_edge_storage_mib": round(
+                all_graph_stats["total_edges"] * rough_edge_bytes / (1024 * 1024),
+                6,
+            ),
+        },
+        "selected_candidates": {
+            **selected_graph_stats,
+            "rough_edge_storage_mib": round(
+                selected_graph_stats["total_edges"] * rough_edge_bytes / (1024 * 1024),
+                6,
+            ),
+        },
+    }
+
+
 def _compact_lp_status(lp_diagnostics: dict[str, Any]) -> dict[str, Any]:
     """Return LP diagnostics small enough to duplicate into status.json."""
     return {
@@ -295,6 +349,7 @@ def solve(
     all_satellites = dict(case.backbone_satellites)
     candidates = generate_candidates(case.manifest, candidate_config)
     all_satellites.update(candidates)
+    candidate_generation = _candidate_generation_summary(candidate_config, len(candidates))
     t_candidate = time.perf_counter() - t_candidate_start
 
     # 4. Build dynamic graphs (includes propagation + geometry)
@@ -305,6 +360,7 @@ def solve(
         max_workers=propagation_max_workers,
     )
     sample_graphs = build_sample_graphs(case, all_satellites, positions_ecef)
+    positions_memory = _positions_memory_summary(positions_ecef)
     t_graph = time.perf_counter() - t_graph_start
 
     # 5. Candidate selection
@@ -321,6 +377,9 @@ def solve(
     sample_graphs_selected = build_sample_graphs(
         case, selected_satellites, positions_ecef
     )
+    graph_stats = graph_summary(sample_graphs)
+    selected_graph_stats = graph_summary(sample_graphs_selected)
+    graph_scale = _graph_scale_summary(graph_stats, selected_graph_stats)
 
     # 6. Build UMCF instances and run SRR oracle on selected-only graphs
     t_umcf_start = time.perf_counter()
@@ -392,6 +451,7 @@ def solve(
                     "policy": selection_debug.get("policy", ""),
                     "baseline_total_weighted_service": selection_debug.get("baseline_total_weighted_service", 0.0),
                     "selected_total_weighted_service": selection_debug.get("selected_total_weighted_service", 0.0),
+                    "selection_evidence": selection_debug.get("selection_evidence", {}),
                     "scores_by_iteration": selection_debug.get("scores_by_iteration", []),
                 },
                 indent=2,
@@ -404,6 +464,25 @@ def solve(
 
     (debug_dir / "compute_envelope.json").write_text(
         json.dumps(compute_envelope, indent=2) + "\n",
+        encoding="utf-8",
+    )
+    (debug_dir / "scale_diagnostics.json").write_text(
+        json.dumps(
+            {
+                "candidate_generation": candidate_generation,
+                "positions_memory": positions_memory,
+                "graph_scale": graph_scale,
+                "selection": {
+                    "candidate_count": selection_debug.get("candidate_count", len(candidates)),
+                    "selected_candidate_count": selection_debug.get("selected_candidate_count", len(selected_candidates)),
+                    "evaluation_sample_count": selection_debug.get("evaluation_sample_count", 0),
+                    "evaluation_sample_stride": selection_debug.get("evaluation_sample_stride", selection_config.evaluation_sample_stride),
+                    "selection_evidence": selection_debug.get("selection_evidence", {}),
+                },
+            },
+            indent=2,
+        )
+        + "\n",
         encoding="utf-8",
     )
 
@@ -594,22 +673,33 @@ def solve(
     )
 
     # 10. Write status
-    graph_stats = graph_summary(sample_graphs)
     status_summary = {
         "case_id": case.manifest.case_id,
         "num_backbone_satellites": len(case.backbone_satellites),
         "num_candidate_satellites": len(candidates),
+        "num_propagated_satellites": len(all_satellites),
         "num_ground_endpoints": len(case.ground_endpoints),
         "num_demands": len(case.demands),
         "num_routing_samples": case.manifest.total_samples,
         "run_profile": run_config.get("profile", "smoke"),
         "compute_envelope": compute_envelope,
+        "candidate_generation": candidate_generation,
+        "memory_diagnostics": {
+            "positions": positions_memory,
+            "graph_scale": graph_scale,
+        },
         "graph_avg_nodes": graph_stats["avg_nodes"],
         "graph_avg_edges": graph_stats["avg_edges"],
         "graph_total_edges": graph_stats["total_edges"],
+        "selected_graph_avg_nodes": selected_graph_stats["avg_nodes"],
+        "selected_graph_avg_edges": selected_graph_stats["avg_edges"],
+        "selected_graph_total_edges": selected_graph_stats["total_edges"],
         "selected_candidate_ids": selection_debug.get("selected_candidate_ids", []),
+        "selected_candidate_count": selection_debug.get("selected_candidate_count", len(selected_candidates)),
         "selection_policy": selection_debug.get("policy", ""),
         "evaluation_sample_count": selection_debug.get("evaluation_sample_count", 0),
+        "evaluation_sample_stride": selection_debug.get("evaluation_sample_stride", selection_config.evaluation_sample_stride),
+        "selection_evidence": selection_debug.get("selection_evidence", {}),
         "srr_served_commodities": total_served,
         "srr_dropped_commodities": total_dropped,
         "srr_path_changes": srr_result.path_changes,

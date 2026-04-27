@@ -19,10 +19,10 @@ compute_envelope:
 
 # --- Candidate generation ---
 candidate_generation:
-  max_candidates: 16
+  max_candidates: 64
   altitude_steps: 4
   inclination_steps: 4
-  raan_steps: 4
+  raan_steps: 8
   true_anomaly_steps: 2
   eccentricity: 0.0
 

@@ -14,10 +14,10 @@ config:
     timeout_seconds: 300
     propagation_max_workers: null
   candidate_generation:
-    max_candidates: 16
+    max_candidates: 64
     altitude_steps: 4
     inclination_steps: 4
-    raan_steps: 4
+    raan_steps: 8
     true_anomaly_steps: 2
     eccentricity: 0.0
   candidate_selection:
@@ -61,7 +61,11 @@ run_policies:
     config:
       profile: quality
       candidate_generation:
-        max_candidates: 32
+        max_candidates: 128
+        altitude_steps: 5
+        inclination_steps: 5
+        raan_steps: 8
+        true_anomaly_steps: 4
       candidate_selection:
         evaluation_sample_stride: 5
       srr:

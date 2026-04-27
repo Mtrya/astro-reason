@@ -22,6 +22,10 @@ from solvers.relay_constellation.umcf_srr_contact_plan.src.dynamic_graph import 
     GraphEdge,
     SampleGraph,
 )
+from solvers.relay_constellation.umcf_srr_contact_plan.src.candidate_selection import (
+    SelectionConfig,
+    select_candidates,
+)
 from solvers.relay_constellation.umcf_srr_contact_plan.src.umcf import (
     Commodity,
     UMCFInstance,
@@ -227,12 +231,38 @@ srr:
 
         assert raw["profile"] == "quality"
         assert candidate.max_candidates == 40
-        assert candidate.altitude_steps == 4
+        assert candidate.altitude_steps == 5
         assert selection.evaluation_sample_stride == 3
         assert srr.deterministic is False
         assert srr.multi_run_count == 7
         assert envelope["timeout_seconds"] == 123
         assert envelope["propagation"]["max_workers"] == 2
+
+    def test_reproduction_profile_scales_candidate_library_above_smoke(self, tmp_path: Path) -> None:
+        (tmp_path / "config.yaml").write_text("profile: reproduction\n", encoding="utf-8")
+
+        smoke = _candidate_config_from_mapping(_load_solver_run_config(None))
+        reproduction = _candidate_config_from_mapping(_load_solver_run_config(tmp_path))
+
+        assert smoke.max_candidates == 16
+        assert reproduction.max_candidates == 64
+        assert reproduction.raan_steps > smoke.raan_steps
+
+    def test_selection_debug_exposes_proxy_evidence(self) -> None:
+        case = _tiny_case()
+        graph = _graph_triangle()
+        selected, debug = select_candidates(
+            case,
+            [graph],
+            {},
+            SelectionConfig(policy="no-added", evaluation_sample_stride=1),
+        )
+
+        assert selected == {}
+        assert debug["selected_candidate_count"] == 0
+        assert debug["evaluation_sample_count"] == 1
+        assert debug["selection_evidence"]["proxy_model"] == "union_find_reachability_on_strided_samples"
+        assert "d1" in debug["selection_evidence"]["per_demand"]
 
 
 class TestUMCFConstruction:

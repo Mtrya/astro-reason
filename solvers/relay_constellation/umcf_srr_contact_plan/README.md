@@ -141,6 +141,9 @@ Written to `<solution_dir>/debug/`:
 - `reproduction_summary.json` — Explicit mapping of paper components to implementation status (IMPLEMENTED, ADAPTED, PARTIAL, MISSING) with drift notes.
 - `selected_candidates.json` — Candidate selection scores, policy, and per-iteration marginal contributions.
 - `routed_potential_summary.json` — Full candidate selection debug.
+- `scale_diagnostics.json` — Candidate-library scale, propagated-position
+  memory estimate, all-candidate and selected-graph edge counts, and selection
+  proxy evidence.
 - `umcf_instances.json` — Summary of UMCF instances per sample (commodities, edges, nodes).
 - `lp_summary.json` — LP status counts, objective values, variable/constraint counts, solve time, and fractional-value diagnostics per sample.
 - `srr_summary.json` — Served/dropped commodities, path changes, seed, probability source, timing, LP summary, node/edge capacity rejection counters, and approximation disclosure.

@@ -142,6 +142,47 @@ def _evaluate_allowed_set(
     }
 
 
+def _selection_evidence(
+    demands: list[Demand],
+    sample_count: int,
+    baseline_result: dict[str, Any],
+    selected_result: dict[str, Any],
+) -> dict[str, Any]:
+    """Return proxy service evidence for the selected candidate set."""
+    per_demand: dict[str, dict[str, Any]] = {}
+    for demand in demands:
+        demand_id = demand.demand_id
+        baseline_samples = int(baseline_result["per_demand_samples"].get(demand_id, 0))
+        selected_samples = int(selected_result["per_demand_samples"].get(demand_id, 0))
+        per_demand[demand_id] = {
+            "baseline_served_samples": baseline_samples,
+            "selected_served_samples": selected_samples,
+            "improved_samples": selected_samples - baseline_samples,
+            "baseline_proxy_service_fraction": (
+                baseline_samples / sample_count if sample_count else 0.0
+            ),
+            "selected_proxy_service_fraction": (
+                selected_samples / sample_count if sample_count else 0.0
+            ),
+            "weight": demand.weight,
+        }
+    return {
+        "proxy_model": "union_find_reachability_on_strided_samples",
+        "proxy_limitations": [
+            "ignores unit edge contention",
+            "ignores verifier route tie-breaks",
+            "evaluates endpoint reachability on sampled instants only",
+        ],
+        "baseline_total_weighted_service": baseline_result["total_weighted_service"],
+        "selected_total_weighted_service": selected_result["total_weighted_service"],
+        "improved_total_weighted_service": (
+            selected_result["total_weighted_service"]
+            - baseline_result["total_weighted_service"]
+        ),
+        "per_demand": per_demand,
+    }
+
+
 def _evaluate_candidate_worker(
     sample_graphs: list[SampleGraph],
     demands: list[Demand],
@@ -236,12 +277,24 @@ def select_candidates(
         sample_indices = all_indices
 
     if config.policy == "no-added":
+        baseline_result = _evaluate_allowed_set(
+            sample_graphs, case.demands, backbone_ids, sample_indices
+        )
         return {}, {
             "policy": "no-added",
+            "candidate_count": len(candidates),
+            "selected_candidate_count": 0,
             "selected_candidate_ids": [],
-            "baseline_total_weighted_service": _evaluate_allowed_set(
-                sample_graphs, case.demands, backbone_ids, sample_indices
-            )["total_weighted_service"],
+            "evaluation_sample_count": len(sample_indices),
+            "evaluation_sample_stride": config.evaluation_sample_stride,
+            "baseline_total_weighted_service": baseline_result["total_weighted_service"],
+            "selected_total_weighted_service": baseline_result["total_weighted_service"],
+            "selection_evidence": _selection_evidence(
+                case.demands,
+                len(sample_indices),
+                baseline_result,
+                baseline_result,
+            ),
             "scores_by_iteration": [],
         }
 
@@ -251,12 +304,27 @@ def select_candidates(
         if invalid:
             raise ValueError(f"Fixed candidates not in library: {invalid}")
         selected = {cid: candidates[cid] for cid in fixed}
+        baseline_result = _evaluate_allowed_set(
+            sample_graphs, case.demands, backbone_ids, sample_indices
+        )
+        selected_result = _evaluate_allowed_set(
+            sample_graphs, case.demands, backbone_ids | set(fixed), sample_indices
+        )
         return selected, {
             "policy": "fixed",
+            "candidate_count": len(candidates),
+            "selected_candidate_count": len(selected),
             "selected_candidate_ids": fixed,
-            "baseline_total_weighted_service": _evaluate_allowed_set(
-                sample_graphs, case.demands, backbone_ids, sample_indices
-            )["total_weighted_service"],
+            "evaluation_sample_count": len(sample_indices),
+            "evaluation_sample_stride": config.evaluation_sample_stride,
+            "baseline_total_weighted_service": baseline_result["total_weighted_service"],
+            "selected_total_weighted_service": selected_result["total_weighted_service"],
+            "selection_evidence": _selection_evidence(
+                case.demands,
+                len(sample_indices),
+                baseline_result,
+                selected_result,
+            ),
             "scores_by_iteration": [],
         }
 
@@ -304,11 +372,19 @@ def select_candidates(
 
     debug_info = {
         "policy": "greedy_marginal",
+        "candidate_count": len(candidates),
+        "selected_candidate_count": len(selected),
         "evaluation_sample_count": len(sample_indices),
         "evaluation_sample_stride": config.evaluation_sample_stride,
         "selected_candidate_ids": selected_order,
         "baseline_total_weighted_service": baseline_result["total_weighted_service"],
         "selected_total_weighted_service": selected_result["total_weighted_service"],
+        "selection_evidence": _selection_evidence(
+            case.demands,
+            len(sample_indices),
+            baseline_result,
+            selected_result,
+        ),
         "scores_by_iteration": scores_by_iteration,
     }
 
