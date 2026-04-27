@@ -5,7 +5,7 @@ from __future__ import annotations
 import heapq
 from collections import Counter
 from collections import defaultdict
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Any, Iterable
 
 from .case_io import Case, DemandWindow
@@ -14,7 +14,7 @@ from .time_grid import build_time_grid
 
 
 def _isoformat_z(value: datetime) -> str:
-    return value.astimezone(__import__("datetime").timezone.utc).isoformat().replace("+00:00", "Z")
+    return value.astimezone(timezone.utc).isoformat().replace("+00:00", "Z")
 
 
 def build_per_sample_links(
@@ -38,12 +38,15 @@ def _build_demands_by_sample(
 
     horizon_start = sample_times[0]
     routing_step_s = (sample_times[1] - sample_times[0]).total_seconds() if len(sample_times) > 1 else 1.0
-    num_samples = len(sample_times)
+    num_schedulable_samples = max(0, len(sample_times) - 1)
 
     for demand in case.demands.demanded_windows:
         start_idx = max(0, int(round((demand.start_time - horizon_start).total_seconds() / routing_step_s)))
-        end_idx = min(num_samples - 1, int(round((demand.end_time - horizon_start).total_seconds() / routing_step_s)))
-        for sidx in range(start_idx, end_idx + 1):
+        end_idx = min(
+            num_schedulable_samples,
+            int(round((demand.end_time - horizon_start).total_seconds() / routing_step_s)),
+        )
+        for sidx in range(start_idx, end_idx):
             result[sidx].append(demand)
     return dict(result)
 
@@ -685,6 +688,8 @@ def run_scheduler(
     """
     cfg = milp_config or {}
     mode = scheduler_mode.lower().strip()
+    if mode not in {"auto", "greedy", "route_aware", "milp"}:
+        raise ValueError(f"Unknown scheduler_mode: {scheduler_mode}")
 
     if mode == "greedy":
         return _run_greedy_scheduler(case, sample_times, link_records, selected_satellite_ids)
@@ -713,12 +718,7 @@ def run_scheduler(
 
     # auto mode
     if not milp_scheduler_available():
-        actions, summary = _run_greedy_scheduler(
-            case, sample_times, link_records, selected_satellite_ids
-        )
-        summary["milp_attempted"] = False
-        summary["milp_fallback_reason"] = "pulp_cbc_unavailable"
-        return actions, summary
+        raise RuntimeError("MILP scheduler is unavailable")
 
     result = run_milp_scheduler(
         case,

@@ -214,7 +214,12 @@ def build_link_cache_parallel(
 
     constraints = case.manifest.constraints
     endpoints = case.network.ground_endpoints
-    num_samples = len(next(iter(backbone_positions.values())))
+    if backbone_positions:
+        num_samples = len(next(iter(backbone_positions.values())))
+    elif candidate_positions:
+        num_samples = len(next(iter(candidate_positions.values())))
+    else:
+        raise ValueError("backbone_positions and candidate_positions are both empty")
 
     if max_workers is None:
         max_workers = os.cpu_count() or 1

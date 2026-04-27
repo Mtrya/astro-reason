@@ -42,11 +42,13 @@ def build_demand_sample_indices(
     result: dict[str, list[int]] = {}
     for demand in case.demands.demanded_windows:
         indices: list[int] = []
-        start_idx = sample_index(horizon_start, demand.start_time, routing_step_s)
-        end_idx = sample_index(horizon_start, demand.end_time, routing_step_s)
-        for idx in range(start_idx, end_idx + 1):
-            if 0 <= idx < len(sample_times_list):
-                indices.append(idx)
+        start_idx = max(0, sample_index(horizon_start, demand.start_time, routing_step_s))
+        end_idx = min(
+            max(0, len(sample_times_list) - 1),
+            sample_index(horizon_start, demand.end_time, routing_step_s),
+        )
+        for idx in range(start_idx, end_idx):
+            indices.append(idx)
         result[demand.demand_id] = indices
     return result
 
@@ -375,15 +377,13 @@ def mclp_milp_eligibility(
     max_added_for_milp: int = 5,
 ) -> tuple[bool, str | None]:
     """Return whether the exact MCLP MILP path is eligible under current bounds."""
-    try:
-        import pulp  # noqa: F401
-    except Exception:
-        return False, "pulp_unavailable"
-
     if len(candidates) > max_candidates_for_milp:
         return False, "candidate_count_exceeds_mclp_milp_bound"
     if case.manifest.constraints.max_added_satellites > max_added_for_milp:
         return False, "max_added_satellites_exceeds_mclp_milp_bound"
+
+    import pulp  # noqa: F401
+
     return True, None
 
 
@@ -703,8 +703,8 @@ def milp_select(
     solver = pulp.PULP_CBC_CMD(msg=False, timeLimit=time_limit_seconds)
     result_status = prob.solve(solver)
 
-    if pulp.LpStatus[result_status] not in ("Optimal", "Not Solved"):
-        # Not solved to optimality or infeasible; fall back
+    if pulp.LpStatus[result_status] != "Optimal":
+        # Timed out, infeasible, or unsolved; fall back to greedy.
         return None
 
     selected = [

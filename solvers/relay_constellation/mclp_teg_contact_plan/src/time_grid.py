@@ -38,4 +38,6 @@ def sample_index(
     idx_rounded = int(round(idx_float))
     if abs(idx_float - idx_rounded) > 1e-9:
         raise ValueError(f"instant {instant} is not aligned to routing_step_s grid")
+    if idx_rounded < 0:
+        raise ValueError(f"instant {instant} is before horizon_start")
     return idx_rounded

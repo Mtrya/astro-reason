@@ -134,11 +134,12 @@ def _propagate_with_timings(
     sample_times: tuple[Any, ...],
     use_parallel: bool,
     worker_count: int | None = None,
-) -> tuple[dict[str, Any], list[float], bool]:
+) -> tuple[dict[str, Any], list[float], bool, str | None]:
     """Propagate satellites and return (positions, per-satellite ms, fallback_happened)."""
     if not satellites:
-        return {}, [], False
+        return {}, [], False, None
 
+    fallback_reason: str | None = None
     if use_parallel:
         try:
             from .parallel import ParallelExecutionError, propagate_satellites_parallel
@@ -146,9 +147,9 @@ def _propagate_with_timings(
             positions, timings = propagate_satellites_parallel(
                 satellites, epoch, sample_times, max_workers=worker_count
             )
-            return positions, timings, False
-        except ParallelExecutionError:
-            pass
+            return positions, timings, False, None
+        except ParallelExecutionError as exc:
+            fallback_reason = str(exc)
 
     # Sequential fallback (also the primary path when parallel is disabled)
     positions: dict[str, Any] = {}
@@ -157,7 +158,7 @@ def _propagate_with_timings(
         t0 = time.monotonic()
         positions[sid] = propagate_satellite(state, epoch, sample_times)
         timings.append((time.monotonic() - t0) * 1000.0)
-    return positions, timings, use_parallel
+    return positions, timings, use_parallel, fallback_reason if use_parallel else None
 
 
 def _build_link_cache_with_mode(
@@ -169,8 +170,9 @@ def _build_link_cache_with_mode(
     *,
     include_candidate_candidate_isl: bool = True,
     cache_stage: str = "full",
-) -> tuple[tuple[Any, ...], dict[str, object], bool]:
+) -> tuple[tuple[Any, ...], dict[str, object], bool, str | None]:
     """Build link cache and return (records, summary, fallback_happened)."""
+    fallback_reason: str | None = None
     if use_parallel:
         try:
             from .parallel import ParallelExecutionError, build_link_cache_parallel
@@ -183,9 +185,9 @@ def _build_link_cache_with_mode(
                 include_candidate_candidate_isl=include_candidate_candidate_isl,
                 cache_stage=cache_stage,
             )
-            return records, summary, False
-        except ParallelExecutionError:
-            pass
+            return records, summary, False, None
+        except ParallelExecutionError as exc:
+            fallback_reason = str(exc)
 
     records, summary = build_link_cache(
         case,
@@ -194,7 +196,7 @@ def _build_link_cache_with_mode(
         include_candidate_candidate_isl=include_candidate_candidate_isl,
         cache_stage=cache_stage,
     )
-    return records, summary, use_parallel
+    return records, summary, use_parallel, fallback_reason if use_parallel else None
 
 
 def _skipped_link_cache_summary(
@@ -297,7 +299,7 @@ def main() -> None:
         (sat.satellite_id, sat.state_eci_m_mps)
         for sat in case.network.backbone_satellites
     ]
-    backbone_positions, backbone_timings_ms, bb_fallback = _propagate_with_timings(
+    backbone_positions, backbone_timings_ms, bb_fallback, bb_fallback_reason = _propagate_with_timings(
         backbone_tasks, case.manifest.epoch, sample_times, use_parallel, worker_count
     )
     t4 = time.monotonic()
@@ -307,7 +309,7 @@ def main() -> None:
         (cand.satellite_id, cand.state_eci_m_mps)
         for cand in candidates
     ]
-    candidate_positions, candidate_timings_ms, cand_fallback = _propagate_with_timings(
+    candidate_positions, candidate_timings_ms, cand_fallback, cand_fallback_reason = _propagate_with_timings(
         candidate_tasks, case.manifest.epoch, sample_times, use_parallel, worker_count
     )
     t5 = time.monotonic()
@@ -316,7 +318,7 @@ def main() -> None:
     # avoids candidate-candidate ISL checks; the scheduler gets an exact cache
     # after MCLP selects the active added satellites.
     if candidates and mclp_mode != "none":
-        selection_link_records, selection_link_summary, selection_lc_fallback = (
+        selection_link_records, selection_link_summary, selection_lc_fallback, selection_lc_fallback_reason = (
             _build_link_cache_with_mode(
                 case,
                 backbone_positions,
@@ -337,6 +339,7 @@ def main() -> None:
             candidate_count=len(candidate_positions),
         )
         selection_lc_fallback = False
+        selection_lc_fallback_reason = None
     t6 = time.monotonic()
 
     # MCLP candidate selection
@@ -353,12 +356,16 @@ def main() -> None:
     }
 
     if candidates and mclp_mode != "none":
-        mclp_milp_eligible, mclp_milp_ineligible_reason = mclp_milp_eligibility(
-            candidates,
-            case,
-            max_candidates_for_milp=mclp_milp_bounds["max_candidates_for_milp"],
-            max_added_for_milp=mclp_milp_bounds["max_added_for_milp"],
-        )
+        if mclp_mode in ("auto", "milp"):
+            mclp_milp_eligible, mclp_milp_ineligible_reason = mclp_milp_eligibility(
+                candidates,
+                case,
+                max_candidates_for_milp=mclp_milp_bounds["max_candidates_for_milp"],
+                max_added_for_milp=mclp_milp_bounds["max_added_for_milp"],
+            )
+        else:
+            mclp_milp_eligible = False
+            mclp_milp_ineligible_reason = "mclp_mode_greedy"
         if mclp_mode == "milp":
             milp_result = milp_select(
                 candidates,
@@ -416,7 +423,7 @@ def main() -> None:
         for c in selected
         if c.satellite_id in candidate_positions
     }
-    scheduler_link_records, scheduler_link_summary, scheduler_lc_fallback = (
+    scheduler_link_records, scheduler_link_summary, scheduler_lc_fallback, scheduler_lc_fallback_reason = (
         _build_link_cache_with_mode(
             case,
             backbone_positions,
@@ -530,6 +537,12 @@ def main() -> None:
             "selection_link_cache_mode": "parallel" if (use_parallel and not selection_lc_fallback) else "sequential",
             "scheduler_link_cache_mode": "parallel" if (use_parallel and not scheduler_lc_fallback) else "sequential",
             "parallel_fallback": any_fallback,
+            "parallel_fallback_reasons": {
+                "backbone_propagation": bb_fallback_reason,
+                "candidate_propagation": cand_fallback_reason,
+                "selection_link_cache": selection_lc_fallback_reason,
+                "scheduler_link_cache": scheduler_lc_fallback_reason,
+            },
         },
         "mclp_policy": mclp_summary.get("policy", "none"),
         "mclp_milp_bounds": mclp_summary.get("mclp_milp_bounds", mclp_milp_bounds),

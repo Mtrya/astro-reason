@@ -61,6 +61,75 @@ def _json_compact(value: Any) -> str | None:
     return json.dumps(value, sort_keys=True, separators=(",", ":"))
 
 
+def _solver_count(payload: dict[str, Any], key: str) -> Any:
+    baseline = _solver_status(payload).get("baseline_evidence")
+    if not isinstance(baseline, dict):
+        return None
+    counts = baseline.get("counts")
+    if not isinstance(counts, dict):
+        return None
+    return counts.get(key)
+
+
+def _revisit_metric(payload: dict[str, Any], key: str) -> Any:
+    verifier = payload.get("verifier")
+    if isinstance(verifier, dict):
+        metrics = verifier.get("metrics")
+        if isinstance(metrics, dict):
+            if key == "capped_max_revisit_gap_hours":
+                value = metrics.get("capped_max_revisit_gap_hours")
+                if value is not None:
+                    return value
+            target_summary = metrics.get("target_gap_summary")
+            if isinstance(target_summary, dict) and target_summary:
+                target_rows = [
+                    item
+                    for item in target_summary.values()
+                    if isinstance(item, dict)
+                ]
+                target_capped_max_values = [
+                    max(
+                        item.get("max_revisit_gap_hours", 0.0),
+                        item.get("expected_revisit_period_hours", 0.0),
+                    )
+                    for item in target_rows
+                ]
+                if key == "capped_max_revisit_gap_hours":
+                    return (
+                        sum(target_capped_max_values) / len(target_capped_max_values)
+                        if target_capped_max_values
+                        else None
+                    )
+                if key == "worst_target_capped_max_revisit_gap_hours":
+                    return (
+                        max(target_capped_max_values)
+                        if target_capped_max_values
+                        else None
+                    )
+                if key == "max_revisit_gap_hours":
+                    return max(
+                        (
+                            item.get("max_revisit_gap_hours", 0.0)
+                            for item in target_rows
+                        ),
+                        default=0.0,
+                    )
+                if key == "mean_revisit_gap_hours":
+                    values = [
+                        item.get("mean_revisit_gap_hours", 0.0)
+                        for item in target_rows
+                    ]
+                    return (sum(values) / len(values)) if values else None
+                if key == "threshold_violation_count":
+                    return sum(
+                        1
+                        for item in target_rows
+                        if item.get("max_revisit_gap_hours", 0.0)
+                        > item.get("expected_revisit_period_hours", 0.0)
+                    )
+    return _metric(payload, key)
+
+
 def _rows(results_root: Path) -> list[dict[str, Any]]:
     rows: list[dict[str, Any]] = []
     for run_path in sorted(results_root.glob("*/*/*/run.json")):
@@ -99,6 +168,29 @@ def _rows(results_root: Path) -> list[dict[str, Any]]:
                 "mean_latency_ms": _metric(payload, "mean_latency_ms"),
                 "latency_p95_ms": _metric(payload, "latency_p95_ms"),
                 "num_added_satellites": _metric(payload, "num_added_satellites"),
+                "num_satellites": _revisit_metric(payload, "num_satellites"),
+                "capped_max_revisit_gap_hours": _revisit_metric(
+                    payload,
+                    "capped_max_revisit_gap_hours",
+                ),
+                "worst_target_capped_max_revisit_gap_hours": _revisit_metric(
+                    payload,
+                    "worst_target_capped_max_revisit_gap_hours",
+                ),
+                "max_revisit_gap_hours": _revisit_metric(payload, "max_revisit_gap_hours"),
+                "mean_revisit_gap_hours": _revisit_metric(payload, "mean_revisit_gap_hours"),
+                "threshold_violation_count": _revisit_metric(
+                    payload,
+                    "threshold_violation_count",
+                ),
+                "selected_satellite_count": _solver_count(
+                    payload,
+                    "selected_satellite_count",
+                ),
+                "action_count": _solver_count(payload, "action_count"),
+                "observed_target_count": _solver_count(payload, "observed_target_count"),
+                "unobserved_target_count": _solver_count(payload, "unobserved_target_count"),
+                "high_gap_target_count": _solver_count(payload, "high_gap_target_count"),
                 "coverage_ratio": _metric(payload, "coverage_ratio"),
                 "weighted_coverage_ratio": _metric(payload, "weighted_coverage_ratio"),
                 "num_actions": _metric(payload, "num_actions"),
@@ -178,6 +270,17 @@ def _write_csv(path: Path, rows: list[dict[str, Any]]) -> None:
         "mean_latency_ms",
         "latency_p95_ms",
         "num_added_satellites",
+        "num_satellites",
+        "capped_max_revisit_gap_hours",
+        "worst_target_capped_max_revisit_gap_hours",
+        "max_revisit_gap_hours",
+        "mean_revisit_gap_hours",
+        "threshold_violation_count",
+        "selected_satellite_count",
+        "action_count",
+        "observed_target_count",
+        "unobserved_target_count",
+        "high_gap_target_count",
         "coverage_ratio",
         "weighted_coverage_ratio",
         "num_actions",

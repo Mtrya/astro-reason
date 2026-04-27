@@ -26,13 +26,10 @@ if TYPE_CHECKING:
 
 def milp_scheduler_available() -> bool:
     """Return True if PuLP and CBC are available."""
-    try:
-        import pulp
+    import pulp
 
-        solver = pulp.PULP_CBC_CMD(msg=False, timeLimit=1)
-        return solver.available()
-    except Exception:
-        return False
+    solver = pulp.PULP_CBC_CMD(msg=False, timeLimit=1)
+    return bool(solver.available())
 
 
 def milp_select_links(
@@ -47,10 +44,7 @@ def milp_select_links(
 
     Returns a set of normalized link keys, or None if the solver fails.
     """
-    try:
-        import pulp
-    except Exception:
-        return None
+    import pulp
 
     if not feasible_links:
         return set()
@@ -134,10 +128,7 @@ def run_milp_scheduler(
 
     Returns actions plus a summary dict, or (None, fallback_reason_dict) on failure.
     """
-    try:
-        import pulp
-    except Exception:
-        return None
+    import pulp
 
     # Filter links to only involve selected candidates (plus backbone)
     backbone_ids = {s.satellite_id for s in case.network.backbone_satellites}

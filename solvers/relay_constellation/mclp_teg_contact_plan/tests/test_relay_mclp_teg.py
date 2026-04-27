@@ -8,6 +8,7 @@ work belongs in experiment harnesses, not in the focused solver test suite.
 from __future__ import annotations
 
 import json
+import os
 import shutil
 import subprocess
 import sys
@@ -143,7 +144,7 @@ def _run_solver(case_dir: Path, config: dict) -> tuple[Path, dict]:
         capture_output=True,
         text=True,
         cwd=str(REPO_ROOT),
-        env={**dict(__import__("os").environ), "PYTHONPATH": str(REPO_ROOT)},
+        env={**dict(os.environ), "PYTHONPATH": str(REPO_ROOT)},
     )
     assert result.returncode == 0, f"solver failed: {result.stderr}"
     status = json.loads((solution_dir / "status.json").read_text(encoding="utf-8"))
@@ -156,7 +157,7 @@ def _run_verifier(case_dir: Path, solution_path: Path) -> dict:
         capture_output=True,
         text=True,
         cwd=str(REPO_ROOT),
-        env={**dict(__import__("os").environ), "PYTHONPATH": str(REPO_ROOT)},
+        env={**dict(os.environ), "PYTHONPATH": str(REPO_ROOT)},
     )
     stdout = result.stdout.strip()
     try:
@@ -676,7 +677,8 @@ def test_milp_returns_none_when_too_large() -> None:
         for i in range(30)
     )
     # milp_select returns None immediately without trying to solve
-    result = milp_select(candidates, None, [], [])
+    case = _make_tiny_case([])
+    result = milp_select(candidates, case, [], [])
     assert result is None
 
 
