@@ -73,6 +73,25 @@ For the first slice, a runtime image may include:
 
 The exact toolset may evolve, but the contract should remain restrained.
 
+## Base Runtime Astrodynamics Tools
+
+The base runtime includes shared astrodynamics tooling that is broadly useful to
+solver and experiment workflows:
+
+- Brahe for Python-native orbital dynamics utilities used by benchmark-side and
+  solver-side checks.
+- Skyfield and scientific Python libraries for lightweight independent orbit and
+  geometry analyses.
+- Orekit through the `orekit-jpype` Python package. Because Orekit is Java-based,
+  the base image installs OpenJDK 17 and sets `JAVA_HOME`.
+- Basilisk through the `bsk` Python package as the Python 3.13-compatible
+  high-fidelity simulation framework available in this runtime.
+
+`poliastro` is intentionally omitted from the Python 3.13 base image while its
+published package metadata requires Python versions below 3.11. If a compatible
+release becomes available later, it can be reconsidered as a normal runtime
+dependency update.
+
 ## What This Contract Does Not Promise Yet
 
 This document does not yet standardize:
