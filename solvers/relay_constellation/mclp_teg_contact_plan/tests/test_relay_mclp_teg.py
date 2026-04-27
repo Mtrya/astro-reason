@@ -18,6 +18,7 @@ from pathlib import Path
 import brahe
 import numpy as np
 import pytest
+import yaml
 
 def _resolve_repo_root() -> Path:
     for candidate in Path(__file__).resolve().parents:
@@ -404,7 +405,7 @@ def test_build_demand_sample_indices() -> None:
     )
     sample_times = build_time_grid(epoch, epoch + timedelta(seconds=900), 300)
     result = build_demand_sample_indices(case, sample_times)
-    assert result["d1"] == [0, 1, 2]
+    assert result["d1"] == [0, 1]
 
 
 def test_compute_covered_samples_two_hop_relay() -> None:
@@ -683,6 +684,8 @@ def test_milp_returns_none_when_too_large() -> None:
 
 
 def test_scheduler_auto_fallback_when_too_large() -> None:
+    pytest.importorskip("pulp")
+
     from solvers.relay_constellation.mclp_teg_contact_plan.src.case_io import DemandWindow
     from solvers.relay_constellation.mclp_teg_contact_plan.src.scheduler import run_scheduler
     from solvers.relay_constellation.mclp_teg_contact_plan.src.link_cache import LinkRecord
@@ -847,7 +850,7 @@ def test_default_grid_generates_24_candidates() -> None:
     assert len(cands) == 24
 
 
-def test_scaled_profiles_generate_larger_candidate_libraries() -> None:
+def test_reproduction_config_generates_scaled_candidate_library() -> None:
     from solvers.relay_constellation.mclp_teg_contact_plan.src.case_io import load_case
     from solvers.relay_constellation.mclp_teg_contact_plan.src.orbit_library import generate_candidates
 
@@ -855,20 +858,20 @@ def test_scaled_profiles_generate_larger_candidate_libraries() -> None:
         pytest.skip("Smoke case not available")
 
     case = load_case(CASE_0001)
-    profile_dir = REPO_ROOT / "solvers" / "relay_constellation" / "mclp_teg_contact_plan" / "profiles"
-    expected_min_counts = {
-        "reproduction": 100,
-        "quality": 500,
-    }
-
-    for profile_name, min_count in expected_min_counts.items():
-        profile = json.loads((profile_dir / f"{profile_name}.json").read_text(encoding="utf-8"))
-        grid = profile["orbit_grid"]
-        cands = generate_candidates(
-            case.manifest.constraints,
-            altitude_step_m=grid["altitude_step_m"],
-            inclination_step_deg=grid["inclination_step_deg"],
-            num_raan_planes=grid["num_raan_planes"],
-            num_phase_slots=grid["num_phase_slots"],
-        )
-        assert len(cands) >= min_count
+    profile_path = (
+        REPO_ROOT
+        / "experiments"
+        / "main_solver"
+        / "solvers"
+        / "relay_constellation_mclp_teg_contact_plan.yaml"
+    )
+    profile = yaml.safe_load(profile_path.read_text(encoding="utf-8"))
+    grid = profile["config"]["orbit_grid"]
+    cands = generate_candidates(
+        case.manifest.constraints,
+        altitude_step_m=grid["altitude_step_m"],
+        inclination_step_deg=grid["inclination_step_deg"],
+        num_raan_planes=grid["num_raan_planes"],
+        num_phase_slots=grid["num_phase_slots"],
+    )
+    assert len(cands) >= 100

@@ -29,7 +29,7 @@ DEFAULT_CONFIG: dict[str, Any] = {
     "profile_description": "Lightweight verifier-compatible settings for local contract checks.",
     "budget_policy": "informational",
     "mclp_mode": "auto",
-    "scheduler_mode": "auto",
+    "scheduler_mode": "route_aware",
     "parallel_mode": "auto",
     "max_parallel_workers": 8,
     "time_budget_s": 300,
