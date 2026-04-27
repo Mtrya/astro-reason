@@ -1,236 +1,98 @@
-# MCLP+TEG Relay Solver
+# MCLP+TEG Contact Plan Solver
 
-A deterministic solver for the `relay_constellation` benchmark that combines:
+Deterministic reproduced solver for `relay_constellation` that combines a Rogers-style maximal covering location problem (MCLP) candidate-selection layer with a Gerard-style time-expanded graph (TEG) contact scheduler.
 
-1. **MCLP candidate selection** — selects additional relay satellites from a finite orbit library to maximize demand-window coverage potential.
-2. **TEG contact scheduling** — per-sample link selection with interval compaction, producing `ground_link` and `inter_satellite_link` actions.
-
-The solver is standalone. It reads benchmark case files and writes a benchmark solution JSON, but it does not import or execute benchmark, experiment, runtime, or other solver internals.
-
-## Citation
-
-This solver reproduces methods from two paper families:
-
-**Rogers et al.** — constellation configuration design via the Maximal Covering Location Problem (MCLP):
-
-```bibtex
-@misc{rogers2026optimalsatelliteconstellationconfiguration,
-  title={Optimal Satellite Constellation Configuration Design: A Collection of Mixed Integer Linear Programs},
-  author={David O. Williams Rogers and Dongshik Won and Dongwook Koh and Kyungwoo Hong and Hang Woon Lee},
-  year={2026},
-  eprint={2507.09855},
-  archivePrefix={arXiv},
-  primaryClass={math.OC},
-  doi={https://doi.org/10.2514/1.A36518},
-  url={https://arxiv.org/abs/2507.09855},
-}
-```
-
-**Gerard et al.** — time-expanded graph (TEG) contact-plan scheduling for optical networks:
-
-```bibtex
-@misc{gerard2026contactplandesignoptical,
-  title={Contact Plan Design For Optical Interplanetary Communications},
-  author={Jason Gerard and Juan A. Fraire and Sandra Cespedes},
-  year={2026},
-  eprint={2601.18148},
-  archivePrefix={arXiv},
-  primaryClass={cs.NI},
-  url={https://arxiv.org/abs/2601.18148},
-}
-```
-
-## Method Summary
-
-### Rogers layer — MCLP candidate selection
-
-The paper formulates constellation configuration as a family of MILPs. The MCLP variant selects a fixed number of orbital slots to maximize observation rewards over targets.
-
-This reproduction keeps that structure and adapts it to `relay_constellation`:
-
-- **Finite orbital slot library** (`orbit_library.py`) — deterministic grid of candidate orbits within case altitude, inclination, eccentricity, and RAAN bounds. Default: 2 altitude shells × 2 inclination bands × 3 RAAN planes × 2 phase slots = 24 candidates.
-- **Cardinality constraint** — selects up to `max_added_satellites` (benchmark upper bound), not an exact fixed number.
-- **Coverage reward scoring** — each candidate is scored by its marginal contribution to demand-window service potential (the set of demand-samples that become reachable when the candidate is added).
-- **Greedy selection** — iterative marginal-gain heuristic that adds the highest-scoring candidate until the budget is exhausted or marginal gain drops to zero.
-- **Optional small MILP** — when candidates ≤ 20 and `max_added_satellites` ≤ 5, a PuLP/CBC MILP solves the exact MCLP over the simplified coverage matrix. Falls back to greedy if the MILP is too large or fails.
-
-### Gerard layer — TEG contact scheduling
-
-The paper introduces a time-expanded graph contact-plan scheduler for optical interplanetary networks, with per-sample link selection, degree-cap constraints, and both greedy and MILP solvers.
-
-This reproduction keeps that structure and adapts it to `relay_constellation`:
-
-- **Time-expanded graph representation** — feasibility of every ground link and inter-satellite link is precomputed at every routing sample (default 60 s step) over the full horizon.
-- **Per-sample greedy max-weight matching** — at each sample, feasible links are scored by active demand weight, then selected greedily respecting per-satellite and per-endpoint degree caps.
-- **Interval compaction** — consecutive samples with the same link selected are merged into compact interval actions.
-- **Bounded per-sample MILP** — for small problems (≤ 50 samples with links, ≤ 500 total binary variables), a PuLP/CBC MILP selects links at each sample to maximize total utility. Falls back to greedy if bounds are exceeded or the solver fails.
-- **Degree-cap enforcement** — both greedy and MILP respect `max_links_per_satellite` and `max_links_per_endpoint`.
-
-## Benchmark Adaptation
-
-The original papers target different mission contexts. The following adaptations bridge paper methods to the benchmark contract:
-
-| Paper Concept | Benchmark Adaptation |
-|---------------|----------------------|
-| Rogers observation reward (coverage over targets) | Demand-window service-potential score (path diversity via ground + ISL connectivity) |
-| Rogers fixed cardinality N (exactly N satellites) | `max_added_satellites` upper bound (`<= K`) |
-| Gerard capacity objective (maximize temporal flow) | Action-interval generator (ground_link and inter_satellite_link intervals) |
-| Gerard retargeting delay (pointing/acquisition overhead) | **Not modeled** — benchmark assumes instant link switching |
-| Gerard route tables and DTN forwarding | **Not modeled** — benchmark verifier owns route allocation and latency scoring |
-| Rogers MILP over full candidate set | Greedy marginal-gain heuristic with optional small MILP for ≤20 candidates |
-| Gerard full-horizon MILP scheduler | Bounded per-sample MILP with deterministic greedy fallback |
-
-## Solver Contract
+The solver follows the repository solver contract:
 
 ```bash
 ./setup.sh
-./solve.sh <case_dir> [config_dir] [solution_dir]
+./solve.sh <case_dir> <config_dir> <solution_dir>
 ```
 
-`setup.sh` prepares the solver-local virtual environment (effectively a no-op when dependencies are already present).
+It reads benchmark case files and writes `solution.json`, `status.json`, and solver-local debug artifacts. It does not import benchmark Python modules or call benchmark verifiers.
 
-`solve.sh` writes:
+## Recommended configuration
 
-- `solution.json`: primary benchmark solution (`added_satellites`, `actions`)
-- `status.json`: solver summary, stage timings, execution model, and compute budget
-- `debug/*`: optional debug artifacts
+The canonical configuration is owned by `experiments/main_solver/solvers/relay_constellation_mclp_teg_contact_plan.yaml`. That experiment profile is the configuration used for reproduced-solver reporting.
 
-The primary solution artifact is one JSON object with top-level `added_satellites` and `actions` arrays.
+Direct no-config runs use a small built-in smoke configuration for local contract checks only. Smoke output should not be reported as the solver's reproduction result.
 
-## Configuration
+## Method
 
-The solver reads a named compute profile from `profiles/<name>.json`, then overlays optional config from `<config_dir>/config.json`. Existing no-profile invocations resolve to the `smoke` profile, preserving the historical lightweight behavior while making the compute envelope explicit in `status.json`.
+### Candidate selection
 
-Available profiles:
+The Rogers layer is adapted as follows:
 
-- `smoke` — contract/smoke envelope matching the historical 24-candidate default.
-- `reproduction` — denser candidate grid and larger diagnostic budget for meaningful reproduction runs; current public cases generate roughly 300 candidates.
-- `quality` — strongest intended optimization profile for final metrics after scaling work is complete; current public cases generate roughly 1000 candidates.
+- Generate a deterministic finite library of feasible orbital slots inside the case altitude, inclination, eccentricity, and RAAN bounds.
+- Treat the benchmark `max_added_satellites` value as an upper-bound cardinality constraint.
+- Score candidates by marginal demand-window service potential: a demand sample is covered when the active constellation can connect the source and destination endpoints through ground links and ISLs.
+- Select candidates with deterministic indexed greedy MCLP scoring. A small PuLP/CBC MILP path remains available for very small candidate sets, but public cases use greedy selection.
 
-Use `--profile <name>` with the Python entrypoint, or set `"profile": "<name>"` inside `config.json`. Values in `config.json` recursively override the selected profile. See [config.example.json](./config.example.json) for a smoke-profile override example.
+The experiment-owned reproduction configuration generates roughly 300 candidates on the current public cases.
 
-Key knobs:
+### Contact scheduling
 
-| Key | Values | Default | Description |
-|-----|--------|---------|-------------|
-| `profile` | `"smoke"`, `"reproduction"`, `"quality"` | `"smoke"` | Named compute envelope loaded before config overrides. |
-| `mclp_mode` | `"auto"`, `"greedy"`, `"milp"`, `"none"` | `"auto"` | Candidate selection strategy. `"none"` skips MCLP and uses backbone only. `"auto"` tries MILP for small problems and falls back to greedy. |
-| `scheduler_mode` | `"auto"`, `"greedy"`, `"route_aware"`, `"milp"` | `"auto"` | Contact scheduling strategy. `"route_aware"` greedily selects complete endpoint-to-endpoint paths under degree caps. `"auto"` tries MILP within bounds, then falls back according to `milp_config.auto_fallback_strategy`. |
-| `parallel_mode` | `"auto"`, `"parallel"`, `"sequential"` | `"auto"` | Execution model. `"auto"` uses process parallelism when there are multiple satellites or >1000 samples. |
-| `max_parallel_workers` | integer or `null` | profile-specific | Upper bound on process-pool workers. Larger candidate profiles use conservative caps to avoid duplicating large propagated-state payloads across too many workers. |
-| `time_budget_s` | positive number | `300` | Expected per-case compute budget in seconds. Informational; the solver does not hard-cut at this limit. |
-| `orbit_grid.altitude_step_m` | number or `null` | `null` | Altitude grid step in meters. `null` uses min and max altitude only (2 shells). |
-| `orbit_grid.inclination_step_deg` | number or `null` | `null` | Inclination grid step in degrees. `null` uses min and max inclination only (2 bands). |
-| `orbit_grid.num_raan_planes` | integer | `3` | Number of RAAN planes to distribute candidates across. |
-| `orbit_grid.num_phase_slots` | integer | `2` | Number of phase slots per RAAN plane. |
-| `mclp_milp_config.max_candidates_for_milp` | integer | `20` | Maximum candidate count eligible for exact MCLP MILP. Larger cases fall back to greedy. |
-| `mclp_milp_config.max_added_for_milp` | integer | `5` | Maximum added-satellite cap eligible for exact MCLP MILP. |
-| `mclp_milp_config.time_limit_seconds` | number | `30.0` | CBC time limit for exact MCLP MILP. |
-| `milp_config.max_total_variables` | integer | `500` | Maximum total binary variables across all samples for scheduler MILP. |
-| `milp_config.max_samples` | integer | `50` | Maximum number of samples that may use MILP in scheduler. |
-| `milp_config.milp_time_limit_per_sample` | number | `5.0` | Time limit in seconds per sample for scheduler MILP. |
-| `milp_config.auto_fallback_strategy` | `"greedy"`, `"route_aware"` | `"greedy"` | Scheduler fallback used by `"auto"` when the bounded MILP is unavailable or too large. |
+The Gerard layer is adapted as follows:
 
-`time_budget_s` is informational and does not hard-cut the solver. It is recorded in `status.json` for reproducibility tracking.
+- Build time-expanded link feasibility on the benchmark routing grid.
+- Use a two-stage link cache: MCLP selection uses ground visibility plus backbone-touching ISLs; final scheduling rebuilds an exact cache for the backbone plus selected candidates.
+- Use route-aware per-sample scheduling for the reported configuration. It greedily selects complete endpoint-to-endpoint paths while respecting `max_links_per_satellite` and `max_links_per_endpoint`.
+- Compact consecutive selected samples into verifier-compatible interval actions.
 
-Parallel execution does not change algorithmic results; it only reduces wall-clock time.
+The bounded per-sample scheduler MILP remains available for small cases, but the public cases use the scalable route-aware path.
 
-## Debug Artifacts
+## Paper-to-benchmark adaptations
 
-When `debug: true` (or when the solver encounters an error), the solver writes:
+| Paper concept | Benchmark adaptation |
+|---|---|
+| Rogers target coverage reward | Demand-window service-potential reward over endpoint pairs |
+| Rogers exact fixed cardinality | Benchmark upper bound `<= max_added_satellites` |
+| Rogers full candidate-set MILP | Deterministic greedy MCLP, with bounded MILP only for small cases |
+| Gerard TEG link activation | `ground_link` and `inter_satellite_link` interval actions |
+| Gerard full-horizon MILP | Bounded per-sample MILP with route-aware fallback |
+| Gerard route tables and forwarding | Not submitted; benchmark verifier owns routing and allocation |
+| Optical retargeting delay | Not modeled because the benchmark does not model pointing delay |
 
-- `debug/candidates.json` — orbital elements of all generated candidates
-- `debug/link_cache_summary.json` — counts of feasible links by type and endpoint
-- `debug/mclp_summary.json` — reward scores and selection decisions
-- `debug/teg_summary.json` — scheduler statistics (samples processed, links selected, intervals created)
-- `debug/milp_summary.json` — MILP solver logs when MILP modes are active
-- `debug/reproduction_summary.json` — paper component mapping and benchmark adaptation notes
+## Reported evidence
 
-These are useful for answering:
+Current reported evidence uses the experiment-owned reproduction configuration and reports `case_0001` and `case_0002` performance. A final all-case canonical run can be rerun through `experiments/main_solver` when all solvers are ready.
 
-- why a candidate was selected or skipped
-- whether the link cache covers expected demand windows
-- why MILP modes fell back to greedy
-- whether parallel execution was used and if any fallback occurred
-- how paper methods map to solver components
+| case | valid | service_fraction | worst_demand_service_fraction | added satellites | actions | solve_s | verifier_s | candidates |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|
+| `test/case_0001` | true | 0.9259259259 | 0.5555555556 | 3 | 74 | 467.394 | 84.013 | 300 |
+| `test/case_0002` | true | 0.9523809524 | 0.6666666667 | 3 | 78 | 470.848 | 98.408 | 300 |
 
-## Running It
+For these runs, MCLP marginal evaluation is no longer the dominant cost; propagation over the 96-hour horizon dominates runtime.
 
-Direct setup:
+## Configuration fields
 
-```bash
-./solvers/relay_constellation/mclp_teg_contact_plan/setup.sh
-```
+`solve.sh` receives a config directory from the experiment runner. The solver reads `config.yaml` first and falls back to `config.json` for ad hoc local use.
 
-Direct solve on a public smoke case:
+Important keys:
 
-```bash
-./solvers/relay_constellation/mclp_teg_contact_plan/solve.sh \
-  benchmarks/relay_constellation/dataset/cases/test/case_0001
-```
+| Key | Purpose |
+|---|---|
+| `mclp_mode` | `auto`, `greedy`, `milp`, or `none` candidate selection. |
+| `scheduler_mode` | `auto`, `greedy`, `route_aware`, or `milp` contact scheduling. |
+| `parallel_mode` | `auto`, `parallel`, or `sequential` process execution. |
+| `max_parallel_workers` | Upper bound on process-pool workers. |
+| `time_budget_s` | Informational per-case budget recorded in `status.json`. |
+| `orbit_grid` | Candidate library density. |
+| `mclp_milp_config` | Small-instance MCLP MILP bounds. |
+| `milp_config` | Small-instance scheduler MILP bounds and fallback choice. |
 
-Direct solve with a config directory:
+## Outputs
 
-```bash
-./solvers/relay_constellation/mclp_teg_contact_plan/solve.sh \
-  benchmarks/relay_constellation/dataset/cases/test/case_0001 \
-  /path/to/config_dir \
-  /tmp/relay_mclp_solution
-```
+`solution.json` contains benchmark-submitted `added_satellites` and `actions`.
 
-Official smoke verification through `main_solver`:
+`status.json` records the compute envelope, candidate count, selected candidates, scheduler mode, timing breakdowns, parallel execution model, cache diagnostics, and fallback reasons.
 
-```bash
-uv run python experiments/main_solver/run.py \
-  --benchmark relay_constellation \
-  --solver relay_mclp_teg \
-  --case test/case_0001
-```
+`debug/` contains summaries for generated candidates, link caches, MCLP scoring, selected orbits, and scheduler behavior.
 
-Aggregate experiment results:
+## Limitations
 
-```bash
-uv run python experiments/main_solver/aggregate.py
-```
-
-## Compute Envelope
-
-This solver is a planning method that propagates satellites over a 96-hour horizon and evaluates link feasibility at 60-second granularity. A fair evaluation should allow **at least 5 minutes (300 s) per case**.
-
-The `smoke` profile is not the fair evaluation profile. It exists for quick contract checks. Reproduction and quality runs should use named profiles so `status.json` records candidate-library scale, MCLP MILP eligibility, fallback reasons, scheduler bounds, and timing breakdowns.
-
-With `parallel_mode=auto` the solver uses all available CPU cores for:
-
-- **Satellite propagation** — embarrassingly parallel across satellites (dominant stage, ~4 s per satellite sequentially).
-- **Link-feasibility cache** — chunked by sample index across worker processes.
-
-## Sanity Baseline
-
-The Rogers paper reports coverage fractions over target sets; the Gerard paper reports network capacity and duty cycle for optical interplanetary networks. Neither paper reports benchmark `service_fraction`, `worst_demand_service_fraction`, or `mean_latency_ms`. Treat the paper metrics as rough sanity checks for method behavior, not as target metric tables for this benchmark.
-
-What matters here is:
-
-- official verification passes
-- greedy MCLP improves over the no-added backbone baseline
-- candidate counts are plausible
-- MILP fallback is deterministic and well-documented
-
-If greedy MCLP does not improve over no-added, inspect:
-- whether the candidate grid covers the orbital regions the verifier expects
-- whether degree-cap repair or overlap issues are present
-- whether the reward construction matches verifier route rules
-
-## Known Limitations
-
-- This is a reproduction of the papers' method families, not a claim to reproduce every runtime or every table.
-- **Coarse candidate grid**: default 24 candidates is much smaller than Rogers' hundreds-to-thousands. This is configurable via `orbit_grid` but trades fidelity for compute time.
-- **Profile-dependent candidate scale**: `reproduction` and `quality` profiles intentionally scale the candidate pool beyond smoke defaults. Final claims should use saved canonical metrics from those profiles, not smoke runs.
-- **Greedy MCLP**: the default greedy selector is not guaranteed optimal. The optional MILP mode is exact but bounded to small instances.
-- **Per-sample MILP scheduler**: solves each sample independently, not a full-horizon MILP as in Gerard. This is a scalability adaptation.
-- **No retargeting delay**: benchmark does not model optical PAT overhead, so the solver does not account for it.
-- **Verifier-owned routing**: the solver cannot influence which routes the verifier chooses. High link utility does not guarantee high verifier service fraction if the verifier selects different paths.
-- **MILP scheduler scaling**: the bounded MILP scheduler falls back to greedy on all public cases because the problem exceeds the default variable/sample bounds. This is expected behavior consistent with Gerard's observation that MILP hits timeout around 16 nodes.
-
-## Evidence Type
-
-This solver is registered in `experiments/main_solver` with `evidence_type: reproduced_solver`.
+- The solver reproduces method families, not every table or mission assumption from the papers.
+- Public cases are too large for the exact full candidate-set Rogers MILP and Gerard full-horizon MILP paths.
+- The route-aware scheduler is a benchmark-adapted scalable fallback, not a full temporal-capacity MILP.
+- The benchmark verifier owns routing and latency scoring, so the solver submits link activations rather than routes.
+- Larger candidate grids remain propagation-heavy; the reported configuration is the strongest practical current envelope.

@@ -7,6 +7,6 @@ solvers:
   - aeossp_standard_mwis_conflict_graph
   - stereo_imaging_time_window_pruned_stereo_milp
   - aeossp_standard_greedy_lns
-  - relay_mclp_teg
+  - relay_constellation_mclp_teg_contact_plan
   - stereo_imaging_cp_local_search_stereo_insertion
   - regional_coverage_cp_local_search

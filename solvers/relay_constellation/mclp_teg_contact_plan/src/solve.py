@@ -10,6 +10,8 @@ from copy import deepcopy
 from pathlib import Path
 from typing import Any
 
+import yaml
+
 from .case_io import load_case
 from .link_cache import build_link_cache
 from .mclp import greedy_select, mclp_milp_eligibility, milp_select
@@ -20,11 +22,46 @@ from .solution_io import write_debug_summary, write_reproduction_summary, write_
 from .time_grid import build_time_grid
 
 
+DEFAULT_CONFIG: dict[str, Any] = {
+    "profile": "smoke",
+    "profile_version": "1",
+    "profile_envelope": "contract_smoke",
+    "profile_description": "Lightweight verifier-compatible settings for local contract checks.",
+    "budget_policy": "informational",
+    "mclp_mode": "auto",
+    "scheduler_mode": "auto",
+    "parallel_mode": "auto",
+    "max_parallel_workers": 8,
+    "time_budget_s": 300,
+    "orbit_grid": {
+        "altitude_step_m": None,
+        "inclination_step_deg": None,
+        "num_raan_planes": 3,
+        "num_phase_slots": 2,
+    },
+    "mclp_milp_config": {
+        "max_candidates_for_milp": 20,
+        "max_added_for_milp": 5,
+        "time_limit_seconds": 30.0,
+    },
+    "milp_config": {
+        "max_total_variables": 500,
+        "max_samples": 50,
+        "milp_time_limit_per_sample": 5.0,
+    },
+}
+
+
 def _load_config(config_dir: Path) -> dict[str, Any]:
-    """Load optional solver config from config_dir/config.json."""
-    config_path = config_dir / "config.json"
-    if config_path.exists():
-        return json.loads(config_path.read_text(encoding="utf-8"))
+    """Load optional solver config from config_dir/config.yaml or config.json."""
+    yaml_path = config_dir / "config.yaml"
+    if yaml_path.exists():
+        payload = yaml.safe_load(yaml_path.read_text(encoding="utf-8"))
+        return payload if isinstance(payload, dict) else {}
+    json_path = config_dir / "config.json"
+    if json_path.exists():
+        payload = json.loads(json_path.read_text(encoding="utf-8"))
+        return payload if isinstance(payload, dict) else {}
     return {}
 
 
@@ -43,49 +80,21 @@ def _deep_merge(base: dict[str, Any], override: dict[str, Any]) -> dict[str, Any
     return merged
 
 
-def _profile_dir() -> Path:
-    return Path(__file__).resolve().parents[1] / "profiles"
-
-
-def _load_profile(profile_name: str) -> tuple[dict[str, Any], str | None]:
-    """Load a named solver profile, returning (config, source_path)."""
-    profile_path = _profile_dir() / f"{profile_name}.json"
-    if not profile_path.exists():
-        raise FileNotFoundError(
-            f"Unknown solver profile '{profile_name}'. Expected {profile_path}"
-        )
-    return json.loads(profile_path.read_text(encoding="utf-8")), str(profile_path)
-
-
 def _resolve_config(
     *,
-    cli_profile: str | None,
     config_dir: Path | None,
 ) -> tuple[dict[str, Any], dict[str, Any]]:
-    """Resolve profile plus optional config overrides.
-
-    The default no-config path intentionally resolves to the smoke profile so
-    existing solver invocations keep the same lightweight behavior while status
-    output can name the envelope honestly.
-    """
+    """Resolve experiment-owned config plus built-in smoke fallback."""
     config_override = _load_config(config_dir) if config_dir else {}
-    requested_profile = (
-        cli_profile
-        or config_override.get("profile")
-        or config_override.get("profile_name")
-        or "smoke"
-    )
-
-    profile_config, profile_source = _load_profile(str(requested_profile))
-    resolved = _deep_merge(profile_config, config_override)
-    resolved["profile"] = str(requested_profile)
+    resolved = _deep_merge(DEFAULT_CONFIG, config_override)
+    profile_name = str(resolved.get("profile", "custom"))
 
     metadata = {
-        "profile": str(requested_profile),
-        "profile_version": resolved.get("profile_version", profile_config.get("profile_version", "unknown")),
-        "profile_description": resolved.get("profile_description", profile_config.get("profile_description", "")),
-        "profile_envelope": resolved.get("profile_envelope", profile_config.get("profile_envelope", "")),
-        "profile_source": profile_source,
+        "profile": profile_name,
+        "profile_version": resolved.get("profile_version", "unknown"),
+        "profile_description": resolved.get("profile_description", ""),
+        "profile_envelope": resolved.get("profile_envelope", ""),
+        "profile_source": None,
         "config_dir": str(config_dir.resolve()) if config_dir else None,
         "config_override_keys": sorted(config_override.keys()),
     }
@@ -218,16 +227,10 @@ def main() -> None:
     parser.add_argument("--case-dir", required=True, help="Path to benchmark case directory")
     parser.add_argument("--config-dir", default="", help="Optional config directory")
     parser.add_argument("--solution-dir", default="solution", help="Output directory for solution artifacts")
-    parser.add_argument(
-        "--profile",
-        default=None,
-        help="Named compute profile to load from profiles/<name>.json. Optional config.json values override it.",
-    )
     args = parser.parse_args()
 
     config_dir = Path(args.config_dir) if args.config_dir else None
     config, profile_metadata = _resolve_config(
-        cli_profile=args.profile,
         config_dir=config_dir,
     )
     mclp_mode = config.get("mclp_mode", "auto")  # "auto", "greedy", "milp", or "none"
