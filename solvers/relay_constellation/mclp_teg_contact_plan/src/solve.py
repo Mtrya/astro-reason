@@ -157,6 +157,9 @@ def _build_link_cache_with_mode(
     candidate_positions: dict[str, Any],
     use_parallel: bool,
     worker_count: int | None = None,
+    *,
+    include_candidate_candidate_isl: bool = True,
+    cache_stage: str = "full",
 ) -> tuple[tuple[Any, ...], dict[str, object], bool]:
     """Build link cache and return (records, summary, fallback_happened)."""
     if use_parallel:
@@ -164,14 +167,50 @@ def _build_link_cache_with_mode(
             from .parallel import ParallelExecutionError, build_link_cache_parallel
 
             records, summary = build_link_cache_parallel(
-                case, backbone_positions, candidate_positions, max_workers=worker_count
+                case,
+                backbone_positions,
+                candidate_positions,
+                max_workers=worker_count,
+                include_candidate_candidate_isl=include_candidate_candidate_isl,
+                cache_stage=cache_stage,
             )
             return records, summary, False
         except ParallelExecutionError:
             pass
 
-    records, summary = build_link_cache(case, backbone_positions, candidate_positions)
+    records, summary = build_link_cache(
+        case,
+        backbone_positions,
+        candidate_positions,
+        include_candidate_candidate_isl=include_candidate_candidate_isl,
+        cache_stage=cache_stage,
+    )
     return records, summary, use_parallel
+
+
+def _skipped_link_cache_summary(
+    *,
+    cache_stage: str,
+    reason: str,
+    num_samples: int,
+    backbone_count: int,
+    candidate_count: int,
+) -> dict[str, object]:
+    return {
+        "cache_stage": cache_stage,
+        "cache_exact": False,
+        "include_candidate_candidate_isl": False,
+        "skipped": True,
+        "skip_reason": reason,
+        "num_samples": num_samples,
+        "backbone_satellite_count": backbone_count,
+        "candidate_satellite_count": candidate_count,
+        "ground_link_records": 0,
+        "isl_link_records": 0,
+        "total_records": 0,
+        "candidate_candidate_pairs_skipped": 0,
+        "candidate_pair_sample_checks_avoided": 0,
+    }
 
 
 def main() -> None:
@@ -270,10 +309,31 @@ def main() -> None:
     )
     t5 = time.monotonic()
 
-    # Build link-feasibility cache
-    link_records, link_summary, lc_fallback = _build_link_cache_with_mode(
-        case, backbone_positions, candidate_positions, use_parallel, worker_count
-    )
+    # Build lightweight selection-stage link cache for MCLP. This intentionally
+    # avoids candidate-candidate ISL checks; the scheduler gets an exact cache
+    # after MCLP selects the active added satellites.
+    if candidates and mclp_mode != "none":
+        selection_link_records, selection_link_summary, selection_lc_fallback = (
+            _build_link_cache_with_mode(
+                case,
+                backbone_positions,
+                candidate_positions,
+                use_parallel,
+                worker_count,
+                include_candidate_candidate_isl=False,
+                cache_stage="selection",
+            )
+        )
+    else:
+        selection_link_records = ()
+        selection_link_summary = _skipped_link_cache_summary(
+            cache_stage="selection",
+            reason="mclp_disabled_or_no_candidates",
+            num_samples=len(sample_times),
+            backbone_count=len(backbone_positions),
+            candidate_count=len(candidate_positions),
+        )
+        selection_lc_fallback = False
     t6 = time.monotonic()
 
     # MCLP candidate selection
@@ -301,7 +361,7 @@ def main() -> None:
                 candidates,
                 case,
                 sample_times,
-                link_records,
+                selection_link_records,
                 max_candidates_for_milp=mclp_milp_bounds["max_candidates_for_milp"],
                 max_added_for_milp=mclp_milp_bounds["max_added_for_milp"],
                 time_limit_seconds=mclp_milp_bounds["time_limit_seconds"],
@@ -309,20 +369,20 @@ def main() -> None:
             if milp_result is not None:
                 selected, mclp_summary = milp_result
             else:
-                selected, mclp_summary = greedy_select(candidates, case, sample_times, link_records)
+                selected, mclp_summary = greedy_select(candidates, case, sample_times, selection_link_records)
                 mclp_summary["policy"] = "greedy (milp fallback)"
                 mclp_summary["mclp_milp_fallback_reason"] = (
                     mclp_milp_ineligible_reason or "mclp_milp_solver_failed_or_not_optimal"
                 )
         elif mclp_mode == "greedy":
-            selected, mclp_summary = greedy_select(candidates, case, sample_times, link_records)
+            selected, mclp_summary = greedy_select(candidates, case, sample_times, selection_link_records)
             mclp_summary["mclp_milp_fallback_reason"] = "mclp_mode_greedy"
         else:  # auto
             milp_result = milp_select(
                 candidates,
                 case,
                 sample_times,
-                link_records,
+                selection_link_records,
                 max_candidates_for_milp=mclp_milp_bounds["max_candidates_for_milp"],
                 max_added_for_milp=mclp_milp_bounds["max_added_for_milp"],
                 time_limit_seconds=mclp_milp_bounds["time_limit_seconds"],
@@ -330,12 +390,14 @@ def main() -> None:
             if milp_result is not None:
                 selected, mclp_summary = milp_result
             else:
-                selected, mclp_summary = greedy_select(candidates, case, sample_times, link_records)
+                selected, mclp_summary = greedy_select(candidates, case, sample_times, selection_link_records)
                 mclp_summary["mclp_milp_fallback_reason"] = (
                     mclp_milp_ineligible_reason or "mclp_milp_solver_failed_or_not_optimal"
                 )
         mclp_summary["candidate_count"] = len(candidates)
         mclp_summary["candidate_library"] = candidate_summary
+        mclp_summary["selection_cache_mode"] = "ground_all_plus_backbone_touching_isl"
+        mclp_summary["selection_cache_exact"] = False
         mclp_summary["mclp_milp_bounds"] = mclp_milp_bounds
         mclp_summary["mclp_milp_eligible"] = mclp_milp_eligible
         mclp_summary["mclp_milp_attempted"] = (
@@ -344,6 +406,25 @@ def main() -> None:
         if mclp_summary.get("policy") == "milp":
             mclp_summary["mclp_milp_fallback_reason"] = None
     t7 = time.monotonic()
+
+    # Build exact scheduler-stage cache for backbone plus selected candidates.
+    selected_candidate_positions = {
+        c.satellite_id: candidate_positions[c.satellite_id]
+        for c in selected
+        if c.satellite_id in candidate_positions
+    }
+    scheduler_link_records, scheduler_link_summary, scheduler_lc_fallback = (
+        _build_link_cache_with_mode(
+            case,
+            backbone_positions,
+            selected_candidate_positions,
+            use_parallel,
+            worker_count,
+            include_candidate_candidate_isl=True,
+            cache_stage="scheduler",
+        )
+    )
+    t8 = time.monotonic()
 
     # Build added_satellites output
     added_satellites: list[dict[str, Any]] = []
@@ -364,14 +445,29 @@ def main() -> None:
     # Contact scheduling (MILP or greedy)
     selected_ids = {c.satellite_id for c in selected}
     actions, sched_summary = run_scheduler(
-        case, sample_times, link_records, selected_ids,
+        case, sample_times, scheduler_link_records, selected_ids,
         scheduler_mode=scheduler_mode,
         milp_config=milp_config,
     )
-    t8 = time.monotonic()
+    t9 = time.monotonic()
 
-    total_time = t8 - t0
-    any_fallback = bb_fallback or cand_fallback or lc_fallback
+    total_time = t9 - t0
+    any_fallback = (
+        bb_fallback or cand_fallback or selection_lc_fallback or scheduler_lc_fallback
+    )
+    link_cache_strategy = {
+        "strategy": "two_stage",
+        "selection_cache_mode": selection_link_summary.get("cache_stage", "selection"),
+        "selection_cache_exact": selection_link_summary.get("cache_exact", False),
+        "selection_total_records": selection_link_summary.get("total_records", 0),
+        "scheduler_cache_mode": scheduler_link_summary.get("cache_stage", "scheduler"),
+        "scheduler_cache_exact": scheduler_link_summary.get("cache_exact", False),
+        "scheduler_total_records": scheduler_link_summary.get("total_records", 0),
+        "candidate_pair_sample_checks_avoided": selection_link_summary.get(
+            "candidate_pair_sample_checks_avoided", 0
+        ),
+        "scheduler_exact_after_selection": scheduler_link_summary.get("cache_exact", False),
+    }
 
     # Write solution
     solution_dir = Path(args.solution_dir)
@@ -428,7 +524,8 @@ def main() -> None:
             "max_parallel_workers": max_parallel_workers,
             "worker_count": worker_count,
             "propagation_mode": "parallel" if (use_parallel and not bb_fallback) else "sequential",
-            "link_cache_mode": "parallel" if (use_parallel and not lc_fallback) else "sequential",
+            "selection_link_cache_mode": "parallel" if (use_parallel and not selection_lc_fallback) else "sequential",
+            "scheduler_link_cache_mode": "parallel" if (use_parallel and not scheduler_lc_fallback) else "sequential",
             "parallel_fallback": any_fallback,
         },
         "mclp_policy": mclp_summary.get("policy", "none"),
@@ -440,7 +537,19 @@ def main() -> None:
         "mclp_selected_score": mclp_summary.get("selected_score", 0.0),
         "mclp_selected_count": mclp_summary.get("selected_count", 0),
         "mclp_selected_candidate_ids": mclp_summary.get("selected_candidate_ids", []),
-        "link_cache_summary": link_summary,
+        "mclp_scoring_engine": mclp_summary.get("scoring_engine"),
+        "mclp_demand_sample_count": mclp_summary.get("demand_sample_count"),
+        "mclp_candidate_evaluations": mclp_summary.get("candidate_evaluations"),
+        "mclp_candidate_evaluations_per_selected": mclp_summary.get("candidate_evaluations_per_selected"),
+        "mclp_index_build_time_s": mclp_summary.get("index_build_time_s"),
+        "mclp_baseline_eval_time_s": mclp_summary.get("baseline_eval_time_s"),
+        "mclp_selection_loop_time_s": mclp_summary.get("selection_loop_time_s"),
+        "mclp_base_cc_total_time_s": mclp_summary.get("base_cc_total_time_s"),
+        "mclp_marginal_eval_total_time_s": mclp_summary.get("marginal_eval_total_time_s"),
+        "link_cache_summary": scheduler_link_summary,
+        "selection_link_cache_summary": selection_link_summary,
+        "scheduler_link_cache_summary": scheduler_link_summary,
+        "link_cache_strategy": link_cache_strategy,
         "timings_s": {
             "load_case": round(t1 - t0, 3),
             "build_time_grid": round(t2 - t1, 3),
@@ -451,10 +560,12 @@ def main() -> None:
             "propagate_candidates": round(t5 - t4, 3),
             "propagate_candidates_total": round(t5 - t4, 3),
             "propagate_candidates_per_satellite_ms": [round(v, 3) for v in candidate_timings_ms],
-            "build_link_cache": round(t6 - t5, 3),
-            "build_link_cache_total": round(t6 - t5, 3),
+            "build_selection_link_cache": round(t6 - t5, 3),
             "mclp_selection": round(t7 - t6, 3),
-            "scheduler": round(t8 - t7, 3),
+            "build_scheduler_link_cache": round(t8 - t7, 3),
+            "build_link_cache": round((t6 - t5) + (t8 - t7), 3),
+            "build_link_cache_total": round((t6 - t5) + (t8 - t7), 3),
+            "scheduler": round(t9 - t8, 3),
             "total": round(total_time, 3),
         },
         "scheduler_mode": sched_summary.get("scheduler_mode", "greedy"),
@@ -494,7 +605,9 @@ def main() -> None:
             ],
         },
     )
-    write_debug_summary(solution_dir, "link_cache_summary", link_summary)
+    write_debug_summary(solution_dir, "link_cache_summary", link_cache_strategy)
+    write_debug_summary(solution_dir, "selection_link_cache_summary", selection_link_summary)
+    write_debug_summary(solution_dir, "scheduler_link_cache_summary", scheduler_link_summary)
     write_debug_summary(solution_dir, "mclp_reward_summary", mclp_summary)
     write_debug_summary(solution_dir, "teg_summary", sched_summary)
     if sched_summary.get("milp_attempted"):
@@ -539,7 +652,13 @@ def main() -> None:
     print(f"  Selected: {len(selected)}")
     print(f"  Baseline score: {mclp_summary.get('baseline_score', 0.0)}")
     print(f"  Selected score: {mclp_summary.get('selected_score', 0.0)}")
+    if mclp_summary.get("candidate_evaluations") is not None:
+        print(f"  MCLP candidate evaluations: {mclp_summary.get('candidate_evaluations')}")
+        print(f"  MCLP marginal eval time: {mclp_summary.get('marginal_eval_total_time_s')}s")
     print(f"  Scheduler mode: {sched_summary.get('scheduler_mode', 'greedy')}")
+    print(f"  Selection cache records: {selection_link_summary.get('total_records', 0)}")
+    print(f"  Scheduler cache records: {scheduler_link_summary.get('total_records', 0)}")
+    print(f"  Candidate-pair sample checks avoided: {selection_link_summary.get('candidate_pair_sample_checks_avoided', 0)}")
     if sched_summary.get("milp_attempted"):
         print(f"  MILP attempted: {sched_summary['milp_attempted']}")
         if sched_summary.get("milp_fallback_reason"):

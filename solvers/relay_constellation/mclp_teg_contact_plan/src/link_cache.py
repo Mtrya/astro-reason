@@ -34,6 +34,9 @@ def build_link_cache(
     case: Case,
     backbone_positions: dict[str, dict[int, np.ndarray]],
     candidate_positions: dict[str, dict[int, np.ndarray]],
+    *,
+    include_candidate_candidate_isl: bool = True,
+    cache_stage: str = "full",
 ) -> tuple[tuple[LinkRecord, ...], dict[str, object]]:
     """Precompute all feasible links and return records plus a summary dict.
 
@@ -51,7 +54,12 @@ def build_link_cache(
 
     records: list[LinkRecord] = []
     summary = {
+        "cache_stage": cache_stage,
+        "cache_exact": include_candidate_candidate_isl,
+        "include_candidate_candidate_isl": include_candidate_candidate_isl,
         "num_samples": num_samples,
+        "backbone_satellite_count": len(backbone_positions),
+        "candidate_satellite_count": len(candidate_positions),
         "ground_link_records": 0,
         "isl_link_records": 0,
         "per_sample_ground_counts": [0] * num_samples,
@@ -100,10 +108,19 @@ def build_link_cache(
 
     # ISLs: all satellite pairs
     sat_id_list = list(all_sat_positions.keys())
+    candidate_ids = set(candidate_positions)
+    skipped_candidate_candidate_pairs = 0
     for i in range(len(sat_id_list)):
         for j in range(i + 1, len(sat_id_list)):
             sat_a = sat_id_list[i]
             sat_b = sat_id_list[j]
+            if (
+                not include_candidate_candidate_isl
+                and sat_a in candidate_ids
+                and sat_b in candidate_ids
+            ):
+                skipped_candidate_candidate_pairs += 1
+                continue
             pos_a = all_sat_positions[sat_a]
             pos_b = all_sat_positions[sat_b]
             for sample_index in range(num_samples):
@@ -126,9 +143,49 @@ def build_link_cache(
                     summary["per_sample_isl_counts"][sample_index] += 1
 
     summary["total_records"] = len(records)
+    summary["candidate_candidate_pairs_skipped"] = skipped_candidate_candidate_pairs
+    summary["candidate_pair_sample_checks_avoided"] = (
+        skipped_candidate_candidate_pairs * num_samples
+    )
     summary["per_sample_total_counts"] = [
         summary["per_sample_ground_counts"][s] + summary["per_sample_isl_counts"][s]
         for s in range(num_samples)
     ]
 
     return tuple(records), summary
+
+
+def build_selection_link_cache(
+    case: Case,
+    backbone_positions: dict[str, dict[int, np.ndarray]],
+    candidate_positions: dict[str, dict[int, np.ndarray]],
+) -> tuple[tuple[LinkRecord, ...], dict[str, object]]:
+    """Build the lightweight MCLP selection cache.
+
+    The selection cache keeps ground visibility for all satellites and ISLs that
+    touch the immutable backbone, but intentionally avoids all candidate-
+    candidate ISL checks. The final scheduler cache remains exact after
+    candidate selection.
+    """
+    return build_link_cache(
+        case,
+        backbone_positions,
+        candidate_positions,
+        include_candidate_candidate_isl=False,
+        cache_stage="selection",
+    )
+
+
+def build_scheduler_link_cache(
+    case: Case,
+    backbone_positions: dict[str, dict[int, np.ndarray]],
+    selected_candidate_positions: dict[str, dict[int, np.ndarray]],
+) -> tuple[tuple[LinkRecord, ...], dict[str, object]]:
+    """Build the exact final scheduler cache for active satellites only."""
+    return build_link_cache(
+        case,
+        backbone_positions,
+        selected_candidate_positions,
+        include_candidate_candidate_isl=True,
+        cache_stage="scheduler",
+    )

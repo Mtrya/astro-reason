@@ -117,6 +117,8 @@ class _LinkCacheChunkArgs:
 class _LinkCacheContext:
     endpoint_data: tuple[_EndpointData, ...]
     sat_positions: dict[str, dict[int, tuple[float, float, float]]]
+    candidate_ids: frozenset[str]
+    include_candidate_candidate_isl: bool
     max_ground_range_m: float | None
     max_isl_range_m: float
 
@@ -161,6 +163,12 @@ def _build_link_cache_chunk(args: _LinkCacheChunkArgs) -> list[tuple[str, int, s
             for j in range(i + 1, len(sat_ids)):
                 sat_a = sat_ids[i]
                 sat_b = sat_ids[j]
+                if (
+                    not context.include_candidate_candidate_isl
+                    and sat_a in context.candidate_ids
+                    and sat_b in context.candidate_ids
+                ):
+                    continue
                 pos_a = np.array(context.sat_positions[sat_a][sidx], dtype=float)
                 pos_b = np.array(context.sat_positions[sat_b][sidx], dtype=float)
                 is_feasible, distance_m = isl_feasible(pos_a, pos_b, context.max_isl_range_m)
@@ -175,6 +183,9 @@ def build_link_cache_parallel(
     backbone_positions: dict[str, dict[int, np.ndarray]],
     candidate_positions: dict[str, dict[int, np.ndarray]],
     max_workers: int | None = None,
+    *,
+    include_candidate_candidate_isl: bool = True,
+    cache_stage: str = "full",
 ) -> tuple[tuple[Any, ...], dict[str, object]]:
     """Build link-feasibility cache in parallel over sample chunks.
 
@@ -211,7 +222,13 @@ def build_link_cache_parallel(
     if max_workers <= 1 or num_samples <= 1:
         from .link_cache import build_link_cache
 
-        return build_link_cache(case, backbone_positions, candidate_positions)
+        return build_link_cache(
+            case,
+            backbone_positions,
+            candidate_positions,
+            include_candidate_candidate_isl=include_candidate_candidate_isl,
+            cache_stage=cache_stage,
+        )
 
     # Precompute endpoint ECEF positions
     endpoint_data: list[_EndpointData] = []
@@ -247,6 +264,8 @@ def build_link_cache_parallel(
     context = _LinkCacheContext(
         endpoint_data=tuple(endpoint_data),
         sat_positions=all_sat_positions,
+        candidate_ids=frozenset(candidate_positions),
+        include_candidate_candidate_isl=include_candidate_candidate_isl,
         max_ground_range_m=constraints.max_ground_range_m,
         max_isl_range_m=constraints.max_isl_range_m,
     )
@@ -264,8 +283,19 @@ def build_link_cache_parallel(
 
     # Assemble records
     records: list[LinkRecord] = []
+    candidate_ids = set(candidate_positions)
+    skipped_candidate_candidate_pairs = (
+        len(candidate_ids) * (len(candidate_ids) - 1) // 2
+        if not include_candidate_candidate_isl
+        else 0
+    )
     summary = {
+        "cache_stage": cache_stage,
+        "cache_exact": include_candidate_candidate_isl,
+        "include_candidate_candidate_isl": include_candidate_candidate_isl,
         "num_samples": num_samples,
+        "backbone_satellite_count": len(backbone_positions),
+        "candidate_satellite_count": len(candidate_positions),
         "ground_link_records": 0,
         "isl_link_records": 0,
         "per_sample_ground_counts": [0] * num_samples,
@@ -291,6 +321,10 @@ def build_link_cache_parallel(
                 summary["per_sample_isl_counts"][sidx] += 1
 
     summary["total_records"] = len(records)
+    summary["candidate_candidate_pairs_skipped"] = skipped_candidate_candidate_pairs
+    summary["candidate_pair_sample_checks_avoided"] = (
+        skipped_candidate_candidate_pairs * num_samples
+    )
     summary["per_sample_total_counts"] = [
         summary["per_sample_ground_counts"][s] + summary["per_sample_isl_counts"][s]
         for s in range(num_samples)

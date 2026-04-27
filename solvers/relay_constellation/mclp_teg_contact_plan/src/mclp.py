@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import time
 from collections import defaultdict
 from dataclasses import dataclass
 from datetime import datetime
@@ -265,6 +266,96 @@ def _compute_marginal_gain_fast(
     return new_covered
 
 
+def _compute_marginal_gain_indexed(
+    cid: str,
+    base_set: set[str],
+    current_covered: set[int],
+    ground_map: dict[int, dict[str, set[str]]],
+    isl_map: dict[int, dict[str, set[str]]],
+    base_cc_cache: dict[int, dict[str, int]],
+    sample_to_demand_entries: dict[int, list[tuple[int, DemandWindow]]],
+) -> set[int]:
+    """Return newly covered demand-sample indices after adding candidate cid.
+
+    This is the same reward test as ``_compute_marginal_gain_fast``, but it
+    avoids rebuilding ``DemandSample`` objects and avoids re-checking whether
+    the current base constellation already covers each sample. The greedy loop
+    maintains ``current_covered`` exactly, so candidate evaluation only needs to
+    test uncovered demand-samples against the trial active set.
+    """
+    new_covered: set[int] = set()
+    trial_set = base_set | {cid}
+
+    for sidx, entries in sample_to_demand_entries.items():
+        gm = ground_map.get(sidx, {})
+        if not gm:
+            continue
+
+        im = isl_map.get(sidx, {})
+        base_cc = base_cc_cache.get(sidx, {})
+        cand_peers = im.get(cid, set()) & trial_set if im else set()
+
+        for ds_idx, demand in entries:
+            if ds_idx in current_covered:
+                continue
+
+            src_trial = gm.get(demand.source_endpoint_id, set()) & trial_set
+            dst_trial = gm.get(demand.destination_endpoint_id, set()) & trial_set
+            if not src_trial or not dst_trial:
+                continue
+
+            if src_trial & dst_trial:
+                new_covered.add(ds_idx)
+                continue
+
+            if not im:
+                continue
+
+            connected = False
+            for src_sat in src_trial:
+                for dst_sat in dst_trial:
+                    if src_sat == dst_sat:
+                        connected = True
+                        break
+                    if (
+                        src_sat in base_cc
+                        and dst_sat in base_cc
+                        and base_cc[src_sat] == base_cc[dst_sat]
+                    ):
+                        connected = True
+                        break
+                    if src_sat == cid and dst_sat in cand_peers:
+                        connected = True
+                        break
+                    if dst_sat == cid and src_sat in cand_peers:
+                        connected = True
+                        break
+                    if src_sat in cand_peers and dst_sat in cand_peers:
+                        connected = True
+                        break
+                    if src_sat in base_cc and (dst_sat == cid or dst_sat in cand_peers):
+                        for peer in cand_peers:
+                            if peer in base_cc and base_cc[peer] == base_cc[src_sat]:
+                                connected = True
+                                break
+                        if connected:
+                            break
+                    if dst_sat in base_cc and (src_sat == cid or src_sat in cand_peers):
+                        for peer in cand_peers:
+                            if peer in base_cc and base_cc[peer] == base_cc[dst_sat]:
+                                connected = True
+                                break
+                        if connected:
+                            break
+                if connected:
+                    break
+
+            if connected:
+                new_covered.add(ds_idx)
+
+    return new_covered
+
+
 def _weighted_score(
     covered: set[DemandSample],
     demands_by_id: dict[str, DemandWindow],
@@ -309,9 +400,11 @@ def greedy_select(
     selected : list of chosen CandidateSatellite objects
     summary  : dict with selection diagnostics
     """
+    t_start = time.monotonic()
     demand_samples = build_demand_sample_indices(case, sample_times)
     ground_map, isl_map = build_ground_and_isl_maps(link_records)
     demands_by_id = {d.demand_id: d for d in case.demands.demanded_windows}
+    index_built_at = time.monotonic()
 
     backbone_ids = {s.satellite_id for s in case.network.backbone_satellites}
     candidate_ids = [c.satellite_id for c in candidates]
@@ -323,49 +416,69 @@ def greedy_select(
         backbone_ids, demand_samples, demands_by_id, ground_map, isl_map
     )
     baseline_score = _weighted_score(baseline_covered, demands_by_id)
+    baseline_eval_at = time.monotonic()
 
     selected: list[CandidateSatellite] = []
     selected_ids: set[str] = set()
-    current_covered = set(baseline_covered)
+    demand_sample_to_index: dict[DemandSample, int] = {}
+    demand_sample_weights: list[float] = []
+    sample_to_demand_entries: dict[int, list[tuple[int, DemandWindow]]] = defaultdict(list)
+    for demand_id in sorted(demand_samples):
+        demand = demands_by_id[demand_id]
+        for sidx in demand_samples[demand_id]:
+            ds = DemandSample(demand_id, sidx)
+            ds_idx = len(demand_sample_weights)
+            demand_sample_to_index[ds] = ds_idx
+            demand_sample_weights.append(demand.weight)
+            sample_to_demand_entries[sidx].append((ds_idx, demand))
+
+    current_covered = {
+        demand_sample_to_index[ds]
+        for ds in baseline_covered
+        if ds in demand_sample_to_index
+    }
     current_score = baseline_score
 
-    # Precompute marginal contributions
     iteration_log: list[dict[str, object]] = []
-
-    # Precompute reverse mapping: sample_index -> demand_ids
-    sample_to_demands: dict[int, list[str]] = defaultdict(list)
-    for d_id, sidxs in demand_samples.items():
-        for sidx in sidxs:
-            sample_to_demands[sidx].append(d_id)
+    total_candidate_evaluations = 0
+    total_marginal_eval_time_s = 0.0
+    total_base_cc_time_s = 0.0
+    selection_loop_started_at = time.monotonic()
 
     while len(selected) < max_added:
+        iteration_started_at = time.monotonic()
         best_cand_id: str | None = None
         best_marginal = -1.0
-        best_new_covered: set[DemandSample] = set()
+        best_new_covered: set[int] = set()
 
         base_set = backbone_ids | selected_ids
 
         # Precompute base CC for each sample once per greedy iteration
+        base_cc_started_at = time.monotonic()
         base_cc_cache: dict[int, dict[str, int]] = {}
-        for sidx in sample_to_demands:
+        for sidx in sample_to_demand_entries:
             im = isl_map.get(sidx, {})
             if im:
                 base_cc_cache[sidx] = _connected_components(base_set, im)
+        base_cc_time_s = time.monotonic() - base_cc_started_at
+        total_base_cc_time_s += base_cc_time_s
 
+        iteration_candidate_evaluations = 0
+        marginal_eval_started_at = time.monotonic()
         for cid in candidate_ids:
             if cid in selected_ids:
                 continue
-            new_covered = _compute_marginal_gain_fast(
+            new_covered = _compute_marginal_gain_indexed(
                 cid,
                 base_set,
-                demand_samples,
-                demands_by_id,
+                current_covered,
                 ground_map,
                 isl_map,
                 base_cc_cache,
-                sample_to_demands,
+                sample_to_demand_entries,
             )
-            marginal = _weighted_score(new_covered, demands_by_id)
+            marginal = sum(demand_sample_weights[idx] for idx in new_covered)
+            iteration_candidate_evaluations += 1
 
             if marginal > best_marginal or (
                 marginal == best_marginal and (best_cand_id is None or cid < best_cand_id)
@@ -373,8 +486,26 @@ def greedy_select(
                 best_marginal = marginal
                 best_cand_id = cid
                 best_new_covered = new_covered
+        marginal_eval_time_s = time.monotonic() - marginal_eval_started_at
+        total_marginal_eval_time_s += marginal_eval_time_s
+        total_candidate_evaluations += iteration_candidate_evaluations
 
         if best_cand_id is None or best_marginal <= 0.0:
+            iteration_log.append(
+                {
+                    "iteration": len(selected) + 1,
+                    "selected_candidate_id": None,
+                    "marginal_score": round(max(best_marginal, 0.0), 6),
+                    "cumulative_score": round(current_score, 6),
+                    "candidate_evaluations": iteration_candidate_evaluations,
+                    "skipped_selected_candidates": len(selected_ids),
+                    "newly_covered_samples": 0,
+                    "base_cc_time_s": round(base_cc_time_s, 6),
+                    "marginal_eval_time_s": round(marginal_eval_time_s, 6),
+                    "iteration_time_s": round(time.monotonic() - iteration_started_at, 6),
+                    "stop_reason": "no_positive_marginal_gain",
+                }
+            )
             break
 
         selected_ids.add(best_cand_id)
@@ -388,17 +519,40 @@ def greedy_select(
                 "selected_candidate_id": best_cand_id,
                 "marginal_score": round(best_marginal, 6),
                 "cumulative_score": round(current_score, 6),
+                "candidate_evaluations": iteration_candidate_evaluations,
+                "skipped_selected_candidates": len(selected_ids) - 1,
+                "newly_covered_samples": len(best_new_covered),
+                "base_cc_time_s": round(base_cc_time_s, 6),
+                "marginal_eval_time_s": round(marginal_eval_time_s, 6),
+                "iteration_time_s": round(time.monotonic() - iteration_started_at, 6),
+                "stop_reason": None,
             }
         )
 
+    selection_done_at = time.monotonic()
     summary = {
         "policy": "greedy",
+        "scoring_engine": "indexed_exact",
         "max_added_satellites": max_added,
         "baseline_score": round(baseline_score, 6),
         "selected_score": round(current_score, 6),
         "selected_count": len(selected),
         "selected_candidate_ids": [c.satellite_id for c in selected],
         "iteration_log": iteration_log,
+        "demand_sample_count": len(demand_sample_weights),
+        "baseline_covered_sample_count": len(baseline_covered),
+        "selected_covered_sample_count": len(current_covered),
+        "candidate_evaluations": total_candidate_evaluations,
+        "candidate_evaluations_per_selected": (
+            round(total_candidate_evaluations / len(selected), 3) if selected else 0.0
+        ),
+        "skipped_selected_candidate_evaluations": sum(range(len(selected))),
+        "index_build_time_s": round(index_built_at - t_start, 6),
+        "baseline_eval_time_s": round(baseline_eval_at - index_built_at, 6),
+        "selection_loop_time_s": round(selection_done_at - selection_loop_started_at, 6),
+        "base_cc_total_time_s": round(total_base_cc_time_s, 6),
+        "marginal_eval_total_time_s": round(total_marginal_eval_time_s, 6),
+        "total_time_s": round(selection_done_at - t_start, 6),
     }
 
     return selected, summary

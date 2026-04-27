@@ -251,6 +251,132 @@ def test_isl_range_and_occultation() -> None:
     assert feasible3 is False
 
 
+def test_selection_cache_skips_candidate_candidate_isl_pairs() -> None:
+    from solvers.relay_constellation.mclp_teg_contact_plan.src.case_io import DemandWindow
+    from solvers.relay_constellation.mclp_teg_contact_plan.src.link_cache import build_link_cache
+
+    epoch = datetime(2026, 1, 1, 0, 0, 0, tzinfo=timezone.utc)
+    case = _make_tiny_case(
+        demand_windows=[
+            DemandWindow(
+                demand_id="d1",
+                source_endpoint_id="ep_src",
+                destination_endpoint_id="ep_dst",
+                start_time=epoch,
+                end_time=epoch + timedelta(seconds=300),
+                weight=1.0,
+            ),
+        ],
+        max_added=2,
+    )
+    backbone_positions = {
+        "backbone_1": {0: np.array([brahe.R_EARTH + 600_000.0, 0.0, 0.0], dtype=float)}
+    }
+    candidate_positions = {
+        "cand_A": {0: np.array([brahe.R_EARTH + 600_000.0, 50_000.0, 0.0], dtype=float)},
+        "cand_B": {0: np.array([brahe.R_EARTH + 600_000.0, 100_000.0, 0.0], dtype=float)},
+    }
+
+    full_records, _full_summary = build_link_cache(
+        case,
+        backbone_positions,
+        candidate_positions,
+        include_candidate_candidate_isl=True,
+        cache_stage="scheduler",
+    )
+    selection_records, selection_summary = build_link_cache(
+        case,
+        backbone_positions,
+        candidate_positions,
+        include_candidate_candidate_isl=False,
+        cache_stage="selection",
+    )
+
+    full_isl_pairs = {
+        tuple(sorted((rec.node_a, rec.node_b)))
+        for rec in full_records
+        if rec.link_type == "isl"
+    }
+    selection_isl_pairs = {
+        tuple(sorted((rec.node_a, rec.node_b)))
+        for rec in selection_records
+        if rec.link_type == "isl"
+    }
+
+    assert ("cand_A", "cand_B") in full_isl_pairs
+    assert ("cand_A", "cand_B") not in selection_isl_pairs
+    assert ("backbone_1", "cand_A") in selection_isl_pairs
+    assert selection_summary["cache_stage"] == "selection"
+    assert selection_summary["cache_exact"] is False
+    assert selection_summary["candidate_pair_sample_checks_avoided"] == 1
+
+
+def test_scheduler_cache_matches_full_cache_for_selected_satellites() -> None:
+    from solvers.relay_constellation.mclp_teg_contact_plan.src.case_io import DemandWindow
+    from solvers.relay_constellation.mclp_teg_contact_plan.src.link_cache import build_link_cache
+
+    epoch = datetime(2026, 1, 1, 0, 0, 0, tzinfo=timezone.utc)
+    case = _make_tiny_case(
+        demand_windows=[
+            DemandWindow(
+                demand_id="d1",
+                source_endpoint_id="ep_src",
+                destination_endpoint_id="ep_dst",
+                start_time=epoch,
+                end_time=epoch + timedelta(seconds=300),
+                weight=1.0,
+            ),
+        ],
+        max_added=2,
+    )
+    backbone_positions = {
+        "backbone_1": {0: np.array([brahe.R_EARTH + 600_000.0, 0.0, 0.0], dtype=float)}
+    }
+    candidate_positions = {
+        "cand_A": {0: np.array([brahe.R_EARTH + 600_000.0, 50_000.0, 0.0], dtype=float)},
+        "cand_B": {0: np.array([brahe.R_EARTH + 600_000.0, 100_000.0, 0.0], dtype=float)},
+    }
+    selected_positions = {"cand_A": candidate_positions["cand_A"]}
+
+    full_records, _full_summary = build_link_cache(
+        case,
+        backbone_positions,
+        candidate_positions,
+        include_candidate_candidate_isl=True,
+        cache_stage="full",
+    )
+    scheduler_records, scheduler_summary = build_link_cache(
+        case,
+        backbone_positions,
+        selected_positions,
+        include_candidate_candidate_isl=True,
+        cache_stage="scheduler",
+    )
+
+    allowed_sats = {"backbone_1", "cand_A"}
+
+    def key(rec: object) -> tuple:
+        return (
+            rec.sample_index,
+            rec.link_type,
+            rec.node_a,
+            rec.node_b,
+            round(rec.distance_m, 6),
+        )
+
+    filtered_full = {
+        key(rec)
+        for rec in full_records
+        if (rec.link_type == "ground" and rec.node_b in allowed_sats)
+        or (rec.link_type == "isl" and rec.node_a in allowed_sats and rec.node_b in allowed_sats)
+    }
+    scheduler_set = {key(rec) for rec in scheduler_records}
+
+    assert scheduler_set == filtered_full
+    assert scheduler_summary["cache_stage"] == "scheduler"
+    assert scheduler_summary["cache_exact"] is True
+
+
 # ---------------------------------------------------------------------------
 # 3. MCLP reward and greedy selection (fast)
 # ---------------------------------------------------------------------------
@@ -386,6 +512,61 @@ def test_greedy_select_marginal_gain() -> None:
     assert len(selected) <= case.manifest.constraints.max_added_satellites
     # cand_A has higher marginal gain because it sees both endpoints directly
     assert selected[0].satellite_id == "cand_A"
+    assert summary["scoring_engine"] == "indexed_exact"
+    assert summary["candidate_evaluations"] > 0
+    assert summary["marginal_eval_total_time_s"] >= 0.0
+
+
+def test_greedy_select_is_deterministic_with_indexed_scoring() -> None:
+    from solvers.relay_constellation.mclp_teg_contact_plan.src.case_io import DemandWindow
+    from solvers.relay_constellation.mclp_teg_contact_plan.src.link_cache import LinkRecord
+    from solvers.relay_constellation.mclp_teg_contact_plan.src.mclp import greedy_select
+    from solvers.relay_constellation.mclp_teg_contact_plan.src.orbit_library import CandidateSatellite
+
+    epoch = datetime(2026, 1, 1, 0, 0, 0, tzinfo=timezone.utc)
+    case = _make_tiny_case(
+        demand_windows=[
+            DemandWindow(
+                demand_id="d1",
+                source_endpoint_id="ep_src",
+                destination_endpoint_id="ep_dst",
+                start_time=epoch,
+                end_time=epoch + timedelta(seconds=300),
+                weight=10.0,
+            ),
+        ],
+        max_added=2,
+    )
+    sample_times = [epoch, epoch + timedelta(seconds=60), epoch + timedelta(seconds=120)]
+    candidates = tuple(
+        CandidateSatellite(
+            satellite_id=f"cand_{name}",
+            state_eci_m_mps=(0.0, 0.0, 0.0, 0.0, 0.0, 0.0),
+            altitude_m=550_000.0,
+            inclination_deg=45.0,
+            raan_deg=0.0,
+            mean_anomaly_deg=0.0,
+            eccentricity=0.0,
+        )
+        for name in ("A", "B", "C")
+    )
+    link_records = [
+        LinkRecord(sample_index=0, node_a="ep_src", node_b="cand_B", distance_m=1_000_000.0, link_type="ground"),
+        LinkRecord(sample_index=0, node_a="ep_dst", node_b="cand_B", distance_m=1_000_000.0, link_type="ground"),
+        LinkRecord(sample_index=0, node_a="ep_src", node_b="cand_A", distance_m=1_000_000.0, link_type="ground"),
+        LinkRecord(sample_index=0, node_a="ep_dst", node_b="cand_A", distance_m=1_000_000.0, link_type="ground"),
+        LinkRecord(sample_index=0, node_a="ep_src", node_b="cand_C", distance_m=1_000_000.0, link_type="ground"),
+    ]
+
+    first_selected, first_summary = greedy_select(candidates, case, sample_times, link_records)
+    second_selected, second_summary = greedy_select(candidates, case, sample_times, link_records)
+
+    first_ids = [c.satellite_id for c in first_selected]
+    second_ids = [c.satellite_id for c in second_selected]
+    assert first_ids == second_ids
+    assert first_ids[0] == "cand_A"
+    assert first_summary["selected_candidate_ids"] == second_summary["selected_candidate_ids"]
+    assert first_summary["candidate_evaluations"] == second_summary["candidate_evaluations"]
 
 
 # ---------------------------------------------------------------------------
