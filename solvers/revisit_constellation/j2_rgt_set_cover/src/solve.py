@@ -12,7 +12,11 @@ from .case_io import load_case, load_solver_config
 from .coverage import CoverageConfig, build_coverage_summary
 from .rgt import RgtSearchConfig, search_rgt_templates
 from .selection import select_candidates
-from .solution import SchedulingConfig, build_solution
+from .solution import (
+    SchedulingConfig,
+    build_solution,
+    repair_selection_with_phased_opportunities,
+)
 
 
 def write_json(path: Path, payload: Any) -> None:
@@ -35,8 +39,22 @@ def solve(case_dir: str, config_dir: str | None, solution_dir: str | None) -> in
             result.accepted_templates,
             coverage_config,
         )
-        selection = select_candidates(case, coverage)
+        initial_selection = select_candidates(case, coverage)
         scheduling_config = SchedulingConfig.from_mapping(config)
+        initial_solution_result = build_solution(
+            case=case,
+            coverage=coverage,
+            selection=initial_selection,
+            config=scheduling_config,
+        )
+        repair = repair_selection_with_phased_opportunities(
+            case=case,
+            coverage=coverage,
+            selection=initial_selection,
+            initial_gap_summary=initial_solution_result.target_gap_summary,
+            config=scheduling_config,
+        )
+        selection = repair.selection
         solution_result = build_solution(
             case=case,
             coverage=coverage,
@@ -49,11 +67,19 @@ def solve(case_dir: str, config_dir: str | None, solution_dir: str | None) -> in
         write_json(debug_dir / "closure_search.json", result.as_debug_dict())
         write_json(debug_dir / "coverage_summary.json", coverage.as_debug_dict())
         write_json(debug_dir / "selection_summary.json", selection.as_debug_dict())
+        write_json(
+            debug_dir / "initial_selection_summary.json",
+            initial_selection.as_debug_dict(),
+        )
+        write_json(
+            debug_dir / "selection_repair_summary.json",
+            repair.as_debug_dict(final_gap_summary=solution_result.target_gap_summary),
+        )
         write_json(debug_dir / "solution_summary.json", solution_result.as_debug_dict())
         status = {
             "status": "completed",
-            "phase": 4,
-            "phase_tag": "equal_phase_constellation_and_scheduling",
+            "phase": 5,
+            "phase_tag": "phased_opportunity_selection_repair",
             "case_dir": str(case.case_dir),
             "timing_seconds": {"total": time.perf_counter() - start_time},
             "closure_search": {
@@ -70,11 +96,14 @@ def solve(case_dir: str, config_dir: str | None, solution_dir: str | None) -> in
             },
             "coverage": coverage.as_status_dict(),
             "selection": selection.as_status_dict(),
+            "selection_repair": repair.as_debug_dict(
+                final_gap_summary=solution_result.target_gap_summary
+            ),
             "solution": solution_result.as_status_dict(),
         }
         write_json(output_dir / "status.json", status)
         print(
-            "phase4 rgt templates/candidates/solution: "
+            "phase5 rgt templates/candidates/solution: "
             f"{len(result.accepted_templates)} accepted, "
             f"{len(result.rejected_templates)} rejected, "
             f"{len(coverage.candidates)} candidates, "
@@ -82,6 +111,7 @@ def solve(case_dir: str, config_dir: str | None, solution_dir: str | None) -> in
             f"{len(selection.selected_candidates)} selected, "
             f"{len(solution_result.satellites)} satellites, "
             f"{len(solution_result.actions)} actions, "
+            f"repair_rounds={len(repair.rounds)}, "
             f"local_valid={solution_result.validation.is_valid}"
         )
         return 0
@@ -90,7 +120,7 @@ def solve(case_dir: str, config_dir: str | None, solution_dir: str | None) -> in
             output_dir / "status.json",
             {
                 "status": "error",
-                "phase": 4,
+                "phase": 5,
                 "error": f"{type(exc).__name__}: {exc}",
                 "timing_seconds": {"total": time.perf_counter() - start_time},
             },

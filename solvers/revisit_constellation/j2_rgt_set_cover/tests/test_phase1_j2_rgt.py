@@ -23,6 +23,7 @@ from src.coverage import (
     CoverageSummary,
     RaanCandidate,
     VisibilitySample,
+    VisibilityWindow,
     build_coverage_summary,
     expand_raan_candidates,
     geometry_sample_from_state,
@@ -46,7 +47,9 @@ from src.solution import (
     ObservationAction,
     SchedulingConfig,
     build_solution,
+    evaluate_phased_candidate_target_quality,
     generate_phased_satellites,
+    repair_selection_with_phased_opportunities,
     select_gap_aware_actions,
     validate_solution_locally,
 )
@@ -139,6 +142,7 @@ def _synthetic_coverage(
     *,
     candidates: list[RaanCandidate],
     candidate_to_targets: dict[str, list[str]],
+    windows: list[VisibilityWindow] | None = None,
 ) -> CoverageSummary:
     target_to_candidates: dict[str, list[str]] = {}
     for candidate_id, target_ids in candidate_to_targets.items():
@@ -146,7 +150,7 @@ def _synthetic_coverage(
             target_to_candidates.setdefault(target_id, []).append(candidate_id)
     return CoverageSummary(
         candidates=candidates,
-        windows=[],
+        windows=[] if windows is None else windows,
         target_to_candidates={
             target_id: sorted(candidate_ids)
             for target_id, candidate_ids in sorted(target_to_candidates.items())
@@ -160,6 +164,40 @@ def _synthetic_coverage(
         uncovered_target_ids=[],
         config=CoverageConfig(),
         sample_offset_count=0,
+    )
+
+
+def _synthetic_window(
+    candidate: RaanCandidate,
+    target_id: str,
+    midpoint_hours: float,
+    *,
+    duration_sec: float = 120.0,
+) -> VisibilityWindow:
+    midpoint_sec = midpoint_hours * 3600.0
+    start_sec = midpoint_sec - (duration_sec / 2.0)
+    end_sec = midpoint_sec + (duration_sec / 2.0)
+    sample = VisibilitySample(
+        offset_sec=midpoint_sec,
+        elevation_deg=45.0,
+        slant_range_m=500_000.0,
+        off_nadir_deg=5.0,
+        visible=True,
+    )
+    return VisibilityWindow(
+        window_id=f"{candidate.candidate_id}__{target_id}__{midpoint_hours:.3f}",
+        candidate_id=candidate.candidate_id,
+        template_id=candidate.template_id,
+        target_id=target_id,
+        start_offset_sec=start_sec,
+        end_offset_sec=end_sec,
+        midpoint_offset_sec=midpoint_sec,
+        duration_sec=duration_sec,
+        max_elevation_deg=45.0,
+        min_slant_range_m=500_000.0,
+        min_off_nadir_deg=5.0,
+        sample_count=1,
+        samples=(sample,),
     )
 
 
@@ -577,6 +615,145 @@ def test_local_improvement_removes_redundant_selected_candidates() -> None:
     assert set(selection.target_assignments) == {"t1", "t2", "t3"}
 
 
+def test_phased_opportunity_quality_scores_shifted_coverage_windows() -> None:
+    case = _synthetic_case(["t1"], revisit_hours=8.0, max_num_satellites=6)
+    candidate = _synthetic_candidate("candidate", repeat_hours=24.0)
+    coverage = _synthetic_coverage(
+        candidates=[candidate],
+        candidate_to_targets={candidate.candidate_id: ["t1"]},
+        windows=[
+            _synthetic_window(candidate, "t1", 1.0),
+            _synthetic_window(candidate, "t1", 25.0),
+        ],
+    )
+
+    quality = evaluate_phased_candidate_target_quality(
+        case=case,
+        coverage=coverage,
+        candidate_id=candidate.candidate_id,
+        target_id="t1",
+    )
+
+    assert quality.required_satellites == 3
+    assert quality.opportunity_count >= 6
+    assert quality.max_gap_hours <= 8.0
+
+
+def test_selection_repair_uses_remaining_budget_for_high_gap_target() -> None:
+    case = _synthetic_case(["t1", "t2"], revisit_hours=8.0, max_num_satellites=6)
+    bad = _synthetic_candidate("a_bad_full_cover", repeat_hours=24.0)
+    good = _synthetic_candidate("b_good_t1", repeat_hours=24.0)
+    coverage = _synthetic_coverage(
+        candidates=[bad, good],
+        candidate_to_targets={
+            bad.candidate_id: ["t1", "t2"],
+            good.candidate_id: ["t1"],
+        },
+        windows=[
+            _synthetic_window(good, "t1", 1.0),
+            _synthetic_window(good, "t1", 25.0),
+        ],
+    )
+    selection = select_candidates(case, coverage)
+    initial_gaps = {
+        "t1": {
+            "max_revisit_gap_hours": 24.0,
+            "expected_revisit_period_hours": 8.0,
+        },
+        "t2": {
+            "max_revisit_gap_hours": 8.0,
+            "expected_revisit_period_hours": 8.0,
+        },
+    }
+
+    repair = repair_selection_with_phased_opportunities(
+        case=case,
+        coverage=coverage,
+        selection=selection,
+        initial_gap_summary=initial_gaps,
+        config=SchedulingConfig(min_gap_improvement_sec=60.0),
+    )
+
+    assert repair.changed
+    assert repair.selection.total_required_satellites == 6
+    assert repair.selection.target_assignments["t1"].candidate_id == good.candidate_id
+    assert repair.selection.target_assignments["t2"].candidate_id == bad.candidate_id
+    assert repair.rounds[0].improved_target_ids == ("t1",)
+    assert repair.as_debug_dict()["target_diagnostics"]["t1"]["chosen_candidate_id"] == (
+        good.candidate_id
+    )
+
+
+def test_selection_repair_ties_are_deterministic_under_shuffled_candidates() -> None:
+    case = _synthetic_case(["t1", "t2"], revisit_hours=8.0, max_num_satellites=6)
+    bad = _synthetic_candidate("z_bad_full_cover", repeat_hours=24.0)
+    first = _synthetic_candidate("a_good_t1", repeat_hours=24.0)
+    second = _synthetic_candidate("b_good_t1", repeat_hours=24.0)
+    candidate_to_targets = {
+        bad.candidate_id: ["t1", "t2"],
+        first.candidate_id: ["t1"],
+        second.candidate_id: ["t1"],
+    }
+    windows = [
+        _synthetic_window(first, "t1", 1.0),
+        _synthetic_window(first, "t1", 25.0),
+        _synthetic_window(second, "t1", 1.0),
+        _synthetic_window(second, "t1", 25.0),
+    ]
+    initial_gaps = {
+        "t1": {
+            "max_revisit_gap_hours": 24.0,
+            "expected_revisit_period_hours": 8.0,
+        },
+        "t2": {
+            "max_revisit_gap_hours": 8.0,
+            "expected_revisit_period_hours": 8.0,
+        },
+    }
+
+    left_selection = select_candidates(
+        case,
+        _synthetic_coverage(
+            candidates=[bad, second, first],
+            candidate_to_targets=candidate_to_targets,
+            windows=windows,
+        ),
+    )
+    right_selection = select_candidates(
+        case,
+        _synthetic_coverage(
+            candidates=[first, bad, second],
+            candidate_to_targets=candidate_to_targets,
+            windows=windows,
+        ),
+    )
+    left = repair_selection_with_phased_opportunities(
+        case=case,
+        coverage=_synthetic_coverage(
+            candidates=[bad, second, first],
+            candidate_to_targets=candidate_to_targets,
+            windows=windows,
+        ),
+        selection=left_selection,
+        initial_gap_summary=initial_gaps,
+        config=SchedulingConfig(),
+    )
+    right = repair_selection_with_phased_opportunities(
+        case=case,
+        coverage=_synthetic_coverage(
+            candidates=[first, bad, second],
+            candidate_to_targets=candidate_to_targets,
+            windows=windows,
+        ),
+        selection=right_selection,
+        initial_gap_summary=initial_gaps,
+        config=SchedulingConfig(),
+    )
+
+    assert left.selection.target_assignments["t1"].candidate_id == first.candidate_id
+    assert right.selection.target_assignments["t1"].candidate_id == first.candidate_id
+
+
 def test_equal_phasing_produces_expected_spacing_for_repeat_periods() -> None:
     one_day_case = _synthetic_case(["t1"], revisit_hours=8.0, max_num_satellites=12)
     one_day_candidate = _synthetic_candidate("one_day", repeat_hours=24.0)
@@ -853,7 +1030,7 @@ def test_full_profile_analytical_rgt_matches_numerical_j2_oracle() -> None:
         ) < config.closure_tolerance_m
 
 
-def test_solve_sh_writes_phase4_status_solution_and_debug(tmp_path: Path) -> None:
+def test_solve_sh_writes_phase5_status_solution_and_debug(tmp_path: Path) -> None:
     config_dir = tmp_path / "config"
     output_dir = tmp_path / "solution"
     config_dir.mkdir()
@@ -879,6 +1056,8 @@ def test_solve_sh_writes_phase4_status_solution_and_debug(tmp_path: Path) -> Non
                 "  min_gap_improvement_sec: 60.0",
                 "  validation_sample_step_sec: 10.0",
                 "  max_actions: 100",
+                "  max_selection_repair_rounds: 2",
+                "  max_repair_alternates_per_target: 4",
             ]
         ),
         encoding="utf-8",
@@ -910,11 +1089,16 @@ def test_solve_sh_writes_phase4_status_solution_and_debug(tmp_path: Path) -> Non
     selection = json.loads(
         (output_dir / "debug/selection_summary.json").read_text(encoding="utf-8")
     )
+    repair = json.loads(
+        (output_dir / "debug/selection_repair_summary.json").read_text(
+            encoding="utf-8"
+        )
+    )
     solution_debug = json.loads(
         (output_dir / "debug/solution_summary.json").read_text(encoding="utf-8")
     )
     assert status["status"] == "completed"
-    assert status["phase"] == 4
+    assert status["phase"] == 5
     assert status["closure_search"]["accepted_count"] == 1
     assert status["coverage"]["candidate_count"] == 2
     assert status["selection"]["selected_candidate_count"] >= 0
@@ -924,5 +1108,6 @@ def test_solve_sh_writes_phase4_status_solution_and_debug(tmp_path: Path) -> Non
     assert "target_to_candidates" in coverage
     assert "selected_candidates" in selection
     assert "target_assignments" in selection
+    assert "target_diagnostics" in repair
     assert "validation" in solution_debug
     assert status["solution"]["satellite_count"] == len(solution["satellites"])

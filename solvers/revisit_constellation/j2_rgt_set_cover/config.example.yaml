@@ -20,3 +20,5 @@ scheduling:
   min_gap_improvement_sec: 60.0
   validation_sample_step_sec: 10.0
   max_actions: 3000
+  max_selection_repair_rounds: 8
+  max_repair_alternates_per_target: 8
