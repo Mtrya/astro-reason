@@ -1,0 +1,4 @@
+*
+!.gitignore
+!.claude.example/
+!.claude.example/**

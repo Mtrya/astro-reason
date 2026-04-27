@@ -1,0 +1,12 @@
+{
+  "model": "replace_with_kimi_model_id",
+  "includeCoAuthoredBy": false,
+  "env": {
+    "ANTHROPIC_AUTH_TOKEN": "replace_with_your_kimi_gateway_token",
+    "ANTHROPIC_BASE_URL": "https://replace_with_your_kimi_anthropic_compatible_base_url"
+  },
+  "permissions": {
+    "allow": [],
+    "deny": []
+  }
+}
