@@ -90,17 +90,6 @@ def test_main_builds_dataset_from_local_source_dir(
     assert generator_module.main() == 0
     assert (output_dir / "cases" / "test" / "W10_2018" / "problem.json").exists()
     index = json.loads((output_dir / "index.json").read_text(encoding="utf-8"))
-    example_solution = json.loads((output_dir / "example_solution.json").read_text(encoding="utf-8"))
     assert index["example_smoke_case"] == "test/W10_2018"
     assert index["cases"][0]["path"] == "cases/test/W10_2018"
-    assert example_solution == [
-        {
-            "RESOURCE": "DSS-34",
-            "SC": "1",
-            "START_TIME": 100,
-            "TRACKING_ON": 700,
-            "TRACKING_OFF": 4300,
-            "END_TIME": 4600,
-            "TRACK_ID": "track-1",
-        }
-    ]
+    assert not (output_dir / "example_solution.json").exists()

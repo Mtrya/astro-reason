@@ -274,29 +274,6 @@ Satisfied requests: 132
 VALID: total_hours=234.5678h, tracks=145
 ```
 
-## Example Solution Reproduction
-
-The committed `dataset/example_solution.json` is a benchmark-local constructive
-smoke example paired with `dataset/index.json` `example_smoke_case`
-`test/W10_2018`. SatNet's solver directories are citation-reported literature
-baselines rather than runnable solvers, so the generator constructs a single
-valid minimum-duration track from the smoke case instead of invoking a solver.
-
-Reproduce and verify it with:
-
-```bash
-uv run python benchmarks/satnet/generator.py \
-    benchmarks/satnet/splits.yaml
-
-uv run python benchmarks/satnet/verifier.py \
-    benchmarks/satnet/dataset/cases/test/W10_2018 \
-    benchmarks/satnet/dataset/example_solution.json \
-    --verbose
-```
-
-The current committed example verifies with `total_hours = 1.0`,
-`tracks = 1`, and `satisfied_requests = 1`.
-
 ## Baseline Performance
 
 Published SatNet baselines report both total scheduled hours (`T_S`) and mission-level fairness metrics. These rows are citation-backed literature results, not outputs reproduced by this repository.

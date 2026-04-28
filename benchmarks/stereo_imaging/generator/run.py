@@ -76,7 +76,7 @@ def main(argv: list[str] | None = None) -> int:
         description=(
             "Stereo imaging v4 generator: stage runtime sources (vendored CelesTrak-format TLEs; "
             "Kaggle world-cities when needed), then emit the canonical dataset "
-            "(dataset/cases/<split>/, index.json, example_solution.json)."
+            "(dataset/cases/<split>/, index.json)."
         )
     )
     parser.add_argument(
@@ -95,7 +95,7 @@ def main(argv: list[str] | None = None) -> int:
         type=Path,
         default=None,
         help=(
-            "Where to write cases, index.json, example_solution.json "
+            "Where to write cases and index.json "
             f"(default: {DEFAULT_DATASET_DIR})"
         ),
     )
@@ -158,7 +158,7 @@ def main(argv: list[str] | None = None) -> int:
         git_revision=rev,
     )
     print(f"Canonical v4 dataset written under {dataset_dir / 'cases'}")
-    print(f"Wrote {dataset_dir / 'index.json'} and {dataset_dir / 'example_solution.json'}")
+    print(f"Wrote {dataset_dir / 'index.json'}")
     return 0
 
 

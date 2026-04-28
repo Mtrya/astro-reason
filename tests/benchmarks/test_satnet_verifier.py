@@ -319,7 +319,6 @@ def test_build_case_dataset_records_dataset_level_local_provenance(tmp_path: Pat
     )
 
     index = json.loads((tmp_path / "dataset" / "index.json").read_text())
-    example_solution = json.loads((tmp_path / "dataset" / "example_solution.json").read_text())
     metadata = json.loads(
         (tmp_path / "dataset" / "cases" / "test" / "W10_2018" / "metadata.json").read_text()
     )
@@ -331,5 +330,4 @@ def test_build_case_dataset_records_dataset_level_local_provenance(tmp_path: Pat
     assert index["cases"][0]["path"] == "cases/test/W10_2018"
     assert "repository" not in index["source"]
     assert "source" not in metadata
-    assert len(example_solution) == 1
-    assert example_solution[0]["TRACK_ID"] == "track-1"
+    assert not (tmp_path / "dataset" / "example_solution.json").exists()

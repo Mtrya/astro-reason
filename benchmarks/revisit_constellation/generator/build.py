@@ -479,9 +479,12 @@ def generate_dataset(
     cases_dir = output_dir / "cases"
     shutil.rmtree(cases_dir, ignore_errors=True)
     cases_dir.mkdir(parents=True, exist_ok=True)
+    example_path = output_dir / "example_solution.json"
+    if example_path.exists():
+        example_path.unlink()
 
-    example_solution: dict | None = None
     smoke_split, smoke_case_id = example_smoke_case.split("/")
+    smoke_found = False
 
     for split_name, split_config_obj in split_configs.items():
         split_config = _require_mapping(split_config_obj, f"splits.{split_name}")
@@ -542,7 +545,7 @@ def generate_dataset(
             _write_json(case_dir / "mission.json", build_mission_payload(case_spec, case_targets, mission))
 
             if split_name == smoke_split and case_spec.case_id == smoke_case_id:
-                example_solution = {"satellites": [], "actions": []}
+                smoke_found = True
 
     index_payload = build_index_payload(
         case_specs,
@@ -551,7 +554,6 @@ def generate_dataset(
         source=source,
     )
     _write_json(output_dir / "index.json", index_payload)
-    if example_solution is None:
-        raise RuntimeError(f"Expected configured smoke case {example_smoke_case} for example_solution.json")
-    _write_json(output_dir / "example_solution.json", example_solution)
+    if not smoke_found:
+        raise RuntimeError(f"Expected configured smoke case {example_smoke_case}")
     return output_dir

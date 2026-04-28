@@ -24,8 +24,7 @@ Examples:
 published split-aware case placements, and `example_smoke_case` for pairing the
 example solution with a case in CI (see `docs/benchmark_contract.md`).
 
-`example_solution.json` is one constructive runnable solution (same schema as a
-real submission) for verifier smoke tests. It is not a baseline.
+`example_solution.json` is one runnable solution (same schema as a real submission) for verifier smoke tests. It is not a baseline.
 
 The committed split assignment is recorded in [splits.yaml](../splits.yaml).
 It defines the full `single_orbit` and `multi_orbit` families plus an
@@ -42,7 +41,3 @@ To regenerate from a local directory of raw `.spot` files instead, run:
 ```bash
 uv run python benchmarks/spot5/generator.py benchmarks/spot5/splits.yaml --source-dir /path/to/raw-spot-files
 ```
-
-The generator builds the example solution for the configured smoke case with a
-deterministic greedy assignment over that `.spot` instance. This keeps the
-dataset example reproducible without depending on solver fixtures.

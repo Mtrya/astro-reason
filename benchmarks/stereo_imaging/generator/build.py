@@ -667,18 +667,6 @@ def _source_provenance_for_index(raw: dict[str, Any]) -> dict[str, Any]:
     return cleaned
 
 
-def build_example_solution(
-    cases: list[BuiltCase],
-    horizon_starts: dict[str, str],
-) -> dict[str, Any]:
-    """Minimal valid solution for verifier smoke tests (not a quality baseline).
-
-    Single per-case shape matching real solutions; aligned with the first canonical case.
-    """
-    del horizon_starts
-    return {"actions": []}
-
-
 def generate_dataset(
     source_dir: Path,
     output_dir: Path,
@@ -689,7 +677,7 @@ def generate_dataset(
     git_revision: str | None = None,
 ) -> dict[str, Any]:
     """
-    Build canonical cases under output_dir plus index.json and example_solution.json.
+    Build canonical cases under output_dir plus index.json.
 
     Expects normalized runtime source data under source_dir and vendored lookup tables in this package.
     """
@@ -717,10 +705,12 @@ def generate_dataset(
         provenance = json.loads(prov_path.read_text(encoding="utf-8"))
 
     cases_out: list[tuple[str, BuiltCase]] = []
-    horizon_starts: dict[str, str] = {}
 
     dataset_root = output_dir
     cases_root = dataset_root / "cases"
+    example_path = dataset_root / "example_solution.json"
+    if example_path.exists():
+        example_path.unlink()
     smoke_split, smoke_case_id = example_smoke_case.split("/")
     smoke_found = False
     selected_norad_catalog_ids: set[int] = set()
@@ -858,7 +848,6 @@ def generate_dataset(
 
             norad_list, satellites, targets, horizon_start, horizon_end = accepted
             sat_ids = [sat["id"] for sat in satellites]
-            horizon_starts[case_id] = horizon_start
 
             case_dir = cases_root / split_name / case_id
             _write_yaml(case_dir / "satellites.yaml", satellites)
@@ -884,13 +873,6 @@ def generate_dataset(
 
     if not smoke_found:
         raise ValueError(f"example_smoke_case {example_smoke_case} was not generated")
-
-    example_obj = build_example_solution([built_case for _split, built_case in cases_out], horizon_starts)
-    example_path = dataset_root / "example_solution.json"
-    example_path.write_text(
-        json.dumps(example_obj, indent=2, sort_keys=True) + "\n",
-        encoding="utf-8",
-    )
 
     index_doc: dict[str, Any] = {
         "benchmark": "stereo_imaging",
@@ -941,6 +923,5 @@ __all__ = [
     "lookup_table_metadata",
     "load_generator_config",
     "generate_dataset",
-    "build_example_solution",
     "DEFAULT_MAX_GENERATION_ATTEMPTS_PER_CASE",
 ]
