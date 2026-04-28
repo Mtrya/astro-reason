@@ -5,6 +5,7 @@ from __future__ import annotations
 from collections import defaultdict
 from datetime import datetime, timedelta
 from pathlib import Path
+import textwrap
 
 import brahe
 import matplotlib
@@ -22,10 +23,11 @@ from ..verifier.models import (
     SolutionAnalysis,
     ValidatedAction,
 )
+from .geometry import build_state_cache_for_satellites
 from .plot import (
-    _load_texture_image,
+    coarsen_ground_track_cache,
     _route_color,
-    _serialize_json,
+    render_ground_tracks_png,
 )
 
 
@@ -59,6 +61,14 @@ def _route_signature(allocation: SampleAllocation) -> tuple[tuple[str, tuple[str
         (route.demand_id, route.nodes)
         for route in allocation.served_routes
     )
+
+
+def _metric_text(value: object, *, digits: int = 3) -> str:
+    if value is None:
+        return "n/a"
+    if isinstance(value, int | float):
+        return f"{float(value):.{digits}f}"
+    return str(value)
 
 
 def _pick_snapshot_indices(analysis: SolutionAnalysis, *, max_snapshots: int = 6) -> list[int]:
@@ -154,6 +164,17 @@ def _route_intervals_by_demand(
     return collapsed
 
 
+def _route_color_legend(
+    intervals: list[tuple[int, int, tuple[str, ...]]],
+) -> list[tuple[str, tuple[str, ...]]]:
+    seen: dict[tuple[str, ...], str] = {}
+    for _, _, route_nodes in intervals:
+        if route_nodes in seen:
+            continue
+        seen[route_nodes] = f"R{len(seen) + 1}"
+    return [(label, route_nodes) for route_nodes, label in seen.items()]
+
+
 def _action_timeline_records(
     analysis: SolutionAnalysis,
 ) -> list[dict[str, object]]:
@@ -193,16 +214,15 @@ def _action_timeline_records(
     return records
 
 
-def _render_timeline_png(
+def _render_scheduled_connectivity_png(
     analysis: SolutionAnalysis,
     output_path: Path,
 ) -> Path:
     demand_lookup = _demand_lookup(analysis)
     route_intervals = _route_intervals_by_demand(analysis)
-    action_records = _action_timeline_records(analysis)
     demand_rows = sorted(demand_lookup)
-    total_rows = len(demand_rows) + len(action_records)
-    figure_height = max(7.0, 0.36 * total_rows + 2.5)
+    total_rows = len(demand_rows)
+    figure_height = max(5.0, 0.42 * total_rows + 2.5)
     figure = plt.figure(figsize=(18, figure_height))
     grid = figure.add_gridspec(1, 2, width_ratios=[4.0, 1.4], wspace=0.08)
     axis = figure.add_subplot(grid[0, 0])
@@ -214,11 +234,6 @@ def _render_timeline_png(
     demand_y = {
         demand_id: (len(demand_rows) - row_index - 1)
         for row_index, demand_id in enumerate(demand_rows)
-    }
-    action_y_start = len(demand_rows) + 1
-    action_y = {
-        record["action_index"]: action_y_start + row_index
-        for row_index, record in enumerate(action_records)
     }
 
     for demand_id in demand_rows:
@@ -251,32 +266,6 @@ def _render_timeline_png(
                 alpha=0.95,
             )
 
-    for record in action_records:
-        y = action_y[int(record["action_index"])]
-        color = "#4b7bec" if record["status"] == "valid" else "#dc2626"
-        axis.broken_barh(
-            [
-                (
-                    mdates.date2num(record["start_time"]),
-                    mdates.date2num(record["end_time"]) - mdates.date2num(record["start_time"]),
-                )
-            ],
-            (y - bar_height / 2.0, bar_height),
-            facecolors=color,
-            edgecolors="none",
-            alpha=0.9,
-        )
-        failure = record["failure"]
-        if isinstance(failure, ActionFailure) and failure.time is not None:
-            axis.axvline(
-                mdates.date2num(failure.time),
-                ymin=max(0.0, (y - 0.45) / max(1.0, total_rows + 2)),
-                ymax=min(1.0, (y + 0.45) / max(1.0, total_rows + 2)),
-                color="#991b1b",
-                linewidth=1.2,
-                alpha=0.95,
-            )
-
     yticks: list[float] = []
     ylabels: list[str] = []
     for demand_id in demand_rows:
@@ -285,16 +274,13 @@ def _render_timeline_png(
         yticks.append(demand_y[demand_id])
         service_text = "n/a" if service_fraction is None else f"{service_fraction:.2f}"
         ylabels.append(f"{demand_id} ({service_text})")
-    for record in action_records:
-        yticks.append(action_y[int(record["action_index"])])
-        ylabels.append(f"a{int(record['action_index']):03d} {record['label']}")
 
     axis.set_yticks(yticks)
     axis.set_yticklabels(ylabels, fontsize=8)
     axis.xaxis.set_major_formatter(mdates.DateFormatter("%m-%d %H:%M"))
     axis.grid(True, axis="x", color="#d5dbe3", linewidth=0.7, alpha=0.7)
     axis.set_title(
-        f"{analysis.case.manifest.case_id}: solution timeline",
+        f"{analysis.case.manifest.case_id}: scheduled connectivity",
         fontsize=15,
         fontweight="bold",
     )
@@ -302,17 +288,16 @@ def _render_timeline_png(
 
     legend_handles = [
         Line2D([0], [0], color="#d5dbe3", linewidth=8, label="Demanded window"),
-        Line2D([0], [0], color="#4b7bec", linewidth=8, label="Valid action"),
-        Line2D([0], [0], color="#dc2626", linewidth=8, label="Invalid action"),
+        Line2D([0], [0], color="#1d4ed8", linewidth=8, label="Served routes"),
     ]
     axis.legend(handles=legend_handles, loc="upper right", frameon=True)
 
     summary_lines = [
         f"Valid: {analysis.result.valid}",
-        f"Service fraction: {analysis.result.metrics['service_fraction']:.3f}",
-        f"Worst demand service: {analysis.result.metrics['worst_demand_service_fraction']:.3f}",
-        f"Mean latency ms: {analysis.result.metrics['mean_latency_ms']}",
-        f"Latency p95 ms: {analysis.result.metrics['latency_p95_ms']}",
+        f"Service fraction: {_metric_text(analysis.result.metrics['service_fraction'])}",
+        f"Worst demand service: {_metric_text(analysis.result.metrics['worst_demand_service_fraction'])}",
+        f"Mean latency ms: {_metric_text(analysis.result.metrics['mean_latency_ms'])}",
+        f"Latency p95 ms: {_metric_text(analysis.result.metrics['latency_p95_ms'])}",
         f"Added satellites: {analysis.result.metrics['num_added_satellites']}",
         f"Demanded windows: {analysis.result.metrics['num_demanded_windows']}",
         f"Validated actions: {analysis.result.diagnostics.get('action_counts', {}).get('validated_actions', 0)}",
@@ -342,6 +327,152 @@ def _render_timeline_png(
     return output_path
 
 
+def _render_demand_window_png(
+    analysis: SolutionAnalysis,
+    demand_id: str,
+    intervals: list[tuple[int, int, tuple[str, ...]]],
+    output_path: Path,
+) -> Path:
+    demand = _demand_lookup(analysis)[demand_id]
+    metrics = analysis.result.metrics["per_demand"].get(demand_id, {})
+    route_legend = _route_color_legend(intervals)
+    displayed_route_legend = route_legend[:8]
+
+    duration_s = (demand.end_time - demand.start_time).total_seconds()
+    padding_s = max(600.0, duration_s * 0.25)
+    x_min = demand.start_time - timedelta(seconds=padding_s)
+    x_max = demand.end_time + timedelta(seconds=padding_s)
+
+    figure = plt.figure(figsize=(15, 4.8))
+    grid = figure.add_gridspec(1, 2, width_ratios=[3.4, 1.4], wspace=0.08)
+    axis = figure.add_subplot(grid[0, 0])
+    summary_axis = figure.add_subplot(grid[0, 1])
+    axis.set_facecolor("#f7f8fa")
+    summary_axis.axis("off")
+
+    axis.broken_barh(
+        [
+            (
+                mdates.date2num(demand.start_time),
+                mdates.date2num(demand.end_time) - mdates.date2num(demand.start_time),
+            )
+        ],
+        (-0.38, 0.76),
+        facecolors="#d5dbe3",
+        edgecolors="none",
+        alpha=0.75,
+        label="Demanded window",
+    )
+
+    for start_index, end_index, route_nodes in intervals:
+        start_time, end_time = _interval_datetimes(analysis, start_index, end_index)
+        clipped_start = max(start_time, demand.start_time)
+        clipped_end = min(end_time, demand.end_time)
+        if clipped_end <= clipped_start:
+            continue
+        axis.broken_barh(
+            [
+                (
+                    mdates.date2num(clipped_start),
+                    mdates.date2num(clipped_end) - mdates.date2num(clipped_start),
+                )
+            ],
+            (-0.30, 0.60),
+            facecolors=_route_color(route_nodes),
+            edgecolors="white",
+            linewidth=0.4,
+            alpha=0.96,
+        )
+
+    axis.set_xlim(mdates.date2num(x_min), mdates.date2num(x_max))
+    axis.set_ylim(-1.0, 1.0)
+    axis.set_yticks([])
+    axis.xaxis.set_major_formatter(mdates.DateFormatter("%m-%d %H:%M"))
+    axis.grid(True, axis="x", color="#d5dbe3", linewidth=0.7, alpha=0.75)
+    axis.set_xlabel("UTC time")
+    axis.set_title(
+        (
+            f"{analysis.case.manifest.case_id}: {demand_id} "
+            f"{demand.source_endpoint_id} -> {demand.destination_endpoint_id}"
+        ),
+        fontsize=13,
+        fontweight="bold",
+    )
+
+    legend_handles = [
+        Line2D([0], [0], color="#d5dbe3", linewidth=9, label="Demanded window"),
+    ]
+    for label, route_nodes in displayed_route_legend:
+        legend_handles.append(
+            Line2D(
+                [0],
+                [0],
+                color=_route_color(route_nodes),
+                linewidth=9,
+                label=label,
+            )
+        )
+    if len(route_legend) > len(displayed_route_legend):
+        legend_handles.append(
+            Line2D([0], [0], color="#64748b", linewidth=9, label="other routes")
+        )
+    axis.legend(handles=legend_handles, loc="upper right", frameon=True)
+
+    summary_lines = [
+        f"Demand: {demand_id}",
+        f"Pair: {demand.source_endpoint_id} -> {demand.destination_endpoint_id}",
+        f"Weight: {_metric_text(demand.weight)}",
+        "",
+        f"Requested samples: {metrics.get('requested_sample_count', 'n/a')}",
+        f"Served samples: {metrics.get('served_sample_count', 'n/a')}",
+        f"Service fraction: {_metric_text(metrics.get('service_fraction'))}",
+        f"Mean latency ms: {_metric_text(metrics.get('mean_latency_ms'))}",
+        f"Latency p95 ms: {_metric_text(metrics.get('latency_p95_ms'))}",
+        "",
+        "Route colors:",
+    ]
+    if not route_legend:
+        summary_lines.append("- no served route")
+    for label, route_nodes in displayed_route_legend:
+        route_text = f"{label}: {' -> '.join(route_nodes)}"
+        wrapped = textwrap.wrap(
+            route_text,
+            width=58,
+            subsequent_indent="    ",
+            break_long_words=False,
+        )
+        summary_lines.extend(f"- {line}" if index == 0 else f"  {line}" for index, line in enumerate(wrapped))
+    if len(route_legend) > len(displayed_route_legend):
+        summary_lines.append(f"... ({len(route_legend) - len(displayed_route_legend)} more routes)")
+    summary_axis.text(
+        0.0,
+        1.0,
+        "\n".join(summary_lines),
+        ha="left",
+        va="top",
+        fontsize=8.4,
+        family="monospace",
+        color="#1f2933",
+        transform=summary_axis.transAxes,
+    )
+
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    figure.savefig(output_path, dpi=170, bbox_inches="tight")
+    plt.close(figure)
+    return output_path
+
+
+def _horizon_sample_times(analysis: SolutionAnalysis) -> list[datetime]:
+    sample_times: list[datetime] = []
+    current = analysis.case.manifest.horizon_start
+    step_s = max(analysis.case.manifest.routing_step_s, 300)
+    step = timedelta(seconds=step_s)
+    while current < analysis.case.manifest.horizon_end:
+        sample_times.append(current)
+        current = current + step
+    return sample_times
+
+
 def _node_lonlat(
     analysis: SolutionAnalysis,
     node_id: str,
@@ -369,6 +500,8 @@ def _render_snapshot_png(
     *,
     texture_path: Path | None = None,
 ) -> Path:
+    from .plot import _load_texture_image
+
     texture = _load_texture_image(texture_path)
     figure = plt.figure(figsize=(16, 8))
     grid = figure.add_gridspec(1, 2, width_ratios=[2.8, 1.2], wspace=0.08)
@@ -544,49 +677,74 @@ def render_solution_report(
     analysis = analyze_solution(
         case_path,
         solution_file,
-        include_demand_sample_positions=True,
+        include_demand_sample_positions=False,
     )
-    timeline_path = output_dir / "timeline.png"
-    _render_timeline_png(analysis, timeline_path)
 
-    snapshot_indices = _pick_snapshot_indices(analysis)
-    snapshots_dir = output_dir / "snapshots"
-    snapshot_files: list[str] = []
-    for sample_index in snapshot_indices:
-        snapshot_path = snapshots_dir / f"snapshot_{sample_index:04d}.png"
-        _render_snapshot_png(
-            analysis,
-            sample_index,
-            snapshot_path,
-            texture_path=texture_path,
-        )
-        snapshot_files.append(snapshot_path.name)
+    all_satellites = {
+        **analysis.case.backbone_satellites,
+        **analysis.solution.added_satellites,
+    }
+    sample_times = _horizon_sample_times(analysis)
+    sample_times, states_ecef_by_satellite = build_state_cache_for_satellites(
+        analysis.case,
+        all_satellites,
+        sample_times,
+    )
+    track_times, track_states = coarsen_ground_track_cache(
+        sample_times,
+        states_ecef_by_satellite,
+    )
+
+    ground_tracks_path = output_dir / "ground_tracks.png"
+    render_ground_tracks_png(
+        analysis.case,
+        ground_tracks_path,
+        sample_times=track_times,
+        states_ecef_by_satellite=track_states,
+        texture_path=texture_path,
+        added_satellite_ids=set(analysis.solution.added_satellites),
+        max_added_tracks=1,
+        title=f"{analysis.case.manifest.case_id}: backbone + added ground tracks",
+    )
+
+    scheduled_connectivity_path = output_dir / "scheduled_connectivity.png"
+    _render_scheduled_connectivity_png(analysis, scheduled_connectivity_path)
 
     route_intervals = _route_intervals_by_demand(analysis)
-    summary = {
+    demand_windows_dir = output_dir / "demand_windows"
+    demand_window_files: list[str] = []
+    for demand in sorted(analysis.case.demands, key=lambda row: row.demand_id):
+        demand_window_path = demand_windows_dir / f"{demand.demand_id}.png"
+        _render_demand_window_png(
+            analysis,
+            demand.demand_id,
+            route_intervals.get(demand.demand_id, []),
+            demand_window_path,
+        )
+        demand_window_files.append(str(demand_window_path.relative_to(output_dir)))
+
+    return {
         "case_id": analysis.case.manifest.case_id,
         "case_dir": str(case_path),
         "solution_path": str(solution_file),
-        "timeline_png": timeline_path.name,
-        "snapshot_pngs": snapshot_files,
-        "snapshot_sample_indices": snapshot_indices,
+        "ground_tracks_png": ground_tracks_path.name,
+        "scheduled_connectivity_png": scheduled_connectivity_path.name,
+        "demand_window_pngs": demand_window_files,
         "verifier_result": analysis.result.to_dict(),
         "action_failures": [failure.to_dict() for failure in analysis.action_failures],
-        "route_intervals_by_demand": {
-            demand_id: [
-                {
-                    "start_time": _interval_datetimes(analysis, start_index, end_index)[0]
-                    .isoformat()
-                    .replace("+00:00", "Z"),
-                    "end_time": _interval_datetimes(analysis, start_index, end_index)[1]
-                    .isoformat()
-                    .replace("+00:00", "Z"),
-                    "route_nodes": list(route_nodes),
-                }
-                for start_index, end_index, route_nodes in intervals
-            ]
-            for demand_id, intervals in route_intervals.items()
-        },
     }
-    _serialize_json(output_dir / "summary.json", summary)
-    return summary
+
+
+def render_solution(
+    case_dir: Path | str,
+    solution_path: Path | str,
+    output_dir: Path | str,
+    *,
+    texture_path: Path | None = None,
+) -> dict[str, object]:
+    return render_solution_report(
+        case_dir,
+        solution_path,
+        output_dir,
+        texture_path=texture_path,
+    )

@@ -314,10 +314,7 @@ uv run python -m benchmarks.relay_constellation.visualizer.run overview \
   --case-dir benchmarks/relay_constellation/dataset/cases/test/case_0001
 ```
 
-```bash
-uv run python -m benchmarks.relay_constellation.visualizer.run connectivity \
-  --case-dir benchmarks/relay_constellation/dataset/cases/test/case_0001
-```
+This emits `ground_tracks.png` for the backbone constellation and `baseline_connectivity.png` for geometry-only backbone connectivity with infinite link concurrency and no added satellites.
 
 ```bash
 uv run python -m benchmarks.relay_constellation.visualizer.run solution \
@@ -325,10 +322,17 @@ uv run python -m benchmarks.relay_constellation.visualizer.run solution \
   --solution-path benchmarks/relay_constellation/dataset/example_solution.json
 ```
 
+This emits `ground_tracks.png` for the backbone plus added satellites and
+`scheduled_connectivity.png` for verifier-derived connectivity from the
+submitted actions. It also emits one detailed PNG per demanded window under
+`demand_windows/`, with route-color labels and the actual served route nodes.
+
 ## Tests
 
 Run the focused relay benchmark tests with:
 
 ```bash
-uv run pytest tests/benchmarks/test_relay_constellation_generator.py tests/benchmarks/test_relay_constellation_verifier.py
+uv run pytest tests/benchmarks/test_relay_constellation_generator.py \
+  tests/benchmarks/test_relay_constellation_verifier.py \
+  tests/benchmarks/test_relay_constellation_visualizer.py
 ```

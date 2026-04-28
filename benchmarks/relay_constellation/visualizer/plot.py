@@ -2,11 +2,8 @@
 
 from __future__ import annotations
 
-from collections import defaultdict
 from datetime import UTC, datetime
 import io
-import json
-import math
 from pathlib import Path
 import urllib.request
 import zipfile
@@ -17,6 +14,7 @@ import matplotlib
 matplotlib.use("Agg")
 
 import matplotlib.dates as mdates
+from matplotlib.patches import FancyArrowPatch
 import matplotlib.pyplot as plt
 import numpy as np
 from brahe.plots.texture_utils import load_earth_texture
@@ -52,15 +50,13 @@ _BLUE_MARBLE_DIRECT_URLS = (
 )
 _NATURAL_EARTH_ZIP_URL = "https://naciscdn.org/naturalearth/50m/raster/HYP_50M_SR_W.zip"
 _ROUTE_COLORS = matplotlib.colormaps.get_cmap("tab20")
+_GROUND_TRACK_MIN_STEP_S = 300
+_MAX_BACKBONE_GROUND_TRACKS = 3
+_MAX_ADDED_GROUND_TRACKS = 3
 
 
 def _utc_text(value: datetime) -> str:
     return value.astimezone(UTC).strftime("%m-%d %H:%M")
-
-
-def _serialize_json(path: Path, payload: dict[str, object]) -> None:
-    path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n", encoding="utf-8")
 
 
 def _download_bytes(url: str, *, timeout_s: float = 30.0) -> bytes:
@@ -211,6 +207,284 @@ def _sample_lonlat_segments(
     if not lons:
         return []
     return brahe.split_ground_track_at_antimeridian(lons, lats)
+
+
+def coarsen_ground_track_cache(
+    sample_times: list[datetime],
+    states_ecef_by_satellite: dict[str, np.ndarray],
+    *,
+    min_step_s: int = _GROUND_TRACK_MIN_STEP_S,
+) -> tuple[list[datetime], dict[str, np.ndarray]]:
+    """Downsample full-horizon state rows for context-only ground tracks."""
+    if len(sample_times) <= 1 or min_step_s <= 0:
+        return sample_times, states_ecef_by_satellite
+    selected_indices = [0]
+    last_time = sample_times[0]
+    for index, instant in enumerate(sample_times[1:], start=1):
+        if (instant - last_time).total_seconds() < min_step_s:
+            continue
+        selected_indices.append(index)
+        last_time = instant
+    index_array = np.asarray(selected_indices, dtype=int)
+    return (
+        [sample_times[index] for index in selected_indices],
+        {
+            satellite_id: rows[index_array]
+            for satellite_id, rows in states_ecef_by_satellite.items()
+        },
+    )
+
+
+def _select_evenly(values: list[str], limit: int) -> list[str]:
+    if limit <= 0 or len(values) <= limit:
+        return values
+    if limit == 1:
+        return [values[len(values) // 2]]
+    indices = np.linspace(0, len(values) - 1, limit)
+    return [values[int(round(index))] for index in indices]
+
+
+def _plot_endpoint_pair(
+    axis: plt.Axes,
+    source_lon: float,
+    source_lat: float,
+    destination_lon: float,
+    destination_lat: float,
+    *,
+    color: str,
+    linewidth: float,
+    alpha: float,
+) -> None:
+    arrow = FancyArrowPatch(
+        (source_lon, source_lat),
+        (destination_lon, destination_lat),
+        arrowstyle="-|>",
+        mutation_scale=14,
+        linewidth=linewidth,
+        linestyle="--",
+        color=color,
+        alpha=alpha,
+        shrinkA=9,
+        shrinkB=9,
+        zorder=2,
+    )
+    axis.add_patch(arrow)
+
+
+def render_ground_tracks_png(
+    case: RelayCase,
+    output_path: Path,
+    *,
+    sample_times: list[datetime],
+    states_ecef_by_satellite: dict[str, np.ndarray],
+    texture_path: Path | None = None,
+    added_satellite_ids: set[str] | None = None,
+    max_backbone_tracks: int = _MAX_BACKBONE_GROUND_TRACKS,
+    max_added_tracks: int = _MAX_ADDED_GROUND_TRACKS,
+    title: str | None = None,
+) -> Path:
+    """Render constellation ground tracks and demand endpoints."""
+    added_satellite_ids = added_satellite_ids or set()
+    texture = _load_texture_image(texture_path)
+
+    figure = plt.figure(figsize=(15, 8.5))
+    figure.patch.set_facecolor("#ffffff")
+    grid = figure.add_gridspec(1, 2, width_ratios=[3.2, 1.0], wspace=0.08)
+    axis = figure.add_subplot(grid[0, 0])
+    summary_axis = figure.add_subplot(grid[0, 1])
+
+    axis.set_facecolor("#09121a")
+    axis.imshow(
+        texture,
+        origin="upper",
+        extent=[-180.0, 180.0, -90.0, 90.0],
+        aspect="auto",
+        interpolation="bilinear",
+        zorder=0,
+        alpha=0.96,
+    )
+    axis.set_xlim(-180.0, 180.0)
+    axis.set_ylim(-90.0, 90.0)
+    axis.set_xlabel("Longitude (deg)")
+    axis.set_ylabel("Latitude (deg)")
+    axis.grid(True, color="#d5dbe3", linewidth=0.7, alpha=0.45)
+
+    pair_counts: dict[tuple[str, str], int] = {}
+    for demand in case.demands:
+        key = (demand.source_endpoint_id, demand.destination_endpoint_id)
+        pair_counts[key] = pair_counts.get(key, 0) + 1
+    active_endpoint_ids = {
+        endpoint_id
+        for pair in pair_counts
+        for endpoint_id in pair
+    }
+    for (source_id, destination_id), count in sorted(pair_counts.items()):
+        source = case.ground_endpoints[source_id]
+        destination = case.ground_endpoints[destination_id]
+        _plot_endpoint_pair(
+            axis,
+            source.longitude_deg,
+            source.latitude_deg,
+            destination.longitude_deg,
+            destination.latitude_deg,
+            color="#e11d48",
+            linewidth=min(2.5, 0.8 + 0.18 * count),
+            alpha=0.72,
+        )
+
+    backbone_track_ids = _select_evenly(
+        [
+            satellite_id
+            for satellite_id in sorted(states_ecef_by_satellite)
+            if satellite_id not in added_satellite_ids
+        ],
+        max_backbone_tracks,
+    )
+    added_track_ids = _select_evenly(
+        [
+            satellite_id
+            for satellite_id in sorted(states_ecef_by_satellite)
+            if satellite_id in added_satellite_ids
+        ],
+        max_added_tracks,
+    )
+    displayed_track_ids = backbone_track_ids + added_track_ids
+
+    for satellite_id in displayed_track_ids:
+        is_added = satellite_id in added_satellite_ids
+        color = "#dc6b19" if is_added else "#2563eb"
+        linewidth = 0.45 if is_added else 0.95
+        alpha = 0.22 if is_added else 0.5
+        segments = _sample_lonlat_segments(
+            sample_times,
+            states_ecef_by_satellite[satellite_id],
+            start_time=case.manifest.horizon_start,
+            end_time=case.manifest.horizon_end,
+        )
+        for lon_seg, lat_seg in segments:
+            axis.plot(
+                lon_seg,
+                lat_seg,
+                color=color,
+                linewidth=linewidth,
+                alpha=alpha,
+                zorder=3 if is_added else 2,
+            )
+
+    active_endpoints = [
+        endpoint
+        for endpoint in case.ground_endpoints.values()
+        if endpoint.endpoint_id in active_endpoint_ids
+    ]
+    unused_endpoints = [
+        endpoint
+        for endpoint in case.ground_endpoints.values()
+        if endpoint.endpoint_id not in active_endpoint_ids
+    ]
+    if active_endpoints:
+        axis.scatter(
+            [endpoint.longitude_deg for endpoint in active_endpoints],
+            [endpoint.latitude_deg for endpoint in active_endpoints],
+            color="#facc15",
+            s=58,
+            label="Demand endpoint",
+            edgecolors="#111827",
+            linewidths=0.7,
+            zorder=5,
+        )
+    if unused_endpoints:
+        axis.scatter(
+            [endpoint.longitude_deg for endpoint in unused_endpoints],
+            [endpoint.latitude_deg for endpoint in unused_endpoints],
+            facecolors="#f8fafc",
+            s=38,
+            label="Unused endpoint",
+            edgecolors="#64748b",
+            linewidths=1.0,
+            zorder=5,
+        )
+
+    legend_handles = [
+        plt.Line2D([0], [0], color="#2563eb", linewidth=1.5, label="Shown backbone track"),
+        plt.Line2D([0], [0], color="#e11d48", linewidth=1.5, linestyle="--", label="Demand direction"),
+        plt.Line2D(
+            [0],
+            [0],
+            marker="o",
+            color="none",
+            markerfacecolor="#facc15",
+            markeredgecolor="#111827",
+            markersize=7,
+            label="Demand endpoint",
+        ),
+    ]
+    if added_satellite_ids:
+        legend_handles.insert(
+            1,
+            plt.Line2D([0], [0], color="#dc6b19", linewidth=2.0, label="Shown added track"),
+        )
+    if unused_endpoints:
+        legend_handles.append(
+            plt.Line2D(
+                [0],
+                [0],
+                marker="o",
+                color="none",
+                markerfacecolor="#f8fafc",
+                markeredgecolor="#64748b",
+                markersize=6,
+                label="Unused endpoint",
+            )
+        )
+    axis.legend(handles=legend_handles, loc="upper left", frameon=True)
+
+    summary_axis.axis("off")
+    horizon_hours = (
+        case.manifest.horizon_end - case.manifest.horizon_start
+    ).total_seconds() / 3600.0
+    backbone_count = len(states_ecef_by_satellite) - len(added_satellite_ids)
+    summary_lines = [
+        f"Case: {case.manifest.case_id}",
+        "",
+        f"Horizon: {horizon_hours:.1f} h",
+        f"Routing step: {case.manifest.routing_step_s} s",
+        "",
+        f"Backbone satellites: {backbone_count}",
+        f"Shown backbone tracks: {len(backbone_track_ids)}",
+        f"Added satellites: {len(added_satellite_ids)}",
+        f"Shown added tracks: {len(added_track_ids)}",
+        f"Ground endpoints: {len(case.ground_endpoints)}",
+        f"Unused endpoints: {len(unused_endpoints)}",
+        f"Demanded windows: {len(case.demands)}",
+        f"Endpoint pairs: {len(pair_counts)}",
+        "",
+        "Endpoint pairs:",
+    ]
+    for (source_id, destination_id), count in sorted(pair_counts.items())[:12]:
+        summary_lines.append(f"- {source_id} -> {destination_id}: {count}")
+    if len(pair_counts) > 12:
+        summary_lines.append(f"... ({len(pair_counts) - 12} more)")
+
+    summary_axis.text(
+        0.0,
+        1.0,
+        "\n".join(summary_lines),
+        ha="left",
+        va="top",
+        fontsize=9.2,
+        family="monospace",
+        color="#1f2933",
+    )
+
+    axis.set_title(
+        title or f"{case.manifest.case_id}: constellation ground tracks",
+        fontsize=14,
+        fontweight="bold",
+    )
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    figure.savefig(output_path, dpi=180, bbox_inches="tight")
+    plt.close(figure)
+    return output_path
 
 
 def render_overview_png(
@@ -435,7 +709,7 @@ def render_overview_set(
         )
         overview_paths.append(overview_path.name)
 
-    manifest = {
+    return {
         "case_id": case.manifest.case_id,
         "case_dir": str(case.case_dir),
         "overview_pngs": overview_paths,
@@ -443,8 +717,6 @@ def render_overview_set(
         "num_ground_endpoints": len(case.ground_endpoints),
         "num_demanded_windows": len(case.demands),
     }
-    _serialize_json(output_dir / "manifest.json", manifest)
-    return manifest
 
 
 def render_connectivity_png(
@@ -462,9 +734,9 @@ def render_connectivity_png(
     if not summaries:
         raise ValueError(f"{case.manifest.case_id} does not contain any endpoint pairs")
 
-    height = max(4.0, 1.8 + (1.4 * len(summaries)))
-    figure = plt.figure(figsize=(16, height))
-    grid = figure.add_gridspec(1, 2, width_ratios=[3.4, 1.6], wspace=0.15)
+    height = max(4.8, 1.4 + (0.78 * len(summaries)))
+    figure = plt.figure(figsize=(14, height))
+    grid = figure.add_gridspec(1, 2, width_ratios=[3.8, 1.15], wspace=0.10)
     axis = figure.add_subplot(grid[0, 0])
     text_axis = figure.add_subplot(grid[0, 1])
 
@@ -481,18 +753,23 @@ def render_connectivity_png(
                 left=mdates.date2num(window_start),
                 height=0.92,
                 color="#dbeafe",
-                alpha=0.45,
+                alpha=0.30,
             )
-        for interval in summary.route_intervals:
-            axis.barh(
-                y_base,
-                width=(interval.end_time - interval.start_time).total_seconds() / 86_400.0,
-                left=mdates.date2num(interval.start_time),
-                height=lane_height,
-                color=_route_color(interval.route_nodes),
-                edgecolor="white",
-                linewidth=0.5,
-            )
+            for interval in summary.route_intervals_overlapping_demands:
+                clipped_start = max(interval.start_time, window_start)
+                clipped_end = min(interval.end_time, window_end)
+                if clipped_end <= clipped_start:
+                    continue
+                axis.barh(
+                    y_base,
+                    width=(clipped_end - clipped_start).total_seconds() / 86_400.0,
+                    left=mdates.date2num(clipped_start),
+                    height=lane_height,
+                    color="#1d4ed8",
+                    edgecolor="none",
+                    linewidth=0.0,
+                    alpha=0.95,
+                )
 
     axis.set_ylim(-0.8, len(summaries) - 0.2)
     axis.set_yticks(range(len(summaries)))
@@ -507,39 +784,40 @@ def render_connectivity_png(
         f"{case.manifest.case_id}: baseline infinite-concurrency connectivity",
         fontsize=13,
     )
+    legend_handles = [
+        plt.Line2D([0], [0], color="#dbeafe", linewidth=8, label="Demanded window"),
+        plt.Line2D([0], [0], color="#1d4ed8", linewidth=8, label="Geometry-feasible route"),
+    ]
+    axis.legend(handles=legend_handles, loc="upper right", frameon=True)
 
     text_axis.axis("off")
     text_lines = [
-        "Requested-window route intervals",
+        "Backbone-only baseline",
+        "infinite concurrency",
         "",
+        "Pair availability:",
     ]
     for summary in summaries:
         if summary.requested_sample_count > 0:
             availability = summary.served_sample_count / summary.requested_sample_count
         else:
             availability = 0.0
-        text_lines.append(
-            f"{summary.pair_id}  availability={availability:.2f}"
-        )
-        intervals = summary.route_intervals_overlapping_demands
-        if not intervals:
-            text_lines.append("  no geometry-feasible route during requested windows")
-            text_lines.append("")
-            continue
-        for interval in intervals:
-            route_text = " -> ".join(interval.route_nodes)
-            text_lines.append(
-                f"  {_utc_text(interval.start_time)} - {_utc_text(interval.end_time)}"
-            )
-            text_lines.append(f"  {route_text}")
-        text_lines.append("")
+        text_lines.append(f"- {summary.pair_id}: {availability:.2f}")
+    text_lines.extend(
+        [
+            "",
+            f"Backbone satellites: {len(case.backbone_satellites)}",
+            f"Ground endpoints: {len(case.ground_endpoints)}",
+            f"Demand windows: {len(case.demands)}",
+        ]
+    )
     text_axis.text(
         0.0,
         1.0,
         "\n".join(text_lines),
         ha="left",
         va="top",
-        fontsize=8.8,
+        fontsize=9.0,
         family="monospace",
     )
 
@@ -567,7 +845,7 @@ def render_connectivity_report(
         sample_times=sample_times,
         states_ecef_by_satellite=states_ecef_by_satellite,
     )
-    manifest = {
+    return {
         "case_id": case.manifest.case_id,
         "case_dir": str(case.case_dir),
         "connectivity_png": output_path.name,
@@ -581,8 +859,64 @@ def render_connectivity_report(
             for summary in summaries
         ],
     }
-    _serialize_json(output_path.parent / "connectivity_manifest.json", manifest)
-    return manifest
+
+
+def render_overview(
+    case_dir: Path | str,
+    output_dir: Path | str,
+    *,
+    texture_path: Path | None = None,
+) -> dict[str, object]:
+    """Render the case-only overview images."""
+    case = load_case(case_dir)
+    output_dir = Path(output_dir).resolve()
+    output_dir.mkdir(parents=True, exist_ok=True)
+    sample_times, states_ecef_by_satellite = build_state_cache(case)
+    track_times, track_states = coarsen_ground_track_cache(
+        sample_times,
+        states_ecef_by_satellite,
+    )
+
+    ground_tracks_path = output_dir / "ground_tracks.png"
+    render_ground_tracks_png(
+        case,
+        ground_tracks_path,
+        sample_times=track_times,
+        states_ecef_by_satellite=track_states,
+        texture_path=texture_path,
+        title=f"{case.manifest.case_id}: backbone ground tracks",
+    )
+
+    baseline_connectivity_path = output_dir / "baseline_connectivity.png"
+    summaries = compute_connectivity_summaries(
+        case,
+        sample_times=sample_times,
+        states_ecef_by_satellite=states_ecef_by_satellite,
+    )
+    render_connectivity_png(
+        case,
+        baseline_connectivity_path,
+        sample_times=sample_times,
+        states_ecef_by_satellite=states_ecef_by_satellite,
+    )
+    return {
+        "case_id": case.manifest.case_id,
+        "case_dir": str(case.case_dir),
+        "ground_tracks_png": ground_tracks_path.name,
+        "baseline_connectivity_png": baseline_connectivity_path.name,
+        "num_backbone_satellites": len(case.backbone_satellites),
+        "num_ground_endpoints": len(case.ground_endpoints),
+        "num_demanded_windows": len(case.demands),
+        "endpoint_pairs": [
+            {
+                "pair_id": summary.pair_id,
+                "requested_sample_count": summary.requested_sample_count,
+                "served_sample_count": summary.served_sample_count,
+                "route_interval_count": len(summary.route_intervals),
+            }
+            for summary in summaries
+        ],
+    }
 
 
 def render_case_plots(
@@ -591,43 +925,7 @@ def render_case_plots(
     *,
     texture_path: Path | None = None,
 ) -> dict[str, object]:
-    case = load_case(case_dir)
-    output_dir = Path(output_dir).resolve()
-    output_dir.mkdir(parents=True, exist_ok=True)
-    sample_times, states_ecef_by_satellite = build_state_cache(case)
-
-    overview_paths: list[str] = []
-    for demand in representative_demands(case):
-        overview_path = output_dir / f"overview_{demand.demand_id}.png"
-        render_overview_png(
-            case,
-            demand.demand_id,
-            overview_path,
-            texture_path=texture_path,
-            sample_times=sample_times,
-            states_ecef_by_satellite=states_ecef_by_satellite,
-        )
-        overview_paths.append(overview_path.name)
-
-    connectivity_path = output_dir / "connectivity.png"
-    render_connectivity_png(
-        case,
-        connectivity_path,
-        sample_times=sample_times,
-        states_ecef_by_satellite=states_ecef_by_satellite,
-    )
-
-    manifest = {
-        "case_id": case.manifest.case_id,
-        "case_dir": str(case.case_dir),
-        "connectivity_png": connectivity_path.name,
-        "overview_pngs": overview_paths,
-        "num_backbone_satellites": len(case.backbone_satellites),
-        "num_ground_endpoints": len(case.ground_endpoints),
-        "num_demanded_windows": len(case.demands),
-    }
-    _serialize_json(output_dir / "manifest.json", manifest)
-    return manifest
+    return render_overview(case_dir, output_dir, texture_path=texture_path)
 
 
 def render_dataset_plots(
@@ -655,5 +953,4 @@ def render_dataset_plots(
                 texture_path=texture_path,
             )
         )
-    _serialize_json(output_dir / "index.json", {"cases": manifests})
     return manifests
