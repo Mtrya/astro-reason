@@ -49,14 +49,12 @@ def test_discover_runtime_matrix_emits_compact_actions_shape(tmp_path: Path) -> 
                 "image": "astroreason-alpha:latest",
                 "dockerfile": "runtimes/alpha/Dockerfile",
                 "build_context": "runtimes/alpha",
-                "runtime_dir": "runtimes/alpha",
             },
             {
                 "name": "zeta",
                 "image": "astroreason-zeta:latest",
                 "dockerfile": "runtimes/zeta/Dockerfile",
                 "build_context": "runtimes/zeta",
-                "runtime_dir": "runtimes/zeta",
             },
         ]
     }
@@ -70,7 +68,6 @@ def test_discover_runtime_matrix_includes_current_base_runtime() -> None:
         "image": "astroreason-base:latest",
         "dockerfile": "runtimes/base/Dockerfile",
         "build_context": "runtimes/base",
-        "runtime_dir": "runtimes/base",
     } in matrix["include"]
 
 

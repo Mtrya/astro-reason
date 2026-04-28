@@ -37,7 +37,6 @@ class RuntimeMatrixEntry:
             "image": self.image,
             "dockerfile": _repo_relative_posix(self.dockerfile, repo_root),
             "build_context": _repo_relative_posix(self.build_context, repo_root),
-            "runtime_dir": _repo_relative_posix(self.runtime_dir, repo_root),
         }
 
 
