@@ -2,9 +2,25 @@ name: Benchmark Repro
 
 on:
   pull_request:
+    paths:
+      - ".github/workflows/benchmark-repro.yml"
+      - "benchmarks/**"
+      - "pyproject.toml"
+      - "uv.lock"
+      - "scripts/check_finished_benchmark_repro.py"
+      - "scripts/validate_benchmark_contract.py"
+      - "tests/benchmarks/**"
   push:
     branches:
       - main
+    paths:
+      - ".github/workflows/benchmark-repro.yml"
+      - "benchmarks/**"
+      - "pyproject.toml"
+      - "uv.lock"
+      - "scripts/check_finished_benchmark_repro.py"
+      - "scripts/validate_benchmark_contract.py"
+      - "tests/benchmarks/**"
   workflow_dispatch:
 
 jobs:
