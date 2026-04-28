@@ -65,6 +65,7 @@ _SAMPLE_STATE_COLORS = {
     "covered_other": "#f59e0b",
     "uncovered": "#94a3b8",
 }
+_SATELLITE_TRACK_COLOR = "#64748b"
 _THEME = {
     "background": "#ffffff",
     "panel": "#f7f8fa",
@@ -135,7 +136,7 @@ def _apply_axes_theme(ax: plt.Axes, *, facecolor: str | None = None) -> None:
 def _load_world_texture() -> np.ndarray:
     global _WORLD_TEXTURE
     if _WORLD_TEXTURE is None:
-        for texture_name in ("blue_marble", "natural_earth_50m"):
+        for texture_name in ("natural_earth_50m", "blue_marble"):
             try:
                 image = load_earth_texture(texture_name)
             except Exception:
@@ -623,12 +624,19 @@ def _region_area_summary(case: Any) -> str:
 def _overview_summary_lines(case: Any, *, shown_ground_tracks: int) -> list[str]:
     total_samples = sum(len(region_grid.samples) for region_grid in case.region_grids.values())
     total_weight_m2 = sum(region_grid.total_weight_m2 for region_grid in case.region_grids.values())
+    horizon_hours = (
+        case.manifest.horizon_end - case.manifest.horizon_start
+    ).total_seconds() / 3600.0
     lines = [
         f"Case: {case.manifest.case_id}",
-        f"Horizon: {_utc_iso(case.manifest.horizon_start)} to {_utc_iso(case.manifest.horizon_end)}",
+        f"Horizon: {_utc_iso(case.manifest.horizon_start)}",
+        f"to {_utc_iso(case.manifest.horizon_end)}",
+        f"Duration: {horizon_hours:.1f} h",
         "",
-        f"Satellites ({len(case.satellites)}):",
-        *[f"  - {satellite_id}" for satellite_id in case.satellites],
+        f"Satellites: {len(case.satellites)}",
+        "Ground tracks:",
+        f"  shown: {shown_ground_tracks} / {len(case.satellites)}",
+        "  muted representative layer",
         "",
         f"Regions ({len(case.regions)}):",
     ]
@@ -642,7 +650,6 @@ def _overview_summary_lines(case: Any, *, shown_ground_tracks: int) -> list[str]
             f"Coverage samples: {total_samples}",
             f"Sample spacing: {case.manifest.sample_spacing_m:.0f} m",
             f"Total region area: {total_weight_m2 / 1_000_000.0:.1f} km^2",
-            f"Ground tracks shown: {shown_ground_tracks} / {len(case.satellites)}",
         ]
     )
     return lines
@@ -847,25 +854,41 @@ def _render_region_zoom_png(
     return out_path
 
 
+def _select_ground_track_items(
+    items: list[tuple[str, Any]],
+    *,
+    max_ground_tracks: int | None,
+) -> list[tuple[str, Any]]:
+    if max_ground_tracks is None or max_ground_tracks >= len(items):
+        return items
+    if max_ground_tracks <= 0:
+        return []
+    if max_ground_tracks == 1:
+        return [items[0]]
+
+    selected_indices = np.linspace(0, len(items) - 1, num=max_ground_tracks, dtype=int)
+    return [items[int(idx)] for idx in selected_indices]
+
+
 def render_overview(
     case_dir: str | Path,
     out_path: str | Path | None = None,
     *,
     ground_track_step_s: float = 300.0,
-    max_ground_tracks: int | None = None,
+    max_ground_tracks: int | None = 4,
 ) -> Path:
     _ensure_brahe_ready()
     case_path = Path(case_dir)
     case = load_case(case_path)
     propagators = _build_propagators(case)
     output_path = _overview_output_path(case_path, Path(out_path) if out_path is not None else None)
-    fig = plt.figure(figsize=(13.5, 7.5))
+    fig = plt.figure(figsize=(15, 8.5), constrained_layout=True)
     fig.patch.set_facecolor(_THEME["background"])
-    gs = fig.add_gridspec(1, 2, width_ratios=[2.4, 1.2])
+    gs = fig.add_gridspec(1, 2, width_ratios=[3.6, 1.2])
     ax_map = fig.add_subplot(gs[0, 0])
     ax_summary = fig.add_subplot(gs[0, 1])
 
-    _apply_axes_theme(ax_map, facecolor="#09121a")
+    _apply_axes_theme(ax_map)
     ax_map.set_xlim(-180.0, 180.0)
     ax_map.set_ylim(-90.0, 90.0)
     _draw_world_texture(ax_map)
@@ -878,14 +901,12 @@ def render_overview(
         fontweight="bold",
     )
 
-    satellite_items = sorted(propagators.items(), key=lambda item: item[0])
-    if max_ground_tracks is not None:
-        satellite_items = satellite_items[: max(0, max_ground_tracks)]
+    satellite_items = _select_ground_track_items(
+        sorted(propagators.items(), key=lambda item: item[0]),
+        max_ground_tracks=max_ground_tracks,
+    )
 
-    track_handles: list[Line2D] = []
-    for index, (satellite_id, propagator) in enumerate(satellite_items):
-        color = _COLOR_CYCLE[index % len(_COLOR_CYCLE)]
-        track_handles.append(Line2D([0], [0], color=color, linewidth=2.0, label=satellite_id))
+    for satellite_id, propagator in satellite_items:
         for lon_seg, lat_seg in _sample_ground_track_segments(
             propagator,
             case.manifest.horizon_start,
@@ -895,10 +916,10 @@ def render_overview(
             ax_map.plot(
                 lon_seg,
                 lat_seg,
-                color=color,
-                linewidth=1.4,
-                alpha=0.72,
-                zorder=2,
+                color=_SATELLITE_TRACK_COLOR,
+                linewidth=0.8,
+                alpha=0.36,
+                zorder=1,
             )
 
     region_handles: list[Line2D] = []
@@ -927,26 +948,15 @@ def render_overview(
             zorder=4,
         )
 
-    track_legend = ax_map.legend(
-        handles=track_handles,
-        title="Ground tracks",
-        loc="lower left",
-        bbox_to_anchor=(0.0, -0.26),
-        ncol=max(1, min(2, len(track_handles))),
-        fontsize=9,
-        title_fontsize=9,
-        frameon=False,
-    )
-    ax_map.add_artist(track_legend)
     ax_map.legend(
         handles=region_handles,
         title="Regions",
-        loc="lower right",
-        bbox_to_anchor=(1.0, -0.26),
+        loc="lower left",
         ncol=max(1, min(2, len(region_handles))),
         fontsize=9,
         title_fontsize=9,
-        frameon=False,
+        frameon=True,
+        framealpha=0.92,
     )
 
     ax_summary.axis("off")
@@ -963,8 +973,7 @@ def render_overview(
     )
 
     output_path.parent.mkdir(parents=True, exist_ok=True)
-    fig.subplots_adjust(left=0.06, right=0.98, top=0.93, bottom=0.2, wspace=0.22)
-    fig.savefig(output_path, dpi=130)
+    fig.savefig(output_path, dpi=180, bbox_inches="tight")
     plt.close(fig)
     return output_path
 
@@ -1143,7 +1152,11 @@ def main(argv: list[str] | None = None) -> int:
 
     overview_parser = subparsers.add_parser("overview", help="Render a case overview PNG.")
     overview_parser.description = "Render a 2D Earth-texture case overview PNG."
-    overview_parser.add_argument("case_dir", help="Path to dataset/cases/<case_id>")
+    overview_parser.add_argument(
+        "--case-dir",
+        required=True,
+        help="Path to dataset/cases/<case_id>",
+    )
     overview_parser.add_argument(
         "--out-path",
         type=Path,
@@ -1159,15 +1172,23 @@ def main(argv: list[str] | None = None) -> int:
     overview_parser.add_argument(
         "--max-ground-tracks",
         type=int,
-        default=None,
-        help="Optional cap on how many satellite ground tracks to draw, using satellite_id sort order",
+        default=4,
+        help="Maximum representative satellite tracks to draw; use 0 to hide tracks (default: 4)",
     )
 
     inspect_parser = subparsers.add_parser(
         "inspect", help="Render inspection HTML and manifest for one case and solution."
     )
-    inspect_parser.add_argument("case_dir", help="Path to dataset/cases/<case_id>")
-    inspect_parser.add_argument("solution_path", help="Path to solution JSON")
+    inspect_parser.add_argument(
+        "--case-dir",
+        required=True,
+        help="Path to dataset/cases/<case_id>",
+    )
+    inspect_parser.add_argument(
+        "--solution-path",
+        required=True,
+        help="Path to solution JSON",
+    )
     inspect_parser.add_argument(
         "--out-dir",
         type=Path,

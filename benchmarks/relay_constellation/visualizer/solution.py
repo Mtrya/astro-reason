@@ -26,7 +26,6 @@ from .plot import (
     _load_texture_image,
     _route_color,
     _serialize_json,
-    resolve_texture_path,
 )
 
 
@@ -370,7 +369,6 @@ def _render_snapshot_png(
     *,
     texture_path: Path | None = None,
 ) -> Path:
-    texture_path = resolve_texture_path(texture_path)
     texture = _load_texture_image(texture_path)
     figure = plt.figure(figsize=(16, 8))
     grid = figure.add_gridspec(1, 2, width_ratios=[2.8, 1.2], wspace=0.08)

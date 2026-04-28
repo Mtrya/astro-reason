@@ -343,15 +343,15 @@ The canonical generator writes cases under `dataset/cases/test/` and updates `da
 ```bash
 # Case overview (ground tracks and target scatter map):
 uv run python -m benchmarks.stereo_imaging.visualizer.run overview \
-    benchmarks/stereo_imaging/dataset/cases/test/case_0001
+    --case-dir benchmarks/stereo_imaging/dataset/cases/test/case_0001
 
 # Batch ECEF geometry plots for all stereo candidates in a solution:
 uv run python -m benchmarks.stereo_imaging.visualizer.run batch \
-    benchmarks/stereo_imaging/dataset/cases/test/case_0001 \
-    path/to/solution.json
+    --case-dir benchmarks/stereo_imaging/dataset/cases/test/case_0001 \
+    --solution-path path/to/solution.json
 ```
 
-Default outputs go to `benchmarks/stereo_imaging/visualizer/plots/<case_id>/`.
+The overview renders a small representative set of satellite ground tracks as a muted context layer so target geography remains readable on multi-satellite cases. Use `--max-ground-tracks` to increase, reduce, or hide that layer. Default outputs go to `benchmarks/stereo_imaging/visualizer/plots/<case_id>/`.
 
 ### Tests
 

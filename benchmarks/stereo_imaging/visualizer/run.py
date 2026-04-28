@@ -59,6 +59,7 @@ _OBS_COLORS = [
     "#ff9f1c",
     "#c77dff",
 ]
+_SATELLITE_TRACK_COLOR = "#64748b"
 
 _THEME = {
     "background": "#ffffff",
@@ -90,7 +91,7 @@ def _apply_axes_theme(ax: plt.Axes, *, facecolor: str | None = None) -> None:
 def _load_world_texture() -> np.ndarray:
     global _WORLD_TEXTURE
     if _WORLD_TEXTURE is None:
-        for texture_name in ("blue_marble", "natural_earth_50m"):
+        for texture_name in ("natural_earth_50m", "blue_marble"):
             try:
                 image = load_earth_texture(texture_name)
             except Exception:
@@ -293,24 +294,47 @@ def _target_ranges(targets: dict[str, Any]) -> dict[str, float]:
     }
 
 
+def _select_track_satellites(
+    satellites: dict[str, Any],
+    *,
+    max_ground_tracks: int | None,
+) -> list[str]:
+    satellite_ids = sorted(satellites)
+    if max_ground_tracks is None or max_ground_tracks >= len(satellite_ids):
+        return satellite_ids
+    if max_ground_tracks <= 0:
+        return []
+    if max_ground_tracks == 1:
+        return [satellite_ids[0]]
+
+    selected_indices = np.linspace(
+        0,
+        len(satellite_ids) - 1,
+        num=max_ground_tracks,
+        dtype=int,
+    )
+    return [satellite_ids[int(idx)] for idx in selected_indices]
+
+
 def render_overview(
     case_dir: str | Path,
     out_path: str | Path,
     *,
     ground_track_step_s: float,
+    max_ground_tracks: int | None = 4,
 ) -> Path:
     case_path = Path(case_dir)
     out_file = Path(out_path)
     mission, satellites, targets = load_case(case_path)
     sf_sats = _satellite_cache(satellites)
 
-    fig = plt.figure(figsize=(13, 7.5))
+    fig = plt.figure(figsize=(15, 8.5), constrained_layout=True)
     fig.patch.set_facecolor(_THEME["background"])
-    gs = fig.add_gridspec(1, 2, width_ratios=[2.4, 1.2])
+    gs = fig.add_gridspec(1, 2, width_ratios=[3.6, 1.2])
     ax_map = fig.add_subplot(gs[0, 0])
     ax_summary = fig.add_subplot(gs[0, 1])
 
-    _apply_axes_theme(ax_map, facecolor="#09121a")
+    _apply_axes_theme(ax_map)
     ax_map.set_xlim(-180.0, 180.0)
     ax_map.set_ylim(-90.0, 90.0)
     _draw_world_texture(ax_map)
@@ -323,26 +347,26 @@ def render_overview(
         fontweight="bold",
     )
 
-    sat_legend_handles: list[Line2D] = []
-    for sat_index, (sat_id, sf_sat) in enumerate(sf_sats.items()):
+    plotted_satellite_ids = _select_track_satellites(
+        satellites,
+        max_ground_tracks=max_ground_tracks,
+    )
+    for sat_id in plotted_satellite_ids:
+        sf_sat = sf_sats[sat_id]
         segments = _sample_track_segments(
             sf_sat,
             mission.horizon_start,
             mission.horizon_end,
             step_s=ground_track_step_s,
         )
-        color = _OBS_COLORS[sat_index % len(_OBS_COLORS)]
-        sat_legend_handles.append(
-            Line2D([0], [0], color=color, linewidth=2.0, label=sat_id)
-        )
-        for seg_idx, (lon_seg, lat_seg) in enumerate(segments):
+        for lon_seg, lat_seg in segments:
             ax_map.plot(
                 lon_seg,
                 lat_seg,
-                color=color,
-                linewidth=1.6,
-                alpha=0.95,
-                zorder=2,
+                color=_SATELLITE_TRACK_COLOR,
+                linewidth=0.8,
+                alpha=0.36,
+                zorder=1,
             )
 
     scene_legend_handles: list[Line2D] = []
@@ -366,43 +390,40 @@ def render_overview(
         ax_map.scatter(
             [target.longitude_deg for target in scene_targets],
             [target.latitude_deg for target in scene_targets],
-            s=28,
+            s=32,
             color=color,
             edgecolors="white",
-            linewidths=0.6,
+            linewidths=0.7,
             zorder=3,
         )
 
-    sat_legend = ax_map.legend(
-        handles=sat_legend_handles,
-        title="Ground tracks",
-        loc="lower left",
-        bbox_to_anchor=(0.0, -0.24),
-        ncol=max(1, min(2, len(sat_legend_handles))),
-        fontsize=9,
-        title_fontsize=9,
-        frameon=False,
-    )
-    ax_map.add_artist(sat_legend)
     ax_map.legend(
         handles=scene_legend_handles,
         title="Target scenes",
-        loc="lower right",
-        bbox_to_anchor=(1.0, -0.24),
+        loc="lower left",
         ncol=max(1, min(2, len(scene_legend_handles))),
         fontsize=9,
         title_fontsize=9,
-        frameon=False,
+        frameon=True,
+        framealpha=0.92,
     )
 
     counts = _scene_counts(targets)
     ranges = _target_ranges(targets)
+    horizon_hours = (
+        mission.horizon_end - mission.horizon_start
+    ).total_seconds() / 3600.0
     summary_lines = [
         f"Case: {case_path.name}",
-        f"Horizon: {_utc_iso(mission.horizon_start)} to {_utc_iso(mission.horizon_end)}",
+        f"Horizon: {_utc_iso(mission.horizon_start)}",
+        f"to {_utc_iso(mission.horizon_end)}",
+        f"Duration: {horizon_hours:.1f} h",
         "",
-        f"Satellites ({len(satellites)}):",
-        *[f"  - {sat_id}" for sat_id in satellites],
+        f"Satellites: {len(satellites)}",
+        "Ground tracks:",
+        f"  shown: {len(plotted_satellite_ids)}/{len(satellites)}",
+        "  muted representative layer",
+        f"  step: {ground_track_step_s:g}s",
         "",
         f"Targets: {len(targets)}",
         f"  urban_structured: {counts.get('urban_structured', 0)}",
@@ -430,8 +451,7 @@ def render_overview(
     )
 
     out_file.parent.mkdir(parents=True, exist_ok=True)
-    fig.subplots_adjust(left=0.06, right=0.98, top=0.93, bottom=0.18, wspace=0.22)
-    fig.savefig(out_file, dpi=130)
+    fig.savefig(out_file, dpi=180, bbox_inches="tight")
     plt.close(fig)
     return out_file
 
@@ -1044,7 +1064,11 @@ def main(argv: list[str] | None = None) -> int:
     subparsers = parser.add_subparsers(dest="command", required=True)
 
     overview_parser = subparsers.add_parser("overview", help="Render a case overview PNG.")
-    overview_parser.add_argument("case_dir", help="Path to dataset/cases/<case_id>")
+    overview_parser.add_argument(
+        "--case-dir",
+        required=True,
+        help="Path to dataset/cases/<case_id>",
+    )
     overview_parser.add_argument(
         "--out-path",
         type=Path,
@@ -1057,10 +1081,24 @@ def main(argv: list[str] | None = None) -> int:
         default=300.0,
         help="Satellite ground-track sampling step in seconds (default: 300)",
     )
+    overview_parser.add_argument(
+        "--max-ground-tracks",
+        type=int,
+        default=4,
+        help="Maximum representative satellite tracks to draw; use 0 to hide tracks (default: 4)",
+    )
 
     batch_parser = subparsers.add_parser("batch", help="Render pair and tri geometry snapshots.")
-    batch_parser.add_argument("case_dir", help="Path to dataset/cases/<case_id>")
-    batch_parser.add_argument("solution_path", help="Path to solution JSON")
+    batch_parser.add_argument(
+        "--case-dir",
+        required=True,
+        help="Path to dataset/cases/<case_id>",
+    )
+    batch_parser.add_argument(
+        "--solution-path",
+        required=True,
+        help="Path to solution JSON",
+    )
     batch_parser.add_argument(
         "--out-dir",
         type=Path,
@@ -1082,6 +1120,7 @@ def main(argv: list[str] | None = None) -> int:
             args.case_dir,
             out_path,
             ground_track_step_s=args.ground_track_step_s,
+            max_ground_tracks=args.max_ground_tracks,
         )
         print(f"Wrote overview image to {out_path}")
         return 0

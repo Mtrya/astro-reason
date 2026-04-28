@@ -19,6 +19,7 @@ matplotlib.use("Agg")
 import matplotlib.dates as mdates
 import matplotlib.pyplot as plt
 import numpy as np
+from brahe.plots.texture_utils import load_earth_texture
 from PIL import Image
 
 from .geometry import (
@@ -38,10 +39,10 @@ _VISUALIZER_DIR = Path(__file__).resolve().parent
 DEFAULT_PLOTS_DIR = _VISUALIZER_DIR / "plots"
 _TEXTURE_CACHE_DIR = _VISUALIZER_DIR / "cache" / "earth_textures"
 _PREFERRED_TEXTURE_FILENAMES = (
+    "natural_earth.tif",
     "world.topo.200410.3x5400x2700.png",
     "world.topo.200410.3x5400x2700.jpg",
     "blue_marble.jpg",
-    "natural_earth.tif",
 )
 _WORLD_TOPO_DIRECT_URLS = (
     "https://neo.gsfc.nasa.gov/archive/bluemarble/bmng/world_8km/world.topo.200410.3x5400x2700.png",
@@ -152,12 +153,26 @@ def resolve_texture_path(texture_path: Path | None = None) -> Path:
         if candidate.is_file() and _is_equirectangular_texture(candidate):
             return candidate
     try:
-        return _download_blue_marble_texture(_TEXTURE_CACHE_DIR)
-    except Exception:
         return _download_natural_earth_texture(_TEXTURE_CACHE_DIR)
+    except Exception:
+        return _download_blue_marble_texture(_TEXTURE_CACHE_DIR)
 
 
-def _load_texture_image(texture_path: Path) -> np.ndarray:
+def _load_texture_image(texture_path: Path | None = None) -> np.ndarray:
+    if texture_path is None:
+        for texture_name in ("natural_earth_50m", "blue_marble"):
+            try:
+                image = load_earth_texture(texture_name)
+            except Exception:
+                continue
+            if image is not None:
+                return np.asarray(image, dtype=np.uint8)
+        texture_path = resolve_texture_path(None)
+    else:
+        texture_path = Path(texture_path).resolve()
+        if not texture_path.is_file():
+            raise FileNotFoundError(f"Texture path does not exist: {texture_path}")
+
     image = Image.open(texture_path).convert("RGB")
     width, height = image.size
     max_width = 2048
@@ -208,8 +223,7 @@ def render_overview_png(
     states_ecef_by_satellite: dict[str, np.ndarray] | None = None,
 ) -> Path:
     demand = next(demand for demand in case.demands if demand.demand_id == demand_id)
-    actual_texture_path = resolve_texture_path(texture_path)
-    texture = _load_texture_image(actual_texture_path)
+    texture = _load_texture_image(texture_path)
 
     if sample_times is None or states_ecef_by_satellite is None:
         sample_times, states_ecef_by_satellite = build_state_cache(case)

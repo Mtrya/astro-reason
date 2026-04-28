@@ -43,6 +43,15 @@ Benchmark entrypoint invocation follows the file layout:
 
 Do not support both invocation styles for the same entrypoint. (This is part of the public contract, but the contract validator currently selects the first matching entrypoint and does not error when both are present.) Do not add bootstrap hacks (`sys.path` surgery, fake runtime packages) solely to make a nested `run.py` work as a direct path script.
 
+Visualizers are optional inspection tools. When a benchmark provides one, prefer named input flags for consistency:
+
+```bash
+python -m benchmarks.<name>.visualizer.run <command> --case-dir <case_dir>
+python -m benchmarks.<name>.visualizer.run <command> --case-dir <case_dir> --solution-path <solution_path>
+```
+
+Do not make visualizer availability or a benchmark-wide visualizer command matrix a required CI gate.
+
 ## Dataset Contract
 
 The canonical dataset layout for finished benchmarks is:
