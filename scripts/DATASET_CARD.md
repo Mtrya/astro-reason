@@ -24,7 +24,7 @@ Each benchmark is exposed as a separate **config** (subset) within this dataset.
 | `aeossp_standard` | 5 | `test` | Agile Earth-observation satellite scheduling |
 | `regional_coverage` | 5 | `test` | SAR-like regional strip-observation planning |
 | `relay_constellation` | 5 | `test` | Relay satellite constellation augmentation |
-| `revisit_constellation` | 15 | `train`, `test` | Constellation design for uniform target revisit |
+| `revisit_constellation` | 5 | `test` | Constellation design for uniform target revisit |
 | `satnet` | 5 | `test` | Deep Space Network (DSN) antenna scheduling |
 | `spot5` | 21 | `single_orbit`, `multi_orbit`, `test` | SPOT-5 daily photograph scheduling (DCKP) |
 | `stereo_imaging` | 5 | `test` | Optical stereo/tri-stereo imaging planning |
@@ -127,8 +127,7 @@ An optical satellite stereo imaging benchmark. The solver schedules timed observ
 
 ## Data Splits and Splits Policy
 
-- `aeossp_standard`, `regional_coverage`, `relay_constellation`, `satnet`, `stereo_imaging`: Currently expose a single committed split `test`.
-- `revisit_constellation`: Exposes a public generated `train` split for skill, tool, and solver accumulation workflows plus a held-out `test` split for evaluation.
+- `aeossp_standard`, `regional_coverage`, `relay_constellation`, `revisit_constellation`, `satnet`, `stereo_imaging`: Currently expose a single committed split `test`.
 - `spot5`: Exposes three splits:
   - `single_orbit`: 14 cases without memory constraints.
   - `multi_orbit`: 7 cases with a memory capacity of 200.

@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import copy
 import json
 import sys
 from pathlib import Path
@@ -9,6 +8,7 @@ import pytest
 import yaml
 
 import benchmarks.revisit_constellation.generator.run as generator_run
+from benchmarks.revisit_constellation.generator import sources
 
 
 def _write_world_cities_csv(path: Path) -> None:
@@ -155,48 +155,17 @@ def test_main_builds_dataset_from_yaml_and_keeps_download_controls_operational(
     assert all(abs(float(target["latitude_deg"])) < 70.0 for target in targets)
 
 
-def test_main_builds_documented_train_and_test_splits(
-    monkeypatch: pytest.MonkeyPatch,
-    tmp_path: Path,
-) -> None:
-    csv_path = tmp_path / "world_cities.csv"
-    _write_world_cities_csv(csv_path)
-    splits_path = tmp_path / "splits.yaml"
-    _write_splits_yaml(splits_path)
-    payload = yaml.safe_load(splits_path.read_text(encoding="utf-8"))
-    train_config = copy.deepcopy(payload["splits"]["test"])
-    train_config["seed"] = 1000
-    train_config["case_count"] = 3
-    train_config["target_selection_seed_offset"] = 17
-    payload["splits"] = {
-        "train": train_config,
-        "test": payload["splits"]["test"],
-    }
-    splits_path.write_text(yaml.safe_dump(payload, sort_keys=False), encoding="utf-8")
-    output_dir = tmp_path / "output"
+def test_source_schema_match_requires_data_rows(tmp_path: Path) -> None:
+    header_only = tmp_path / "header_only.csv"
+    header_only.write_text("name,country,lat,lng,population\n\n", encoding="utf-8")
+    valid_source = tmp_path / "world_cities.csv"
+    _write_world_cities_csv(valid_source)
 
-    def fake_download_sources(destination_dir: Path, *, force_download: bool = False) -> Path:
-        return csv_path
-
-    monkeypatch.setattr(generator_run, "download_sources", fake_download_sources)
-    monkeypatch.setattr(
-        sys,
-        "argv",
-        ["run.py", str(splits_path), "--output-dir", str(output_dir)],
+    assert not sources._matches_alias_groups(
+        header_only,
+        sources.WORLD_CITIES_REQUIRED_COLUMNS,
     )
-
-    assert generator_run.main() == 0
-
-    index = json.loads((output_dir / "index.json").read_text(encoding="utf-8"))
-    assert index["splits"]["train"]["case_count"] == 3
-    assert index["splits"]["train"]["seed"] == 1000
-    assert index["splits"]["train"]["path"] == "cases/train"
-    assert index["splits"]["train"]["case_ids"] == [
-        "case_0001",
-        "case_0002",
-        "case_0003",
-    ]
-    assert index["splits"]["test"]["case_count"] == 2
-    assert index["splits"]["test"]["seed"] == 42
-    assert (output_dir / "cases" / "train" / "case_0003" / "mission.json").exists()
-    assert (output_dir / "cases" / "test" / "case_0002" / "assets.json").exists()
+    assert sources._matches_alias_groups(
+        valid_source,
+        sources.WORLD_CITIES_REQUIRED_COLUMNS,
+    )

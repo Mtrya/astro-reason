@@ -19,7 +19,7 @@ real submission) for verifier smoke tests; these are not baselines.
 The committed split policy is benchmark-owned:
 
 - `cases/train/case_0001` through `cases/train/case_0010` are public
-  development cases for skill, tool, and solver accumulation workflows.
+  development cases.
 - `cases/test/case_0001` through `cases/test/case_0005` are held-out
   evaluation cases.
 

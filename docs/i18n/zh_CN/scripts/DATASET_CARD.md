@@ -24,7 +24,7 @@ tags:
 | `aeossp_standard` | 5 | `test` | 敏捷地球观测卫星调度 |
 | `regional_coverage` | 5 | `test` | 类 SAR 区域条带观测规划 |
 | `relay_constellation` | 5 | `test` | 中继卫星星座增强 |
-| `revisit_constellation` | 15 | `train`、`test` | 星座设计以实现均匀目标重访 |
+| `revisit_constellation` | 5 | `test` | 星座设计以实现均匀目标重访 |
 | `satnet` | 5 | `test` | 深空网络（DSN）天线调度 |
 | `spot5` | 21 | `single_orbit`, `multi_orbit`, `test` | SPOT-5 每日拍摄调度（DCKP） |
 | `stereo_imaging` | 5 | `test` | 光学立体/三立体成像规划 |
@@ -127,8 +127,7 @@ for config in configs:
 
 ## 数据子集与划分策略
 
-- `aeossp_standard`、`regional_coverage`、`relay_constellation`、`satnet`、`stereo_imaging`：当前暴露单个提交子集 `test`。
-- `revisit_constellation`：暴露一个公开生成的 `train` split，用于 skill、工具和 solver 积累工作流；同时保留 `test` split 用于评估。
+- `aeossp_standard`、`regional_coverage`、`relay_constellation`、`revisit_constellation`、`satnet`、`stereo_imaging`：当前暴露单个提交子集 `test`。
 - `spot5`：暴露三个子集：
   - `single_orbit`：14 个无存储约束的测试实例。
   - `multi_orbit`：7 个存储容量为 200 的测试实例。
