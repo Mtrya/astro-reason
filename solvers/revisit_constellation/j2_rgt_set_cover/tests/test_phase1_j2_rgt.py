@@ -1223,6 +1223,45 @@ def test_opportunity_generation_includes_redundant_visible_targets(
     ]
 
 
+def test_opportunity_refinement_uses_numerical_j2_state_provider(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    case = _synthetic_case(["assigned"], revisit_hours=8.0, max_num_satellites=3)
+    candidate = _synthetic_candidate("candidate", repeat_hours=24.0)
+    coverage = _synthetic_coverage(
+        candidates=[candidate],
+        candidate_to_targets={candidate.candidate_id: ["assigned"]},
+        windows=[_synthetic_window(candidate, "assigned", 1.0)],
+    )
+    selection = select_candidates(case, coverage)
+    satellites = generate_phased_satellites(case, selection)
+    seen_provider: list[bool] = []
+
+    def fake_refined_opportunities(**kwargs):
+        seen_provider.append(kwargs["state_provider"] is not None)
+        return [], 1, {"no_valid_interval": 1}, {}
+
+    monkeypatch.setattr(
+        solution_module,
+        "_refined_opportunities_for_satellite_target",
+        fake_refined_opportunities,
+    )
+
+    build_opportunities(
+        case=case,
+        coverage=coverage,
+        selection=selection,
+        satellites=satellites,
+        config=SchedulingConfig(
+            opportunity_worker_count=1,
+            refinement_propagation="numerical_j2",
+        ),
+    )
+
+    assert seen_provider
+    assert all(seen_provider)
+
+
 def test_gap_aware_action_selection_improves_with_phased_opportunities() -> None:
     case = _synthetic_case(["t1"], revisit_hours=8.0, max_num_satellites=3)
     candidate = _synthetic_candidate("candidate", repeat_hours=24.0)
@@ -1256,6 +1295,86 @@ def test_gap_aware_action_selection_improves_with_phased_opportunities() -> None
     )
 
     assert len(selected) >= 2
+
+
+def test_assigned_first_scheduler_commits_assigned_revisit_before_opportunistic(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(
+        solution_module,
+        "_compatible_with_selected",
+        lambda **_: True,
+    )
+    case = _synthetic_case(["assigned", "uncovered"], revisit_hours=8.0, max_num_satellites=3)
+    candidate = _synthetic_candidate("candidate", repeat_hours=24.0)
+    selection = SelectionSummary(
+        selected_candidates=[
+            SelectedCandidate(
+                candidate=candidate,
+                assigned_target_ids=("assigned",),
+                required_satellites=3,
+                covered_target_ids=("assigned", "uncovered"),
+                redundant_target_ids=("uncovered",),
+            )
+        ],
+        target_assignments={
+            "assigned": TargetAssignment(
+                target_id="assigned",
+                candidate_id=candidate.candidate_id,
+                required_satellites=3,
+                repeat_period_hours=24.0,
+                coverage_margin_score=0.0,
+            )
+        },
+        uncovered_target_ids=["uncovered"],
+        total_required_satellites=3,
+        max_num_satellites=3,
+        rounds=[],
+        budget_near_misses=[],
+        all_targets_covered=False,
+        within_satellite_budget=True,
+    )
+    satellites = generate_phased_satellites(case, selection)
+    opportunities: list[ObservationAction] = []
+    for index, hour in enumerate([8, 16, 24, 32, 40]):
+        satellite = satellites[index % len(satellites)]
+        midpoint = case.horizon_start + timedelta(hours=hour)
+        opportunities.append(
+            ObservationAction(
+                action_type="observation",
+                satellite_id=satellite.satellite_id,
+                target_id="assigned",
+                start=midpoint - timedelta(seconds=15),
+                end=midpoint + timedelta(seconds=15),
+                candidate_id=candidate.candidate_id,
+                opportunity_midpoint_offset_sec=hour * 3600.0,
+            )
+        )
+    midpoint = case.horizon_start + timedelta(hours=12)
+    opportunities.append(
+        ObservationAction(
+            action_type="observation",
+            satellite_id=satellites[0].satellite_id,
+            target_id="uncovered",
+            start=midpoint - timedelta(seconds=15),
+            end=midpoint + timedelta(seconds=15),
+            candidate_id=candidate.candidate_id,
+            opportunity_midpoint_offset_sec=12 * 3600.0,
+        )
+    )
+
+    selected, summary = solution_module.select_assigned_first_actions(
+        case=case,
+        selection=selection,
+        satellites=satellites,
+        opportunities=opportunities,
+        config=SchedulingConfig(min_gap_improvement_sec=1.0),
+    )
+
+    assigned_actions = [action for action in selected if action.target_id == "assigned"]
+    assert len(assigned_actions) == 5
+    assert summary["failed_assigned_target_ids"] == []
+    assert summary["assigned_action_count_before_opportunistic"] == 5
 
 
 def test_action_builder_avoids_same_satellite_overlap() -> None:
@@ -1397,13 +1516,20 @@ def test_full_profile_analytical_rgt_matches_numerical_j2_oracle() -> None:
         ) < config.closure_tolerance_m
 
 
-def test_solve_sh_writes_phase7_status_solution_and_debug(tmp_path: Path) -> None:
+def test_solve_sh_writes_phase8_status_solution_and_debug(tmp_path: Path) -> None:
     config_dir = tmp_path / "config"
     output_dir = tmp_path / "solution"
     config_dir.mkdir()
     (config_dir / "config.yaml").write_text(
         "\n".join(
             [
+                "active_profile: test_smoke",
+                "compute_envelope:",
+                "  name: test_smoke",
+                "  deterministic: true",
+                "profiles:",
+                "  test_smoke:",
+                "    description: tiny test profile",
                 "rgt_search:",
                 "  max_repeat_days: 1",
                 "  min_revolutions_per_day: 15",
@@ -1467,11 +1593,14 @@ def test_solve_sh_writes_phase7_status_solution_and_debug(tmp_path: Path) -> Non
         (output_dir / "debug/solution_summary.json").read_text(encoding="utf-8")
     )
     assert status["status"] == "completed"
-    assert status["phase"] == 7
-    assert status["phase_tag"] == "coarse_evidence_pool_and_refined_realization"
+    assert status["phase"] == 8
+    assert status["phase_tag"] == "experiment_wiring_and_scaled_profiles"
     assert status["closure_search"]["accepted_count"] == 1
     assert status["coverage"]["candidate_count"] == 2
     assert "coarse_hint_count" in status["coverage"]
+    assert status["compute_profile"]["active_profile"] == "test_smoke"
+    assert status["compute_profile"]["compute_envelope"]["name"] == "test_smoke"
+    assert status["compute_profile"]["available_profiles"] == ["test_smoke"]
     assert status["compute_profile"]["coverage_worker_count"] == 2
     assert status["compute_profile"]["opportunity_worker_count"] == 2
     assert status["compute_profile"]["repair_worker_count"] == 2

@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from concurrent.futures import ProcessPoolExecutor
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from datetime import UTC, datetime, timedelta
 from typing import Any
 import math
@@ -20,7 +20,12 @@ from .coverage import (
     VisibilityWindow,
     geometry_sample_from_state,
 )
-from .rgt import EARTH_RADIUS_M, MU_EARTH_M3_S2, brouwer_j2_state_eci
+from .rgt import (
+    EARTH_RADIUS_M,
+    MU_EARTH_M3_S2,
+    brouwer_j2_state_eci,
+    ensure_brahe_ready,
+)
 from .selection import (
     SelectionSummary,
     SelectedCandidate,
@@ -39,12 +44,14 @@ class SchedulingConfig:
     opportunity_sample_step_sec: float = 60.0
     min_gap_improvement_sec: float = 60.0
     validation_sample_step_sec: float = 10.0
+    refinement_propagation: str = "numerical_j2"
     elevation_safety_margin_deg: float = 0.0
     range_safety_margin_m: float = 15_000.0
     off_nadir_safety_margin_deg: float = 0.5
     max_actions: int = 3000
     max_selection_repair_rounds: int = 8
     max_repair_alternates_per_target: int = 8
+    numerical_repair_candidate_limit: int = 64
     opportunity_worker_count: int = 1
     repair_worker_count: int = 1
 
@@ -69,6 +76,9 @@ class SchedulingConfig:
             ),
             validation_sample_step_sec=float(
                 raw.get("validation_sample_step_sec", defaults.validation_sample_step_sec)
+            ),
+            refinement_propagation=str(
+                raw.get("refinement_propagation", defaults.refinement_propagation)
             ),
             elevation_safety_margin_deg=float(
                 raw.get(
@@ -98,6 +108,12 @@ class SchedulingConfig:
                     defaults.max_repair_alternates_per_target,
                 )
             ),
+            numerical_repair_candidate_limit=int(
+                raw.get(
+                    "numerical_repair_candidate_limit",
+                    defaults.numerical_repair_candidate_limit,
+                )
+            ),
             opportunity_worker_count=int(
                 raw.get("opportunity_worker_count", defaults.opportunity_worker_count)
             ),
@@ -112,14 +128,24 @@ class SchedulingConfig:
             "opportunity_sample_step_sec": self.opportunity_sample_step_sec,
             "min_gap_improvement_sec": self.min_gap_improvement_sec,
             "validation_sample_step_sec": self.validation_sample_step_sec,
+            "refinement_propagation": self.refinement_propagation,
             "elevation_safety_margin_deg": self.elevation_safety_margin_deg,
             "range_safety_margin_m": self.range_safety_margin_m,
             "off_nadir_safety_margin_deg": self.off_nadir_safety_margin_deg,
             "max_actions": self.max_actions,
             "max_selection_repair_rounds": self.max_selection_repair_rounds,
             "max_repair_alternates_per_target": self.max_repair_alternates_per_target,
+            "numerical_repair_candidate_limit": self.numerical_repair_candidate_limit,
             "opportunity_worker_count": self.opportunity_worker_count,
             "repair_worker_count": self.repair_worker_count,
+        }
+
+    @property
+    def use_numerical_refinement(self) -> bool:
+        return self.refinement_propagation.lower() in {
+            "numerical",
+            "numerical_j2",
+            "brahe_numerical_j2",
         }
 
 
@@ -157,6 +183,38 @@ class SatellitePlan:
             "mean_anomaly_deg": self.mean_anomaly_deg,
             "state_eci_m_mps": list(self.state_eci_m_mps),
         }
+
+
+class NumericalJ2StateProvider:
+    """Solver-local mirror of the benchmark verifier's J2 propagation model."""
+
+    def __init__(self, case: RevisitCase, satellites: list[SatellitePlan]) -> None:
+        ensure_brahe_ready()
+        start_epoch = datetime_to_epoch(case.horizon_start)
+        end_epoch = datetime_to_epoch(case.horizon_end)
+        force_config = brahe.ForceModelConfig(
+            gravity=brahe.GravityConfiguration.spherical_harmonic(2, 0)
+        )
+        self._propagators: dict[str, brahe.NumericalOrbitPropagator] = {}
+        for satellite in satellites:
+            propagator = brahe.NumericalOrbitPropagator.from_eci(
+                start_epoch,
+                np.asarray(satellite.state_eci_m_mps, dtype=float),
+                force_config=force_config,
+            )
+            propagator.propagate_to(end_epoch)
+            self._propagators[satellite.satellite_id] = propagator
+
+    def state_eci(
+        self,
+        satellite_id: str,
+        instant: datetime,
+    ) -> tuple[float, float, float, float, float, float]:
+        state = np.asarray(
+            self._propagators[satellite_id].state_eci(datetime_to_epoch(instant)),
+            dtype=float,
+        )
+        return tuple(float(value) for value in state)
 
 
 @dataclass(frozen=True, slots=True)
@@ -477,6 +535,9 @@ class SelectionRepairResult:
                 "max_repair_alternates_per_target": (
                     self.config.max_repair_alternates_per_target
                 ),
+                "numerical_repair_candidate_limit": (
+                    self.config.numerical_repair_candidate_limit
+                ),
                 "repair_worker_count": self.config.repair_worker_count,
             },
         }
@@ -523,6 +584,7 @@ def _ground_track_phased_state(
     epoch ``t``.
     """
 
+    ensure_brahe_ready()
     source_offset = mission_offset_sec + phase_offset_sec
     source_epoch = datetime_to_epoch(mission_start + timedelta(seconds=source_offset))
     target_epoch = datetime_to_epoch(mission_start + timedelta(seconds=mission_offset_sec))
@@ -602,7 +664,13 @@ def satellite_state_at(
     selection: SelectionSummary,
     satellite: SatellitePlan,
     offset_sec: float,
+    state_provider: NumericalJ2StateProvider | None = None,
 ) -> tuple[float, float, float, float, float, float]:
+    if state_provider is not None:
+        return state_provider.state_eci(
+            satellite.satellite_id,
+            case.horizon_start + timedelta(seconds=offset_sec),
+        )
     selected_by_candidate = {
         item.candidate.candidate_id: item for item in selection.selected_candidates
     }
@@ -626,11 +694,18 @@ def _action_geometry_valid(
     elevation_safety_margin_deg: float = 0.0,
     range_safety_margin_m: float = 0.0,
     off_nadir_safety_margin_deg: float = 0.0,
+    state_provider: NumericalJ2StateProvider | None = None,
 ) -> bool:
     for sample_offset in _sample_offsets(start, end, sample_step_sec):
         instant = start + timedelta(seconds=sample_offset)
         mission_offset = (instant - case.horizon_start).total_seconds()
-        state = satellite_state_at(case, selection, satellite, mission_offset)
+        state = satellite_state_at(
+            case,
+            selection,
+            satellite,
+            mission_offset,
+            state_provider=state_provider,
+        )
         sample = geometry_sample_from_state(
             case=case,
             target=target,
@@ -940,6 +1015,7 @@ def _refine_action_near_offset(
     nominal_offset_sec: float,
     radius_sec: float,
     config: SchedulingConfig,
+    state_provider: NumericalJ2StateProvider | None = None,
 ) -> tuple[ObservationAction | None, str]:
     horizon_sec = (case.horizon_end - case.horizon_start).total_seconds()
     duration_sec = target.min_duration_sec
@@ -977,6 +1053,7 @@ def _refine_action_near_offset(
             elevation_safety_margin_deg=config.elevation_safety_margin_deg,
             range_safety_margin_m=config.range_safety_margin_m,
             off_nadir_safety_margin_deg=config.off_nadir_safety_margin_deg,
+            state_provider=state_provider,
         ):
             return (
                 ObservationAction(
@@ -1001,6 +1078,7 @@ def _refined_opportunities_for_satellite_target(
     target_id: str,
     hints: list[CoarseVisibilityHint],
     config: SchedulingConfig,
+    state_provider: NumericalJ2StateProvider | None = None,
 ) -> tuple[list[ObservationAction], int, dict[str, int], list[dict[str, Any]]]:
     target = case.targets[target_id]
     horizon_sec = (case.horizon_end - case.horizon_start).total_seconds()
@@ -1031,6 +1109,7 @@ def _refined_opportunities_for_satellite_target(
                 nominal_offset_sec=nominal_offset,
                 radius_sec=radius_sec,
                 config=config,
+                state_provider=state_provider,
             )
             attempts.append(
                 {
@@ -1089,6 +1168,35 @@ def _refined_candidate_target_quality(
         target_ids=[target_id],
     )
     satellites = generate_phased_satellites(case, selection)
+    state_provider = (
+        NumericalJ2StateProvider(case, satellites)
+        if config.use_numerical_refinement
+        else None
+    )
+    return _refined_candidate_target_quality_for_satellites(
+        case=case,
+        candidate=candidate,
+        selection=selection,
+        satellites=satellites,
+        target_id=target_id,
+        hints=hints,
+        config=config,
+        state_provider=state_provider,
+    )
+
+
+def _refined_candidate_target_quality_for_satellites(
+    *,
+    case: RevisitCase,
+    candidate: Any,
+    selection: SelectionSummary,
+    satellites: list[SatellitePlan],
+    target_id: str,
+    hints: list[CoarseVisibilityHint],
+    config: SchedulingConfig,
+    state_provider: NumericalJ2StateProvider | None,
+) -> PhasedOpportunityQuality:
+    target = case.targets[target_id]
     opportunities: list[ObservationAction] = []
     rejection_reasons: dict[str, int] = {}
     attempts = 0
@@ -1101,6 +1209,7 @@ def _refined_candidate_target_quality(
                 target_id=target_id,
                 hints=hints,
                 config=config,
+                state_provider=state_provider,
             )
         )
         opportunities.extend(satellite_opportunities)
@@ -1131,7 +1240,7 @@ def _refined_candidate_target_quality(
     max_gap_hours = max_gap_sec / 3600.0
     return PhasedOpportunityQuality(
         target_id=target_id,
-        candidate_id=candidate_id,
+        candidate_id=candidate.candidate_id,
         required_satellites=satellites_required_for_target(candidate, target),
         opportunity_count=len(midpoint_offsets),
         max_gap_hours=max_gap_hours,
@@ -1267,18 +1376,43 @@ def _quality_candidate_worker(
     ],
 ) -> list[PhasedOpportunityQuality]:
     case, coverage, candidate_id, target_ids, hints_by_target, config = args
-    qualities: list[PhasedOpportunityQuality] = []
+    candidate = _candidate_map(coverage)[candidate_id]
+    targets_by_required_satellites: dict[int, list[str]] = {}
     for target_id in target_ids:
-        qualities.append(
-            _refined_candidate_target_quality(
-                case=case,
-                coverage=coverage,
-                candidate_id=candidate_id,
-                target_id=target_id,
-                hints=hints_by_target.get(target_id, []),
-                config=config,
-            )
+        required_satellites = satellites_required_for_target(
+            candidate,
+            case.targets[target_id],
         )
+        targets_by_required_satellites.setdefault(required_satellites, []).append(
+            target_id
+        )
+    qualities: list[PhasedOpportunityQuality] = []
+    for grouped_target_ids in targets_by_required_satellites.values():
+        selection = _single_candidate_selection(
+            case=case,
+            coverage=coverage,
+            candidate_id=candidate_id,
+            target_ids=sorted(grouped_target_ids),
+        )
+        satellites = generate_phased_satellites(case, selection)
+        state_provider = (
+            NumericalJ2StateProvider(case, satellites)
+            if config.use_numerical_refinement
+            else None
+        )
+        for target_id in sorted(grouped_target_ids):
+            qualities.append(
+                _refined_candidate_target_quality_for_satellites(
+                    case=case,
+                    candidate=candidate,
+                    selection=selection,
+                    satellites=satellites,
+                    target_id=target_id,
+                    hints=hints_by_target.get(target_id, []),
+                    config=config,
+                    state_provider=state_provider,
+                )
+            )
     return qualities
 
 
@@ -1299,7 +1433,69 @@ def _candidate_quality_cache(
     coverage: CoverageSummary,
     target_ids: list[str],
     config: SchedulingConfig,
+    candidate_id_filter: set[str] | None = None,
 ) -> dict[tuple[str, str], PhasedOpportunityQuality]:
+    if config.use_numerical_refinement and candidate_id_filter is None:
+        analytical_config = replace(config, refinement_propagation="analytical_j2")
+        analytical_cache = _candidate_quality_cache(
+            case=case,
+            coverage=coverage,
+            target_ids=target_ids,
+            config=analytical_config,
+        )
+        analytical_profiles = _refined_candidate_profiles(
+            case=case,
+            coverage=coverage,
+            quality_by_pair=analytical_cache,
+        )
+        frontier_ids: set[str] = set()
+        for target_id in sorted(target_ids):
+            target_qualities = [
+                quality
+                for (candidate_id, quality_target_id), quality in analytical_cache.items()
+                if quality_target_id == target_id
+            ]
+            for alternate in sorted(
+                target_qualities,
+                key=lambda item: (
+                    item.capped_max_gap_hours,
+                    item.max_gap_hours,
+                    item.required_satellites,
+                    item.closure_error_m,
+                    item.repeat_period_hours,
+                    item.candidate_id,
+                ),
+            )[: config.max_repair_alternates_per_target]:
+                frontier_ids.add(alternate.candidate_id)
+        ranked_frontier = sorted(
+            frontier_ids,
+            key=lambda candidate_id: (
+                -analytical_profiles[candidate_id].target_count
+                if candidate_id in analytical_profiles
+                else 0,
+                analytical_profiles[candidate_id].required_satellites
+                if candidate_id in analytical_profiles
+                else math.inf,
+                analytical_profiles[candidate_id].average_max_gap_hours
+                if candidate_id in analytical_profiles
+                else math.inf,
+                analytical_profiles[candidate_id].closure_error_m
+                if candidate_id in analytical_profiles
+                else math.inf,
+                candidate_id,
+            ),
+        )
+        limited_frontier = set(
+            ranked_frontier[: max(1, config.numerical_repair_candidate_limit)]
+        )
+        return _candidate_quality_cache(
+            case=case,
+            coverage=coverage,
+            target_ids=target_ids,
+            config=config,
+            candidate_id_filter=limited_frontier,
+        )
+
     hints_by_key = _coarse_hints_by_key(case=case, coverage=coverage)
     target_filter = set(target_ids)
     work_items: list[
@@ -1313,6 +1509,8 @@ def _candidate_quality_cache(
         ]
     ] = []
     for candidate_id in sorted(candidate.candidate_id for candidate in coverage.candidates):
+        if candidate_id_filter is not None and candidate_id not in candidate_id_filter:
+            continue
         candidate_target_ids = [
             target_id
             for target_id in coverage.candidate_to_targets.get(candidate_id, [])
@@ -1839,6 +2037,7 @@ def _opportunity_targets_by_candidate(
     *,
     coverage: CoverageSummary,
     selection: SelectionSummary,
+    include_opportunistic: bool = True,
 ) -> tuple[dict[str, list[str]], dict[str, Any]]:
     assigned_by_candidate = _assigned_targets_by_candidate(selection)
     target_ids_by_candidate: dict[str, list[str]] = {}
@@ -1851,7 +2050,11 @@ def _opportunity_targets_by_candidate(
         candidate_id = selected.candidate.candidate_id
         assigned_targets = set(assigned_by_candidate.get(candidate_id, []))
         visible_targets = set(coverage.candidate_to_targets.get(candidate_id, []))
-        target_ids = sorted(assigned_targets | visible_targets)
+        target_ids = (
+            sorted(assigned_targets | visible_targets)
+            if include_opportunistic
+            else sorted(assigned_targets)
+        )
         target_ids_by_candidate[candidate_id] = target_ids
         for target_id in target_ids:
             if target_id not in assigned_targets:
@@ -1874,28 +2077,43 @@ def _opportunity_targets_by_candidate(
             candidate_id: target_ids
             for candidate_id, target_ids in sorted(target_ids_by_candidate.items())
         },
+        "include_opportunistic": include_opportunistic,
     }
 
 
-def _build_opportunity_worker(
+def _build_satellite_opportunity_worker(
     args: tuple[
         RevisitCase,
         SelectionSummary,
         SatellitePlan,
-        str,
-        list[CoarseVisibilityHint],
+        list[tuple[str, list[CoarseVisibilityHint]]],
         SchedulingConfig,
+        bool,
     ],
 ) -> tuple[list[ObservationAction], int, dict[str, int]]:
-    case, selection, satellite, target_id, hints, config = args
-    opportunities, considered, rejection_reasons, _ = _refined_opportunities_for_satellite_target(
-        case=case,
-        selection=selection,
-        satellite=satellite,
-        target_id=target_id,
-        hints=hints,
-        config=config,
+    case, selection, satellite, target_hint_items, config, use_numerical = args
+    state_provider = (
+        NumericalJ2StateProvider(case, [satellite]) if use_numerical else None
     )
+    opportunities: list[ObservationAction] = []
+    considered = 0
+    rejection_reasons: dict[str, int] = {}
+    for target_id, hints in target_hint_items:
+        target_opportunities, target_considered, target_rejections, _ = (
+            _refined_opportunities_for_satellite_target(
+                case=case,
+                selection=selection,
+                satellite=satellite,
+                target_id=target_id,
+                hints=hints,
+                config=config,
+                state_provider=state_provider,
+            )
+        )
+        opportunities.extend(target_opportunities)
+        considered += target_considered
+        for reason, count in target_rejections.items():
+            rejection_reasons[reason] = rejection_reasons.get(reason, 0) + count
     return opportunities, considered, rejection_reasons
 
 
@@ -1906,10 +2124,17 @@ def build_opportunities(
     selection: SelectionSummary,
     satellites: list[SatellitePlan],
     config: SchedulingConfig,
+    include_opportunistic: bool = True,
 ) -> tuple[list[ObservationAction], int, dict[str, Any]]:
     horizon_sec = (case.horizon_end - case.horizon_start).total_seconds()
     target_ids_by_candidate, opportunity_target_summary = (
         _opportunity_targets_by_candidate(coverage=coverage, selection=selection)
+        if include_opportunistic
+        else _opportunity_targets_by_candidate(
+            coverage=coverage,
+            selection=selection,
+            include_opportunistic=False,
+        )
     )
     hints_by_key = _coarse_hints_by_key(case=case, coverage=coverage)
     satellites_by_candidate: dict[str, list[SatellitePlan]] = {}
@@ -1926,27 +2151,36 @@ def build_opportunities(
             RevisitCase,
             SelectionSummary,
             SatellitePlan,
-            str,
-            list[CoarseVisibilityHint],
+            list[tuple[str, list[CoarseVisibilityHint]]],
             SchedulingConfig,
+            bool,
         ]
     ] = []
     for candidate_id, target_ids in sorted(target_ids_by_candidate.items()):
-        for target_id in target_ids:
-            hints = hints_by_key.get((candidate_id, target_id), [])
-            for satellite in satellites_by_candidate.get(candidate_id, []):
-                work_items.append(
-                    (case, selection, satellite, target_id, hints, config)
+        target_hint_items = [
+            (target_id, hints_by_key.get((candidate_id, target_id), []))
+            for target_id in target_ids
+        ]
+        for satellite in satellites_by_candidate.get(candidate_id, []):
+            work_items.append(
+                (
+                    case,
+                    selection,
+                    satellite,
+                    target_hint_items,
+                    config,
+                    config.use_numerical_refinement,
                 )
+            )
     worker_count = _resolved_worker_count(
         config.opportunity_worker_count,
         len(work_items),
     )
     if worker_count > 1:
         with ProcessPoolExecutor(max_workers=worker_count) as executor:
-            results = list(executor.map(_build_opportunity_worker, work_items))
+            results = list(executor.map(_build_satellite_opportunity_worker, work_items))
     else:
-        results = [_build_opportunity_worker(item) for item in work_items]
+        results = [_build_satellite_opportunity_worker(item) for item in work_items]
     for worker_opportunities, worker_considered, worker_rejections in results:
         opportunities.extend(worker_opportunities)
         considered += worker_considered
@@ -1979,15 +2213,33 @@ def _max_gap_sec(case: RevisitCase, target_id: str, midpoints: list[datetime]) -
     return max((right - left).total_seconds() for left, right in zip(times, times[1:]))
 
 
+def _gap_profile_sec(case: RevisitCase, midpoints: list[datetime]) -> tuple[float, ...]:
+    times = [case.horizon_start, *sorted(set(midpoints)), case.horizon_end]
+    gaps = [
+        (right - left).total_seconds()
+        for left, right in zip(times, times[1:])
+    ]
+    return tuple(sorted(gaps, reverse=True))
+
+
 def _target_vector_eci(
     case: RevisitCase,
     selection: SelectionSummary,
     satellite: SatellitePlan,
     target_id: str,
     instant: datetime,
+    state_provider: NumericalJ2StateProvider | None = None,
 ) -> np.ndarray:
     mission_offset = (instant - case.horizon_start).total_seconds()
-    state = np.asarray(satellite_state_at(case, selection, satellite, mission_offset))
+    state = np.asarray(
+        satellite_state_at(
+            case,
+            selection,
+            satellite,
+            mission_offset,
+            state_provider=state_provider,
+        )
+    )
     target_eci = np.asarray(
         brahe.position_ecef_to_eci(
             datetime_to_epoch(instant),
@@ -2029,6 +2281,7 @@ def _compatible_with_selected(
     satellites_by_id: dict[str, SatellitePlan],
     action: ObservationAction,
     selected: list[ObservationAction],
+    state_provider: NumericalJ2StateProvider | None = None,
 ) -> bool:
     satellite = satellites_by_id[action.satellite_id]
     for existing in selected:
@@ -2047,6 +2300,7 @@ def _compatible_with_selected(
             satellite,
             previous.target_id,
             previous.midpoint,
+            state_provider=state_provider,
         )
         current_vector = _target_vector_eci(
             case,
@@ -2054,6 +2308,7 @@ def _compatible_with_selected(
             satellite,
             current.target_id,
             current.midpoint,
+            state_provider=state_provider,
         )
         required_gap = (
             _slew_time_sec(case, _angle_between_deg(previous_vector, current_vector))
@@ -2072,10 +2327,15 @@ def select_gap_aware_actions(
     satellites: list[SatellitePlan],
     opportunities: list[ObservationAction],
     config: SchedulingConfig,
+    initial_selected: list[ObservationAction] | None = None,
+    allowed_target_ids: set[str] | None = None,
+    state_provider: NumericalJ2StateProvider | None = None,
 ) -> list[ObservationAction]:
-    selected: list[ObservationAction] = []
+    selected: list[ObservationAction] = [] if initial_selected is None else list(initial_selected)
     used_indexes: set[int] = set()
     midpoints_by_target: dict[str, list[datetime]] = {target_id: [] for target_id in case.targets}
+    for action in selected:
+        midpoints_by_target.setdefault(action.target_id, []).append(action.midpoint)
     satellites_by_id = {satellite.satellite_id: satellite for satellite in satellites}
     min_improvement_sec = max(0.0, config.min_gap_improvement_sec)
 
@@ -2084,12 +2344,18 @@ def select_gap_aware_actions(
         for index, opportunity in enumerate(opportunities):
             if index in used_indexes:
                 continue
+            if (
+                allowed_target_ids is not None
+                and opportunity.target_id not in allowed_target_ids
+            ):
+                continue
             if not _compatible_with_selected(
                 case=case,
                 selection=selection,
                 satellites_by_id=satellites_by_id,
                 action=opportunity,
                 selected=selected,
+                state_provider=state_provider,
             ):
                 continue
             target = case.targets[opportunity.target_id]
@@ -2124,6 +2390,191 @@ def select_gap_aware_actions(
     return sorted(
         selected,
         key=lambda item: (item.start, item.end, item.satellite_id, item.target_id),
+    )
+
+
+def _target_revisit_satisfied(
+    case: RevisitCase,
+    target_id: str,
+    midpoints: list[datetime],
+) -> bool:
+    threshold_sec = case.targets[target_id].expected_revisit_period_hours * 3600.0
+    return _max_gap_sec(case, target_id, midpoints) <= threshold_sec + NUMERICAL_EPS
+
+
+def _select_assigned_target_actions(
+    *,
+    case: RevisitCase,
+    selection: SelectionSummary,
+    satellites_by_id: dict[str, SatellitePlan],
+    target_id: str,
+    opportunities: list[ObservationAction],
+    selected: list[ObservationAction],
+    used_indexes: set[int],
+    config: SchedulingConfig,
+    state_provider: NumericalJ2StateProvider | None = None,
+) -> tuple[list[ObservationAction], dict[str, Any]]:
+    chosen_for_target: list[ObservationAction] = [
+        action for action in selected if action.target_id == target_id
+    ]
+    target = case.targets[target_id]
+    iterations = 0
+    while (
+        len(selected) < config.max_actions
+        and not _target_revisit_satisfied(case, target_id, [a.midpoint for a in chosen_for_target])
+    ):
+        existing_midpoints = [action.midpoint for action in chosen_for_target]
+        old_profile = _gap_profile_sec(case, existing_midpoints)
+        best: tuple[tuple[Any, ...], int, ObservationAction] | None = None
+        for index, opportunity in enumerate(opportunities):
+            if index in used_indexes or opportunity.target_id != target_id:
+                continue
+            if not _compatible_with_selected(
+                case=case,
+                selection=selection,
+                satellites_by_id=satellites_by_id,
+                action=opportunity,
+                selected=selected,
+                state_provider=state_provider,
+            ):
+                continue
+            new_profile = _gap_profile_sec(
+                case,
+                [*existing_midpoints, opportunity.midpoint],
+            )
+            if new_profile >= old_profile:
+                continue
+            score = (
+                new_profile,
+                opportunity.midpoint,
+                opportunity.satellite_id,
+                opportunity.candidate_id,
+            )
+            if best is None or score < best[0]:
+                best = (score, index, opportunity)
+        if best is None:
+            break
+        _, index, action = best
+        used_indexes.add(index)
+        selected.append(action)
+        chosen_for_target.append(action)
+        iterations += 1
+
+    midpoints = [action.midpoint for action in chosen_for_target]
+    final_gap_sec = _max_gap_sec(case, target_id, midpoints)
+    return chosen_for_target, {
+        "target_id": target_id,
+        "selected_action_count": len(chosen_for_target),
+        "final_max_gap_hours": final_gap_sec / 3600.0,
+        "expected_revisit_period_hours": target.expected_revisit_period_hours,
+        "revisit_satisfied": _target_revisit_satisfied(case, target_id, midpoints),
+        "iterations": iterations,
+    }
+
+
+def select_assigned_first_actions(
+    *,
+    case: RevisitCase,
+    selection: SelectionSummary,
+    satellites: list[SatellitePlan],
+    opportunities: list[ObservationAction],
+    config: SchedulingConfig,
+    state_provider: NumericalJ2StateProvider | None = None,
+) -> tuple[list[ObservationAction], dict[str, Any]]:
+    satellites_by_id = {satellite.satellite_id: satellite for satellite in satellites}
+    assigned_opportunities_by_target: dict[str, list[ObservationAction]] = {}
+    for opportunity in opportunities:
+        assignment = selection.target_assignments.get(opportunity.target_id)
+        if assignment is None or assignment.candidate_id != opportunity.candidate_id:
+            continue
+        assigned_opportunities_by_target.setdefault(
+            opportunity.target_id,
+            [],
+        ).append(opportunity)
+
+    target_order = sorted(
+        selection.target_assignments,
+        key=lambda target_id: (
+            len(assigned_opportunities_by_target.get(target_id, [])),
+            case.targets[target_id].expected_revisit_period_hours,
+            target_id,
+        ),
+    )
+    selected: list[ObservationAction] = []
+    used_indexes: set[int] = set()
+    target_summaries: dict[str, Any] = {}
+    for target_id in target_order:
+        target_opportunities = assigned_opportunities_by_target.get(target_id, [])
+        if not target_opportunities:
+            target_summaries[target_id] = {
+                "target_id": target_id,
+                "selected_action_count": 0,
+                "available_opportunity_count": 0,
+                "final_max_gap_hours": (
+                    case.horizon_end - case.horizon_start
+                ).total_seconds()
+                / 3600.0,
+                "expected_revisit_period_hours": case.targets[
+                    target_id
+                ].expected_revisit_period_hours,
+                "revisit_satisfied": False,
+                "iterations": 0,
+            }
+            continue
+        before = len(selected)
+        _, summary = _select_assigned_target_actions(
+            case=case,
+            selection=selection,
+            satellites_by_id=satellites_by_id,
+            target_id=target_id,
+            opportunities=opportunities,
+            selected=selected,
+            used_indexes=used_indexes,
+            config=config,
+            state_provider=state_provider,
+        )
+        summary["available_opportunity_count"] = len(target_opportunities)
+        summary["added_action_count"] = len(selected) - before
+        target_summaries[target_id] = summary
+
+    assigned_action_count = len(selected)
+    opportunistic_targets = set(selection.uncovered_target_ids)
+    opportunistic_opportunities = [
+        opportunity
+        for index, opportunity in enumerate(opportunities)
+        if index not in used_indexes and opportunity.target_id in opportunistic_targets
+    ]
+    if opportunistic_targets and len(selected) < config.max_actions:
+        selected = select_gap_aware_actions(
+            case=case,
+            selection=selection,
+            satellites=satellites,
+            opportunities=opportunistic_opportunities,
+            config=config,
+            initial_selected=selected,
+            allowed_target_ids=opportunistic_targets,
+            state_provider=state_provider,
+        )
+
+    failed_assigned = sorted(
+        target_id
+        for target_id, summary in target_summaries.items()
+        if not summary["revisit_satisfied"]
+    )
+    return (
+        sorted(
+            selected,
+            key=lambda item: (item.start, item.end, item.satellite_id, item.target_id),
+        ),
+        {
+            "strategy": "assigned_first_then_uncovered_opportunistic",
+            "assigned_target_count": len(target_order),
+            "assigned_action_count_before_opportunistic": assigned_action_count,
+            "opportunistic_target_ids": sorted(opportunistic_targets),
+            "opportunistic_action_count": max(0, len(selected) - assigned_action_count),
+            "failed_assigned_target_ids": failed_assigned,
+            "target_summaries": target_summaries,
+        },
     )
 
 
@@ -2192,6 +2643,7 @@ def validate_solution_locally(
     satellites: list[SatellitePlan],
     actions: list[ObservationAction],
     config: SchedulingConfig,
+    state_provider: NumericalJ2StateProvider | None = None,
 ) -> ValidationSummary:
     errors: list[str] = []
     warnings: list[str] = []
@@ -2237,6 +2689,7 @@ def validate_solution_locally(
             elevation_safety_margin_deg=config.elevation_safety_margin_deg,
             range_safety_margin_m=config.range_safety_margin_m,
             off_nadir_safety_margin_deg=config.off_nadir_safety_margin_deg,
+            state_provider=state_provider,
         ):
             errors.append(
                 f"action[{index}] fails local sampled visibility for {action.target_id}"
@@ -2257,6 +2710,7 @@ def validate_solution_locally(
                 satellite,
                 previous.target_id,
                 previous.midpoint,
+                state_provider=state_provider,
             )
             current_vector = _target_vector_eci(
                 case,
@@ -2264,6 +2718,7 @@ def validate_solution_locally(
                 satellite,
                 current.target_id,
                 current.midpoint,
+                state_provider=state_provider,
             )
             required_gap = (
                 _slew_time_sec(case, _angle_between_deg(previous_vector, current_vector))
@@ -2320,6 +2775,13 @@ def build_solution(
     satellites = generate_phased_satellites(case, selection)
     satellite_generation_sec = time.perf_counter() - stage_start
     stage_start = time.perf_counter()
+    state_provider = (
+        NumericalJ2StateProvider(case, satellites)
+        if config.use_numerical_refinement
+        else None
+    )
+    state_provider_sec = time.perf_counter() - stage_start
+    stage_start = time.perf_counter()
     opportunities, considered, opportunity_refinement_summary = build_opportunities(
         case=case,
         coverage=coverage,
@@ -2329,12 +2791,13 @@ def build_solution(
     )
     opportunity_generation_sec = time.perf_counter() - stage_start
     stage_start = time.perf_counter()
-    actions = select_gap_aware_actions(
+    actions, action_selection_summary = select_assigned_first_actions(
         case=case,
         selection=selection,
         satellites=satellites,
         opportunities=opportunities,
         config=config,
+        state_provider=state_provider,
     )
     action_selection_sec = time.perf_counter() - stage_start
     stage_start = time.perf_counter()
@@ -2344,6 +2807,7 @@ def build_solution(
         satellites=satellites,
         actions=actions,
         config=config,
+        state_provider=state_provider,
     )
     validation_sec = time.perf_counter() - stage_start
     target_gap_summary = compute_target_gap_summary(case, actions)
@@ -2353,12 +2817,16 @@ def build_solution(
         actions=actions,
         opportunities_considered=considered,
         opportunities_visibility_valid=len(opportunities),
-        opportunity_refinement_summary=opportunity_refinement_summary,
+        opportunity_refinement_summary={
+            **opportunity_refinement_summary,
+            "action_selection_summary": action_selection_summary,
+        },
         target_gap_summary=target_gap_summary,
         validation=validation,
         config=config,
         timing_seconds={
             "satellite_generation": satellite_generation_sec,
+            "numerical_state_provider": state_provider_sec,
             "opportunity_generation": opportunity_generation_sec,
             "action_selection": action_selection_sec,
             "local_validation": validation_sec,

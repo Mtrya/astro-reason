@@ -2,11 +2,10 @@
 
 This solver is being built for `revisit_constellation` issue #133.
 
-Phase 4 implements the first concrete solution path: J2-aware
-repeat-ground-track orbit-template construction, RAAN-phased candidate coverage
-envelopes, satellite-cost set-cover selection, equal-phase satellite
-population, and a gap-aware observation scheduler. Main-solver experiment
-wiring and public-case profiling are intentionally left for later phases.
+Phase 8 wires the concrete solution path into `experiments/main_solver` after
+J2-aware repeat-ground-track orbit-template construction, RAAN-phased candidate
+coverage envelopes, satellite-cost set-cover selection, equal-phase satellite
+population, phased-opportunity repair, and opportunistic gap reduction.
 
 The solver is standalone. It reads benchmark case files directly and does not
 import benchmark, experiment, runtime, or other solver internals.
@@ -18,7 +17,7 @@ import benchmark, experiment, runtime, or other solver internals.
 ./solve.sh <case_dir> [config_dir] [solution_dir]
 ```
 
-Phase 4 writes:
+The solver writes:
 
 - `solution.json`: phased satellites plus locally validated observation actions
 - `status.json`: closure-search, candidate-coverage, and selection summaries
@@ -26,6 +25,11 @@ Phase 4 writes:
 - `debug/coverage_summary.json`: RAAN-phased candidates, access windows, and deterministic target/candidate indexes
 - `debug/selection_summary.json`: selected candidates, assigned targets, total satellite cost, and budget blockers
 - `debug/solution_summary.json`: phased satellites, selected actions, target gaps, and local validation details
+
+Experiment-owned profiles are defined in
+`experiments/main_solver/solvers/revisit_constellation_j2_rgt_set_cover.yaml`.
+The solver records `active_profile`, `compute_envelope`, and worker counts in
+`status.json.compute_profile`; it does not run the official verifier itself.
 
 ## Terminology
 
@@ -125,18 +129,30 @@ The selection summary assigns covered targets to selected candidates and reports
 budget blockers. Phase 4 consumes that summary to generate concrete satellites
 and scheduled observations.
 
-## Phase 4 Method
+## Phase 4-7 Method
 
-Each selected RAAN-phased candidate is expanded into the selected satellite
-count by equal mean-anomaly spacing. The scheduler directly samples the selected
-phased satellites over the mission horizon, builds target-specific opportunity
-timelines, and greedily inserts observations that reduce capped maximum revisit
-gap. Same-satellite overlap and slew/settle gaps are checked before insertion.
+Each selected RAAN-phased candidate is expanded into concrete satellites by
+equal ground-track phase spacing. Analytical J2 remains the architecture-search
+model, but final realization uses the same Brahe numerical J2 force model as the
+benchmark verifier for opportunity refinement, slew vectors, and local sampled
+visibility checks.
+
+Repair first ranks the broad candidate pool analytically, then validates a
+bounded deterministic repair frontier numerically before repacking candidate
+sets. This keeps the repacker aligned with official propagation without
+requiring full numerical propagation for every RAAN candidate.
+
+The final scheduler is assigned-first. For each target assigned to a selected
+candidate, it fills that target's phased opportunity timeline until the target
+revisit threshold is satisfied, using deterministic gap-profile ties. Only after
+assigned targets are realized does it use remaining compatible opportunities for
+uncovered targets. Same-satellite overlap and slew/settle gaps are checked
+before insertion.
 
 The solver-local validator checks benchmark-shaped references, timing, orbit
 bounds, sampled visibility, same-satellite overlap, conservative slew gaps, and
 a conservative no-charge battery risk. This validation is intentionally local;
-official experiment-owned verification remains a later phase.
+official verification belongs to `experiments/main_solver`.
 
 ## Validation
 

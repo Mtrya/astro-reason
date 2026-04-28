@@ -24,6 +24,19 @@ def write_json(path: Path, payload: Any) -> None:
     path.write_text(json.dumps(payload, indent=2, sort_keys=True), encoding="utf-8")
 
 
+def _profile_status(config: dict[str, Any]) -> dict[str, Any]:
+    profiles = config.get("profiles")
+    profile_keys = sorted(profiles) if isinstance(profiles, dict) else []
+    compute_envelope = config.get("compute_envelope")
+    return {
+        "active_profile": str(config.get("active_profile", "custom")),
+        "compute_envelope": (
+            compute_envelope if isinstance(compute_envelope, dict) else {}
+        ),
+        "available_profiles": profile_keys,
+    }
+
+
 def solve(case_dir: str, config_dir: str | None, solution_dir: str | None) -> int:
     start_time = time.perf_counter()
     output_dir = Path(solution_dir or ".").resolve()
@@ -95,7 +108,9 @@ def solve(case_dir: str, config_dir: str | None, solution_dir: str | None) -> in
         write_json(debug_dir / "solution_summary.json", solution_result.as_debug_dict())
         timing_seconds["debug_writes"] = time.perf_counter() - stage_start
         timing_seconds["total"] = time.perf_counter() - start_time
+        profile_status = _profile_status(config)
         compute_profile = {
+            **profile_status,
             "coverage_worker_count": coverage.config.worker_count,
             "opportunity_worker_count": scheduling_config.opportunity_worker_count,
             "repair_worker_count": scheduling_config.repair_worker_count,
@@ -104,8 +119,8 @@ def solve(case_dir: str, config_dir: str | None, solution_dir: str | None) -> in
         }
         status = {
             "status": "completed",
-            "phase": 7,
-            "phase_tag": "coarse_evidence_pool_and_refined_realization",
+            "phase": 8,
+            "phase_tag": "experiment_wiring_and_scaled_profiles",
             "case_dir": str(case.case_dir),
             "timing_seconds": timing_seconds,
             "compute_profile": compute_profile,
@@ -130,7 +145,7 @@ def solve(case_dir: str, config_dir: str | None, solution_dir: str | None) -> in
         }
         write_json(output_dir / "status.json", status)
         print(
-            "phase7 rgt templates/candidates/solution: "
+            "phase8 rgt templates/candidates/solution: "
             f"{len(result.accepted_templates)} accepted, "
             f"{len(result.rejected_templates)} rejected, "
             f"{len(coverage.candidates)} candidates, "
@@ -142,6 +157,7 @@ def solve(case_dir: str, config_dir: str | None, solution_dir: str | None) -> in
             f"workers={coverage.config.worker_count}/"
             f"{scheduling_config.opportunity_worker_count}/"
             f"{scheduling_config.repair_worker_count}, "
+            f"profile={profile_status['active_profile']}, "
             f"local_valid={solution_result.validation.is_valid}"
         )
         return 0
@@ -150,7 +166,7 @@ def solve(case_dir: str, config_dir: str | None, solution_dir: str | None) -> in
             output_dir / "status.json",
             {
                 "status": "error",
-                "phase": 7,
+                "phase": 8,
                 "error": f"{type(exc).__name__}: {exc}",
                 "timing_seconds": {"total": time.perf_counter() - start_time},
             },

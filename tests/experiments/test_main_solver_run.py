@@ -203,3 +203,63 @@ def test_aggregate_rows_include_coverage_metrics(tmp_path: Path) -> None:
     assert rows[0]["weighted_coverage_ratio"] == 0.2
     assert rows[0]["num_actions"] == 3
     assert rows[0]["min_battery_wh"] == 12.5
+
+
+def test_aggregate_rows_include_generic_solver_status_counts(tmp_path: Path) -> None:
+    run_dir = (
+        tmp_path
+        / "revisit_constellation"
+        / "revisit_constellation_j2_rgt_set_cover"
+        / "test__case_0001"
+    )
+    run_dir.mkdir(parents=True)
+    (run_dir / "run.json").write_text(
+        json.dumps(
+            {
+                "benchmark": "revisit_constellation",
+                "solver": "revisit_constellation_j2_rgt_set_cover",
+                "case_id": "test/case_0001",
+                "status": "verified",
+                "evidence_type": "reproduced_solver",
+                "runnable": True,
+                "solver_config": {"active_profile": "smoke"},
+                "solver_status": {
+                    "compute_profile": {
+                        "active_profile": "smoke",
+                        "compute_envelope": {
+                            "deterministic": True,
+                            "worker_count_policy": "fixed_4_workers",
+                        },
+                        "coverage_worker_count": 4,
+                    },
+                    "coverage": {"candidate_count": 288},
+                    "selection": {"total_required_satellites": 15},
+                    "solution": {
+                        "action_count": 143,
+                        "observed_target_count": 23,
+                        "unobserved_target_count": 0,
+                        "high_gap_target_count": 0,
+                    },
+                },
+                "verifier": {
+                    "valid": True,
+                    "metrics": {"capped_max_revisit_gap_hours": 8.0},
+                },
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    rows = _rows(tmp_path)
+
+    assert rows[0]["active_profile"] == "smoke"
+    assert rows[0]["compute_envelope"] == (
+        '{"deterministic":true,"worker_count_policy":"fixed_4_workers"}'
+    )
+    assert rows[0]["candidate_worker_count"] == 4
+    assert rows[0]["candidate_count"] == 288
+    assert rows[0]["selected_satellite_count"] == 15
+    assert rows[0]["action_count"] == 143
+    assert rows[0]["observed_target_count"] == 23
+    assert rows[0]["unobserved_target_count"] == 0
+    assert rows[0]["high_gap_target_count"] == 0

@@ -61,6 +61,13 @@
       "case_and_fixture_paths": []
     },
     {
+      "benchmark": "revisit_constellation",
+      "solver": "j2_rgt_set_cover",
+      "repro_ci": false,
+      "repro_ci_reason": "too_expensive",
+      "case_and_fixture_paths": []
+    },
+    {
       "benchmark": "regional_coverage",
       "solver": "celf_submodular",
       "repro_ci": true,

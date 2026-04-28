@@ -62,13 +62,29 @@ def _json_compact(value: Any) -> str | None:
 
 
 def _solver_count(payload: dict[str, Any], key: str) -> Any:
-    baseline = _solver_status(payload).get("baseline_evidence")
+    status = _solver_status(payload)
+    baseline = status.get("baseline_evidence")
     if not isinstance(baseline, dict):
-        return None
-    counts = baseline.get("counts")
-    if not isinstance(counts, dict):
-        return None
-    return counts.get(key)
+        counts = None
+    else:
+        counts = baseline.get("counts")
+    if isinstance(counts, dict) and key in counts:
+        return counts.get(key)
+    if key == "selected_satellite_count":
+        return _nested(status, "selection", "total_required_satellites") or _nested(
+            status,
+            "solution",
+            "satellite_count",
+        )
+    if key == "action_count":
+        return _nested(status, "solution", "action_count")
+    if key == "observed_target_count":
+        return _nested(status, "solution", "observed_target_count")
+    if key == "unobserved_target_count":
+        return _nested(status, "solution", "unobserved_target_count")
+    if key == "high_gap_target_count":
+        return _nested(status, "solution", "high_gap_target_count")
+    return None
 
 
 def _revisit_metric(payload: dict[str, Any], key: str) -> Any:
@@ -143,6 +159,8 @@ def _rows(results_root: Path) -> list[dict[str, Any]]:
         cp_summary = _nested(solver_status, "cp_summary") or {}
         local_search_summary = _nested(solver_status, "local_search_summary") or {}
         greedy_summary = _nested(solver_status, "greedy_summary") or {}
+        coverage_summary = _nested(solver_status, "coverage") or {}
+        compute_profile = _nested(solver_status, "compute_profile") or {}
         rows.append(
             {
                 "benchmark": payload.get("benchmark"),
@@ -196,6 +214,12 @@ def _rows(results_root: Path) -> list[dict[str, Any]]:
                 "num_actions": _metric(payload, "num_actions"),
                 "min_battery_wh": _metric(payload, "min_battery_wh"),
                 "execution_mode": solver_status.get("execution_mode"),
+                "active_profile": compute_profile.get("active_profile")
+                or _nested(payload, "solver_config", "active_profile"),
+                "compute_envelope": _json_compact(
+                    compute_profile.get("compute_envelope")
+                    or _nested(payload, "solver_config", "compute_envelope")
+                ),
                 "solve_duration_seconds": _nested(payload, "solve", "duration_seconds"),
                 "verifier_duration_seconds": _nested(payload, "verifier", "execution", "duration_seconds"),
                 "solver_timing_total_s": timing.get("total"),
@@ -208,8 +232,10 @@ def _rows(results_root: Path) -> list[dict[str, Any]]:
                 "timing_local_validation_s": wall_phases.get("local_validation"),
                 "timing_cp_repair_total_s": cp_repair_timing.get("total"),
                 "candidate_execution_model": candidate_summary.get("execution_model"),
-                "candidate_worker_count": candidate_summary.get("worker_count"),
-                "candidate_count": candidate_summary.get("candidate_count"),
+                "candidate_worker_count": candidate_summary.get("worker_count")
+                or compute_profile.get("coverage_worker_count"),
+                "candidate_count": candidate_summary.get("candidate_count")
+                or coverage_summary.get("candidate_count"),
                 "positive_coverage_candidate_count": candidate_summary.get("positive_coverage_candidate_count"),
                 "evaluated_candidate_count": candidate_summary.get("evaluated_candidate_count"),
                 "propagated_window_count": candidate_summary.get("propagated_window_count"),
@@ -286,6 +312,8 @@ def _write_csv(path: Path, rows: list[dict[str, Any]]) -> None:
         "num_actions",
         "min_battery_wh",
         "execution_mode",
+        "active_profile",
+        "compute_envelope",
         "solve_duration_seconds",
         "verifier_duration_seconds",
         "solver_timing_total_s",

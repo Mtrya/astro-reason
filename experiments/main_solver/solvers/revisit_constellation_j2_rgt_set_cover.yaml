@@ -1,0 +1,202 @@
+id: revisit_constellation_j2_rgt_set_cover
+benchmark: revisit_constellation
+solver: j2_rgt_set_cover
+solver_path: solvers/revisit_constellation/j2_rgt_set_cover
+evidence_type: reproduced_solver
+runnable: true
+setup_script: setup.sh
+solve_script: solve.sh
+solution_filename: solution.json
+evaluation_policy:
+  profile: smoke
+  purpose: "J2-aware repeat-ground-track set-cover solver adapted to revisit_constellation."
+  compute_envelope:
+    expected_smoke_wall_time_seconds: 240
+    expected_public_case_wall_time_seconds: 300
+    expected_full_test_split_wall_time_seconds: 1500
+    worker_count_policy: fixed_profile_workers
+    deterministic: true
+  notes:
+    - "Experiment-owned verifier establishes official validity."
+    - "Profiles differ only by deterministic candidate density and worker counts."
+    - "Public performance promotion is deferred to the Phase 9 audit."
+config:
+  active_profile: smoke
+  compute_envelope:
+    name: smoke
+    deterministic: true
+    expected_case_wall_time_seconds: 240
+    worker_count_policy: fixed_4_workers
+  rgt_search:
+    max_repeat_days: 2
+    min_revolutions_per_day: 12
+    max_revolutions_per_day: 16
+    inclinations_deg: [30.0, 45.0, 53.0, 63.4, 75.0, 97.8]
+    max_templates: 12
+    closure_tolerance_m: 5000.0
+    refinement_iterations: 8
+  coverage:
+    raan_count: 24
+    raan_start_deg: 0.0
+    sample_step_sec: 300.0
+    keep_samples_per_window: 4
+    worker_count: 4
+  scheduling:
+    observation_duration_sec: 30.0
+    opportunity_sample_step_sec: 60.0
+    min_gap_improvement_sec: 60.0
+    validation_sample_step_sec: 10.0
+    refinement_propagation: numerical_j2
+    elevation_safety_margin_deg: 0.0
+    range_safety_margin_m: 15000.0
+    off_nadir_safety_margin_deg: 0.5
+    max_actions: 3000
+    max_selection_repair_rounds: 8
+    max_repair_alternates_per_target: 8
+    numerical_repair_candidate_limit: 64
+    opportunity_worker_count: 4
+    repair_worker_count: 4
+  profiles:
+    smoke:
+      description: Fast deterministic smoke profile used for official single-case verification.
+      compute_envelope:
+        expected_case_wall_time_seconds: 240
+        worker_count_policy: fixed_4_workers
+        deterministic: true
+    fair:
+      description: Public-case profile with denser RAAN coverage and bounded parallelism.
+      compute_envelope:
+        expected_case_wall_time_seconds: 300
+        worker_count_policy: fixed_6_workers
+        deterministic: true
+      rgt_search:
+        max_repeat_days: 2
+        min_revolutions_per_day: 12
+        max_revolutions_per_day: 16
+        inclinations_deg: [30.0, 45.0, 53.0, 63.4, 75.0, 97.8]
+        max_templates: 16
+        closure_tolerance_m: 5000.0
+        refinement_iterations: 8
+      coverage:
+        raan_count: 36
+        raan_start_deg: 0.0
+        sample_step_sec: 240.0
+        keep_samples_per_window: 4
+        worker_count: 6
+      scheduling:
+        opportunity_worker_count: 6
+        repair_worker_count: 6
+    scaled_search:
+      description: Denser deterministic architecture-search probe for frontier evidence.
+      compute_envelope:
+        expected_case_wall_time_seconds: 360
+        worker_count_policy: fixed_8_workers
+        deterministic: true
+      rgt_search:
+        max_repeat_days: 2
+        min_revolutions_per_day: 11
+        max_revolutions_per_day: 17
+        inclinations_deg: [30.0, 40.0, 45.0, 53.0, 58.0, 63.4, 70.0, 75.0, 82.0, 97.8]
+        max_templates: 24
+        closure_tolerance_m: 5000.0
+        refinement_iterations: 10
+      coverage:
+        raan_count: 48
+        raan_start_deg: 0.0
+        sample_step_sec: 240.0
+        keep_samples_per_window: 4
+        worker_count: 8
+      scheduling:
+        opportunity_worker_count: 8
+        repair_worker_count: 8
+    stress:
+      description: Expensive deterministic exploratory envelope, not part of default public runs.
+      compute_envelope:
+        expected_case_wall_time_seconds: 900
+        worker_count_policy: fixed_8_workers
+        deterministic: true
+      rgt_search:
+        max_repeat_days: 3
+        min_revolutions_per_day: 10
+        max_revolutions_per_day: 18
+        inclinations_deg: [25.0, 30.0, 40.0, 45.0, 53.0, 58.0, 63.4, 70.0, 75.0, 82.0, 90.0, 97.8]
+        max_templates: 36
+        closure_tolerance_m: 5000.0
+        refinement_iterations: 10
+      coverage:
+        raan_count: 72
+        raan_start_deg: 0.0
+        sample_step_sec: 180.0
+        keep_samples_per_window: 6
+        worker_count: 8
+      scheduling:
+        opportunity_worker_count: 8
+        repair_worker_count: 8
+run_policies:
+  smoke_case_0001:
+    description: Official single-case smoke used by Phase 8 validation.
+    cases:
+      - test/case_0001
+  fair_public_cases:
+    description: Bounded public-case profile for deterministic reproducibility evidence.
+    config:
+      active_profile: fair
+      compute_envelope:
+        name: fair
+        deterministic: true
+        expected_case_wall_time_seconds: 300
+        worker_count_policy: fixed_6_workers
+      rgt_search:
+        max_templates: 16
+      coverage:
+        raan_count: 36
+        sample_step_sec: 240.0
+        worker_count: 6
+      scheduling:
+        opportunity_worker_count: 6
+        repair_worker_count: 6
+  scaled_search_case_0003:
+    description: Dense architecture-search probe for the hardest public test case.
+    cases:
+      - test/case_0003
+    config:
+      active_profile: scaled_search
+      compute_envelope:
+        name: scaled_search
+        deterministic: true
+        expected_case_wall_time_seconds: 360
+        worker_count_policy: fixed_8_workers
+      rgt_search:
+        max_repeat_days: 2
+        min_revolutions_per_day: 11
+        max_revolutions_per_day: 17
+        inclinations_deg: [30.0, 40.0, 45.0, 53.0, 58.0, 63.4, 70.0, 75.0, 82.0, 97.8]
+        max_templates: 24
+        refinement_iterations: 10
+      coverage:
+        raan_count: 48
+        sample_step_sec: 240.0
+        worker_count: 8
+      scheduling:
+        opportunity_worker_count: 8
+        repair_worker_count: 8
+cases:
+  - id: test/case_0001
+    case_dir: benchmarks/revisit_constellation/dataset/cases/test/case_0001
+  - id: test/case_0002
+    case_dir: benchmarks/revisit_constellation/dataset/cases/test/case_0002
+  - id: test/case_0003
+    case_dir: benchmarks/revisit_constellation/dataset/cases/test/case_0003
+  - id: test/case_0004
+    case_dir: benchmarks/revisit_constellation/dataset/cases/test/case_0004
+  - id: test/case_0005
+    case_dir: benchmarks/revisit_constellation/dataset/cases/test/case_0005
+verifier:
+  command:
+    - uv
+    - run
+    - python
+    - -m
+    - benchmarks.revisit_constellation.verifier.run
+    - "{case_dir}"
+    - "{solution_path}"

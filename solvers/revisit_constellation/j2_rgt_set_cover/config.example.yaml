@@ -19,11 +19,13 @@ scheduling:
   opportunity_sample_step_sec: 60.0
   min_gap_improvement_sec: 60.0
   validation_sample_step_sec: 10.0
+  refinement_propagation: numerical_j2
   elevation_safety_margin_deg: 0.0
   range_safety_margin_m: 15000.0
   off_nadir_safety_margin_deg: 0.5
   max_actions: 3000
   max_selection_repair_rounds: 8
   max_repair_alternates_per_target: 8
+  numerical_repair_candidate_limit: 64
   opportunity_worker_count: 4
   repair_worker_count: 4
