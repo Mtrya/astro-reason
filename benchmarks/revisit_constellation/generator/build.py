@@ -302,8 +302,7 @@ def build_case_specs(split_name: str, split_config: dict[str, Any]) -> list[Case
     return specs
 
 
-def _select_initial_city(cities: list[CityRecord], seed: int) -> CityRecord:
-    rng = random.Random(seed)
+def _select_initial_city(cities: list[CityRecord], rng: random.Random) -> CityRecord:
     weights = [math.log1p(city.population) for city in cities]
     return rng.choices(cities, weights=weights, k=1)[0]
 
@@ -329,8 +328,9 @@ def select_targets(
     if count > len(cities):
         raise ValueError(f"Requested {count} targets, but only {len(cities)} cities are available")
 
+    rng = random.Random(seed)
     initial_pool_size = min(len(cities), max(initial_pool_min_size, count * initial_pool_multiplier))
-    initial_city = _select_initial_city(cities[:initial_pool_size], seed)
+    initial_city = _select_initial_city(cities[:initial_pool_size], rng)
     selected = [initial_city]
     remaining = [city for city in cities if city is not initial_city]
 
@@ -357,18 +357,30 @@ def select_targets(
         max_population_score = max(population_score for _, population_score, _ in eligible)
         min_distance_score = min(distance_score for _, _, distance_score in eligible)
         max_distance_score = max(distance_score for _, _, distance_score in eligible)
-        best_city = max(
-            eligible,
-            key=lambda item: (
+        scored_candidates = [
+            (
+                city,
                 0.75
-                * _normalize(item[1], min_population_score, max_population_score)
+                * _normalize(population_score, min_population_score, max_population_score)
                 + 0.25
-                * _normalize(item[2], min_distance_score, max_distance_score),
+                * _normalize(distance_score, min_distance_score, max_distance_score),
+            )
+            for city, population_score, distance_score in eligible
+        ]
+        scored_candidates.sort(
+            key=lambda item: (
                 item[1],
-                item[2],
+                math.log1p(item[0].population),
                 item[0].name,
                 item[0].country,
             ),
+            reverse=True,
+        )
+        candidate_pool = scored_candidates[: min(len(scored_candidates), initial_pool_size)]
+        best_city = rng.choices(
+            [city for city, _ in candidate_pool],
+            weights=[score + 1.0e-9 for _, score in candidate_pool],
+            k=1,
         )[0]
         selected.append(best_city)
         remaining.remove(best_city)
