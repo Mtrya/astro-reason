@@ -45,9 +45,16 @@ from src.rgt import (
     search_rgt_templates,
     solve_rgt_semimajor_axis,
 )
-from src.selection import satellites_required_for_target, select_candidates
+from src.selection import (
+    SelectedCandidate,
+    SelectionSummary,
+    TargetAssignment,
+    satellites_required_for_target,
+    select_candidates,
+)
 from src.solution import (
     ObservationAction,
+    SatellitePlan,
     SchedulingConfig,
     build_opportunities,
     build_solution,
@@ -1119,6 +1126,100 @@ def test_serial_and_parallel_opportunity_generation_match() -> None:
     assert serial_refinement == parallel_refinement
     assert [action.as_debug_dict() for action in serial] == [
         action.as_debug_dict() for action in parallel
+    ]
+
+
+def test_opportunity_generation_includes_redundant_visible_targets(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    case = _synthetic_case(
+        ["assigned", "uncovered"],
+        revisit_hours=8.0,
+        max_num_satellites=3,
+    )
+    candidate = _synthetic_candidate("candidate", repeat_hours=24.0)
+    coverage = _synthetic_coverage(
+        candidates=[candidate],
+        candidate_to_targets={candidate.candidate_id: ["assigned", "uncovered"]},
+    )
+    selection = SelectionSummary(
+        selected_candidates=[
+            SelectedCandidate(
+                candidate=candidate,
+                assigned_target_ids=("assigned",),
+                required_satellites=3,
+                covered_target_ids=("assigned", "uncovered"),
+                redundant_target_ids=("uncovered",),
+            )
+        ],
+        target_assignments={
+            "assigned": TargetAssignment(
+                target_id="assigned",
+                candidate_id=candidate.candidate_id,
+                required_satellites=3,
+                repeat_period_hours=24.0,
+                coverage_margin_score=0.0,
+            )
+        },
+        uncovered_target_ids=["uncovered"],
+        total_required_satellites=3,
+        max_num_satellites=3,
+        rounds=[],
+        budget_near_misses=[],
+        all_targets_covered=False,
+        within_satellite_budget=True,
+    )
+    satellites = [
+        SatellitePlan(
+            satellite_id=f"satellite_{index:02d}",
+            candidate_id=candidate.candidate_id,
+            template_id=candidate.template_id,
+            phase_index=index,
+            phase_count=3,
+            phase_offset_sec=float(index * 8 * 3600),
+            mean_anomaly_deg=float(index * 120.0),
+            state_eci_m_mps=(7_000_000.0, 0.0, 0.0, 0.0, 7_500.0, 0.0),
+        )
+        for index in range(3)
+    ]
+
+    def fake_refined_opportunities(**kwargs):
+        satellite = kwargs["satellite"]
+        target_id = kwargs["target_id"]
+        action = ObservationAction(
+            action_type="observation",
+            satellite_id=satellite.satellite_id,
+            target_id=target_id,
+            start=case.horizon_start + timedelta(hours=1),
+            end=case.horizon_start + timedelta(hours=1, seconds=30),
+            candidate_id=satellite.candidate_id,
+            opportunity_midpoint_offset_sec=3615.0,
+        )
+        return [action], 1, {}, {}
+
+    monkeypatch.setattr(
+        solution_module,
+        "_refined_opportunities_for_satellite_target",
+        fake_refined_opportunities,
+    )
+
+    opportunities, considered, refinement = build_opportunities(
+        case=case,
+        coverage=coverage,
+        selection=selection,
+        satellites=satellites,
+        config=SchedulingConfig(opportunity_worker_count=1),
+    )
+
+    assert considered == 6
+    assert {action.target_id for action in opportunities} == {
+        "assigned",
+        "uncovered",
+    }
+    assert refinement["opportunity_target_summary"]["assigned_pair_count"] == 1
+    assert refinement["opportunity_target_summary"]["opportunistic_pair_count"] == 1
+    assert refinement["opportunity_target_summary"]["opportunistic_target_ids"] == [
+        "uncovered"
     ]
 
 

@@ -1470,6 +1470,7 @@ def _repack_selection_with_refined_profiles(
     coverage: CoverageSummary,
     original: SelectionSummary,
     profiles: dict[str, RefinedCandidateProfile],
+    quality_by_pair: dict[tuple[str, str], PhasedOpportunityQuality],
 ) -> tuple[SelectionSummary, dict[str, Any]]:
     target_ids = sorted(case.targets)
     target_bit = {target_id: 1 << index for index, target_id in enumerate(target_ids)}
@@ -1504,16 +1505,41 @@ def _repack_selection_with_refined_profiles(
             mask |= candidate_masks[candidate_id]
         return mask
 
+    def partial_gap_by_target(candidate_ids: tuple[str, ...]) -> dict[str, float]:
+        fallback_gap_hours = (
+            case.horizon_end - case.horizon_start
+        ).total_seconds() / 3600.0
+        result: dict[str, float] = {}
+        for target_id in target_ids:
+            target_qualities = [
+                quality_by_pair[(candidate_id, target_id)].max_gap_hours
+                for candidate_id in candidate_ids
+                if (candidate_id, target_id) in quality_by_pair
+            ]
+            result[target_id] = (
+                min(target_qualities) if target_qualities else fallback_gap_hours
+            )
+        return result
+
+    def selection_partial_quality(candidate_ids: tuple[str, ...]) -> tuple[float, float]:
+        gaps = partial_gap_by_target(candidate_ids)
+        return max(gaps.values(), default=0.0), sum(gaps.values())
+
     def selection_cost(candidate_ids: tuple[str, ...]) -> int:
         return sum(
             profile_by_id[candidate_id].required_satellites
             for candidate_id in candidate_ids
         )
 
-    def selection_key(candidate_ids: tuple[str, ...]) -> tuple[int, int, float, tuple[str, ...]]:
+    def selection_key(
+        candidate_ids: tuple[str, ...]
+    ) -> tuple[int, float, float, int, float, tuple[str, ...]]:
         mask = selection_mask(candidate_ids)
+        partial_worst_gap, partial_total_gap = selection_partial_quality(candidate_ids)
         return (
             -mask.bit_count(),
+            partial_worst_gap,
+            partial_total_gap,
             selection_cost(candidate_ids),
             selection_quality(candidate_ids),
             candidate_ids,
@@ -1599,6 +1625,10 @@ def _repack_selection_with_refined_profiles(
     best_mask = selection_mask(selected_ids)
     best_cost = selection_cost(selected_ids)
     best_quality = selection_quality(selected_ids)
+    best_partial_gaps = partial_gap_by_target(selected_ids)
+    best_partial_worst_gap, best_partial_total_gap = selection_partial_quality(
+        selected_ids
+    )
     selection = _selection_from_refined_profiles(
         case=case,
         coverage=coverage,
@@ -1622,6 +1652,9 @@ def _repack_selection_with_refined_profiles(
         ],
         "full_coverage_possible": best_mask == full_mask,
         "quality_sum_hours": best_quality,
+        "partial_worst_gap_hours": best_partial_worst_gap,
+        "partial_total_gap_hours": best_partial_total_gap,
+        "partial_gap_by_target": best_partial_gaps,
         "greedy_rounds": greedy_rounds,
         "replacement_rounds": replacement_rounds,
         "selected_profiles": [
@@ -1674,6 +1707,7 @@ def repair_selection_with_phased_opportunities(
         coverage=coverage,
         original=selection,
         profiles=profiles,
+        quality_by_pair=quality_by_pair,
     )
     diagnostics: dict[str, dict[str, Any]] = {}
     for target_id in high_gap_targets:
@@ -1801,6 +1835,48 @@ def _assigned_targets_by_candidate(
     return assigned
 
 
+def _opportunity_targets_by_candidate(
+    *,
+    coverage: CoverageSummary,
+    selection: SelectionSummary,
+) -> tuple[dict[str, list[str]], dict[str, Any]]:
+    assigned_by_candidate = _assigned_targets_by_candidate(selection)
+    target_ids_by_candidate: dict[str, list[str]] = {}
+    opportunistic_pairs: list[tuple[str, str]] = []
+
+    for selected in sorted(
+        selection.selected_candidates,
+        key=lambda item: item.candidate.candidate_id,
+    ):
+        candidate_id = selected.candidate.candidate_id
+        assigned_targets = set(assigned_by_candidate.get(candidate_id, []))
+        visible_targets = set(coverage.candidate_to_targets.get(candidate_id, []))
+        target_ids = sorted(assigned_targets | visible_targets)
+        target_ids_by_candidate[candidate_id] = target_ids
+        for target_id in target_ids:
+            if target_id not in assigned_targets:
+                opportunistic_pairs.append((candidate_id, target_id))
+
+    return target_ids_by_candidate, {
+        "assigned_pair_count": sum(
+            len(target_ids) for target_ids in assigned_by_candidate.values()
+        ),
+        "opportunistic_pair_count": len(opportunistic_pairs),
+        "opportunistic_target_ids": sorted(
+            {target_id for _, target_id in opportunistic_pairs}
+        ),
+        "opportunistic_pairs": [
+            {"candidate_id": candidate_id, "target_id": target_id}
+            for candidate_id, target_id in opportunistic_pairs[:50]
+        ],
+        "opportunistic_pair_debug_limit": 50,
+        "target_ids_by_candidate": {
+            candidate_id: target_ids
+            for candidate_id, target_ids in sorted(target_ids_by_candidate.items())
+        },
+    }
+
+
 def _build_opportunity_worker(
     args: tuple[
         RevisitCase,
@@ -1832,7 +1908,9 @@ def build_opportunities(
     config: SchedulingConfig,
 ) -> tuple[list[ObservationAction], int, dict[str, Any]]:
     horizon_sec = (case.horizon_end - case.horizon_start).total_seconds()
-    assigned_by_candidate = _assigned_targets_by_candidate(selection)
+    target_ids_by_candidate, opportunity_target_summary = (
+        _opportunity_targets_by_candidate(coverage=coverage, selection=selection)
+    )
     hints_by_key = _coarse_hints_by_key(case=case, coverage=coverage)
     satellites_by_candidate: dict[str, list[SatellitePlan]] = {}
     for satellite in satellites:
@@ -1853,7 +1931,7 @@ def build_opportunities(
             SchedulingConfig,
         ]
     ] = []
-    for candidate_id, target_ids in sorted(assigned_by_candidate.items()):
+    for candidate_id, target_ids in sorted(target_ids_by_candidate.items()):
         for target_id in target_ids:
             hints = hints_by_key.get((candidate_id, target_id), [])
             for satellite in satellites_by_candidate.get(candidate_id, []):
@@ -1891,6 +1969,7 @@ def build_opportunities(
             "coarse_hint_realizations_tried": considered,
             "refined_opportunity_count": len(opportunities),
             "rejection_reasons": rejection_reasons,
+            "opportunity_target_summary": opportunity_target_summary,
         },
     )
 
