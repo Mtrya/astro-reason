@@ -16,7 +16,7 @@ The committed split policy is benchmark-owned:
 - `cases/train/case_0001` through `cases/train/case_0010` are public development cases.
 - `cases/test/case_0001` through `cases/test/case_0005` are held-out evaluation cases.
 
-Train and test cases are generated from disjoint split seeds and target-selection offsets declared in [splits.yaml](../splits.yaml).
+Train and test cases are generated from disjoint split seeds and target-selection offsets declared in [splits.yaml](../splits.yaml). Target selection uses log-scaled city population as the primary sampling signal and geographic spread as a secondary balancing term, with one shared policy across both splits.
 
 ## Canonical Generation
 

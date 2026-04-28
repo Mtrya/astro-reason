@@ -32,7 +32,7 @@ splits:
     mission:
       horizon_start: "2025-07-17T12:00:00Z"
       horizon_end: "2025-07-19T12:00:00Z"
-      min_target_separation_m: 250000.0
+      min_target_separation_m: 75000.0
       target_defaults:
         min_elevation_deg: 20.0
         max_slant_range_m: 1800000.0

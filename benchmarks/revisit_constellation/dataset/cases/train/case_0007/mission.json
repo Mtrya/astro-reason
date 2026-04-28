@@ -6,138 +6,182 @@
       "altitude_m": 0.0,
       "expected_revisit_period_hours": 12.0,
       "id": "target_001",
-      "latitude_deg": -25.0667,
-      "longitude_deg": -130.0833,
+      "latitude_deg": 39.9067,
+      "longitude_deg": 116.3975,
       "max_slant_range_m": 1800000.0,
       "min_duration_sec": 30.0,
       "min_elevation_deg": 20.0,
-      "name": "Adamstown, Pitcairn Islands"
+      "name": "Beijing, China"
     },
     {
       "altitude_m": 0.0,
       "expected_revisit_period_hours": 12.0,
       "id": "target_002",
-      "latitude_deg": -24.3687,
-      "longitude_deg": 47.163,
+      "latitude_deg": 4.7111,
+      "longitude_deg": -74.0722,
       "max_slant_range_m": 1800000.0,
       "min_duration_sec": 30.0,
       "min_elevation_deg": 20.0,
-      "name": "Ampasimena, Madagascar"
+      "name": "Bogot\u00e1, Colombia"
     },
     {
       "altitude_m": 0.0,
       "expected_revisit_period_hours": 12.0,
       "id": "target_003",
-      "latitude_deg": 22.8897,
-      "longitude_deg": -109.9156,
+      "latitude_deg": -34.6036,
+      "longitude_deg": -58.3814,
       "max_slant_range_m": 1800000.0,
       "min_duration_sec": 30.0,
       "min_elevation_deg": 20.0,
-      "name": "Cabo San Lucas, Mexico"
+      "name": "Buenos Aires, Argentina"
     },
     {
       "altitude_m": 0.0,
       "expected_revisit_period_hours": 12.0,
       "id": "target_004",
-      "latitude_deg": 48.9578,
-      "longitude_deg": -55.6633,
+      "latitude_deg": 30.0444,
+      "longitude_deg": 31.2358,
       "max_slant_range_m": 1800000.0,
       "min_duration_sec": 30.0,
       "min_elevation_deg": 20.0,
-      "name": "Grand Falls, Canada"
+      "name": "Cairo, Egypt"
     },
     {
       "altitude_m": 0.0,
       "expected_revisit_period_hours": 12.0,
       "id": "target_005",
-      "latitude_deg": -54.2806,
-      "longitude_deg": -36.508,
+      "latitude_deg": 28.61,
+      "longitude_deg": 77.23,
       "max_slant_range_m": 1800000.0,
       "min_duration_sec": 30.0,
       "min_elevation_deg": 20.0,
-      "name": "Grytviken, South Georgia and South Sandwich Islands"
+      "name": "Delhi, India"
     },
     {
       "altitude_m": 0.0,
       "expected_revisit_period_hours": 12.0,
       "id": "target_006",
-      "latitude_deg": 19.5828,
-      "longitude_deg": -154.9695,
+      "latitude_deg": 23.7289,
+      "longitude_deg": 90.3944,
       "max_slant_range_m": 1800000.0,
       "min_duration_sec": 30.0,
       "min_elevation_deg": 20.0,
-      "name": "Hawaiian Paradise Park, United States"
+      "name": "Dhaka, Bangladesh"
     },
     {
       "altitude_m": 0.0,
       "expected_revisit_period_hours": 12.0,
       "id": "target_007",
-      "latitude_deg": -15.9251,
-      "longitude_deg": -5.7179,
+      "latitude_deg": 23.13,
+      "longitude_deg": 113.26,
       "max_slant_range_m": 1800000.0,
       "min_duration_sec": 30.0,
       "min_elevation_deg": 20.0,
-      "name": "Jamestown, Saint Helena, Ascension, and Tristan da Cunha"
+      "name": "Guangzhou, China"
     },
     {
       "altitude_m": 0.0,
       "expected_revisit_period_hours": 12.0,
       "id": "target_008",
-      "latitude_deg": 38.2636,
-      "longitude_deg": 101.8328,
+      "latitude_deg": -6.175,
+      "longitude_deg": 106.8275,
       "max_slant_range_m": 1800000.0,
       "min_duration_sec": 30.0,
       "min_elevation_deg": 20.0,
-      "name": "Jiaojiazhuang, China"
+      "name": "Jakarta, Indonesia"
     },
     {
       "altitude_m": 0.0,
       "expected_revisit_period_hours": 12.0,
       "id": "target_009",
-      "latitude_deg": 58.4546,
-      "longitude_deg": -134.1739,
+      "latitude_deg": -26.2044,
+      "longitude_deg": 28.0456,
       "max_slant_range_m": 1800000.0,
       "min_duration_sec": 30.0,
       "min_elevation_deg": 20.0,
-      "name": "Juneau, United States"
+      "name": "Johannesburg, South Africa"
     },
     {
       "altitude_m": 0.0,
       "expected_revisit_period_hours": 12.0,
       "id": "target_010",
-      "latitude_deg": -33.1396,
-      "longitude_deg": 136.4191,
+      "latitude_deg": 6.455,
+      "longitude_deg": 3.3841,
       "max_slant_range_m": 1800000.0,
       "min_duration_sec": 30.0,
       "min_elevation_deg": 20.0,
-      "name": "Kimba, Australia"
+      "name": "Lagos, Nigeria"
     },
     {
       "altitude_m": 0.0,
       "expected_revisit_period_hours": 12.0,
       "id": "target_011",
-      "latitude_deg": 20.6592,
-      "longitude_deg": -75.6781,
+      "latitude_deg": 51.5072,
+      "longitude_deg": -0.1275,
       "max_slant_range_m": 1800000.0,
       "min_duration_sec": 30.0,
       "min_elevation_deg": 20.0,
-      "name": "Mayar\u00ed, Cuba"
+      "name": "London, United Kingdom"
     },
     {
       "altitude_m": 0.0,
       "expected_revisit_period_hours": 12.0,
       "id": "target_012",
-      "latitude_deg": 13.5956,
-      "longitude_deg": 123.1781,
+      "latitude_deg": 34.1141,
+      "longitude_deg": -118.4068,
       "max_slant_range_m": 1800000.0,
       "min_duration_sec": 30.0,
       "min_elevation_deg": 20.0,
-      "name": "Milaor, Philippines"
+      "name": "Los Angeles, United States"
     },
     {
       "altitude_m": 0.0,
       "expected_revisit_period_hours": 12.0,
       "id": "target_013",
+      "latitude_deg": 14.5958,
+      "longitude_deg": 120.9772,
+      "max_slant_range_m": 1800000.0,
+      "min_duration_sec": 30.0,
+      "min_elevation_deg": 20.0,
+      "name": "Manila, Philippines"
+    },
+    {
+      "altitude_m": 0.0,
+      "expected_revisit_period_hours": 12.0,
+      "id": "target_014",
+      "latitude_deg": -37.8142,
+      "longitude_deg": 144.9631,
+      "max_slant_range_m": 1800000.0,
+      "min_duration_sec": 30.0,
+      "min_elevation_deg": 20.0,
+      "name": "Melbourne, Australia"
+    },
+    {
+      "altitude_m": 0.0,
+      "expected_revisit_period_hours": 12.0,
+      "id": "target_015",
+      "latitude_deg": 19.4333,
+      "longitude_deg": -99.1333,
+      "max_slant_range_m": 1800000.0,
+      "min_duration_sec": 30.0,
+      "min_elevation_deg": 20.0,
+      "name": "Mexico City, Mexico"
+    },
+    {
+      "altitude_m": 0.0,
+      "expected_revisit_period_hours": 12.0,
+      "id": "target_016",
+      "latitude_deg": 55.7506,
+      "longitude_deg": 37.6175,
+      "max_slant_range_m": 1800000.0,
+      "min_duration_sec": 30.0,
+      "min_elevation_deg": 20.0,
+      "name": "Moscow, Russia"
+    },
+    {
+      "altitude_m": 0.0,
+      "expected_revisit_period_hours": 12.0,
+      "id": "target_017",
       "latitude_deg": 19.0761,
       "longitude_deg": 72.8775,
       "max_slant_range_m": 1800000.0,
@@ -148,90 +192,46 @@
     {
       "altitude_m": 0.0,
       "expected_revisit_period_hours": 12.0,
-      "id": "target_014",
-      "latitude_deg": 63.6667,
-      "longitude_deg": 71.3333,
-      "max_slant_range_m": 1800000.0,
-      "min_duration_sec": 30.0,
-      "min_elevation_deg": 20.0,
-      "name": "Numto, Russia"
-    },
-    {
-      "altitude_m": 0.0,
-      "expected_revisit_period_hours": 12.0,
-      "id": "target_015",
-      "latitude_deg": 53.0167,
-      "longitude_deg": 158.65,
-      "max_slant_range_m": 1800000.0,
-      "min_duration_sec": 30.0,
-      "min_elevation_deg": 20.0,
-      "name": "Petropavlovsk-Kamchatskiy, Russia"
-    },
-    {
-      "altitude_m": 0.0,
-      "expected_revisit_period_hours": 12.0,
-      "id": "target_016",
-      "latitude_deg": 17.202,
-      "longitude_deg": -25.093,
-      "max_slant_range_m": 1800000.0,
-      "min_duration_sec": 30.0,
-      "min_elevation_deg": 20.0,
-      "name": "Ponta do Sol, Cabo Verde"
-    },
-    {
-      "altitude_m": 0.0,
-      "expected_revisit_period_hours": 12.0,
-      "id": "target_017",
-      "latitude_deg": -10.1497,
-      "longitude_deg": -67.7374,
-      "max_slant_range_m": 1800000.0,
-      "min_duration_sec": 30.0,
-      "min_elevation_deg": 20.0,
-      "name": "Senador Guiomard, Brazil"
-    },
-    {
-      "altitude_m": 0.0,
-      "expected_revisit_period_hours": 12.0,
       "id": "target_018",
-      "latitude_deg": 1.3382,
-      "longitude_deg": 173.0176,
+      "latitude_deg": 40.6943,
+      "longitude_deg": -73.9249,
       "max_slant_range_m": 1800000.0,
       "min_duration_sec": 30.0,
       "min_elevation_deg": 20.0,
-      "name": "Tarawa, Kiribati"
+      "name": "New York, United States"
     },
     {
       "altitude_m": 0.0,
       "expected_revisit_period_hours": 12.0,
       "id": "target_019",
-      "latitude_deg": -43.9514,
-      "longitude_deg": -176.5611,
+      "latitude_deg": -23.5504,
+      "longitude_deg": -46.6339,
       "max_slant_range_m": 1800000.0,
       "min_duration_sec": 30.0,
       "min_elevation_deg": 20.0,
-      "name": "Waitangi, New Zealand"
+      "name": "S\u00e3o Paulo, Brazil"
     },
     {
       "altitude_m": 0.0,
       "expected_revisit_period_hours": 12.0,
       "id": "target_020",
-      "latitude_deg": 8.6667,
-      "longitude_deg": 39.4333,
+      "latitude_deg": 35.6889,
+      "longitude_deg": 51.3897,
       "max_slant_range_m": 1800000.0,
       "min_duration_sec": 30.0,
       "min_elevation_deg": 20.0,
-      "name": "Welench\u2019\u012bt\u012b, Ethiopia"
+      "name": "Tehran, Iran"
     },
     {
       "altitude_m": 0.0,
       "expected_revisit_period_hours": 12.0,
       "id": "target_021",
-      "latitude_deg": 35.0,
-      "longitude_deg": 16.0,
+      "latitude_deg": 35.687,
+      "longitude_deg": 139.7495,
       "max_slant_range_m": 1800000.0,
       "min_duration_sec": 30.0,
       "min_elevation_deg": 20.0,
-      "name": "Yokosuka, Japan"
+      "name": "Tokyo, Japan"
     }
   ]
 }

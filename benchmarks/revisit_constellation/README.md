@@ -279,6 +279,7 @@ The committed dataset lives under `dataset/cases/<split>/` and includes dataset-
 - `test`: five held-out evaluation cases, `case_0001` through `case_0005`.
 
 The split seeds and case-generation controls are declared in `splits.yaml`; the train and test splits use disjoint seeds and target-selection offsets.
+Targets are sampled from the documented world-cities source with log-scaled population as the primary signal and geographic spread as a secondary balancing term. The committed train and test cases share this policy, including the same minimum target separation setting, while retaining deterministic per-case seeds.
 
 The canonical generator entry point is:
 

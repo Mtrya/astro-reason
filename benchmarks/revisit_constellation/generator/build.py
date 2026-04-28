@@ -302,9 +302,16 @@ def build_case_specs(split_name: str, split_config: dict[str, Any]) -> list[Case
     return specs
 
 
-def _select_initial_index(length: int, seed: int) -> int:
+def _select_initial_city(cities: list[CityRecord], seed: int) -> CityRecord:
     rng = random.Random(seed)
-    return rng.randrange(length)
+    weights = [math.log1p(city.population) for city in cities]
+    return rng.choices(cities, weights=weights, k=1)[0]
+
+
+def _normalize(value: float, minimum: float, maximum: float) -> float:
+    if math.isclose(minimum, maximum):
+        return 1.0
+    return (value - minimum) / (maximum - minimum)
 
 
 def select_targets(
@@ -322,16 +329,13 @@ def select_targets(
     if count > len(cities):
         raise ValueError(f"Requested {count} targets, but only {len(cities)} cities are available")
 
-    start_index = _select_initial_index(
-        min(len(cities), max(initial_pool_min_size, count * initial_pool_multiplier)),
-        seed,
-    )
-    selected = [cities[start_index]]
-    remaining = [city for index, city in enumerate(cities) if index != start_index]
+    initial_pool_size = min(len(cities), max(initial_pool_min_size, count * initial_pool_multiplier))
+    initial_city = _select_initial_city(cities[:initial_pool_size], seed)
+    selected = [initial_city]
+    remaining = [city for city in cities if city is not initial_city]
 
     while len(selected) < count:
-        best_city: CityRecord | None = None
-        best_distance = -1.0
+        eligible: list[tuple[CityRecord, float, float]] = []
         for city in remaining:
             min_distance = min(
                 _haversine_distance_m(
@@ -344,13 +348,28 @@ def select_targets(
             )
             if min_distance < min_target_separation_m:
                 continue
-            if min_distance > best_distance:
-                best_distance = min_distance
-                best_city = city
-        if best_city is None:
+            eligible.append((city, math.log1p(city.population), min_distance))
+        if not eligible:
             raise ValueError(
                 f"Unable to select {count} cities with {min_target_separation_m / 1000:.0f} km separation"
             )
+        min_population_score = min(population_score for _, population_score, _ in eligible)
+        max_population_score = max(population_score for _, population_score, _ in eligible)
+        min_distance_score = min(distance_score for _, _, distance_score in eligible)
+        max_distance_score = max(distance_score for _, _, distance_score in eligible)
+        best_city = max(
+            eligible,
+            key=lambda item: (
+                0.75
+                * _normalize(item[1], min_population_score, max_population_score)
+                + 0.25
+                * _normalize(item[2], min_distance_score, max_distance_score),
+                item[1],
+                item[2],
+                item[0].name,
+                item[0].country,
+            ),
+        )[0]
         selected.append(best_city)
         remaining.remove(best_city)
     return sorted(selected, key=lambda city: city.name)
@@ -479,9 +498,6 @@ def generate_dataset(
     cases_dir = output_dir / "cases"
     shutil.rmtree(cases_dir, ignore_errors=True)
     cases_dir.mkdir(parents=True, exist_ok=True)
-    example_path = output_dir / "example_solution.json"
-    if example_path.exists():
-        example_path.unlink()
 
     smoke_split, smoke_case_id = example_smoke_case.split("/")
     smoke_found = False
