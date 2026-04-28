@@ -9,6 +9,7 @@ import brahe
 import numpy as np
 import pytest
 
+from src import solution as solution_module
 from src.case_io import (
     AttitudeModel,
     ResourceModel,
@@ -19,12 +20,14 @@ from src.case_io import (
     load_case,
 )
 from src.coverage import (
+    CoarseVisibilityHint,
     CoverageConfig,
     CoverageSummary,
     RaanCandidate,
     VisibilitySample,
     VisibilityWindow,
     build_coverage_summary,
+    coarse_hints_from_samples,
     expand_raan_candidates,
     geometry_sample_from_state,
     group_visible_samples,
@@ -144,6 +147,7 @@ def _synthetic_coverage(
     candidates: list[RaanCandidate],
     candidate_to_targets: dict[str, list[str]],
     windows: list[VisibilityWindow] | None = None,
+    hints: list[CoarseVisibilityHint] | None = None,
 ) -> CoverageSummary:
     target_to_candidates: dict[str, list[str]] = {}
     for candidate_id, target_ids in candidate_to_targets.items():
@@ -152,6 +156,7 @@ def _synthetic_coverage(
     return CoverageSummary(
         candidates=candidates,
         windows=[] if windows is None else windows,
+        hints=[] if hints is None else hints,
         target_to_candidates={
             target_id: sorted(candidate_ids)
             for target_id, candidate_ids in sorted(target_to_candidates.items())
@@ -616,7 +621,50 @@ def test_local_improvement_removes_redundant_selected_candidates() -> None:
     assert set(selection.target_assignments) == {"t1", "t2", "t3"}
 
 
-def test_phased_opportunity_quality_scores_shifted_coverage_windows() -> None:
+def test_coarse_hints_store_offsets_and_margins_without_certifying_windows() -> None:
+    case = _synthetic_case(["t1"], revisit_hours=8.0, max_num_satellites=6)
+    target = case.targets["t1"]
+    samples = [
+        VisibilitySample(
+            offset_sec=120.0,
+            elevation_deg=30.0,
+            slant_range_m=800_000.0,
+            off_nadir_deg=12.0,
+            visible=True,
+        ),
+        VisibilitySample(
+            offset_sec=240.0,
+            elevation_deg=0.0,
+            slant_range_m=900_000.0,
+            off_nadir_deg=40.0,
+            visible=False,
+        ),
+    ]
+
+    hints = coarse_hints_from_samples(
+        case=case,
+        candidate_id="candidate",
+        template_id="template",
+        target=target,
+        repeat_period_sec=86_400.0,
+        sample_step_sec=300.0,
+        samples=samples,
+    )
+
+    assert len(hints) == 1
+    assert hints[0].offset_sec == pytest.approx(120.0)
+    assert hints[0].source == "coarse_visible_sample"
+    assert hints[0].elevation_margin_deg == pytest.approx(20.0)
+    assert hints[0].range_margin_m == pytest.approx(200_000.0)
+    assert hints[0].min_margin == pytest.approx(18.0)
+
+
+def test_phased_opportunity_quality_refines_coarse_hints(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(
+        solution_module,
+        "_action_geometry_valid",
+        lambda **_: True,
+    )
     case = _synthetic_case(["t1"], revisit_hours=8.0, max_num_satellites=6)
     candidate = _synthetic_candidate("candidate", repeat_hours=24.0)
     coverage = _synthetic_coverage(
@@ -638,9 +686,46 @@ def test_phased_opportunity_quality_scores_shifted_coverage_windows() -> None:
     assert quality.required_satellites == 3
     assert quality.opportunity_count >= 6
     assert quality.max_gap_hours <= 8.0
+    assert quality.coarse_hint_count == 2
+    assert quality.refined_opportunity_count == quality.opportunity_count
 
 
-def test_selection_repair_uses_remaining_budget_for_high_gap_target() -> None:
+def test_refinement_rejects_coarse_hint_when_final_geometry_fails(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(
+        solution_module,
+        "_action_geometry_valid",
+        lambda **_: False,
+    )
+    case = _synthetic_case(["t1"], revisit_hours=8.0, max_num_satellites=6)
+    candidate = _synthetic_candidate("candidate", repeat_hours=24.0)
+    coverage = _synthetic_coverage(
+        candidates=[candidate],
+        candidate_to_targets={candidate.candidate_id: ["t1"]},
+        windows=[_synthetic_window(candidate, "t1", 1.0)],
+    )
+
+    quality = evaluate_phased_candidate_target_quality(
+        case=case,
+        coverage=coverage,
+        candidate_id=candidate.candidate_id,
+        target_id="t1",
+    )
+
+    assert quality.coarse_hint_count == 1
+    assert quality.opportunity_count == 0
+    assert quality.rejection_reasons == {"no_valid_interval": 6}
+
+
+def test_selection_repair_uses_remaining_budget_for_high_gap_target(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(
+        solution_module,
+        "_action_geometry_valid",
+        lambda **_: True,
+    )
     case = _synthetic_case(["t1", "t2"], revisit_hours=8.0, max_num_satellites=6)
     bad = _synthetic_candidate("a_bad_full_cover", repeat_hours=24.0)
     good = _synthetic_candidate("b_good_t1", repeat_hours=24.0)
@@ -651,6 +736,8 @@ def test_selection_repair_uses_remaining_budget_for_high_gap_target() -> None:
             good.candidate_id: ["t1"],
         },
         windows=[
+            _synthetic_window(bad, "t2", 1.0),
+            _synthetic_window(bad, "t2", 25.0),
             _synthetic_window(good, "t1", 1.0),
             _synthetic_window(good, "t1", 25.0),
         ],
@@ -685,7 +772,74 @@ def test_selection_repair_uses_remaining_budget_for_high_gap_target() -> None:
     )
 
 
-def test_selection_repair_ties_are_deterministic_under_shuffled_candidates() -> None:
+def test_selection_repair_replaces_failed_candidate_instead_of_adding(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(
+        solution_module,
+        "_action_geometry_valid",
+        lambda **_: True,
+    )
+    case = _synthetic_case(["t1", "t2"], revisit_hours=8.0, max_num_satellites=6)
+    bad = _synthetic_candidate("a_bad_initial", repeat_hours=24.0, closure_error_m=0.0)
+    good = _synthetic_candidate("b_good_replacement", repeat_hours=24.0, closure_error_m=10.0)
+    coverage = _synthetic_coverage(
+        candidates=[bad, good],
+        candidate_to_targets={
+            bad.candidate_id: ["t1", "t2"],
+            good.candidate_id: ["t1", "t2"],
+        },
+        windows=[
+            _synthetic_window(bad, "t1", 1.0),
+            _synthetic_window(bad, "t1", 25.0),
+            _synthetic_window(good, "t1", 1.0),
+            _synthetic_window(good, "t1", 25.0),
+            _synthetic_window(good, "t2", 2.0),
+            _synthetic_window(good, "t2", 26.0),
+        ],
+    )
+    selection = select_candidates(case, coverage)
+    initial_gaps = {
+        "t1": {
+            "max_revisit_gap_hours": 8.0,
+            "expected_revisit_period_hours": 8.0,
+        },
+        "t2": {
+            "max_revisit_gap_hours": 24.0,
+            "expected_revisit_period_hours": 8.0,
+        },
+    }
+
+    assert [item.candidate.candidate_id for item in selection.selected_candidates] == [
+        bad.candidate_id
+    ]
+
+    repair = repair_selection_with_phased_opportunities(
+        case=case,
+        coverage=coverage,
+        selection=selection,
+        initial_gap_summary=initial_gaps,
+        config=SchedulingConfig(),
+    )
+
+    assert [item.candidate.candidate_id for item in repair.selection.selected_candidates] == [
+        good.candidate_id
+    ]
+    assert repair.selection.total_required_satellites == 3
+    assert repair.rounds[0].added_satellites == 0
+    assert repair.as_debug_dict()["refined_repacking_summary"]["selected_candidate_ids"] == [
+        good.candidate_id
+    ]
+
+
+def test_selection_repair_ties_are_deterministic_under_shuffled_candidates(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(
+        solution_module,
+        "_action_geometry_valid",
+        lambda **_: True,
+    )
     case = _synthetic_case(["t1", "t2"], revisit_hours=8.0, max_num_satellites=6)
     bad = _synthetic_candidate("z_bad_full_cover", repeat_hours=24.0)
     first = _synthetic_candidate("a_good_t1", repeat_hours=24.0)
@@ -755,7 +909,14 @@ def test_selection_repair_ties_are_deterministic_under_shuffled_candidates() -> 
     assert right.selection.target_assignments["t1"].candidate_id == first.candidate_id
 
 
-def test_selection_repair_rankings_match_across_worker_counts() -> None:
+def test_selection_repair_rankings_match_across_worker_counts(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(
+        solution_module,
+        "_action_geometry_valid",
+        lambda **_: True,
+    )
     case = _synthetic_case(["t1", "t2"], revisit_hours=8.0, max_num_satellites=6)
     bad = _synthetic_candidate("a_bad_full_cover", repeat_hours=24.0)
     good = _synthetic_candidate("b_good_t1", repeat_hours=24.0)
@@ -935,14 +1096,14 @@ def test_serial_and_parallel_opportunity_generation_match() -> None:
         opportunity_worker_count=1,
     )
 
-    serial, serial_considered = build_opportunities(
+    serial, serial_considered, serial_refinement = build_opportunities(
         case=case,
         coverage=coverage,
         selection=selection,
         satellites=satellites,
         config=base_config,
     )
-    parallel, parallel_considered = build_opportunities(
+    parallel, parallel_considered, parallel_refinement = build_opportunities(
         case=case,
         coverage=coverage,
         selection=selection,
@@ -955,6 +1116,7 @@ def test_serial_and_parallel_opportunity_generation_match() -> None:
     )
 
     assert serial_considered == parallel_considered
+    assert serial_refinement == parallel_refinement
     assert [action.as_debug_dict() for action in serial] == [
         action.as_debug_dict() for action in parallel
     ]
@@ -1134,7 +1296,7 @@ def test_full_profile_analytical_rgt_matches_numerical_j2_oracle() -> None:
         ) < config.closure_tolerance_m
 
 
-def test_solve_sh_writes_phase6_status_solution_and_debug(tmp_path: Path) -> None:
+def test_solve_sh_writes_phase7_status_solution_and_debug(tmp_path: Path) -> None:
     config_dir = tmp_path / "config"
     output_dir = tmp_path / "solution"
     config_dir.mkdir()
@@ -1204,9 +1366,11 @@ def test_solve_sh_writes_phase6_status_solution_and_debug(tmp_path: Path) -> Non
         (output_dir / "debug/solution_summary.json").read_text(encoding="utf-8")
     )
     assert status["status"] == "completed"
-    assert status["phase"] == 6
+    assert status["phase"] == 7
+    assert status["phase_tag"] == "coarse_evidence_pool_and_refined_realization"
     assert status["closure_search"]["accepted_count"] == 1
     assert status["coverage"]["candidate_count"] == 2
+    assert "coarse_hint_count" in status["coverage"]
     assert status["compute_profile"]["coverage_worker_count"] == 2
     assert status["compute_profile"]["opportunity_worker_count"] == 2
     assert status["compute_profile"]["repair_worker_count"] == 2
@@ -1217,9 +1381,12 @@ def test_solve_sh_writes_phase6_status_solution_and_debug(tmp_path: Path) -> Non
     assert debug["accepted_count"] == 1
     assert coverage["candidate_count"] == 2
     assert "target_to_candidates" in coverage
+    assert "coarse_hints" in coverage
     assert "selected_candidates" in selection
     assert "target_assignments" in selection
     assert "target_diagnostics" in repair
     assert "validation" in solution_debug
     assert "timing_seconds" in solution_debug
+    assert "opportunity_refinement_summary" in solution_debug
+    assert "opportunity_refinement_summary" in status["solution"]
     assert status["solution"]["satellite_count"] == len(solution["satellites"])

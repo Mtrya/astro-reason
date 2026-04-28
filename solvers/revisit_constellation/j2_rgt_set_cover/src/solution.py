@@ -15,10 +15,10 @@ import numpy as np
 
 from .case_io import RevisitCase, Target
 from .coverage import (
+    CoarseVisibilityHint,
     CoverageSummary,
     VisibilityWindow,
     geometry_sample_from_state,
-    group_visible_samples,
 )
 from .rgt import EARTH_RADIUS_M, MU_EARTH_M3_S2, brouwer_j2_state_eci
 from .selection import (
@@ -39,6 +39,9 @@ class SchedulingConfig:
     opportunity_sample_step_sec: float = 60.0
     min_gap_improvement_sec: float = 60.0
     validation_sample_step_sec: float = 10.0
+    elevation_safety_margin_deg: float = 0.0
+    range_safety_margin_m: float = 15_000.0
+    off_nadir_safety_margin_deg: float = 0.5
     max_actions: int = 3000
     max_selection_repair_rounds: int = 8
     max_repair_alternates_per_target: int = 8
@@ -67,6 +70,21 @@ class SchedulingConfig:
             validation_sample_step_sec=float(
                 raw.get("validation_sample_step_sec", defaults.validation_sample_step_sec)
             ),
+            elevation_safety_margin_deg=float(
+                raw.get(
+                    "elevation_safety_margin_deg",
+                    defaults.elevation_safety_margin_deg,
+                )
+            ),
+            range_safety_margin_m=float(
+                raw.get("range_safety_margin_m", defaults.range_safety_margin_m)
+            ),
+            off_nadir_safety_margin_deg=float(
+                raw.get(
+                    "off_nadir_safety_margin_deg",
+                    defaults.off_nadir_safety_margin_deg,
+                )
+            ),
             max_actions=int(raw.get("max_actions", defaults.max_actions)),
             max_selection_repair_rounds=int(
                 raw.get(
@@ -94,6 +112,9 @@ class SchedulingConfig:
             "opportunity_sample_step_sec": self.opportunity_sample_step_sec,
             "min_gap_improvement_sec": self.min_gap_improvement_sec,
             "validation_sample_step_sec": self.validation_sample_step_sec,
+            "elevation_safety_margin_deg": self.elevation_safety_margin_deg,
+            "range_safety_margin_m": self.range_safety_margin_m,
+            "off_nadir_safety_margin_deg": self.off_nadir_safety_margin_deg,
             "max_actions": self.max_actions,
             "max_selection_repair_rounds": self.max_selection_repair_rounds,
             "max_repair_alternates_per_target": self.max_repair_alternates_per_target,
@@ -195,6 +216,7 @@ class SolutionBuildSummary:
     actions: list[ObservationAction]
     opportunities_considered: int
     opportunities_visibility_valid: int
+    opportunity_refinement_summary: dict[str, Any]
     target_gap_summary: dict[str, dict[str, float]]
     validation: ValidationSummary
     config: SchedulingConfig
@@ -215,6 +237,7 @@ class SolutionBuildSummary:
             "action_count": len(self.actions),
             "opportunities_considered": self.opportunities_considered,
             "opportunities_visibility_valid": self.opportunities_visibility_valid,
+            "opportunity_refinement_summary": self.opportunity_refinement_summary,
             "satellites": [satellite.as_debug_dict() for satellite in self.satellites],
             "actions": [action.as_debug_dict() for action in self.actions],
             "target_gap_summary": self.target_gap_summary,
@@ -234,6 +257,7 @@ class SolutionBuildSummary:
             "action_count": len(self.actions),
             "opportunities_considered": self.opportunities_considered,
             "opportunities_visibility_valid": self.opportunities_visibility_valid,
+            "opportunity_refinement_summary": self.opportunity_refinement_summary,
             "local_validation_valid": self.validation.is_valid,
             "local_validation_error_count": len(self.validation.errors),
             "high_gap_target_count": len(high_gap_targets),
@@ -255,6 +279,11 @@ class PhasedOpportunityQuality:
     closure_error_m: float
     first_midpoint_offset_sec: float | None
     last_midpoint_offset_sec: float | None
+    coarse_hint_count: int = 0
+    refined_opportunity_count: int = 0
+    rejected_hint_count: int = 0
+    rejection_reasons: dict[str, int] | None = None
+    refined_midpoint_offsets_sec: tuple[float, ...] = ()
 
     def as_dict(self) -> dict[str, Any]:
         return {
@@ -268,6 +297,11 @@ class PhasedOpportunityQuality:
             "closure_error_m": self.closure_error_m,
             "first_midpoint_offset_sec": self.first_midpoint_offset_sec,
             "last_midpoint_offset_sec": self.last_midpoint_offset_sec,
+            "coarse_hint_count": self.coarse_hint_count,
+            "refined_opportunity_count": self.refined_opportunity_count,
+            "rejected_hint_count": self.rejected_hint_count,
+            "rejection_reasons": {} if self.rejection_reasons is None else self.rejection_reasons,
+            "refined_midpoint_offsets_sec": list(self.refined_midpoint_offsets_sec),
         }
 
 
@@ -298,6 +332,32 @@ class SelectionRepairRound:
 
 
 @dataclass(frozen=True, slots=True)
+class RefinedCandidateProfile:
+    candidate_id: str
+    required_satellites: int
+    met_target_ids: tuple[str, ...]
+    quality_by_target: dict[str, PhasedOpportunityQuality]
+    average_max_gap_hours: float
+    closure_error_m: float
+    repeat_period_sec: float
+
+    @property
+    def target_count(self) -> int:
+        return len(self.met_target_ids)
+
+    def as_dict(self) -> dict[str, Any]:
+        return {
+            "candidate_id": self.candidate_id,
+            "required_satellites": self.required_satellites,
+            "met_target_count": self.target_count,
+            "met_target_ids": list(self.met_target_ids),
+            "average_max_gap_hours": self.average_max_gap_hours,
+            "closure_error_m": self.closure_error_m,
+            "repeat_period_sec": self.repeat_period_sec,
+        }
+
+
+@dataclass(frozen=True, slots=True)
 class SelectionRepairResult:
     selection: SelectionSummary
     initial_selection: SelectionSummary
@@ -306,6 +366,7 @@ class SelectionRepairResult:
     target_diagnostics: dict[str, dict[str, Any]]
     blocker: str | None
     config: SchedulingConfig
+    refined_repacking_summary: dict[str, Any] | None = None
 
     @property
     def changed(self) -> bool:
@@ -330,31 +391,74 @@ class SelectionRepairResult:
                 )
                 if final_high_gap:
                     remaining_high_gap_target_ids.append(target_id)
-                if target_id in diagnostics:
-                    diagnostics[target_id]["final_actual_max_gap_hours"] = item[
-                        "max_revisit_gap_hours"
-                    ]
-                    diagnostics[target_id]["final_actual_observation_count"] = item[
-                        "observation_count"
-                    ]
-                    final_estimated = diagnostics[target_id].get(
-                        "final_estimated_max_gap_hours",
-                        math.inf,
+                diagnostics.setdefault(
+                    target_id,
+                    {
+                        "initial_assignment": None,
+                        "initial_actual_max_gap_hours": None,
+                        "expected_revisit_period_hours": item[
+                            "expected_revisit_period_hours"
+                        ],
+                        "best_alternates": [],
+                        "final_estimated_max_gap_hours": math.inf,
+                        "final_assignment": None,
+                    },
+                )
+                diagnostics[target_id]["final_actual_max_gap_hours"] = item[
+                    "max_revisit_gap_hours"
+                ]
+                diagnostics[target_id]["final_actual_observation_count"] = item[
+                    "observation_count"
+                ]
+                final_estimated = diagnostics[target_id].get(
+                    "final_estimated_max_gap_hours",
+                    math.inf,
+                )
+                best_alternates = diagnostics[target_id].get("best_alternates", [])
+                best_refined = best_alternates[0] if best_alternates else None
+                if final_high_gap and final_estimated <= (
+                    item["expected_revisit_period_hours"] + NUMERICAL_EPS
+                ):
+                    diagnostics[target_id]["remaining_blocker"] = "scheduling_failure"
+                elif final_high_gap and not best_alternates:
+                    diagnostics[target_id]["remaining_blocker"] = (
+                        "candidate_pool_failure"
                     )
-                    if final_high_gap and final_estimated <= (
-                        item["expected_revisit_period_hours"] + NUMERICAL_EPS
-                    ):
-                        diagnostics[target_id]["remaining_blocker"] = (
-                            "phased_window_estimate_overstated_final_visibility"
-                        )
-                    elif final_high_gap:
-                        diagnostics[target_id]["remaining_blocker"] = (
-                            "candidate_pool_budget_or_round_limit"
-                        )
-                    else:
-                        diagnostics[target_id]["remaining_blocker"] = None
-            if remaining_high_gap_target_ids and effective_blocker is None:
-                effective_blocker = "final_schedule_geometry_or_budget_blocker"
+                elif final_high_gap and all(
+                    alternate.get("refined_opportunity_count", 0) <= 0
+                    for alternate in best_alternates
+                ):
+                    diagnostics[target_id]["remaining_blocker"] = (
+                        "refinement_failure"
+                    )
+                elif (
+                    final_high_gap
+                    and best_refined is not None
+                    and best_refined.get("max_gap_hours", math.inf)
+                    <= item["expected_revisit_period_hours"] + NUMERICAL_EPS
+                    and self.selection.total_required_satellites
+                    >= self.selection.max_num_satellites
+                ):
+                    diagnostics[target_id]["remaining_blocker"] = "budget_failure"
+                elif final_high_gap:
+                    diagnostics[target_id]["remaining_blocker"] = (
+                        "candidate_pool_failure"
+                    )
+                else:
+                    diagnostics[target_id]["remaining_blocker"] = None
+            if remaining_high_gap_target_ids:
+                blocker_classes = sorted(
+                    {
+                        diagnostics[target_id].get("remaining_blocker")
+                        for target_id in remaining_high_gap_target_ids
+                        if diagnostics.get(target_id, {}).get("remaining_blocker")
+                    }
+                )
+                effective_blocker = (
+                    "+".join(blocker_classes)
+                    if blocker_classes
+                    else "unclassified_high_gap_failure"
+                )
         return {
             "changed": self.changed,
             "blocker": effective_blocker,
@@ -365,6 +469,9 @@ class SelectionRepairResult:
             "max_num_satellites": self.selection.max_num_satellites,
             "rounds": [round_item.as_dict() for round_item in self.rounds],
             "target_diagnostics": diagnostics,
+            "refined_repacking_summary": (
+                {} if self.refined_repacking_summary is None else self.refined_repacking_summary
+            ),
             "config": {
                 "max_selection_repair_rounds": self.config.max_selection_repair_rounds,
                 "max_repair_alternates_per_target": (
@@ -516,6 +623,9 @@ def _action_geometry_valid(
     start: datetime,
     end: datetime,
     sample_step_sec: float,
+    elevation_safety_margin_deg: float = 0.0,
+    range_safety_margin_m: float = 0.0,
+    off_nadir_safety_margin_deg: float = 0.0,
 ) -> bool:
     for sample_offset in _sample_offsets(start, end, sample_step_sec):
         instant = start + timedelta(seconds=sample_offset)
@@ -529,6 +639,26 @@ def _action_geometry_valid(
             offset_sec=mission_offset,
         )
         if not sample.visible:
+            return False
+        max_allowed_range_m = min(
+            target.max_slant_range_m,
+            case.satellite_model.sensor.max_range_m,
+        )
+        if (
+            sample.elevation_deg
+            < target.min_elevation_deg + elevation_safety_margin_deg
+        ):
+            return False
+        if (
+            sample.slant_range_m
+            > max_allowed_range_m - range_safety_margin_m
+        ):
+            return False
+        if (
+            sample.off_nadir_deg
+            > case.satellite_model.sensor.max_off_nadir_angle_deg
+            - off_nadir_safety_margin_deg
+        ):
             return False
     return True
 
@@ -544,6 +674,72 @@ def _candidate_windows_by_key(
     for windows in windows_by_key.values():
         windows.sort(key=lambda item: (item.midpoint_offset_sec, item.window_id))
     return windows_by_key
+
+
+def _legacy_hint_from_window(
+    *,
+    case: RevisitCase,
+    window: VisibilityWindow,
+    repeat_period_sec: float,
+) -> CoarseVisibilityHint:
+    target = case.targets[window.target_id]
+    range_limit = min(
+        target.max_slant_range_m,
+        case.satellite_model.sensor.max_range_m,
+    )
+    elevation_margin = window.max_elevation_deg - target.min_elevation_deg
+    range_margin = range_limit - window.min_slant_range_m
+    off_nadir_margin = (
+        case.satellite_model.sensor.max_off_nadir_angle_deg
+        - window.min_off_nadir_deg
+    )
+    return CoarseVisibilityHint(
+        hint_id=f"{window.window_id}__legacy_hint",
+        candidate_id=window.candidate_id,
+        template_id=window.template_id,
+        target_id=window.target_id,
+        offset_sec=window.midpoint_offset_sec,
+        repeat_period_sec=repeat_period_sec,
+        sample_step_sec=max(window.duration_sec, 1.0),
+        elevation_deg=window.max_elevation_deg,
+        slant_range_m=window.min_slant_range_m,
+        off_nadir_deg=window.min_off_nadir_deg,
+        elevation_margin_deg=elevation_margin,
+        range_margin_m=range_margin,
+        off_nadir_margin_deg=off_nadir_margin,
+        min_margin=min(elevation_margin, range_margin, off_nadir_margin),
+        source="legacy_coarse_window_midpoint",
+    )
+
+
+def _coarse_hints_by_key(
+    *,
+    case: RevisitCase,
+    coverage: CoverageSummary,
+) -> dict[tuple[str, str], list[CoarseVisibilityHint]]:
+    hints_by_key: dict[tuple[str, str], list[CoarseVisibilityHint]] = {}
+    candidates = _candidate_map(coverage)
+    for hint in coverage.hints:
+        hints_by_key.setdefault((hint.candidate_id, hint.target_id), []).append(hint)
+    if not coverage.hints:
+        for window in coverage.windows:
+            repeat_period_sec = candidates[window.candidate_id].repeat_period_sec
+            hints_by_key.setdefault((window.candidate_id, window.target_id), []).append(
+                _legacy_hint_from_window(
+                    case=case,
+                    window=window,
+                    repeat_period_sec=repeat_period_sec,
+                )
+            )
+    for hints in hints_by_key.values():
+        hints.sort(
+            key=lambda item: (
+                item.offset_sec,
+                -item.min_margin,
+                item.hint_id,
+            )
+        )
+    return hints_by_key
 
 
 def _resolved_worker_count(configured: int, work_item_count: int) -> int:
@@ -667,6 +863,291 @@ def _offset_max_gap_sec(
     return max(right - left for left, right in zip(times, times[1:]))
 
 
+def _single_candidate_selection(
+    *,
+    case: RevisitCase,
+    coverage: CoverageSummary,
+    candidate_id: str,
+    target_ids: list[str],
+) -> SelectionSummary:
+    candidates = _candidate_map(coverage)
+    candidate = candidates[candidate_id]
+    assignments: dict[str, TargetAssignment] = {}
+    for target_id in sorted(target_ids):
+        target = case.targets[target_id]
+        assignments[target_id] = TargetAssignment(
+            target_id=target_id,
+            candidate_id=candidate_id,
+            required_satellites=satellites_required_for_target(candidate, target),
+            repeat_period_hours=candidate.repeat_period_sec / 3600.0,
+            coverage_margin_score=0.0,
+        )
+    required_satellites = max(
+        (assignment.required_satellites for assignment in assignments.values()),
+        default=0,
+    )
+    selected = SelectedCandidate(
+        candidate=candidate,
+        assigned_target_ids=tuple(sorted(target_ids)),
+        required_satellites=required_satellites,
+        covered_target_ids=tuple(coverage.candidate_to_targets.get(candidate_id, [])),
+        redundant_target_ids=tuple(
+            target_id
+            for target_id in coverage.candidate_to_targets.get(candidate_id, [])
+            if target_id not in assignments
+        ),
+    )
+    return SelectionSummary(
+        selected_candidates=[selected] if required_satellites else [],
+        target_assignments=assignments,
+        uncovered_target_ids=sorted(set(case.targets).difference(assignments)),
+        total_required_satellites=required_satellites,
+        max_num_satellites=case.max_num_satellites,
+        rounds=[],
+        budget_near_misses=[],
+        all_targets_covered=set(assignments) == set(case.targets),
+        within_satellite_budget=required_satellites <= case.max_num_satellites,
+    )
+
+
+def _candidate_realization_offsets(
+    *,
+    hint_offset_sec: float,
+    phase_offset_sec: float,
+    repeat_period_sec: float,
+    horizon_sec: float,
+    radius_sec: float,
+) -> list[float]:
+    if repeat_period_sec <= 0.0:
+        repeat_period_sec = horizon_sec
+    offset = hint_offset_sec - phase_offset_sec
+    while offset < -radius_sec:
+        offset += repeat_period_sec
+    values: list[float] = []
+    while offset <= horizon_sec + radius_sec + NUMERICAL_EPS:
+        if -radius_sec <= offset <= horizon_sec + radius_sec:
+            values.append(float(offset))
+        offset += repeat_period_sec
+    return values
+
+
+def _refine_action_near_offset(
+    *,
+    case: RevisitCase,
+    selection: SelectionSummary,
+    satellite: SatellitePlan,
+    target: Target,
+    nominal_offset_sec: float,
+    radius_sec: float,
+    config: SchedulingConfig,
+) -> tuple[ObservationAction | None, str]:
+    horizon_sec = (case.horizon_end - case.horizon_start).total_seconds()
+    duration_sec = target.min_duration_sec
+    half_duration = duration_sec / 2.0
+    if nominal_offset_sec < -radius_sec or nominal_offset_sec > horizon_sec + radius_sec:
+        return None, "outside_horizon"
+    low = max(half_duration, nominal_offset_sec - radius_sec)
+    high = min(horizon_sec - half_duration, nominal_offset_sec + radius_sec)
+    if high + NUMERICAL_EPS < low:
+        return None, "insufficient_horizon_room"
+    step_sec = max(1.0, min(config.opportunity_sample_step_sec, radius_sec * 0.5))
+    midpoint_offsets = {round(min(max(nominal_offset_sec, low), high), 6)}
+    current = low
+    while current <= high + NUMERICAL_EPS:
+        midpoint_offsets.add(round(min(max(current, low), high), 6))
+        current += step_sec
+    ordered_offsets = sorted(
+        midpoint_offsets,
+        key=lambda item: (abs(item - nominal_offset_sec), item),
+    )
+    for midpoint_offset in ordered_offsets:
+        midpoint = case.horizon_start + timedelta(seconds=midpoint_offset)
+        start = midpoint - timedelta(seconds=half_duration)
+        end = midpoint + timedelta(seconds=half_duration)
+        if start < case.horizon_start or end > case.horizon_end:
+            continue
+        if _action_geometry_valid(
+            case=case,
+            selection=selection,
+            satellite=satellite,
+            target=target,
+            start=start,
+            end=end,
+            sample_step_sec=config.validation_sample_step_sec,
+            elevation_safety_margin_deg=config.elevation_safety_margin_deg,
+            range_safety_margin_m=config.range_safety_margin_m,
+            off_nadir_safety_margin_deg=config.off_nadir_safety_margin_deg,
+        ):
+            return (
+                ObservationAction(
+                    action_type="observation",
+                    satellite_id=satellite.satellite_id,
+                    target_id=target.target_id,
+                    start=start,
+                    end=end,
+                    candidate_id=satellite.candidate_id,
+                    opportunity_midpoint_offset_sec=midpoint_offset,
+                ),
+                "refined",
+            )
+    return None, "no_valid_interval"
+
+
+def _refined_opportunities_for_satellite_target(
+    *,
+    case: RevisitCase,
+    selection: SelectionSummary,
+    satellite: SatellitePlan,
+    target_id: str,
+    hints: list[CoarseVisibilityHint],
+    config: SchedulingConfig,
+) -> tuple[list[ObservationAction], int, dict[str, int], list[dict[str, Any]]]:
+    target = case.targets[target_id]
+    horizon_sec = (case.horizon_end - case.horizon_start).total_seconds()
+    opportunities_by_key: dict[tuple[str, str, float], ObservationAction] = {}
+    rejection_reasons: dict[str, int] = {}
+    attempts: list[dict[str, Any]] = []
+    for hint in hints:
+        repeat_period_sec = hint.repeat_period_sec
+        if repeat_period_sec <= 0.0:
+            repeat_period_sec = max(horizon_sec, satellite.phase_count * satellite.phase_offset_sec)
+        radius_sec = max(
+            target.min_duration_sec,
+            hint.sample_step_sec / 2.0,
+            config.validation_sample_step_sec,
+        )
+        for nominal_offset in _candidate_realization_offsets(
+            hint_offset_sec=hint.offset_sec,
+            phase_offset_sec=satellite.phase_offset_sec,
+            repeat_period_sec=repeat_period_sec,
+            horizon_sec=horizon_sec,
+            radius_sec=radius_sec,
+        ):
+            action, reason = _refine_action_near_offset(
+                case=case,
+                selection=selection,
+                satellite=satellite,
+                target=target,
+                nominal_offset_sec=nominal_offset,
+                radius_sec=radius_sec,
+                config=config,
+            )
+            attempts.append(
+                {
+                    "hint_id": hint.hint_id,
+                    "hint_offset_sec": hint.offset_sec,
+                    "satellite_id": satellite.satellite_id,
+                    "phase_index": satellite.phase_index,
+                    "phase_offset_sec": satellite.phase_offset_sec,
+                    "nominal_offset_sec": nominal_offset,
+                    "result": reason,
+                    "refined_midpoint_offset_sec": (
+                        None if action is None else action.opportunity_midpoint_offset_sec
+                    ),
+                }
+            )
+            if action is None:
+                rejection_reasons[reason] = rejection_reasons.get(reason, 0) + 1
+                continue
+            key = (
+                action.satellite_id,
+                action.target_id,
+                round(action.opportunity_midpoint_offset_sec, 6),
+            )
+            opportunities_by_key[key] = action
+    return (
+        sorted(
+            opportunities_by_key.values(),
+            key=lambda item: (
+                item.midpoint,
+                item.target_id,
+                item.satellite_id,
+                item.candidate_id,
+            ),
+        ),
+        len(attempts),
+        rejection_reasons,
+        attempts,
+    )
+
+
+def _refined_candidate_target_quality(
+    *,
+    case: RevisitCase,
+    coverage: CoverageSummary,
+    candidate_id: str,
+    target_id: str,
+    hints: list[CoarseVisibilityHint],
+    config: SchedulingConfig,
+) -> PhasedOpportunityQuality:
+    candidate = _candidate_map(coverage)[candidate_id]
+    target = case.targets[target_id]
+    selection = _single_candidate_selection(
+        case=case,
+        coverage=coverage,
+        candidate_id=candidate_id,
+        target_ids=[target_id],
+    )
+    satellites = generate_phased_satellites(case, selection)
+    opportunities: list[ObservationAction] = []
+    rejection_reasons: dict[str, int] = {}
+    attempts = 0
+    for satellite in satellites:
+        satellite_opportunities, satellite_attempts, satellite_rejections, _ = (
+            _refined_opportunities_for_satellite_target(
+                case=case,
+                selection=selection,
+                satellite=satellite,
+                target_id=target_id,
+                hints=hints,
+                config=config,
+            )
+        )
+        opportunities.extend(satellite_opportunities)
+        attempts += satellite_attempts
+        for reason, count in satellite_rejections.items():
+            rejection_reasons[reason] = rejection_reasons.get(reason, 0) + count
+    midpoint_offsets = sorted(
+        {
+            round(
+                (opportunity.midpoint - case.horizon_start).total_seconds(),
+                6,
+            )
+            for opportunity in opportunities
+        }
+    )
+    horizon_sec = (case.horizon_end - case.horizon_start).total_seconds()
+    if midpoint_offsets:
+        max_gap_sec = _offset_max_gap_sec(
+            horizon_sec=horizon_sec,
+            midpoint_offsets_sec=midpoint_offsets,
+        )
+        first_midpoint = midpoint_offsets[0]
+        last_midpoint = midpoint_offsets[-1]
+    else:
+        max_gap_sec = horizon_sec
+        first_midpoint = None
+        last_midpoint = None
+    max_gap_hours = max_gap_sec / 3600.0
+    return PhasedOpportunityQuality(
+        target_id=target_id,
+        candidate_id=candidate_id,
+        required_satellites=satellites_required_for_target(candidate, target),
+        opportunity_count=len(midpoint_offsets),
+        max_gap_hours=max_gap_hours,
+        capped_max_gap_hours=max(max_gap_hours, target.expected_revisit_period_hours),
+        repeat_period_hours=candidate.repeat_period_sec / 3600.0,
+        closure_error_m=candidate.template_closure_error_m,
+        first_midpoint_offset_sec=first_midpoint,
+        last_midpoint_offset_sec=last_midpoint,
+        coarse_hint_count=len(hints),
+        refined_opportunity_count=len(midpoint_offsets),
+        rejected_hint_count=max(0, attempts - len(midpoint_offsets)),
+        rejection_reasons=rejection_reasons,
+        refined_midpoint_offsets_sec=tuple(midpoint_offsets[:24]),
+    )
+
+
 def _phased_midpoint_offsets(
     *,
     candidate_repeat_sec: float,
@@ -696,45 +1177,21 @@ def evaluate_phased_candidate_target_quality(
     candidate_id: str,
     target_id: str,
 ) -> PhasedOpportunityQuality:
-    candidates = _candidate_map(coverage)
-    if candidate_id not in candidates:
+    if candidate_id not in _candidate_map(coverage):
         raise ValueError(f"unknown candidate_id: {candidate_id}")
     if target_id not in case.targets:
         raise ValueError(f"unknown target_id: {target_id}")
-    candidate = candidates[candidate_id]
-    target = case.targets[target_id]
-    required_satellites = satellites_required_for_target(candidate, target)
-    windows = _candidate_windows_by_key(coverage).get((candidate_id, target_id), [])
-    horizon_sec = (case.horizon_end - case.horizon_start).total_seconds()
-    midpoint_offsets = _phased_midpoint_offsets(
-        candidate_repeat_sec=candidate.repeat_period_sec,
-        phase_count=required_satellites,
-        horizon_sec=horizon_sec,
-        windows=windows,
+    hints = _coarse_hints_by_key(case=case, coverage=coverage).get(
+        (candidate_id, target_id),
+        [],
     )
-    if midpoint_offsets:
-        max_gap_sec = _offset_max_gap_sec(
-            horizon_sec=horizon_sec,
-            midpoint_offsets_sec=midpoint_offsets,
-        )
-        first_midpoint = midpoint_offsets[0]
-        last_midpoint = midpoint_offsets[-1]
-    else:
-        max_gap_sec = horizon_sec
-        first_midpoint = None
-        last_midpoint = None
-    max_gap_hours = max_gap_sec / 3600.0
-    return PhasedOpportunityQuality(
-        target_id=target_id,
+    return _refined_candidate_target_quality(
+        case=case,
+        coverage=coverage,
         candidate_id=candidate_id,
-        required_satellites=required_satellites,
-        opportunity_count=len(midpoint_offsets),
-        max_gap_hours=max_gap_hours,
-        capped_max_gap_hours=max(max_gap_hours, target.expected_revisit_period_hours),
-        repeat_period_hours=candidate.repeat_period_sec / 3600.0,
-        closure_error_m=candidate.template_closure_error_m,
-        first_midpoint_offset_sec=first_midpoint,
-        last_midpoint_offset_sec=last_midpoint,
+        target_id=target_id,
+        hints=hints,
+        config=SchedulingConfig(),
     )
 
 
@@ -779,15 +1236,50 @@ def _phased_quality_from_windows(
 
 
 def _quality_worker(
-    args: tuple[float, Target, Any, list[VisibilityWindow]],
+    args: tuple[
+        RevisitCase,
+        CoverageSummary,
+        str,
+        str,
+        list[CoarseVisibilityHint],
+        SchedulingConfig,
+    ],
 ) -> PhasedOpportunityQuality:
-    horizon_sec, target, candidate, windows = args
-    return _phased_quality_from_windows(
-        horizon_sec=horizon_sec,
-        target=target,
-        candidate=candidate,
-        windows=windows,
+    case, coverage, candidate_id, target_id, hints, config = args
+    return _refined_candidate_target_quality(
+        case=case,
+        coverage=coverage,
+        candidate_id=candidate_id,
+        target_id=target_id,
+        hints=hints,
+        config=config,
     )
+
+
+def _quality_candidate_worker(
+    args: tuple[
+        RevisitCase,
+        CoverageSummary,
+        str,
+        list[str],
+        dict[str, list[CoarseVisibilityHint]],
+        SchedulingConfig,
+    ],
+) -> list[PhasedOpportunityQuality]:
+    case, coverage, candidate_id, target_ids, hints_by_target, config = args
+    qualities: list[PhasedOpportunityQuality] = []
+    for target_id in target_ids:
+        qualities.append(
+            _refined_candidate_target_quality(
+                case=case,
+                coverage=coverage,
+                candidate_id=candidate_id,
+                target_id=target_id,
+                hints=hints_by_target.get(target_id, []),
+                config=config,
+            )
+        )
+    return qualities
 
 
 def _initial_high_gap_targets(
@@ -806,28 +1298,55 @@ def _candidate_quality_cache(
     case: RevisitCase,
     coverage: CoverageSummary,
     target_ids: list[str],
-    worker_count: int = 1,
+    config: SchedulingConfig,
 ) -> dict[tuple[str, str], PhasedOpportunityQuality]:
-    candidate_by_id = _candidate_map(coverage)
-    windows_by_key = _candidate_windows_by_key(coverage)
-    horizon_sec = (case.horizon_end - case.horizon_start).total_seconds()
-    work_items: list[tuple[float, Target, Any, list[VisibilityWindow]]] = []
-    for target_id in sorted(target_ids):
-        for candidate_id in sorted(coverage.target_to_candidates.get(target_id, [])):
-            work_items.append(
-                (
-                    horizon_sec,
-                    case.targets[target_id],
-                    candidate_by_id[candidate_id],
-                    windows_by_key.get((candidate_id, target_id), []),
-                )
+    hints_by_key = _coarse_hints_by_key(case=case, coverage=coverage)
+    target_filter = set(target_ids)
+    work_items: list[
+        tuple[
+            RevisitCase,
+            CoverageSummary,
+            str,
+            list[str],
+            dict[str, list[CoarseVisibilityHint]],
+            SchedulingConfig,
+        ]
+    ] = []
+    for candidate_id in sorted(candidate.candidate_id for candidate in coverage.candidates):
+        candidate_target_ids = [
+            target_id
+            for target_id in coverage.candidate_to_targets.get(candidate_id, [])
+            if target_id in target_filter
+        ]
+        if not candidate_target_ids:
+            continue
+        work_items.append(
+            (
+                case,
+                coverage,
+                candidate_id,
+                sorted(candidate_target_ids),
+                {
+                    target_id: hints_by_key.get((candidate_id, target_id), [])
+                    for target_id in candidate_target_ids
+                },
+                config,
             )
-    resolved_worker_count = _resolved_worker_count(worker_count, len(work_items))
+        )
+    resolved_worker_count = _resolved_worker_count(
+        config.repair_worker_count,
+        len(work_items),
+    )
     if resolved_worker_count > 1:
         with ProcessPoolExecutor(max_workers=resolved_worker_count) as executor:
-            qualities = list(executor.map(_quality_worker, work_items))
+            nested_qualities = list(executor.map(_quality_candidate_worker, work_items))
     else:
-        qualities = [_quality_worker(item) for item in work_items]
+        nested_qualities = [_quality_candidate_worker(item) for item in work_items]
+    qualities = [
+        quality
+        for candidate_qualities in nested_qualities
+        for quality in candidate_qualities
+    ]
     return {
         (quality.candidate_id, quality.target_id): quality
         for quality in sorted(
@@ -855,6 +1374,269 @@ def _top_alternates(
     return [item.as_dict() for item in ordered[: max(0, limit)]]
 
 
+def _quality_meets_revisit(
+    case: RevisitCase,
+    quality: PhasedOpportunityQuality,
+) -> bool:
+    target = case.targets[quality.target_id]
+    return (
+        quality.opportunity_count > 0
+        and quality.max_gap_hours
+        <= target.expected_revisit_period_hours + NUMERICAL_EPS
+    )
+
+
+def _refined_candidate_profiles(
+    *,
+    case: RevisitCase,
+    coverage: CoverageSummary,
+    quality_by_pair: dict[tuple[str, str], PhasedOpportunityQuality],
+) -> dict[str, RefinedCandidateProfile]:
+    candidates = _candidate_map(coverage)
+    by_candidate: dict[str, dict[str, PhasedOpportunityQuality]] = {}
+    for (candidate_id, target_id), quality in quality_by_pair.items():
+        if candidate_id not in candidates:
+            continue
+        if not _quality_meets_revisit(case, quality):
+            continue
+        by_candidate.setdefault(candidate_id, {})[target_id] = quality
+
+    profiles: dict[str, RefinedCandidateProfile] = {}
+    for candidate_id, qualities in sorted(by_candidate.items()):
+        candidate = candidates[candidate_id]
+        met_target_ids = tuple(sorted(qualities))
+        if not met_target_ids:
+            continue
+        required_satellites = max(
+            qualities[target_id].required_satellites
+            for target_id in met_target_ids
+        )
+        profiles[candidate_id] = RefinedCandidateProfile(
+            candidate_id=candidate_id,
+            required_satellites=required_satellites,
+            met_target_ids=met_target_ids,
+            quality_by_target=qualities,
+            average_max_gap_hours=(
+                sum(quality.max_gap_hours for quality in qualities.values())
+                / len(qualities)
+            ),
+            closure_error_m=candidate.template_closure_error_m,
+            repeat_period_sec=candidate.repeat_period_sec,
+        )
+    return profiles
+
+
+def _selection_from_refined_profiles(
+    *,
+    case: RevisitCase,
+    coverage: CoverageSummary,
+    original: SelectionSummary,
+    selected_candidate_ids: list[str],
+    profiles: dict[str, RefinedCandidateProfile],
+) -> SelectionSummary:
+    target_to_candidate: dict[str, str] = {}
+    for target_id in sorted(case.targets):
+        covering = [
+            profiles[candidate_id]
+            for candidate_id in selected_candidate_ids
+            if candidate_id in profiles
+            and target_id in profiles[candidate_id].quality_by_target
+        ]
+        if not covering:
+            continue
+        chosen = min(
+            covering,
+            key=lambda profile: (
+                profile.quality_by_target[target_id].max_gap_hours,
+                profile.required_satellites,
+                profile.closure_error_m,
+                profile.repeat_period_sec,
+                profile.candidate_id,
+            ),
+        )
+        target_to_candidate[target_id] = chosen.candidate_id
+    return _build_selection_from_target_assignments(
+        case=case,
+        coverage=coverage,
+        original=original,
+        selected_candidate_ids=selected_candidate_ids,
+        target_to_candidate=target_to_candidate,
+    )
+
+
+def _repack_selection_with_refined_profiles(
+    *,
+    case: RevisitCase,
+    coverage: CoverageSummary,
+    original: SelectionSummary,
+    profiles: dict[str, RefinedCandidateProfile],
+) -> tuple[SelectionSummary, dict[str, Any]]:
+    target_ids = sorted(case.targets)
+    target_bit = {target_id: 1 << index for index, target_id in enumerate(target_ids)}
+    full_mask = (1 << len(target_ids)) - 1
+    profile_items = sorted(
+        profiles.values(),
+        key=lambda profile: (
+            -profile.target_count,
+            profile.required_satellites,
+            profile.average_max_gap_hours,
+            profile.closure_error_m,
+            profile.repeat_period_sec,
+            profile.candidate_id,
+        ),
+    )
+    candidate_masks = {
+        profile.candidate_id: sum(target_bit[target_id] for target_id in profile.met_target_ids)
+        for profile in profile_items
+    }
+    profile_by_id = {profile.candidate_id: profile for profile in profile_items}
+
+    def selection_quality(candidate_ids: tuple[str, ...]) -> float:
+        return sum(
+            profile_by_id[candidate_id].average_max_gap_hours
+            * profile_by_id[candidate_id].target_count
+            for candidate_id in candidate_ids
+        )
+
+    def selection_mask(candidate_ids: tuple[str, ...]) -> int:
+        mask = 0
+        for candidate_id in candidate_ids:
+            mask |= candidate_masks[candidate_id]
+        return mask
+
+    def selection_cost(candidate_ids: tuple[str, ...]) -> int:
+        return sum(
+            profile_by_id[candidate_id].required_satellites
+            for candidate_id in candidate_ids
+        )
+
+    def selection_key(candidate_ids: tuple[str, ...]) -> tuple[int, int, float, tuple[str, ...]]:
+        mask = selection_mask(candidate_ids)
+        return (
+            -mask.bit_count(),
+            selection_cost(candidate_ids),
+            selection_quality(candidate_ids),
+            candidate_ids,
+        )
+
+    selected_ids: tuple[str, ...] = ()
+    selected_mask = 0
+    selected_cost = 0
+    greedy_rounds: list[dict[str, Any]] = []
+    while selected_mask != full_mask:
+        options: list[tuple[tuple[Any, ...], RefinedCandidateProfile, int]] = []
+        for profile in profile_items:
+            if profile.candidate_id in selected_ids:
+                continue
+            if selected_cost + profile.required_satellites > case.max_num_satellites:
+                continue
+            gain_mask = candidate_masks[profile.candidate_id] & ~selected_mask
+            gain = gain_mask.bit_count()
+            if gain <= 0:
+                continue
+            score = (
+                -(gain / profile.required_satellites),
+                -gain,
+                profile.required_satellites,
+                profile.average_max_gap_hours,
+                profile.closure_error_m,
+                profile.repeat_period_sec,
+                profile.candidate_id,
+            )
+            options.append((score, profile, gain))
+        if not options:
+            break
+        _, chosen, gain = min(options, key=lambda item: item[0])
+        selected_ids = tuple(sorted((*selected_ids, chosen.candidate_id)))
+        selected_mask |= candidate_masks[chosen.candidate_id]
+        selected_cost += chosen.required_satellites
+        greedy_rounds.append(
+            {
+                "candidate_id": chosen.candidate_id,
+                "gain": gain,
+                "selected_satellite_count": selected_cost,
+                "covered_target_count": selected_mask.bit_count(),
+            }
+        )
+
+    replacement_rounds: list[dict[str, Any]] = []
+    changed = True
+    while changed:
+        changed = False
+        current_key = selection_key(selected_ids)
+        best_ids = selected_ids
+        best_replacement: dict[str, Any] | None = None
+        selected_set = set(selected_ids)
+        for remove_id in selected_ids:
+            base_ids = tuple(
+                candidate_id
+                for candidate_id in selected_ids
+                if candidate_id != remove_id
+            )
+            base_cost = selection_cost(base_ids)
+            for add_profile in profile_items:
+                add_id = add_profile.candidate_id
+                if add_id in selected_set:
+                    continue
+                if base_cost + add_profile.required_satellites > case.max_num_satellites:
+                    continue
+                trial_ids = tuple(sorted((*base_ids, add_id)))
+                trial_key = selection_key(trial_ids)
+                if trial_key < current_key and trial_key < selection_key(best_ids):
+                    best_ids = trial_ids
+                    best_replacement = {
+                        "removed_candidate_id": remove_id,
+                        "added_candidate_id": add_id,
+                        "covered_target_count": -trial_key[0],
+                        "selected_satellite_count": selection_cost(trial_ids),
+                    }
+        if best_ids != selected_ids:
+            selected_ids = best_ids
+            replacement_rounds.append(best_replacement or {})
+            changed = True
+
+    selected_candidate_ids = list(selected_ids)
+    best_mask = selection_mask(selected_ids)
+    best_cost = selection_cost(selected_ids)
+    best_quality = selection_quality(selected_ids)
+    selection = _selection_from_refined_profiles(
+        case=case,
+        coverage=coverage,
+        original=original,
+        selected_candidate_ids=selected_candidate_ids,
+        profiles=profiles,
+    )
+    covered_targets = [
+        target_id for target_id in target_ids if best_mask & target_bit[target_id]
+    ]
+    summary = {
+        "strategy": "refined_max_coverage_repack",
+        "profile_count": len(profiles),
+        "selected_candidate_ids": selected_candidate_ids,
+        "selected_candidate_count": len(selected_candidate_ids),
+        "selected_satellite_count": best_cost,
+        "covered_target_count": len(covered_targets),
+        "covered_target_ids": covered_targets,
+        "uncovered_target_ids": [
+            target_id for target_id in target_ids if not best_mask & target_bit[target_id]
+        ],
+        "full_coverage_possible": best_mask == full_mask,
+        "quality_sum_hours": best_quality,
+        "greedy_rounds": greedy_rounds,
+        "replacement_rounds": replacement_rounds,
+        "selected_profiles": [
+            profiles[candidate_id].as_dict()
+            for candidate_id in selected_candidate_ids
+            if candidate_id in profiles
+        ],
+        "top_profiles": [
+            profile.as_dict()
+            for profile in profile_items[: min(20, len(profile_items))]
+        ],
+    }
+    return selection, summary
+
+
 def repair_selection_with_phased_opportunities(
     *,
     case: RevisitCase,
@@ -873,14 +1655,25 @@ def repair_selection_with_phased_opportunities(
             target_diagnostics={},
             blocker=None,
             config=config,
+            refined_repacking_summary={},
         )
 
-    candidate_by_id = _candidate_map(coverage)
     quality_by_pair = _candidate_quality_cache(
         case=case,
         coverage=coverage,
-        target_ids=high_gap_targets,
-        worker_count=config.repair_worker_count,
+        target_ids=sorted(case.targets),
+        config=config,
+    )
+    profiles = _refined_candidate_profiles(
+        case=case,
+        coverage=coverage,
+        quality_by_pair=quality_by_pair,
+    )
+    repacked_selection, repacking_summary = _repack_selection_with_refined_profiles(
+        case=case,
+        coverage=coverage,
+        original=selection,
+        profiles=profiles,
     )
     diagnostics: dict[str, dict[str, Any]] = {}
     for target_id in high_gap_targets:
@@ -888,8 +1681,14 @@ def repair_selection_with_phased_opportunities(
         qualities = [
             quality
             for (candidate_id, quality_target_id), quality in quality_by_pair.items()
-            if quality_target_id == target_id and candidate_id in candidate_by_id
+            if quality_target_id == target_id
         ]
+        final_assignment = repacked_selection.target_assignments.get(target_id)
+        final_quality = (
+            None
+            if final_assignment is None
+            else quality_by_pair.get((final_assignment.candidate_id, target_id))
+        )
         diagnostics[target_id] = {
             "initial_assignment": None if assignment is None else assignment.as_dict(),
             "initial_actual_max_gap_hours": initial_gap_summary[target_id][
@@ -902,183 +1701,94 @@ def repair_selection_with_phased_opportunities(
                 qualities,
                 config.max_repair_alternates_per_target,
             ),
+            "chosen_candidate_id": (
+                None if final_assignment is None else final_assignment.candidate_id
+            ),
+            "chosen_estimated_quality": (
+                None if final_quality is None else final_quality.as_dict()
+            ),
         }
 
-    selected_candidate_ids = [
-        item.candidate.candidate_id for item in selection.selected_candidates
-    ]
-    target_to_candidate = {
-        target_id: assignment.candidate_id
-        for target_id, assignment in selection.target_assignments.items()
-    }
-    current_estimated_gap = {
-        target_id: initial_gap_summary[target_id]["max_revisit_gap_hours"]
+    final_estimated_gap = {
+        target_id: (
+            quality_by_pair[
+                (
+                    repacked_selection.target_assignments[target_id].candidate_id,
+                    target_id,
+                )
+            ].max_gap_hours
+            if target_id in repacked_selection.target_assignments
+            and (
+                repacked_selection.target_assignments[target_id].candidate_id,
+                target_id,
+            )
+            in quality_by_pair
+            else initial_gap_summary[target_id]["max_revisit_gap_hours"]
+        )
         for target_id in high_gap_targets
     }
-    current_selection = selection
     rounds: list[SelectionRepairRound] = []
-    min_improvement_hours = max(0.0, config.min_gap_improvement_sec / 3600.0)
-    blocker: str | None = None
-
-    for round_index in range(max(0, config.max_selection_repair_rounds)):
-        options: list[
-            tuple[
-                tuple[Any, ...],
-                str,
-                dict[str, str],
-                SelectionSummary,
-                list[tuple[str, PhasedOpportunityQuality, float]],
-            ]
-        ] = []
-        unresolved = [
-            target_id
-            for target_id in high_gap_targets
-            if current_estimated_gap[target_id]
-            > case.targets[target_id].expected_revisit_period_hours + NUMERICAL_EPS
-        ]
-        if not unresolved:
-            blocker = None
-            break
-        for candidate_id in sorted(candidate_by_id):
-            improved: list[tuple[str, PhasedOpportunityQuality, float]] = []
-            for target_id in unresolved:
-                quality = quality_by_pair.get((candidate_id, target_id))
-                if quality is None or quality.opportunity_count <= 0:
-                    continue
-                improvement = current_estimated_gap[target_id] - quality.max_gap_hours
-                if improvement + NUMERICAL_EPS < min_improvement_hours:
-                    continue
-                improved.append((target_id, quality, improvement))
-            if not improved:
-                continue
-            trial_assignments = dict(target_to_candidate)
-            for target_id, _, _ in improved:
-                trial_assignments[target_id] = candidate_id
-            trial_candidate_ids = list(selected_candidate_ids)
-            if candidate_id not in trial_candidate_ids:
-                trial_candidate_ids.append(candidate_id)
-                trial_candidate_ids.sort()
-            trial_selection = _build_selection_from_target_assignments(
-                case=case,
-                coverage=coverage,
-                original=selection,
-                selected_candidate_ids=trial_candidate_ids,
-                target_to_candidate=trial_assignments,
-            )
-            if trial_selection.total_required_satellites > case.max_num_satellites:
-                continue
-            after_gaps = dict(current_estimated_gap)
-            for target_id, quality, _ in improved:
-                after_gaps[target_id] = quality.max_gap_hours
-            previous_worst = max(current_estimated_gap[target_id] for target_id in unresolved)
-            after_worst = max(after_gaps[target_id] for target_id in unresolved)
-            total_improvement = sum(improvement for _, _, improvement in improved)
-            added_satellites = (
-                trial_selection.total_required_satellites
-                - current_selection.total_required_satellites
-            )
-            candidate = candidate_by_id[candidate_id]
-            score = (
-                after_worst,
-                max(0, added_satellites),
-                trial_selection.total_required_satellites,
-                -len(improved),
-                -total_improvement,
-                candidate.template_closure_error_m,
-                candidate.repeat_period_sec,
-                candidate_id,
-            )
-            options.append((score, candidate_id, trial_assignments, trial_selection, improved))
-
-        if not options:
-            blocker = (
-                "satellite_budget_or_candidate_pool"
-                if current_selection.total_required_satellites >= case.max_num_satellites
-                else "no_phased_opportunity_improvement"
-            )
-            break
-
-        _, candidate_id, target_to_candidate, current_selection, improved = min(
-            options,
-            key=lambda item: item[0],
-        )
-        previous_total = len(rounds)
-        selected_candidate_ids = [
-            item.candidate.candidate_id for item in current_selection.selected_candidates
-        ]
-        previous_worst = max(current_estimated_gap[target_id] for target_id in unresolved)
-        total_improvement = 0.0
-        for target_id, quality, improvement in improved:
-            current_estimated_gap[target_id] = quality.max_gap_hours
-            total_improvement += improvement
-            diagnostics[target_id]["chosen_candidate_id"] = candidate_id
-            diagnostics[target_id]["chosen_estimated_quality"] = quality.as_dict()
-        next_unresolved = [
-            target_id
-            for target_id in high_gap_targets
-            if current_estimated_gap[target_id]
-            > case.targets[target_id].expected_revisit_period_hours + NUMERICAL_EPS
-        ]
-        after_worst = (
-            max(current_estimated_gap[target_id] for target_id in next_unresolved)
-            if next_unresolved
-            else 0.0
-        )
+    improved_targets = [
+        target_id
+        for target_id in high_gap_targets
+        if final_estimated_gap[target_id] + NUMERICAL_EPS
+        < initial_gap_summary[target_id]["max_revisit_gap_hours"]
+    ]
+    if repacked_selection != selection:
         rounds.append(
             SelectionRepairRound(
-                round_index=round_index,
-                candidate_id=candidate_id,
-                improved_target_ids=tuple(sorted(target_id for target_id, _, _ in improved)),
-                previous_satellite_count=(
-                    selection.total_required_satellites
-                    if previous_total == 0
-                    else rounds[-1].trial_satellite_count
-                ),
-                trial_satellite_count=current_selection.total_required_satellites,
+                round_index=0,
+                candidate_id="__refined_set_repack__",
+                improved_target_ids=tuple(sorted(improved_targets)),
+                previous_satellite_count=selection.total_required_satellites,
+                trial_satellite_count=repacked_selection.total_required_satellites,
                 added_satellites=(
-                    current_selection.total_required_satellites
-                    - (
-                        selection.total_required_satellites
-                        if previous_total == 0
-                        else rounds[-1].trial_satellite_count
-                    )
+                    repacked_selection.total_required_satellites
+                    - selection.total_required_satellites
                 ),
-                estimated_worst_before_hours=previous_worst,
-                estimated_worst_after_hours=after_worst,
-                estimated_total_improvement_hours=total_improvement,
+                estimated_worst_before_hours=max(
+                    initial_gap_summary[target_id]["max_revisit_gap_hours"]
+                    for target_id in high_gap_targets
+                ),
+                estimated_worst_after_hours=max(
+                    final_estimated_gap[target_id] for target_id in high_gap_targets
+                ),
+                estimated_total_improvement_hours=sum(
+                    initial_gap_summary[target_id]["max_revisit_gap_hours"]
+                    - final_estimated_gap[target_id]
+                    for target_id in improved_targets
+                ),
             )
         )
-
-    if rounds and blocker is None:
-        unresolved = [
-            target_id
-            for target_id in high_gap_targets
-            if current_estimated_gap[target_id]
-            > case.targets[target_id].expected_revisit_period_hours + NUMERICAL_EPS
-        ]
-        if unresolved:
-            blocker = "repair_round_limit"
+    unresolved = [
+        target_id
+        for target_id in high_gap_targets
+        if final_estimated_gap[target_id]
+        > case.targets[target_id].expected_revisit_period_hours + NUMERICAL_EPS
+    ]
+    blocker = None if not unresolved else "refined_repack_incomplete"
     if not rounds and blocker is None:
         blocker = "no_repair_needed"
 
     for target_id in high_gap_targets:
-        diagnostics[target_id]["final_estimated_max_gap_hours"] = current_estimated_gap[
+        diagnostics[target_id]["final_estimated_max_gap_hours"] = final_estimated_gap[
             target_id
         ]
         diagnostics[target_id]["final_assignment"] = (
-            current_selection.target_assignments[target_id].as_dict()
-            if target_id in current_selection.target_assignments
+            repacked_selection.target_assignments[target_id].as_dict()
+            if target_id in repacked_selection.target_assignments
             else None
         )
 
     return SelectionRepairResult(
-        selection=current_selection,
+        selection=repacked_selection,
         initial_selection=selection,
         initial_high_gap_target_ids=tuple(high_gap_targets),
         rounds=tuple(rounds),
         target_diagnostics=diagnostics,
         blocker=blocker,
         config=config,
+        refined_repacking_summary=repacking_summary,
     )
 
 
@@ -1097,82 +1807,20 @@ def _build_opportunity_worker(
         SelectionSummary,
         SatellitePlan,
         str,
-        list[float],
+        list[CoarseVisibilityHint],
         SchedulingConfig,
     ],
-) -> tuple[list[ObservationAction], int]:
-    case, selection, satellite, target_id, sample_offsets, config = args
-    horizon_sec = (case.horizon_end - case.horizon_start).total_seconds()
-    target = case.targets[target_id]
-    sample_step_sec = config.opportunity_sample_step_sec
-    samples = []
-    for offset in sample_offsets:
-        instant = case.horizon_start + timedelta(seconds=offset)
-        state = satellite_state_at(case, selection, satellite, offset)
-        samples.append(
-            geometry_sample_from_state(
-                case=case,
-                target=target,
-                state_eci_m_mps=state,
-                instant=instant,
-                offset_sec=offset,
-            )
-        )
-    windows = group_visible_samples(
-        candidate_id=satellite.satellite_id,
-        template_id=satellite.template_id,
+) -> tuple[list[ObservationAction], int, dict[str, int]]:
+    case, selection, satellite, target_id, hints, config = args
+    opportunities, considered, rejection_reasons, _ = _refined_opportunities_for_satellite_target(
+        case=case,
+        selection=selection,
+        satellite=satellite,
         target_id=target_id,
-        repeat_period_sec=horizon_sec,
-        sample_step_sec=sample_step_sec,
-        min_duration_sec=target.min_duration_sec,
-        samples=samples,
-        keep_samples_per_window=0,
+        hints=hints,
+        config=config,
     )
-    opportunities: list[ObservationAction] = []
-    considered = 0
-    for window in windows:
-        duration_sec = min(
-            window.duration_sec,
-            max(target.min_duration_sec, config.observation_duration_sec),
-        )
-        if duration_sec + NUMERICAL_EPS < target.min_duration_sec:
-            continue
-        best_sample = max(
-            window.samples,
-            key=lambda sample: (
-                sample.elevation_deg,
-                -sample.slant_range_m,
-                -sample.off_nadir_deg,
-            ),
-        )
-        midpoint_offset = best_sample.offset_sec
-        midpoint = case.horizon_start + timedelta(seconds=midpoint_offset)
-        start = midpoint - timedelta(seconds=duration_sec / 2.0)
-        end = midpoint + timedelta(seconds=duration_sec / 2.0)
-        considered += 1
-        if start < case.horizon_start or end > case.horizon_end:
-            continue
-        if _action_geometry_valid(
-            case=case,
-            selection=selection,
-            satellite=satellite,
-            target=target,
-            start=start,
-            end=end,
-            sample_step_sec=config.validation_sample_step_sec,
-        ):
-            opportunities.append(
-                ObservationAction(
-                    action_type="observation",
-                    satellite_id=satellite.satellite_id,
-                    target_id=target_id,
-                    start=start,
-                    end=end,
-                    candidate_id=satellite.candidate_id,
-                    opportunity_midpoint_offset_sec=midpoint_offset,
-                )
-            )
-    return opportunities, considered
+    return opportunities, considered, rejection_reasons
 
 
 def build_opportunities(
@@ -1182,23 +1830,18 @@ def build_opportunities(
     selection: SelectionSummary,
     satellites: list[SatellitePlan],
     config: SchedulingConfig,
-) -> tuple[list[ObservationAction], int]:
+) -> tuple[list[ObservationAction], int, dict[str, Any]]:
     horizon_sec = (case.horizon_end - case.horizon_start).total_seconds()
     assigned_by_candidate = _assigned_targets_by_candidate(selection)
+    hints_by_key = _coarse_hints_by_key(case=case, coverage=coverage)
     satellites_by_candidate: dict[str, list[SatellitePlan]] = {}
     for satellite in satellites:
         satellites_by_candidate.setdefault(satellite.candidate_id, []).append(satellite)
 
     opportunities: list[ObservationAction] = []
     considered = 0
-    sample_step_sec = config.opportunity_sample_step_sec
-    sample_offsets = []
-    current_offset = 0.0
-    while current_offset <= horizon_sec + NUMERICAL_EPS:
-        sample_offsets.append(min(current_offset, horizon_sec))
-        current_offset += sample_step_sec
-    if sample_offsets[-1] < horizon_sec:
-        sample_offsets.append(horizon_sec)
+    rejection_reasons: dict[str, int] = {}
+    _ = horizon_sec
 
     work_items: list[
         tuple[
@@ -1206,15 +1849,16 @@ def build_opportunities(
             SelectionSummary,
             SatellitePlan,
             str,
-            list[float],
+            list[CoarseVisibilityHint],
             SchedulingConfig,
         ]
     ] = []
     for candidate_id, target_ids in sorted(assigned_by_candidate.items()):
         for target_id in target_ids:
+            hints = hints_by_key.get((candidate_id, target_id), [])
             for satellite in satellites_by_candidate.get(candidate_id, []):
                 work_items.append(
-                    (case, selection, satellite, target_id, sample_offsets, config)
+                    (case, selection, satellite, target_id, hints, config)
                 )
     worker_count = _resolved_worker_count(
         config.opportunity_worker_count,
@@ -1225,9 +1869,11 @@ def build_opportunities(
             results = list(executor.map(_build_opportunity_worker, work_items))
     else:
         results = [_build_opportunity_worker(item) for item in work_items]
-    for worker_opportunities, worker_considered in results:
+    for worker_opportunities, worker_considered, worker_rejections in results:
         opportunities.extend(worker_opportunities)
         considered += worker_considered
+        for reason, count in worker_rejections.items():
+            rejection_reasons[reason] = rejection_reasons.get(reason, 0) + count
     return (
         sorted(
             opportunities,
@@ -1239,6 +1885,13 @@ def build_opportunities(
             ),
         ),
         considered,
+        {
+            "work_item_count": len(work_items),
+            "worker_count": worker_count,
+            "coarse_hint_realizations_tried": considered,
+            "refined_opportunity_count": len(opportunities),
+            "rejection_reasons": rejection_reasons,
+        },
     )
 
 
@@ -1502,6 +2155,9 @@ def validate_solution_locally(
             start=action.start,
             end=action.end,
             sample_step_sec=config.validation_sample_step_sec,
+            elevation_safety_margin_deg=config.elevation_safety_margin_deg,
+            range_safety_margin_m=config.range_safety_margin_m,
+            off_nadir_safety_margin_deg=config.off_nadir_safety_margin_deg,
         ):
             errors.append(
                 f"action[{index}] fails local sampled visibility for {action.target_id}"
@@ -1585,7 +2241,7 @@ def build_solution(
     satellites = generate_phased_satellites(case, selection)
     satellite_generation_sec = time.perf_counter() - stage_start
     stage_start = time.perf_counter()
-    opportunities, considered = build_opportunities(
+    opportunities, considered, opportunity_refinement_summary = build_opportunities(
         case=case,
         coverage=coverage,
         selection=selection,
@@ -1618,6 +2274,7 @@ def build_solution(
         actions=actions,
         opportunities_considered=considered,
         opportunities_visibility_valid=len(opportunities),
+        opportunity_refinement_summary=opportunity_refinement_summary,
         target_gap_summary=target_gap_summary,
         validation=validation,
         config=config,

@@ -141,9 +141,55 @@ class VisibilityWindow:
 
 
 @dataclass(frozen=True, slots=True)
+class CoarseVisibilityHint:
+    """A coarse-grid visibility sample used as a refinement seed.
+
+    This is intentionally not a certified action window.  The final solution
+    builder must refine it against actual phased-satellite geometry before
+    emitting an observation.
+    """
+
+    hint_id: str
+    candidate_id: str
+    template_id: str
+    target_id: str
+    offset_sec: float
+    repeat_period_sec: float
+    sample_step_sec: float
+    elevation_deg: float
+    slant_range_m: float
+    off_nadir_deg: float
+    elevation_margin_deg: float
+    range_margin_m: float
+    off_nadir_margin_deg: float
+    min_margin: float
+    source: str
+
+    def as_dict(self) -> dict[str, Any]:
+        return {
+            "hint_id": self.hint_id,
+            "candidate_id": self.candidate_id,
+            "template_id": self.template_id,
+            "target_id": self.target_id,
+            "offset_sec": self.offset_sec,
+            "repeat_period_sec": self.repeat_period_sec,
+            "sample_step_sec": self.sample_step_sec,
+            "elevation_deg": self.elevation_deg,
+            "slant_range_m": self.slant_range_m,
+            "off_nadir_deg": self.off_nadir_deg,
+            "elevation_margin_deg": self.elevation_margin_deg,
+            "range_margin_m": self.range_margin_m,
+            "off_nadir_margin_deg": self.off_nadir_margin_deg,
+            "min_margin": self.min_margin,
+            "source": self.source,
+        }
+
+
+@dataclass(frozen=True, slots=True)
 class CoverageSummary:
     candidates: list[RaanCandidate]
     windows: list[VisibilityWindow]
+    hints: list[CoarseVisibilityHint]
     target_to_candidates: dict[str, list[str]]
     candidate_to_targets: dict[str, list[str]]
     uncovered_target_ids: list[str]
@@ -151,11 +197,20 @@ class CoverageSummary:
     sample_offset_count: int
 
     def as_debug_dict(self) -> dict[str, Any]:
+        hint_counts_by_target: dict[str, int] = {}
+        hint_counts_by_pair: dict[tuple[str, str], int] = {}
+        for hint in self.hints:
+            hint_counts_by_target[hint.target_id] = (
+                hint_counts_by_target.get(hint.target_id, 0) + 1
+            )
+            pair_key = (hint.candidate_id, hint.target_id)
+            hint_counts_by_pair[pair_key] = hint_counts_by_pair.get(pair_key, 0) + 1
         target_coverage = [
             {
                 "target_id": target_id,
                 "covering_candidate_count": len(candidate_ids),
                 "candidate_ids": candidate_ids,
+                "coarse_hint_count": hint_counts_by_target.get(target_id, 0),
             }
             for target_id, candidate_ids in sorted(self.target_to_candidates.items())
         ]
@@ -163,6 +218,7 @@ class CoverageSummary:
             "config": self.config.as_dict(),
             "candidate_count": len(self.candidates),
             "visibility_window_count": len(self.windows),
+            "coarse_hint_count": len(self.hints),
             "sample_offset_count": self.sample_offset_count,
             "candidates": [candidate.as_dict() for candidate in self.candidates],
             "target_to_candidates": self.target_to_candidates,
@@ -187,17 +243,25 @@ class CoverageSummary:
                     "covered_target_ids": self.candidate_to_targets.get(
                         candidate.candidate_id, []
                     ),
+                    "coarse_hint_count": sum(
+                        hint_counts_by_pair.get((candidate.candidate_id, target_id), 0)
+                        for target_id in self.candidate_to_targets.get(
+                            candidate.candidate_id, []
+                        )
+                    ),
                     "template_closure_error_m": candidate.template_closure_error_m,
                 }
                 for candidate in self.candidates
             ],
             "windows": [window.as_dict() for window in self.windows],
+            "coarse_hints": [hint.as_dict() for hint in self.hints],
         }
 
     def as_status_dict(self) -> dict[str, Any]:
         return {
             "candidate_count": len(self.candidates),
             "visibility_window_count": len(self.windows),
+            "coarse_hint_count": len(self.hints),
             "covered_target_count": len(self.target_to_candidates),
             "uncovered_target_count": len(self.uncovered_target_ids),
             "uncovered_target_ids": self.uncovered_target_ids,
@@ -390,6 +454,55 @@ def group_visible_samples(
     return windows
 
 
+def coarse_hints_from_samples(
+    *,
+    case: RevisitCase,
+    candidate_id: str,
+    template_id: str,
+    target: Target,
+    repeat_period_sec: float,
+    sample_step_sec: float,
+    samples: list[VisibilitySample],
+) -> list[CoarseVisibilityHint]:
+    range_limit = min(
+        target.max_slant_range_m,
+        case.satellite_model.sensor.max_range_m,
+    )
+    hints: list[CoarseVisibilityHint] = []
+    for sample in samples:
+        if not sample.visible:
+            continue
+        elevation_margin = sample.elevation_deg - target.min_elevation_deg
+        range_margin = range_limit - sample.slant_range_m
+        off_nadir_margin = (
+            case.satellite_model.sensor.max_off_nadir_angle_deg
+            - sample.off_nadir_deg
+        )
+        hints.append(
+            CoarseVisibilityHint(
+                hint_id=(
+                    f"{candidate_id}__{target.target_id}__"
+                    f"hint{len(hints):04d}"
+                ),
+                candidate_id=candidate_id,
+                template_id=template_id,
+                target_id=target.target_id,
+                offset_sec=sample.offset_sec,
+                repeat_period_sec=repeat_period_sec,
+                sample_step_sec=sample_step_sec,
+                elevation_deg=sample.elevation_deg,
+                slant_range_m=sample.slant_range_m,
+                off_nadir_deg=sample.off_nadir_deg,
+                elevation_margin_deg=elevation_margin,
+                range_margin_m=range_margin,
+                off_nadir_margin_deg=off_nadir_margin,
+                min_margin=min(elevation_margin, range_margin, off_nadir_margin),
+                source="coarse_visible_sample",
+            )
+        )
+    return hints
+
+
 def repeat_cycle_offsets(repeat_period_sec: float, sample_step_sec: float) -> list[float]:
     if sample_step_sec <= 0.0:
         raise ValueError("coverage.sample_step_sec must be > 0")
@@ -400,13 +513,14 @@ def repeat_cycle_offsets(repeat_period_sec: float, sample_step_sec: float) -> li
     return [float(offset) for offset in offsets]
 
 
-def _candidate_visibility_windows(
+def _candidate_visibility_evidence(
     args: tuple[RevisitCase, RaanCandidate, tuple[Target, ...], CoverageConfig]
-) -> list[VisibilityWindow]:
+) -> tuple[list[VisibilityWindow], list[CoarseVisibilityHint]]:
     case, candidate, targets, config = args
     ensure_brahe_ready()
     offsets = repeat_cycle_offsets(candidate.repeat_period_sec, config.sample_step_sec)
     windows: list[VisibilityWindow] = []
+    hints: list[CoarseVisibilityHint] = []
     states = [
         candidate_state_eci(candidate, offset_sec=offset)
         for offset in offsets
@@ -426,6 +540,17 @@ def _candidate_visibility_windows(
             )
             for state, instant, offset in zip(states, instants, offsets, strict=True)
         ]
+        hints.extend(
+            coarse_hints_from_samples(
+                case=case,
+                candidate_id=candidate.candidate_id,
+                template_id=candidate.template_id,
+                target=target,
+                repeat_period_sec=candidate.repeat_period_sec,
+                sample_step_sec=config.sample_step_sec,
+                samples=samples,
+            )
+        )
         windows.extend(
             group_visible_samples(
                 candidate_id=candidate.candidate_id,
@@ -438,7 +563,7 @@ def _candidate_visibility_windows(
                 keep_samples_per_window=config.keep_samples_per_window,
             )
         )
-    return windows
+    return windows, hints
 
 
 def _resolved_worker_count(config: CoverageConfig, candidate_count: int) -> int:
@@ -460,16 +585,20 @@ def build_coverage_summary(
     worker_args = [(case, candidate, targets, config) for candidate in candidates]
     worker_count = _resolved_worker_count(config, len(candidates))
     windows: list[VisibilityWindow] = []
+    hints: list[CoarseVisibilityHint] = []
     if worker_count > 1 and worker_args:
         with ProcessPoolExecutor(max_workers=worker_count) as executor:
-            for candidate_windows in executor.map(
-                _candidate_visibility_windows,
+            for candidate_windows, candidate_hints in executor.map(
+                _candidate_visibility_evidence,
                 worker_args,
             ):
                 windows.extend(candidate_windows)
+                hints.extend(candidate_hints)
     else:
         for item in worker_args:
-            windows.extend(_candidate_visibility_windows(item))
+            candidate_windows, candidate_hints = _candidate_visibility_evidence(item)
+            windows.extend(candidate_windows)
+            hints.extend(candidate_hints)
     windows = sorted(
         windows,
         key=lambda item: (
@@ -477,6 +606,16 @@ def build_coverage_summary(
             item.target_id,
             item.start_offset_sec,
             item.window_id,
+        ),
+    )
+    hints = sorted(
+        hints,
+        key=lambda item: (
+            item.candidate_id,
+            item.target_id,
+            item.offset_sec,
+            -item.min_margin,
+            item.hint_id,
         ),
     )
     candidate_to_targets = {
@@ -521,6 +660,7 @@ def build_coverage_summary(
     return CoverageSummary(
         candidates=candidates,
         windows=windows,
+        hints=hints,
         target_to_candidates=target_to_candidates,
         candidate_to_targets=candidate_to_targets,
         uncovered_target_ids=uncovered,
