@@ -165,17 +165,6 @@ def extract_zip_tree(zip_path: Path, destination: Path) -> None:
             archive.extractall(nested_destination)
 
 
-def build_example_solution(case_id: str, n_candidates: int) -> dict:
-    """Return a minimal example solution for smoke tests."""
-    return {
-        "claimed_profit": 0,
-        "claimed_weight": 0,
-        "n_candidates": n_candidates,
-        "n_selected": 0,
-        "assignments": [0] * n_candidates,
-    }
-
-
 def build_case_dataset(
     spot_files: list[Path],
     output_dir: Path,
@@ -185,7 +174,6 @@ def build_case_dataset(
 ) -> None:
     """Write the canonical SPOT-5 split-aware dataset."""
 
-    smoke_split, smoke_case_id = example_smoke_case.split("/")
     source_by_case_id: dict[str, Path] = {}
     for source_path in spot_files:
         case_id = source_path.stem
@@ -195,6 +183,9 @@ def build_case_dataset(
 
     cases_dir = output_dir / "cases"
     shutil.rmtree(cases_dir, ignore_errors=True)
+    example_path = output_dir / "example_solution.json"
+    if example_path.exists():
+        example_path.unlink()
     index: dict = {
         "benchmark": "spot5",
         "case_id_format": "instance_stem",
@@ -202,7 +193,6 @@ def build_case_dataset(
         "example_smoke_case": example_smoke_case,
         "cases": [],
     }
-    example_solution: dict | None = None
 
     for split_name, case_ids in split_assignments.items():
         for case_id in case_ids:
@@ -219,13 +209,6 @@ def build_case_dataset(
             destination = case_dir / f"{case_id}.spot"
             shutil.copyfile(source_path, destination)
 
-            spot_content = destination.read_text()
-            lines = spot_content.strip().splitlines()
-            n_vars = int(lines[0].strip()) if lines else 0
-
-            if split_name == smoke_split and case_id == smoke_case_id:
-                example_solution = build_example_solution(case_id, n_vars)
-
             index["cases"].append(
                 {
                     "split": split_name,
@@ -237,11 +220,6 @@ def build_case_dataset(
             )
 
     _write_json(output_dir / "index.json", index)
-    if example_solution is None:
-        raise RuntimeError(
-            f"Expected configured smoke case {example_smoke_case} for example_solution.json"
-        )
-    _write_json(output_dir / "example_solution.json", example_solution)
 
 
 def main() -> int:  # pragma: no cover - CLI wrapper

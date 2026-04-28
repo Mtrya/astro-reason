@@ -8,7 +8,7 @@
       "num_backbone_satellites": 8,
       "num_demanded_windows": 6,
       "num_endpoint_pairs": 4,
-      "num_ground_endpoints": 5,
+      "num_ground_endpoints": 4,
       "path": "cases/test/case_0001",
       "split": "test"
     },
@@ -30,7 +30,7 @@
       "num_backbone_satellites": 8,
       "num_demanded_windows": 5,
       "num_endpoint_pairs": 3,
-      "num_ground_endpoints": 6,
+      "num_ground_endpoints": 5,
       "path": "cases/test/case_0003",
       "split": "test"
     },
@@ -41,7 +41,7 @@
       "num_backbone_satellites": 8,
       "num_demanded_windows": 6,
       "num_endpoint_pairs": 3,
-      "num_ground_endpoints": 5,
+      "num_ground_endpoints": 3,
       "path": "cases/test/case_0004",
       "split": "test"
     },

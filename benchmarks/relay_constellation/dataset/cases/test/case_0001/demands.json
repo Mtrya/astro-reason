@@ -2,17 +2,17 @@
   "demanded_windows": [
     {
       "demand_id": "demand_005",
-      "destination_endpoint_id": "ground_005",
+      "destination_endpoint_id": "ground_004",
       "end_time": "2026-01-03T05:25:00Z",
-      "source_endpoint_id": "ground_004",
+      "source_endpoint_id": "ground_003",
       "start_time": "2026-01-03T04:40:00Z",
       "weight": 1.0
     },
     {
       "demand_id": "demand_006",
-      "destination_endpoint_id": "ground_005",
+      "destination_endpoint_id": "ground_004",
       "end_time": "2026-01-03T15:25:00Z",
-      "source_endpoint_id": "ground_004",
+      "source_endpoint_id": "ground_003",
       "start_time": "2026-01-03T14:55:00Z",
       "weight": 1.0
     },
@@ -26,7 +26,7 @@
     },
     {
       "demand_id": "demand_001",
-      "destination_endpoint_id": "ground_004",
+      "destination_endpoint_id": "ground_003",
       "end_time": "2026-01-03T23:05:00Z",
       "source_endpoint_id": "ground_001",
       "start_time": "2026-01-03T21:35:00Z",
@@ -34,7 +34,7 @@
     },
     {
       "demand_id": "demand_004",
-      "destination_endpoint_id": "ground_005",
+      "destination_endpoint_id": "ground_004",
       "end_time": "2026-01-04T07:00:00Z",
       "source_endpoint_id": "ground_002",
       "start_time": "2026-01-04T06:00:00Z",
@@ -42,7 +42,7 @@
     },
     {
       "demand_id": "demand_003",
-      "destination_endpoint_id": "ground_005",
+      "destination_endpoint_id": "ground_004",
       "end_time": "2026-01-04T20:30:00Z",
       "source_endpoint_id": "ground_002",
       "start_time": "2026-01-04T19:45:00Z",

@@ -29,8 +29,7 @@ Each case directory contains everything required to verify one SatNet instance:
 Shared, non-verifier-critical benchmark metadata remains at dataset scope:
 
 - `index.json`: dataset manifest and dataset-level provenance
-- `example_solution.json`: one minimal runnable solution at dataset scope (same
-  schema as a real submission) for verifier smoke tests; these are not baselines
+- `example_solution.json`: one runnable solution at dataset scope (same schema as a real submission) for verifier smoke tests; this is not a baseline
 - `mission_color_map.json`: mission display metadata carried over from the
   upstream SatNet release
 
@@ -46,8 +45,7 @@ The committed split assignment is recorded in [splits.yaml](../splits.yaml),
 which currently places all five published cases in the `test` split and pairs
 `dataset/example_solution.json` with `test/W10_2018`.
 
-Use [generator.py](../generator.py) to regenerate this layout from the upstream
-source or a local copy of the upstream `data/` directory:
+Use [generator.py](../generator.py) to regenerate this layout from the upstream source or a local copy of the upstream `data/` directory:
 
 ```bash
 uv run python benchmarks/satnet/generator.py benchmarks/satnet/splits.yaml

@@ -28,10 +28,14 @@ def _matches_alias_groups(csv_path: Path, alias_groups: dict[str, tuple[str, ...
         with csv_path.open("r", encoding="utf-8", newline="") as handle:
             reader = csv.reader(handle)
             fieldnames = next(reader)
+            has_data_row = any(any(cell.strip() for cell in row) for row in reader)
     except (OSError, StopIteration, UnicodeDecodeError, csv.Error):
         return False
     normalized = _normalize_header_lookup(fieldnames)
-    return all(any(alias.lower() in normalized for alias in aliases) for aliases in alias_groups.values())
+    return has_data_row and all(
+        any(alias.lower() in normalized for alias in aliases)
+        for aliases in alias_groups.values()
+    )
 
 
 def _copy_matching_csv(
@@ -67,6 +71,13 @@ def download_sources(
     force_download: bool = False,
 ) -> Path:
     destination_dir.mkdir(parents=True, exist_ok=True)
+    final_world_csv = destination_dir / WORLD_CITIES_FILENAME
+    if not force_download and _matches_alias_groups(
+        final_world_csv,
+        WORLD_CITIES_REQUIRED_COLUMNS,
+    ):
+        return final_world_csv
+
     world_root = _download_dataset(
         WORLD_CITIES_DATASET,
         destination_dir / "world_cities_raw",

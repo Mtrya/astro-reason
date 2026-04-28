@@ -13,8 +13,6 @@ from benchmarks.aeossp_standard.verifier import verify_solution
 REPO_ROOT = Path(__file__).resolve().parents[2]
 DATASET_DIR = REPO_ROOT / "benchmarks" / "aeossp_standard" / "dataset"
 FIXTURES_DIR = REPO_ROOT / "tests" / "fixtures" / "aeossp_standard"
-INDEX_PATH = DATASET_DIR / "index.json"
-EXAMPLE_SOLUTION_PATH = DATASET_DIR / "example_solution.json"
 FIXTURE_NAMES = (
     "full_completion_valid",
     "zero_completion_valid",

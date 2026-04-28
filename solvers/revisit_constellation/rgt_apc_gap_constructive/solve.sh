@@ -10,7 +10,17 @@ SOLUTION_DIR="${3:-solution}"
 export MPLCONFIGDIR
 mkdir -p "${MPLCONFIGDIR}"
 
-PYTHONPATH="${SCRIPT_DIR}${PYTHONPATH:+:${PYTHONPATH}}" python -m src.solve \
+if [[ -z "${SOLVER_PYTHON:-}" && -f "${SCRIPT_DIR}/.solver-env" ]]; then
+  # shellcheck disable=SC1091
+  source "${SCRIPT_DIR}/.solver-env"
+fi
+SOLVER_PYTHON="${SOLVER_PYTHON:-${SCRIPT_DIR}/.venv/bin/python}"
+if [[ ! -x "${SOLVER_PYTHON}" ]]; then
+  echo "rgt_apc_gap_constructive requires solver-local setup; run ./setup.sh first" >&2
+  exit 2
+fi
+
+PYTHONPATH="${SCRIPT_DIR}${PYTHONPATH:+:${PYTHONPATH}}" "${SOLVER_PYTHON}" -m src.solve \
   --case-dir "${CASE_DIR}" \
   --config-dir "${CONFIG_DIR}" \
   --solution-dir "${SOLUTION_DIR}"

@@ -13,8 +13,9 @@ import shutil
 import subprocess
 import sys
 import tempfile
+import time
 from dataclasses import dataclass
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any
 
@@ -71,6 +72,15 @@ class RunExecutionResult:
     skipped: bool
     output_dir: Path
     exit_code: int
+
+
+@dataclass
+class BatchProgress:
+    results: list[RunExecutionResult]
+    completed: int
+    executed_count: int
+    skipped_count: int
+    status_counts: dict[str, int]
 
 
 def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
@@ -132,6 +142,11 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         "--max-concurrency",
         type=int,
         help="Override matrix.yaml batch.max_concurrency for this batch execution.",
+    )
+    parser.add_argument(
+        "--harness-cooldown",
+        type=int,
+        help="Override matrix.yaml batch.harness_cooldown_seconds for this batch execution.",
     )
     return parser.parse_args(argv)
 
@@ -1201,25 +1216,298 @@ def _execute_run_item(
             exit_code=0 if preview_item.existing_overall_status == "success" else 1,
         )
 
-    last_result: RunExecutionResult | None = None
     attempts = batch_settings.max_retries + 1
+    last_result: RunExecutionResult | None = None
     for attempt in range(1, attempts + 1):
-        print(
-            f"Running {item.benchmark}/{item.harness}/{item.case_id} "
-            f"(attempt {attempt}/{attempts})"
+        last_result = _execute_run_item_attempt(
+            preview_item,
+            timeout_override=timeout_override,
+            attempt=attempt,
+            attempts=attempts,
         )
-        last_result = _run_headless_once(item, timeout_override=timeout_override)
         if last_result.overall_status not in batch_settings.retry_statuses:
             return last_result
         if attempt < attempts:
-            print(
-                f"Retrying {item.benchmark}/{item.harness}/{item.case_id} "
-                f"after retryable status {last_result.overall_status}"
-            )
+            _print_retry_line(preview_item, last_result)
 
     if last_result is None:
         raise SystemExit("Internal error: no run result was produced.")
     return last_result
+
+
+def _execute_run_item_attempt(
+    preview_item: family_plan.BatchPreviewItem,
+    *,
+    timeout_override: int | None,
+    attempt: int,
+    attempts: int,
+) -> RunExecutionResult:
+    item = preview_item.item
+    print(
+        f"Running {item.benchmark}/{item.harness}/{item.case_id} "
+        f"(attempt {attempt}/{attempts})"
+    )
+    return _run_headless_once(item, timeout_override=timeout_override)
+
+
+def _print_retry_line(
+    preview_item: family_plan.BatchPreviewItem,
+    result: RunExecutionResult,
+) -> None:
+    item = preview_item.item
+    print(
+        f"Retrying {item.benchmark}/{item.harness}/{item.case_id} "
+        f"after retryable status {result.overall_status}"
+    )
+
+
+def _record_batch_result(
+    *,
+    progress: BatchProgress,
+    total_items: int,
+    preview_item: family_plan.BatchPreviewItem,
+    result: RunExecutionResult,
+) -> None:
+    progress.results.append(result)
+    progress.completed += 1
+    if result.skipped:
+        progress.skipped_count += 1
+    else:
+        progress.executed_count += 1
+    progress.status_counts[result.overall_status] = (
+        progress.status_counts.get(result.overall_status, 0) + 1
+    )
+    _print_progress_line(
+        index=progress.completed,
+        total=total_items,
+        preview_item=preview_item,
+        result=result,
+        executed_count=progress.executed_count,
+        skipped_count=progress.skipped_count,
+        status_counts=progress.status_counts,
+    )
+
+
+def _skip_result(preview_item: family_plan.BatchPreviewItem) -> RunExecutionResult:
+    return RunExecutionResult(
+        overall_status=preview_item.existing_overall_status or preview_item.artifact_state,
+        skipped=True,
+        output_dir=family_plan.run_output_dir(preview_item.item),
+        exit_code=0 if preview_item.existing_overall_status == "success" else 1,
+    )
+
+
+def _harness_ready_at(
+    harness: str,
+    *,
+    last_finish_by_harness: dict[str, datetime],
+    cooldown_seconds: int,
+) -> datetime | None:
+    last_finish = last_finish_by_harness.get(harness)
+    if last_finish is None:
+        return None
+    return last_finish + timedelta(seconds=cooldown_seconds)
+
+
+def _next_ready_item_index(
+    pending: list[family_plan.BatchPreviewItem],
+    *,
+    active_harnesses: set[str],
+    last_finish_by_harness: dict[str, datetime],
+    cooldown_seconds: int,
+    now: datetime,
+) -> int | None:
+    for index, preview_item in enumerate(pending):
+        harness = preview_item.item.harness
+        if harness in active_harnesses:
+            continue
+        ready_at = _harness_ready_at(
+            harness,
+            last_finish_by_harness=last_finish_by_harness,
+            cooldown_seconds=cooldown_seconds,
+        )
+        if ready_at is None or ready_at <= now:
+            return index
+    return None
+
+
+def _earliest_pending_ready_at(
+    pending: list[family_plan.BatchPreviewItem],
+    *,
+    active_harnesses: set[str],
+    last_finish_by_harness: dict[str, datetime],
+    cooldown_seconds: int,
+    now: datetime,
+) -> datetime | None:
+    ready_times: list[datetime] = []
+    for preview_item in pending:
+        harness = preview_item.item.harness
+        if harness in active_harnesses:
+            continue
+        ready_at = _harness_ready_at(
+            harness,
+            last_finish_by_harness=last_finish_by_harness,
+            cooldown_seconds=cooldown_seconds,
+        )
+        if ready_at is None or ready_at <= now:
+            return now
+        ready_times.append(ready_at)
+    if not ready_times:
+        return None
+    return min(ready_times)
+
+
+def _seconds_until(moment: datetime, *, now: datetime) -> float:
+    return max(0.0, (moment - now).total_seconds())
+
+
+def _run_runnable_items_upfront(
+    *,
+    runnable_items: tuple[family_plan.BatchPreviewItem, ...],
+    batch_settings: family_plan.BatchSettings,
+    timeout_override: int | None,
+    max_workers: int,
+    progress: BatchProgress,
+    total_items: int,
+) -> None:
+    if max_workers <= 1:
+        for preview_item in runnable_items:
+            result = _execute_run_item(
+                preview_item,
+                batch_settings=batch_settings,
+                timeout_override=timeout_override,
+            )
+            _record_batch_result(
+                progress=progress,
+                total_items=total_items,
+                preview_item=preview_item,
+                result=result,
+            )
+        return
+
+    with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as executor:
+        future_map = {
+            executor.submit(
+                _execute_run_item,
+                preview_item,
+                batch_settings=batch_settings,
+                timeout_override=timeout_override,
+            ): preview_item
+            for preview_item in runnable_items
+        }
+        for future in concurrent.futures.as_completed(future_map):
+            preview_item = future_map[future]
+            result = future.result()
+            _record_batch_result(
+                progress=progress,
+                total_items=total_items,
+                preview_item=preview_item,
+                result=result,
+            )
+
+
+def _run_runnable_items_with_harness_cooldown(
+    *,
+    runnable_items: tuple[family_plan.BatchPreviewItem, ...],
+    batch_settings: family_plan.BatchSettings,
+    timeout_override: int | None,
+    max_workers: int,
+    progress: BatchProgress,
+    total_items: int,
+) -> None:
+    if not runnable_items:
+        return
+
+    pending = list(runnable_items)
+    active_harnesses: set[str] = set()
+    last_finish_by_harness: dict[str, datetime] = {}
+    cooldown_seconds = batch_settings.harness_cooldown_seconds
+
+    with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as executor:
+        future_map: dict[
+            concurrent.futures.Future[RunExecutionResult],
+            tuple[family_plan.BatchPreviewItem, int],
+        ] = {}
+        attempts_by_item: dict[int, int] = {}
+        while pending or future_map:
+            while pending and len(future_map) < max_workers:
+                ready_index = _next_ready_item_index(
+                    pending,
+                    active_harnesses=active_harnesses,
+                    last_finish_by_harness=last_finish_by_harness,
+                    cooldown_seconds=cooldown_seconds,
+                    now=_utc_now(),
+                )
+                if ready_index is None:
+                    break
+                preview_item = pending.pop(ready_index)
+                attempt = attempts_by_item.get(id(preview_item), 1)
+                future = executor.submit(
+                    _execute_run_item_attempt,
+                    preview_item,
+                    timeout_override=timeout_override,
+                    attempt=attempt,
+                    attempts=batch_settings.max_retries + 1,
+                )
+                future_map[future] = (preview_item, attempt)
+                active_harnesses.add(preview_item.item.harness)
+
+            if not future_map:
+                ready_at = _earliest_pending_ready_at(
+                    pending,
+                    active_harnesses=active_harnesses,
+                    last_finish_by_harness=last_finish_by_harness,
+                    cooldown_seconds=cooldown_seconds,
+                    now=_utc_now(),
+                )
+                if ready_at is None:
+                    raise SystemExit("Internal error: no pending batch item can become ready.")
+                delay = _seconds_until(ready_at, now=_utc_now())
+                if delay > 0:
+                    time.sleep(delay)
+                continue
+
+            if len(future_map) >= max_workers:
+                timeout = None
+            else:
+                next_ready_at = _earliest_pending_ready_at(
+                    pending,
+                    active_harnesses=active_harnesses,
+                    last_finish_by_harness=last_finish_by_harness,
+                    cooldown_seconds=cooldown_seconds,
+                    now=_utc_now(),
+                )
+                timeout = (
+                    None
+                    if next_ready_at is None
+                    else _seconds_until(next_ready_at, now=_utc_now())
+                )
+            done, _ = concurrent.futures.wait(
+                future_map,
+                timeout=timeout,
+                return_when=concurrent.futures.FIRST_COMPLETED,
+            )
+            if not done:
+                continue
+            for future in done:
+                preview_item, attempt = future_map.pop(future)
+                result = future.result()
+                active_harnesses.discard(preview_item.item.harness)
+                last_finish_by_harness[preview_item.item.harness] = _utc_now()
+                if (
+                    result.overall_status in batch_settings.retry_statuses
+                    and attempt < batch_settings.max_retries + 1
+                ):
+                    attempts_by_item[id(preview_item)] = attempt + 1
+                    pending.append(preview_item)
+                    _print_retry_line(preview_item, result)
+                    continue
+                _record_batch_result(
+                    progress=progress,
+                    total_items=total_items,
+                    preview_item=preview_item,
+                    result=result,
+                )
 
 
 def _run_batch(
@@ -1227,12 +1515,14 @@ def _run_batch(
     preview: family_plan.BatchPreview,
 ) -> int:
     runnable_items = family_plan.runnable_preview_items(preview)
-    results: list[RunExecutionResult] = []
     total_items = len(preview.items)
-    completed = 0
-    executed_count = 0
-    skipped_count = 0
-    status_counts: dict[str, int] = {}
+    progress = BatchProgress(
+        results=[],
+        completed=0,
+        executed_count=0,
+        skipped_count=0,
+        status_counts={},
+    )
     batch_start = _utc_now()
     max_workers = min(preview.plan.config.batch.max_concurrency, len(runnable_items))
     print(
@@ -1240,96 +1530,48 @@ def _run_batch(
         f"(runnable={len(runnable_items)}, max_concurrency={max_workers or 0})"
     )
 
-    if max_workers <= 1:
-        for preview_item in runnable_items:
-            result = _execute_run_item(
-                preview_item,
-                batch_settings=preview.plan.config.batch,
-                timeout_override=args.timeout,
-            )
-            results.append(result)
-            completed += 1
-            if result.skipped:
-                skipped_count += 1
-            else:
-                executed_count += 1
-            status_counts[result.overall_status] = status_counts.get(result.overall_status, 0) + 1
-            _print_progress_line(
-                index=completed,
-                total=total_items,
-                preview_item=preview_item,
-                result=result,
-                executed_count=executed_count,
-                skipped_count=skipped_count,
-                status_counts=status_counts,
-            )
+    if preview.plan.config.batch.harness_cooldown_seconds == 0:
+        _run_runnable_items_upfront(
+            runnable_items=runnable_items,
+            batch_settings=preview.plan.config.batch,
+            timeout_override=args.timeout,
+            max_workers=max_workers,
+            progress=progress,
+            total_items=total_items,
+        )
     else:
-        with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as executor:
-            future_map = {
-                executor.submit(
-                    _execute_run_item,
-                    preview_item,
-                    batch_settings=preview.plan.config.batch,
-                    timeout_override=args.timeout,
-                ): preview_item
-                for preview_item in runnable_items
-            }
-            for future in concurrent.futures.as_completed(future_map):
-                preview_item = future_map[future]
-                result = future.result()
-                results.append(result)
-                completed += 1
-                if result.skipped:
-                    skipped_count += 1
-                else:
-                    executed_count += 1
-                status_counts[result.overall_status] = status_counts.get(result.overall_status, 0) + 1
-                _print_progress_line(
-                    index=completed,
-                    total=total_items,
-                    preview_item=preview_item,
-                    result=result,
-                    executed_count=executed_count,
-                    skipped_count=skipped_count,
-                    status_counts=status_counts,
-                )
+        _run_runnable_items_with_harness_cooldown(
+            runnable_items=runnable_items,
+            batch_settings=preview.plan.config.batch,
+            timeout_override=args.timeout,
+            max_workers=max_workers,
+            progress=progress,
+            total_items=total_items,
+        )
 
     for preview_item in preview.items:
         if preview_item.action != "skip":
             continue
-        result = RunExecutionResult(
-            overall_status=preview_item.existing_overall_status or preview_item.artifact_state,
-            skipped=True,
-            output_dir=family_plan.run_output_dir(preview_item.item),
-            exit_code=0 if preview_item.existing_overall_status == "success" else 1,
-        )
-        results.append(result)
-        completed += 1
-        skipped_count += 1
-        status_counts[result.overall_status] = status_counts.get(result.overall_status, 0) + 1
-        _print_progress_line(
-            index=completed,
-            total=total_items,
+        _record_batch_result(
+            progress=progress,
+            total_items=total_items,
             preview_item=preview_item,
-            result=result,
-            executed_count=executed_count,
-            skipped_count=skipped_count,
-            status_counts=status_counts,
+            result=_skip_result(preview_item),
         )
 
     exit_code = 0
-    for result in results:
+    for result in progress.results:
         if not result.skipped and result.overall_status != "success":
             exit_code = 1
 
     batch_end = _utc_now()
     print("Batch summary:")
-    print(f"  Total runs considered: {len(results)}")
-    print(f"  Executed runs: {executed_count}")
-    print(f"  Skipped runs: {skipped_count}")
+    print(f"  Total runs considered: {len(progress.results)}")
+    print(f"  Executed runs: {progress.executed_count}")
+    print(f"  Skipped runs: {progress.skipped_count}")
     print(f"  Wall-clock seconds: {_duration_seconds(batch_start, batch_end)}")
-    for status in sorted(status_counts):
-        print(f"  {status}: {status_counts[status]}")
+    for status in sorted(progress.status_counts):
+        print(f"  {status}: {progress.status_counts[status]}")
     return exit_code
 
 
@@ -1445,9 +1687,14 @@ def main(argv: list[str] | None = None) -> int:
     case_filters = tuple(args.case)
 
     if args.interactive:
-        if args.rerun_status or args.no_skip_completed or args.max_concurrency is not None:
+        if (
+            args.rerun_status
+            or args.no_skip_completed
+            or args.max_concurrency is not None
+            or args.harness_cooldown is not None
+        ):
             raise SystemExit(
-                "--rerun-status, --no-skip-completed, and --max-concurrency are batch-only controls and cannot be used with --interactive."
+                "--rerun-status, --no-skip-completed, --max-concurrency, and --harness-cooldown are batch-only controls and cannot be used with --interactive."
             )
         plan = family_plan.build_interactive_plan(
             config_path=config_path,
@@ -1469,6 +1716,7 @@ def main(argv: list[str] | None = None) -> int:
         split_override=args.split,
         case_filters=case_filters,
         max_concurrency_override=args.max_concurrency,
+        harness_cooldown_override=args.harness_cooldown,
         require_real_configs=False,
     )
     preview = family_plan.build_batch_preview(

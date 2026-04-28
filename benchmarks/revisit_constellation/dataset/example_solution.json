@@ -1,4 +1,14 @@
 {
   "actions": [],
-  "satellites": []
+  "satellites": [
+    {
+      "satellite_id": "smoke_sat_001",
+      "vx_m_s": 0.0,
+      "vy_m_s": 7612.608173223869,
+      "vz_m_s": 0.0,
+      "x_m": 6878137.0,
+      "y_m": 0.0,
+      "z_m": 0.0
+    }
+  ]
 }

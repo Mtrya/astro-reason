@@ -112,3 +112,24 @@ def test_main_builds_split_aware_dataset(
     assert index["example_smoke_case"] == "test/case_0001"
     assert index["cases"][0]["split"] == "test"
     assert index["cases"][0]["path"] == "cases/test/case_0001"
+    network = json.loads(
+        (output_dir / "cases" / "test" / "case_0001" / "network.json").read_text(
+            encoding="utf-8"
+        )
+    )
+    demands = json.loads(
+        (output_dir / "cases" / "test" / "case_0001" / "demands.json").read_text(
+            encoding="utf-8"
+        )
+    )
+    endpoint_ids = [endpoint["endpoint_id"] for endpoint in network["ground_endpoints"]]
+    used_endpoint_ids = {
+        endpoint_id
+        for demand in demands["demanded_windows"]
+        for endpoint_id in (
+            demand["source_endpoint_id"],
+            demand["destination_endpoint_id"],
+        )
+    }
+    assert endpoint_ids == [f"ground_{index:03d}" for index in range(1, len(endpoint_ids) + 1)]
+    assert set(endpoint_ids) == used_endpoint_ids

@@ -62,6 +62,22 @@ uv run python experiments/main_agentic/plan.py --max-concurrency 2
 
 `--max-concurrency` is batch-only. The run queue is case-major within each benchmark, so concurrent workers are less likely to start several jobs from the same harness at once.
 
+Configure an optional per-harness cooldown in `configs/matrix.yaml`:
+
+```yaml
+batch:
+  harness_cooldown_seconds: 30
+```
+
+Preview or override the configured value for one invocation:
+
+```bash
+uv run python experiments/main_agentic/run.py --dry-run --harness-cooldown 30
+uv run python experiments/main_agentic/plan.py --harness-cooldown 30
+```
+
+`--harness-cooldown` is batch-only and must be a non-negative integer. A value of `0` preserves the current no-cooldown configuration. Nonzero cooldown is measured from a harness run's finish time to the next same-harness submission; while one harness is cooling down, ready runs from other harnesses can fill free worker slots.
+
 ## Resume And Rerun Controls
 
 Default batch behavior is artifact-first:

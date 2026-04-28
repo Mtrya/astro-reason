@@ -27,8 +27,8 @@ def _write_satnet_source_dir(source_dir: Path) -> None:
                         "setup_time": 10,
                         "teardown_time": 5,
                         "time_window_start": 100,
-                        "time_window_end": 200,
-                        "resource_vp_dict": {"DSS-34": [{"TRX ON": 110, "TRX OFF": 170}]},
+                        "time_window_end": 5000,
+                        "resource_vp_dict": {"DSS-34": [{"TRX ON": 700, "TRX OFF": 4300}]},
                     }
                 ]
             },
@@ -92,3 +92,4 @@ def test_main_builds_dataset_from_local_source_dir(
     index = json.loads((output_dir / "index.json").read_text(encoding="utf-8"))
     assert index["example_smoke_case"] == "test/W10_2018"
     assert index["cases"][0]["path"] == "cases/test/W10_2018"
+    assert not (output_dir / "example_solution.json").exists()

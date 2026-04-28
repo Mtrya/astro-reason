@@ -526,6 +526,8 @@ def _compute_metrics(
 
     target_gap_summary: dict[str, dict[str, float]] = {}
     target_capped_max_gaps: list[float] = []
+    target_max_gaps: list[float] = []
+    threshold_violation_count = 0
 
     for target_id, target in instance.targets.items():
         unique_midpoints = sorted(set(observations_by_target.get(target_id, [])))
@@ -534,10 +536,8 @@ def _compute_metrics(
             (right - left).total_seconds() / 3600.0
             for left, right in zip(times, times[1:])
         ]
-        mean_gap = sum(gaps_hours) / len(gaps_hours)
         max_gap = max(gaps_hours)
         target_gap_summary[target_id] = {
-            "mean_revisit_gap_hours": mean_gap,
             "max_revisit_gap_hours": max_gap,
             "observation_count": len(unique_midpoints),
             "expected_revisit_period_hours": target.expected_revisit_period_hours,
@@ -545,6 +545,9 @@ def _compute_metrics(
         target_capped_max_gaps.append(
             max(max_gap, target.expected_revisit_period_hours)
         )
+        target_max_gaps.append(max_gap)
+        if max_gap > target.expected_revisit_period_hours:
+            threshold_violation_count += 1
 
     return {
         "capped_max_revisit_gap_hours": (
@@ -552,6 +555,11 @@ def _compute_metrics(
             if target_capped_max_gaps
             else 0.0
         ),
+        "worst_target_capped_max_revisit_gap_hours": (
+            max(target_capped_max_gaps) if target_capped_max_gaps else 0.0
+        ),
+        "max_revisit_gap_hours": max(target_max_gaps) if target_max_gaps else 0.0,
+        "threshold_violation_count": threshold_violation_count,
         "num_satellites": satellite_count,
         "target_gap_summary": target_gap_summary,
     }

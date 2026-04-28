@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from datetime import UTC, datetime, timedelta
 import json
+import os
 from pathlib import Path
 import subprocess
 import sys
@@ -1730,6 +1731,7 @@ def test_solve_sh_smoke_writes_selected_solution_status_and_debug(tmp_path: Path
         cwd=REPO_ROOT,
         check=False,
         capture_output=True,
+        env={**dict(os.environ), "SOLVER_PYTHON": sys.executable},
         text=True,
     )
 

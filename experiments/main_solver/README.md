@@ -98,6 +98,19 @@ Aggregate results:
 uv run python experiments/main_solver/aggregate.py
 ```
 
+Aggregate CSV metric columns are declared by solver profiles under
+`experiments/main_solver/solvers/`:
+
+```yaml
+aggregate_metrics:
+  - name: service_fraction
+    source: verifier.metrics.service_fraction
+  - name: solver_timing_total_s
+    source: solver_status.timing_seconds.total
+```
+
+`source` must be a direct dot path into `run.json`. The aggregator always emits stable run metadata columns such as benchmark, solver, case id, status, validity, evidence type, durations, compact verifier/solver-status JSON fields, and `run_json`; solver-owned declarations add benchmark or method metrics without editing the shared aggregator. Derived metrics should be emitted into `run.json` by the verifier or solver before aggregation.
+
 ## Result Layout
 
 ```text

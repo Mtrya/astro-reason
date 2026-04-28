@@ -63,6 +63,7 @@ class ResourceLimits:
 class BatchSettings:
     max_concurrency: int
     max_retries: int
+    harness_cooldown_seconds: int
     skip_completed: bool
     retry_statuses: tuple[str, ...]
 
@@ -317,6 +318,11 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         help="Override matrix.yaml batch.max_concurrency for this planning pass.",
     )
     parser.add_argument(
+        "--harness-cooldown",
+        type=int,
+        help="Override matrix.yaml batch.harness_cooldown_seconds for this planning pass.",
+    )
+    parser.add_argument(
         "--rerun-status",
         action="append",
         default=[],
@@ -373,7 +379,7 @@ def _optional_int(
     value = data.get(key, default)
     if value is None:
         return None
-    if not isinstance(value, int):
+    if not isinstance(value, int) or isinstance(value, bool):
         raise SystemExit(f"{kind} field '{key}' must be an integer: {path}")
     return value
 
@@ -572,6 +578,13 @@ def load_batch_config(config_path: Path) -> BatchConfig:
 
     max_concurrency = _optional_int(batch, "max_concurrency", None, "Batch config", config_path)
     max_retries = _optional_int(batch, "max_retries", None, "Batch config", config_path)
+    harness_cooldown_seconds = _optional_int(
+        batch,
+        "harness_cooldown_seconds",
+        0,
+        "Batch config",
+        config_path,
+    )
     if max_concurrency is None or max_concurrency <= 0:
         raise SystemExit(
             f"Batch config field 'max_concurrency' must be a positive integer: {config_path}"
@@ -579,6 +592,10 @@ def load_batch_config(config_path: Path) -> BatchConfig:
     if max_retries is None or max_retries < 0:
         raise SystemExit(
             f"Batch config field 'max_retries' must be a non-negative integer: {config_path}"
+        )
+    if harness_cooldown_seconds is None or harness_cooldown_seconds < 0:
+        raise SystemExit(
+            f"Batch config field 'harness_cooldown_seconds' must be a non-negative integer: {config_path}"
         )
 
     retry_statuses_value = batch.get("retry_statuses")
@@ -602,6 +619,7 @@ def load_batch_config(config_path: Path) -> BatchConfig:
         batch=BatchSettings(
             max_concurrency=max_concurrency,
             max_retries=max_retries,
+            harness_cooldown_seconds=harness_cooldown_seconds,
             skip_completed=_optional_bool(
                 batch, "skip_completed", True, "Batch config", config_path
             ),
@@ -1090,6 +1108,7 @@ def build_batch_plan(
     split_override: str | None = None,
     case_filters: tuple[str, ...] = (),
     max_concurrency_override: int | None = None,
+    harness_cooldown_override: int | None = None,
     require_real_configs: bool = False,
 ) -> BatchPlan:
     config = load_batch_config(config_path.resolve())
@@ -1099,6 +1118,16 @@ def build_batch_plan(
         config = replace(
             config,
             batch=replace(config.batch, max_concurrency=max_concurrency_override),
+        )
+    if harness_cooldown_override is not None:
+        if harness_cooldown_override < 0:
+            raise SystemExit("--harness-cooldown must be a non-negative integer.")
+        config = replace(
+            config,
+            batch=replace(
+                config.batch,
+                harness_cooldown_seconds=harness_cooldown_override,
+            ),
         )
     effective_split = split_override or config.split
     selected_benchmarks = _select_names(
@@ -1335,6 +1364,7 @@ def describe_batch_preview(preview: BatchPreview, *, include_items: bool = True)
         f"Runnable queue length: {len(runnable_items)}",
         f"Max concurrency: {plan.config.batch.max_concurrency}",
         f"Max retries: {plan.config.batch.max_retries}",
+        f"Harness cooldown seconds: {plan.config.batch.harness_cooldown_seconds}",
     ]
     if plan.unavailable_configs:
         lines.append("Unavailable harness configs:")
@@ -1402,9 +1432,14 @@ def main(argv: list[str] | None = None) -> int:
     case_filters = tuple(args.case)
 
     if args.interactive:
-        if args.rerun_status or args.no_skip_completed or args.max_concurrency is not None:
+        if (
+            args.rerun_status
+            or args.no_skip_completed
+            or args.max_concurrency is not None
+            or args.harness_cooldown is not None
+        ):
             raise SystemExit(
-                "--rerun-status, --no-skip-completed, and --max-concurrency are batch-only controls and cannot be used with --interactive."
+                "--rerun-status, --no-skip-completed, --max-concurrency, and --harness-cooldown are batch-only controls and cannot be used with --interactive."
             )
         plan = build_interactive_plan(
             config_path=config_path,
@@ -1424,6 +1459,7 @@ def main(argv: list[str] | None = None) -> int:
         split_override=args.split,
         case_filters=case_filters,
         max_concurrency_override=args.max_concurrency,
+        harness_cooldown_override=args.harness_cooldown,
         require_real_configs=False,
     )
     preview = build_batch_preview(

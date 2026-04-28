@@ -16,7 +16,7 @@ def main(argv: list[str] | None = None) -> int:
         description=(
             "Regional coverage generator: use vendored SAR-like TLEs and a vendored "
             "region library to emit the canonical dataset under dataset/cases/<split>/ plus "
-            "index.json and example_solution.json."
+            "index.json."
         )
     )
     parser.add_argument(

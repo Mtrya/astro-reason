@@ -7,6 +7,15 @@ runnable: true
 setup_script: setup.sh
 solve_script: solve.sh
 solution_filename: solution.json
+aggregate_metrics:
+  - name: CR
+    source: verifier.metrics.CR
+  - name: WCR
+    source: verifier.metrics.WCR
+  - name: TAT
+    source: verifier.metrics.TAT
+  - name: PC
+    source: verifier.metrics.PC
 config:
   total_time_budget_s: 300
   candidate_workers: 8

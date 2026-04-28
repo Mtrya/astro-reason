@@ -162,7 +162,10 @@ def _isl_feasible(
     return _segment_clear_of_earth(position_a_ecef_m, position_b_ecef_m), distance_m
 
 
-def _build_propagators(case: RelayCase) -> dict[str, brahe.NumericalOrbitPropagator]:
+def _build_propagators_for_satellites(
+    case: RelayCase,
+    satellites: dict[str, object],
+) -> dict[str, brahe.NumericalOrbitPropagator]:
     _ensure_brahe_ready()
     epoch = _datetime_to_epoch(case.manifest.epoch)
     horizon_end_epoch = _datetime_to_epoch(case.manifest.horizon_end)
@@ -170,7 +173,7 @@ def _build_propagators(case: RelayCase) -> dict[str, brahe.NumericalOrbitPropaga
         gravity=brahe.GravityConfiguration.spherical_harmonic(2, 0)
     )
     propagators: dict[str, brahe.NumericalOrbitPropagator] = {}
-    for satellite in case.backbone_satellites.values():
+    for satellite in satellites.values():
         propagator = brahe.NumericalOrbitPropagator.from_eci(
             epoch,
             satellite.state_eci_m_mps,
@@ -181,13 +184,25 @@ def _build_propagators(case: RelayCase) -> dict[str, brahe.NumericalOrbitPropaga
     return propagators
 
 
+def _build_propagators(case: RelayCase) -> dict[str, brahe.NumericalOrbitPropagator]:
+    return _build_propagators_for_satellites(case, case.backbone_satellites)
+
+
 def build_state_cache(case: RelayCase) -> tuple[list[datetime], dict[str, np.ndarray]]:
-    propagators = _build_propagators(case)
     sample_times = _sample_times(
         case.manifest.horizon_start,
         case.manifest.horizon_end,
         case.manifest.routing_step_s,
     )
+    return build_state_cache_for_satellites(case, case.backbone_satellites, sample_times)
+
+
+def build_state_cache_for_satellites(
+    case: RelayCase,
+    satellites: dict[str, object],
+    sample_times: list[datetime],
+) -> tuple[list[datetime], dict[str, np.ndarray]]:
+    propagators = _build_propagators_for_satellites(case, satellites)
     states_ecef_by_satellite: dict[str, np.ndarray] = {}
     for satellite_id, propagator in propagators.items():
         rows = np.zeros((len(sample_times), 3), dtype=float)
@@ -206,19 +221,11 @@ def build_state_cache_for_times(
     case: RelayCase,
     sample_times: list[datetime],
 ) -> tuple[list[datetime], dict[str, np.ndarray]]:
-    propagators = _build_propagators(case)
-    states_ecef_by_satellite: dict[str, np.ndarray] = {}
-    for satellite_id, propagator in propagators.items():
-        rows = np.zeros((len(sample_times), 3), dtype=float)
-        for index, instant in enumerate(sample_times):
-            epoch = _datetime_to_epoch(instant)
-            state_eci = np.asarray(propagator.state(epoch), dtype=float)
-            rows[index] = np.asarray(
-                brahe.position_eci_to_ecef(epoch, state_eci[:3]),
-                dtype=float,
-            )
-        states_ecef_by_satellite[satellite_id] = rows
-    return sample_times, states_ecef_by_satellite
+    return build_state_cache_for_satellites(
+        case,
+        case.backbone_satellites,
+        sample_times,
+    )
 
 
 def _shortest_path(

@@ -166,27 +166,41 @@ def _run_command(
     stdout_path: Path,
     stderr_path: Path,
     env: dict[str, str] | None = None,
+    timeout_seconds: float | None = None,
 ) -> dict[str, Any]:
     stdout_path.parent.mkdir(parents=True, exist_ok=True)
     start = time.monotonic()
-    with stdout_path.open("w", encoding="utf-8") as stdout_obj:
-        with stderr_path.open("w", encoding="utf-8") as stderr_obj:
-            completed = subprocess.run(
-                command,
-                cwd=cwd,
-                env=env,
-                stdout=stdout_obj,
-                stderr=stderr_obj,
-                check=False,
-            )
-    return {
-        "command": command,
-        "cwd": str(cwd),
-        "returncode": completed.returncode,
-        "duration_seconds": time.monotonic() - start,
-        "stdout": str(stdout_path),
-        "stderr": str(stderr_path),
-    }
+    try:
+        with stdout_path.open("w", encoding="utf-8") as stdout_obj:
+            with stderr_path.open("w", encoding="utf-8") as stderr_obj:
+                completed = subprocess.run(
+                    command,
+                    cwd=cwd,
+                    env=env,
+                    stdout=stdout_obj,
+                    stderr=stderr_obj,
+                    check=False,
+                    timeout=timeout_seconds,
+                )
+        return {
+            "command": command,
+            "cwd": str(cwd),
+            "returncode": completed.returncode,
+            "duration_seconds": time.monotonic() - start,
+            "stdout": str(stdout_path),
+            "stderr": str(stderr_path),
+            "timeout": False,
+        }
+    except subprocess.TimeoutExpired:
+        return {
+            "command": command,
+            "cwd": str(cwd),
+            "returncode": -9,
+            "duration_seconds": time.monotonic() - start,
+            "stdout": str(stdout_path),
+            "stderr": str(stderr_path),
+            "timeout": True,
+        }
 
 
 def _script_command(solver_path: Path, script_path: Path) -> str:
@@ -230,6 +244,7 @@ def _run_setup(
         cwd=solver_path,
         stdout_path=log_dir / "setup.stdout.log",
         stderr_path=log_dir / "setup.stderr.log",
+        timeout_seconds=solver.get("timeout_seconds"),
     )
     if result["returncode"] == 0:
         solver_env = _read_solver_env_file(solver_path)
@@ -432,6 +447,10 @@ def _run_runnable_job(
         "solver_config": job.solver_config,
         "solution_dir": str(solution_dir),
     }
+    if setup.get("timeout"):
+        payload["status"] = "timeout"
+        _write_json(result_dir / "run.json", payload)
+        return payload
     if setup["returncode"] != 0:
         payload["status"] = "setup_error"
         _write_json(result_dir / "run.json", payload)
@@ -452,12 +471,17 @@ def _run_runnable_job(
         stdout_path=log_dir / "solve.stdout.log",
         stderr_path=log_dir / "solve.stderr.log",
         env=solve_env,
+        timeout_seconds=job.solver.get("timeout_seconds"),
     )
     payload["solve"] = solve
     status_path = solution_dir / "status.json"
     if status_path.exists():
         payload["solver_status"] = _read_solver_status(status_path)
 
+    if solve.get("timeout"):
+        payload["status"] = "timeout"
+        _write_json(result_dir / "run.json", payload)
+        return payload
     if solve["returncode"] != 0:
         payload["status"] = "solver_error"
         solver_status = payload.get("solver_status")

@@ -7,13 +7,9 @@ from pathlib import Path
 
 from .plot import (
     DEFAULT_PLOTS_DIR,
-    render_connectivity_report,
-    render_overview_set,
+    render_overview,
 )
-from .solution import render_solution_report
-
-
-DEFAULT_DATASET_DIR = Path(__file__).resolve().parents[1] / "dataset"
+from .solution import render_solution
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -24,7 +20,7 @@ def main(argv: list[str] | None = None) -> int:
 
     overview_parser = subparsers.add_parser(
         "overview",
-        help="Render per-demand 2D overview PNGs for one case.",
+        help="Render case-only backbone ground tracks and baseline connectivity PNGs.",
     )
     overview_parser.add_argument(
         "--case-dir",
@@ -43,25 +39,9 @@ def main(argv: list[str] | None = None) -> int:
         help="Optional local Earth texture path to use instead of auto-downloading",
     )
 
-    connectivity_parser = subparsers.add_parser(
-        "connectivity",
-        help="Render the infinite-concurrency connectivity PNG for one case.",
-    )
-    connectivity_parser.add_argument(
-        "--case-dir",
-        required=True,
-        help="Path to dataset/cases/<case_id>",
-    )
-    connectivity_parser.add_argument(
-        "--out-path",
-        type=Path,
-        default=None,
-        help="Where to write connectivity.png (default: benchmarks/relay_constellation/visualizer/plots/<case_id>/connectivity.png)",
-    )
-
     solution_parser = subparsers.add_parser(
         "solution",
-        help="Render solution-inspection artifacts for one case and one solution.",
+        help="Render solution-aware ground tracks and scheduled connectivity PNGs.",
     )
     solution_parser.add_argument(
         "--case-dir",
@@ -77,7 +57,7 @@ def main(argv: list[str] | None = None) -> int:
         "--out-dir",
         type=Path,
         default=None,
-        help="Directory for solution artifacts (default: benchmarks/relay_constellation/visualizer/plots/<case_id>/solution/<solution_stem>)",
+        help="Directory for solution PNGs (default: benchmarks/relay_constellation/visualizer/plots/<case_id>/solution/<solution_stem>)",
     )
     solution_parser.add_argument(
         "--texture-path",
@@ -92,22 +72,14 @@ def main(argv: list[str] | None = None) -> int:
 
     if args.command == "overview":
         out_dir = args.out_dir or (default_case_root / "overview")
-        manifest = render_overview_set(
+        result = render_overview(
             case_dir,
             out_dir,
             texture_path=args.texture_path,
         )
         print(
-            f"Wrote {len(manifest['overview_pngs'])} overview PNGs to {out_dir.resolve()}"
-        )
-        return 0
-
-    if args.command == "connectivity":
-        out_path = args.out_path or (default_case_root / "connectivity.png")
-        manifest = render_connectivity_report(case_dir, out_path)
-        print(
-            f"Wrote connectivity PNG to {out_path.resolve()} "
-            f"for {len(manifest['endpoint_pairs'])} endpoint pairs"
+            f"Wrote {result['ground_tracks_png']} and "
+            f"{result['baseline_connectivity_png']} to {out_dir.resolve()}"
         )
         return 0
 
@@ -115,15 +87,16 @@ def main(argv: list[str] | None = None) -> int:
     out_dir = args.out_dir or (
         default_case_root / "solution" / solution_path.stem
     )
-    manifest = render_solution_report(
+    result = render_solution(
         case_dir,
         solution_path,
         out_dir,
         texture_path=args.texture_path,
     )
     print(
-        f"Wrote solution artifacts to {out_dir.resolve()} "
-        f"with {len(manifest['snapshot_pngs'])} snapshots"
+        f"Wrote {result['ground_tracks_png']} and "
+        f"{result['scheduled_connectivity_png']} plus "
+        f"{len(result['demand_window_pngs'])} demand-window PNGs to {out_dir.resolve()}"
     )
     return 0
 

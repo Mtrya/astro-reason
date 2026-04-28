@@ -292,8 +292,8 @@ def test_build_case_dataset_records_dataset_level_local_provenance(tmp_path: Pat
                 "setup_time": 10,
                 "teardown_time": 5,
                 "time_window_start": 100,
-                "time_window_end": 200,
-                "resource_vp_dict": {"DSS-34": [{"TRX ON": 110, "TRX OFF": 170}]},
+                "time_window_end": 5000,
+                "resource_vp_dict": {"DSS-34": [{"TRX ON": 700, "TRX OFF": 4300}]},
             }
         ]
     }
@@ -330,3 +330,4 @@ def test_build_case_dataset_records_dataset_level_local_provenance(tmp_path: Pat
     assert index["cases"][0]["path"] == "cases/test/W10_2018"
     assert "repository" not in index["source"]
     assert "source" not in metadata
+    assert not (tmp_path / "dataset" / "example_solution.json").exists()

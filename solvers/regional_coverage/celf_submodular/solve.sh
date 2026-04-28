@@ -6,7 +6,17 @@ CASE_DIR="${1:?usage: ./solve.sh <case_dir> [config_dir] [solution_dir]}"
 CONFIG_DIR="${2:-}"
 SOLUTION_DIR="${3:-solution}"
 
-PYTHONPATH="${SCRIPT_DIR}/src${PYTHONPATH:+:${PYTHONPATH}}" python "${SCRIPT_DIR}/src/solve.py" \
+if [[ -z "${SOLVER_PYTHON:-}" && -f "${SCRIPT_DIR}/.solver-env" ]]; then
+  # shellcheck disable=SC1091
+  source "${SCRIPT_DIR}/.solver-env"
+fi
+SOLVER_PYTHON="${SOLVER_PYTHON:-${SCRIPT_DIR}/.venv/bin/python}"
+if [[ ! -x "${SOLVER_PYTHON}" ]]; then
+  echo "regional_coverage celf_submodular requires solver-local setup; run ./setup.sh first" >&2
+  exit 2
+fi
+
+PYTHONPATH="${SCRIPT_DIR}/src${PYTHONPATH:+:${PYTHONPATH}}" "${SOLVER_PYTHON}" "${SCRIPT_DIR}/src/solve.py" \
   --case-dir "${CASE_DIR}" \
   --config-dir "${CONFIG_DIR}" \
   --solution-dir "${SOLUTION_DIR}"

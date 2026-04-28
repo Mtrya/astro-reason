@@ -119,8 +119,8 @@ def solve(case_dir: str, config_dir: str | None, solution_dir: str | None) -> in
         }
         status = {
             "status": "completed",
-            "phase": 8,
-            "phase_tag": "experiment_wiring_and_scaled_profiles",
+            "solver": "j2_rgt_set_cover",
+            "method_status": "experiment_ready",
             "case_dir": str(case.case_dir),
             "timing_seconds": timing_seconds,
             "compute_profile": compute_profile,
@@ -145,7 +145,7 @@ def solve(case_dir: str, config_dir: str | None, solution_dir: str | None) -> in
         }
         write_json(output_dir / "status.json", status)
         print(
-            "phase8 rgt templates/candidates/solution: "
+            "j2_rgt_set_cover templates/candidates/solution: "
             f"{len(result.accepted_templates)} accepted, "
             f"{len(result.rejected_templates)} rejected, "
             f"{len(coverage.candidates)} candidates, "
@@ -166,7 +166,7 @@ def solve(case_dir: str, config_dir: str | None, solution_dir: str | None) -> in
             output_dir / "status.json",
             {
                 "status": "error",
-                "phase": 8,
+                "solver": "j2_rgt_set_cover",
                 "error": f"{type(exc).__name__}: {exc}",
                 "timing_seconds": {"total": time.perf_counter() - start_time},
             },

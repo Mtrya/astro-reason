@@ -48,13 +48,7 @@ dataset/
 The current canonical release contains 5 cases. Each case is self-contained.
 The verifier reads one case directory and one per-case solution file.
 
-The dataset-level `example_solution.json` is a minimal runnable example:
-
-```json
-{
-  "actions": []
-}
-```
+The dataset-level `example_solution.json` is a runnable smoke example, not a baseline.
 
 `dataset/index.json` includes split-relative `example_smoke_case`, which currently points to `test/case_0001`. The benchmark-owned construction contract lives in `benchmarks/regional_coverage/splits.yaml`.
 
@@ -436,7 +430,6 @@ Running the canonical generator rewrites `benchmarks/regional_coverage/dataset/`
 
 - `dataset/cases/test/`
 - `dataset/index.json`
-- `dataset/example_solution.json`
 
 ### Visualizer
 
@@ -445,12 +438,12 @@ The visualizer is intended for benchmark inspection and fixture authoring.
 ```bash
 # 2D case overview PNG.
 uv run python -m benchmarks.regional_coverage.visualizer.run overview \
-    benchmarks/regional_coverage/dataset/cases/test/case_0001
+    --case-dir benchmarks/regional_coverage/dataset/cases/test/case_0001
 
 # Solution inspection bundle with 3D strip geometry HTML and region-scale PNGs.
 uv run python -m benchmarks.regional_coverage.visualizer.run inspect \
-    benchmarks/regional_coverage/dataset/cases/test/case_0001 \
-    path/to/solution.json
+    --case-dir benchmarks/regional_coverage/dataset/cases/test/case_0001 \
+    --solution-path path/to/solution.json
 ```
 
-Generated visualizer artifacts are written under `benchmarks/regional_coverage/visualizer/plots/`.
+The overview renders a small representative set of satellite ground tracks as a muted context layer so region geometry remains readable on multi-satellite cases. Use `--max-ground-tracks` to increase, reduce, or hide that layer. Generated visualizer artifacts are written under `benchmarks/regional_coverage/visualizer/plots/`.

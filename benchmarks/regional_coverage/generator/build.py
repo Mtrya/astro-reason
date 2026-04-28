@@ -697,7 +697,6 @@ def generate_dataset(
     if not smoke_found:
         raise ValueError(f"example_smoke_case {example_smoke_case} was not generated")
 
-    _write_json(output_dir / "example_solution.json", {"actions": []})
     unique_seeds = {
         _require_int(_require_mapping(split_config, f"splits.{split_name}"), "seed", f"splits.{split_name}")
         for split_name, split_config in split_configs.items()

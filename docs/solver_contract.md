@@ -63,6 +63,10 @@ Experiments should usually pass both optional arguments explicitly. The solver s
 
 Solver code may be Python, shell, C, C++, Java, Kotlin, Julia, MiniZinc, Rust, or anything else. The shell entrypoints are the boundary.
 
+Solver entrypoints must not rely on the repository Python workspace. Contract validation runs `setup.sh`, `solve.sh`, and `test.sh` with Python/workspace leakage scrubbed from the inherited environment. In particular, the validator removes inherited `VIRTUAL_ENV`, `PYTHONPATH`, `PYTHONHOME`, `PYTHONUSERBASE`, other inherited `PYTHON*` variables, uv project-discovery settings such as `UV_PROJECT`, `UV_WORKING_DIR`, `UV_ENV_FILE`, and `UV_CONFIG_FILE`, and repository-local entries from `PATH`. It preserves ordinary system access such as `PATH`, locale, temporary-directory, proxy, certificate, `HOME`, explicit `SOLVER_*` values, and uv package-resolution settings such as `UV_INDEX_URL`, `UV_DEFAULT_INDEX`, `UV_EXTRA_INDEX_URL`, `UV_INDEX_*` per-index credentials, `UV_FIND_LINKS`, `UV_KEYRING_PROVIDER`, `UV_CACHE_DIR`, and runner-managed Python settings. The validator also sets `UV_NO_PROJECT=1`, `UV_NO_CONFIG=1`, and `UV_NO_ENV_FILE=1` so `uv` bootstrap commands do not discover the repository workspace by walking upward from a solver directory.
+
+`uv` may be used as a bootstrap tool, for example `uv venv` or `uv pip install` inside `setup.sh`. Do not use `uv run` in solver entrypoints, because it can implicitly execute against the repository project environment. Python solvers should create or reuse a solver-local virtual environment, write `.solver-env` when helpful, and run `solve.sh` / `test.sh` through `SOLVER_PYTHON` or another solver-owned runtime.
+
 ## Setup Outputs
 
 `setup.sh` may create or update solver-local outputs such as:
@@ -107,6 +111,8 @@ Top-level pytest must not collect solver-local tests. Repository-wide pytest is 
 - Existing `test.sh` files are executable.
 - Top-level pytest is scoped away from solver-local tests.
 - Solver runtime code does not import or execute across `benchmarks/`, `experiments/`, `runtimes/`, or other solvers.
+- Solver entrypoints run without inherited repository Python environment state.
+- Solver entrypoints do not use `uv run` to discover the repository workspace.
 - `repro_ci: true` entries run `setup.sh` and `solve.sh` on their declared cases.
 - Detected solver-local `test.sh` entrypoints run as part of solver contract validation.
 

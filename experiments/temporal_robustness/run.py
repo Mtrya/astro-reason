@@ -163,6 +163,7 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--rerun-status", action="append", default=[], help="Rerun stored statuses.")
     parser.add_argument("--no-skip-completed", action="store_true", help="Run selected items regardless of status.")
     parser.add_argument("--dry-run", action="store_true", help="Preview selected work without executing it.")
+    parser.add_argument("--force", action="store_true", help="Replace an existing interactive workspace/output.")
     return parser.parse_args(argv)
 
 
@@ -249,13 +250,14 @@ def _batch_settings(data: dict[str, Any], path: Path) -> BatchSettings:
     )
 
 
-def _positive_int(value: Any, field: str, path: Path) -> int:
+def _positive_int(value: Any, field: str, path: Path | None = None) -> int:
+    suffix = f": {path}" if path is not None else ""
     try:
         parsed = int(value)
     except (TypeError, ValueError) as exc:
-        raise SystemExit(f"{field} must be a positive integer: {path}") from exc
+        raise SystemExit(f"{field} must be a positive integer{suffix}") from exc
     if parsed <= 0:
-        raise SystemExit(f"{field} must be a positive integer: {path}")
+        raise SystemExit(f"{field} must be a positive integer{suffix}")
     return parsed
 
 
@@ -980,7 +982,7 @@ def _build_items(
         if max_concurrency_override <= 0:
             raise SystemExit("--max-concurrency must be positive")
         config = replace(config, batch=replace(config.batch, max_concurrency=max_concurrency_override))
-    effective_timeout = _positive_int(timeout_override, "--timeout", config.config_path) if timeout_override is not None else config.timeout_seconds
+    effective_timeout = _positive_int(timeout_override, "--timeout") if timeout_override is not None else config.timeout_seconds
     selected_splits = _select(config.splits, splits, "split")
     selected_cases = _select(config.cases, cases, "case")
     selected_harnesses = _select(config.harnesses, harnesses, "harness")
@@ -1080,14 +1082,6 @@ def _run_batch(args: argparse.Namespace) -> int:
         _print_preview(config, items, rerun_statuses=rerun_statuses, no_skip_completed=args.no_skip_completed)
         return 0
 
-    missing = _missing_sources(items)
-    if missing:
-        lines = ["Missing required assemble sources:"]
-        for harness, source, example in missing:
-            suffix = f" Copy {_relative(example)} into place first." if example else ""
-            lines.append(f"- {harness}: {source}{suffix}")
-        raise SystemExit("\n".join(lines))
-
     selected: list[RunItem] = []
     skipped_results: list[RunResult] = []
     for item in items:
@@ -1105,7 +1099,16 @@ def _run_batch(args: argparse.Namespace) -> int:
             skipped_results.append(RunResult(overall_status=status or artifact_state, skipped=True, output_dir=_output_dir(item)))
             print(f"skip {item.split}/{item.harness}/{item.case_id}: {reason}")
 
+    missing = _missing_sources(tuple(selected))
+    if missing:
+        lines = ["Missing required assemble sources:"]
+        for harness, source, example in missing:
+            suffix = f" Copy {_relative(example)} into place first." if example else ""
+            lines.append(f"- {harness}: {source}{suffix}")
+        raise SystemExit("\n".join(lines))
+
     status_counts: dict[str, int] = {}
+    executed_statuses: list[str] = []
     for result in skipped_results:
         status_counts[result.overall_status] = status_counts.get(result.overall_status, 0) + 1
 
@@ -1121,13 +1124,14 @@ def _run_batch(args: argparse.Namespace) -> int:
                 output_dir = _output_dir(item)
                 _write_runner_error(item, output_dir, exc)
                 result = RunResult(overall_status="runner_error", skipped=False, output_dir=output_dir)
+            executed_statuses.append(result.overall_status)
             status_counts[result.overall_status] = status_counts.get(result.overall_status, 0) + 1
             print(
                 f"[{completed}/{len(selected)}] {item.split}/{item.harness}/{item.case_id} "
                 f"-> {result.overall_status} ({_relative(result.output_dir)})"
             )
     print("Status counts: " + ", ".join(f"{key}={value}" for key, value in sorted(status_counts.items())))
-    return 0
+    return 0 if all(status == "success" for status in executed_statuses) else 1
 
 
 def _reject_profile_target_collisions(profiles: tuple[HarnessProfile, ...]) -> None:
@@ -1177,7 +1181,7 @@ def _run_interactive(args: argparse.Namespace) -> int:
         case_id=case_id,
         harness=harness_identity,
         profile=replace(profiles[0], forward_env_keys=all_env_keys),
-        timeout_seconds=_positive_int(args.timeout, "--timeout", config.config_path) if args.timeout is not None else config.timeout_seconds,
+        timeout_seconds=_positive_int(args.timeout, "--timeout") if args.timeout is not None else config.timeout_seconds,
         resources=config.resources,
         results_root=config.results.root,
     )
@@ -1190,12 +1194,13 @@ def _run_interactive(args: argparse.Namespace) -> int:
         print(f"Interactive output: {_relative(output_dir)}")
         print(f"Harness configs assembled: {', '.join(harnesses)}")
         return 0
-    if workspace_dir.exists():
-        shutil.rmtree(workspace_dir)
-    if runtime_dir.exists():
-        shutil.rmtree(runtime_dir)
-    if output_dir.exists():
-        shutil.rmtree(output_dir)
+    existing_paths = [path for path in (workspace_dir, runtime_dir, output_dir) if path.exists()]
+    if existing_paths and not args.force:
+        lines = ["Interactive workspace/output already exists. Re-run with --force to replace:"]
+        lines.extend(f"- {_relative(path)}" for path in existing_paths)
+        raise SystemExit("\n".join(lines))
+    for path in existing_paths:
+        shutil.rmtree(path)
     output_dir.mkdir(parents=True, exist_ok=True)
     roots = _prepare_roots(workspace_dir, runtime_dir, output_dir)
     identity = _build_container_identity(runtime_dir)

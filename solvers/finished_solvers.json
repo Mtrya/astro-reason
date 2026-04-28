@@ -47,6 +47,13 @@
       "case_and_fixture_paths": []
     },
     {
+      "benchmark": "relay_constellation",
+      "solver": "umcf_srr_contact_plan",
+      "repro_ci": false,
+      "repro_ci_reason": "too_expensive",
+      "case_and_fixture_paths": []
+    },
+    {
       "benchmark": "stereo_imaging",
       "solver": "cp_local_search_stereo_insertion",
       "repro_ci": false,

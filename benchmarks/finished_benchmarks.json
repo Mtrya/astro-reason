@@ -6,8 +6,7 @@
       "repro_ci": true,
       "generated_paths": [
         "dataset/cases",
-        "dataset/index.json",
-        "dataset/example_solution.json"
+        "dataset/index.json"
       ]
     },
     {
@@ -16,8 +15,7 @@
       "generated_paths": [
         "dataset/cases",
         "dataset/index.json",
-        "dataset/mission_color_map.json",
-        "dataset/example_solution.json"
+        "dataset/mission_color_map.json"
       ]
     },
     {
@@ -25,8 +23,7 @@
       "repro_ci": true,
       "generated_paths": [
         "dataset/cases",
-        "dataset/index.json",
-        "dataset/example_solution.json"
+        "dataset/index.json"
       ]
     },
     {
@@ -34,8 +31,7 @@
       "repro_ci": true,
       "generated_paths": [
         "dataset/cases",
-        "dataset/index.json",
-        "dataset/example_solution.json"
+        "dataset/index.json"
       ]
     },
     {
@@ -43,8 +39,7 @@
       "repro_ci": true,
       "generated_paths": [
         "dataset/cases",
-        "dataset/index.json",
-        "dataset/example_solution.json"
+        "dataset/index.json"
       ]
     },
     {

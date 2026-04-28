@@ -763,9 +763,11 @@ def test_compute_metrics_zero_observations() -> None:
     metrics = _compute_metrics(instance, [], satellite_count=1)
 
     assert metrics["capped_max_revisit_gap_hours"] == pytest.approx(1.0)
+    assert metrics["worst_target_capped_max_revisit_gap_hours"] == pytest.approx(1.0)
+    assert metrics["max_revisit_gap_hours"] == pytest.approx(1.0)
+    assert metrics["threshold_violation_count"] == 1
     assert metrics["num_satellites"] == 1
     assert metrics["target_gap_summary"]["t1"]["max_revisit_gap_hours"] == pytest.approx(1.0)
-    assert metrics["target_gap_summary"]["t1"]["mean_revisit_gap_hours"] == pytest.approx(1.0)
 
 
 def test_compute_metrics_one_observation_uses_midpoint_and_boundaries() -> None:
@@ -787,7 +789,6 @@ def test_compute_metrics_one_observation_uses_midpoint_and_boundaries() -> None:
 
     assert metrics["capped_max_revisit_gap_hours"] == pytest.approx(0.75)
     assert metrics["num_satellites"] == 1
-    assert metrics["target_gap_summary"]["t1"]["mean_revisit_gap_hours"] == pytest.approx(0.5)
     assert metrics["target_gap_summary"]["t1"]["max_revisit_gap_hours"] == pytest.approx(0.75)
 
 
@@ -813,7 +814,6 @@ def test_compute_metrics_multiple_observations_reduce_max_gap() -> None:
     metrics = _compute_metrics(instance, observations, satellite_count=1)
 
     assert metrics["capped_max_revisit_gap_hours"] == pytest.approx(0.5)
-    assert metrics["target_gap_summary"]["t1"]["mean_revisit_gap_hours"] == pytest.approx(1.0 / 3.0)
     assert metrics["target_gap_summary"]["t1"]["max_revisit_gap_hours"] == pytest.approx(0.5)
 
 
@@ -853,10 +853,6 @@ def test_compute_metrics_back_to_back_observations_do_not_hide_long_outage(
     balanced_metrics = _compute_metrics(instance, balanced, satellite_count=1)
     adjacent_metrics = _compute_metrics(instance, adjacent, satellite_count=1)
 
-    assert (
-        adjacent_metrics["target_gap_summary"]["t1"]["mean_revisit_gap_hours"]
-        < balanced_metrics["target_gap_summary"]["t1"]["mean_revisit_gap_hours"]
-    )
     assert adjacent_metrics["capped_max_revisit_gap_hours"] == pytest.approx(
         58.0 / 60.0
     )
@@ -891,7 +887,6 @@ def test_compute_metrics_deduplicates_simultaneous_target_observations() -> None
 
     assert metrics["capped_max_revisit_gap_hours"] == pytest.approx(0.75)
     assert metrics["num_satellites"] == 2
-    assert metrics["target_gap_summary"]["t1"]["mean_revisit_gap_hours"] == pytest.approx(0.5)
     assert metrics["target_gap_summary"]["t1"]["max_revisit_gap_hours"] == pytest.approx(0.75)
     assert metrics["target_gap_summary"]["t1"]["observation_count"] == 1
 

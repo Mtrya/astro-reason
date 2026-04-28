@@ -1,0 +1,75 @@
+id: relay_constellation_umcf_srr_contact_plan
+benchmark: relay_constellation
+solver: umcf_srr_contact_plan
+solver_path: solvers/relay_constellation/umcf_srr_contact_plan
+evidence_type: reproduced_solver
+method_role: promoted_reproduction
+runnable: true
+setup_script: setup.sh
+solve_script: solve.sh
+solution_filename: solution.json
+timeout_seconds: 300
+aggregate_metrics:
+  - name: service_fraction
+    source: verifier.metrics.service_fraction
+  - name: worst_demand_service_fraction
+    source: verifier.metrics.worst_demand_service_fraction
+  - name: mean_latency_ms
+    source: verifier.metrics.mean_latency_ms
+  - name: latency_p95_ms
+    source: verifier.metrics.latency_p95_ms
+  - name: num_added_satellites
+    source: verifier.metrics.num_added_satellites
+config:
+  profile: reproduction
+  compute_envelope:
+    timeout_seconds: 300
+    propagation_max_workers: null
+  candidate_generation:
+    max_candidates: 64
+    altitude_steps: 4
+    inclination_steps: 4
+    raan_steps: 8
+    true_anomaly_steps: 2
+    eccentricity: 0.0
+  candidate_selection:
+    policy: greedy_marginal
+    max_added_satellites: null
+    fixed_candidates: []
+    evaluation_sample_stride: 10
+    latency_weight: 0.0
+    parallel_eval: false
+  srr:
+    deterministic: true
+    multi_run_count: 1
+    seed: 42
+    k_paths: 4
+    max_path_hops: 10
+    probability_source: lp
+    lp_backend: scipy-highs
+    lp_tolerance: 1.0e-9
+    lp_path_cost_epsilon: 1.0e-4
+    lp_path_cost_mode: hop_count
+    first_last_hop_k: null
+    lp_reactualization_policy: once_per_sample
+    path_change_penalty: 1.0
+cases:
+  - id: test/case_0001
+    case_dir: benchmarks/relay_constellation/dataset/cases/test/case_0001
+  - id: test/case_0002
+    case_dir: benchmarks/relay_constellation/dataset/cases/test/case_0002
+  - id: test/case_0003
+    case_dir: benchmarks/relay_constellation/dataset/cases/test/case_0003
+  - id: test/case_0004
+    case_dir: benchmarks/relay_constellation/dataset/cases/test/case_0004
+  - id: test/case_0005
+    case_dir: benchmarks/relay_constellation/dataset/cases/test/case_0005
+verifier:
+  command:
+    - uv
+    - run
+    - python
+    - -m
+    - benchmarks.relay_constellation.verifier.run
+    - "{case_dir}"
+    - "{solution_path}"

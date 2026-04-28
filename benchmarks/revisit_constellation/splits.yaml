@@ -13,7 +13,7 @@ source:
     page_url: https://www.kaggle.com/datasets/juanmah/world-cities
 
 splits:
-  test:
+  test: &test_split
     seed: 84
     case_count: 5
     case_spec_seed_stride: 10007
@@ -32,7 +32,7 @@ splits:
     mission:
       horizon_start: "2025-07-17T12:00:00Z"
       horizon_end: "2025-07-19T12:00:00Z"
-      min_target_separation_m: 250000.0
+      min_target_separation_m: 75000.0
       target_defaults:
         min_elevation_deg: 20.0
         max_slant_range_m: 1800000.0
@@ -62,3 +62,9 @@ splits:
         maneuver_discharge_rate_w: 90.0
       min_altitude_m: 500000.0
       max_altitude_m: 900000.0
+
+  train:
+    <<: *test_split
+    seed: 2027
+    case_count: 10
+    target_selection_seed_offset: 503

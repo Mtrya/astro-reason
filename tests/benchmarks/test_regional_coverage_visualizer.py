@@ -5,7 +5,11 @@ from __future__ import annotations
 from pathlib import Path
 import json
 
-from benchmarks.regional_coverage.visualizer.run import render_inspection, render_overview
+from benchmarks.regional_coverage.visualizer.run import (
+    _select_ground_track_items,
+    render_inspection,
+    render_overview,
+)
 
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
@@ -32,6 +36,21 @@ def test_render_overview_writes_html(tmp_path: Path) -> None:
     assert out_path.read_bytes().startswith(b"\x89PNG\r\n\x1a\n")
 
 
+def test_select_ground_track_items_spreads_representatives() -> None:
+    items = [(f"sat_{idx:02d}", object()) for idx in range(1, 12)]
+
+    selected = _select_ground_track_items(items, max_ground_tracks=4)
+
+    assert [sat_id for sat_id, _ in selected] == ["sat_01", "sat_04", "sat_07", "sat_11"]
+
+
+def test_select_ground_track_items_can_hide_or_show_all_tracks() -> None:
+    items = [(f"sat_{idx:02d}", object()) for idx in range(1, 4)]
+
+    assert _select_ground_track_items(items, max_ground_tracks=0) == []
+    assert _select_ground_track_items(items, max_ground_tracks=None) == items
+
+
 def test_render_inspection_example_solution_writes_summary_and_manifest(tmp_path: Path) -> None:
     out_dir = tmp_path / "inspect"
     written_dir = render_inspection(CASE_0001_DIR, EXAMPLE_SOLUTION_PATH, out_dir)
@@ -48,8 +67,9 @@ def test_render_inspection_example_solution_writes_summary_and_manifest(tmp_path
     manifest = _read_json(manifest_path)
     assert manifest["case_id"] == "case_0001"
     assert manifest["verifier_valid"] is True
-    assert manifest["metrics"]["coverage_ratio"] == 0.0
-    assert manifest["selected_action_indices"] == []
+    assert 0.0 <= manifest["metrics"]["coverage_ratio"] <= 1.0
+    assert isinstance(manifest["selected_action_indices"], list)
+    assert all(isinstance(index, int) for index in manifest["selected_action_indices"])
     assert manifest["region_zoom_path"].endswith("region_zoom.png")
     assert len(manifest["regions"]) == 3
 

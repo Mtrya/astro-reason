@@ -8,6 +8,8 @@ import pytest
 import yaml
 
 import benchmarks.revisit_constellation.generator.run as generator_run
+from benchmarks.revisit_constellation.generator.build import CityRecord, select_targets
+from benchmarks.revisit_constellation.generator import sources
 
 
 def _write_world_cities_csv(path: Path) -> None:
@@ -152,3 +154,54 @@ def test_main_builds_dataset_from_yaml_and_keeps_download_controls_operational(
     )["targets"]
     assert targets
     assert all(abs(float(target["latitude_deg"])) < 70.0 for target in targets)
+
+
+def test_source_schema_match_requires_data_rows(tmp_path: Path) -> None:
+    header_only = tmp_path / "header_only.csv"
+    header_only.write_text("name,country,lat,lng,population\n\n", encoding="utf-8")
+    valid_source = tmp_path / "world_cities.csv"
+    _write_world_cities_csv(valid_source)
+
+    assert not sources._matches_alias_groups(
+        header_only,
+        sources.WORLD_CITIES_REQUIRED_COLUMNS,
+    )
+    assert sources._matches_alias_groups(
+        valid_source,
+        sources.WORLD_CITIES_REQUIRED_COLUMNS,
+    )
+
+
+def test_select_targets_uses_seed_beyond_initial_choice() -> None:
+    cities = [
+        CityRecord(
+            name=f"City {index:02d}",
+            country="Example",
+            latitude_deg=0.0,
+            longitude_deg=index * 2.0,
+            altitude_m=0.0,
+            population=10_000_000.0 - index * 100_000.0,
+        )
+        for index in range(20)
+    ]
+
+    first = select_targets(
+        cities,
+        8,
+        seed=10,
+        min_target_separation_m=75_000.0,
+        initial_pool_min_size=20,
+        initial_pool_multiplier=3,
+        max_abs_latitude_deg=70.0,
+    )
+    second = select_targets(
+        cities,
+        8,
+        seed=11,
+        min_target_separation_m=75_000.0,
+        initial_pool_min_size=20,
+        initial_pool_multiplier=3,
+        max_abs_latitude_deg=70.0,
+    )
+
+    assert [city.name for city in first] != [city.name for city in second]

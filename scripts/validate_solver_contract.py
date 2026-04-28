@@ -49,6 +49,60 @@ GENERATED_DIR_NAMES = {
 DEFAULT_SETUP_TIMEOUT_S = 600.0
 DEFAULT_SOLVE_TIMEOUT_S = 600.0
 DEFAULT_TEST_TIMEOUT_S = 600.0
+SCRUBBED_ENV_EXACT_KEYS = {
+    "PYTHONHOME",
+    "PYTHONPATH",
+    "PYTHONUSERBASE",
+    "VIRTUAL_ENV",
+}
+SCRUBBED_ENV_PREFIXES = ("PYTHON",)
+SCRUBBED_UV_EXACT_KEYS = {
+    "UV_CONFIG_FILE",
+    "UV_ENV_FILE",
+    "UV_PROJECT",
+    "UV_WORKING_DIR",
+}
+PRESERVED_ENV_EXACT_KEYS = {
+    "CI",
+    "HOME",
+    "LANG",
+    "LC_ALL",
+    "PATH",
+    "REQUESTS_CA_BUNDLE",
+    "SSL_CERT_FILE",
+    "TERM",
+    "TMPDIR",
+    "TZ",
+}
+PRESERVED_ENV_SUFFIXES = ("_PROXY", "_proxy")
+PRESERVED_UV_EXACT_KEYS = {
+    "UV_AUTH_TOKEN",
+    "UV_CACHE_DIR",
+    "UV_DEFAULT_INDEX",
+    "UV_EXTRA_INDEX_URL",
+    "UV_FIND_LINKS",
+    "UV_INDEX",
+    "UV_INDEX_STRATEGY",
+    "UV_INDEX_URL",
+    "UV_INSECURE_HOST",
+    "UV_KEYRING_PROVIDER",
+    "UV_LINK_MODE",
+    "UV_NATIVE_TLS",
+    "UV_NO_MANAGED_PYTHON",
+    "UV_NO_PROGRESS",
+    "UV_NO_PYTHON_DOWNLOADS",
+    "UV_OFFLINE",
+    "UV_PYTHON_DOWNLOADS",
+    "UV_PYTHON_INSTALL_DIR",
+}
+PRESERVED_UV_PREFIXES = ("UV_INDEX_",)
+ENTRYPOINT_LEAK_PATTERNS = (
+    (
+        re.compile(r"\buv\s+run\b"),
+        "uses 'uv run', which can discover the repository workspace; use a solver-local "
+        "environment from setup.sh (for example .venv/.solver-env and SOLVER_PYTHON) instead",
+    ),
+)
 
 
 def _load_registry(errors: list[str]) -> dict[str, Any]:
@@ -230,15 +284,84 @@ def _display_path(path: Path) -> str:
         return str(path)
 
 
+def _is_repo_path(value: str) -> bool:
+    if not value:
+        return False
+    try:
+        path = Path(value).expanduser().resolve()
+    except (OSError, RuntimeError):
+        return False
+    try:
+        path.relative_to(REPO_ROOT)
+    except ValueError:
+        return False
+    return True
+
+
+def _scrubbed_path(value: str) -> str:
+    kept = [item for item in value.split(os.pathsep) if item and not _is_repo_path(item)]
+    return os.pathsep.join(kept)
+
+
+def _solver_subprocess_env() -> dict[str, str]:
+    env: dict[str, str] = {}
+    for key, value in os.environ.items():
+        if key in SCRUBBED_ENV_EXACT_KEYS or key in SCRUBBED_UV_EXACT_KEYS:
+            continue
+        if key.startswith(SCRUBBED_ENV_PREFIXES):
+            continue
+        if key == "PATH":
+            cleaned_path = _scrubbed_path(value)
+            if cleaned_path:
+                env[key] = cleaned_path
+            continue
+        if (
+            key in PRESERVED_ENV_EXACT_KEYS
+            or key in PRESERVED_UV_EXACT_KEYS
+            or key.startswith(PRESERVED_UV_PREFIXES)
+            or key.startswith("LC_")
+            or key.endswith(PRESERVED_ENV_SUFFIXES)
+            or key.startswith("SOLVER_")
+        ):
+            env[key] = value
+    env.setdefault("PATH", "/usr/local/bin:/usr/bin:/bin")
+    env["UV_NO_CONFIG"] = "1"
+    env["UV_NO_ENV_FILE"] = "1"
+    env["UV_NO_PROJECT"] = "1"
+    env["ASTROREASON_SOLVER_CONTRACT_ENV"] = "isolated"
+    return env
+
+
+def _validate_entrypoint_isolation(entries: list[dict[str, Any]], errors: list[str]) -> None:
+    for entry in entries:
+        label = f"{entry['benchmark']}/{entry['solver']}"
+        solver_dir = _solver_path(entry)
+        for name in ("setup.sh", "solve.sh", "test.sh"):
+            script = solver_dir / name
+            if not script.exists():
+                continue
+            text = script.read_text(encoding="utf-8")
+            for pattern, message in ENTRYPOINT_LEAK_PATTERNS:
+                if pattern.search(text):
+                    errors.append(f"{label}: {name} {message}")
+
+
 def _run_command(
     command: list[str],
     *,
     cwd: Path,
     timeout_s: float | None = 600.0,
+    env: dict[str, str] | None = None,
 ) -> tuple[int | None, str | None]:
     print(f"+ ({_display_path(cwd)}) {' '.join(command)}", flush=True)
     try:
-        completed = subprocess.run(command, cwd=cwd, check=False, timeout=timeout_s)
+        completed = subprocess.run(
+            command,
+            cwd=cwd,
+            check=False,
+            timeout=timeout_s,
+            env=env,
+        )
     except subprocess.TimeoutExpired:
         return 124, f"timed out after {timeout_s}s"
     except OSError as exc:
@@ -247,6 +370,7 @@ def _run_command(
 
 
 def _run_solver_tests(entries: list[dict[str, Any]], errors: list[str]) -> None:
+    env = _solver_subprocess_env()
     for entry in entries:
         solver_dir = _solver_path(entry)
         test_script = solver_dir / "test.sh"
@@ -258,6 +382,7 @@ def _run_solver_tests(entries: list[dict[str, Any]], errors: list[str]) -> None:
                 ["./setup.sh"],
                 cwd=solver_dir,
                 timeout_s=DEFAULT_SETUP_TIMEOUT_S,
+                env=env,
             )
             if setup_error is not None:
                 errors.append(
@@ -273,6 +398,7 @@ def _run_solver_tests(entries: list[dict[str, Any]], errors: list[str]) -> None:
             ["./test.sh"],
             cwd=solver_dir,
             timeout_s=DEFAULT_TEST_TIMEOUT_S,
+            env=env,
         )
         if launch_error is not None:
             errors.append(
@@ -302,6 +428,7 @@ def _compare_fixture(solution_dir: Path, fixture_path: Path, label: str, errors:
 
 
 def _run_repro_ci(entries: list[dict[str, Any]], errors: list[str]) -> None:
+    env = _solver_subprocess_env()
     for entry in entries:
         if entry.get("repro_ci") is not True:
             continue
@@ -311,6 +438,7 @@ def _run_repro_ci(entries: list[dict[str, Any]], errors: list[str]) -> None:
             ["./setup.sh"],
             cwd=solver_dir,
             timeout_s=DEFAULT_SETUP_TIMEOUT_S,
+            env=env,
         )
         if launch_error is not None:
             errors.append(f"{label}: setup.sh could not complete: {launch_error}")
@@ -337,6 +465,7 @@ def _run_repro_ci(entries: list[dict[str, Any]], errors: list[str]) -> None:
                     command,
                     cwd=solver_dir,
                     timeout_s=DEFAULT_SOLVE_TIMEOUT_S,
+                    env=env,
                 )
                 if launch_error is not None:
                     errors.append(
@@ -356,6 +485,7 @@ def main() -> int:
     entries = _validate_registry(errors)
     _validate_boundaries(errors)
     _validate_pytest_boundary(errors)
+    _validate_entrypoint_isolation(entries, errors)
     _run_repro_ci(entries, errors)
     _run_solver_tests(entries, errors)
 

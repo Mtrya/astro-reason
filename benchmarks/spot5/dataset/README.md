@@ -24,8 +24,7 @@ Examples:
 published split-aware case placements, and `example_smoke_case` for pairing the
 example solution with a case in CI (see `docs/benchmark_contract.md`).
 
-`example_solution.json` is one minimal runnable solution (same schema as a real
-submission) for verifier smoke tests. These are not baselines.
+`example_solution.json` is one runnable solution (same schema as a real submission) for verifier smoke tests. It is not a baseline.
 
 The committed split assignment is recorded in [splits.yaml](../splits.yaml).
 It defines the full `single_orbit` and `multi_orbit` families plus an

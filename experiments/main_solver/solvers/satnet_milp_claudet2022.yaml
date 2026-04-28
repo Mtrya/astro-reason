@@ -5,3 +5,14 @@ solver_path: solvers/satnet/milp_claudet2022
 evidence_type: citation_reported
 runnable: false
 metrics_path: solvers/satnet/milp_claudet2022/metrics.yaml
+aggregate_metrics:
+  - name: total_hours
+    source: reported_metrics.total_hours
+  - name: n_satisfied_requests
+    source: reported_metrics.n_satisfied_requests
+  - name: u_rms
+    source: reported_metrics.u_rms
+  - name: u_max
+    source: reported_metrics.u_max
+  - name: run_time_hours
+    source: reported_metrics.run_time_hours

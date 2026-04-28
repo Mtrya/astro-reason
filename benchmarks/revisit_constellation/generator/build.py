@@ -302,9 +302,15 @@ def build_case_specs(split_name: str, split_config: dict[str, Any]) -> list[Case
     return specs
 
 
-def _select_initial_index(length: int, seed: int) -> int:
-    rng = random.Random(seed)
-    return rng.randrange(length)
+def _select_initial_city(cities: list[CityRecord], rng: random.Random) -> CityRecord:
+    weights = [math.log1p(city.population) for city in cities]
+    return rng.choices(cities, weights=weights, k=1)[0]
+
+
+def _normalize(value: float, minimum: float, maximum: float) -> float:
+    if math.isclose(minimum, maximum):
+        return 1.0
+    return (value - minimum) / (maximum - minimum)
 
 
 def select_targets(
@@ -322,16 +328,14 @@ def select_targets(
     if count > len(cities):
         raise ValueError(f"Requested {count} targets, but only {len(cities)} cities are available")
 
-    start_index = _select_initial_index(
-        min(len(cities), max(initial_pool_min_size, count * initial_pool_multiplier)),
-        seed,
-    )
-    selected = [cities[start_index]]
-    remaining = [city for index, city in enumerate(cities) if index != start_index]
+    rng = random.Random(seed)
+    initial_pool_size = min(len(cities), max(initial_pool_min_size, count * initial_pool_multiplier))
+    initial_city = _select_initial_city(cities[:initial_pool_size], rng)
+    selected = [initial_city]
+    remaining = [city for city in cities if city is not initial_city]
 
     while len(selected) < count:
-        best_city: CityRecord | None = None
-        best_distance = -1.0
+        eligible: list[tuple[CityRecord, float, float]] = []
         for city in remaining:
             min_distance = min(
                 _haversine_distance_m(
@@ -344,13 +348,40 @@ def select_targets(
             )
             if min_distance < min_target_separation_m:
                 continue
-            if min_distance > best_distance:
-                best_distance = min_distance
-                best_city = city
-        if best_city is None:
+            eligible.append((city, math.log1p(city.population), min_distance))
+        if not eligible:
             raise ValueError(
                 f"Unable to select {count} cities with {min_target_separation_m / 1000:.0f} km separation"
             )
+        min_population_score = min(population_score for _, population_score, _ in eligible)
+        max_population_score = max(population_score for _, population_score, _ in eligible)
+        min_distance_score = min(distance_score for _, _, distance_score in eligible)
+        max_distance_score = max(distance_score for _, _, distance_score in eligible)
+        scored_candidates = [
+            (
+                city,
+                0.75
+                * _normalize(population_score, min_population_score, max_population_score)
+                + 0.25
+                * _normalize(distance_score, min_distance_score, max_distance_score),
+            )
+            for city, population_score, distance_score in eligible
+        ]
+        scored_candidates.sort(
+            key=lambda item: (
+                item[1],
+                math.log1p(item[0].population),
+                item[0].name,
+                item[0].country,
+            ),
+            reverse=True,
+        )
+        candidate_pool = scored_candidates[: min(len(scored_candidates), initial_pool_size)]
+        best_city = rng.choices(
+            [city for city, _ in candidate_pool],
+            weights=[score + 1.0e-9 for _, score in candidate_pool],
+            k=1,
+        )[0]
         selected.append(best_city)
         remaining.remove(best_city)
     return sorted(selected, key=lambda city: city.name)
@@ -427,6 +458,23 @@ def build_index_payload(
         "benchmark": "revisit_constellation",
         "source": source,
         "example_smoke_case": example_smoke_case,
+        "splits": {
+            split_name: {
+                "path": f"cases/{split_name}",
+                "case_count": _require_int(
+                    split_config,
+                    "case_count",
+                    f"splits.{split_name}",
+                ),
+                "seed": _require_int(split_config, "seed", f"splits.{split_name}"),
+                "case_ids": [
+                    case_spec.case_id
+                    for case_spec in case_specs
+                    if case_spec.split == split_name
+                ],
+            }
+            for split_name, split_config in split_configs.items()
+        },
         "cases": [
             {
                 "split": case_spec.split,
@@ -463,8 +511,8 @@ def generate_dataset(
     shutil.rmtree(cases_dir, ignore_errors=True)
     cases_dir.mkdir(parents=True, exist_ok=True)
 
-    example_solution: dict | None = None
     smoke_split, smoke_case_id = example_smoke_case.split("/")
+    smoke_found = False
 
     for split_name, split_config_obj in split_configs.items():
         split_config = _require_mapping(split_config_obj, f"splits.{split_name}")
@@ -525,7 +573,7 @@ def generate_dataset(
             _write_json(case_dir / "mission.json", build_mission_payload(case_spec, case_targets, mission))
 
             if split_name == smoke_split and case_spec.case_id == smoke_case_id:
-                example_solution = {"satellites": [], "actions": []}
+                smoke_found = True
 
     index_payload = build_index_payload(
         case_specs,
@@ -534,7 +582,6 @@ def generate_dataset(
         source=source,
     )
     _write_json(output_dir / "index.json", index_payload)
-    if example_solution is None:
-        raise RuntimeError(f"Expected configured smoke case {example_smoke_case} for example_solution.json")
-    _write_json(output_dir / "example_solution.json", example_solution)
+    if not smoke_found:
+        raise RuntimeError(f"Expected configured smoke case {example_smoke_case}")
     return output_dir

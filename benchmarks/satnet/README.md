@@ -274,6 +274,27 @@ Satisfied requests: 132
 VALID: total_hours=234.5678h, tracks=145
 ```
 
+## Visualization Usage
+
+The optional visualizer emits human-facing PNG plots. It does not create machine-readable sidecar artifacts.
+
+Render a case-only antenna/day opportunity heatmap:
+
+```bash
+uv run python -m benchmarks.satnet.visualizer.run availability \
+    --case-dir benchmarks/satnet/dataset/cases/test/W10_2018
+```
+
+Render solution-aware outcome plots:
+
+```bash
+uv run python -m benchmarks.satnet.visualizer.run schedule \
+    --case-dir benchmarks/satnet/dataset/cases/test/W10_2018 \
+    --solution-path tests/fixtures/satnet_mock_solutions/W10_2018_solution.json
+```
+
+The `availability` command writes `availability.png`. The `schedule` command writes `satisfaction.png` and `timeline.png`. Mission colors come from the `dataset/mission_color_map.json` file.
+
 ## Baseline Performance
 
 Published SatNet baselines report both total scheduled hours (`T_S`) and mission-level fairness metrics. These rows are citation-backed literature results, not outputs reproduced by this repository.

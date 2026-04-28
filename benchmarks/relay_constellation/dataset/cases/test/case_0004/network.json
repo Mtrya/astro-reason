@@ -82,31 +82,17 @@
       "min_elevation_deg": 10.0
     },
     {
-      "altitude_m": 1753.0,
-      "endpoint_id": "ground_002",
-      "latitude_deg": -26.2041,
-      "longitude_deg": 28.0473,
-      "min_elevation_deg": 10.0
-    },
-    {
       "altitude_m": 667.0,
-      "endpoint_id": "ground_003",
+      "endpoint_id": "ground_002",
       "latitude_deg": 40.4168,
       "longitude_deg": -3.7038,
       "min_elevation_deg": 10.0
     },
     {
       "altitude_m": 1795.0,
-      "endpoint_id": "ground_004",
+      "endpoint_id": "ground_003",
       "latitude_deg": -1.2921,
       "longitude_deg": 36.8219,
-      "min_elevation_deg": 10.0
-    },
-    {
-      "altitude_m": 23.0,
-      "endpoint_id": "ground_005",
-      "latitude_deg": 59.9139,
-      "longitude_deg": 10.7522,
       "min_elevation_deg": 10.0
     }
   ]

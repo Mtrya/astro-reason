@@ -1516,20 +1516,17 @@ def test_full_profile_analytical_rgt_matches_numerical_j2_oracle() -> None:
         ) < config.closure_tolerance_m
 
 
-def test_solve_sh_writes_phase8_status_solution_and_debug(tmp_path: Path) -> None:
+def test_solve_sh_writes_status_solution_and_debug(tmp_path: Path) -> None:
     config_dir = tmp_path / "config"
     output_dir = tmp_path / "solution"
     config_dir.mkdir()
     (config_dir / "config.yaml").write_text(
         "\n".join(
             [
-                "active_profile: test_smoke",
+                "active_profile: test_public",
                 "compute_envelope:",
-                "  name: test_smoke",
+                "  name: test_public",
                 "  deterministic: true",
-                "profiles:",
-                "  test_smoke:",
-                "    description: tiny test profile",
                 "rgt_search:",
                 "  max_repeat_days: 1",
                 "  min_revolutions_per_day: 15",
@@ -1593,14 +1590,14 @@ def test_solve_sh_writes_phase8_status_solution_and_debug(tmp_path: Path) -> Non
         (output_dir / "debug/solution_summary.json").read_text(encoding="utf-8")
     )
     assert status["status"] == "completed"
-    assert status["phase"] == 8
-    assert status["phase_tag"] == "experiment_wiring_and_scaled_profiles"
+    assert status["solver"] == "j2_rgt_set_cover"
+    assert status["method_status"] == "experiment_ready"
     assert status["closure_search"]["accepted_count"] == 1
     assert status["coverage"]["candidate_count"] == 2
     assert "coarse_hint_count" in status["coverage"]
-    assert status["compute_profile"]["active_profile"] == "test_smoke"
-    assert status["compute_profile"]["compute_envelope"]["name"] == "test_smoke"
-    assert status["compute_profile"]["available_profiles"] == ["test_smoke"]
+    assert status["compute_profile"]["active_profile"] == "test_public"
+    assert status["compute_profile"]["compute_envelope"]["name"] == "test_public"
+    assert status["compute_profile"]["available_profiles"] == []
     assert status["compute_profile"]["coverage_worker_count"] == 2
     assert status["compute_profile"]["opportunity_worker_count"] == 2
     assert status["compute_profile"]["repair_worker_count"] == 2

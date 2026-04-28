@@ -2,36 +2,32 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-VENV_DIR="${SCRIPT_DIR}/.venv"
+VENV_DIR="${SOLVER_VENV_DIR:-${SCRIPT_DIR}/.venv}"
+PYTHON_BIN="${VENV_DIR}/bin/python"
 
-# Verify base project dependencies are available
-python3 - <<'PY'
-import brahe, numpy, yaml
-print("base deps ok")
-PY
+export UV_CACHE_DIR="${UV_CACHE_DIR:-/tmp/astroreason-uv-cache}"
+export UV_LINK_MODE="${UV_LINK_MODE:-copy}"
+mkdir -p "${UV_CACHE_DIR}"
 
-# Create solver-local venv if missing
-if [[ ! -d "${VENV_DIR}" ]]; then
-    if command -v uv &>/dev/null; then
-        uv venv "${VENV_DIR}"
-    else
-        python3 -m venv "${VENV_DIR}"
-    fi
+if command -v uv >/dev/null 2>&1; then
+  uv venv "${VENV_DIR}" --python 3.13 --clear
+  uv pip install --python "${PYTHON_BIN}" "${SCRIPT_DIR}"
+else
+  python3.13 -m venv "${VENV_DIR}"
+  "${PYTHON_BIN}" -m pip install "${SCRIPT_DIR}"
 fi
 
-# Install solver-local dependencies if pyproject.toml exists
-if [[ -f "${SCRIPT_DIR}/pyproject.toml" ]]; then
-    if command -v uv &>/dev/null; then
-        uv pip install --python "${VENV_DIR}/bin/python" "${SCRIPT_DIR}"
-    else
-        "${VENV_DIR}/bin/pip" install "${SCRIPT_DIR}"
-    fi
-fi
+cat > "${SCRIPT_DIR}/.solver-env" <<ENV
+SOLVER_VENV_DIR=${VENV_DIR}
+SOLVER_PYTHON=${PYTHON_BIN}
+ENV
 
-# Verify solver-local deps
-"${VENV_DIR}/bin/python" - <<'PY'
+PYTHONPATH="${SCRIPT_DIR}" "${PYTHON_BIN}" - <<'PY'
+import brahe
+import numpy
 import pulp
-print("pulp ok")
-PY
+import yaml
 
-printf "mclp_teg_contact_plan setup ok\n"
+print("mclp_teg_contact_plan setup ok")
+print(f"pulp={pulp.__version__}")
+PY

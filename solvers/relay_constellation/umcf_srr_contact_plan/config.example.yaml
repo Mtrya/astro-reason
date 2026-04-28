@@ -1,0 +1,40 @@
+# Example direct-run configuration for the relay_constellation UMCF/SRR
+# contact-plan solver. The canonical evaluated configuration is owned by:
+# experiments/main_solver/solvers/relay_constellation_umcf_srr_contact_plan.yaml
+
+profile: reproduction
+
+compute_envelope:
+  timeout_seconds: 300
+  propagation_max_workers: null
+
+candidate_generation:
+  max_candidates: 64
+  altitude_steps: 4
+  inclination_steps: 4
+  raan_steps: 8
+  true_anomaly_steps: 2
+  eccentricity: 0.0
+
+candidate_selection:
+  policy: greedy_marginal
+  max_added_satellites: null
+  fixed_candidates: []
+  evaluation_sample_stride: 10
+  latency_weight: 0.0
+  parallel_eval: false
+
+srr:
+  deterministic: true
+  multi_run_count: 1
+  seed: 42
+  k_paths: 4
+  max_path_hops: 10
+  probability_source: lp
+  lp_backend: scipy-highs
+  lp_tolerance: 1.0e-9
+  lp_path_cost_epsilon: 1.0e-4
+  lp_path_cost_mode: hop_count
+  first_last_hop_k: null
+  lp_reactualization_policy: once_per_sample
+  path_change_penalty: 1.0

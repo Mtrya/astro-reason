@@ -168,9 +168,11 @@ def build_case_dataset(
 ) -> None:
     """Write the canonical SatNet split-aware dataset."""
 
-    smoke_split, smoke_case_id = example_smoke_case.split("/")
     cases_dir = output_dir / "cases"
     shutil.rmtree(cases_dir, ignore_errors=True)
+    example_path = output_dir / "example_solution.json"
+    if example_path.exists():
+        example_path.unlink()
     index = {
         "benchmark": "satnet",
         "case_id_format": "W##_YYYY",
@@ -179,7 +181,6 @@ def build_case_dataset(
         "example_smoke_case": example_smoke_case,
         "cases": [],
     }
-    example_solution: list | None = None
 
     for split_name, case_ids in split_assignments.items():
         for case_id in case_ids:
@@ -215,9 +216,6 @@ def build_case_dataset(
             }
             _write_json(case_dir / "metadata.json", metadata)
 
-            if split_name == smoke_split and case_id == smoke_case_id:
-                example_solution = []
-
             index["cases"].append(
                 {
                     "split": split_name,
@@ -232,11 +230,6 @@ def build_case_dataset(
 
     _write_json(output_dir / "index.json", index)
     _write_json(output_dir / "mission_color_map.json", mission_color_map)
-    if example_solution is None:
-        raise RuntimeError(
-            f"Expected configured smoke case {example_smoke_case} for example_solution.json"
-        )
-    _write_json(output_dir / "example_solution.json", example_solution)
 
 
 def main() -> int:  # pragma: no cover - CLI wrapper

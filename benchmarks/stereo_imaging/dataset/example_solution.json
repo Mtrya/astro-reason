@@ -1,3 +1,3505 @@
 {
-  "actions": []
+  "actions": [
+    {
+      "end_time": "2026-04-22T06:58:20Z",
+      "off_nadir_across_deg": 0.37528709832147994,
+      "off_nadir_along_deg": 18.504264923323476,
+      "satellite_id": "sat_dubaisat_1",
+      "start_time": "2026-04-22T06:58:14Z",
+      "target_id": "urban_heyuan_30",
+      "type": "observation"
+    },
+    {
+      "end_time": "2026-04-22T06:58:40Z",
+      "off_nadir_across_deg": 0.3932039882872002,
+      "off_nadir_along_deg": 7.0100217779164895,
+      "satellite_id": "sat_dubaisat_1",
+      "start_time": "2026-04-22T06:58:34Z",
+      "target_id": "urban_heyuan_30",
+      "type": "observation"
+    },
+    {
+      "end_time": "2026-04-22T06:59:00Z",
+      "off_nadir_across_deg": 0.3944537355978329,
+      "off_nadir_along_deg": -5.170296078476622,
+      "satellite_id": "sat_dubaisat_1",
+      "start_time": "2026-04-22T06:58:54Z",
+      "target_id": "urban_heyuan_30",
+      "type": "observation"
+    },
+    {
+      "end_time": "2026-04-22T08:35:26Z",
+      "off_nadir_across_deg": -7.900211873865794,
+      "off_nadir_along_deg": 17.70278489775403,
+      "satellite_id": "sat_dubaisat_1",
+      "start_time": "2026-04-22T08:35:20Z",
+      "target_id": "vegetated_008",
+      "type": "observation"
+    },
+    {
+      "end_time": "2026-04-22T08:36:06Z",
+      "off_nadir_across_deg": -7.91934866346309,
+      "off_nadir_along_deg": -5.991880464320152,
+      "satellite_id": "sat_dubaisat_1",
+      "start_time": "2026-04-22T08:36:00Z",
+      "target_id": "vegetated_008",
+      "type": "observation"
+    },
+    {
+      "end_time": "2026-04-22T08:36:26Z",
+      "off_nadir_across_deg": -7.89716254672131,
+      "off_nadir_along_deg": -17.551235907409236,
+      "satellite_id": "sat_dubaisat_1",
+      "start_time": "2026-04-22T08:36:20Z",
+      "target_id": "vegetated_008",
+      "type": "observation"
+    },
+    {
+      "end_time": "2026-04-22T11:49:18Z",
+      "off_nadir_across_deg": -1.8107597393858603,
+      "off_nadir_along_deg": 28.20411632508643,
+      "satellite_id": "sat_dubaisat_1",
+      "start_time": "2026-04-22T11:49:12Z",
+      "target_id": "open_093",
+      "type": "observation"
+    },
+    {
+      "end_time": "2026-04-22T11:49:38Z",
+      "off_nadir_across_deg": -1.7889140308936475,
+      "off_nadir_along_deg": 18.25067963079903,
+      "satellite_id": "sat_dubaisat_1",
+      "start_time": "2026-04-22T11:49:32Z",
+      "target_id": "open_093",
+      "type": "observation"
+    },
+    {
+      "end_time": "2026-04-22T11:50:08Z",
+      "off_nadir_across_deg": -1.7765270311175136,
+      "off_nadir_along_deg": 0.7004301821178274,
+      "satellite_id": "sat_dubaisat_1",
+      "start_time": "2026-04-22T11:50:02Z",
+      "target_id": "open_093",
+      "type": "observation"
+    },
+    {
+      "end_time": "2026-04-22T11:52:34Z",
+      "off_nadir_across_deg": 4.9939819830044465,
+      "off_nadir_along_deg": 12.605190223939873,
+      "satellite_id": "sat_dubaisat_1",
+      "start_time": "2026-04-22T11:52:28Z",
+      "target_id": "rugged_051",
+      "type": "observation"
+    },
+    {
+      "end_time": "2026-04-22T11:52:54Z",
+      "off_nadir_across_deg": 5.013053436712202,
+      "off_nadir_along_deg": 0.5809636050616541,
+      "satellite_id": "sat_dubaisat_1",
+      "start_time": "2026-04-22T11:52:48Z",
+      "target_id": "rugged_051",
+      "type": "observation"
+    },
+    {
+      "end_time": "2026-04-22T11:53:24Z",
+      "off_nadir_across_deg": 4.97629181467782,
+      "off_nadir_along_deg": -17.188782858114237,
+      "satellite_id": "sat_dubaisat_1",
+      "start_time": "2026-04-22T11:53:18Z",
+      "target_id": "rugged_051",
+      "type": "observation"
+    },
+    {
+      "end_time": "2026-04-22T11:55:26Z",
+      "off_nadir_across_deg": 1.2189089409763492,
+      "off_nadir_along_deg": 28.533486644650583,
+      "satellite_id": "sat_dubaisat_1",
+      "start_time": "2026-04-22T11:55:20Z",
+      "target_id": "rugged_049",
+      "type": "observation"
+    },
+    {
+      "end_time": "2026-04-22T11:55:46Z",
+      "off_nadir_across_deg": 1.2434897002261724,
+      "off_nadir_along_deg": 18.525843009370405,
+      "satellite_id": "sat_dubaisat_1",
+      "start_time": "2026-04-22T11:55:40Z",
+      "target_id": "rugged_049",
+      "type": "observation"
+    },
+    {
+      "end_time": "2026-04-22T11:56:26Z",
+      "off_nadir_across_deg": 1.2562504661303693,
+      "off_nadir_along_deg": -5.333225113598045,
+      "satellite_id": "sat_dubaisat_1",
+      "start_time": "2026-04-22T11:56:20Z",
+      "target_id": "rugged_049",
+      "type": "observation"
+    },
+    {
+      "end_time": "2026-04-22T15:02:45Z",
+      "off_nadir_across_deg": -1.1025291086499525,
+      "off_nadir_along_deg": 13.172514851515798,
+      "satellite_id": "sat_dubaisat_1",
+      "start_time": "2026-04-22T15:02:39Z",
+      "target_id": "open_077",
+      "type": "observation"
+    },
+    {
+      "end_time": "2026-04-22T15:03:05Z",
+      "off_nadir_across_deg": -1.0919149023291794,
+      "off_nadir_along_deg": 1.2978578355639856,
+      "satellite_id": "sat_dubaisat_1",
+      "start_time": "2026-04-22T15:02:59Z",
+      "target_id": "open_077",
+      "type": "observation"
+    },
+    {
+      "end_time": "2026-04-22T15:03:35Z",
+      "off_nadir_across_deg": -1.107538087144822,
+      "off_nadir_along_deg": -16.385880282201224,
+      "satellite_id": "sat_dubaisat_1",
+      "start_time": "2026-04-22T15:03:29Z",
+      "target_id": "open_077",
+      "type": "observation"
+    },
+    {
+      "end_time": "2026-04-22T15:08:49Z",
+      "off_nadir_across_deg": -1.2568488912435665,
+      "off_nadir_along_deg": 13.082367897942733,
+      "satellite_id": "sat_dubaisat_1",
+      "start_time": "2026-04-22T15:08:43Z",
+      "target_id": "vegetated_017",
+      "type": "observation"
+    },
+    {
+      "end_time": "2026-04-22T15:09:19Z",
+      "off_nadir_across_deg": -1.2541682792889803,
+      "off_nadir_along_deg": -5.0365541869439605,
+      "satellite_id": "sat_dubaisat_1",
+      "start_time": "2026-04-22T15:09:13Z",
+      "target_id": "vegetated_017",
+      "type": "observation"
+    },
+    {
+      "end_time": "2026-04-22T15:09:39Z",
+      "off_nadir_across_deg": -1.2573574857466479,
+      "off_nadir_along_deg": -16.743145487833914,
+      "satellite_id": "sat_dubaisat_1",
+      "start_time": "2026-04-22T15:09:33Z",
+      "target_id": "vegetated_017",
+      "type": "observation"
+    },
+    {
+      "end_time": "2026-04-22T18:33:11Z",
+      "off_nadir_across_deg": 2.9144887384734455,
+      "off_nadir_along_deg": 23.72653916243289,
+      "satellite_id": "sat_dubaisat_1",
+      "start_time": "2026-04-22T18:33:05Z",
+      "target_id": "rugged_067",
+      "type": "observation"
+    },
+    {
+      "end_time": "2026-04-22T18:34:01Z",
+      "off_nadir_across_deg": 2.9226700834333976,
+      "off_nadir_along_deg": -5.214414341187673,
+      "satellite_id": "sat_dubaisat_1",
+      "start_time": "2026-04-22T18:33:55Z",
+      "target_id": "rugged_067",
+      "type": "observation"
+    },
+    {
+      "end_time": "2026-04-22T18:34:31Z",
+      "off_nadir_across_deg": 2.918988559271018,
+      "off_nadir_along_deg": -22.235446198582313,
+      "satellite_id": "sat_dubaisat_1",
+      "start_time": "2026-04-22T18:34:25Z",
+      "target_id": "rugged_067",
+      "type": "observation"
+    },
+    {
+      "end_time": "2026-04-22T19:54:11Z",
+      "off_nadir_across_deg": 3.037692147353884,
+      "off_nadir_along_deg": 18.68394843934683,
+      "satellite_id": "sat_dubaisat_1",
+      "start_time": "2026-04-22T19:54:05Z",
+      "target_id": "vegetated_006",
+      "type": "observation"
+    },
+    {
+      "end_time": "2026-04-22T19:54:31Z",
+      "off_nadir_across_deg": 3.080475295210454,
+      "off_nadir_along_deg": 7.333445149564034,
+      "satellite_id": "sat_dubaisat_1",
+      "start_time": "2026-04-22T19:54:25Z",
+      "target_id": "vegetated_006",
+      "type": "observation"
+    },
+    {
+      "end_time": "2026-04-22T19:55:21Z",
+      "off_nadir_across_deg": 3.020212355460665,
+      "off_nadir_along_deg": -21.620178769190172,
+      "satellite_id": "sat_dubaisat_1",
+      "start_time": "2026-04-22T19:55:15Z",
+      "target_id": "vegetated_006",
+      "type": "observation"
+    },
+    {
+      "end_time": "2026-04-22T21:29:03Z",
+      "off_nadir_across_deg": -2.4658643701510847,
+      "off_nadir_along_deg": 28.57117914529553,
+      "satellite_id": "sat_dubaisat_1",
+      "start_time": "2026-04-22T21:28:57Z",
+      "target_id": "vegetated_004",
+      "type": "observation"
+    },
+    {
+      "end_time": "2026-04-22T21:30:03Z",
+      "off_nadir_across_deg": -2.40665746248948,
+      "off_nadir_along_deg": -4.373258405957696,
+      "satellite_id": "sat_dubaisat_1",
+      "start_time": "2026-04-22T21:29:57Z",
+      "target_id": "vegetated_004",
+      "type": "observation"
+    },
+    {
+      "end_time": "2026-04-22T21:30:23Z",
+      "off_nadir_across_deg": -2.420602114977016,
+      "off_nadir_along_deg": -15.919704357819706,
+      "satellite_id": "sat_dubaisat_1",
+      "start_time": "2026-04-22T21:30:17Z",
+      "target_id": "vegetated_004",
+      "type": "observation"
+    },
+    {
+      "end_time": "2026-04-22T23:06:49Z",
+      "off_nadir_across_deg": 2.6753836904856163,
+      "off_nadir_along_deg": 13.052600416857269,
+      "satellite_id": "sat_dubaisat_1",
+      "start_time": "2026-04-22T23:06:43Z",
+      "target_id": "vegetated_032",
+      "type": "observation"
+    },
+    {
+      "end_time": "2026-04-22T23:07:19Z",
+      "off_nadir_across_deg": 2.6969860430384207,
+      "off_nadir_along_deg": -4.74044137587973,
+      "satellite_id": "sat_dubaisat_1",
+      "start_time": "2026-04-22T23:07:13Z",
+      "target_id": "vegetated_032",
+      "type": "observation"
+    },
+    {
+      "end_time": "2026-04-22T23:07:39Z",
+      "off_nadir_across_deg": 2.6610929748615995,
+      "off_nadir_along_deg": -16.273197080548872,
+      "satellite_id": "sat_dubaisat_1",
+      "start_time": "2026-04-22T23:07:33Z",
+      "target_id": "vegetated_032",
+      "type": "observation"
+    },
+    {
+      "end_time": "2026-04-22T23:10:33Z",
+      "off_nadir_across_deg": 8.997512673422795,
+      "off_nadir_along_deg": 0.19398311174026098,
+      "satellite_id": "sat_dubaisat_1",
+      "start_time": "2026-04-22T23:10:27Z",
+      "target_id": "rugged_059",
+      "type": "observation"
+    },
+    {
+      "end_time": "2026-04-22T23:11:03Z",
+      "off_nadir_across_deg": 8.927324272733044,
+      "off_nadir_along_deg": -17.357294779901434,
+      "satellite_id": "sat_dubaisat_1",
+      "start_time": "2026-04-22T23:10:57Z",
+      "target_id": "rugged_059",
+      "type": "observation"
+    },
+    {
+      "end_time": "2026-04-22T23:11:23Z",
+      "off_nadir_across_deg": 8.804803082640126,
+      "off_nadir_along_deg": -27.397184588591013,
+      "satellite_id": "sat_dubaisat_1",
+      "start_time": "2026-04-22T23:11:17Z",
+      "target_id": "rugged_059",
+      "type": "observation"
+    },
+    {
+      "end_time": "2026-04-23T05:43:14Z",
+      "off_nadir_across_deg": -0.7938715095193766,
+      "off_nadir_along_deg": 6.9150499387476865,
+      "satellite_id": "sat_dubaisat_1",
+      "start_time": "2026-04-23T05:43:08Z",
+      "target_id": "urban_minoo_26",
+      "type": "observation"
+    },
+    {
+      "end_time": "2026-04-23T05:43:34Z",
+      "off_nadir_across_deg": -0.7925844023936733,
+      "off_nadir_along_deg": -5.203231774884064,
+      "satellite_id": "sat_dubaisat_1",
+      "start_time": "2026-04-23T05:43:28Z",
+      "target_id": "urban_minoo_26",
+      "type": "observation"
+    },
+    {
+      "end_time": "2026-04-23T05:44:04Z",
+      "off_nadir_across_deg": -0.8196550297425597,
+      "off_nadir_along_deg": -22.105760806796052,
+      "satellite_id": "sat_dubaisat_1",
+      "start_time": "2026-04-23T05:43:58Z",
+      "target_id": "urban_minoo_26",
+      "type": "observation"
+    },
+    {
+      "end_time": "2026-04-23T05:57:44Z",
+      "off_nadir_across_deg": -8.672468262369545,
+      "off_nadir_along_deg": -0.42813406381267183,
+      "satellite_id": "sat_dubaisat_1",
+      "start_time": "2026-04-23T05:57:38Z",
+      "target_id": "vegetated_031",
+      "type": "observation"
+    },
+    {
+      "end_time": "2026-04-23T05:58:04Z",
+      "off_nadir_across_deg": -8.645356261220925,
+      "off_nadir_along_deg": -12.436156247788087,
+      "satellite_id": "sat_dubaisat_1",
+      "start_time": "2026-04-23T05:57:58Z",
+      "target_id": "vegetated_031",
+      "type": "observation"
+    },
+    {
+      "end_time": "2026-04-23T05:58:24Z",
+      "off_nadir_across_deg": -8.567683300999947,
+      "off_nadir_along_deg": -23.28848407208337,
+      "satellite_id": "sat_dubaisat_1",
+      "start_time": "2026-04-23T05:58:18Z",
+      "target_id": "vegetated_031",
+      "type": "observation"
+    },
+    {
+      "end_time": "2026-04-23T12:14:02Z",
+      "off_nadir_across_deg": -7.288542900162491,
+      "off_nadir_along_deg": 6.487780862753638,
+      "satellite_id": "sat_dubaisat_1",
+      "start_time": "2026-04-23T12:13:56Z",
+      "target_id": "vegetated_022",
+      "type": "observation"
+    },
+    {
+      "end_time": "2026-04-23T12:14:32Z",
+      "off_nadir_across_deg": -7.283061397432263,
+      "off_nadir_along_deg": -11.53875019383392,
+      "satellite_id": "sat_dubaisat_1",
+      "start_time": "2026-04-23T12:14:26Z",
+      "target_id": "vegetated_022",
+      "type": "observation"
+    },
+    {
+      "end_time": "2026-04-23T12:14:52Z",
+      "off_nadir_across_deg": -7.261349228725584,
+      "off_nadir_along_deg": -22.443678015773234,
+      "satellite_id": "sat_dubaisat_1",
+      "start_time": "2026-04-23T12:14:46Z",
+      "target_id": "vegetated_022",
+      "type": "observation"
+    },
+    {
+      "end_time": "2026-04-23T13:54:49Z",
+      "off_nadir_across_deg": -7.032346979514768,
+      "off_nadir_along_deg": 0.2960950350233824,
+      "satellite_id": "sat_dubaisat_1",
+      "start_time": "2026-04-23T13:54:43Z",
+      "target_id": "open_105",
+      "type": "observation"
+    },
+    {
+      "end_time": "2026-04-23T13:55:19Z",
+      "off_nadir_across_deg": -7.010983982260104,
+      "off_nadir_along_deg": -17.4168378214053,
+      "satellite_id": "sat_dubaisat_1",
+      "start_time": "2026-04-23T13:55:13Z",
+      "target_id": "open_105",
+      "type": "observation"
+    },
+    {
+      "end_time": "2026-04-23T13:55:39Z",
+      "off_nadir_across_deg": -6.972392889068979,
+      "off_nadir_along_deg": -27.53419668070568,
+      "satellite_id": "sat_dubaisat_1",
+      "start_time": "2026-04-23T13:55:33Z",
+      "target_id": "open_105",
+      "type": "observation"
+    },
+    {
+      "end_time": "2026-04-23T13:58:52Z",
+      "off_nadir_across_deg": -8.019588419221764,
+      "off_nadir_along_deg": 27.63273073041107,
+      "satellite_id": "sat_dubaisat_1",
+      "start_time": "2026-04-23T13:58:46Z",
+      "target_id": "vegetated_016",
+      "type": "observation"
+    },
+    {
+      "end_time": "2026-04-23T13:59:12Z",
+      "off_nadir_across_deg": -8.081413696513428,
+      "off_nadir_along_deg": 17.49170939841567,
+      "satellite_id": "sat_dubaisat_1",
+      "start_time": "2026-04-23T13:59:06Z",
+      "target_id": "vegetated_016",
+      "type": "observation"
+    },
+    {
+      "end_time": "2026-04-23T13:59:42Z",
+      "off_nadir_across_deg": -8.116338321726051,
+      "off_nadir_along_deg": -0.27792448741243525,
+      "satellite_id": "sat_dubaisat_1",
+      "start_time": "2026-04-23T13:59:36Z",
+      "target_id": "vegetated_016",
+      "type": "observation"
+    },
+    {
+      "end_time": "2026-04-23T17:20:40Z",
+      "off_nadir_across_deg": -3.6290059604903986,
+      "off_nadir_along_deg": 12.4369021015704,
+      "satellite_id": "sat_dubaisat_1",
+      "start_time": "2026-04-23T17:20:34Z",
+      "target_id": "vegetated_025",
+      "type": "observation"
+    },
+    {
+      "end_time": "2026-04-23T17:21:00Z",
+      "off_nadir_across_deg": -3.642666323865127,
+      "off_nadir_along_deg": 0.39249656408351186,
+      "satellite_id": "sat_dubaisat_1",
+      "start_time": "2026-04-23T17:20:54Z",
+      "target_id": "vegetated_025",
+      "type": "observation"
+    },
+    {
+      "end_time": "2026-04-23T17:21:50Z",
+      "off_nadir_across_deg": -3.559513446041976,
+      "off_nadir_along_deg": -27.523034645396084,
+      "satellite_id": "sat_dubaisat_1",
+      "start_time": "2026-04-23T17:21:44Z",
+      "target_id": "vegetated_025",
+      "type": "observation"
+    },
+    {
+      "end_time": "2026-04-23T18:57:54Z",
+      "off_nadir_across_deg": -4.3029833289645705,
+      "off_nadir_along_deg": 12.203904006980688,
+      "satellite_id": "sat_dubaisat_1",
+      "start_time": "2026-04-23T18:57:48Z",
+      "target_id": "rugged_046",
+      "type": "observation"
+    },
+    {
+      "end_time": "2026-04-23T18:58:14Z",
+      "off_nadir_across_deg": -4.317072418340669,
+      "off_nadir_along_deg": 0.06408470456327062,
+      "satellite_id": "sat_dubaisat_1",
+      "start_time": "2026-04-23T18:58:08Z",
+      "target_id": "rugged_046",
+      "type": "observation"
+    },
+    {
+      "end_time": "2026-04-23T18:58:44Z",
+      "off_nadir_across_deg": -4.284147776236415,
+      "off_nadir_along_deg": -17.778388805374973,
+      "satellite_id": "sat_dubaisat_1",
+      "start_time": "2026-04-23T18:58:38Z",
+      "target_id": "rugged_046",
+      "type": "observation"
+    },
+    {
+      "end_time": "2026-04-23T21:56:43Z",
+      "off_nadir_across_deg": 8.647484755534027,
+      "off_nadir_along_deg": 12.058986433791715,
+      "satellite_id": "sat_dubaisat_1",
+      "start_time": "2026-04-23T21:56:37Z",
+      "target_id": "vegetated_026",
+      "type": "observation"
+    },
+    {
+      "end_time": "2026-04-23T21:57:03Z",
+      "off_nadir_across_deg": 8.679848855788794,
+      "off_nadir_along_deg": 0.1578031269742252,
+      "satellite_id": "sat_dubaisat_1",
+      "start_time": "2026-04-23T21:56:57Z",
+      "target_id": "vegetated_026",
+      "type": "observation"
+    },
+    {
+      "end_time": "2026-04-23T21:57:23Z",
+      "off_nadir_across_deg": 8.648399931442746,
+      "off_nadir_along_deg": -11.757869919660598,
+      "satellite_id": "sat_dubaisat_1",
+      "start_time": "2026-04-23T21:57:17Z",
+      "target_id": "vegetated_026",
+      "type": "observation"
+    },
+    {
+      "end_time": "2026-04-24T01:07:12Z",
+      "off_nadir_across_deg": -16.461404538499394,
+      "off_nadir_along_deg": -2.592334221187871,
+      "satellite_id": "sat_dubaisat_1",
+      "start_time": "2026-04-24T01:07:06Z",
+      "target_id": "rugged_053",
+      "type": "observation"
+    },
+    {
+      "end_time": "2026-04-22T03:23:47Z",
+      "off_nadir_across_deg": 7.023370962258237,
+      "off_nadir_along_deg": 23.078606209021213,
+      "satellite_id": "sat_gaofen_9_01",
+      "start_time": "2026-04-22T03:23:41Z",
+      "target_id": "rugged_070",
+      "type": "observation"
+    },
+    {
+      "end_time": "2026-04-22T03:24:07Z",
+      "off_nadir_across_deg": 7.1182497665067554,
+      "off_nadir_along_deg": 12.172920163558645,
+      "satellite_id": "sat_gaofen_9_01",
+      "start_time": "2026-04-22T03:24:01Z",
+      "target_id": "rugged_070",
+      "type": "observation"
+    },
+    {
+      "end_time": "2026-04-22T03:24:27Z",
+      "off_nadir_across_deg": 7.148114663812299,
+      "off_nadir_along_deg": 0.14243623501976804,
+      "satellite_id": "sat_gaofen_9_01",
+      "start_time": "2026-04-22T03:24:21Z",
+      "target_id": "rugged_070",
+      "type": "observation"
+    },
+    {
+      "end_time": "2026-04-22T03:34:42Z",
+      "off_nadir_across_deg": -4.673093015373345,
+      "off_nadir_along_deg": 23.519294247039838,
+      "satellite_id": "sat_gaofen_9_01",
+      "start_time": "2026-04-22T03:34:36Z",
+      "target_id": "rugged_038",
+      "type": "observation"
+    },
+    {
+      "end_time": "2026-04-22T03:35:12Z",
+      "off_nadir_across_deg": -4.676919312590845,
+      "off_nadir_along_deg": 6.6489721341525145,
+      "satellite_id": "sat_gaofen_9_01",
+      "start_time": "2026-04-22T03:35:06Z",
+      "target_id": "rugged_038",
+      "type": "observation"
+    },
+    {
+      "end_time": "2026-04-22T03:35:52Z",
+      "off_nadir_across_deg": -4.670162794513535,
+      "off_nadir_along_deg": -17.325103685911593,
+      "satellite_id": "sat_gaofen_9_01",
+      "start_time": "2026-04-22T03:35:46Z",
+      "target_id": "rugged_038",
+      "type": "observation"
+    },
+    {
+      "end_time": "2026-04-22T03:36:56Z",
+      "off_nadir_across_deg": -5.397429438777869,
+      "off_nadir_along_deg": 0.48771081621882745,
+      "satellite_id": "sat_gaofen_9_01",
+      "start_time": "2026-04-22T03:36:50Z",
+      "target_id": "urban_badin_21",
+      "type": "observation"
+    },
+    {
+      "end_time": "2026-04-22T03:37:26Z",
+      "off_nadir_across_deg": -5.384056654047777,
+      "off_nadir_along_deg": -17.363677348635928,
+      "satellite_id": "sat_gaofen_9_01",
+      "start_time": "2026-04-22T03:37:20Z",
+      "target_id": "urban_badin_21",
+      "type": "observation"
+    },
+    {
+      "end_time": "2026-04-22T03:37:46Z",
+      "off_nadir_across_deg": -5.360363752668171,
+      "off_nadir_along_deg": -27.555100149610386,
+      "satellite_id": "sat_gaofen_9_01",
+      "start_time": "2026-04-22T03:37:40Z",
+      "target_id": "urban_badin_21",
+      "type": "observation"
+    },
+    {
+      "end_time": "2026-04-22T06:55:37Z",
+      "off_nadir_across_deg": 18.79050349681275,
+      "off_nadir_along_deg": 6.677171220924583,
+      "satellite_id": "sat_gaofen_9_01",
+      "start_time": "2026-04-22T06:55:31Z",
+      "target_id": "vegetated_010",
+      "type": "observation"
+    },
+    {
+      "end_time": "2026-04-22T06:55:57Z",
+      "off_nadir_across_deg": 18.794253321197495,
+      "off_nadir_along_deg": -5.606940585738798,
+      "satellite_id": "sat_gaofen_9_01",
+      "start_time": "2026-04-22T06:55:51Z",
+      "target_id": "vegetated_010",
+      "type": "observation"
+    },
+    {
+      "end_time": "2026-04-22T08:20:52Z",
+      "off_nadir_across_deg": -1.9526069661066932,
+      "off_nadir_along_deg": 1.1484421407084613,
+      "satellite_id": "sat_gaofen_9_01",
+      "start_time": "2026-04-22T08:20:46Z",
+      "target_id": "urban_leiden_12",
+      "type": "observation"
+    },
+    {
+      "end_time": "2026-04-22T08:21:22Z",
+      "off_nadir_across_deg": -1.9693291763637792,
+      "off_nadir_along_deg": -16.62288446224132,
+      "satellite_id": "sat_gaofen_9_01",
+      "start_time": "2026-04-22T08:21:16Z",
+      "target_id": "urban_leiden_12",
+      "type": "observation"
+    },
+    {
+      "end_time": "2026-04-22T08:31:07Z",
+      "off_nadir_across_deg": -4.172533169654428,
+      "off_nadir_along_deg": 12.485305852052605,
+      "satellite_id": "sat_gaofen_9_01",
+      "start_time": "2026-04-22T08:31:01Z",
+      "target_id": "vegetated_033",
+      "type": "observation"
+    },
+    {
+      "end_time": "2026-04-22T08:31:27Z",
+      "off_nadir_across_deg": -4.177839100810782,
+      "off_nadir_along_deg": 0.33164379289461077,
+      "satellite_id": "sat_gaofen_9_01",
+      "start_time": "2026-04-22T08:31:21Z",
+      "target_id": "vegetated_033",
+      "type": "observation"
+    },
+    {
+      "end_time": "2026-04-22T08:31:47Z",
+      "off_nadir_across_deg": -4.172048323425921,
+      "off_nadir_along_deg": -11.854877275881652,
+      "satellite_id": "sat_gaofen_9_01",
+      "start_time": "2026-04-22T08:31:41Z",
+      "target_id": "vegetated_033",
+      "type": "observation"
+    },
+    {
+      "end_time": "2026-04-22T22:59:51Z",
+      "off_nadir_across_deg": -7.796302629953712,
+      "off_nadir_along_deg": 5.856048621313807,
+      "satellite_id": "sat_gaofen_9_01",
+      "start_time": "2026-04-22T22:59:45Z",
+      "target_id": "urban_toda_20",
+      "type": "observation"
+    },
+    {
+      "end_time": "2026-04-22T23:00:11Z",
+      "off_nadir_across_deg": -7.793660884035753,
+      "off_nadir_along_deg": -6.365038281963728,
+      "satellite_id": "sat_gaofen_9_01",
+      "start_time": "2026-04-22T23:00:05Z",
+      "target_id": "urban_toda_20",
+      "type": "observation"
+    },
+    {
+      "end_time": "2026-04-22T23:00:41Z",
+      "off_nadir_across_deg": -7.759498897198892,
+      "off_nadir_along_deg": -23.19890317779198,
+      "satellite_id": "sat_gaofen_9_01",
+      "start_time": "2026-04-22T23:00:35Z",
+      "target_id": "urban_toda_20",
+      "type": "observation"
+    },
+    {
+      "end_time": "2026-04-23T07:07:47Z",
+      "off_nadir_across_deg": -23.26604606198867,
+      "off_nadir_along_deg": 8.302740533658215,
+      "satellite_id": "sat_gaofen_9_01",
+      "start_time": "2026-04-23T07:07:41Z",
+      "target_id": "open_097",
+      "type": "observation"
+    },
+    {
+      "end_time": "2026-04-23T07:08:17Z",
+      "off_nadir_across_deg": -23.251842249669092,
+      "off_nadir_along_deg": -9.791612905790636,
+      "satellite_id": "sat_gaofen_9_01",
+      "start_time": "2026-04-23T07:08:11Z",
+      "target_id": "open_097",
+      "type": "observation"
+    },
+    {
+      "end_time": "2026-04-23T15:02:21Z",
+      "off_nadir_across_deg": 7.763236938569744,
+      "off_nadir_along_deg": 17.57364874111964,
+      "satellite_id": "sat_gaofen_9_01",
+      "start_time": "2026-04-23T15:02:15Z",
+      "target_id": "open_092",
+      "type": "observation"
+    },
+    {
+      "end_time": "2026-04-23T15:02:51Z",
+      "off_nadir_across_deg": 7.833352929848001,
+      "off_nadir_along_deg": -0.08798293140436093,
+      "satellite_id": "sat_gaofen_9_01",
+      "start_time": "2026-04-23T15:02:45Z",
+      "target_id": "open_092",
+      "type": "observation"
+    },
+    {
+      "end_time": "2026-04-23T21:58:47Z",
+      "off_nadir_across_deg": -6.930814203522454,
+      "off_nadir_along_deg": 22.805991794403198,
+      "satellite_id": "sat_gaofen_9_01",
+      "start_time": "2026-04-23T21:58:41Z",
+      "target_id": "vegetated_027",
+      "type": "observation"
+    },
+    {
+      "end_time": "2026-04-23T21:59:17Z",
+      "off_nadir_across_deg": -7.028557262582369,
+      "off_nadir_along_deg": 5.685963188929205,
+      "satellite_id": "sat_gaofen_9_01",
+      "start_time": "2026-04-23T21:59:11Z",
+      "target_id": "vegetated_027",
+      "type": "observation"
+    },
+    {
+      "end_time": "2026-04-23T21:59:37Z",
+      "off_nadir_across_deg": -7.029764882779255,
+      "off_nadir_along_deg": -6.6789265817801535,
+      "satellite_id": "sat_gaofen_9_01",
+      "start_time": "2026-04-23T21:59:31Z",
+      "target_id": "vegetated_027",
+      "type": "observation"
+    },
+    {
+      "end_time": "2026-04-23T23:31:03Z",
+      "off_nadir_across_deg": 3.578015762605499,
+      "off_nadir_along_deg": 12.203460277219346,
+      "satellite_id": "sat_gaofen_9_01",
+      "start_time": "2026-04-23T23:30:57Z",
+      "target_id": "vegetated_014",
+      "type": "observation"
+    },
+    {
+      "end_time": "2026-04-23T23:31:33Z",
+      "off_nadir_across_deg": 3.582814860401255,
+      "off_nadir_along_deg": -6.217439536338823,
+      "satellite_id": "sat_gaofen_9_01",
+      "start_time": "2026-04-23T23:31:27Z",
+      "target_id": "vegetated_014",
+      "type": "observation"
+    },
+    {
+      "end_time": "2026-04-23T23:31:53Z",
+      "off_nadir_across_deg": 3.5771169115587322,
+      "off_nadir_along_deg": -17.983626409995658,
+      "satellite_id": "sat_gaofen_9_01",
+      "start_time": "2026-04-23T23:31:47Z",
+      "target_id": "vegetated_014",
+      "type": "observation"
+    },
+    {
+      "end_time": "2026-04-22T02:16:32Z",
+      "off_nadir_across_deg": 24.53193692048332,
+      "off_nadir_along_deg": 7.1426945661127705,
+      "satellite_id": "sat_gokturk_1a",
+      "start_time": "2026-04-22T02:16:26Z",
+      "target_id": "open_096",
+      "type": "observation"
+    },
+    {
+      "end_time": "2026-04-22T02:17:02Z",
+      "off_nadir_across_deg": 24.521563524560378,
+      "off_nadir_along_deg": -9.672450052311563,
+      "satellite_id": "sat_gokturk_1a",
+      "start_time": "2026-04-22T02:16:56Z",
+      "target_id": "open_096",
+      "type": "observation"
+    },
+    {
+      "end_time": "2026-04-22T02:17:47Z",
+      "off_nadir_across_deg": 0.18530398546298427,
+      "off_nadir_along_deg": 8.98792244430251,
+      "satellite_id": "sat_gokturk_1a",
+      "start_time": "2026-04-22T02:17:41Z",
+      "target_id": "vegetated_012",
+      "type": "observation"
+    },
+    {
+      "end_time": "2026-04-22T02:18:07Z",
+      "off_nadir_across_deg": 0.19297374950437032,
+      "off_nadir_along_deg": -2.296755910926103,
+      "satellite_id": "sat_gokturk_1a",
+      "start_time": "2026-04-22T02:18:01Z",
+      "target_id": "vegetated_012",
+      "type": "observation"
+    },
+    {
+      "end_time": "2026-04-22T02:18:27Z",
+      "off_nadir_across_deg": 0.17464327025284165,
+      "off_nadir_along_deg": -13.384554294325152,
+      "satellite_id": "sat_gokturk_1a",
+      "start_time": "2026-04-22T02:18:21Z",
+      "target_id": "vegetated_012",
+      "type": "observation"
+    },
+    {
+      "end_time": "2026-04-22T02:19:06Z",
+      "off_nadir_across_deg": 4.365806369715721,
+      "off_nadir_along_deg": 23.7920583168663,
+      "satellite_id": "sat_gokturk_1a",
+      "start_time": "2026-04-22T02:19:00Z",
+      "target_id": "rugged_065",
+      "type": "observation"
+    },
+    {
+      "end_time": "2026-04-22T02:20:06Z",
+      "off_nadir_across_deg": 4.4698928597297165,
+      "off_nadir_along_deg": -8.441966935658932,
+      "satellite_id": "sat_gokturk_1a",
+      "start_time": "2026-04-22T02:20:00Z",
+      "target_id": "rugged_065",
+      "type": "observation"
+    },
+    {
+      "end_time": "2026-04-22T02:20:26Z",
+      "off_nadir_across_deg": 4.41303687856677,
+      "off_nadir_along_deg": -19.013022724709728,
+      "satellite_id": "sat_gokturk_1a",
+      "start_time": "2026-04-22T02:20:20Z",
+      "target_id": "rugged_065",
+      "type": "observation"
+    },
+    {
+      "end_time": "2026-04-22T03:42:53Z",
+      "off_nadir_across_deg": -4.920351723870773,
+      "off_nadir_along_deg": 19.218838253104032,
+      "satellite_id": "sat_gokturk_1a",
+      "start_time": "2026-04-22T03:42:47Z",
+      "target_id": "urban_port_dickson_27",
+      "type": "observation"
+    },
+    {
+      "end_time": "2026-04-22T03:43:13Z",
+      "off_nadir_across_deg": -4.9474553197415645,
+      "off_nadir_along_deg": 8.594866890235668,
+      "satellite_id": "sat_gokturk_1a",
+      "start_time": "2026-04-22T03:43:07Z",
+      "target_id": "urban_port_dickson_27",
+      "type": "observation"
+    },
+    {
+      "end_time": "2026-04-22T03:43:33Z",
+      "off_nadir_across_deg": -4.953966270101908,
+      "off_nadir_along_deg": -2.7727661669699426,
+      "satellite_id": "sat_gokturk_1a",
+      "start_time": "2026-04-22T03:43:27Z",
+      "target_id": "urban_port_dickson_27",
+      "type": "observation"
+    },
+    {
+      "end_time": "2026-04-22T03:49:44Z",
+      "off_nadir_across_deg": 6.153714688448309,
+      "off_nadir_along_deg": 28.187978642787005,
+      "satellite_id": "sat_gokturk_1a",
+      "start_time": "2026-04-22T03:49:38Z",
+      "target_id": "rugged_050",
+      "type": "observation"
+    },
+    {
+      "end_time": "2026-04-22T03:50:14Z",
+      "off_nadir_across_deg": 6.276303835458169,
+      "off_nadir_along_deg": 13.711315702549426,
+      "satellite_id": "sat_gokturk_1a",
+      "start_time": "2026-04-22T03:50:08Z",
+      "target_id": "rugged_050",
+      "type": "observation"
+    },
+    {
+      "end_time": "2026-04-22T03:50:44Z",
+      "off_nadir_across_deg": 6.30888630423244,
+      "off_nadir_along_deg": -3.175563785958885,
+      "satellite_id": "sat_gokturk_1a",
+      "start_time": "2026-04-22T03:50:38Z",
+      "target_id": "rugged_050",
+      "type": "observation"
+    },
+    {
+      "end_time": "2026-04-22T04:01:17Z",
+      "off_nadir_across_deg": -0.9153922478077496,
+      "off_nadir_along_deg": 9.204253544016053,
+      "satellite_id": "sat_gokturk_1a",
+      "start_time": "2026-04-22T04:01:11Z",
+      "target_id": "open_089",
+      "type": "observation"
+    },
+    {
+      "end_time": "2026-04-22T04:01:47Z",
+      "off_nadir_across_deg": -0.9127690276466898,
+      "off_nadir_along_deg": -7.57297653979843,
+      "satellite_id": "sat_gokturk_1a",
+      "start_time": "2026-04-22T04:01:41Z",
+      "target_id": "open_089",
+      "type": "observation"
+    },
+    {
+      "end_time": "2026-04-22T04:02:07Z",
+      "off_nadir_across_deg": -0.94391781516536,
+      "off_nadir_along_deg": -18.161328619183923,
+      "satellite_id": "sat_gokturk_1a",
+      "start_time": "2026-04-22T04:02:01Z",
+      "target_id": "open_089",
+      "type": "observation"
+    },
+    {
+      "end_time": "2026-04-22T05:29:55Z",
+      "off_nadir_across_deg": -6.590092536228922,
+      "off_nadir_along_deg": 18.91399843234024,
+      "satellite_id": "sat_gokturk_1a",
+      "start_time": "2026-04-22T05:29:49Z",
+      "target_id": "rugged_042",
+      "type": "observation"
+    },
+    {
+      "end_time": "2026-04-22T05:30:15Z",
+      "off_nadir_across_deg": -6.605505694361318,
+      "off_nadir_along_deg": 8.270960174751655,
+      "satellite_id": "sat_gokturk_1a",
+      "start_time": "2026-04-22T05:30:09Z",
+      "target_id": "rugged_042",
+      "type": "observation"
+    },
+    {
+      "end_time": "2026-04-22T05:30:35Z",
+      "off_nadir_across_deg": -6.609928767754078,
+      "off_nadir_along_deg": -3.0885377098356646,
+      "satellite_id": "sat_gokturk_1a",
+      "start_time": "2026-04-22T05:30:29Z",
+      "target_id": "rugged_042",
+      "type": "observation"
+    },
+    {
+      "end_time": "2026-04-22T07:06:38Z",
+      "off_nadir_across_deg": 0.47381787745286313,
+      "off_nadir_along_deg": 28.7351167977269,
+      "satellite_id": "sat_gokturk_1a",
+      "start_time": "2026-04-22T07:06:32Z",
+      "target_id": "open_091",
+      "type": "observation"
+    },
+    {
+      "end_time": "2026-04-22T07:06:58Z",
+      "off_nadir_across_deg": 0.5107748919504881,
+      "off_nadir_along_deg": 19.581249487874487,
+      "satellite_id": "sat_gokturk_1a",
+      "start_time": "2026-04-22T07:06:52Z",
+      "target_id": "open_091",
+      "type": "observation"
+    },
+    {
+      "end_time": "2026-04-22T07:07:38Z",
+      "off_nadir_across_deg": 0.5381192268826452,
+      "off_nadir_along_deg": -2.3592123870704382,
+      "satellite_id": "sat_gokturk_1a",
+      "start_time": "2026-04-22T07:07:32Z",
+      "target_id": "open_091",
+      "type": "observation"
+    },
+    {
+      "end_time": "2026-04-22T07:08:08Z",
+      "off_nadir_across_deg": -17.547958770880967,
+      "off_nadir_along_deg": -2.3165974301556744,
+      "satellite_id": "sat_gokturk_1a",
+      "start_time": "2026-04-22T07:08:02Z",
+      "target_id": "urban_ab\u012b_al_kha\u015f\u012bb_01",
+      "type": "observation"
+    },
+    {
+      "end_time": "2026-04-22T07:08:38Z",
+      "off_nadir_across_deg": -17.4775229288187,
+      "off_nadir_along_deg": -18.537553269340478,
+      "satellite_id": "sat_gokturk_1a",
+      "start_time": "2026-04-22T07:08:32Z",
+      "target_id": "urban_ab\u012b_al_kha\u015f\u012bb_01",
+      "type": "observation"
+    },
+    {
+      "end_time": "2026-04-22T08:31:44Z",
+      "off_nadir_across_deg": 6.678539037492825,
+      "off_nadir_along_deg": -2.9074203139771164,
+      "satellite_id": "sat_gokturk_1a",
+      "start_time": "2026-04-22T08:31:38Z",
+      "target_id": "vegetated_018",
+      "type": "observation"
+    },
+    {
+      "end_time": "2026-04-22T08:32:14Z",
+      "off_nadir_across_deg": 6.656648588900387,
+      "off_nadir_along_deg": -19.005821943849565,
+      "satellite_id": "sat_gokturk_1a",
+      "start_time": "2026-04-22T08:32:08Z",
+      "target_id": "vegetated_018",
+      "type": "observation"
+    },
+    {
+      "end_time": "2026-04-22T08:32:34Z",
+      "off_nadir_across_deg": 6.621582734349149,
+      "off_nadir_along_deg": -28.158808067815386,
+      "satellite_id": "sat_gokturk_1a",
+      "start_time": "2026-04-22T08:32:28Z",
+      "target_id": "vegetated_018",
+      "type": "observation"
+    },
+    {
+      "end_time": "2026-04-22T10:25:16Z",
+      "off_nadir_across_deg": 4.540165068270402,
+      "off_nadir_along_deg": 3.062183938968819,
+      "satellite_id": "sat_gokturk_1a",
+      "start_time": "2026-04-22T10:25:10Z",
+      "target_id": "open_099",
+      "type": "observation"
+    },
+    {
+      "end_time": "2026-04-22T10:25:46Z",
+      "off_nadir_across_deg": 4.515610415821141,
+      "off_nadir_along_deg": -13.797116588836998,
+      "satellite_id": "sat_gokturk_1a",
+      "start_time": "2026-04-22T10:25:40Z",
+      "target_id": "open_099",
+      "type": "observation"
+    },
+    {
+      "end_time": "2026-04-22T10:26:16Z",
+      "off_nadir_across_deg": 4.407844691758929,
+      "off_nadir_along_deg": -28.26371597086975,
+      "satellite_id": "sat_gokturk_1a",
+      "start_time": "2026-04-22T10:26:10Z",
+      "target_id": "open_099",
+      "type": "observation"
+    },
+    {
+      "end_time": "2026-04-22T15:07:27Z",
+      "off_nadir_across_deg": 9.277728837463407,
+      "off_nadir_along_deg": 13.007782729666838,
+      "satellite_id": "sat_gokturk_1a",
+      "start_time": "2026-04-22T15:07:21Z",
+      "target_id": "urban_la_paz_16",
+      "type": "observation"
+    },
+    {
+      "end_time": "2026-04-22T15:07:47Z",
+      "off_nadir_across_deg": 9.299176973019632,
+      "off_nadir_along_deg": 1.8786680955926107,
+      "satellite_id": "sat_gokturk_1a",
+      "start_time": "2026-04-22T15:07:41Z",
+      "target_id": "urban_la_paz_16",
+      "type": "observation"
+    },
+    {
+      "end_time": "2026-04-22T15:08:37Z",
+      "off_nadir_across_deg": 9.22002641161888,
+      "off_nadir_along_deg": -24.672100985774883,
+      "satellite_id": "sat_gokturk_1a",
+      "start_time": "2026-04-22T15:08:31Z",
+      "target_id": "urban_la_paz_16",
+      "type": "observation"
+    },
+    {
+      "end_time": "2026-04-22T15:24:25Z",
+      "off_nadir_across_deg": 11.553417809980663,
+      "off_nadir_along_deg": 7.066592428490986,
+      "satellite_id": "sat_gokturk_1a",
+      "start_time": "2026-04-22T15:24:19Z",
+      "target_id": "vegetated_030",
+      "type": "observation"
+    },
+    {
+      "end_time": "2026-04-22T15:24:45Z",
+      "off_nadir_across_deg": 11.565223947065766,
+      "off_nadir_along_deg": -4.2622149701015575,
+      "satellite_id": "sat_gokturk_1a",
+      "start_time": "2026-04-22T15:24:39Z",
+      "target_id": "vegetated_030",
+      "type": "observation"
+    },
+    {
+      "end_time": "2026-04-22T16:56:50Z",
+      "off_nadir_across_deg": -2.6613238020336576,
+      "off_nadir_along_deg": 24.15899081445277,
+      "satellite_id": "sat_gokturk_1a",
+      "start_time": "2026-04-22T16:56:44Z",
+      "target_id": "rugged_054",
+      "type": "observation"
+    },
+    {
+      "end_time": "2026-04-22T16:57:50Z",
+      "off_nadir_across_deg": -2.661072384182676,
+      "off_nadir_along_deg": -8.349630624765778,
+      "satellite_id": "sat_gokturk_1a",
+      "start_time": "2026-04-22T16:57:44Z",
+      "target_id": "rugged_054",
+      "type": "observation"
+    },
+    {
+      "end_time": "2026-04-22T16:58:20Z",
+      "off_nadir_across_deg": -2.6695811578163253,
+      "off_nadir_along_deg": -23.880923667333665,
+      "satellite_id": "sat_gokturk_1a",
+      "start_time": "2026-04-22T16:58:14Z",
+      "target_id": "rugged_054",
+      "type": "observation"
+    },
+    {
+      "end_time": "2026-04-22T23:13:06Z",
+      "off_nadir_across_deg": -2.962555607764006,
+      "off_nadir_along_deg": 24.375820289171426,
+      "satellite_id": "sat_gokturk_1a",
+      "start_time": "2026-04-22T23:13:00Z",
+      "target_id": "rugged_071",
+      "type": "observation"
+    },
+    {
+      "end_time": "2026-04-22T23:14:06Z",
+      "off_nadir_across_deg": -3.049102530731659,
+      "off_nadir_along_deg": -7.290556894347339,
+      "satellite_id": "sat_gokturk_1a",
+      "start_time": "2026-04-22T23:14:00Z",
+      "target_id": "rugged_071",
+      "type": "observation"
+    },
+    {
+      "end_time": "2026-04-22T23:14:36Z",
+      "off_nadir_across_deg": -2.9818537519912827,
+      "off_nadir_along_deg": -22.65203539394191,
+      "satellite_id": "sat_gokturk_1a",
+      "start_time": "2026-04-22T23:14:30Z",
+      "target_id": "rugged_071",
+      "type": "observation"
+    },
+    {
+      "end_time": "2026-04-23T01:16:15Z",
+      "off_nadir_across_deg": 17.27195080102746,
+      "off_nadir_along_deg": 3.9510995446448174,
+      "satellite_id": "sat_gokturk_1a",
+      "start_time": "2026-04-23T01:16:09Z",
+      "target_id": "vegetated_023",
+      "type": "observation"
+    },
+    {
+      "end_time": "2026-04-23T01:16:35Z",
+      "off_nadir_across_deg": 17.26241310503104,
+      "off_nadir_along_deg": -7.342474966267921,
+      "satellite_id": "sat_gokturk_1a",
+      "start_time": "2026-04-23T01:16:29Z",
+      "target_id": "vegetated_023",
+      "type": "observation"
+    },
+    {
+      "end_time": "2026-04-23T06:08:44Z",
+      "off_nadir_across_deg": -4.461151063501283,
+      "off_nadir_along_deg": -2.6758179521627135,
+      "satellite_id": "sat_gokturk_1a",
+      "start_time": "2026-04-23T06:08:38Z",
+      "target_id": "rugged_036",
+      "type": "observation"
+    },
+    {
+      "end_time": "2026-04-23T06:09:14Z",
+      "off_nadir_across_deg": -4.46413351928627,
+      "off_nadir_along_deg": -18.97289529618405,
+      "satellite_id": "sat_gokturk_1a",
+      "start_time": "2026-04-23T06:09:08Z",
+      "target_id": "rugged_036",
+      "type": "observation"
+    },
+    {
+      "end_time": "2026-04-23T06:09:34Z",
+      "off_nadir_across_deg": -4.468226448766293,
+      "off_nadir_along_deg": -28.230049595073258,
+      "satellite_id": "sat_gokturk_1a",
+      "start_time": "2026-04-23T06:09:28Z",
+      "target_id": "rugged_036",
+      "type": "observation"
+    },
+    {
+      "end_time": "2026-04-23T07:45:19Z",
+      "off_nadir_across_deg": -13.548842862461639,
+      "off_nadir_along_deg": 11.185252383772731,
+      "satellite_id": "sat_gokturk_1a",
+      "start_time": "2026-04-23T07:45:13Z",
+      "target_id": "open_086",
+      "type": "observation"
+    },
+    {
+      "end_time": "2026-04-23T07:45:59Z",
+      "off_nadir_across_deg": -13.556951165629918,
+      "off_nadir_along_deg": -11.247829943549943,
+      "satellite_id": "sat_gokturk_1a",
+      "start_time": "2026-04-23T07:45:53Z",
+      "target_id": "open_086",
+      "type": "observation"
+    },
+    {
+      "end_time": "2026-04-23T07:48:02Z",
+      "off_nadir_across_deg": 22.3906103681317,
+      "off_nadir_along_deg": 4.582800784159173,
+      "satellite_id": "sat_gokturk_1a",
+      "start_time": "2026-04-23T07:47:56Z",
+      "target_id": "urban_afyonkarahisar_13",
+      "type": "observation"
+    },
+    {
+      "end_time": "2026-04-23T07:48:22Z",
+      "off_nadir_across_deg": 22.386473505260273,
+      "off_nadir_along_deg": -6.7255765325078265,
+      "satellite_id": "sat_gokturk_1a",
+      "start_time": "2026-04-23T07:48:16Z",
+      "target_id": "urban_afyonkarahisar_13",
+      "type": "observation"
+    },
+    {
+      "end_time": "2026-04-23T09:10:27Z",
+      "off_nadir_across_deg": 9.016726468331722,
+      "off_nadir_along_deg": -3.606589724595555,
+      "satellite_id": "sat_gokturk_1a",
+      "start_time": "2026-04-23T09:10:21Z",
+      "target_id": "vegetated_024",
+      "type": "observation"
+    },
+    {
+      "end_time": "2026-04-23T09:10:47Z",
+      "off_nadir_across_deg": 8.995922805832995,
+      "off_nadir_along_deg": -14.575782435609769,
+      "satellite_id": "sat_gokturk_1a",
+      "start_time": "2026-04-23T09:10:41Z",
+      "target_id": "vegetated_024",
+      "type": "observation"
+    },
+    {
+      "end_time": "2026-04-23T09:11:07Z",
+      "off_nadir_across_deg": 8.947147462943953,
+      "off_nadir_along_deg": -24.40515436428881,
+      "satellite_id": "sat_gokturk_1a",
+      "start_time": "2026-04-23T09:11:01Z",
+      "target_id": "vegetated_024",
+      "type": "observation"
+    },
+    {
+      "end_time": "2026-04-23T09:15:16Z",
+      "off_nadir_across_deg": 2.347040631332118,
+      "off_nadir_along_deg": 19.067283599765062,
+      "satellite_id": "sat_gokturk_1a",
+      "start_time": "2026-04-23T09:15:10Z",
+      "target_id": "urban_mbandaka_32",
+      "type": "observation"
+    },
+    {
+      "end_time": "2026-04-23T09:15:36Z",
+      "off_nadir_across_deg": 2.359130731445472,
+      "off_nadir_along_deg": 8.421895250526017,
+      "satellite_id": "sat_gokturk_1a",
+      "start_time": "2026-04-23T09:15:30Z",
+      "target_id": "urban_mbandaka_32",
+      "type": "observation"
+    },
+    {
+      "end_time": "2026-04-23T09:16:06Z",
+      "off_nadir_across_deg": 2.3597243804410932,
+      "off_nadir_along_deg": -8.608664083149268,
+      "satellite_id": "sat_gokturk_1a",
+      "start_time": "2026-04-23T09:16:00Z",
+      "target_id": "urban_mbandaka_32",
+      "type": "observation"
+    },
+    {
+      "end_time": "2026-04-23T09:23:22Z",
+      "off_nadir_across_deg": 1.0962456016813868,
+      "off_nadir_along_deg": 3.0860083766533415,
+      "satellite_id": "sat_gokturk_1a",
+      "start_time": "2026-04-23T09:23:16Z",
+      "target_id": "open_087",
+      "type": "observation"
+    },
+    {
+      "end_time": "2026-04-23T09:23:52Z",
+      "off_nadir_across_deg": 1.0819272522543768,
+      "off_nadir_along_deg": -13.77892867374883,
+      "satellite_id": "sat_gokturk_1a",
+      "start_time": "2026-04-23T09:23:46Z",
+      "target_id": "open_087",
+      "type": "observation"
+    },
+    {
+      "end_time": "2026-04-23T09:24:22Z",
+      "off_nadir_across_deg": 1.0201358003568233,
+      "off_nadir_along_deg": -28.25257123749537,
+      "satellite_id": "sat_gokturk_1a",
+      "start_time": "2026-04-23T09:24:16Z",
+      "target_id": "open_087",
+      "type": "observation"
+    },
+    {
+      "end_time": "2026-04-23T14:04:53Z",
+      "off_nadir_across_deg": 7.400160051574667,
+      "off_nadir_along_deg": 13.445883246500633,
+      "satellite_id": "sat_gokturk_1a",
+      "start_time": "2026-04-23T14:04:47Z",
+      "target_id": "open_103",
+      "type": "observation"
+    },
+    {
+      "end_time": "2026-04-23T14:05:23Z",
+      "off_nadir_across_deg": 7.415019623207078,
+      "off_nadir_along_deg": -3.2307091352613018,
+      "satellite_id": "sat_gokturk_1a",
+      "start_time": "2026-04-23T14:05:17Z",
+      "target_id": "open_103",
+      "type": "observation"
+    },
+    {
+      "end_time": "2026-04-23T14:06:03Z",
+      "off_nadir_across_deg": 7.366235387135568,
+      "off_nadir_along_deg": -24.071773133936656,
+      "satellite_id": "sat_gokturk_1a",
+      "start_time": "2026-04-23T14:05:57Z",
+      "target_id": "open_103",
+      "type": "observation"
+    },
+    {
+      "end_time": "2026-04-23T14:30:28Z",
+      "off_nadir_across_deg": 15.446622213525576,
+      "off_nadir_along_deg": -6.345579332085022,
+      "satellite_id": "sat_gokturk_1a",
+      "start_time": "2026-04-23T14:30:22Z",
+      "target_id": "open_092",
+      "type": "observation"
+    },
+    {
+      "end_time": "2026-04-23T15:44:59Z",
+      "off_nadir_across_deg": -21.511234526501177,
+      "off_nadir_along_deg": 6.0095373989763505,
+      "satellite_id": "sat_gokturk_1a",
+      "start_time": "2026-04-23T15:44:53Z",
+      "target_id": "rugged_062",
+      "type": "observation"
+    },
+    {
+      "end_time": "2026-04-23T15:45:19Z",
+      "off_nadir_across_deg": -21.518240594181645,
+      "off_nadir_along_deg": -5.232822558928299,
+      "satellite_id": "sat_gokturk_1a",
+      "start_time": "2026-04-23T15:45:13Z",
+      "target_id": "rugged_062",
+      "type": "observation"
+    },
+    {
+      "end_time": "2026-04-23T17:39:27Z",
+      "off_nadir_across_deg": -18.817582873351412,
+      "off_nadir_along_deg": 8.09414428870198,
+      "satellite_id": "sat_gokturk_1a",
+      "start_time": "2026-04-23T17:39:21Z",
+      "target_id": "urban_logan_25",
+      "type": "observation"
+    },
+    {
+      "end_time": "2026-04-23T17:39:47Z",
+      "off_nadir_across_deg": -18.83482273114221,
+      "off_nadir_along_deg": -3.146092852534376,
+      "satellite_id": "sat_gokturk_1a",
+      "start_time": "2026-04-23T17:39:41Z",
+      "target_id": "urban_logan_25",
+      "type": "observation"
+    },
+    {
+      "end_time": "2026-04-22T08:46:08Z",
+      "off_nadir_across_deg": -5.085782169602385,
+      "off_nadir_along_deg": 3.728558384961446,
+      "satellite_id": "sat_hodoyoshi_3",
+      "start_time": "2026-04-22T08:46:02Z",
+      "target_id": "urban_yancheng_04",
+      "type": "observation"
+    },
+    {
+      "end_time": "2026-04-22T08:46:38Z",
+      "off_nadir_across_deg": -5.082354603722548,
+      "off_nadir_along_deg": -15.912423136819594,
+      "satellite_id": "sat_hodoyoshi_3",
+      "start_time": "2026-04-22T08:46:32Z",
+      "target_id": "urban_yancheng_04",
+      "type": "observation"
+    },
+    {
+      "end_time": "2026-04-22T08:46:58Z",
+      "off_nadir_across_deg": -5.071949248624685,
+      "off_nadir_along_deg": -27.19494871850179,
+      "satellite_id": "sat_hodoyoshi_3",
+      "start_time": "2026-04-22T08:46:52Z",
+      "target_id": "urban_yancheng_04",
+      "type": "observation"
+    },
+    {
+      "end_time": "2026-04-22T08:53:48Z",
+      "off_nadir_across_deg": -1.9198207354739094,
+      "off_nadir_along_deg": 11.00262576863236,
+      "satellite_id": "sat_hodoyoshi_3",
+      "start_time": "2026-04-22T08:53:42Z",
+      "target_id": "vegetated_007",
+      "type": "observation"
+    },
+    {
+      "end_time": "2026-04-22T08:54:18Z",
+      "off_nadir_across_deg": -1.9195184210382021,
+      "off_nadir_along_deg": -9.100388685131724,
+      "satellite_id": "sat_hodoyoshi_3",
+      "start_time": "2026-04-22T08:54:12Z",
+      "target_id": "vegetated_007",
+      "type": "observation"
+    },
+    {
+      "end_time": "2026-04-22T08:54:38Z",
+      "off_nadir_across_deg": -1.9093108990624286,
+      "off_nadir_along_deg": -21.504118892658653,
+      "satellite_id": "sat_hodoyoshi_3",
+      "start_time": "2026-04-22T08:54:32Z",
+      "target_id": "vegetated_007",
+      "type": "observation"
+    },
+    {
+      "end_time": "2026-04-22T10:26:21Z",
+      "off_nadir_across_deg": 8.633500225449627,
+      "off_nadir_along_deg": 16.213390085215966,
+      "satellite_id": "sat_hodoyoshi_3",
+      "start_time": "2026-04-22T10:26:15Z",
+      "target_id": "rugged_043",
+      "type": "observation"
+    },
+    {
+      "end_time": "2026-04-22T10:26:51Z",
+      "off_nadir_across_deg": 8.67460738670262,
+      "off_nadir_along_deg": -3.5777921207892724,
+      "satellite_id": "sat_hodoyoshi_3",
+      "start_time": "2026-04-22T10:26:45Z",
+      "target_id": "rugged_043",
+      "type": "observation"
+    },
+    {
+      "end_time": "2026-04-22T10:27:21Z",
+      "off_nadir_across_deg": 8.587849070787739,
+      "off_nadir_along_deg": -22.464400541587757,
+      "satellite_id": "sat_hodoyoshi_3",
+      "start_time": "2026-04-22T10:27:15Z",
+      "target_id": "rugged_043",
+      "type": "observation"
+    },
+    {
+      "end_time": "2026-04-22T11:58:37Z",
+      "off_nadir_across_deg": -3.783038611947714,
+      "off_nadir_along_deg": -9.152956804800645,
+      "satellite_id": "sat_hodoyoshi_3",
+      "start_time": "2026-04-22T11:58:31Z",
+      "target_id": "rugged_057",
+      "type": "observation"
+    },
+    {
+      "end_time": "2026-04-22T11:58:57Z",
+      "off_nadir_across_deg": -3.7889972565383268,
+      "off_nadir_along_deg": -21.438806828344884,
+      "satellite_id": "sat_hodoyoshi_3",
+      "start_time": "2026-04-22T11:58:51Z",
+      "target_id": "rugged_057",
+      "type": "observation"
+    },
+    {
+      "end_time": "2026-04-22T11:59:43Z",
+      "off_nadir_across_deg": 13.599001686451837,
+      "off_nadir_along_deg": 20.61391983523419,
+      "satellite_id": "sat_hodoyoshi_3",
+      "start_time": "2026-04-22T11:59:37Z",
+      "target_id": "urban_jhelum_24",
+      "type": "observation"
+    },
+    {
+      "end_time": "2026-04-22T15:13:07Z",
+      "off_nadir_across_deg": -23.436970589045448,
+      "off_nadir_along_deg": 0.07428216703292703,
+      "satellite_id": "sat_hodoyoshi_3",
+      "start_time": "2026-04-22T15:13:01Z",
+      "target_id": "rugged_055",
+      "type": "observation"
+    },
+    {
+      "end_time": "2026-04-22T23:21:40Z",
+      "off_nadir_across_deg": 7.040878710353588,
+      "off_nadir_along_deg": -3.5583974048754032,
+      "satellite_id": "sat_hodoyoshi_3",
+      "start_time": "2026-04-22T23:21:34Z",
+      "target_id": "vegetated_003",
+      "type": "observation"
+    },
+    {
+      "end_time": "2026-04-22T23:22:00Z",
+      "off_nadir_across_deg": 7.001158056209377,
+      "off_nadir_along_deg": -16.536936719472614,
+      "satellite_id": "sat_hodoyoshi_3",
+      "start_time": "2026-04-22T23:21:54Z",
+      "target_id": "vegetated_003",
+      "type": "observation"
+    },
+    {
+      "end_time": "2026-04-22T23:22:20Z",
+      "off_nadir_across_deg": 6.912328035156085,
+      "off_nadir_along_deg": -27.785136679733473,
+      "satellite_id": "sat_hodoyoshi_3",
+      "start_time": "2026-04-22T23:22:14Z",
+      "target_id": "vegetated_003",
+      "type": "observation"
+    },
+    {
+      "end_time": "2026-04-23T14:08:36Z",
+      "off_nadir_across_deg": 3.191361912092877,
+      "off_nadir_along_deg": 28.282419613032676,
+      "satellite_id": "sat_hodoyoshi_3",
+      "start_time": "2026-04-23T14:08:30Z",
+      "target_id": "urban_pinetown_28",
+      "type": "observation"
+    },
+    {
+      "end_time": "2026-04-23T14:09:36Z",
+      "off_nadir_across_deg": 3.181802878774914,
+      "off_nadir_along_deg": -8.337179583462122,
+      "satellite_id": "sat_hodoyoshi_3",
+      "start_time": "2026-04-23T14:09:30Z",
+      "target_id": "urban_pinetown_28",
+      "type": "observation"
+    },
+    {
+      "end_time": "2026-04-23T14:10:06Z",
+      "off_nadir_across_deg": 3.1863982279276284,
+      "off_nadir_along_deg": -25.923340591919214,
+      "satellite_id": "sat_hodoyoshi_3",
+      "start_time": "2026-04-23T14:10:00Z",
+      "target_id": "urban_pinetown_28",
+      "type": "observation"
+    },
+    {
+      "end_time": "2026-04-23T20:39:17Z",
+      "off_nadir_across_deg": 1.2210182499788065,
+      "off_nadir_along_deg": 11.710393229664383,
+      "satellite_id": "sat_hodoyoshi_3",
+      "start_time": "2026-04-23T20:39:11Z",
+      "target_id": "vegetated_000",
+      "type": "observation"
+    },
+    {
+      "end_time": "2026-04-23T20:39:47Z",
+      "off_nadir_across_deg": 1.2159467694942188,
+      "off_nadir_along_deg": -7.6718807018879,
+      "satellite_id": "sat_hodoyoshi_3",
+      "start_time": "2026-04-23T20:39:41Z",
+      "target_id": "vegetated_000",
+      "type": "observation"
+    },
+    {
+      "end_time": "2026-04-23T20:40:07Z",
+      "off_nadir_across_deg": 1.2341384765130403,
+      "off_nadir_along_deg": -19.818390564376312,
+      "satellite_id": "sat_hodoyoshi_3",
+      "start_time": "2026-04-23T20:40:01Z",
+      "target_id": "vegetated_000",
+      "type": "observation"
+    },
+    {
+      "end_time": "2026-04-22T11:35:21Z",
+      "off_nadir_across_deg": -0.322998701684358,
+      "off_nadir_along_deg": 17.3703040155118,
+      "satellite_id": "sat_huanjing_1b_hj_1b",
+      "start_time": "2026-04-22T11:35:15Z",
+      "target_id": "urban_yelahanka_19",
+      "type": "observation"
+    },
+    {
+      "end_time": "2026-04-22T11:36:01Z",
+      "off_nadir_across_deg": -0.31914535989397375,
+      "off_nadir_along_deg": -8.888076432426336,
+      "satellite_id": "sat_huanjing_1b_hj_1b",
+      "start_time": "2026-04-22T11:35:55Z",
+      "target_id": "urban_yelahanka_19",
+      "type": "observation"
+    },
+    {
+      "end_time": "2026-04-22T11:36:21Z",
+      "off_nadir_across_deg": -0.32866817494571704,
+      "off_nadir_along_deg": -21.27036205033564,
+      "satellite_id": "sat_huanjing_1b_hj_1b",
+      "start_time": "2026-04-22T11:36:15Z",
+      "target_id": "urban_yelahanka_19",
+      "type": "observation"
+    },
+    {
+      "end_time": "2026-04-22T11:40:41Z",
+      "off_nadir_across_deg": -5.9062750101543795,
+      "off_nadir_along_deg": 16.509593190949545,
+      "satellite_id": "sat_huanjing_1b_hj_1b",
+      "start_time": "2026-04-22T11:40:35Z",
+      "target_id": "urban_jhelum_24",
+      "type": "observation"
+    },
+    {
+      "end_time": "2026-04-22T11:41:01Z",
+      "off_nadir_across_deg": -5.91388207562907,
+      "off_nadir_along_deg": 3.6945789220695415,
+      "satellite_id": "sat_huanjing_1b_hj_1b",
+      "start_time": "2026-04-22T11:40:55Z",
+      "target_id": "urban_jhelum_24",
+      "type": "observation"
+    },
+    {
+      "end_time": "2026-04-22T11:42:24Z",
+      "off_nadir_across_deg": -19.754449512815544,
+      "off_nadir_along_deg": 22.3262511910356,
+      "satellite_id": "sat_huanjing_1b_hj_1b",
+      "start_time": "2026-04-22T11:42:18Z",
+      "target_id": "rugged_057",
+      "type": "observation"
+    },
+    {
+      "end_time": "2026-04-22T14:56:16Z",
+      "off_nadir_across_deg": 9.279275768657078,
+      "off_nadir_along_deg": 22.208372916734042,
+      "satellite_id": "sat_huanjing_1b_hj_1b",
+      "start_time": "2026-04-22T14:56:10Z",
+      "target_id": "rugged_055",
+      "type": "observation"
+    },
+    {
+      "end_time": "2026-04-22T14:56:56Z",
+      "off_nadir_across_deg": 9.382974850100709,
+      "off_nadir_along_deg": -3.0425881627540563,
+      "satellite_id": "sat_huanjing_1b_hj_1b",
+      "start_time": "2026-04-22T14:56:50Z",
+      "target_id": "rugged_055",
+      "type": "observation"
+    },
+    {
+      "end_time": "2026-04-23T00:59:33Z",
+      "off_nadir_across_deg": -3.3250727687958355,
+      "off_nadir_along_deg": 6.482236591373678,
+      "satellite_id": "sat_huanjing_1b_hj_1b",
+      "start_time": "2026-04-23T00:59:27Z",
+      "target_id": "open_081",
+      "type": "observation"
+    },
+    {
+      "end_time": "2026-04-23T01:00:03Z",
+      "off_nadir_across_deg": -3.3257548056265547,
+      "off_nadir_along_deg": -11.913482197917665,
+      "satellite_id": "sat_huanjing_1b_hj_1b",
+      "start_time": "2026-04-23T00:59:57Z",
+      "target_id": "open_081",
+      "type": "observation"
+    },
+    {
+      "end_time": "2026-04-23T01:00:33Z",
+      "off_nadir_across_deg": -3.36299225807181,
+      "off_nadir_along_deg": -27.821477548904916,
+      "satellite_id": "sat_huanjing_1b_hj_1b",
+      "start_time": "2026-04-23T01:00:27Z",
+      "target_id": "open_081",
+      "type": "observation"
+    },
+    {
+      "end_time": "2026-04-23T02:38:03Z",
+      "off_nadir_across_deg": -0.7280560406837363,
+      "off_nadir_along_deg": -5.817697121056762,
+      "satellite_id": "sat_huanjing_1b_hj_1b",
+      "start_time": "2026-04-23T02:37:57Z",
+      "target_id": "vegetated_005",
+      "type": "observation"
+    },
+    {
+      "end_time": "2026-04-23T02:38:23Z",
+      "off_nadir_across_deg": -0.7544144666289763,
+      "off_nadir_along_deg": -17.56273920923214,
+      "satellite_id": "sat_huanjing_1b_hj_1b",
+      "start_time": "2026-04-23T02:38:17Z",
+      "target_id": "vegetated_005",
+      "type": "observation"
+    },
+    {
+      "end_time": "2026-04-23T02:38:43Z",
+      "off_nadir_across_deg": -0.807173874607104,
+      "off_nadir_along_deg": -27.750020173192592,
+      "satellite_id": "sat_huanjing_1b_hj_1b",
+      "start_time": "2026-04-23T02:38:37Z",
+      "target_id": "vegetated_005",
+      "type": "observation"
+    },
+    {
+      "end_time": "2026-04-23T07:11:02Z",
+      "off_nadir_across_deg": 6.3176931972802315,
+      "off_nadir_along_deg": 16.753397701436633,
+      "satellite_id": "sat_huanjing_1b_hj_1b",
+      "start_time": "2026-04-23T07:10:56Z",
+      "target_id": "rugged_066",
+      "type": "observation"
+    },
+    {
+      "end_time": "2026-04-23T07:11:32Z",
+      "off_nadir_across_deg": 6.365132268488571,
+      "off_nadir_along_deg": -2.406966723283011,
+      "satellite_id": "sat_huanjing_1b_hj_1b",
+      "start_time": "2026-04-23T07:11:26Z",
+      "target_id": "rugged_066",
+      "type": "observation"
+    },
+    {
+      "end_time": "2026-04-23T07:12:12Z",
+      "off_nadir_across_deg": 6.217707821230526,
+      "off_nadir_along_deg": -26.31127333570897,
+      "satellite_id": "sat_huanjing_1b_hj_1b",
+      "start_time": "2026-04-23T07:12:06Z",
+      "target_id": "rugged_066",
+      "type": "observation"
+    },
+    {
+      "end_time": "2026-04-23T10:14:34Z",
+      "off_nadir_across_deg": -3.8881007490452575,
+      "off_nadir_along_deg": 17.110066283709067,
+      "satellite_id": "sat_huanjing_1b_hj_1b",
+      "start_time": "2026-04-23T10:14:28Z",
+      "target_id": "vegetated_011",
+      "type": "observation"
+    },
+    {
+      "end_time": "2026-04-23T10:15:14Z",
+      "off_nadir_across_deg": -3.8991016560750906,
+      "off_nadir_along_deg": -9.123835166970307,
+      "satellite_id": "sat_huanjing_1b_hj_1b",
+      "start_time": "2026-04-23T10:15:08Z",
+      "target_id": "vegetated_011",
+      "type": "observation"
+    },
+    {
+      "end_time": "2026-04-23T10:15:34Z",
+      "off_nadir_across_deg": -3.885442069669364,
+      "off_nadir_along_deg": -21.455583358092706,
+      "satellite_id": "sat_huanjing_1b_hj_1b",
+      "start_time": "2026-04-23T10:15:28Z",
+      "target_id": "vegetated_011",
+      "type": "observation"
+    },
+    {
+      "end_time": "2026-04-23T10:24:39Z",
+      "off_nadir_across_deg": 5.48918033021711,
+      "off_nadir_along_deg": 4.572631931620715,
+      "satellite_id": "sat_huanjing_1b_hj_1b",
+      "start_time": "2026-04-23T10:24:33Z",
+      "target_id": "open_106",
+      "type": "observation"
+    },
+    {
+      "end_time": "2026-04-23T10:25:09Z",
+      "off_nadir_across_deg": 5.45337083084476,
+      "off_nadir_along_deg": -14.828134698002241,
+      "satellite_id": "sat_huanjing_1b_hj_1b",
+      "start_time": "2026-04-23T10:25:03Z",
+      "target_id": "open_106",
+      "type": "observation"
+    },
+    {
+      "end_time": "2026-04-23T10:25:29Z",
+      "off_nadir_across_deg": 5.360969143531635,
+      "off_nadir_along_deg": -26.10250663615721,
+      "satellite_id": "sat_huanjing_1b_hj_1b",
+      "start_time": "2026-04-23T10:25:23Z",
+      "target_id": "open_106",
+      "type": "observation"
+    },
+    {
+      "end_time": "2026-04-23T11:55:03Z",
+      "off_nadir_across_deg": -2.8938491702228917,
+      "off_nadir_along_deg": 23.153094244085892,
+      "satellite_id": "sat_huanjing_1b_hj_1b",
+      "start_time": "2026-04-23T11:54:57Z",
+      "target_id": "vegetated_002",
+      "type": "observation"
+    },
+    {
+      "end_time": "2026-04-23T11:55:23Z",
+      "off_nadir_across_deg": -2.8952471596032465,
+      "off_nadir_along_deg": 11.138988165742031,
+      "satellite_id": "sat_huanjing_1b_hj_1b",
+      "start_time": "2026-04-23T11:55:17Z",
+      "target_id": "vegetated_002",
+      "type": "observation"
+    },
+    {
+      "end_time": "2026-04-23T11:55:53Z",
+      "off_nadir_across_deg": -2.895683887608504,
+      "off_nadir_along_deg": -8.74958087873184,
+      "satellite_id": "sat_huanjing_1b_hj_1b",
+      "start_time": "2026-04-23T11:55:47Z",
+      "target_id": "vegetated_002",
+      "type": "observation"
+    },
+    {
+      "end_time": "2026-04-23T21:35:08Z",
+      "off_nadir_across_deg": -6.335540079616254,
+      "off_nadir_along_deg": 4.0147714748705665,
+      "satellite_id": "sat_huanjing_1b_hj_1b",
+      "start_time": "2026-04-23T21:35:02Z",
+      "target_id": "open_076",
+      "type": "observation"
+    },
+    {
+      "end_time": "2026-04-23T21:35:38Z",
+      "off_nadir_across_deg": -6.320793910026827,
+      "off_nadir_along_deg": -15.703736443786426,
+      "satellite_id": "sat_huanjing_1b_hj_1b",
+      "start_time": "2026-04-23T21:35:32Z",
+      "target_id": "open_076",
+      "type": "observation"
+    },
+    {
+      "end_time": "2026-04-23T21:35:58Z",
+      "off_nadir_across_deg": -6.281891422006064,
+      "off_nadir_along_deg": -27.05350846415642,
+      "satellite_id": "sat_huanjing_1b_hj_1b",
+      "start_time": "2026-04-23T21:35:52Z",
+      "target_id": "open_076",
+      "type": "observation"
+    },
+    {
+      "end_time": "2026-04-24T01:04:45Z",
+      "off_nadir_across_deg": 25.002444109818164,
+      "off_nadir_along_deg": 4.508430214264089,
+      "satellite_id": "sat_huanjing_1b_hj_1b",
+      "start_time": "2026-04-24T01:04:39Z",
+      "target_id": "rugged_053",
+      "type": "observation"
+    },
+    {
+      "end_time": "2026-04-22T02:54:21Z",
+      "off_nadir_across_deg": 10.823091602220009,
+      "off_nadir_along_deg": 9.868937449390158,
+      "satellite_id": "sat_kazeosat_2",
+      "start_time": "2026-04-22T02:54:15Z",
+      "target_id": "open_079",
+      "type": "observation"
+    },
+    {
+      "end_time": "2026-04-22T02:54:51Z",
+      "off_nadir_across_deg": 10.833502884874068,
+      "off_nadir_along_deg": -9.257107234302024,
+      "satellite_id": "sat_kazeosat_2",
+      "start_time": "2026-04-22T02:54:45Z",
+      "target_id": "open_079",
+      "type": "observation"
+    },
+    {
+      "end_time": "2026-04-22T02:58:22Z",
+      "off_nadir_across_deg": -18.037651976488252,
+      "off_nadir_along_deg": 12.195223651499617,
+      "satellite_id": "sat_kazeosat_2",
+      "start_time": "2026-04-22T02:58:16Z",
+      "target_id": "open_085",
+      "type": "observation"
+    },
+    {
+      "end_time": "2026-04-22T02:58:52Z",
+      "off_nadir_across_deg": -18.072505859548823,
+      "off_nadir_along_deg": -6.753906893404055,
+      "satellite_id": "sat_kazeosat_2",
+      "start_time": "2026-04-22T02:58:46Z",
+      "target_id": "open_085",
+      "type": "observation"
+    },
+    {
+      "end_time": "2026-04-22T04:37:09Z",
+      "off_nadir_across_deg": -5.243822909756235,
+      "off_nadir_along_deg": 11.689504021889404,
+      "satellite_id": "sat_kazeosat_2",
+      "start_time": "2026-04-22T04:37:03Z",
+      "target_id": "urban_sultanbeyli_11",
+      "type": "observation"
+    },
+    {
+      "end_time": "2026-04-22T04:37:29Z",
+      "off_nadir_across_deg": -5.247414527944388,
+      "off_nadir_along_deg": -0.9739479866586022,
+      "satellite_id": "sat_kazeosat_2",
+      "start_time": "2026-04-22T04:37:23Z",
+      "target_id": "urban_sultanbeyli_11",
+      "type": "observation"
+    },
+    {
+      "end_time": "2026-04-22T04:37:49Z",
+      "off_nadir_across_deg": -5.249591776473203,
+      "off_nadir_along_deg": -13.543500112984928,
+      "satellite_id": "sat_kazeosat_2",
+      "start_time": "2026-04-22T04:37:43Z",
+      "target_id": "urban_sultanbeyli_11",
+      "type": "observation"
+    },
+    {
+      "end_time": "2026-04-22T06:01:51Z",
+      "off_nadir_across_deg": 24.025984506238622,
+      "off_nadir_along_deg": 6.372968379592582,
+      "satellite_id": "sat_kazeosat_2",
+      "start_time": "2026-04-22T06:01:45Z",
+      "target_id": "urban_cabinda_00",
+      "type": "observation"
+    },
+    {
+      "end_time": "2026-04-22T06:02:11Z",
+      "off_nadir_across_deg": 24.03456998977621,
+      "off_nadir_along_deg": -6.242311719102369,
+      "satellite_id": "sat_kazeosat_2",
+      "start_time": "2026-04-22T06:02:05Z",
+      "target_id": "urban_cabinda_00",
+      "type": "observation"
+    },
+    {
+      "end_time": "2026-04-22T20:52:57Z",
+      "off_nadir_across_deg": 0.46226269059386516,
+      "off_nadir_along_deg": 5.868069942176386,
+      "satellite_id": "sat_kazeosat_2",
+      "start_time": "2026-04-22T20:52:51Z",
+      "target_id": "vegetated_020",
+      "type": "observation"
+    },
+    {
+      "end_time": "2026-04-22T20:53:17Z",
+      "off_nadir_across_deg": 0.46099010193146256,
+      "off_nadir_along_deg": -6.916361690156431,
+      "satellite_id": "sat_kazeosat_2",
+      "start_time": "2026-04-22T20:53:11Z",
+      "target_id": "vegetated_020",
+      "type": "observation"
+    },
+    {
+      "end_time": "2026-04-22T20:53:47Z",
+      "off_nadir_across_deg": 0.3934641703958745,
+      "off_nadir_along_deg": -24.38530680308733,
+      "satellite_id": "sat_kazeosat_2",
+      "start_time": "2026-04-22T20:53:41Z",
+      "target_id": "vegetated_020",
+      "type": "observation"
+    },
+    {
+      "end_time": "2026-04-22T23:57:51Z",
+      "off_nadir_across_deg": -2.2753101981337926,
+      "off_nadir_along_deg": 28.10720442459641,
+      "satellite_id": "sat_kazeosat_2",
+      "start_time": "2026-04-22T23:57:45Z",
+      "target_id": "rugged_064",
+      "type": "observation"
+    },
+    {
+      "end_time": "2026-04-22T23:58:51Z",
+      "off_nadir_across_deg": -2.2617751256523966,
+      "off_nadir_along_deg": -7.8444160591484655,
+      "satellite_id": "sat_kazeosat_2",
+      "start_time": "2026-04-22T23:58:45Z",
+      "target_id": "rugged_064",
+      "type": "observation"
+    },
+    {
+      "end_time": "2026-04-22T23:59:21Z",
+      "off_nadir_across_deg": -2.2813223476444886,
+      "off_nadir_along_deg": -25.327735099111056,
+      "satellite_id": "sat_kazeosat_2",
+      "start_time": "2026-04-22T23:59:15Z",
+      "target_id": "rugged_064",
+      "type": "observation"
+    },
+    {
+      "end_time": "2026-04-23T00:00:41Z",
+      "off_nadir_across_deg": -7.410837670581895,
+      "off_nadir_along_deg": 4.428869224393632,
+      "satellite_id": "sat_kazeosat_2",
+      "start_time": "2026-04-23T00:00:35Z",
+      "target_id": "open_088",
+      "type": "observation"
+    },
+    {
+      "end_time": "2026-04-23T00:01:11Z",
+      "off_nadir_across_deg": -7.408986582256415,
+      "off_nadir_along_deg": -14.613263091557666,
+      "satellite_id": "sat_kazeosat_2",
+      "start_time": "2026-04-23T00:01:05Z",
+      "target_id": "open_088",
+      "type": "observation"
+    },
+    {
+      "end_time": "2026-04-23T00:01:31Z",
+      "off_nadir_across_deg": -7.392675690441154,
+      "off_nadir_along_deg": -25.746196312215496,
+      "satellite_id": "sat_kazeosat_2",
+      "start_time": "2026-04-23T00:01:25Z",
+      "target_id": "open_088",
+      "type": "observation"
+    },
+    {
+      "end_time": "2026-04-23T01:31:22Z",
+      "off_nadir_across_deg": 19.168556893627162,
+      "off_nadir_along_deg": 5.263797991736968,
+      "satellite_id": "sat_kazeosat_2",
+      "start_time": "2026-04-23T01:31:16Z",
+      "target_id": "urban_anantapur_07",
+      "type": "observation"
+    },
+    {
+      "end_time": "2026-04-23T01:31:42Z",
+      "off_nadir_across_deg": 19.169057834115346,
+      "off_nadir_along_deg": -7.518774646456045,
+      "satellite_id": "sat_kazeosat_2",
+      "start_time": "2026-04-23T01:31:36Z",
+      "target_id": "urban_anantapur_07",
+      "type": "observation"
+    },
+    {
+      "end_time": "2026-04-23T04:47:35Z",
+      "off_nadir_across_deg": -13.846937947432368,
+      "off_nadir_along_deg": 8.76890970905771,
+      "satellite_id": "sat_kazeosat_2",
+      "start_time": "2026-04-23T04:47:29Z",
+      "target_id": "open_072",
+      "type": "observation"
+    },
+    {
+      "end_time": "2026-04-23T04:48:05Z",
+      "off_nadir_across_deg": -13.853156685679542,
+      "off_nadir_along_deg": -10.308962365820998,
+      "satellite_id": "sat_kazeosat_2",
+      "start_time": "2026-04-23T04:47:59Z",
+      "target_id": "open_072",
+      "type": "observation"
+    },
+    {
+      "end_time": "2026-04-23T06:32:43Z",
+      "off_nadir_across_deg": -6.561699484309324,
+      "off_nadir_along_deg": 11.547562703968474,
+      "satellite_id": "sat_kazeosat_2",
+      "start_time": "2026-04-23T06:32:37Z",
+      "target_id": "urban_blackpool_14",
+      "type": "observation"
+    },
+    {
+      "end_time": "2026-04-23T06:33:03Z",
+      "off_nadir_across_deg": -6.565961508411284,
+      "off_nadir_along_deg": -1.088517801679776,
+      "satellite_id": "sat_kazeosat_2",
+      "start_time": "2026-04-23T06:32:57Z",
+      "target_id": "urban_blackpool_14",
+      "type": "observation"
+    },
+    {
+      "end_time": "2026-04-23T06:33:23Z",
+      "off_nadir_across_deg": -6.567901790114108,
+      "off_nadir_along_deg": -13.617314772106633,
+      "satellite_id": "sat_kazeosat_2",
+      "start_time": "2026-04-23T06:33:17Z",
+      "target_id": "urban_blackpool_14",
+      "type": "observation"
+    },
+    {
+      "end_time": "2026-04-23T07:58:44Z",
+      "off_nadir_across_deg": -23.099901921953528,
+      "off_nadir_along_deg": 7.343452454746238,
+      "satellite_id": "sat_kazeosat_2",
+      "start_time": "2026-04-23T07:58:38Z",
+      "target_id": "vegetated_015",
+      "type": "observation"
+    },
+    {
+      "end_time": "2026-04-23T07:59:04Z",
+      "off_nadir_across_deg": -23.117703850276904,
+      "off_nadir_along_deg": -5.351045037143484,
+      "satellite_id": "sat_kazeosat_2",
+      "start_time": "2026-04-23T07:58:58Z",
+      "target_id": "vegetated_015",
+      "type": "observation"
+    },
+    {
+      "end_time": "2026-04-23T11:03:30Z",
+      "off_nadir_across_deg": -3.809736854969459,
+      "off_nadir_along_deg": 5.705451892567902,
+      "satellite_id": "sat_kazeosat_2",
+      "start_time": "2026-04-23T11:03:24Z",
+      "target_id": "open_095",
+      "type": "observation"
+    },
+    {
+      "end_time": "2026-04-23T11:04:00Z",
+      "off_nadir_across_deg": -3.7974715036659346,
+      "off_nadir_along_deg": -13.055362375784778,
+      "satellite_id": "sat_kazeosat_2",
+      "start_time": "2026-04-23T11:03:54Z",
+      "target_id": "open_095",
+      "type": "observation"
+    },
+    {
+      "end_time": "2026-04-23T11:04:20Z",
+      "off_nadir_across_deg": -3.752032052922683,
+      "off_nadir_along_deg": -24.210953643986223,
+      "satellite_id": "sat_kazeosat_2",
+      "start_time": "2026-04-23T11:04:14Z",
+      "target_id": "open_095",
+      "type": "observation"
+    },
+    {
+      "end_time": "2026-04-23T11:10:23Z",
+      "off_nadir_across_deg": 2.7379455579058525,
+      "off_nadir_along_deg": 17.654723211543555,
+      "satellite_id": "sat_kazeosat_2",
+      "start_time": "2026-04-23T11:10:17Z",
+      "target_id": "rugged_044",
+      "type": "observation"
+    },
+    {
+      "end_time": "2026-04-23T11:10:43Z",
+      "off_nadir_across_deg": 2.7539828539301476,
+      "off_nadir_along_deg": 5.430024083304541,
+      "satellite_id": "sat_kazeosat_2",
+      "start_time": "2026-04-23T11:10:37Z",
+      "target_id": "rugged_044",
+      "type": "observation"
+    },
+    {
+      "end_time": "2026-04-23T11:11:03Z",
+      "off_nadir_across_deg": 2.753885206044837,
+      "off_nadir_along_deg": -7.396670336588185,
+      "satellite_id": "sat_kazeosat_2",
+      "start_time": "2026-04-23T11:10:57Z",
+      "target_id": "rugged_044",
+      "type": "observation"
+    },
+    {
+      "end_time": "2026-04-23T11:11:27Z",
+      "off_nadir_across_deg": -18.513718607301715,
+      "off_nadir_along_deg": 6.1217930328877115,
+      "satellite_id": "sat_kazeosat_2",
+      "start_time": "2026-04-23T11:11:21Z",
+      "target_id": "urban_ciudad_guayana_31",
+      "type": "observation"
+    },
+    {
+      "end_time": "2026-04-23T11:11:47Z",
+      "off_nadir_across_deg": -18.52046120957348,
+      "off_nadir_along_deg": -6.625145194243887,
+      "satellite_id": "sat_kazeosat_2",
+      "start_time": "2026-04-23T11:11:41Z",
+      "target_id": "urban_ciudad_guayana_31",
+      "type": "observation"
+    },
+    {
+      "end_time": "2026-04-23T12:49:52Z",
+      "off_nadir_across_deg": 8.234265998112733,
+      "off_nadir_along_deg": 22.588665928832867,
+      "satellite_id": "sat_kazeosat_2",
+      "start_time": "2026-04-23T12:49:46Z",
+      "target_id": "urban_tecp\u00e1n_guatemala_29",
+      "type": "observation"
+    },
+    {
+      "end_time": "2026-04-23T12:50:22Z",
+      "off_nadir_across_deg": 8.321178163035311,
+      "off_nadir_along_deg": 4.658214561061422,
+      "satellite_id": "sat_kazeosat_2",
+      "start_time": "2026-04-23T12:50:16Z",
+      "target_id": "urban_tecp\u00e1n_guatemala_29",
+      "type": "observation"
+    },
+    {
+      "end_time": "2026-04-23T12:50:52Z",
+      "off_nadir_across_deg": 8.298136775554196,
+      "off_nadir_along_deg": -14.380505668605425,
+      "satellite_id": "sat_kazeosat_2",
+      "start_time": "2026-04-23T12:50:46Z",
+      "target_id": "urban_tecp\u00e1n_guatemala_29",
+      "type": "observation"
+    },
+    {
+      "end_time": "2026-04-23T14:32:55Z",
+      "off_nadir_across_deg": -0.96644915527069,
+      "off_nadir_along_deg": 11.732384914459212,
+      "satellite_id": "sat_kazeosat_2",
+      "start_time": "2026-04-23T14:32:49Z",
+      "target_id": "rugged_041",
+      "type": "observation"
+    },
+    {
+      "end_time": "2026-04-23T14:33:25Z",
+      "off_nadir_across_deg": -0.9629806545220563,
+      "off_nadir_along_deg": -7.393458746189395,
+      "satellite_id": "sat_kazeosat_2",
+      "start_time": "2026-04-23T14:33:19Z",
+      "target_id": "rugged_041",
+      "type": "observation"
+    },
+    {
+      "end_time": "2026-04-23T14:33:45Z",
+      "off_nadir_across_deg": -0.9827079533545349,
+      "off_nadir_along_deg": -19.457610527695714,
+      "satellite_id": "sat_kazeosat_2",
+      "start_time": "2026-04-23T14:33:39Z",
+      "target_id": "rugged_041",
+      "type": "observation"
+    },
+    {
+      "end_time": "2026-04-23T22:38:08Z",
+      "off_nadir_across_deg": -1.9436389567993637,
+      "off_nadir_along_deg": 11.815134832003961,
+      "satellite_id": "sat_kazeosat_2",
+      "start_time": "2026-04-23T22:38:02Z",
+      "target_id": "urban_kuiju_05",
+      "type": "observation"
+    },
+    {
+      "end_time": "2026-04-23T22:38:28Z",
+      "off_nadir_across_deg": -1.939380504609042,
+      "off_nadir_along_deg": -0.8806176938481002,
+      "satellite_id": "sat_kazeosat_2",
+      "start_time": "2026-04-23T22:38:22Z",
+      "target_id": "urban_kuiju_05",
+      "type": "observation"
+    },
+    {
+      "end_time": "2026-04-23T22:38:48Z",
+      "off_nadir_across_deg": -1.9479318063527646,
+      "off_nadir_along_deg": -13.49267036545493,
+      "satellite_id": "sat_kazeosat_2",
+      "start_time": "2026-04-23T22:38:42Z",
+      "target_id": "urban_kuiju_05",
+      "type": "observation"
+    },
+    {
+      "end_time": "2026-04-24T00:06:47Z",
+      "off_nadir_across_deg": 8.24933326952224,
+      "off_nadir_along_deg": 16.885893447082694,
+      "satellite_id": "sat_kazeosat_2",
+      "start_time": "2026-04-24T00:06:41Z",
+      "target_id": "vegetated_021",
+      "type": "observation"
+    },
+    {
+      "end_time": "2026-04-24T00:07:17Z",
+      "off_nadir_across_deg": 8.294602879165152,
+      "off_nadir_along_deg": -1.8365584619250026,
+      "satellite_id": "sat_kazeosat_2",
+      "start_time": "2026-04-24T00:07:11Z",
+      "target_id": "vegetated_021",
+      "type": "observation"
+    },
+    {
+      "end_time": "2026-04-24T00:07:37Z",
+      "off_nadir_across_deg": 8.269751968473354,
+      "off_nadir_along_deg": -14.370498965404458,
+      "satellite_id": "sat_kazeosat_2",
+      "start_time": "2026-04-24T00:07:31Z",
+      "target_id": "vegetated_021",
+      "type": "observation"
+    },
+    {
+      "end_time": "2026-04-24T01:44:18Z",
+      "off_nadir_across_deg": -8.756393891368761,
+      "off_nadir_along_deg": 22.200478842276212,
+      "satellite_id": "sat_kazeosat_2",
+      "start_time": "2026-04-24T01:44:12Z",
+      "target_id": "urban_kovilpatti_02",
+      "type": "observation"
+    },
+    {
+      "end_time": "2026-04-24T01:44:48Z",
+      "off_nadir_across_deg": -8.823538589726022,
+      "off_nadir_along_deg": 4.272047226574888,
+      "satellite_id": "sat_kazeosat_2",
+      "start_time": "2026-04-24T01:44:42Z",
+      "target_id": "urban_kovilpatti_02",
+      "type": "observation"
+    },
+    {
+      "end_time": "2026-04-24T01:45:38Z",
+      "off_nadir_across_deg": -8.753046430844174,
+      "off_nadir_along_deg": -25.737597183776515,
+      "satellite_id": "sat_kazeosat_2",
+      "start_time": "2026-04-24T01:45:32Z",
+      "target_id": "urban_kovilpatti_02",
+      "type": "observation"
+    },
+    {
+      "end_time": "2026-04-24T01:52:52Z",
+      "off_nadir_across_deg": -4.154601388122663,
+      "off_nadir_along_deg": 11.457205310471815,
+      "satellite_id": "sat_kazeosat_2",
+      "start_time": "2026-04-24T01:52:46Z",
+      "target_id": "rugged_037",
+      "type": "observation"
+    },
+    {
+      "end_time": "2026-04-24T01:53:22Z",
+      "off_nadir_across_deg": -4.157463212511621,
+      "off_nadir_along_deg": -7.713539137275693,
+      "satellite_id": "sat_kazeosat_2",
+      "start_time": "2026-04-24T01:53:16Z",
+      "target_id": "rugged_037",
+      "type": "observation"
+    },
+    {
+      "end_time": "2026-04-24T01:53:42Z",
+      "off_nadir_across_deg": -4.163950478379709,
+      "off_nadir_along_deg": -19.76376361222765,
+      "satellite_id": "sat_kazeosat_2",
+      "start_time": "2026-04-24T01:53:36Z",
+      "target_id": "rugged_037",
+      "type": "observation"
+    },
+    {
+      "end_time": "2026-04-22T08:32:43Z",
+      "off_nadir_across_deg": -12.639882808787391,
+      "off_nadir_along_deg": -6.931241398354446,
+      "satellite_id": "sat_skysat_c5",
+      "start_time": "2026-04-22T08:32:37Z",
+      "target_id": "urban_leiden_12",
+      "type": "observation"
+    },
+    {
+      "end_time": "2026-04-23T01:50:46Z",
+      "off_nadir_across_deg": -6.452182944410173,
+      "off_nadir_along_deg": 27.232601358195076,
+      "satellite_id": "sat_skysat_c5",
+      "start_time": "2026-04-23T01:50:40Z",
+      "target_id": "rugged_058",
+      "type": "observation"
+    },
+    {
+      "end_time": "2026-04-23T01:51:16Z",
+      "off_nadir_across_deg": -6.470514271654445,
+      "off_nadir_along_deg": 3.0477664458834712,
+      "satellite_id": "sat_skysat_c5",
+      "start_time": "2026-04-23T01:51:10Z",
+      "target_id": "rugged_058",
+      "type": "observation"
+    },
+    {
+      "end_time": "2026-04-23T01:51:46Z",
+      "off_nadir_across_deg": -6.449240483995672,
+      "off_nadir_along_deg": -22.294175125134103,
+      "satellite_id": "sat_skysat_c5",
+      "start_time": "2026-04-23T01:51:40Z",
+      "target_id": "rugged_058",
+      "type": "observation"
+    },
+    {
+      "end_time": "2026-04-22T04:12:48Z",
+      "off_nadir_across_deg": -3.314113844681631,
+      "off_nadir_along_deg": 24.078273025032782,
+      "satellite_id": "sat_spot_6",
+      "start_time": "2026-04-22T04:12:42Z",
+      "target_id": "rugged_040",
+      "type": "observation"
+    },
+    {
+      "end_time": "2026-04-22T04:13:38Z",
+      "off_nadir_across_deg": -3.2895186403682075,
+      "off_nadir_along_deg": -1.969455290348017,
+      "satellite_id": "sat_spot_6",
+      "start_time": "2026-04-22T04:13:32Z",
+      "target_id": "rugged_040",
+      "type": "observation"
+    },
+    {
+      "end_time": "2026-04-22T04:13:58Z",
+      "off_nadir_across_deg": -3.29349727736273,
+      "off_nadir_along_deg": -12.850556468919331,
+      "satellite_id": "sat_spot_6",
+      "start_time": "2026-04-22T04:13:52Z",
+      "target_id": "rugged_040",
+      "type": "observation"
+    },
+    {
+      "end_time": "2026-04-22T07:33:44Z",
+      "off_nadir_across_deg": -3.816687533136535,
+      "off_nadir_along_deg": 23.925903412345544,
+      "satellite_id": "sat_spot_6",
+      "start_time": "2026-04-22T07:33:38Z",
+      "target_id": "open_090",
+      "type": "observation"
+    },
+    {
+      "end_time": "2026-04-22T07:34:44Z",
+      "off_nadir_across_deg": -3.810909578596131,
+      "off_nadir_along_deg": -7.79405554416673,
+      "satellite_id": "sat_spot_6",
+      "start_time": "2026-04-22T07:34:38Z",
+      "target_id": "open_090",
+      "type": "observation"
+    },
+    {
+      "end_time": "2026-04-22T07:35:24Z",
+      "off_nadir_across_deg": -3.8049572311048716,
+      "off_nadir_along_deg": -27.41909750324175,
+      "satellite_id": "sat_spot_6",
+      "start_time": "2026-04-22T07:35:18Z",
+      "target_id": "open_090",
+      "type": "observation"
+    },
+    {
+      "end_time": "2026-04-22T07:43:41Z",
+      "off_nadir_across_deg": 2.510765905749072,
+      "off_nadir_along_deg": 8.987399812212526,
+      "satellite_id": "sat_spot_6",
+      "start_time": "2026-04-22T07:43:35Z",
+      "target_id": "vegetated_034",
+      "type": "observation"
+    },
+    {
+      "end_time": "2026-04-22T07:44:31Z",
+      "off_nadir_across_deg": 2.5017276316178982,
+      "off_nadir_along_deg": -18.153370996731848,
+      "satellite_id": "sat_spot_6",
+      "start_time": "2026-04-22T07:44:25Z",
+      "target_id": "vegetated_034",
+      "type": "observation"
+    },
+    {
+      "end_time": "2026-04-22T07:44:51Z",
+      "off_nadir_across_deg": 2.4871456807111874,
+      "off_nadir_along_deg": -27.335936968718663,
+      "satellite_id": "sat_spot_6",
+      "start_time": "2026-04-22T07:44:45Z",
+      "target_id": "vegetated_034",
+      "type": "observation"
+    },
+    {
+      "end_time": "2026-04-22T07:49:38Z",
+      "off_nadir_across_deg": -9.8447292318898,
+      "off_nadir_along_deg": 7.903931153227119,
+      "satellite_id": "sat_spot_6",
+      "start_time": "2026-04-22T07:49:32Z",
+      "target_id": "urban_rustenburg_08",
+      "type": "observation"
+    },
+    {
+      "end_time": "2026-04-22T07:50:08Z",
+      "off_nadir_across_deg": -9.839930387879177,
+      "off_nadir_along_deg": -8.564513868775034,
+      "satellite_id": "sat_spot_6",
+      "start_time": "2026-04-22T07:50:02Z",
+      "target_id": "urban_rustenburg_08",
+      "type": "observation"
+    },
+    {
+      "end_time": "2026-04-22T09:02:38Z",
+      "off_nadir_across_deg": -8.841504800761761,
+      "off_nadir_along_deg": 2.7967721244969326,
+      "satellite_id": "sat_spot_6",
+      "start_time": "2026-04-22T09:02:32Z",
+      "target_id": "vegetated_029",
+      "type": "observation"
+    },
+    {
+      "end_time": "2026-04-22T09:02:58Z",
+      "off_nadir_across_deg": -8.83835846830661,
+      "off_nadir_along_deg": -8.129246666893785,
+      "satellite_id": "sat_spot_6",
+      "start_time": "2026-04-22T09:02:52Z",
+      "target_id": "vegetated_029",
+      "type": "observation"
+    },
+    {
+      "end_time": "2026-04-22T09:03:38Z",
+      "off_nadir_across_deg": -8.809116747040688,
+      "off_nadir_along_deg": -27.394990933585067,
+      "satellite_id": "sat_spot_6",
+      "start_time": "2026-04-22T09:03:32Z",
+      "target_id": "vegetated_029",
+      "type": "observation"
+    },
+    {
+      "end_time": "2026-04-22T10:52:38Z",
+      "off_nadir_across_deg": -8.972451832902385,
+      "off_nadir_along_deg": 7.874203899755072,
+      "satellite_id": "sat_spot_6",
+      "start_time": "2026-04-22T10:52:32Z",
+      "target_id": "open_082",
+      "type": "observation"
+    },
+    {
+      "end_time": "2026-04-22T10:52:58Z",
+      "off_nadir_across_deg": -8.974523489976296,
+      "off_nadir_along_deg": -3.2294429855726925,
+      "satellite_id": "sat_spot_6",
+      "start_time": "2026-04-22T10:52:52Z",
+      "target_id": "open_082",
+      "type": "observation"
+    },
+    {
+      "end_time": "2026-04-22T10:53:38Z",
+      "off_nadir_across_deg": -8.909029980459716,
+      "off_nadir_along_deg": -23.79165344473943,
+      "satellite_id": "sat_spot_6",
+      "start_time": "2026-04-22T10:53:32Z",
+      "target_id": "open_082",
+      "type": "observation"
+    },
+    {
+      "end_time": "2026-04-22T12:43:53Z",
+      "off_nadir_across_deg": 2.0434930237924394,
+      "off_nadir_along_deg": 19.73597639789227,
+      "satellite_id": "sat_spot_6",
+      "start_time": "2026-04-22T12:43:47Z",
+      "target_id": "urban_vespasiano_22",
+      "type": "observation"
+    },
+    {
+      "end_time": "2026-04-22T12:44:13Z",
+      "off_nadir_across_deg": 2.041380311715632,
+      "off_nadir_along_deg": 9.4911030657909,
+      "satellite_id": "sat_spot_6",
+      "start_time": "2026-04-22T12:44:07Z",
+      "target_id": "urban_vespasiano_22",
+      "type": "observation"
+    },
+    {
+      "end_time": "2026-04-22T12:44:33Z",
+      "off_nadir_across_deg": 2.040357775676793,
+      "off_nadir_along_deg": -1.5153471456794514,
+      "satellite_id": "sat_spot_6",
+      "start_time": "2026-04-22T12:44:27Z",
+      "target_id": "urban_vespasiano_22",
+      "type": "observation"
+    },
+    {
+      "end_time": "2026-04-22T14:14:58Z",
+      "off_nadir_across_deg": -6.135130571114598,
+      "off_nadir_along_deg": 8.821437235657909,
+      "satellite_id": "sat_spot_6",
+      "start_time": "2026-04-22T14:14:52Z",
+      "target_id": "urban_matur\u00edn_09",
+      "type": "observation"
+    },
+    {
+      "end_time": "2026-04-22T14:15:28Z",
+      "off_nadir_across_deg": -6.133766714606847,
+      "off_nadir_along_deg": -7.834252705725347,
+      "satellite_id": "sat_spot_6",
+      "start_time": "2026-04-22T14:15:22Z",
+      "target_id": "urban_matur\u00edn_09",
+      "type": "observation"
+    },
+    {
+      "end_time": "2026-04-22T14:16:08Z",
+      "off_nadir_across_deg": -6.058477161959631,
+      "off_nadir_along_deg": -27.472578940575115,
+      "satellite_id": "sat_spot_6",
+      "start_time": "2026-04-22T14:16:02Z",
+      "target_id": "urban_matur\u00edn_09",
+      "type": "observation"
+    },
+    {
+      "end_time": "2026-04-22T14:24:44Z",
+      "off_nadir_across_deg": 10.98678089401792,
+      "off_nadir_along_deg": 7.631092618003809,
+      "satellite_id": "sat_spot_6",
+      "start_time": "2026-04-22T14:24:38Z",
+      "target_id": "rugged_045",
+      "type": "observation"
+    },
+    {
+      "end_time": "2026-04-22T14:25:14Z",
+      "off_nadir_across_deg": 10.981870194415086,
+      "off_nadir_along_deg": -8.853364523349677,
+      "satellite_id": "sat_spot_6",
+      "start_time": "2026-04-22T14:25:08Z",
+      "target_id": "rugged_045",
+      "type": "observation"
+    },
+    {
+      "end_time": "2026-04-22T17:23:25Z",
+      "off_nadir_across_deg": -7.671173439879353,
+      "off_nadir_along_deg": 13.74710435173803,
+      "satellite_id": "sat_spot_6",
+      "start_time": "2026-04-22T17:23:19Z",
+      "target_id": "rugged_048",
+      "type": "observation"
+    },
+    {
+      "end_time": "2026-04-22T17:23:45Z",
+      "off_nadir_across_deg": -7.676788475928968,
+      "off_nadir_along_deg": 2.9242807320658417,
+      "satellite_id": "sat_spot_6",
+      "start_time": "2026-04-22T17:23:39Z",
+      "target_id": "rugged_048",
+      "type": "observation"
+    },
+    {
+      "end_time": "2026-04-22T17:24:35Z",
+      "off_nadir_across_deg": -7.643958772275112,
+      "off_nadir_along_deg": -23.25931870229844,
+      "satellite_id": "sat_spot_6",
+      "start_time": "2026-04-22T17:24:29Z",
+      "target_id": "rugged_048",
+      "type": "observation"
+    },
+    {
+      "end_time": "2026-04-23T01:39:24Z",
+      "off_nadir_across_deg": 3.595971508953215,
+      "off_nadir_along_deg": 19.262773931440886,
+      "satellite_id": "sat_spot_6",
+      "start_time": "2026-04-23T01:39:18Z",
+      "target_id": "urban_shinozaki_34",
+      "type": "observation"
+    },
+    {
+      "end_time": "2026-04-23T01:40:14Z",
+      "off_nadir_across_deg": 3.640119488041895,
+      "off_nadir_along_deg": -7.71313734138814,
+      "satellite_id": "sat_spot_6",
+      "start_time": "2026-04-23T01:40:08Z",
+      "target_id": "urban_shinozaki_34",
+      "type": "observation"
+    },
+    {
+      "end_time": "2026-04-23T01:40:44Z",
+      "off_nadir_across_deg": 3.569366140924014,
+      "off_nadir_along_deg": -22.94384295260098,
+      "satellite_id": "sat_spot_6",
+      "start_time": "2026-04-23T01:40:38Z",
+      "target_id": "urban_shinozaki_34",
+      "type": "observation"
+    },
+    {
+      "end_time": "2026-04-23T03:18:02Z",
+      "off_nadir_across_deg": -23.29491459861976,
+      "off_nadir_along_deg": 9.054425851031928,
+      "satellite_id": "sat_spot_6",
+      "start_time": "2026-04-23T03:17:56Z",
+      "target_id": "rugged_061",
+      "type": "observation"
+    },
+    {
+      "end_time": "2026-04-23T03:18:32Z",
+      "off_nadir_across_deg": -23.294114953460348,
+      "off_nadir_along_deg": -7.350228296214946,
+      "satellite_id": "sat_spot_6",
+      "start_time": "2026-04-23T03:18:26Z",
+      "target_id": "rugged_061",
+      "type": "observation"
+    },
+    {
+      "end_time": "2026-04-23T03:19:00Z",
+      "off_nadir_across_deg": -28.167773948309918,
+      "off_nadir_along_deg": 5.140887317940203,
+      "satellite_id": "sat_spot_6",
+      "start_time": "2026-04-23T03:18:54Z",
+      "target_id": "rugged_060",
+      "type": "observation"
+    },
+    {
+      "end_time": "2026-04-23T03:19:20Z",
+      "off_nadir_across_deg": -28.158179058064842,
+      "off_nadir_along_deg": -5.80747328539453,
+      "satellite_id": "sat_spot_6",
+      "start_time": "2026-04-23T03:19:14Z",
+      "target_id": "rugged_060",
+      "type": "observation"
+    },
+    {
+      "end_time": "2026-04-23T03:22:01Z",
+      "off_nadir_across_deg": 11.217649711390049,
+      "off_nadir_along_deg": 7.277795945023046,
+      "satellite_id": "sat_spot_6",
+      "start_time": "2026-04-23T03:21:55Z",
+      "target_id": "urban_s\u01a1n_la_18",
+      "type": "observation"
+    },
+    {
+      "end_time": "2026-04-23T03:22:21Z",
+      "off_nadir_across_deg": 11.223285880762925,
+      "off_nadir_along_deg": -3.8707374287268275,
+      "satellite_id": "sat_spot_6",
+      "start_time": "2026-04-23T03:22:15Z",
+      "target_id": "urban_s\u01a1n_la_18",
+      "type": "observation"
+    },
+    {
+      "end_time": "2026-04-23T04:54:43Z",
+      "off_nadir_across_deg": 1.690758671674108,
+      "off_nadir_along_deg": 24.363961248657475,
+      "satellite_id": "sat_spot_6",
+      "start_time": "2026-04-23T04:54:37Z",
+      "target_id": "open_098",
+      "type": "observation"
+    },
+    {
+      "end_time": "2026-04-23T04:55:23Z",
+      "off_nadir_across_deg": 1.7686168109203224,
+      "off_nadir_along_deg": 3.907915977836001,
+      "satellite_id": "sat_spot_6",
+      "start_time": "2026-04-23T04:55:17Z",
+      "target_id": "open_098",
+      "type": "observation"
+    },
+    {
+      "end_time": "2026-04-23T04:55:53Z",
+      "off_nadir_across_deg": 1.7510079790275985,
+      "off_nadir_along_deg": -12.583667634334343,
+      "satellite_id": "sat_spot_6",
+      "start_time": "2026-04-23T04:55:47Z",
+      "target_id": "open_098",
+      "type": "observation"
+    },
+    {
+      "end_time": "2026-04-23T04:56:27Z",
+      "off_nadir_across_deg": 22.415756132323686,
+      "off_nadir_along_deg": 4.993833811694081,
+      "satellite_id": "sat_spot_6",
+      "start_time": "2026-04-23T04:56:21Z",
+      "target_id": "rugged_052",
+      "type": "observation"
+    },
+    {
+      "end_time": "2026-04-23T04:56:47Z",
+      "off_nadir_across_deg": 22.40486276631818,
+      "off_nadir_along_deg": -6.116938071638178,
+      "satellite_id": "sat_spot_6",
+      "start_time": "2026-04-23T04:56:41Z",
+      "target_id": "rugged_052",
+      "type": "observation"
+    },
+    {
+      "end_time": "2026-04-23T04:58:38Z",
+      "off_nadir_across_deg": 13.706724480822725,
+      "off_nadir_along_deg": 6.34238634982015,
+      "satellite_id": "sat_spot_6",
+      "start_time": "2026-04-23T04:58:32Z",
+      "target_id": "rugged_039",
+      "type": "observation"
+    },
+    {
+      "end_time": "2026-04-23T04:58:58Z",
+      "off_nadir_across_deg": 13.707697130659469,
+      "off_nadir_along_deg": -4.816222376374148,
+      "satellite_id": "sat_spot_6",
+      "start_time": "2026-04-23T04:58:52Z",
+      "target_id": "rugged_039",
+      "type": "observation"
+    },
+    {
+      "end_time": "2026-04-23T06:31:42Z",
+      "off_nadir_across_deg": -1.5335392078667467,
+      "off_nadir_along_deg": 9.6008248905111,
+      "satellite_id": "sat_spot_6",
+      "start_time": "2026-04-23T06:31:36Z",
+      "target_id": "vegetated_009",
+      "type": "observation"
+    },
+    {
+      "end_time": "2026-04-23T06:32:32Z",
+      "off_nadir_across_deg": -1.5486971176277433,
+      "off_nadir_along_deg": -17.384439383043475,
+      "satellite_id": "sat_spot_6",
+      "start_time": "2026-04-23T06:32:26Z",
+      "target_id": "vegetated_009",
+      "type": "observation"
+    },
+    {
+      "end_time": "2026-04-23T06:32:52Z",
+      "off_nadir_across_deg": -1.58393427038746,
+      "off_nadir_along_deg": -26.609656564348377,
+      "satellite_id": "sat_spot_6",
+      "start_time": "2026-04-23T06:32:46Z",
+      "target_id": "vegetated_009",
+      "type": "observation"
+    },
+    {
+      "end_time": "2026-04-23T06:33:52Z",
+      "off_nadir_across_deg": -1.891548685114298,
+      "off_nadir_along_deg": 28.62903925608162,
+      "satellite_id": "sat_spot_6",
+      "start_time": "2026-04-23T06:33:46Z",
+      "target_id": "open_084",
+      "type": "observation"
+    },
+    {
+      "end_time": "2026-04-23T06:34:12Z",
+      "off_nadir_across_deg": -1.8588180736438582,
+      "off_nadir_along_deg": 19.70489026275811,
+      "satellite_id": "sat_spot_6",
+      "start_time": "2026-04-23T06:34:06Z",
+      "target_id": "open_084",
+      "type": "observation"
+    },
+    {
+      "end_time": "2026-04-23T06:34:32Z",
+      "off_nadir_across_deg": -1.8401359654569893,
+      "off_nadir_along_deg": 9.422766674572273,
+      "satellite_id": "sat_spot_6",
+      "start_time": "2026-04-23T06:34:26Z",
+      "target_id": "open_084",
+      "type": "observation"
+    },
+    {
+      "end_time": "2026-04-23T06:36:04Z",
+      "off_nadir_across_deg": 5.495866498363313,
+      "off_nadir_along_deg": 14.064601371670015,
+      "satellite_id": "sat_spot_6",
+      "start_time": "2026-04-23T06:35:58Z",
+      "target_id": "rugged_063",
+      "type": "observation"
+    },
+    {
+      "end_time": "2026-04-23T06:36:24Z",
+      "off_nadir_across_deg": 5.526584243186293,
+      "off_nadir_along_deg": 3.208737015368135,
+      "satellite_id": "sat_spot_6",
+      "start_time": "2026-04-23T06:36:18Z",
+      "target_id": "rugged_063",
+      "type": "observation"
+    },
+    {
+      "end_time": "2026-04-23T06:37:14Z",
+      "off_nadir_across_deg": 5.427728643423103,
+      "off_nadir_along_deg": -23.135080249556452,
+      "satellite_id": "sat_spot_6",
+      "start_time": "2026-04-23T06:37:08Z",
+      "target_id": "rugged_063",
+      "type": "observation"
+    },
+    {
+      "end_time": "2026-04-23T06:37:38Z",
+      "off_nadir_across_deg": -10.659154555701933,
+      "off_nadir_along_deg": 7.274172614534023,
+      "satellite_id": "sat_spot_6",
+      "start_time": "2026-04-23T06:37:32Z",
+      "target_id": "urban_fas\u0101_17",
+      "type": "observation"
+    },
+    {
+      "end_time": "2026-04-23T06:37:58Z",
+      "off_nadir_across_deg": -10.660437395522514,
+      "off_nadir_along_deg": -3.8438972488331893,
+      "satellite_id": "sat_spot_6",
+      "start_time": "2026-04-23T06:37:52Z",
+      "target_id": "urban_fas\u0101_17",
+      "type": "observation"
+    },
+    {
+      "end_time": "2026-04-23T06:39:15Z",
+      "off_nadir_across_deg": -24.04491601447046,
+      "off_nadir_along_deg": 8.437641534252984,
+      "satellite_id": "sat_spot_6",
+      "start_time": "2026-04-23T06:39:09Z",
+      "target_id": "open_094",
+      "type": "observation"
+    },
+    {
+      "end_time": "2026-04-23T06:39:45Z",
+      "off_nadir_across_deg": -24.03786418554818,
+      "off_nadir_along_deg": -7.973957784852198,
+      "satellite_id": "sat_spot_6",
+      "start_time": "2026-04-23T06:39:39Z",
+      "target_id": "open_094",
+      "type": "observation"
+    },
+    {
+      "end_time": "2026-04-23T06:40:51Z",
+      "off_nadir_across_deg": -5.464835678406776,
+      "off_nadir_along_deg": 19.180887764189354,
+      "satellite_id": "sat_spot_6",
+      "start_time": "2026-04-23T06:40:45Z",
+      "target_id": "open_100",
+      "type": "observation"
+    },
+    {
+      "end_time": "2026-04-23T06:41:31Z",
+      "off_nadir_across_deg": -5.482816468229399,
+      "off_nadir_along_deg": -2.3402065935786873,
+      "satellite_id": "sat_spot_6",
+      "start_time": "2026-04-23T06:41:25Z",
+      "target_id": "open_100",
+      "type": "observation"
+    },
+    {
+      "end_time": "2026-04-23T06:42:21Z",
+      "off_nadir_across_deg": -5.423632431571834,
+      "off_nadir_along_deg": -27.514471385910845,
+      "satellite_id": "sat_spot_6",
+      "start_time": "2026-04-23T06:42:15Z",
+      "target_id": "open_100",
+      "type": "observation"
+    },
+    {
+      "end_time": "2026-04-23T08:11:37Z",
+      "off_nadir_across_deg": 22.23804438071149,
+      "off_nadir_along_deg": 5.217493627686238,
+      "satellite_id": "sat_spot_6",
+      "start_time": "2026-04-23T08:11:31Z",
+      "target_id": "vegetated_019",
+      "type": "observation"
+    },
+    {
+      "end_time": "2026-04-23T08:11:57Z",
+      "off_nadir_across_deg": 22.230095058341806,
+      "off_nadir_along_deg": -5.798155553396149,
+      "satellite_id": "sat_spot_6",
+      "start_time": "2026-04-23T08:11:51Z",
+      "target_id": "vegetated_019",
+      "type": "observation"
+    },
+    {
+      "end_time": "2026-04-23T08:17:59Z",
+      "off_nadir_across_deg": -25.346482035630142,
+      "off_nadir_along_deg": 11.352555704405914,
+      "satellite_id": "sat_spot_6",
+      "start_time": "2026-04-23T08:17:53Z",
+      "target_id": "open_074",
+      "type": "observation"
+    },
+    {
+      "end_time": "2026-04-23T08:18:39Z",
+      "off_nadir_across_deg": -25.340617575155775,
+      "off_nadir_along_deg": -10.3761551381835,
+      "satellite_id": "sat_spot_6",
+      "start_time": "2026-04-23T08:18:33Z",
+      "target_id": "open_074",
+      "type": "observation"
+    },
+    {
+      "end_time": "2026-04-23T08:32:39Z",
+      "off_nadir_across_deg": 22.507914301544226,
+      "off_nadir_along_deg": 10.632563121111103,
+      "satellite_id": "sat_spot_6",
+      "start_time": "2026-04-23T08:32:33Z",
+      "target_id": "open_101",
+      "type": "observation"
+    },
+    {
+      "end_time": "2026-04-23T08:33:19Z",
+      "off_nadir_across_deg": 22.501680567920435,
+      "off_nadir_along_deg": -10.821233994455593,
+      "satellite_id": "sat_spot_6",
+      "start_time": "2026-04-23T08:33:13Z",
+      "target_id": "open_101",
+      "type": "observation"
+    },
+    {
+      "end_time": "2026-04-23T09:57:26Z",
+      "off_nadir_across_deg": -18.4696869980547,
+      "off_nadir_along_deg": 8.749395715562027,
+      "satellite_id": "sat_spot_6",
+      "start_time": "2026-04-23T09:57:20Z",
+      "target_id": "open_080",
+      "type": "observation"
+    },
+    {
+      "end_time": "2026-04-23T09:57:56Z",
+      "off_nadir_across_deg": -18.46604414907684,
+      "off_nadir_along_deg": -7.779136631453498,
+      "satellite_id": "sat_spot_6",
+      "start_time": "2026-04-23T09:57:50Z",
+      "target_id": "open_080",
+      "type": "observation"
+    },
+    {
+      "end_time": "2026-04-23T13:23:05Z",
+      "off_nadir_across_deg": 19.45646532210115,
+      "off_nadir_along_deg": 7.939760294053572,
+      "satellite_id": "sat_spot_6",
+      "start_time": "2026-04-23T13:22:59Z",
+      "target_id": "vegetated_001",
+      "type": "observation"
+    },
+    {
+      "end_time": "2026-04-23T13:23:25Z",
+      "off_nadir_across_deg": 19.46828423921569,
+      "off_nadir_along_deg": -3.0612102224851663,
+      "satellite_id": "sat_spot_6",
+      "start_time": "2026-04-23T13:23:19Z",
+      "target_id": "vegetated_001",
+      "type": "observation"
+    },
+    {
+      "end_time": "2026-04-23T18:00:13Z",
+      "off_nadir_across_deg": -4.06992402733337,
+      "off_nadir_along_deg": 28.541978178939058,
+      "satellite_id": "sat_spot_6",
+      "start_time": "2026-04-23T18:00:07Z",
+      "target_id": "open_078",
+      "type": "observation"
+    },
+    {
+      "end_time": "2026-04-23T18:00:43Z",
+      "off_nadir_across_deg": -4.034303566507434,
+      "off_nadir_along_deg": 14.71704203579252,
+      "satellite_id": "sat_spot_6",
+      "start_time": "2026-04-23T18:00:37Z",
+      "target_id": "open_078",
+      "type": "observation"
+    },
+    {
+      "end_time": "2026-04-23T18:01:13Z",
+      "off_nadir_across_deg": -4.0232429672523695,
+      "off_nadir_along_deg": -1.4849059643184714,
+      "satellite_id": "sat_spot_6",
+      "start_time": "2026-04-23T18:01:07Z",
+      "target_id": "open_078",
+      "type": "observation"
+    },
+    {
+      "end_time": "2026-04-23T18:04:11Z",
+      "off_nadir_across_deg": -0.6182278777594166,
+      "off_nadir_along_deg": 19.41207008066277,
+      "satellite_id": "sat_spot_6",
+      "start_time": "2026-04-23T18:04:05Z",
+      "target_id": "rugged_047",
+      "type": "observation"
+    },
+    {
+      "end_time": "2026-04-23T18:04:41Z",
+      "off_nadir_across_deg": -0.5845180068788206,
+      "off_nadir_along_deg": 3.5863203787264704,
+      "satellite_id": "sat_spot_6",
+      "start_time": "2026-04-23T18:04:35Z",
+      "target_id": "rugged_047",
+      "type": "observation"
+    },
+    {
+      "end_time": "2026-04-23T18:05:21Z",
+      "off_nadir_across_deg": -0.6108853503575052,
+      "off_nadir_along_deg": -17.985274517118167,
+      "satellite_id": "sat_spot_6",
+      "start_time": "2026-04-23T18:05:15Z",
+      "target_id": "rugged_047",
+      "type": "observation"
+    },
+    {
+      "end_time": "2026-04-23T18:05:47Z",
+      "off_nadir_across_deg": 29.01331258052022,
+      "off_nadir_along_deg": 7.405248944616166,
+      "satellite_id": "sat_spot_6",
+      "start_time": "2026-04-23T18:05:41Z",
+      "target_id": "rugged_069",
+      "type": "observation"
+    },
+    {
+      "end_time": "2026-04-23T18:06:07Z",
+      "off_nadir_across_deg": 29.02711281743817,
+      "off_nadir_along_deg": -3.5654107307037712,
+      "satellite_id": "sat_spot_6",
+      "start_time": "2026-04-23T18:06:01Z",
+      "target_id": "rugged_069",
+      "type": "observation"
+    },
+    {
+      "end_time": "2026-04-24T00:58:41Z",
+      "off_nadir_across_deg": 24.674895182975426,
+      "off_nadir_along_deg": 7.535590820027109,
+      "satellite_id": "sat_spot_6",
+      "start_time": "2026-04-24T00:58:35Z",
+      "target_id": "vegetated_028",
+      "type": "observation"
+    },
+    {
+      "end_time": "2026-04-24T00:59:01Z",
+      "off_nadir_across_deg": 24.686870518719573,
+      "off_nadir_along_deg": -3.306835133133865,
+      "satellite_id": "sat_spot_6",
+      "start_time": "2026-04-24T00:58:55Z",
+      "target_id": "vegetated_028",
+      "type": "observation"
+    },
+    {
+      "end_time": "2026-04-22T06:13:42Z",
+      "off_nadir_across_deg": -2.628282255264429,
+      "off_nadir_along_deg": 5.200491784097232,
+      "satellite_id": "sat_worldview_1",
+      "start_time": "2026-04-22T06:13:36Z",
+      "target_id": "urban_jingling_33",
+      "type": "observation"
+    },
+    {
+      "end_time": "2026-04-22T06:14:12Z",
+      "off_nadir_across_deg": -2.631007021422372,
+      "off_nadir_along_deg": -18.70395691173353,
+      "satellite_id": "sat_worldview_1",
+      "start_time": "2026-04-22T06:14:06Z",
+      "target_id": "urban_jingling_33",
+      "type": "observation"
+    },
+    {
+      "end_time": "2026-04-22T06:14:32Z",
+      "off_nadir_across_deg": -2.639365059138839,
+      "off_nadir_along_deg": -31.69914751355929,
+      "satellite_id": "sat_worldview_1",
+      "start_time": "2026-04-22T06:14:26Z",
+      "target_id": "urban_jingling_33",
+      "type": "observation"
+    },
+    {
+      "end_time": "2026-04-22T10:54:54Z",
+      "off_nadir_across_deg": -31.26975694208168,
+      "off_nadir_along_deg": 8.938610645321951,
+      "satellite_id": "sat_worldview_1",
+      "start_time": "2026-04-22T10:54:48Z",
+      "target_id": "urban_erzurum_10",
+      "type": "observation"
+    },
+    {
+      "end_time": "2026-04-22T10:55:14Z",
+      "off_nadir_across_deg": -31.269164027217837,
+      "off_nadir_along_deg": -7.0917301747069335,
+      "satellite_id": "sat_worldview_1",
+      "start_time": "2026-04-22T10:55:08Z",
+      "target_id": "urban_erzurum_10",
+      "type": "observation"
+    },
+    {
+      "end_time": "2026-04-22T10:58:08Z",
+      "off_nadir_across_deg": -0.9690642048218527,
+      "off_nadir_along_deg": 4.656834233804948,
+      "satellite_id": "sat_worldview_1",
+      "start_time": "2026-04-22T10:58:02Z",
+      "target_id": "urban_\u1e29\u0101\u2019il_03",
+      "type": "observation"
+    },
+    {
+      "end_time": "2026-04-22T10:58:38Z",
+      "off_nadir_across_deg": -0.9789216209276705,
+      "off_nadir_along_deg": -19.26165937812168,
+      "satellite_id": "sat_worldview_1",
+      "start_time": "2026-04-22T10:58:32Z",
+      "target_id": "urban_\u1e29\u0101\u2019il_03",
+      "type": "observation"
+    },
+    {
+      "end_time": "2026-04-22T10:58:58Z",
+      "off_nadir_across_deg": -1.0021900779475459,
+      "off_nadir_along_deg": -32.172916809277375,
+      "satellite_id": "sat_worldview_1",
+      "start_time": "2026-04-22T10:58:52Z",
+      "target_id": "urban_\u1e29\u0101\u2019il_03",
+      "type": "observation"
+    },
+    {
+      "end_time": "2026-04-22T12:34:50Z",
+      "off_nadir_across_deg": 8.651168819164102,
+      "off_nadir_along_deg": 26.240663362516106,
+      "satellite_id": "sat_worldview_1",
+      "start_time": "2026-04-22T12:34:44Z",
+      "target_id": "open_073",
+      "type": "observation"
+    },
+    {
+      "end_time": "2026-04-22T12:35:20Z",
+      "off_nadir_across_deg": 8.749005058135024,
+      "off_nadir_along_deg": 3.6762140967939474,
+      "satellite_id": "sat_worldview_1",
+      "start_time": "2026-04-22T12:35:14Z",
+      "target_id": "open_073",
+      "type": "observation"
+    },
+    {
+      "end_time": "2026-04-22T12:35:40Z",
+      "off_nadir_across_deg": 8.726784568088354,
+      "off_nadir_along_deg": -12.628175622582916,
+      "satellite_id": "sat_worldview_1",
+      "start_time": "2026-04-22T12:35:34Z",
+      "target_id": "open_073",
+      "type": "observation"
+    },
+    {
+      "end_time": "2026-04-22T18:45:33Z",
+      "off_nadir_across_deg": -3.0839122983266183,
+      "off_nadir_along_deg": 27.240090708837112,
+      "satellite_id": "sat_worldview_1",
+      "start_time": "2026-04-22T18:45:27Z",
+      "target_id": "urban_sherbrooke_15",
+      "type": "observation"
+    },
+    {
+      "end_time": "2026-04-22T18:46:03Z",
+      "off_nadir_across_deg": -3.058844811364768,
+      "off_nadir_along_deg": 5.2527529048361785,
+      "satellite_id": "sat_worldview_1",
+      "start_time": "2026-04-22T18:45:57Z",
+      "target_id": "urban_sherbrooke_15",
+      "type": "observation"
+    },
+    {
+      "end_time": "2026-04-22T18:46:23Z",
+      "off_nadir_across_deg": -3.06024882516595,
+      "off_nadir_along_deg": -10.933171471495625,
+      "satellite_id": "sat_worldview_1",
+      "start_time": "2026-04-22T18:46:17Z",
+      "target_id": "urban_sherbrooke_15",
+      "type": "observation"
+    },
+    {
+      "end_time": "2026-04-22T20:27:15Z",
+      "off_nadir_across_deg": 6.508009404242345,
+      "off_nadir_along_deg": -3.9749614517833196,
+      "satellite_id": "sat_worldview_1",
+      "start_time": "2026-04-22T20:27:09Z",
+      "target_id": "vegetated_013",
+      "type": "observation"
+    },
+    {
+      "end_time": "2026-04-22T20:27:35Z",
+      "off_nadir_across_deg": 6.463077271959717,
+      "off_nadir_along_deg": -19.66502588507531,
+      "satellite_id": "sat_worldview_1",
+      "start_time": "2026-04-22T20:27:29Z",
+      "target_id": "vegetated_013",
+      "type": "observation"
+    },
+    {
+      "end_time": "2026-04-22T20:27:55Z",
+      "off_nadir_across_deg": 6.363831314950067,
+      "off_nadir_along_deg": -32.53827520737555,
+      "satellite_id": "sat_worldview_1",
+      "start_time": "2026-04-22T20:27:49Z",
+      "target_id": "vegetated_013",
+      "type": "observation"
+    },
+    {
+      "end_time": "2026-04-23T05:51:31Z",
+      "off_nadir_across_deg": 1.7331322470666293,
+      "off_nadir_along_deg": 32.93638153745384,
+      "satellite_id": "sat_worldview_1",
+      "start_time": "2026-04-23T05:51:25Z",
+      "target_id": "urban_jiangshandicun_23",
+      "type": "observation"
+    },
+    {
+      "end_time": "2026-04-23T05:52:21Z",
+      "off_nadir_across_deg": 1.8232699130001766,
+      "off_nadir_along_deg": -3.5403396348243366,
+      "satellite_id": "sat_worldview_1",
+      "start_time": "2026-04-23T05:52:15Z",
+      "target_id": "urban_jiangshandicun_23",
+      "type": "observation"
+    },
+    {
+      "end_time": "2026-04-23T05:52:41Z",
+      "off_nadir_across_deg": 1.798536039828437,
+      "off_nadir_along_deg": -19.19722506217772,
+      "satellite_id": "sat_worldview_1",
+      "start_time": "2026-04-23T05:52:35Z",
+      "target_id": "urban_jiangshandicun_23",
+      "type": "observation"
+    },
+    {
+      "end_time": "2026-04-23T05:58:16Z",
+      "off_nadir_across_deg": -1.173522201127706,
+      "off_nadir_along_deg": 32.86177276964507,
+      "satellite_id": "sat_worldview_1",
+      "start_time": "2026-04-23T05:58:10Z",
+      "target_id": "urban_bintulu_06",
+      "type": "observation"
+    },
+    {
+      "end_time": "2026-04-23T05:58:36Z",
+      "off_nadir_across_deg": -1.1784807641623203,
+      "off_nadir_along_deg": 20.099894076593742,
+      "satellite_id": "sat_worldview_1",
+      "start_time": "2026-04-23T05:58:30Z",
+      "target_id": "urban_bintulu_06",
+      "type": "observation"
+    },
+    {
+      "end_time": "2026-04-23T05:58:56Z",
+      "off_nadir_across_deg": -1.181222173486088,
+      "off_nadir_along_deg": 4.513409788364249,
+      "satellite_id": "sat_worldview_1",
+      "start_time": "2026-04-23T05:58:50Z",
+      "target_id": "urban_bintulu_06",
+      "type": "observation"
+    },
+    {
+      "end_time": "2026-04-23T05:59:23Z",
+      "off_nadir_across_deg": -0.6933674541647559,
+      "off_nadir_along_deg": 13.031386453655712,
+      "satellite_id": "sat_worldview_1",
+      "start_time": "2026-04-23T05:59:17Z",
+      "target_id": "rugged_068",
+      "type": "observation"
+    },
+    {
+      "end_time": "2026-04-23T05:59:43Z",
+      "off_nadir_across_deg": -0.6941141708602472,
+      "off_nadir_along_deg": -3.2567885554368976,
+      "satellite_id": "sat_worldview_1",
+      "start_time": "2026-04-23T05:59:37Z",
+      "target_id": "rugged_068",
+      "type": "observation"
+    },
+    {
+      "end_time": "2026-04-23T06:00:03Z",
+      "off_nadir_across_deg": -0.6906603289278469,
+      "off_nadir_along_deg": -18.979970002543812,
+      "satellite_id": "sat_worldview_1",
+      "start_time": "2026-04-23T05:59:57Z",
+      "target_id": "rugged_068",
+      "type": "observation"
+    },
+    {
+      "end_time": "2026-04-23T06:00:36Z",
+      "off_nadir_across_deg": 8.946763070125508,
+      "off_nadir_along_deg": 3.786865097699835,
+      "satellite_id": "sat_worldview_1",
+      "start_time": "2026-04-23T06:00:30Z",
+      "target_id": "open_102",
+      "type": "observation"
+    },
+    {
+      "end_time": "2026-04-23T06:00:56Z",
+      "off_nadir_across_deg": 8.92973665606404,
+      "off_nadir_along_deg": -12.47744900462049,
+      "satellite_id": "sat_worldview_1",
+      "start_time": "2026-04-23T06:00:50Z",
+      "target_id": "open_102",
+      "type": "observation"
+    },
+    {
+      "end_time": "2026-04-23T06:01:16Z",
+      "off_nadir_across_deg": 8.860879103870628,
+      "off_nadir_along_deg": -26.758096062783476,
+      "satellite_id": "sat_worldview_1",
+      "start_time": "2026-04-23T06:01:10Z",
+      "target_id": "open_102",
+      "type": "observation"
+    },
+    {
+      "end_time": "2026-04-23T07:28:44Z",
+      "off_nadir_across_deg": 19.228602850247917,
+      "off_nadir_along_deg": 7.647803121860654,
+      "satellite_id": "sat_worldview_1",
+      "start_time": "2026-04-23T07:28:38Z",
+      "target_id": "open_104",
+      "type": "observation"
+    },
+    {
+      "end_time": "2026-04-23T07:29:04Z",
+      "off_nadir_across_deg": 19.217920663236605,
+      "off_nadir_along_deg": -8.709220936999364,
+      "satellite_id": "sat_worldview_1",
+      "start_time": "2026-04-23T07:28:58Z",
+      "target_id": "open_104",
+      "type": "observation"
+    },
+    {
+      "end_time": "2026-04-23T08:50:06Z",
+      "off_nadir_across_deg": -2.1669099313737625,
+      "off_nadir_along_deg": 20.700677278951172,
+      "satellite_id": "sat_worldview_1",
+      "start_time": "2026-04-23T08:50:00Z",
+      "target_id": "open_083",
+      "type": "observation"
+    },
+    {
+      "end_time": "2026-04-23T08:50:26Z",
+      "off_nadir_across_deg": -2.1409947414254558,
+      "off_nadir_along_deg": 5.606146243223269,
+      "satellite_id": "sat_worldview_1",
+      "start_time": "2026-04-23T08:50:20Z",
+      "target_id": "open_083",
+      "type": "observation"
+    },
+    {
+      "end_time": "2026-04-23T08:51:16Z",
+      "off_nadir_across_deg": -2.2056089438239974,
+      "off_nadir_along_deg": -30.849022440125516,
+      "satellite_id": "sat_worldview_1",
+      "start_time": "2026-04-23T08:51:10Z",
+      "target_id": "open_083",
+      "type": "observation"
+    },
+    {
+      "end_time": "2026-04-23T10:37:12Z",
+      "off_nadir_across_deg": 28.975956409095634,
+      "off_nadir_along_deg": 6.037632618521456,
+      "satellite_id": "sat_worldview_1",
+      "start_time": "2026-04-23T10:37:06Z",
+      "target_id": "open_075",
+      "type": "observation"
+    },
+    {
+      "end_time": "2026-04-23T10:37:32Z",
+      "off_nadir_across_deg": 28.945296097822954,
+      "off_nadir_along_deg": -10.174563041663458,
+      "satellite_id": "sat_worldview_1",
+      "start_time": "2026-04-23T10:37:26Z",
+      "target_id": "open_075",
+      "type": "observation"
+    },
+    {
+      "end_time": "2026-04-23T13:38:37Z",
+      "off_nadir_across_deg": 7.688413794763558,
+      "off_nadir_along_deg": 32.69097243081068,
+      "satellite_id": "sat_worldview_1",
+      "start_time": "2026-04-23T13:38:31Z",
+      "target_id": "vegetated_035",
+      "type": "observation"
+    },
+    {
+      "end_time": "2026-04-23T13:38:57Z",
+      "off_nadir_across_deg": 7.837412905119466,
+      "off_nadir_along_deg": 20.07393332502775,
+      "satellite_id": "sat_worldview_1",
+      "start_time": "2026-04-23T13:38:51Z",
+      "target_id": "vegetated_035",
+      "type": "observation"
+    },
+    {
+      "end_time": "2026-04-23T13:39:27Z",
+      "off_nadir_across_deg": 7.9028367659551115,
+      "off_nadir_along_deg": -3.451995493370458,
+      "satellite_id": "sat_worldview_1",
+      "start_time": "2026-04-23T13:39:21Z",
+      "target_id": "vegetated_035",
+      "type": "observation"
+    },
+    {
+      "end_time": "2026-04-23T18:32:35Z",
+      "off_nadir_across_deg": 5.694169753744333,
+      "off_nadir_along_deg": 32.653609859619976,
+      "satellite_id": "sat_worldview_1",
+      "start_time": "2026-04-23T18:32:29Z",
+      "target_id": "rugged_056",
+      "type": "observation"
+    },
+    {
+      "end_time": "2026-04-23T18:32:55Z",
+      "off_nadir_across_deg": 5.774368012709829,
+      "off_nadir_along_deg": 19.806718212364824,
+      "satellite_id": "sat_worldview_1",
+      "start_time": "2026-04-23T18:32:49Z",
+      "target_id": "rugged_056",
+      "type": "observation"
+    },
+    {
+      "end_time": "2026-04-23T18:33:15Z",
+      "off_nadir_across_deg": 5.807452358966059,
+      "off_nadir_along_deg": 4.152816625408276,
+      "satellite_id": "sat_worldview_1",
+      "start_time": "2026-04-23T18:33:09Z",
+      "target_id": "rugged_056",
+      "type": "observation"
+    }
+  ]
 }

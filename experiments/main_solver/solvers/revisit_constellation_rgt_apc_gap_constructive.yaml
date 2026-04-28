@@ -7,6 +7,19 @@ runnable: true
 setup_script: setup.sh
 solve_script: solve.sh
 solution_filename: solution.json
+aggregate_metrics:
+  - name: num_satellites
+    source: verifier.metrics.num_satellites
+  - name: capped_max_revisit_gap_hours
+    source: verifier.metrics.capped_max_revisit_gap_hours
+  - name: worst_target_capped_max_revisit_gap_hours
+    source: verifier.metrics.worst_target_capped_max_revisit_gap_hours
+  - name: max_revisit_gap_hours
+    source: verifier.metrics.max_revisit_gap_hours
+  - name: threshold_violation_count
+    source: verifier.metrics.threshold_violation_count
+  - name: solver_timing_total_s
+    source: solver_status.timing_seconds.total
 evaluation_policy:
   profile: fair_public_reproduction
   purpose: "Faithful RGT/APC constructive reproduction adapted to revisit_constellation public cases."

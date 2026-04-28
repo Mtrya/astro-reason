@@ -8,6 +8,17 @@ runnable: true
 setup_script: setup.sh
 solve_script: solve.sh
 solution_filename: solution.json
+aggregate_metrics:
+  - name: service_fraction
+    source: verifier.metrics.service_fraction
+  - name: worst_demand_service_fraction
+    source: verifier.metrics.worst_demand_service_fraction
+  - name: mean_latency_ms
+    source: verifier.metrics.mean_latency_ms
+  - name: latency_p95_ms
+    source: verifier.metrics.latency_p95_ms
+  - name: num_added_satellites
+    source: verifier.metrics.num_added_satellites
 config:
   profile: reproduction
   profile_version: "1"

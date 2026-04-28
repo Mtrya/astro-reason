@@ -151,7 +151,7 @@ The verifier reports these metrics for valid solutions:
 
 - `capped_max_revisit_gap_hours`: per-target max revisit gap floored at that target's expected revisit period, then aggregated by mean
 - `num_satellites`
-- `target_gap_summary`: per-target breakdown with `expected_revisit_period_hours`, `max_revisit_gap_hours`, `mean_revisit_gap_hours`, and `observation_count`
+- `target_gap_summary`: per-target breakdown with `expected_revisit_period_hours`, `max_revisit_gap_hours`, and `observation_count`
 
 The intended ranking logic is:
 
@@ -237,6 +237,30 @@ CLI entry:
 uv run python -m benchmarks.revisit_constellation.verifier.run <case_dir> <solution.json>
 ```
 
+## Visualization Usage
+
+The optional visualizer emits human-facing PNG plots.
+
+Render a case-only target distribution overview:
+
+```bash
+uv run python -m benchmarks.revisit_constellation.visualizer.run overview \
+  --case-dir benchmarks/revisit_constellation/dataset/cases/test/case_0001
+```
+
+Render solution-aware per-target action snapshots:
+
+```bash
+uv run python -m benchmarks.revisit_constellation.visualizer.run solution \
+  --case-dir benchmarks/revisit_constellation/dataset/cases/test/case_0001 \
+  --solution-path benchmarks/revisit_constellation/dataset/example_solution.json
+```
+
+The `overview` command writes `overview.png`. The `solution` command writes one
+PNG page per rendered observed target; each page shows a bounded set of
+observation snapshots with target-relevant satellite ground tracks and the
+active observing satellite highlighted.
+
 ## Canonical Benchmark Shape
 
 The repository structure is:
@@ -273,7 +297,13 @@ tests/benchmarks/
 
 ## Canonical Dataset
 
-The committed dataset lives under `dataset/cases/<split>/` and includes dataset-level metadata in `dataset/index.json`. The current canonical dataset publishes five `test` cases: `case_0001` through `case_0005`.
+The committed dataset lives under `dataset/cases/<split>/` and includes dataset-level metadata in `dataset/index.json`. The canonical split policy is benchmark-owned:
+
+- `train`: 10 public generated development cases, `case_0001` through `case_0010`.
+- `test`: five held-out evaluation cases, `case_0001` through `case_0005`.
+
+The split seeds and case-generation controls are declared in `splits.yaml`; the train and test splits use disjoint seeds and target-selection offsets.
+Targets are sampled from the documented world-cities source with log-scaled population as the primary signal and geographic spread as a secondary balancing term. The committed train and test cases share this policy, including the same minimum target separation setting, while retaining deterministic per-case seeds.
 
 The canonical generator entry point is:
 

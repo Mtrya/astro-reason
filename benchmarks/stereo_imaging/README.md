@@ -332,7 +332,7 @@ uv run python -m benchmarks.stereo_imaging.generator.run \
     --force-download
 ```
 
-The canonical generator writes cases under `dataset/cases/test/`, updates `dataset/index.json`, and writes `dataset/example_solution.json` (aligned with `example_smoke_case: test/case_0001` in `splits.yaml`). Runtime sources are staged under `dataset/source_data/`.
+The canonical generator writes cases under `dataset/cases/test/` and updates `dataset/index.json`. Runtime sources are staged under `dataset/source_data/`.
 
 `splits.yaml` carries the benchmark-owned construction parameters plus an exact supported CelesTrak snapshot epoch label for the vendored real-TLE subset. The satellite TLE rows and sensor/agility profiles live in `generator/satellite_catalog.py`, so the split file stays focused on case counts, mission policy, and sampling parameters. The canonical mission horizon is anchored to that cached snapshot, and the generator rejects any other epoch because this benchmark does not ship alternate cached TLE snapshots.
 
@@ -343,15 +343,17 @@ The canonical generator writes cases under `dataset/cases/test/`, updates `datas
 ```bash
 # Case overview (ground tracks and target scatter map):
 uv run python -m benchmarks.stereo_imaging.visualizer.run overview \
-    benchmarks/stereo_imaging/dataset/cases/test/case_0001
+    --case-dir benchmarks/stereo_imaging/dataset/cases/test/case_0001
 
-# Batch ECEF geometry plots for all stereo candidates in a solution:
-uv run python -m benchmarks.stereo_imaging.visualizer.run batch \
-    benchmarks/stereo_imaging/dataset/cases/test/case_0001 \
-    path/to/solution.json
+# Evaluated stereo product pages for a submitted solution:
+uv run python -m benchmarks.stereo_imaging.visualizer.run products \
+    --case-dir benchmarks/stereo_imaging/dataset/cases/test/case_0001 \
+    --solution-path path/to/solution.json
 ```
 
-Default outputs go to `benchmarks/stereo_imaging/visualizer/plots/<case_id>/`.
+The overview renders a small representative set of satellite ground tracks as a muted context layer so target geography remains readable on multi-satellite cases. Use `--max-ground-tracks` to increase, reduce, or hide that layer.
+
+The products command writes human/VLM-facing PNG pages under `benchmarks/stereo_imaging/visualizer/plots/<case_id>/products/` by default. Use `--max-products` and `--products-per-page` to choose how many evaluated pair/tri-stereo products to render. Each product row includes a target-facing Earth view, a target-local ground swath overlap plot, look geometry, and concise product metrics.
 
 ### Tests
 

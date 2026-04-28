@@ -289,9 +289,13 @@ class TestHelperGeometry:
 
 def test_verify_solution_smoke_on_canonical_example():
     report = verify_solution(CASE_0001_DIR, EXAMPLE_SOLUTION_PATH)
+    solution = json.loads(EXAMPLE_SOLUTION_PATH.read_text(encoding="utf-8"))
+
     assert report["valid"] is True
-    assert report["metrics"]["coverage_ratio"] == 0.0
-    assert report["metrics"]["num_actions"] == 0
+    assert 0.0 <= report["metrics"]["coverage_ratio"] <= 1.0
+    assert 0.0 <= report["metrics"]["weighted_coverage_ratio"] <= 1.0
+    assert report["metrics"]["num_actions"] == len(solution["actions"])
+    assert report["violations"] == []
 
 
 @pytest.mark.parametrize("fixture_name", GOLDEN_FIXTURE_NAMES)

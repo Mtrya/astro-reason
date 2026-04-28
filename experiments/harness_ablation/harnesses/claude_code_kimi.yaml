@@ -1,0 +1,33 @@
+harness: claude_code_kimi
+runtime: base
+
+assemble:
+  - source: experiments/_fragments/configs/claude_code_kimi/.claude
+    target: /home/korolev/.claude
+    example: experiments/_fragments/configs/claude_code_kimi/.claude.example
+  - source: .agents/skills/brahe
+    target: /home/korolev/.claude/skills/brahe
+
+commands:
+  headless_shell_command: >-
+    claude -p --dangerously-skip-permissions
+    --output-format text
+    "$(cat ~/PROMPT.md)"
+
+collect:
+  - source: /home/korolev/.claude/projects
+    target: results_root/session_logs/projects
+    missing_ok: true
+  - source: /home/korolev/.claude/tasks
+    target: results_root/session_logs/tasks
+    missing_ok: true
+  - source: /home/korolev/.claude/history.jsonl
+    target: results_root/session_logs/history.jsonl
+    missing_ok: true
+
+forward_env_keys: []
+
+notes:
+  - Claude Code is configured through a Kimi-compatible gateway in this harness profile.
+  - Provider and auth details should stay in the real ignored settings file rather than tracked examples.
+  - The Brahe skill is assembled into /home/korolev/.claude/skills/brahe for native skill discovery.

@@ -29,6 +29,7 @@ defaults:
 batch:
   max_concurrency: 6
   max_retries: 1
+  harness_cooldown_seconds: 0
   skip_completed: true
   retry_statuses:
     - runner_error

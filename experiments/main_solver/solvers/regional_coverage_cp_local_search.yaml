@@ -8,6 +8,17 @@ runnable: true
 setup_script: setup.sh
 solve_script: solve.sh
 solution_filename: solution.json
+aggregate_metrics:
+  - name: coverage_ratio
+    source: verifier.metrics.coverage_ratio
+  - name: weighted_coverage_ratio
+    source: verifier.metrics.weighted_coverage_ratio
+  - name: num_actions
+    source: verifier.metrics.num_actions
+  - name: min_battery_wh
+    source: verifier.metrics.min_battery_wh
+  - name: solver_timing_total_s
+    source: solver_status.timing_seconds.total
 config:
   candidate_stride_s: 60
   roll_samples_per_side: 9

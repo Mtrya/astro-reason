@@ -10,33 +10,34 @@ import pytest
 from shapely.geometry import Polygon
 
 REPO_ROOT = Path(__file__).resolve().parents[4]
-sys.path.insert(0, str(REPO_ROOT))
+SOLVER_ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(SOLVER_ROOT))
 
-from solvers.regional_coverage.cp_local_search.src.candidates import (
+from src.candidates import (
     Candidate,
     generate_candidates,
 )
-from solvers.regional_coverage.cp_local_search.src.case_io import (
+from src.case_io import (
     SolverConfig,
     load_case,
     load_solver_config,
 )
-from solvers.regional_coverage.cp_local_search.src.coverage import (
+from src.coverage import (
     CoverageFootprint,
     CoverageIndex,
 )
-from solvers.regional_coverage.cp_local_search.src.cp_repair import (
+from src.cp_repair import (
     CPRepairConfig,
     CPMetrics,
     cp_sat_repair,
 )
-from solvers.regional_coverage.cp_local_search.src.greedy import (
+from src.greedy import (
     GreedyConfig,
     GreedyResult,
     GreedySummary,
     greedy_insertion,
 )
-from solvers.regional_coverage.cp_local_search.src.local_search import (
+from src.local_search import (
     LocalSearchConfig,
     Neighborhood,
     build_conflict_components,
@@ -48,24 +49,24 @@ from solvers.regional_coverage.cp_local_search.src.local_search import (
     schedule_objective,
     state_from_candidates,
 )
-from solvers.regional_coverage.cp_local_search.src.opportunities import (
+from src.opportunities import (
     OpportunityConfig,
     build_opportunity_index,
 )
-from solvers.regional_coverage.cp_local_search.src.sequence import (
+from src.sequence import (
     SatelliteSequence,
     insert_candidate,
     is_consistent,
     remove_candidate,
 )
-from solvers.regional_coverage.cp_local_search.src.search import (
+from src.search import (
     SearchConfig,
     run_search,
 )
-from solvers.regional_coverage.cp_local_search.src.solve import main as solve_main
-from solvers.regional_coverage.cp_local_search.src.solution_io import candidates_to_solution
-from solvers.regional_coverage.cp_local_search.src.time_grid import grid_offsets
-from solvers.regional_coverage.cp_local_search.src.transition import (
+from src.solve import main as solve_main
+from src.solution_io import candidates_to_solution
+from src.time_grid import grid_offsets
+from src.transition import (
     required_transition_gap_s,
     slew_time_s,
     transition_result,
