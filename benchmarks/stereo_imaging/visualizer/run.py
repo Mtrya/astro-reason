@@ -1,9 +1,9 @@
 """CLI entry point for the stereo_imaging visualizer."""
+# ruff: noqa: E402
 
 from __future__ import annotations
 
 import argparse
-import json
 import math
 from collections import Counter, defaultdict
 from datetime import UTC, datetime, timedelta
@@ -16,13 +16,13 @@ _BENCHMARK_DIR = _VISUALIZER_DIR.parent
 
 import brahe
 import matplotlib
-import plotly.graph_objects as go
 
 matplotlib.use("Agg")
 
 import matplotlib.pyplot as plt
 import numpy as np
 from brahe.plots.texture_utils import load_earth_texture
+from matplotlib import colors as mpl_colors
 from matplotlib.lines import Line2D
 from matplotlib.patches import Circle, Polygon
 from skyfield.api import EarthSatellite
@@ -76,8 +76,11 @@ _THEME = {
 
 _DEFAULT_OUTPUT_ROOT = _VISUALIZER_DIR / "plots"
 _WORLD_TEXTURE_EXTENT = (-180.0, 180.0, -90.0, 90.0)
+_NATURAL_EARTH_10M_CACHE_PATH = (
+    Path(brahe.get_brahe_cache_dir()) / "textures" / "ne_10m_sr" / "NE1_HR_LC_SR_W.tif"
+)
 _WORLD_TEXTURE: np.ndarray | None = None
-_EARTH_TRACE_CACHE: dict[str, go.BaseTraceType] = {}
+_ORTHOGRAPHIC_GLOBE_CACHE: dict[tuple[float, float, float], np.ndarray] = {}
 
 
 def _apply_axes_theme(ax: plt.Axes, *, facecolor: str | None = None) -> None:
@@ -91,7 +94,10 @@ def _apply_axes_theme(ax: plt.Axes, *, facecolor: str | None = None) -> None:
 def _load_world_texture() -> np.ndarray:
     global _WORLD_TEXTURE
     if _WORLD_TEXTURE is None:
-        for texture_name in ("natural_earth_50m", "blue_marble"):
+        texture_names = ["natural_earth_50m", "blue_marble"]
+        if _NATURAL_EARTH_10M_CACHE_PATH.exists():
+            texture_names.insert(0, "natural_earth_10m")
+        for texture_name in texture_names:
             try:
                 image = load_earth_texture(texture_name)
             except Exception:
@@ -102,93 +108,6 @@ def _load_world_texture() -> np.ndarray:
     if _WORLD_TEXTURE is None:
         raise FileNotFoundError("No Brahe Earth texture is available")
     return _WORLD_TEXTURE
-
-
-def _earth_trace() -> go.BaseTraceType:
-    cached = _EARTH_TRACE_CACHE.get("default")
-    if cached is not None:
-        return cached
-
-    radius_m = float(brahe.R_EARTH)
-    try:
-        texture = _load_world_texture()
-    except FileNotFoundError:
-        u = np.linspace(0.0, 2.0 * math.pi, 50)
-        v = np.linspace(0.0, math.pi, 30)
-        x = radius_m * np.outer(np.cos(u), np.sin(v))
-        y = radius_m * np.outer(np.sin(u), np.sin(v))
-        z = radius_m * np.outer(np.ones(np.size(u)), np.cos(v))
-        trace = go.Surface(
-            x=x,
-            y=y,
-            z=z,
-            colorscale="Blues",
-            showscale=False,
-            opacity=0.9,
-            name="Earth",
-            hoverinfo="skip",
-        )
-        _EARTH_TRACE_CACHE["default"] = trace
-        return trace
-
-    n_lon = 120
-    n_lat = 60
-    lons = np.linspace(0.0, 2.0 * math.pi, n_lon)
-    lats = np.linspace(0.0, math.pi, n_lat)
-
-    vertices = []
-    for lat in lats:
-        for lon in lons:
-            x = radius_m * math.sin(lat) * math.cos(lon)
-            y = radius_m * math.sin(lat) * math.sin(lon)
-            z = radius_m * math.cos(lat)
-            vertices.append((x, y, z))
-    verts = np.asarray(vertices, dtype=float)
-
-    faces = []
-    for i in range(n_lat - 1):
-        for j in range(n_lon - 1):
-            v0 = i * n_lon + j
-            v1 = i * n_lon + (j + 1)
-            v2 = (i + 1) * n_lon + j
-            v3 = (i + 1) * n_lon + (j + 1)
-            faces.append((v0, v1, v2))
-            faces.append((v1, v3, v2))
-    face_array = np.asarray(faces, dtype=int)
-
-    img_h, img_w = texture.shape[:2]
-    face_colors: list[str] = []
-    for face in face_array:
-        avg = verts[face].mean(axis=0)
-        r = float(np.linalg.norm(avg))
-        if r <= 0.0:
-            tex_x = tex_y = 0
-        else:
-            lat = math.acos(max(-1.0, min(1.0, avg[2] / r)))
-            lon = math.atan2(avg[1], avg[0])
-            u_coord = (lon % (2.0 * math.pi)) / (2.0 * math.pi)
-            v_coord = lat / math.pi
-            tex_x = min(img_w - 1, max(0, int(u_coord * (img_w - 1))))
-            tex_y = min(img_h - 1, max(0, int(v_coord * (img_h - 1))))
-        rgb = texture[tex_y, tex_x, :3]
-        face_colors.append(f"rgb({int(rgb[0])},{int(rgb[1])},{int(rgb[2])})")
-
-    trace = go.Mesh3d(
-        x=verts[:, 0],
-        y=verts[:, 1],
-        z=verts[:, 2],
-        i=face_array[:, 0],
-        j=face_array[:, 1],
-        k=face_array[:, 2],
-        facecolor=face_colors,
-        showscale=False,
-        name="Earth",
-        hoverinfo="skip",
-        lighting=dict(ambient=0.65, diffuse=0.75, specular=0.15, roughness=0.85),
-        lightposition=dict(x=100000.0, y=100000.0, z=100000.0),
-    )
-    _EARTH_TRACE_CACHE["default"] = trace
-    return trace
 
 
 def _draw_world_texture(ax: plt.Axes) -> None:
@@ -231,9 +150,15 @@ def _utc_iso(value: datetime) -> str:
     return value.astimezone(UTC).strftime("%Y-%m-%dT%H:%M:%SZ")
 
 
-def _serialize_json(value: Any, path: Path) -> None:
-    path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(json.dumps(value, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+def _action_midpoint(action: Any) -> datetime:
+    return action.start + (action.end - action.start) / 2
+
+
+def _product_time_separation_s(actions: list[Any]) -> float:
+    if len(actions) < 2:
+        return 0.0
+    midpoints = [_action_midpoint(action) for action in actions]
+    return (max(midpoints) - min(midpoints)).total_seconds()
 
 
 def _satellite_cache(satellites: dict[str, Any]) -> dict[str, EarthSatellite]:
@@ -456,10 +381,13 @@ def render_overview(
     return out_file
 
 
-def _candidate_output_dir(case_path: Path, out_dir: str | Path | None) -> Path:
+def _products_output_dir(
+    case_path: Path,
+    out_dir: str | Path | None,
+) -> Path:
     if out_dir is not None:
         return Path(out_dir)
-    return _DEFAULT_OUTPUT_ROOT / case_path.name / "batch"
+    return _DEFAULT_OUTPUT_ROOT / case_path.name / "products"
 
 
 def _overview_output_path(case_path: Path, out_path: str | Path | None) -> Path:
@@ -495,18 +423,6 @@ def _derived_by_action_index(
             strict=True,
         )
     }
-
-
-def _candidate_groups(
-    actions: list[Any],
-    satellites: dict[str, Any],
-    targets: dict[str, Any],
-) -> list[tuple[tuple[str, str], list[int]]]:
-    groups: dict[tuple[str, str], list[int]] = defaultdict(list)
-    for idx in _known_action_indices(actions, satellites, targets):
-        action = actions[idx]
-        groups[(action.satellite_id, action.target_id)].append(idx)
-    return sorted(groups.items(), key=lambda item: (min(item[1]), item[0][0], item[0][1]))
 
 
 def _observation_cache(
@@ -576,21 +492,21 @@ def _polyline_buffer_polygon(polyline: list[tuple[float, float]], half_width_m: 
     normals: list[np.ndarray] = []
     points = [np.asarray(point, dtype=float) for point in polyline]
     for point_idx in range(len(points)):
-        candidate_normals: list[np.ndarray] = []
+        segment_normals: list[np.ndarray] = []
         if point_idx > 0:
             delta = points[point_idx] - points[point_idx - 1]
             if np.linalg.norm(delta) > 1.0e-9:
                 tangent = delta / np.linalg.norm(delta)
-                candidate_normals.append(np.array([-tangent[1], tangent[0]]))
+                segment_normals.append(np.array([-tangent[1], tangent[0]]))
         if point_idx < len(points) - 1:
             delta = points[point_idx + 1] - points[point_idx]
             if np.linalg.norm(delta) > 1.0e-9:
                 tangent = delta / np.linalg.norm(delta)
-                candidate_normals.append(np.array([-tangent[1], tangent[0]]))
-        if candidate_normals:
-            normal = np.sum(candidate_normals, axis=0)
+                segment_normals.append(np.array([-tangent[1], tangent[0]]))
+        if segment_normals:
+            normal = np.sum(segment_normals, axis=0)
             if np.linalg.norm(normal) < 1.0e-9:
-                normal = candidate_normals[0]
+                normal = segment_normals[0]
             normal = normal / np.linalg.norm(normal)
         else:
             normal = np.array([0.0, 1.0])
@@ -606,11 +522,11 @@ def _pair_metric_record(
     j: int,
     obs_cache: dict[int, dict[str, Any]],
     mission: Any,
+    stereo_mode: str,
 ) -> dict[str, Any]:
     oi = obs_cache[i]
     oj = obs_cache[j]
     target_def = oi["target_def"]
-    sat_def = oi["sat_def"]
     target_ecef = oi["target_ecef"]
 
     ui = (oi["sat_mid_ecef"] - target_ecef) / np.linalg.norm(oi["sat_mid_ecef"] - target_ecef)
@@ -637,13 +553,8 @@ def _pair_metric_record(
         ),
     )
     b_h_proxy = float(np.linalg.norm(oi["sat_mid_ecef"] - oj["sat_mid_ecef"])) / mean_alt
-    same_access = (
-        oi["derived"]["access_interval_id"] != "none"
-        and oi["derived"]["access_interval_id"] == oj["derived"]["access_interval_id"]
-    )
     valid = (
-        same_access
-        and overlap_fraction + 1.0e-6 >= mission.min_overlap_fraction
+        overlap_fraction + 1.0e-6 >= mission.min_overlap_fraction
         and mission.min_convergence_deg - 1.0e-6 <= gamma_deg <= mission.max_convergence_deg + 1.0e-6
         and pixel_scale_ratio <= mission.max_pixel_scale_ratio + 1.0e-6
     )
@@ -658,11 +569,12 @@ def _pair_metric_record(
     )
     return {
         "indices": (i, j),
+        "stereo_mode": stereo_mode,
+        "time_separation_s": _product_time_separation_s([oi["action"], oj["action"]]),
         "overlap_fraction": overlap_fraction,
         "gamma_deg": gamma_deg,
         "pixel_scale_ratio": pixel_scale_ratio,
         "b_h_proxy": b_h_proxy,
-        "same_access": same_access,
         "valid": valid,
         "score": q_pair_raw if valid else 0.0,
         "q_pair_raw": q_pair_raw,
@@ -674,6 +586,7 @@ def _tri_metric_record(
     obs_cache: dict[int, dict[str, Any]],
     pair_cache: dict[tuple[int, int], dict[str, Any]],
     mission: Any,
+    edge_modes: list[str],
 ) -> dict[str, Any]:
     obs = [obs_cache[idx] for idx in indices]
     target_def = obs[0]["target_def"]
@@ -695,10 +608,8 @@ def _tri_metric_record(
         <= mission.near_nadir_anchor_max_off_nadir_deg + 1.0e-6
         for entry in obs
     )
-    same_access = len({entry["derived"]["access_interval_id"] for entry in obs}) == 1 and obs[0]["derived"]["access_interval_id"] != "none"
     valid = (
-        same_access
-        and overlap_fraction + 1.0e-6 >= mission.min_overlap_fraction
+        overlap_fraction + 1.0e-6 >= mission.min_overlap_fraction
         and sum(1 for flag in pair_flags if flag) >= 2
         and anchor
     )
@@ -712,10 +623,11 @@ def _tri_metric_record(
     )
     return {
         "indices": indices,
+        "edge_modes": edge_modes,
+        "time_separation_s": _product_time_separation_s([entry["action"] for entry in obs]),
         "overlap_fraction": overlap_fraction,
         "pair_flags": pair_flags,
         "anchor": anchor,
-        "same_access": same_access,
         "valid": valid,
         "score": q_tri if valid else 0.0,
         "q_tri_raw": q_tri,
@@ -723,7 +635,7 @@ def _tri_metric_record(
     }
 
 
-def _candidate_extent(obs_entries: list[dict[str, Any]], aoi_radius_m: float) -> tuple[float, float, float, float]:
+def _product_extent(obs_entries: list[dict[str, Any]], aoi_radius_m: float) -> tuple[float, float, float, float]:
     xs = [0.0]
     ys = [0.0]
     padding = aoi_radius_m
@@ -739,7 +651,16 @@ def _candidate_extent(obs_entries: list[dict[str, Any]], aoi_radius_m: float) ->
     return xmin, xmax, ymin, ymax
 
 
-def _draw_observation_footprint(ax: plt.Axes, obs_entry: dict[str, Any], color: str, action_idx: int) -> None:
+def _draw_observation_footprint(
+    ax: plt.Axes,
+    obs_entry: dict[str, Any],
+    color: str,
+    action_idx: int,
+    obs_number: int,
+) -> None:
+    line_styles = ("-", "--", ":")
+    start_markers = ("s", "D", "P")
+    end_markers = ("^", "v", "X")
     polygon = _polyline_buffer_polygon(obs_entry["polyline_en"], obs_entry["half_width_m"])
     if polygon:
         ax.add_patch(
@@ -755,7 +676,33 @@ def _draw_observation_footprint(ax: plt.Axes, obs_entry: dict[str, Any], color: 
     if obs_entry["polyline_en"]:
         xs = [point[0] for point in obs_entry["polyline_en"]]
         ys = [point[1] for point in obs_entry["polyline_en"]]
-        ax.plot(xs, ys, color=color, linewidth=2.2)
+        ax.plot(
+            xs,
+            ys,
+            color=color,
+            linewidth=2.2,
+            linestyle=line_styles[obs_number % len(line_styles)],
+        )
+        ax.scatter(
+            [xs[0]],
+            [ys[0]],
+            color=color,
+            marker=start_markers[obs_number % len(start_markers)],
+            edgecolor="white",
+            linewidth=0.8,
+            s=34,
+            zorder=4,
+        )
+        ax.scatter(
+            [xs[-1]],
+            [ys[-1]],
+            color=color,
+            marker=end_markers[obs_number % len(end_markers)],
+            edgecolor="white",
+            linewidth=0.8,
+            s=42,
+            zorder=4,
+        )
         mid_idx = len(obs_entry["polyline_en"]) // 2
         ax.scatter([xs[mid_idx]], [ys[mid_idx]], color=color, s=28, zorder=4)
         ax.text(
@@ -770,296 +717,545 @@ def _draw_observation_footprint(ax: plt.Axes, obs_entry: dict[str, Any], color: 
         )
 
 
-def _render_candidate_figure(
+def _product_metric_lines(
     kind: str,
     metric_record: dict[str, Any],
     obs_entries: list[tuple[int, dict[str, Any]]],
-    out_path: Path,
-) -> None:
+) -> list[str]:
     target_def = obs_entries[0][1]["target_def"]
-    validity_color = _THEME["valid"] if metric_record["valid"] else _THEME["invalid"]
     access_ids = [entry["derived"]["access_interval_id"] for _, entry in obs_entries]
-    action_lines = [
-        f"#{action_idx}: {obs_entry['derived']['start_time']} -> {obs_entry['derived']['end_time']}"
-        for action_idx, obs_entry in obs_entries
-    ]
+    access_lines = _access_summary_lines(access_ids)
+    action_lines: list[str] = []
+    for action_idx, obs_entry in obs_entries:
+        action_lines.extend(
+            [
+                f"#{action_idx}: {obs_entry['action'].satellite_id}",
+                f"  {obs_entry['derived']['start_time']} to {obs_entry['derived']['end_time']}",
+            ]
+        )
     if kind == "pair":
-        metric_lines = [
+        return [
+            "PAIR product",
+            f"Target: {target_def.target_id}",
+            f"Scene: {target_def.scene_type}",
             f"Valid: {metric_record['valid']}",
-            f"Same access: {metric_record['same_access']}",
-            f"Access IDs: {', '.join(access_ids)}",
+            f"Mode: {metric_record['stereo_mode']}",
+            f"Time span: {metric_record['time_separation_s']:.1f} s",
+            *access_lines,
             f"Overlap: {metric_record['overlap_fraction']:.3f}",
             f"Convergence: {metric_record['gamma_deg']:.2f} deg",
             f"Pixel ratio: {metric_record['pixel_scale_ratio']:.3f}",
             f"B/H proxy: {metric_record['b_h_proxy']:.3f}",
             f"Score: {metric_record['score']:.3f}",
+            "",
+            *action_lines,
         ]
-    else:
-        metric_lines = [
-            f"Valid: {metric_record['valid']}",
-            f"Same access: {metric_record['same_access']}",
-            f"Access IDs: {', '.join(access_ids)}",
-            f"Common overlap: {metric_record['overlap_fraction']:.3f}",
-            f"Pair valids: {metric_record['pair_flags']}",
-            f"Anchor present: {metric_record['anchor']}",
-            f"Score: {metric_record['score']:.3f}",
-        ]
-    fig = go.Figure()
-    fig.add_trace(_earth_trace())
+    return [
+        "TRI product",
+        f"Target: {target_def.target_id}",
+        f"Scene: {target_def.scene_type}",
+        f"Valid: {metric_record['valid']}",
+        f"Time span: {metric_record['time_separation_s']:.1f} s",
+        f"Edge modes: {', '.join(metric_record['edge_modes'])}",
+        *access_lines,
+        f"Common overlap: {metric_record['overlap_fraction']:.3f}",
+        f"Pair valids: {metric_record['pair_flags']}",
+        f"Anchor present: {metric_record['anchor']}",
+        f"Score: {metric_record['score']:.3f}",
+        "",
+        *action_lines,
+    ]
 
+
+def _format_access_id(access_id: str) -> str:
+    parts = access_id.split("::")
+    if len(parts) == 3:
+        return f"{parts[0]} pass {parts[2]}"
+    return access_id
+
+
+def _access_summary_lines(access_ids: list[str]) -> list[str]:
+    unique_access_ids = list(dict.fromkeys(access_ids))
+    if len(unique_access_ids) == 1:
+        return [f"Access: {_format_access_id(unique_access_ids[0])} ({len(access_ids)} obs)"]
+    lines = ["Accesses:"]
+    lines.extend(f"  {_format_access_id(access_id)}" for access_id in unique_access_ids[:4])
+    if len(unique_access_ids) > 4:
+        lines.append(f"  ... +{len(unique_access_ids) - 4} more")
+    return lines
+
+
+def _submitted_pair_mode(
+    mission: Any,
+    first_entry: dict[str, Any],
+    second_entry: dict[str, Any],
+) -> str | None:
+    first_action = first_entry["action"]
+    second_action = second_entry["action"]
+    first_derived = first_entry["derived"]
+    second_derived = second_entry["derived"]
+    if first_action.target_id != second_action.target_id:
+        return None
+    if first_derived["access_interval_id"] == "none" or second_derived["access_interval_id"] == "none":
+        return None
+    separation_s = _product_time_separation_s([first_action, second_action])
+    if separation_s - 1.0e-6 > mission.max_stereo_pair_separation_s:
+        return None
+    if first_action.satellite_id == second_action.satellite_id:
+        if first_derived["access_interval_id"] != second_derived["access_interval_id"]:
+            return None
+        return "same_satellite_same_pass"
+    if not mission.allow_cross_satellite_stereo:
+        return None
+    return "cross_satellite"
+
+
+def _target_frame_axes(target_vec: np.ndarray) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+    up = target_vec / np.linalg.norm(target_vec)
+    east = np.cross(np.array([0.0, 0.0, 1.0]), up)
+    if float(np.linalg.norm(east)) < 1.0e-9:
+        east = np.array([0.0, 1.0, 0.0])
+    else:
+        east = east / np.linalg.norm(east)
+    north = np.cross(up, east)
+    north = north / np.linalg.norm(north)
+    return east, north, up
+
+
+def _rotate_ecef_to_target_frame(points: np.ndarray, target_vec: np.ndarray) -> np.ndarray:
+    east, north, up = _target_frame_axes(target_vec)
+    rotation = np.vstack([east, north, up])
+    return np.tensordot(rotation, points, axes=(1, 0))
+
+
+def _orthographic_globe_image(target_vec: np.ndarray, *, pixels: int = 900) -> np.ndarray:
+    target_unit = target_vec / np.linalg.norm(target_vec)
+    cache_key = tuple(round(float(value), 6) for value in target_unit)
+    cached = _ORTHOGRAPHIC_GLOBE_CACHE.get(cache_key)
+    if cached is not None:
+        return cached
+
+    texture = _load_world_texture()
+    if texture.max(initial=1) > 1:
+        texture = texture.astype(float) / 255.0
+    else:
+        texture = texture.astype(float)
+
+    coords = np.linspace(-1.0, 1.0, pixels)
+    xx, yy = np.meshgrid(coords, coords)
+    rr2 = xx * xx + yy * yy
+    mask = rr2 <= 1.0
+    zz = np.zeros_like(xx)
+    zz[mask] = np.sqrt(1.0 - rr2[mask])
+
+    east, north, up = _target_frame_axes(target_vec)
+    ecef_x = east[0] * xx + north[0] * yy + up[0] * zz
+    ecef_y = east[1] * xx + north[1] * yy + up[1] * zz
+    ecef_z = east[2] * xx + north[2] * yy + up[2] * zz
+    lon = np.arctan2(ecef_y, ecef_x)
+    lat = np.arcsin(np.clip(ecef_z, -1.0, 1.0))
+
+    tex_h, tex_w = texture.shape[:2]
+    tex_x = ((lon + math.pi) / (2.0 * math.pi) * (tex_w - 1)).astype(int)
+    tex_y = ((math.pi / 2.0 - lat) / math.pi * (tex_h - 1)).astype(int)
+    globe = np.ones((pixels, pixels, 4), dtype=float)
+    globe[:, :, :3] = mpl_colors.to_rgb("#eef3f7")
+    globe[:, :, 3] = 0.0
+    globe[mask, :3] = texture[tex_y[mask], tex_x[mask], :3]
+    globe[mask, 3] = 1.0
+    _ORTHOGRAPHIC_GLOBE_CACHE[cache_key] = globe
+    return globe
+
+
+def _draw_product_3d(
+    ax: plt.Axes,
+    kind: str,
+    metric_record: dict[str, Any],
+    obs_entries: list[tuple[int, dict[str, Any]]],
+) -> None:
+    target_def = obs_entries[0][1]["target_def"]
     target_vec = np.asarray(obs_entries[0][1]["target_ecef"], dtype=float)
-    fig.add_trace(
-        go.Scatter3d(
-            x=[target_vec[0]],
-            y=[target_vec[1]],
-            z=[target_vec[2]],
-            mode="markers+text",
-            name="Target",
-            text=[target_def.target_id],
-            textposition="top center",
-            marker=dict(size=7, color="#ffffff", line=dict(color="#111827", width=2)),
-            hovertemplate=(
-                f"Target: {target_def.target_id}<br>"
-                f"Scene: {target_def.scene_type}<br>"
-                f"Lat/Lon: {target_def.latitude_deg:.4f}, {target_def.longitude_deg:.4f}<br>"
-                f"AOI radius: {target_def.aoi_radius_m:.1f} m<br>"
-                f"Elevation: {target_def.elevation_ref_m:.1f} m"
-                "<extra></extra>"
-            ),
-        )
+    radius_m = float(brahe.R_EARTH)
+    ax.imshow(
+        _orthographic_globe_image(target_vec),
+        extent=[-1.0, 1.0, -1.0, 1.0],
+        origin="upper",
+        interpolation="bilinear",
+        zorder=0,
+    )
+    ax.scatter(
+        [0.0],
+        [0.0],
+        s=38,
+        color="#ffffff",
+        edgecolor="#111827",
+        linewidth=1.0,
+        zorder=5,
+    )
+    ax.text(
+        0.022,
+        0.022,
+        f" {target_def.target_id}",
+        color=_THEME["text"],
+        fontsize=7.2,
+        zorder=6,
     )
 
-    extents = [float(np.linalg.norm(target_vec))]
     for obs_number, (action_idx, obs_entry) in enumerate(obs_entries):
         color = _OBS_COLORS[obs_number % len(_OBS_COLORS)]
         sat_vec = np.asarray(obs_entry["sat_mid_ecef"], dtype=float)
-        extents.append(float(np.linalg.norm(sat_vec)))
-        hover = (
-            f"Action #{action_idx}<br>"
-            f"Satellite: {obs_entry['action'].satellite_id}<br>"
-            f"Target: {obs_entry['action'].target_id}<br>"
-            f"Midpoint: {_utc_iso(obs_entry['mid_time'])}<br>"
-            f"Off-nadir: {obs_entry['derived']['boresight_off_nadir_deg']:.2f} deg<br>"
-            f"Azimuth: {obs_entry['derived']['boresight_azimuth_deg']:.2f} deg<br>"
-            f"Effective pixel scale: {obs_entry['derived']['effective_pixel_scale_m']:.2f} m<br>"
-            f"Access interval: {obs_entry['derived']['access_interval_id']}"
-            "<extra></extra>"
+        sat_xyz = _rotate_ecef_to_target_frame(sat_vec.reshape(3, 1), target_vec).reshape(3)
+        sat_x = float(sat_xyz[0] / radius_m)
+        sat_y = float(sat_xyz[1] / radius_m)
+        ax.plot(
+            [sat_x, 0.0],
+            [sat_y, 0.0],
+            color=color,
+            linewidth=0.9,
+            alpha=0.72,
+            zorder=3,
         )
-        fig.add_trace(
-            go.Scatter3d(
-                x=[sat_vec[0]],
-                y=[sat_vec[1]],
-                z=[sat_vec[2]],
-                mode="markers+text",
-                name=f"Obs #{action_idx}",
-                text=[f"#{action_idx}"],
-                textposition="top center",
-                marker=dict(size=5, color=color, line=dict(color="#ffffff", width=1)),
-                hovertemplate=hover,
-            )
-        )
-        fig.add_trace(
-            go.Scatter3d(
-                x=[sat_vec[0], target_vec[0]],
-                y=[sat_vec[1], target_vec[1]],
-                z=[sat_vec[2], target_vec[2]],
-                mode="lines",
-                name=f"Ray #{action_idx}",
-                line=dict(color=color, width=6),
-                hoverinfo="skip",
-                showlegend=False,
-            )
+        ax.scatter(
+            [sat_x],
+            [sat_y],
+            s=14,
+            color=color,
+            edgecolor="#ffffff",
+            linewidth=0.45,
+            zorder=4,
         )
 
-    axis_limit = max(extents) * 1.1
-    metrics_text = "<br>".join(
-        [
-            f"<b>{kind.upper()} candidate</b>",
-            f"Target: {target_def.target_id}",
-            f"Scene: {target_def.scene_type}",
-            f"Valid: <span style='color:{validity_color}'>{metric_record['valid']}</span>",
-            f"Same access: {metric_record['same_access']}",
-            f"Access IDs: {', '.join(access_ids)}",
-            *metric_lines[2:],
-            "",
-            "<b>Observations</b>",
-            *action_lines,
+    ax.set_xlim(-0.3, 0.3)
+    ax.set_ylim(-0.3, 0.3)
+    ax.set_aspect("equal", adjustable="box")
+    ax.set_axis_off()
+    ax.set_facecolor("#eef3f7")
+    validity = "valid" if metric_record["valid"] else "invalid"
+    ax.set_title(f"{kind.upper()} target-facing Earth view ({validity})", color=_THEME["text"], fontsize=9, pad=2)
+
+
+def _draw_product_local_view(
+    ax: plt.Axes,
+    kind: str,
+    metric_record: dict[str, Any],
+    obs_entries: list[tuple[int, dict[str, Any]]],
+) -> None:
+    target_def = obs_entries[0][1]["target_def"]
+    obs_only = [entry for _, entry in obs_entries]
+    _apply_axes_theme(ax, facecolor="#fbfcfe")
+    ax.add_patch(
+        Circle(
+            (0.0, 0.0),
+            target_def.aoi_radius_m,
+            facecolor="#f8fafc",
+            edgecolor=_THEME["target"],
+            linewidth=1.0,
+            alpha=0.85,
+        )
+    )
+    ax.scatter([0.0], [0.0], marker="x", color=_THEME["target"], s=30, zorder=5)
+    for obs_number, (action_idx, obs_entry) in enumerate(obs_entries):
+        _draw_observation_footprint(
+            ax,
+            obs_entry,
+            _OBS_COLORS[obs_number % len(_OBS_COLORS)],
+            action_idx,
+            obs_number,
+        )
+
+    xmin, xmax, ymin, ymax = _product_extent(obs_only, target_def.aoi_radius_m)
+    ax.set_xlim(xmin, xmax)
+    ax.set_ylim(ymin, ymax)
+    ax.set_aspect("equal", adjustable="box")
+    ax.set_xlabel("East (m)", color=_THEME["text"], fontsize=8)
+    ax.set_ylabel("North (m)", color=_THEME["text"], fontsize=8)
+    ax.tick_params(labelsize=7)
+    validity = "valid" if metric_record["valid"] else "invalid"
+    ax.set_title(f"Ground swath overlap ({validity})", color=_THEME["text"], fontsize=9, pad=2)
+    ax.text(
+        0.5,
+        -0.22,
+        "AOI circle; colored bands = image swaths; lines = boresight paths",
+        transform=ax.transAxes,
+        va="top",
+        ha="center",
+        fontsize=6.8,
+        color=_THEME["muted"],
+    )
+
+
+def _draw_product_look_view(
+    ax: plt.Axes,
+    kind: str,
+    metric_record: dict[str, Any],
+    obs_entries: list[tuple[int, dict[str, Any]]],
+) -> None:
+    target_def = obs_entries[0][1]["target_def"]
+    _apply_axes_theme(ax, facecolor="#fbfcfe")
+    ax.scatter([0.0], [0.0], marker="x", color=_THEME["target"], s=34, zorder=5)
+
+    max_radius = target_def.aoi_radius_m
+    for obs_number, (action_idx, obs_entry) in enumerate(obs_entries):
+        color = _OBS_COLORS[obs_number % len(_OBS_COLORS)]
+        sat_enz = np.asarray(obs_entry["sat_mid_enz"], dtype=float)
+        east_m = float(sat_enz[0])
+        north_m = float(sat_enz[1])
+        up_m = float(sat_enz[2])
+        max_radius = max(max_radius, math.hypot(east_m, north_m))
+        ax.plot([0.0, east_m], [0.0, north_m], color=color, linewidth=1.5, alpha=0.85)
+        ax.scatter([east_m], [north_m], color=color, edgecolor="white", linewidth=0.8, s=34, zorder=4)
+        ax.text(
+            east_m,
+            north_m,
+            f" #{action_idx}\nel {obs_entry['elevation_deg']:.1f} deg\nup {up_m / 1000.0:.0f} km",
+            color=color,
+            fontsize=7,
+            ha="left",
+            va="bottom",
+        )
+
+    lim = max_radius * 1.15 if max_radius > 0.0 else 1.0
+    ax.set_xlim(-lim, lim)
+    ax.set_ylim(-lim, lim)
+    ax.set_aspect("equal", adjustable="box")
+    ax.set_xlabel("East from target (m)", color=_THEME["text"], fontsize=8)
+    ax.set_ylabel("North from target (m)", color=_THEME["text"], fontsize=8)
+    ax.tick_params(labelsize=7)
+    validity = "valid" if metric_record["valid"] else "invalid"
+    ax.set_title(f"{kind.upper()} look geometry ({validity})", color=_THEME["text"], fontsize=9, pad=2)
+
+
+def _product_sort_key(product: dict[str, Any]) -> tuple[bool, float, float, bool]:
+    metric_record = product["metric_record"]
+    raw_score = float(
+        metric_record.get("q_tri_raw", metric_record.get("q_pair_raw", metric_record.get("score", 0.0)))
+    )
+    return (
+        bool(metric_record["valid"]),
+        float(metric_record.get("score", 0.0)),
+        raw_score,
+        product["kind"] == "tri",
+    )
+
+
+def _collect_product_records(
+    actions: list[Any],
+    satellites: dict[str, Any],
+    targets: dict[str, Any],
+    mission: Any,
+    obs_cache: dict[int, dict[str, Any]],
+) -> list[dict[str, Any]]:
+    pair_cache: dict[tuple[int, int], dict[str, Any]] = {}
+    products: list[dict[str, Any]] = []
+    by_target: dict[str, list[int]] = defaultdict(list)
+    for action_idx, obs_entry in obs_cache.items():
+        by_target[obs_entry["action"].target_id].append(action_idx)
+
+    for _target_id, action_indices in sorted(by_target.items()):
+        action_indices = sorted(action_indices)
+        for pair in combinations(action_indices, 2):
+            stereo_mode = _submitted_pair_mode(mission, obs_cache[pair[0]], obs_cache[pair[1]])
+            if stereo_mode is None:
+                continue
+            pair_record = _pair_metric_record(pair[0], pair[1], obs_cache, mission, stereo_mode)
+            pair_cache[tuple(sorted(pair))] = pair_record
+            products.append(
+                {
+                    "kind": "pair",
+                    "metric_record": pair_record,
+                    "obs_entries": [(pair[0], obs_cache[pair[0]]), (pair[1], obs_cache[pair[1]])],
+                }
+            )
+
+        for tri in combinations(action_indices, 3):
+            edge_modes: list[str] = []
+            tri_pair_records: dict[tuple[int, int], dict[str, Any]] = {}
+            for edge in combinations(tri, 2):
+                edge_key = tuple(sorted(edge))
+                stereo_mode = _submitted_pair_mode(mission, obs_cache[edge[0]], obs_cache[edge[1]])
+                if stereo_mode is None:
+                    break
+                edge_modes.append(stereo_mode)
+                if edge_key not in pair_cache:
+                    pair_cache[edge_key] = _pair_metric_record(edge[0], edge[1], obs_cache, mission, stereo_mode)
+                tri_pair_records[edge_key] = pair_cache[edge_key]
+            if len(edge_modes) != 3:
+                continue
+            tri_record = _tri_metric_record(tuple(tri), obs_cache, tri_pair_records, mission, edge_modes)
+            products.append(
+                {
+                    "kind": "tri",
+                    "metric_record": tri_record,
+                    "obs_entries": [
+                        (tri[0], obs_cache[tri[0]]),
+                        (tri[1], obs_cache[tri[1]]),
+                        (tri[2], obs_cache[tri[2]]),
+                    ],
+                }
+            )
+
+    return sorted(products, key=_product_sort_key, reverse=True)
+
+
+def _render_product_pages(
+    products: list[dict[str, Any]],
+    output_dir: Path,
+    *,
+    case_path: Path,
+    solution_file: Path,
+    report: Any,
+    max_products: int | None,
+    products_per_page: int,
+) -> list[Path]:
+    shown_products = products if max_products is None else products[: max(0, max_products)]
+    products_per_page = max(1, products_per_page)
+    output_dir.mkdir(parents=True, exist_ok=True)
+    for stale_path in output_dir.glob("products_*.png"):
+        stale_path.unlink(missing_ok=True)
+
+    if not shown_products:
+        pages: list[list[dict[str, Any]]] = [[]]
+    else:
+        pages = [
+            shown_products[start : start + products_per_page]
+            for start in range(0, len(shown_products), products_per_page)
         ]
-    )
 
-    fig.update_layout(
-        title=dict(
-            text=f"{kind.upper()} ECEF view: {target_def.target_id}",
-            x=0.03,
-            xanchor="left",
-        ),
-        scene=dict(
-            domain=dict(x=[0.0, 0.72], y=[0.0, 1.0]),
-            xaxis=dict(
-                title="ECEF X (m)",
-                showbackground=False,
-                showgrid=False,
-                zeroline=False,
-                range=[-axis_limit, axis_limit],
+    output_paths: list[Path] = []
+    for page_idx, page_products in enumerate(pages, start=1):
+        n_rows = max(1, len(page_products))
+        fig_height = 1.2 + 3.1 * n_rows
+        fig = plt.figure(figsize=(18, fig_height), constrained_layout=True)
+        fig.patch.set_facecolor(_THEME["background"])
+        gs = fig.add_gridspec(
+            n_rows + 1,
+            4,
+            height_ratios=[0.38, *([1.0] * n_rows)],
+            width_ratios=[1.05, 1.05, 1.05, 1.25],
+        )
+
+        ax_header = fig.add_subplot(gs[0, :])
+        ax_header.axis("off")
+        ax_header.text(
+            0.0,
+            0.95,
+            f"Stereo imaging evaluated products: {case_path.name}",
+            va="top",
+            ha="left",
+            fontsize=14,
+            fontweight="bold",
+            color=_THEME["text"],
+        )
+        ax_header.text(
+            0.0,
+            0.35,
+            (
+                f"Solution: {solution_file.name}  |  Verifier valid: {report.valid}  |  "
+                f"Products shown: {len(shown_products)}/{len(products)}  |  Page {page_idx}/{len(pages)}"
             ),
-            yaxis=dict(
-                title="ECEF Y (m)",
-                showbackground=False,
-                showgrid=False,
-                zeroline=False,
-                range=[-axis_limit, axis_limit],
-            ),
-            zaxis=dict(
-                title="ECEF Z (m)",
-                showbackground=False,
-                showgrid=False,
-                zeroline=False,
-                range=[-axis_limit, axis_limit],
-            ),
-            aspectmode="cube",
-            camera=dict(eye=dict(x=1.5, y=1.5, z=1.1)),
-            bgcolor="#0b1220",
-        ),
-        paper_bgcolor="#ffffff",
-        plot_bgcolor="#ffffff",
-        margin=dict(l=10, r=280, t=60, b=10),
-        legend=dict(
-            x=0.01,
-            y=0.98,
-            bgcolor="rgba(255,255,255,0.8)",
-        ),
-        annotations=[
-            dict(
-                x=1.02,
-                y=0.98,
-                xref="paper",
-                yref="paper",
-                xanchor="left",
-                yanchor="top",
-                align="left",
-                showarrow=False,
-                bordercolor=validity_color,
-                borderwidth=2,
-                borderpad=8,
-                bgcolor="#fbfcfe",
-                font=dict(size=12, color=_THEME["text"]),
-                text=metrics_text,
+            va="top",
+            ha="left",
+            fontsize=10,
+            color=_THEME["muted"],
+        )
+
+        if not page_products:
+            ax_empty = fig.add_subplot(gs[1, :])
+            ax_empty.axis("off")
+            ax_empty.text(
+                0.5,
+                0.5,
+                "No evaluated pair or tri-stereo products found in this solution.",
+                ha="center",
+                va="center",
+                fontsize=12,
+                color=_THEME["muted"],
             )
-        ],
-    )
+        else:
+            for row_idx, product in enumerate(page_products, start=1):
+                kind = product["kind"]
+                metric_record = product["metric_record"]
+                obs_entries = product["obs_entries"]
+                ax_3d = fig.add_subplot(gs[row_idx, 0])
+                _draw_product_3d(ax_3d, kind, metric_record, obs_entries)
 
-    out_path.parent.mkdir(parents=True, exist_ok=True)
-    fig.write_html(out_path, include_plotlyjs="directory", full_html=True)
+                ax_local = fig.add_subplot(gs[row_idx, 1])
+                _draw_product_local_view(ax_local, kind, metric_record, obs_entries)
+
+                ax_look = fig.add_subplot(gs[row_idx, 2])
+                _draw_product_look_view(ax_look, kind, metric_record, obs_entries)
+
+                ax_text = fig.add_subplot(gs[row_idx, 3])
+                ax_text.axis("off")
+                validity_color = _THEME["valid"] if metric_record["valid"] else _THEME["invalid"]
+                ax_text.text(
+                    0.0,
+                    1.0,
+                    "\n".join(_product_metric_lines(kind, metric_record, obs_entries)),
+                    va="top",
+                    ha="left",
+                    fontsize=8.2,
+                    color=_THEME["text"],
+                    family="monospace",
+                    linespacing=1.25,
+                    bbox=dict(
+                        boxstyle="round,pad=0.45",
+                        facecolor="#fbfcfe",
+                        edgecolor=validity_color,
+                        linewidth=1.2,
+                    ),
+                )
+
+        out_path = output_dir / f"products_{page_idx:03d}.png"
+        fig.savefig(out_path, dpi=160, bbox_inches="tight")
+        plt.close(fig)
+        output_paths.append(out_path)
+    return output_paths
 
 
-def render_batch(
+def render_products(
     case_dir: str | Path,
     solution_path: str | Path,
     out_dir: str | Path | None = None,
     *,
-    limit: int | None = None,
-) -> Path:
+    max_products: int | None = 24,
+    products_per_page: int = 4,
+) -> list[Path]:
     case_path = Path(case_dir)
     solution_file = Path(solution_path)
     mission, satellites, targets = load_case(case_path)
     actions = load_solution_actions(solution_file, case_path.name)
     report = verify_solution(case_path, solution_file)
-    output_dir = _candidate_output_dir(case_path, out_dir)
-    output_dir.mkdir(parents=True, exist_ok=True)
-    for pattern in ("pair__*.png", "tri__*.png", "pair__*.html", "tri__*.html"):
-        for stale_path in output_dir.glob(pattern):
+    output_dir = _products_output_dir(case_path, out_dir)
+
+    legacy_output_dir = _DEFAULT_OUTPUT_ROOT / case_path.name / "batch"
+    cleanup_dirs = {output_dir, legacy_output_dir}
+    for cleanup_dir in cleanup_dirs:
+        for pattern in ("pair__*.png", "tri__*.png", "pair__*.html", "tri__*.html"):
+            for stale_path in cleanup_dir.glob(pattern):
+                stale_path.unlink(missing_ok=True)
+        for stale_path in (cleanup_dir / "manifest.json", cleanup_dir / "plotly.min.js"):
             stale_path.unlink(missing_ok=True)
-    (output_dir / "manifest.json").unlink(missing_ok=True)
 
     derived_by_idx = _derived_by_action_index(report, actions, satellites, targets)
     sf_sats = _satellite_cache(satellites)
     target_ecef = {target_id: _target_ecef_m(target) for target_id, target in targets.items()}
     obs_cache = _observation_cache(actions, derived_by_idx, satellites, targets, sf_sats, target_ecef)
-
-    pair_cache: dict[tuple[int, int], dict[str, Any]] = {}
-    manifest_items: list[dict[str, Any]] = []
-    render_count = 0
-
-    for (_group_key, action_indices) in _candidate_groups(actions, satellites, targets):
-        for pair in combinations(action_indices, 2):
-            if limit is not None and render_count >= limit:
-                break
-            pair_record = _pair_metric_record(pair[0], pair[1], obs_cache, mission)
-            pair_cache[tuple(sorted(pair))] = pair_record
-            out_path = output_dir / (
-                f"pair__{actions[pair[0]].satellite_id}__{actions[pair[0]].target_id}__"
-                f"{pair[0]}_{pair[1]}.html"
-            )
-            _render_candidate_figure(
-                "pair",
-                pair_record,
-                [(pair[0], obs_cache[pair[0]]), (pair[1], obs_cache[pair[1]])],
-                out_path,
-            )
-            manifest_items.append(
-                {
-                    "kind": "pair",
-                    "action_indices": [pair[0], pair[1]],
-                    "satellite_id": actions[pair[0]].satellite_id,
-                    "target_id": actions[pair[0]].target_id,
-                    "access_interval_ids": [
-                        obs_cache[pair[0]]["derived"]["access_interval_id"],
-                        obs_cache[pair[1]]["derived"]["access_interval_id"],
-                    ],
-                    "valid": pair_record["valid"],
-                    "score": pair_record["score"],
-                    "output_path": str(out_path),
-                }
-            )
-            render_count += 1
-        if limit is not None and render_count >= limit:
-            break
-        for tri in combinations(action_indices, 3):
-            if limit is not None and render_count >= limit:
-                break
-            tri_record = _tri_metric_record(tuple(tri), obs_cache, pair_cache, mission)
-            out_path = output_dir / (
-                f"tri__{actions[tri[0]].satellite_id}__{actions[tri[0]].target_id}__"
-                f"{tri[0]}_{tri[1]}_{tri[2]}.html"
-            )
-            _render_candidate_figure(
-                "tri",
-                tri_record,
-                [(tri[0], obs_cache[tri[0]]), (tri[1], obs_cache[tri[1]]), (tri[2], obs_cache[tri[2]])],
-                out_path,
-            )
-            manifest_items.append(
-                {
-                    "kind": "tri",
-                    "action_indices": list(tri),
-                    "satellite_id": actions[tri[0]].satellite_id,
-                    "target_id": actions[tri[0]].target_id,
-                    "access_interval_ids": [obs_cache[idx]["derived"]["access_interval_id"] for idx in tri],
-                    "valid": tri_record["valid"],
-                    "score": tri_record["score"],
-                    "output_path": str(out_path),
-                }
-            )
-            render_count += 1
-        if limit is not None and render_count >= limit:
-            break
-
-    manifest = {
-        "case_id": case_path.name,
-        "solution_path": str(solution_file),
-        "verifier_valid": report.valid,
-        "verifier_violations": report.violations,
-        "rendered_pairs": sum(1 for item in manifest_items if item["kind"] == "pair"),
-        "rendered_tris": sum(1 for item in manifest_items if item["kind"] == "tri"),
-        "items": manifest_items,
-    }
-    _serialize_json(manifest, output_dir / "manifest.json")
-    return output_dir
+    products = _collect_product_records(actions, satellites, targets, mission, obs_cache)
+    return _render_product_pages(
+        products,
+        output_dir,
+        case_path=case_path,
+        solution_file=solution_file,
+        report=report,
+        max_products=max_products,
+        products_per_page=products_per_page,
+    )
 
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(
-        description="Stereo imaging visualizer with overview and batch geometry rendering.",
+        description="Stereo imaging visualizer with overview and evaluated-product rendering.",
     )
     subparsers = parser.add_subparsers(dest="command", required=True)
 
@@ -1088,29 +1284,38 @@ def main(argv: list[str] | None = None) -> int:
         help="Maximum representative satellite tracks to draw; use 0 to hide tracks (default: 4)",
     )
 
-    batch_parser = subparsers.add_parser("batch", help="Render pair and tri geometry snapshots.")
-    batch_parser.add_argument(
-        "--case-dir",
-        required=True,
-        help="Path to dataset/cases/<case_id>",
-    )
-    batch_parser.add_argument(
-        "--solution-path",
-        required=True,
-        help="Path to solution JSON",
-    )
-    batch_parser.add_argument(
-        "--out-dir",
-        type=Path,
-        default=None,
-        help="Directory for batch HTML outputs (default: benchmarks/stereo_imaging/visualizer/plots/<case>/batch)",
-    )
-    batch_parser.add_argument(
-        "--limit",
-        type=int,
-        default=None,
-        help="Optional cap on total rendered images",
-    )
+    def add_products_args(command_parser: argparse.ArgumentParser) -> None:
+        command_parser.add_argument(
+            "--case-dir",
+            required=True,
+            help="Path to dataset/cases/<case_id>",
+        )
+        command_parser.add_argument(
+            "--solution-path",
+            required=True,
+            help="Path to solution JSON",
+        )
+        command_parser.add_argument(
+            "--out-dir",
+            type=Path,
+            default=None,
+            help="Directory for products_*.png pages (default: benchmarks/stereo_imaging/visualizer/plots/<case>/products)",
+        )
+        command_parser.add_argument(
+            "--max-products",
+            type=int,
+            default=24,
+            help="Maximum evaluated products to render across all pages (default: 24)",
+        )
+        command_parser.add_argument(
+            "--products-per-page",
+            type=int,
+            default=4,
+            help="Maximum evaluated products per PNG page (default: 4)",
+        )
+
+    products_parser = subparsers.add_parser("products", help="Render evaluated stereo product PNG pages.")
+    add_products_args(products_parser)
 
     args = parser.parse_args(argv)
 
@@ -1125,13 +1330,14 @@ def main(argv: list[str] | None = None) -> int:
         print(f"Wrote overview image to {out_path}")
         return 0
 
-    output_dir = render_batch(
+    output_paths = render_products(
         args.case_dir,
         args.solution_path,
         args.out_dir,
-        limit=args.limit,
+        max_products=args.max_products,
+        products_per_page=args.products_per_page,
     )
-    print(f"Wrote batch outputs to {output_dir}")
+    print(f"Wrote {len(output_paths)} product image page(s) to {output_paths[0].parent}")
     return 0
 
 

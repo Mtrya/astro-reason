@@ -345,13 +345,15 @@ The canonical generator writes cases under `dataset/cases/test/` and updates `da
 uv run python -m benchmarks.stereo_imaging.visualizer.run overview \
     --case-dir benchmarks/stereo_imaging/dataset/cases/test/case_0001
 
-# Batch ECEF geometry plots for all stereo candidates in a solution:
-uv run python -m benchmarks.stereo_imaging.visualizer.run batch \
+# Evaluated stereo product pages for a submitted solution:
+uv run python -m benchmarks.stereo_imaging.visualizer.run products \
     --case-dir benchmarks/stereo_imaging/dataset/cases/test/case_0001 \
     --solution-path path/to/solution.json
 ```
 
-The overview renders a small representative set of satellite ground tracks as a muted context layer so target geography remains readable on multi-satellite cases. Use `--max-ground-tracks` to increase, reduce, or hide that layer. Default outputs go to `benchmarks/stereo_imaging/visualizer/plots/<case_id>/`.
+The overview renders a small representative set of satellite ground tracks as a muted context layer so target geography remains readable on multi-satellite cases. Use `--max-ground-tracks` to increase, reduce, or hide that layer.
+
+The products command writes human/VLM-facing PNG pages under `benchmarks/stereo_imaging/visualizer/plots/<case_id>/products/` by default. Use `--max-products` and `--products-per-page` to choose how many evaluated pair/tri-stereo products to render. Each product row includes a target-facing Earth view, a target-local ground swath overlap plot, look geometry, and concise product metrics.
 
 ### Tests
 
