@@ -5,7 +5,7 @@ ENV DEBIAN_FRONTEND=noninteractive
 ENV UV_TOOL_BIN_DIR=/usr/local/bin
 ENV UV_TOOL_DIR=/usr/local/lib/uv/tools
 ENV FACTORY_INSTALL_HOME=/usr/local/share/factory-home
-ENV JAVA_HOME=/usr/lib/jvm/java-17-openjdk-amd64
+ENV JAVA_HOME=/usr/lib/jvm/java-17-openjdk
 ENV PATH="${FACTORY_INSTALL_HOME}/.factory/bin:/usr/local/bin:${PATH}"
 ENV DISABLE_AUTOUPDATER=1
 
@@ -22,6 +22,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     ripgrep \
     tree \
     vim-tiny \
+    && ln -sfn /usr/lib/jvm/java-17-openjdk-$(dpkg --print-architecture) "$JAVA_HOME" \
     && rm -rf /var/lib/apt/lists/*
 
 RUN mkdir -p /etc/apt/keyrings \
