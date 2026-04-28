@@ -209,17 +209,13 @@ def test_aggregate_rows_project_revisit_metrics_from_declared_paths(tmp_path: Pa
                         "capped_max_revisit_gap_hours": 9.5,
                         "worst_target_capped_max_revisit_gap_hours": 12.0,
                         "max_revisit_gap_hours": 11.0,
-                        "mean_revisit_gap_hours": 7.25,
                         "threshold_violation_count": 2,
                     },
                 },
                 "solver_status": {
-                    "baseline_evidence": {
-                        "counts": {
-                            "selected_satellite_count": 4,
-                            "action_count": 12,
-                        }
-                    }
+                    "timing_seconds": {
+                        "total": 18.5,
+                    },
                 },
             }
         ),
@@ -232,4 +228,6 @@ def test_aggregate_rows_project_revisit_metrics_from_declared_paths(tmp_path: Pa
     assert rows[0]["capped_max_revisit_gap_hours"] == 9.5
     assert rows[0]["worst_target_capped_max_revisit_gap_hours"] == 12.0
     assert rows[0]["threshold_violation_count"] == 2
-    assert rows[0]["selected_satellite_count"] == 4
+    assert rows[0]["solver_timing_total_s"] == 18.5
+    assert "mean_revisit_gap_hours" not in rows[0]
+    assert "selected_satellite_count" not in rows[0]

@@ -16,58 +16,8 @@ aggregate_metrics:
     source: verifier.metrics.num_actions
   - name: min_battery_wh
     source: verifier.metrics.min_battery_wh
-  - name: execution_mode
-    source: solver_status.execution_mode
   - name: solver_timing_total_s
     source: solver_status.timing_seconds.total
-  - name: timing_case_parsing_s
-    source: solver_status.timing_seconds.wall_phases.case_parsing
-  - name: timing_coverage_index_s
-    source: solver_status.timing_seconds.wall_phases.coverage_index
-  - name: timing_candidate_generation_s
-    source: solver_status.timing_seconds.wall_phases.candidate_generation
-  - name: timing_search_s
-    source: solver_status.timing_seconds.wall_phases.search
-  - name: timing_solution_writing_s
-    source: solver_status.timing_seconds.wall_phases.solution_writing
-  - name: timing_debug_writing_s
-    source: solver_status.timing_seconds.wall_phases.debug_writing
-  - name: timing_local_validation_s
-    source: solver_status.timing_seconds.wall_phases.local_validation
-  - name: candidate_execution_model
-    source: solver_status.candidate_summary.execution_model
-  - name: candidate_worker_count
-    source: solver_status.candidate_summary.worker_count
-  - name: candidate_count
-    source: solver_status.candidate_summary.candidate_count
-  - name: positive_coverage_candidate_count
-    source: solver_status.candidate_summary.positive_coverage_candidate_count
-  - name: evaluated_candidate_count
-    source: solver_status.candidate_summary.evaluated_candidate_count
-  - name: propagated_window_count
-    source: solver_status.candidate_summary.propagated_window_count
-  - name: cached_state_sample_reuse_count
-    source: solver_status.candidate_summary.cached_state_sample_reuse_count
-  - name: search_configured_run_count
-    source: solver_status.search_summary.configured_run_count
-  - name: search_completed_run_count
-    source: solver_status.search_summary.completed_run_count
-  - name: search_best_seed
-    source: solver_status.search_summary.best_seed
-  - name: search_stop_reason
-    source: solver_status.search_summary.stop_reason
-  - name: greedy_random_choice_probability
-    source: solver_status.greedy_summary.random_choice_probability
-  - name: greedy_random_choices
-    source: solver_status.greedy_summary.random_choices
-  - name: local_search_iterations
-    source: solver_status.local_search_summary.iterations
-  - name: local_search_attempted_moves
-    source: solver_status.local_search_summary.attempted_moves
-  - name: local_search_accepted_moves
-    source: solver_status.local_search_summary.accepted_moves
-  - name: local_search_stop_reason
-    source: solver_status.local_search_summary.stop_reason
 config:
   candidate_generation:
     time_stride_s: 150

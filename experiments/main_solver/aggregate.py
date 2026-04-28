@@ -156,14 +156,17 @@ def _base_row(payload: dict[str, Any], run_path: Path) -> dict[str, Any]:
 
 def _rows(results_root: Path) -> list[dict[str, Any]]:
     profiles = _load_solver_profiles()
+    solver_declarations = {
+        solver_id: _aggregate_metric_declarations(profile)
+        for solver_id, profile in profiles.items()
+    }
     rows: list[dict[str, Any]] = []
     for run_path in sorted(results_root.glob("*/*/*/run.json")):
         payload = _read_run_json(run_path)
         row = _base_row(payload, run_path)
         solver = payload.get("solver")
-        profile = profiles.get(solver) if isinstance(solver, str) else None
-        if profile is not None:
-            for declaration in _aggregate_metric_declarations(profile):
+        if isinstance(solver, str):
+            for declaration in solver_declarations.get(solver, []):
                 value = _dot_path(payload, declaration["source"])
                 row[declaration["name"]] = (
                     _json_compact(value) if isinstance(value, (dict, list)) else value

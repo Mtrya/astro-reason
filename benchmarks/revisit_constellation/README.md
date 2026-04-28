@@ -151,7 +151,7 @@ The verifier reports these metrics for valid solutions:
 
 - `capped_max_revisit_gap_hours`: per-target max revisit gap floored at that target's expected revisit period, then aggregated by mean
 - `num_satellites`
-- `target_gap_summary`: per-target breakdown with `expected_revisit_period_hours`, `max_revisit_gap_hours`, `mean_revisit_gap_hours`, and `observation_count`
+- `target_gap_summary`: per-target breakdown with `expected_revisit_period_hours`, `max_revisit_gap_hours`, and `observation_count`
 
 The intended ranking logic is:
 

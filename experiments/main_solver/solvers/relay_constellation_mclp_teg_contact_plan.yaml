@@ -19,10 +19,6 @@ aggregate_metrics:
     source: verifier.metrics.latency_p95_ms
   - name: num_added_satellites
     source: verifier.metrics.num_added_satellites
-  - name: execution_mode
-    source: solver_status.execution_mode
-  - name: candidate_count
-    source: solver_status.candidate_count
 config:
   profile: reproduction
   profile_version: "1"
