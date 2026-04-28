@@ -1,1 +1,11 @@
-[]
+[
+  {
+    "RESOURCE": "DSS-34",
+    "SC": "521",
+    "START_TIME": 1520286007,
+    "TRACKING_ON": 1520289607,
+    "TRACKING_OFF": 1520293207,
+    "END_TIME": 1520294107,
+    "TRACK_ID": "fc9bbb54-3-1"
+  }
+]

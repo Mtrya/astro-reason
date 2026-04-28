@@ -29,6 +29,9 @@ import yaml
 UPSTREAM_DATASET_URL = "https://data.mendeley.com/public-api/zip/2kbzg9nw3b/download/1"
 UPSTREAM_DATASET_PAGE = "https://data.mendeley.com/datasets/2kbzg9nw3b/1"
 DOWNLOAD_USER_AGENT = "Mozilla/5.0 AstroReason-Bench/1.0"
+WEIGHT_DIVISOR = 451
+FIXED_CAPACITY = 200
+MULTI_ORBIT_INSTANCES = {"1021", "1401", "1403", "1405", "1502", "1504", "1506"}
 
 
 def _write_json(path: Path, data: object) -> None:
@@ -165,14 +168,107 @@ def extract_zip_tree(zip_path: Path, destination: Path) -> None:
             archive.extractall(nested_destination)
 
 
-def build_example_solution(case_id: str, n_candidates: int) -> dict:
-    """Return a minimal example solution for smoke tests."""
+def _parse_spot_for_example(path: Path) -> tuple[list[dict], list[tuple[list[int], set[tuple[int, ...]]]]]:
+    lines = [line.strip() for line in path.read_text(encoding="utf-8").splitlines() if line.strip()]
+    if not lines:
+        return [], []
+
+    idx = 0
+    variable_count = int(lines[idx])
+    idx += 1
+    variables: list[dict] = []
+    for _ in range(variable_count):
+        parts = lines[idx].split()
+        idx += 1
+        domain_size = int(parts[2])
+        domain = [
+            {
+                "value": int(parts[3 + 2 * domain_idx]),
+                "consumption": float(parts[4 + 2 * domain_idx]),
+            }
+            for domain_idx in range(domain_size)
+        ]
+        variables.append(
+            {
+                "var_id": int(parts[0]),
+                "profit": int(parts[1]),
+                "domain": domain,
+            }
+        )
+
+    if idx >= len(lines):
+        return variables, []
+
+    constraint_count = int(lines[idx])
+    idx += 1
+    constraints: list[tuple[list[int], set[tuple[int, ...]]]] = []
+    for _ in range(constraint_count):
+        parts = lines[idx].split()
+        if len(parts) == 1:
+            break
+        idx += 1
+        arity = int(parts[0])
+        variable_ids = [int(parts[1 + arity_idx]) for arity_idx in range(arity)]
+        tuple_values = [int(value) for value in parts[1 + arity :]]
+        forbidden = {
+            tuple(tuple_values[offset : offset + arity])
+            for offset in range(0, len(tuple_values), arity)
+        }
+        constraints.append((variable_ids, forbidden))
+    return variables, constraints
+
+
+def build_example_solution(case_id: str, instance_path: Path) -> dict:
+    """Return a deterministic constructive example solution for smoke tests."""
+
+    variables, constraints = _parse_spot_for_example(instance_path)
+    assignments = [0] * len(variables)
+    is_multi_orbit = case_id in MULTI_ORBIT_INSTANCES
+    current_weight = 0
+
+    def assignment_is_valid(var_id: int, value: int) -> bool:
+        assignments[var_id] = value
+        try:
+            for variable_ids, forbidden in constraints:
+                values = [assignments[item_id] for item_id in variable_ids]
+                if all(values) and tuple(values) in forbidden:
+                    return False
+            return True
+        finally:
+            assignments[var_id] = 0
+
+    for variable in sorted(variables, key=lambda item: (-item["profit"], item["var_id"])):
+        var_id = int(variable["var_id"])
+        domain = sorted(
+            variable["domain"],
+            key=lambda item: (
+                round(float(item["consumption"]) / WEIGHT_DIVISOR),
+                int(item["value"]),
+            ),
+        )
+        for option in domain:
+            additional_weight = (
+                round(float(option["consumption"]) / WEIGHT_DIVISOR) if is_multi_orbit else 0
+            )
+            if is_multi_orbit and current_weight + additional_weight > FIXED_CAPACITY:
+                continue
+            if not assignment_is_valid(var_id, int(option["value"])):
+                continue
+            assignments[var_id] = int(option["value"])
+            current_weight += additional_weight
+            break
+
+    claimed_profit = sum(
+        int(variables[index]["profit"])
+        for index, assignment in enumerate(assignments)
+        if assignment != 0
+    )
     return {
-        "claimed_profit": 0,
-        "claimed_weight": 0,
-        "n_candidates": n_candidates,
-        "n_selected": 0,
-        "assignments": [0] * n_candidates,
+        "claimed_profit": claimed_profit,
+        "claimed_weight": current_weight,
+        "n_candidates": len(assignments),
+        "n_selected": sum(1 for assignment in assignments if assignment != 0),
+        "assignments": assignments,
     }
 
 
@@ -219,12 +315,8 @@ def build_case_dataset(
             destination = case_dir / f"{case_id}.spot"
             shutil.copyfile(source_path, destination)
 
-            spot_content = destination.read_text()
-            lines = spot_content.strip().splitlines()
-            n_vars = int(lines[0].strip()) if lines else 0
-
             if split_name == smoke_split and case_id == smoke_case_id:
-                example_solution = build_example_solution(case_id, n_vars)
+                example_solution = build_example_solution(case_id, destination)
 
             index["cases"].append(
                 {

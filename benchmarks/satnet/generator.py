@@ -157,6 +157,78 @@ def build_local_provenance(source_dir: Path, description: str | None = None) -> 
     return provenance
 
 
+def _intervals_overlap(a0: int, a1: int, b0: int, b1: int) -> bool:
+    return not (a1 <= b0 or b1 <= a0)
+
+
+def _maintenance_clear(
+    resources: list[str],
+    start_time: int,
+    end_time: int,
+    maintenance_rows: list[dict],
+) -> bool:
+    for row in maintenance_rows:
+        if row.get("antenna") not in resources:
+            continue
+        if _intervals_overlap(
+            start_time,
+            end_time,
+            int(float(row["starttime"])),
+            int(float(row["endtime"])),
+        ):
+            return False
+    return True
+
+
+def _normalize_vp_bounds(vp: dict) -> tuple[int, int]:
+    start = vp.get("TRX ON") or vp.get("TRX_ON") or vp.get("RISE")
+    end = vp.get("TRX OFF") or vp.get("TRX_OFF") or vp.get("SET")
+    if start is None or end is None:
+        raise ValueError(f"Invalid VP entry: {vp!r}")
+    return int(start), int(end)
+
+
+def build_example_solution(requests: list[dict], maintenance_rows: list[dict]) -> list[dict]:
+    """Return a deterministic one-track constructive smoke solution when possible."""
+
+    for request in requests:
+        setup_s = int(float(request["setup_time"]) * 60)
+        teardown_s = int(float(request["teardown_time"]) * 60)
+        requested_duration_s = int(float(request["duration"]) * 3600.0)
+        minimum_duration_s = int(float(request["duration_min"]) * 3600.0)
+        if requested_duration_s >= 8 * 3600:
+            minimum_duration_s = min(minimum_duration_s, 4 * 3600)
+
+        for resource_key, view_periods in request["resource_vp_dict"].items():
+            resources = resource_key.split("_")
+            for view_period in view_periods:
+                vp_start, vp_end = _normalize_vp_bounds(view_period)
+                tracking_on = max(vp_start, int(request["time_window_start"]) + setup_s)
+                tracking_off = tracking_on + minimum_duration_s
+                start_time = tracking_on - setup_s
+                end_time = tracking_off + teardown_s
+
+                if tracking_off > vp_end or end_time > int(request["time_window_end"]):
+                    continue
+                if not _maintenance_clear(resources, start_time, end_time, maintenance_rows):
+                    continue
+
+                return [
+                    {
+                        "RESOURCE": resource,
+                        "SC": str(request["subject"]),
+                        "START_TIME": start_time,
+                        "TRACKING_ON": tracking_on,
+                        "TRACKING_OFF": tracking_off,
+                        "END_TIME": end_time,
+                        "TRACK_ID": str(request["track_id"]),
+                    }
+                    for resource in resources
+                ]
+
+    raise ValueError("Could not construct a valid SatNet example solution for smoke case")
+
+
 def build_case_dataset(
     problems: dict,
     maintenance_rows: list[dict],
@@ -216,7 +288,7 @@ def build_case_dataset(
             _write_json(case_dir / "metadata.json", metadata)
 
             if split_name == smoke_split and case_id == smoke_case_id:
-                example_solution = []
+                example_solution = build_example_solution(requests, case_maintenance)
 
             index["cases"].append(
                 {

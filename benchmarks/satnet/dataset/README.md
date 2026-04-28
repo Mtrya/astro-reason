@@ -29,8 +29,9 @@ Each case directory contains everything required to verify one SatNet instance:
 Shared, non-verifier-critical benchmark metadata remains at dataset scope:
 
 - `index.json`: dataset manifest and dataset-level provenance
-- `example_solution.json`: one minimal runnable solution at dataset scope (same
-  schema as a real submission) for verifier smoke tests; these are not baselines
+- `example_solution.json`: one constructive one-track solution at dataset scope
+  (same schema as a real submission) for verifier smoke tests; this is not a
+  baseline
 - `mission_color_map.json`: mission display metadata carried over from the
   upstream SatNet release
 
@@ -52,3 +53,7 @@ source or a local copy of the upstream `data/` directory:
 ```bash
 uv run python benchmarks/satnet/generator.py benchmarks/satnet/splits.yaml
 ```
+
+The generator builds `example_solution.json` directly from the configured smoke
+case by selecting the first request/view-period combination that can host one
+minimum-duration track without maintenance overlap.

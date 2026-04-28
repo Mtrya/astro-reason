@@ -18,14 +18,22 @@ from benchmarks.spot5.generator import (
 
 
 PROJECT_ROOT = Path(__file__).parent.parent.parent
+SMALL_SPOT = (
+    "2\n"
+    "0 5 1 1 0\n"
+    "1 3 1 1 0\n"
+    "1\n"
+    "2 0 1 1 1\n"
+)
+MULTI_SPOT = "1\n0 2 1 1 451\n0\n"
 
 
 def test_build_case_dataset_from_local_source_dir(tmp_path):
     source_dir = tmp_path / "raw"
     source_dir.mkdir()
 
-    (source_dir / "8.spot").write_text("8\n0\n")
-    (source_dir / "1502.spot").write_text("1502\n0\n")
+    (source_dir / "8.spot").write_text(SMALL_SPOT)
+    (source_dir / "1502.spot").write_text(MULTI_SPOT)
 
     output_dir = tmp_path / "output"
     build_case_dataset(
@@ -51,9 +59,17 @@ def test_build_case_dataset_from_local_source_dir(tmp_path):
     assert any(item["path"] == "cases/test/8" for item in index["cases"])
     assert index["source"]["kind"] == "local_directory"
 
-    assert (output_dir / "cases" / "single_orbit" / "8" / "8.spot").read_text() == "8\n0\n"
-    assert (output_dir / "cases" / "multi_orbit" / "1502" / "1502.spot").read_text() == "1502\n0\n"
-    assert (output_dir / "cases" / "test" / "8" / "8.spot").read_text() == "8\n0\n"
+    example = json.loads((output_dir / "example_solution.json").read_text(encoding="utf-8"))
+    assert example == {
+        "claimed_profit": 5,
+        "claimed_weight": 0,
+        "n_candidates": 2,
+        "n_selected": 1,
+        "assignments": [1, 0],
+    }
+    assert (output_dir / "cases" / "single_orbit" / "8" / "8.spot").read_text() == SMALL_SPOT
+    assert (output_dir / "cases" / "multi_orbit" / "1502" / "1502.spot").read_text() == MULTI_SPOT
+    assert (output_dir / "cases" / "test" / "8" / "8.spot").read_text() == SMALL_SPOT
 
 
 def test_download_upstream_zip_uses_explicit_user_agent(monkeypatch, tmp_path):
@@ -113,7 +129,7 @@ def test_main_requires_splits_yaml(monkeypatch, capsys):
 def test_main_builds_dataset_from_local_nested_zip(monkeypatch, tmp_path):
     inner_zip = tmp_path / "inner.zip"
     with zipfile.ZipFile(inner_zip, "w") as archive:
-        archive.writestr("SPOT5 benchmarks/8.spot", "8\n0\n")
+        archive.writestr("SPOT5 benchmarks/8.spot", SMALL_SPOT)
 
     outer_zip = tmp_path / "outer.zip"
     with zipfile.ZipFile(outer_zip, "w") as archive:
@@ -146,6 +162,8 @@ def test_main_builds_dataset_from_local_nested_zip(monkeypatch, tmp_path):
     )
 
     assert generator_module.main() == 0
-    assert (output_dir / "cases" / "single_orbit" / "8" / "8.spot").read_text() == "8\n0\n"
+    assert (output_dir / "cases" / "single_orbit" / "8" / "8.spot").read_text() == SMALL_SPOT
     index = json.loads((output_dir / "index.json").read_text(encoding="utf-8"))
+    example = json.loads((output_dir / "example_solution.json").read_text(encoding="utf-8"))
     assert index["example_smoke_case"] == "single_orbit/8"
+    assert example["n_selected"] == 1

@@ -1,4 +1,777 @@
 {
-  "actions": [],
-  "satellites": []
+  "actions": [
+    {
+      "action_type": "observation",
+      "end": "2025-07-17T13:32:30Z",
+      "satellite_id": "rgt_np29_nd02_i0978_slot09_rgt_apc",
+      "start": "2025-07-17T13:32:00Z",
+      "target_id": "target_015"
+    },
+    {
+      "action_type": "observation",
+      "end": "2025-07-17T15:58:30Z",
+      "satellite_id": "rgt_np29_nd02_i0978_slot00_rgt_apc",
+      "start": "2025-07-17T15:58:00Z",
+      "target_id": "target_016"
+    },
+    {
+      "action_type": "observation",
+      "end": "2025-07-17T16:08:30Z",
+      "satellite_id": "rgt_np29_nd02_i0324_slot12_rgt_apc",
+      "start": "2025-07-17T16:08:00Z",
+      "target_id": "target_004"
+    },
+    {
+      "action_type": "observation",
+      "end": "2025-07-17T16:44:30Z",
+      "satellite_id": "rgt_np29_nd02_i0978_slot00_rgt_apc",
+      "start": "2025-07-17T16:44:00Z",
+      "target_id": "target_023"
+    },
+    {
+      "action_type": "observation",
+      "end": "2025-07-17T17:08:30Z",
+      "satellite_id": "rgt_np29_nd02_i0324_slot00_rgt_apc",
+      "start": "2025-07-17T17:08:00Z",
+      "target_id": "target_009"
+    },
+    {
+      "action_type": "observation",
+      "end": "2025-07-17T17:18:30Z",
+      "satellite_id": "rgt_np29_nd02_i0776_slot06_rgt_apc",
+      "start": "2025-07-17T17:18:00Z",
+      "target_id": "target_020"
+    },
+    {
+      "action_type": "observation",
+      "end": "2025-07-17T17:54:30Z",
+      "satellite_id": "rgt_np29_nd02_i0634_slot09_rgt_apc",
+      "start": "2025-07-17T17:54:00Z",
+      "target_id": "target_005"
+    },
+    {
+      "action_type": "observation",
+      "end": "2025-07-17T18:06:30Z",
+      "satellite_id": "rgt_np29_nd02_i0540_slot18_rgt_apc",
+      "start": "2025-07-17T18:06:00Z",
+      "target_id": "target_018"
+    },
+    {
+      "action_type": "observation",
+      "end": "2025-07-17T18:16:30Z",
+      "satellite_id": "rgt_np29_nd02_i0540_slot18_rgt_apc",
+      "start": "2025-07-17T18:16:00Z",
+      "target_id": "target_010"
+    },
+    {
+      "action_type": "observation",
+      "end": "2025-07-17T19:08:30Z",
+      "satellite_id": "rgt_np29_nd02_i0978_slot18_rgt_apc",
+      "start": "2025-07-17T19:08:00Z",
+      "target_id": "target_017"
+    },
+    {
+      "action_type": "observation",
+      "end": "2025-07-17T19:56:30Z",
+      "satellite_id": "rgt_np29_nd02_i0634_slot09_rgt_apc",
+      "start": "2025-07-17T19:56:00Z",
+      "target_id": "target_014"
+    },
+    {
+      "action_type": "observation",
+      "end": "2025-07-17T20:08:30Z",
+      "satellite_id": "rgt_np29_nd02_i0324_slot00_rgt_apc",
+      "start": "2025-07-17T20:08:00Z",
+      "target_id": "target_007"
+    },
+    {
+      "action_type": "observation",
+      "end": "2025-07-17T20:52:30Z",
+      "satellite_id": "rgt_np29_nd02_i0978_slot00_rgt_apc",
+      "start": "2025-07-17T20:52:00Z",
+      "target_id": "target_011"
+    },
+    {
+      "action_type": "observation",
+      "end": "2025-07-17T20:56:30Z",
+      "satellite_id": "rgt_np29_nd02_i0634_slot03_rgt_apc",
+      "start": "2025-07-17T20:56:00Z",
+      "target_id": "target_019"
+    },
+    {
+      "action_type": "observation",
+      "end": "2025-07-17T22:14:30Z",
+      "satellite_id": "rgt_np29_nd02_i0540_slot12_rgt_apc",
+      "start": "2025-07-17T22:14:00Z",
+      "target_id": "target_008"
+    },
+    {
+      "action_type": "observation",
+      "end": "2025-07-17T22:26:30Z",
+      "satellite_id": "rgt_np29_nd02_i0634_slot03_rgt_apc",
+      "start": "2025-07-17T22:26:00Z",
+      "target_id": "target_006"
+    },
+    {
+      "action_type": "observation",
+      "end": "2025-07-17T23:00:30Z",
+      "satellite_id": "rgt_np29_nd02_i0634_slot12_rgt_apc",
+      "start": "2025-07-17T23:00:00Z",
+      "target_id": "target_003"
+    },
+    {
+      "action_type": "observation",
+      "end": "2025-07-17T23:04:30Z",
+      "satellite_id": "rgt_np29_nd02_i0978_slot09_rgt_apc",
+      "start": "2025-07-17T23:04:00Z",
+      "target_id": "target_013"
+    },
+    {
+      "action_type": "observation",
+      "end": "2025-07-17T23:54:30Z",
+      "satellite_id": "rgt_np29_nd02_i0978_slot18_rgt_apc",
+      "start": "2025-07-17T23:54:00Z",
+      "target_id": "target_022"
+    },
+    {
+      "action_type": "observation",
+      "end": "2025-07-18T00:10:30Z",
+      "satellite_id": "rgt_np29_nd02_i0324_slot00_rgt_apc",
+      "start": "2025-07-18T00:10:00Z",
+      "target_id": "target_009"
+    },
+    {
+      "action_type": "observation",
+      "end": "2025-07-18T01:20:30Z",
+      "satellite_id": "rgt_np29_nd02_i0540_slot12_rgt_apc",
+      "start": "2025-07-18T01:20:00Z",
+      "target_id": "target_001"
+    },
+    {
+      "action_type": "observation",
+      "end": "2025-07-18T01:44:30Z",
+      "satellite_id": "rgt_np29_nd02_i0634_slot03_rgt_apc",
+      "start": "2025-07-18T01:44:00Z",
+      "target_id": "target_009"
+    },
+    {
+      "action_type": "observation",
+      "end": "2025-07-18T01:46:30Z",
+      "satellite_id": "rgt_np29_nd02_i0978_slot00_rgt_apc",
+      "start": "2025-07-18T01:46:00Z",
+      "target_id": "target_021"
+    },
+    {
+      "action_type": "observation",
+      "end": "2025-07-18T02:28:30Z",
+      "satellite_id": "rgt_np29_nd02_i0324_slot03_rgt_apc",
+      "start": "2025-07-18T02:28:00Z",
+      "target_id": "target_012"
+    },
+    {
+      "action_type": "observation",
+      "end": "2025-07-18T02:50:30Z",
+      "satellite_id": "rgt_np29_nd02_i0324_slot00_rgt_apc",
+      "start": "2025-07-18T02:50:00Z",
+      "target_id": "target_002"
+    },
+    {
+      "action_type": "observation",
+      "end": "2025-07-18T03:28:30Z",
+      "satellite_id": "rgt_np29_nd02_i0634_slot18_rgt_apc",
+      "start": "2025-07-18T03:28:00Z",
+      "target_id": "target_016"
+    },
+    {
+      "action_type": "observation",
+      "end": "2025-07-18T04:42:30Z",
+      "satellite_id": "rgt_np29_nd02_i0634_slot12_rgt_apc",
+      "start": "2025-07-18T04:42:00Z",
+      "target_id": "target_023"
+    },
+    {
+      "action_type": "observation",
+      "end": "2025-07-18T04:52:30Z",
+      "satellite_id": "rgt_np29_nd02_i0540_slot18_rgt_apc",
+      "start": "2025-07-18T04:52:00Z",
+      "target_id": "target_010"
+    },
+    {
+      "action_type": "observation",
+      "end": "2025-07-18T05:00:30Z",
+      "satellite_id": "rgt_np29_nd02_i0540_slot18_rgt_apc",
+      "start": "2025-07-18T05:00:00Z",
+      "target_id": "target_020"
+    },
+    {
+      "action_type": "observation",
+      "end": "2025-07-18T06:04:30Z",
+      "satellite_id": "rgt_np29_nd02_i0540_slot00_rgt_apc",
+      "start": "2025-07-18T06:04:00Z",
+      "target_id": "target_010"
+    },
+    {
+      "action_type": "observation",
+      "end": "2025-07-18T06:42:30Z",
+      "satellite_id": "rgt_np29_nd02_i0978_slot00_rgt_apc",
+      "start": "2025-07-18T06:42:00Z",
+      "target_id": "target_014"
+    },
+    {
+      "action_type": "observation",
+      "end": "2025-07-18T06:48:30Z",
+      "satellite_id": "rgt_np29_nd02_i0540_slot00_rgt_apc",
+      "start": "2025-07-18T06:48:00Z",
+      "target_id": "target_017"
+    },
+    {
+      "action_type": "observation",
+      "end": "2025-07-18T06:50:30Z",
+      "satellite_id": "rgt_np29_nd02_i0978_slot18_rgt_apc",
+      "start": "2025-07-18T06:50:00Z",
+      "target_id": "target_011"
+    },
+    {
+      "action_type": "observation",
+      "end": "2025-07-18T06:52:30Z",
+      "satellite_id": "rgt_np29_nd02_i0540_slot12_rgt_apc",
+      "start": "2025-07-18T06:52:00Z",
+      "target_id": "target_019"
+    },
+    {
+      "action_type": "observation",
+      "end": "2025-07-18T07:32:30Z",
+      "satellite_id": "rgt_np29_nd02_i0978_slot00_rgt_apc",
+      "start": "2025-07-18T07:32:00Z",
+      "target_id": "target_008"
+    },
+    {
+      "action_type": "observation",
+      "end": "2025-07-18T08:18:30Z",
+      "satellite_id": "rgt_np29_nd02_i0324_slot18_rgt_apc",
+      "start": "2025-07-18T08:18:00Z",
+      "target_id": "target_018"
+    },
+    {
+      "action_type": "observation",
+      "end": "2025-07-18T08:42:30Z",
+      "satellite_id": "rgt_np29_nd02_i0324_slot12_rgt_apc",
+      "start": "2025-07-18T08:42:00Z",
+      "target_id": "target_018"
+    },
+    {
+      "action_type": "observation",
+      "end": "2025-07-18T08:44:30Z",
+      "satellite_id": "rgt_np29_nd02_i0324_slot00_rgt_apc",
+      "start": "2025-07-18T08:44:00Z",
+      "target_id": "target_005"
+    },
+    {
+      "action_type": "observation",
+      "end": "2025-07-18T08:46:30Z",
+      "satellite_id": "rgt_np29_nd02_i0776_slot18_rgt_apc",
+      "start": "2025-07-18T08:46:00Z",
+      "target_id": "target_015"
+    },
+    {
+      "action_type": "observation",
+      "end": "2025-07-18T09:30:30Z",
+      "satellite_id": "rgt_np29_nd02_i0324_slot12_rgt_apc",
+      "start": "2025-07-18T09:30:00Z",
+      "target_id": "target_007"
+    },
+    {
+      "action_type": "observation",
+      "end": "2025-07-18T09:36:30Z",
+      "satellite_id": "rgt_np29_nd02_i0776_slot06_rgt_apc",
+      "start": "2025-07-18T09:36:00Z",
+      "target_id": "target_015"
+    },
+    {
+      "action_type": "observation",
+      "end": "2025-07-18T10:02:30Z",
+      "satellite_id": "rgt_np29_nd02_i0978_slot00_rgt_apc",
+      "start": "2025-07-18T10:02:00Z",
+      "target_id": "target_003"
+    },
+    {
+      "action_type": "observation",
+      "end": "2025-07-18T10:06:30Z",
+      "satellite_id": "rgt_np29_nd02_i0540_slot00_rgt_apc",
+      "start": "2025-07-18T10:06:00Z",
+      "target_id": "target_013"
+    },
+    {
+      "action_type": "observation",
+      "end": "2025-07-18T10:36:30Z",
+      "satellite_id": "rgt_np29_nd02_i0978_slot09_rgt_apc",
+      "start": "2025-07-18T10:36:00Z",
+      "target_id": "target_006"
+    },
+    {
+      "action_type": "observation",
+      "end": "2025-07-18T11:00:30Z",
+      "satellite_id": "rgt_np29_nd02_i0540_slot06_rgt_apc",
+      "start": "2025-07-18T11:00:00Z",
+      "target_id": "target_011"
+    },
+    {
+      "action_type": "observation",
+      "end": "2025-07-18T11:36:30Z",
+      "satellite_id": "rgt_np29_nd02_i0540_slot12_rgt_apc",
+      "start": "2025-07-18T11:36:00Z",
+      "target_id": "target_023"
+    },
+    {
+      "action_type": "observation",
+      "end": "2025-07-18T11:38:30Z",
+      "satellite_id": "rgt_np29_nd02_i0324_slot18_rgt_apc",
+      "start": "2025-07-18T11:38:00Z",
+      "target_id": "target_006"
+    },
+    {
+      "action_type": "observation",
+      "end": "2025-07-18T11:48:30Z",
+      "satellite_id": "rgt_np29_nd02_i0776_slot12_rgt_apc",
+      "start": "2025-07-18T11:48:00Z",
+      "target_id": "target_001"
+    },
+    {
+      "action_type": "observation",
+      "end": "2025-07-18T12:10:30Z",
+      "satellite_id": "rgt_np29_nd02_i0540_slot18_rgt_apc",
+      "start": "2025-07-18T12:10:00Z",
+      "target_id": "target_016"
+    },
+    {
+      "action_type": "observation",
+      "end": "2025-07-18T12:30:30Z",
+      "satellite_id": "rgt_np29_nd02_i0634_slot18_rgt_apc",
+      "start": "2025-07-18T12:30:00Z",
+      "target_id": "target_022"
+    },
+    {
+      "action_type": "observation",
+      "end": "2025-07-18T13:20:30Z",
+      "satellite_id": "rgt_np29_nd02_i0776_slot18_rgt_apc",
+      "start": "2025-07-18T13:20:00Z",
+      "target_id": "target_009"
+    },
+    {
+      "action_type": "observation",
+      "end": "2025-07-18T13:34:30Z",
+      "satellite_id": "rgt_np29_nd02_i0634_slot09_rgt_apc",
+      "start": "2025-07-18T13:34:00Z",
+      "target_id": "target_023"
+    },
+    {
+      "action_type": "observation",
+      "end": "2025-07-18T14:44:30Z",
+      "satellite_id": "rgt_np29_nd02_i0776_slot06_rgt_apc",
+      "start": "2025-07-18T14:44:00Z",
+      "target_id": "target_016"
+    },
+    {
+      "action_type": "observation",
+      "end": "2025-07-18T15:22:30Z",
+      "satellite_id": "rgt_np29_nd02_i0324_slot00_rgt_apc",
+      "start": "2025-07-18T15:22:00Z",
+      "target_id": "target_022"
+    },
+    {
+      "action_type": "observation",
+      "end": "2025-07-18T16:06:30Z",
+      "satellite_id": "rgt_np29_nd02_i0634_slot12_rgt_apc",
+      "start": "2025-07-18T16:06:00Z",
+      "target_id": "target_012"
+    },
+    {
+      "action_type": "observation",
+      "end": "2025-07-18T16:24:30Z",
+      "satellite_id": "rgt_np29_nd02_i0540_slot06_rgt_apc",
+      "start": "2025-07-18T16:24:00Z",
+      "target_id": "target_020"
+    },
+    {
+      "action_type": "observation",
+      "end": "2025-07-18T16:54:30Z",
+      "satellite_id": "rgt_np29_nd02_i0540_slot18_rgt_apc",
+      "start": "2025-07-18T16:54:00Z",
+      "target_id": "target_021"
+    },
+    {
+      "action_type": "observation",
+      "end": "2025-07-18T17:26:30Z",
+      "satellite_id": "rgt_np29_nd02_i0776_slot18_rgt_apc",
+      "start": "2025-07-18T17:26:00Z",
+      "target_id": "target_010"
+    },
+    {
+      "action_type": "observation",
+      "end": "2025-07-18T18:06:30Z",
+      "satellite_id": "rgt_np29_nd02_i0634_slot03_rgt_apc",
+      "start": "2025-07-18T18:06:00Z",
+      "target_id": "target_011"
+    },
+    {
+      "action_type": "observation",
+      "end": "2025-07-18T18:42:30Z",
+      "satellite_id": "rgt_np29_nd02_i0978_slot09_rgt_apc",
+      "start": "2025-07-18T18:42:00Z",
+      "target_id": "target_005"
+    },
+    {
+      "action_type": "observation",
+      "end": "2025-07-18T19:16:30Z",
+      "satellite_id": "rgt_np29_nd02_i0776_slot12_rgt_apc",
+      "start": "2025-07-18T19:16:00Z",
+      "target_id": "target_018"
+    },
+    {
+      "action_type": "observation",
+      "end": "2025-07-18T19:56:30Z",
+      "satellite_id": "rgt_np29_nd02_i0540_slot18_rgt_apc",
+      "start": "2025-07-18T19:56:00Z",
+      "target_id": "target_017"
+    },
+    {
+      "action_type": "observation",
+      "end": "2025-07-18T20:06:30Z",
+      "satellite_id": "rgt_np29_nd02_i0776_slot12_rgt_apc",
+      "start": "2025-07-18T20:06:00Z",
+      "target_id": "target_007"
+    },
+    {
+      "action_type": "observation",
+      "end": "2025-07-18T20:40:30Z",
+      "satellite_id": "rgt_np29_nd02_i0324_slot18_rgt_apc",
+      "start": "2025-07-18T20:40:00Z",
+      "target_id": "target_019"
+    },
+    {
+      "action_type": "observation",
+      "end": "2025-07-18T20:56:30Z",
+      "satellite_id": "rgt_np29_nd02_i0634_slot03_rgt_apc",
+      "start": "2025-07-18T20:56:00Z",
+      "target_id": "target_017"
+    },
+    {
+      "action_type": "observation",
+      "end": "2025-07-18T21:02:30Z",
+      "satellite_id": "rgt_np29_nd02_i0324_slot12_rgt_apc",
+      "start": "2025-07-18T21:02:00Z",
+      "target_id": "target_019"
+    },
+    {
+      "action_type": "observation",
+      "end": "2025-07-18T21:52:30Z",
+      "satellite_id": "rgt_np29_nd02_i0540_slot18_rgt_apc",
+      "start": "2025-07-18T21:52:00Z",
+      "target_id": "target_014"
+    },
+    {
+      "action_type": "observation",
+      "end": "2025-07-18T22:22:30Z",
+      "satellite_id": "rgt_np29_nd02_i0776_slot12_rgt_apc",
+      "start": "2025-07-18T22:22:00Z",
+      "target_id": "target_021"
+    },
+    {
+      "action_type": "observation",
+      "end": "2025-07-18T22:24:30Z",
+      "satellite_id": "rgt_np29_nd02_i0978_slot09_rgt_apc",
+      "start": "2025-07-18T22:24:00Z",
+      "target_id": "target_015"
+    },
+    {
+      "action_type": "observation",
+      "end": "2025-07-18T22:40:30Z",
+      "satellite_id": "rgt_np29_nd02_i0540_slot18_rgt_apc",
+      "start": "2025-07-18T22:40:00Z",
+      "target_id": "target_008"
+    },
+    {
+      "action_type": "observation",
+      "end": "2025-07-18T23:14:30Z",
+      "satellite_id": "rgt_np29_nd02_i0540_slot18_rgt_apc",
+      "start": "2025-07-18T23:14:00Z",
+      "target_id": "target_013"
+    },
+    {
+      "action_type": "observation",
+      "end": "2025-07-18T23:22:30Z",
+      "satellite_id": "rgt_np29_nd02_i0978_slot00_rgt_apc",
+      "start": "2025-07-18T23:22:00Z",
+      "target_id": "target_006"
+    },
+    {
+      "action_type": "observation",
+      "end": "2025-07-18T23:44:30Z",
+      "satellite_id": "rgt_np29_nd02_i0540_slot12_rgt_apc",
+      "start": "2025-07-18T23:44:00Z",
+      "target_id": "target_003"
+    },
+    {
+      "action_type": "observation",
+      "end": "2025-07-19T00:24:30Z",
+      "satellite_id": "rgt_np29_nd02_i0776_slot12_rgt_apc",
+      "start": "2025-07-19T00:24:00Z",
+      "target_id": "target_001"
+    },
+    {
+      "action_type": "observation",
+      "end": "2025-07-19T00:38:30Z",
+      "satellite_id": "rgt_np29_nd02_i0540_slot06_rgt_apc",
+      "start": "2025-07-19T00:38:00Z",
+      "target_id": "target_009"
+    },
+    {
+      "action_type": "observation",
+      "end": "2025-07-19T02:22:30Z",
+      "satellite_id": "rgt_np29_nd02_i0634_slot18_rgt_apc",
+      "start": "2025-07-19T02:22:00Z",
+      "target_id": "target_012"
+    },
+    {
+      "action_type": "observation",
+      "end": "2025-07-19T03:18:30Z",
+      "satellite_id": "rgt_np29_nd02_i0776_slot18_rgt_apc",
+      "start": "2025-07-19T03:18:00Z",
+      "target_id": "target_004"
+    },
+    {
+      "action_type": "observation",
+      "end": "2025-07-19T03:32:30Z",
+      "satellite_id": "rgt_np29_nd02_i0776_slot18_rgt_apc",
+      "start": "2025-07-19T03:32:00Z",
+      "target_id": "target_023"
+    },
+    {
+      "action_type": "observation",
+      "end": "2025-07-19T03:52:30Z",
+      "satellite_id": "rgt_np29_nd02_i0324_slot18_rgt_apc",
+      "start": "2025-07-19T03:52:00Z",
+      "target_id": "target_010"
+    },
+    {
+      "action_type": "observation",
+      "end": "2025-07-19T04:16:30Z",
+      "satellite_id": "rgt_np29_nd02_i0540_slot18_rgt_apc",
+      "start": "2025-07-19T04:16:00Z",
+      "target_id": "target_016"
+    },
+    {
+      "action_type": "observation",
+      "end": "2025-07-19T05:44:30Z",
+      "satellite_id": "rgt_np29_nd02_i0324_slot18_rgt_apc",
+      "start": "2025-07-19T05:44:00Z",
+      "target_id": "target_020"
+    },
+    {
+      "action_type": "observation",
+      "end": "2025-07-19T06:30:30Z",
+      "satellite_id": "rgt_np29_nd02_i0324_slot03_rgt_apc",
+      "start": "2025-07-19T06:30:00Z",
+      "target_id": "target_019"
+    },
+    {
+      "action_type": "observation",
+      "end": "2025-07-19T07:20:30Z",
+      "satellite_id": "rgt_np29_nd02_i0776_slot06_rgt_apc",
+      "start": "2025-07-19T07:20:00Z",
+      "target_id": "target_017"
+    },
+    {
+      "action_type": "observation",
+      "end": "2025-07-19T07:40:30Z",
+      "satellite_id": "rgt_np29_nd02_i0776_slot18_rgt_apc",
+      "start": "2025-07-19T07:40:00Z",
+      "target_id": "target_011"
+    },
+    {
+      "action_type": "observation",
+      "end": "2025-07-19T07:46:30Z",
+      "satellite_id": "rgt_np29_nd02_i0634_slot12_rgt_apc",
+      "start": "2025-07-19T07:46:00Z",
+      "target_id": "target_018"
+    },
+    {
+      "action_type": "observation",
+      "end": "2025-07-19T08:30:30Z",
+      "satellite_id": "rgt_np29_nd02_i0324_slot12_rgt_apc",
+      "start": "2025-07-19T08:30:00Z",
+      "target_id": "target_007"
+    },
+    {
+      "action_type": "observation",
+      "end": "2025-07-19T11:42:30Z",
+      "satellite_id": "rgt_np29_nd02_i0776_slot18_rgt_apc",
+      "start": "2025-07-19T11:42:00Z",
+      "target_id": "target_022"
+    }
+  ],
+  "satellites": [
+    {
+      "satellite_id": "rgt_np29_nd02_i0540_slot12_rgt_apc",
+      "vx_m_s": -947.3647262181244,
+      "vy_m_s": -4303.921341329764,
+      "vz_m_s": -6065.651072671915,
+      "x_m": -6925068.567527684,
+      "y_m": 1524322.8598342857,
+      "z_m": 7.025329742167339e-10
+    },
+    {
+      "satellite_id": "rgt_np29_nd02_i0324_slot03_rgt_apc",
+      "vx_m_s": -5051.458037919065,
+      "vy_m_s": 4756.723069329717,
+      "vz_m_s": 2840.725101992699,
+      "x_m": 5235828.063706775,
+      "y_m": 3955788.8809198663,
+      "z_m": 2686628.6797517473
+    },
+    {
+      "satellite_id": "rgt_np29_nd02_i0978_slot09_rgt_apc",
+      "vx_m_s": -5115.3301476990155,
+      "vy_m_s": 1567.7268116619143,
+      "vz_m_s": -5252.522431773142,
+      "x_m": -5058024.319660737,
+      "y_m": 139660.95340323017,
+      "z_m": 4967596.968936624
+    },
+    {
+      "satellite_id": "rgt_np29_nd02_i0540_slot00_rgt_apc",
+      "vx_m_s": -0.0,
+      "vy_m_s": 4406.953464337482,
+      "vz_m_s": 6065.651072671915,
+      "x_m": 7090848.668951645,
+      "y_m": 0.0,
+      "z_m": 0.0
+    },
+    {
+      "satellite_id": "rgt_np29_nd02_i0776_slot06_rgt_apc",
+      "vx_m_s": -7453.606052931066,
+      "vy_m_s": 810.6285092145702,
+      "vz_m_s": 4.4838336951223353e-13,
+      "x_m": 164628.04063517225,
+      "y_m": 1513729.8358152083,
+      "z_m": 6925435.324827805
+    },
+    {
+      "satellite_id": "rgt_np29_nd02_i0978_slot00_rgt_apc",
+      "vx_m_s": 0.0,
+      "vy_m_s": -1017.5352473904875,
+      "vz_m_s": 7428.188459682486,
+      "x_m": 7090848.668951645,
+      "y_m": 0.0,
+      "z_m": 0.0
+    },
+    {
+      "satellite_id": "rgt_np29_nd02_i0634_slot18_rgt_apc",
+      "vx_m_s": 7105.08371798414,
+      "vy_m_s": -2393.9814395017247,
+      "vz_m_s": -1.2314997521835048e-12,
+      "x_m": -1013779.7820609998,
+      "y_m": -3008791.172851498,
+      "z_m": -6340312.380129907
+    },
+    {
+      "satellite_id": "rgt_np29_nd02_i0324_slot18_rgt_apc",
+      "vx_m_s": 7105.08371798414,
+      "vy_m_s": -2393.9814395017256,
+      "vz_m_s": -7.3798293185123e-13,
+      "x_m": -1911658.7547892847,
+      "y_m": -5673601.0016110195,
+      "z_m": -3799466.715965444
+    },
+    {
+      "satellite_id": "rgt_np29_nd02_i0776_slot18_rgt_apc",
+      "vx_m_s": 7105.08371798414,
+      "vy_m_s": -2393.9814395017247,
+      "vz_m_s": -1.3451501085367005e-12,
+      "x_m": -486186.2976963434,
+      "y_m": -1442949.511082365,
+      "z_m": -6925435.324827805
+    },
+    {
+      "satellite_id": "rgt_np29_nd02_i0634_slot12_rgt_apc",
+      "vx_m_s": -721.6771159324396,
+      "vy_m_s": -3278.6121911148653,
+      "vz_m_s": -6703.972405436533,
+      "x_m": -6925068.567527684,
+      "y_m": 1524322.8598342857,
+      "z_m": 7.764643261920427e-10
+    },
+    {
+      "satellite_id": "rgt_np29_nd02_i0540_slot18_rgt_apc",
+      "vx_m_s": 7105.08371798414,
+      "vy_m_s": -2393.981439501725,
+      "vz_m_s": -1.1142420256338553e-12,
+      "x_m": -1330815.6576875572,
+      "y_m": -3949720.121072558,
+      "z_m": -5736617.077722856
+    },
+    {
+      "satellite_id": "rgt_np29_nd02_i0776_slot12_rgt_apc",
+      "vx_m_s": -346.1003378998689,
+      "vy_m_s": -1572.3496867728195,
+      "vz_m_s": -7322.65612949653,
+      "x_m": -6925068.567527684,
+      "y_m": 1524322.8598342855,
+      "z_m": 8.481212203252381e-10
+    },
+    {
+      "satellite_id": "rgt_np29_nd02_i0540_slot06_rgt_apc",
+      "vx_m_s": -7453.606052931067,
+      "vy_m_s": 810.6285092145704,
+      "vz_m_s": 3.714140085446185e-13,
+      "x_m": 450628.8540211947,
+      "y_m": 4143463.8873140104,
+      "z_m": 5736617.077722856
+    },
+    {
+      "satellite_id": "rgt_np29_nd02_i0634_slot03_rgt_apc",
+      "vx_m_s": -5165.2817807244355,
+      "vy_m_s": 2657.3676620917627,
+      "vz_m_s": 4740.424348771665,
+      "x_m": 5128178.741481586,
+      "y_m": 1970313.9604071612,
+      "z_m": 4483277.878830876
+    },
+    {
+      "satellite_id": "rgt_np29_nd02_i0978_slot18_rgt_apc",
+      "vx_m_s": 7105.08371798414,
+      "vy_m_s": -2393.9814395017247,
+      "vz_m_s": -1.3645360830920195e-12,
+      "x_m": 307276.1830671639,
+      "y_m": 911963.2129183252,
+      "z_m": -7025243.005873652
+    },
+    {
+      "satellite_id": "rgt_np29_nd02_i0324_slot00_rgt_apc",
+      "vx_m_s": -0.0,
+      "vy_m_s": 6330.396793413445,
+      "vz_m_s": 4017.3919662117682,
+      "x_m": 7090848.668951645,
+      "y_m": 0.0,
+      "z_m": 0.0
+    },
+    {
+      "satellite_id": "rgt_np29_nd02_i0324_slot12_rgt_apc",
+      "vx_m_s": -1360.848185390541,
+      "vy_m_s": -6182.39563424879,
+      "vz_m_s": -4017.3919662117682,
+      "x_m": -6925068.567527684,
+      "y_m": 1524322.859834286,
+      "z_m": 4.653004752173987e-10
+    },
+    {
+      "satellite_id": "rgt_np29_nd02_i0634_slot09_rgt_apc",
+      "vx_m_s": -5615.77585921269,
+      "vy_m_s": -1484.8569846617527,
+      "vz_m_s": -4740.424348771663,
+      "x_m": -4584725.512863744,
+      "y_m": 3026655.9564732984,
+      "z_m": 4483277.878830877
+    }
+  ]
 }

@@ -48,8 +48,9 @@ def test_render_inspection_example_solution_writes_summary_and_manifest(tmp_path
     manifest = _read_json(manifest_path)
     assert manifest["case_id"] == "case_0001"
     assert manifest["verifier_valid"] is True
-    assert manifest["metrics"]["coverage_ratio"] == 0.0
-    assert manifest["selected_action_indices"] == []
+    assert 0.0 <= manifest["metrics"]["coverage_ratio"] <= 1.0
+    assert isinstance(manifest["selected_action_indices"], list)
+    assert all(isinstance(index, int) for index in manifest["selected_action_indices"])
     assert manifest["region_zoom_path"].endswith("region_zoom.png")
     assert len(manifest["regions"]) == 3
 

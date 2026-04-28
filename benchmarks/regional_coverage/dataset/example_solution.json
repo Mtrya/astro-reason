@@ -1,3 +1,11 @@
 {
-  "actions": []
+  "actions": [
+    {
+      "duration_s": 70,
+      "roll_deg": 27.4,
+      "satellite_id": "sat_iceye-x7",
+      "start_time": "2025-07-17T07:50:00Z",
+      "type": "strip_observation"
+    }
+  ]
 }
