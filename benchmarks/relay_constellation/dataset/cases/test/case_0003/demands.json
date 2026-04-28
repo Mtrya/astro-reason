@@ -2,7 +2,7 @@
   "demanded_windows": [
     {
       "demand_id": "demand_004",
-      "destination_endpoint_id": "ground_006",
+      "destination_endpoint_id": "ground_005",
       "end_time": "2026-01-02T12:35:00Z",
       "source_endpoint_id": "ground_002",
       "start_time": "2026-01-02T11:50:00Z",
@@ -18,7 +18,7 @@
     },
     {
       "demand_id": "demand_001",
-      "destination_endpoint_id": "ground_005",
+      "destination_endpoint_id": "ground_004",
       "end_time": "2026-01-03T13:40:00Z",
       "source_endpoint_id": "ground_001",
       "start_time": "2026-01-03T12:40:00Z",
@@ -26,7 +26,7 @@
     },
     {
       "demand_id": "demand_002",
-      "destination_endpoint_id": "ground_005",
+      "destination_endpoint_id": "ground_004",
       "end_time": "2026-01-03T18:35:00Z",
       "source_endpoint_id": "ground_001",
       "start_time": "2026-01-03T17:35:00Z",
@@ -34,7 +34,7 @@
     },
     {
       "demand_id": "demand_005",
-      "destination_endpoint_id": "ground_006",
+      "destination_endpoint_id": "ground_005",
       "end_time": "2026-01-04T06:55:00Z",
       "source_endpoint_id": "ground_002",
       "start_time": "2026-01-04T05:25:00Z",

@@ -582,6 +582,48 @@ def _sample_demand_windows(
     return demands
 
 
+def _prune_and_renumber_endpoints(
+    endpoints: list[EndpointRecord],
+    demands: list[DemandWindow],
+) -> tuple[list[EndpointRecord], list[DemandWindow]]:
+    used_endpoint_ids = {
+        endpoint_id
+        for demand in demands
+        for endpoint_id in (demand.source_endpoint_id, demand.destination_endpoint_id)
+    }
+    endpoint_id_map = {
+        endpoint.endpoint_id: f"ground_{index:03d}"
+        for index, endpoint in enumerate(
+            (endpoint for endpoint in endpoints if endpoint.endpoint_id in used_endpoint_ids),
+            start=1,
+        )
+    }
+    pruned_endpoints = [
+        EndpointRecord(
+            endpoint_id=endpoint_id_map[endpoint.endpoint_id],
+            latitude_deg=endpoint.latitude_deg,
+            longitude_deg=endpoint.longitude_deg,
+            altitude_m=endpoint.altitude_m,
+            min_elevation_deg=endpoint.min_elevation_deg,
+            ecef_position_m=endpoint.ecef_position_m,
+        )
+        for endpoint in endpoints
+        if endpoint.endpoint_id in endpoint_id_map
+    ]
+    remapped_demands = [
+        DemandWindow(
+            demand_id=demand.demand_id,
+            source_endpoint_id=endpoint_id_map[demand.source_endpoint_id],
+            destination_endpoint_id=endpoint_id_map[demand.destination_endpoint_id],
+            start=demand.start,
+            end=demand.end,
+            weight=demand.weight,
+        )
+        for demand in demands
+    ]
+    return pruned_endpoints, remapped_demands
+
+
 def _case_manifest(
     case_id: str,
     seed: int,
@@ -734,6 +776,7 @@ def _build_case(
         _require_mapping(split_config.get("demands"), f"splits.{split_name}.demands"),
         window_start_grid_min,
     )
+    endpoints, demands = _prune_and_renumber_endpoints(endpoints, demands)
 
     manifest = _case_manifest(
         case_id=case_id,

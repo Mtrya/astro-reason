@@ -83,6 +83,8 @@ Important fields:
 ### `network.json`
 
 `network.json` contains the immutable relay backbone and ground endpoints.
+Generated cases publish only ground endpoints that participate in at least one demanded window;
+endpoint IDs are renumbered after pruning so they remain compact and deterministic.
 
 - `backbone_satellites[]`
   - `satellite_id`
