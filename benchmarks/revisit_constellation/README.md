@@ -237,6 +237,30 @@ CLI entry:
 uv run python -m benchmarks.revisit_constellation.verifier.run <case_dir> <solution.json>
 ```
 
+## Visualization Usage
+
+The optional visualizer emits human-facing PNG plots.
+
+Render a case-only target distribution overview:
+
+```bash
+uv run python -m benchmarks.revisit_constellation.visualizer.run overview \
+  --case-dir benchmarks/revisit_constellation/dataset/cases/test/case_0001
+```
+
+Render solution-aware per-target action snapshots:
+
+```bash
+uv run python -m benchmarks.revisit_constellation.visualizer.run solution \
+  --case-dir benchmarks/revisit_constellation/dataset/cases/test/case_0001 \
+  --solution-path benchmarks/revisit_constellation/dataset/example_solution.json
+```
+
+The `overview` command writes `overview.png`. The `solution` command writes one
+PNG page per rendered observed target; each page shows a bounded set of
+observation snapshots with target-relevant satellite ground tracks and the
+active observing satellite highlighted.
+
 ## Canonical Benchmark Shape
 
 The repository structure is:
