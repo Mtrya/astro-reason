@@ -70,11 +70,12 @@ def test_harness_cooldown_scheduler_waits_between_same_harness_runs(
     def fake_sleep(seconds: float) -> None:
         fake_now[0] += timedelta(seconds=seconds)
 
-    def fake_execute_run_item(
+    def fake_execute_run_item_attempt(
         preview_item: SimpleNamespace,
         *,
-        batch_settings: plan.BatchSettings,
         timeout_override: int | None,
+        attempt: int,
+        attempts: int,
     ) -> run.RunExecutionResult:
         starts[preview_item.item.case_id] = fake_now[0]
         return run.RunExecutionResult(
@@ -86,7 +87,7 @@ def test_harness_cooldown_scheduler_waits_between_same_harness_runs(
 
     monkeypatch.setattr(run, "_utc_now", fake_utc_now)
     monkeypatch.setattr(run.time, "sleep", fake_sleep)
-    monkeypatch.setattr(run, "_execute_run_item", fake_execute_run_item)
+    monkeypatch.setattr(run, "_execute_run_item_attempt", fake_execute_run_item_attempt)
 
     batch_settings = plan.BatchSettings(
         max_concurrency=2,
@@ -139,11 +140,12 @@ def test_harness_cooldown_scheduler_measures_from_finish_time(
     def fake_sleep(seconds: float) -> None:
         fake_now[0] += timedelta(seconds=seconds)
 
-    def fake_execute_run_item(
+    def fake_execute_run_item_attempt(
         preview_item: SimpleNamespace,
         *,
-        batch_settings: plan.BatchSettings,
         timeout_override: int | None,
+        attempt: int,
+        attempts: int,
     ) -> run.RunExecutionResult:
         starts[preview_item.item.case_id] = fake_now[0]
         fake_now[0] += durations[preview_item.item.case_id]
@@ -156,7 +158,7 @@ def test_harness_cooldown_scheduler_measures_from_finish_time(
 
     monkeypatch.setattr(run, "_utc_now", fake_utc_now)
     monkeypatch.setattr(run.time, "sleep", fake_sleep)
-    monkeypatch.setattr(run, "_execute_run_item", fake_execute_run_item)
+    monkeypatch.setattr(run, "_execute_run_item_attempt", fake_execute_run_item_attempt)
 
     batch_settings = plan.BatchSettings(
         max_concurrency=1,
@@ -188,6 +190,68 @@ def test_harness_cooldown_scheduler_measures_from_finish_time(
     assert starts["codex_second"] == (
         starts["codex_first"] + durations["codex_first"] + timedelta(seconds=30)
     )
+
+
+def test_harness_cooldown_scheduler_applies_cooldown_between_retries(
+    monkeypatch,
+    tmp_path: Path,
+) -> None:
+    fake_now = [datetime(2026, 4, 28, tzinfo=timezone.utc)]
+    starts: list[datetime] = []
+
+    def fake_utc_now() -> datetime:
+        return fake_now[0]
+
+    def fake_sleep(seconds: float) -> None:
+        fake_now[0] += timedelta(seconds=seconds)
+
+    def fake_execute_run_item_attempt(
+        preview_item: SimpleNamespace,
+        *,
+        timeout_override: int | None,
+        attempt: int,
+        attempts: int,
+    ) -> run.RunExecutionResult:
+        starts.append(fake_now[0])
+        fake_now[0] += timedelta(seconds=7 if attempt == 1 else 0)
+        return run.RunExecutionResult(
+            overall_status="runner_error" if attempt == 1 else "success",
+            skipped=False,
+            output_dir=tmp_path / f"attempt_{attempt}",
+            exit_code=0 if attempt == 2 else 1,
+        )
+
+    monkeypatch.setattr(run, "_utc_now", fake_utc_now)
+    monkeypatch.setattr(run.time, "sleep", fake_sleep)
+    monkeypatch.setattr(run, "_execute_run_item_attempt", fake_execute_run_item_attempt)
+
+    batch_settings = plan.BatchSettings(
+        max_concurrency=1,
+        max_retries=1,
+        harness_cooldown_seconds=30,
+        skip_completed=True,
+        retry_statuses=("runner_error",),
+    )
+    progress = run.BatchProgress(
+        results=[],
+        completed=0,
+        executed_count=0,
+        skipped_count=0,
+        status_counts={},
+    )
+
+    run._run_runnable_items_with_harness_cooldown(
+        runnable_items=(_preview_item("codex", "codex_retry"),),
+        batch_settings=batch_settings,
+        timeout_override=None,
+        max_workers=1,
+        progress=progress,
+        total_items=1,
+    )
+
+    assert starts[1] == starts[0] + timedelta(seconds=37)
+    assert progress.executed_count == 1
+    assert progress.status_counts == {"success": 1}
 
 
 def test_run_batch_preserves_upfront_submission_when_cooldown_is_zero(

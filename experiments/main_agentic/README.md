@@ -76,11 +76,7 @@ uv run python experiments/main_agentic/run.py --dry-run --harness-cooldown 30
 uv run python experiments/main_agentic/plan.py --harness-cooldown 30
 ```
 
-`--harness-cooldown` is batch-only and must be a non-negative integer. A value of
-`0` preserves the current no-cooldown configuration. Nonzero cooldown is measured
-from a harness run's finish time to the next same-harness submission; while one
-harness is cooling down, ready runs from other harnesses can fill free worker
-slots.
+`--harness-cooldown` is batch-only and must be a non-negative integer. A value of `0` preserves the current no-cooldown configuration. Nonzero cooldown is measured from a harness run's finish time to the next same-harness submission; while one harness is cooling down, ready runs from other harnesses can fill free worker slots.
 
 ## Resume And Rerun Controls
 

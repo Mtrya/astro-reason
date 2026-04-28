@@ -379,7 +379,7 @@ def _optional_int(
     value = data.get(key, default)
     if value is None:
         return None
-    if not isinstance(value, int):
+    if not isinstance(value, int) or isinstance(value, bool):
         raise SystemExit(f"{kind} field '{key}' must be an integer: {path}")
     return value
 

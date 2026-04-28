@@ -66,6 +66,13 @@ def test_load_batch_config_rejects_negative_harness_cooldown(tmp_path: Path) -> 
         )
 
 
+def test_load_batch_config_rejects_boolean_harness_cooldown(tmp_path: Path) -> None:
+    with pytest.raises(SystemExit, match="harness_cooldown_seconds"):
+        plan.load_batch_config(
+            _write_batch_config(tmp_path, batch_extra="  harness_cooldown_seconds: true")
+        )
+
+
 def test_build_batch_plan_applies_harness_cooldown_override() -> None:
     batch_plan = plan.build_batch_plan(
         config_path=plan.DEFAULT_BATCH_CONFIG,

@@ -1216,25 +1216,49 @@ def _execute_run_item(
             exit_code=0 if preview_item.existing_overall_status == "success" else 1,
         )
 
-    last_result: RunExecutionResult | None = None
     attempts = batch_settings.max_retries + 1
+    last_result: RunExecutionResult | None = None
     for attempt in range(1, attempts + 1):
-        print(
-            f"Running {item.benchmark}/{item.harness}/{item.case_id} "
-            f"(attempt {attempt}/{attempts})"
+        last_result = _execute_run_item_attempt(
+            preview_item,
+            timeout_override=timeout_override,
+            attempt=attempt,
+            attempts=attempts,
         )
-        last_result = _run_headless_once(item, timeout_override=timeout_override)
         if last_result.overall_status not in batch_settings.retry_statuses:
             return last_result
         if attempt < attempts:
-            print(
-                f"Retrying {item.benchmark}/{item.harness}/{item.case_id} "
-                f"after retryable status {last_result.overall_status}"
-            )
+            _print_retry_line(preview_item, last_result)
 
     if last_result is None:
         raise SystemExit("Internal error: no run result was produced.")
     return last_result
+
+
+def _execute_run_item_attempt(
+    preview_item: family_plan.BatchPreviewItem,
+    *,
+    timeout_override: int | None,
+    attempt: int,
+    attempts: int,
+) -> RunExecutionResult:
+    item = preview_item.item
+    print(
+        f"Running {item.benchmark}/{item.harness}/{item.case_id} "
+        f"(attempt {attempt}/{attempts})"
+    )
+    return _run_headless_once(item, timeout_override=timeout_override)
+
+
+def _print_retry_line(
+    preview_item: family_plan.BatchPreviewItem,
+    result: RunExecutionResult,
+) -> None:
+    item = preview_item.item
+    print(
+        f"Retrying {item.benchmark}/{item.harness}/{item.case_id} "
+        f"after retryable status {result.overall_status}"
+    )
 
 
 def _record_batch_result(
@@ -1402,8 +1426,9 @@ def _run_runnable_items_with_harness_cooldown(
     with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as executor:
         future_map: dict[
             concurrent.futures.Future[RunExecutionResult],
-            family_plan.BatchPreviewItem,
+            tuple[family_plan.BatchPreviewItem, int],
         ] = {}
+        attempts_by_item: dict[int, int] = {}
         while pending or future_map:
             while pending and len(future_map) < max_workers:
                 ready_index = _next_ready_item_index(
@@ -1416,13 +1441,15 @@ def _run_runnable_items_with_harness_cooldown(
                 if ready_index is None:
                     break
                 preview_item = pending.pop(ready_index)
+                attempt = attempts_by_item.get(id(preview_item), 1)
                 future = executor.submit(
-                    _execute_run_item,
+                    _execute_run_item_attempt,
                     preview_item,
-                    batch_settings=batch_settings,
                     timeout_override=timeout_override,
+                    attempt=attempt,
+                    attempts=batch_settings.max_retries + 1,
                 )
-                future_map[future] = preview_item
+                future_map[future] = (preview_item, attempt)
                 active_harnesses.add(preview_item.item.harness)
 
             if not future_map:
@@ -1463,10 +1490,18 @@ def _run_runnable_items_with_harness_cooldown(
             if not done:
                 continue
             for future in done:
-                preview_item = future_map.pop(future)
+                preview_item, attempt = future_map.pop(future)
                 result = future.result()
                 active_harnesses.discard(preview_item.item.harness)
                 last_finish_by_harness[preview_item.item.harness] = _utc_now()
+                if (
+                    result.overall_status in batch_settings.retry_statuses
+                    and attempt < batch_settings.max_retries + 1
+                ):
+                    attempts_by_item[id(preview_item)] = attempt + 1
+                    pending.append(preview_item)
+                    _print_retry_line(preview_item, result)
+                    continue
                 _record_batch_result(
                     progress=progress,
                     total_items=total_items,
