@@ -60,8 +60,14 @@ def test_discover_runtime_matrix_emits_compact_actions_shape(tmp_path: Path) -> 
     }
 
 
-def test_discover_runtime_matrix_includes_current_base_runtime() -> None:
-    matrix = runtime_discovery.discover_runtime_matrix()
+def test_discover_runtime_matrix_includes_base_runtime_from_manifest(tmp_path: Path) -> None:
+    repo_root = tmp_path
+    runtimes_dir = repo_root / "runtimes"
+    base = runtimes_dir / "base"
+    _write_runtime_manifest(base, name="base", image="astroreason-base:latest")
+    _write_dockerfile(base)
+
+    matrix = runtime_discovery.discover_runtime_matrix(runtimes_dir, repo_root)
 
     assert {
         "name": "base",
