@@ -187,6 +187,14 @@ External verification is performed through benchmark-owned verifier executable e
 The agent workspace may include an opaque local verifier helper assembled from `experiments/_fragments/opaque_verifiers/artifacts/`, but official evaluation still runs through the benchmark-owned verifier CLIs outside the workspace.
 Most verifiers emit JSON; SatNet and SPOT5 currently emit text CLI reports, so the runner parses their verbose output into the same `run.json` verifier section used by aggregation.
 
+Detailed benchmark tables and generated reader-facing plots live under:
+
+```text
+experiments/main_agentic/reports/
+```
+
+The family README should stay focused on high-level aggregate tables; use the report files for case-level tables and the radar plot for harness-level cross-benchmark views.
+
 ## Smoke Checks
 
 Before running a matrix after verifier-source or prompt-contract changes, refresh or validate the opaque helpers:
@@ -240,6 +248,11 @@ results/agent_runs/experiments/main_agentic/matrix/summaries/
 ```
 
 No cross-benchmark universal score is invented; metric summaries stay benchmark-native.
+Reader-facing radar plots can be generated from those summaries with:
+
+```bash
+uv run python experiments/main_agentic/plot_radar.py --harness kimi_cli
+```
 
 ## Current Limits
 
