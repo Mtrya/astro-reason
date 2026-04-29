@@ -332,7 +332,11 @@ def _visibility_group_diagnostics(
     ):
         candidate = candidate_by_id.get(candidate_id)
         if candidate is None:
-            continue
+            raise ValueError(
+                "visibility window references unknown candidate_id "
+                f"{candidate_id!r} for target_id {target_id!r} "
+                f"with {window_count} window(s)"
+            )
         shell_id = candidate.rgt_shell_id or candidate.source
         shell_row = by_shell.setdefault(
             shell_id,
@@ -383,7 +387,7 @@ def _visibility_group_diagnostics(
             {
                 "candidate_id": candidate_id,
                 "target_id": target_id,
-                "shell_id": candidate.rgt_shell_id,
+                "shell_id": shell_id,
                 "raan_slot_index": candidate.raan_slot_index,
                 "raan_deg": candidate.raan_deg,
                 "phase_slot_index": candidate.phase_slot_index,

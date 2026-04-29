@@ -206,8 +206,11 @@ def main(argv: list[str] | None = None) -> int:
             selected_candidate_ids=selection_result.selected_candidate_ids,
             scheduled_observations=scheduling_result.scheduled_observations,
             candidates=orbit_library.candidates,
-            closure_error_limit_m=orbit_config.max_closure_error_m
-            or orbit_config.j2_closure_tolerance_m,
+            closure_error_limit_m=(
+                orbit_config.max_closure_error_m
+                if orbit_config.max_closure_error_m is not None
+                else orbit_config.j2_closure_tolerance_m
+            ),
             candidate_cap_limited=bool(
                 orbit_library.caps.get("candidate_count_capped", False)
             ),

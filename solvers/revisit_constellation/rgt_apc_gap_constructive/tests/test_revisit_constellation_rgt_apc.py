@@ -74,6 +74,7 @@ from src.visibility import (  # noqa: E402
     VisibilityConfig,
     VisibilitySample,
     VisibilityWindow,
+    _visibility_group_diagnostics,
     build_visibility_library,
     group_visible_samples,
 )
@@ -411,6 +412,27 @@ def test_j2_rgt_shell_search_has_deterministic_accepted_order(tmp_path: Path) ->
     ]
     assert first.accepted_shells
     assert all(shell.accepted for shell in first.accepted_shells)
+
+
+def test_j2_rgt_shell_search_selects_best_shells_before_cap(tmp_path: Path) -> None:
+    case = load_case(_case_dir(tmp_path))
+
+    result = search_j2_rgt_shells(
+        case,
+        repeat_days_max=1,
+        min_revolutions_per_day=14,
+        max_revolutions_per_day=15,
+        inclinations_deg=[35.7, 47.6, 53.0, 63.4, 65.8, 97.8],
+        max_accepted_shells=3,
+        closure_tolerance_m=5000.0,
+        refinement_iterations=6,
+    )
+
+    assert len(result.accepted_shells) == 3
+    assert [shell.analytical_closure.surface_error_m for shell in result.accepted_shells] == sorted(
+        shell.analytical_closure.surface_error_m for shell in result.accepted_shells
+    )
+    assert {shell.revolutions for shell in result.accepted_shells} == {15}
 
 
 def test_j2_rgt_shell_records_analytical_closure_below_tolerance(tmp_path: Path) -> None:
@@ -857,6 +879,37 @@ def test_visibility_and_candidate_coverage_include_shell_raan_phase_groups(
     assert row["raan_slot_index"] == first_candidate.raan_slot_index
     assert row["phase_slot_index"] == first_candidate.phase_slot_index
     assert "selected" in row
+
+
+def test_visibility_group_diagnostics_reject_unknown_candidate() -> None:
+    with pytest.raises(ValueError, match="unknown candidate_id 'missing_sat'"):
+        _visibility_group_diagnostics(
+            candidates=[_candidate("sat_a")],
+            windows=[
+                _window(
+                    "missing_sat",
+                    "target_001",
+                    datetime(2025, 7, 17, 12, 0, tzinfo=UTC),
+                    10,
+                )
+            ],
+        )
+
+
+def test_visibility_group_diagnostics_uses_source_as_fallback_shell_id() -> None:
+    rows = _visibility_group_diagnostics(
+        candidates=[_candidate("sat_a")],
+        windows=[
+            _window(
+                "sat_a",
+                "target_001",
+                datetime(2025, 7, 17, 12, 0, tzinfo=UTC),
+                10,
+            )
+        ],
+    )["candidate_target_groups"]
+
+    assert rows[0]["shell_id"] == "unit"
 
 
 def test_visibility_window_cap_applies_after_deterministic_sort(tmp_path: Path) -> None:
@@ -1980,6 +2033,55 @@ def test_repair_inserts_high_gap_target_option_deterministically(tmp_path: Path)
     assert steps[0].inserted_observation is not None
     assert steps[0].inserted_observation.target_id == "target_002"
     assert len(repaired) == 2
+    assert report.score.target_gap_summary["target_002"].observation_count == 1
+
+
+def test_repair_still_replaces_when_local_search_widths_are_zero(tmp_path: Path) -> None:
+    case = load_case(_scheduler_case_dir(tmp_path))
+    windows = [
+        _window("sat_a", "target_001", case.horizon_start, 10),
+        _window("sat_b", "target_002", case.horizon_start, 30),
+    ]
+    config = SchedulingConfig(
+        max_actions=1,
+        transition_gap_sec=0.0,
+        enforce_simple_energy_budget=False,
+        repair_max_iterations=1,
+        local_search_options_per_target=0,
+        local_search_removals_per_option=0,
+    )
+    options, _ = build_observation_options(
+        case=case,
+        selected_candidate_ids={"sat_a", "sat_b"},
+        selected_candidates=None,
+        windows=windows,
+        config=config,
+    )
+    scheduled = [
+        _scheduled(
+            "sat_a_target_001_10",
+            "sat_a",
+            "target_001",
+            case.horizon_start + timedelta(minutes=10, seconds=15),
+        )
+    ]
+
+    repaired, steps, report = repair_schedule_deterministic(
+        case=case,
+        scheduled=scheduled,
+        options=options,
+        selected_candidate_ids=["sat_a", "sat_b"],
+        config=config,
+        transition_gap_sec=0.0,
+        propagation=None,
+    )
+
+    assert [step.action for step in steps] == ["replace"]
+    assert steps[0].inserted_observation is not None
+    assert steps[0].inserted_observation.option_id == "sat_b_target_002_30"
+    assert [observation.option_id for observation in repaired] == [
+        "sat_b_target_002_30"
+    ]
     assert report.score.target_gap_summary["target_002"].observation_count == 1
 
 

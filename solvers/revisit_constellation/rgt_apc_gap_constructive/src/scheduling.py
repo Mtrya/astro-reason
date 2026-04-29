@@ -1922,7 +1922,7 @@ def _removed_observation_combinations(
     combinations: list[tuple[ScheduledObservation, ...]] = []
     if len(scheduled) < action_limit:
         combinations.append(())
-    removal_limit = max(0, config.local_search_removals_per_option)
+    removal_limit = max(1, config.local_search_removals_per_option)
     removal_candidates = _ranked_removal_candidates(
         case=case,
         scheduled=scheduled,
@@ -1986,6 +1986,7 @@ def _high_gap_repair_insertion(
             consumed_option_ids=consumed_option_ids,
             target_id=target_id,
             limit=max(
+                1,
                 config.local_search_options_per_target,
                 config.local_search_options_per_target
                 * max(1, config.local_search_removals_per_option),
@@ -2561,6 +2562,7 @@ def repair_schedule_deterministic(
                     removed_observation=removed_observation,
                 )
             )
+            consumed_option_ids = {observation.option_id for observation in repaired}
             continue
 
         insertion = _high_gap_repair_insertion(
@@ -2584,7 +2586,7 @@ def repair_schedule_deterministic(
             ]
         repaired.append(inserted_observation)
         repaired.sort(key=lambda item: (item.start, item.satellite_id, item.target_id))
-        consumed_option_ids.add(inserted_observation.option_id)
+        consumed_option_ids = {observation.option_id for observation in repaired}
         repair_steps.append(
             RepairStep(
                 action="insert" if not removed_items else "replace",

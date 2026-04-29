@@ -802,9 +802,6 @@ def search_j2_rgt_shells(
             accepted.append(shell)
         else:
             rejected.append(shell)
-        if len(accepted) >= max(1, max_accepted_shells):
-            break
-
     accepted.sort(
         key=lambda item: (
             math.inf if item.analytical_closure is None else item.analytical_closure.surface_error_m,
@@ -816,7 +813,7 @@ def search_j2_rgt_shells(
     )
     rejected.sort(key=lambda item: item.shell_id)
     return J2RgtSearchResult(
-        accepted_shells=accepted,
+        accepted_shells=accepted[: max(1, max_accepted_shells)],
         rejected_shells=rejected,
         considered_seed_count=len(seeds),
         closure_tolerance_m=closure_tolerance_m,
