@@ -42,8 +42,8 @@ BASELINE_SPECS = {
         "direction": "minimize",
     },
     "satnet": {
-        "agent_metric": "score_hours",
-        "direction": "maximize",
+        "agent_metric": "u_rms",
+        "direction": "minimize",
     },
     "spot5": {
         "agent_metric": "computed_profit",
@@ -88,11 +88,11 @@ SOLVER_BASELINES = {
         "test/case_0005": 12.0,
     },
     "satnet": {
-        "test/W10_2018": 886.0,
-        "test/W20_2018": 1059.0,
-        "test/W30_2018": 1100.0,
-        "test/W40_2018": 1058.0,
-        "test/W50_2018": 879.0,
+        "test/W10_2018": 0.26,
+        "test/W20_2018": 0.21,
+        "test/W30_2018": 0.28,
+        "test/W40_2018": 0.39,
+        "test/W50_2018": 0.35,
     },
     "spot5": {
         "test/1021": 169243.0,
