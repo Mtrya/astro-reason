@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import argparse
 import csv
+import functools
 import json
 import statistics
 import sys
@@ -24,7 +25,8 @@ else:
 
 FAMILY_DIR = Path(__file__).resolve().parent
 DEFAULT_CONFIG = FAMILY_DIR / "configs" / "matrix.yaml"
-SUMMARY_VERSION = 1
+SUMMARY_VERSION = 2
+REVISIT_SCORE_POWER = 2.0
 
 
 def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
@@ -105,6 +107,193 @@ def _coerce_numeric(value: Any) -> int | float | None:
     return float(value)
 
 
+def _parse_iso_datetime(value: str) -> datetime:
+    normalized = value[:-1] + "+00:00" if value.endswith("Z") else value
+    return datetime.fromisoformat(normalized)
+
+
+def _case_dir(item: family_plan.RunItem) -> Path:
+    return (
+        family_plan.REPO_ROOT
+        / "benchmarks"
+        / item.benchmark
+        / "dataset"
+        / "cases"
+        / item.split
+        / item.case_id
+    )
+
+
+def _revisit_horizon_hours(item: family_plan.RunItem) -> float | None:
+    mission_path = _case_dir(item) / "mission.json"
+    try:
+        mission = json.loads(mission_path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return None
+    if not isinstance(mission, dict):
+        return None
+    horizon_start = mission.get("horizon_start")
+    horizon_end = mission.get("horizon_end")
+    if not isinstance(horizon_start, str) or not isinstance(horizon_end, str):
+        return None
+    try:
+        start = _parse_iso_datetime(horizon_start)
+        end = _parse_iso_datetime(horizon_end)
+    except ValueError:
+        return None
+    horizon_hours = (end - start).total_seconds() / 3600.0
+    return horizon_hours if horizon_hours > 0 else None
+
+
+def _revisit_target_score_pct(
+    *,
+    max_gap_hours: float,
+    expected_revisit_hours: float,
+    horizon_hours: float,
+) -> float:
+    if max_gap_hours >= horizon_hours:
+        return 0.0
+    if max_gap_hours <= expected_revisit_hours:
+        return 100.0
+    denominator = horizon_hours - expected_revisit_hours
+    if denominator <= 0:
+        return 0.0
+    ratio = (horizon_hours - max_gap_hours) / denominator
+    ratio = min(1.0, max(0.0, ratio))
+    return 100.0 * (ratio ** REVISIT_SCORE_POWER)
+
+
+def _revisit_score_pct(item: family_plan.RunItem, verifier_payload: dict[str, Any]) -> float | None:
+    horizon_hours = _revisit_horizon_hours(item)
+    if horizon_hours is None:
+        return None
+    metrics = verifier_payload.get("metrics")
+    if not isinstance(metrics, dict):
+        return None
+    target_gap_summary = metrics.get("target_gap_summary")
+    if not isinstance(target_gap_summary, dict) or not target_gap_summary:
+        return None
+
+    target_scores: list[float] = []
+    for target_summary in target_gap_summary.values():
+        if not isinstance(target_summary, dict):
+            continue
+        max_gap = _coerce_numeric(target_summary.get("max_revisit_gap_hours"))
+        expected = _coerce_numeric(target_summary.get("expected_revisit_period_hours"))
+        if max_gap is None or expected is None:
+            continue
+        target_scores.append(
+            _revisit_target_score_pct(
+                max_gap_hours=float(max_gap),
+                expected_revisit_hours=float(expected),
+                horizon_hours=horizon_hours,
+            )
+        )
+    if not target_scores:
+        return None
+    return statistics.mean(target_scores)
+
+
+def _spot5_case_file(split: str, case_id: str) -> Path:
+    return (
+        family_plan.REPO_ROOT
+        / "benchmarks"
+        / "spot5"
+        / "dataset"
+        / "cases"
+        / split
+        / case_id
+        / f"{case_id}.spot"
+    )
+
+
+def _spot5_reference_solution_file(case_id: str) -> Path:
+    return (
+        family_plan.REPO_ROOT
+        / "tests"
+        / "fixtures"
+        / "spot5_val_sol"
+        / f"{case_id}.spot_sol.txt"
+    )
+
+
+@functools.lru_cache(maxsize=None)
+def _spot5_case_profits(split: str, case_id: str) -> tuple[int, ...] | None:
+    case_file = _spot5_case_file(split, case_id)
+    try:
+        lines = case_file.read_text(encoding="utf-8").splitlines()
+    except OSError:
+        return None
+    if not lines:
+        return None
+    try:
+        variable_count = int(lines[0].strip())
+    except ValueError:
+        return None
+    if len(lines) < variable_count + 1:
+        return None
+
+    profits: list[int] = []
+    for line in lines[1 : variable_count + 1]:
+        parts = line.split()
+        if len(parts) < 2:
+            return None
+        try:
+            profits.append(int(parts[1]))
+        except ValueError:
+            return None
+    return tuple(profits)
+
+
+@functools.lru_cache(maxsize=None)
+def _spot5_reference_profit(split: str, case_id: str) -> int | None:
+    profits = _spot5_case_profits(split, case_id)
+    if profits is None:
+        return None
+    solution_file = _spot5_reference_solution_file(case_id)
+    try:
+        lines = solution_file.read_text(encoding="utf-8").splitlines()
+    except OSError:
+        return None
+    if len(lines) < 3 + len(profits):
+        return None
+    assignments: list[int] = []
+    for line in lines[3 : 3 + len(profits)]:
+        try:
+            assignments.append(int(line.strip()))
+        except ValueError:
+            return None
+    return sum(profit for profit, assignment in zip(profits, assignments) if assignment != 0)
+
+
+def _spot5_profit_score_pct(item: family_plan.RunItem, verifier_payload: dict[str, Any]) -> float | None:
+    metrics = verifier_payload.get("metrics")
+    if not isinstance(metrics, dict):
+        return None
+    computed_profit = _coerce_numeric(metrics.get("computed_profit"))
+    reference_profit = _spot5_reference_profit(item.split, item.case_id)
+    if computed_profit is None or reference_profit is None or reference_profit <= 0:
+        return None
+    return 100.0 * (float(computed_profit) / reference_profit)
+
+
+def _processed_metrics_for_run(
+    item: family_plan.RunItem,
+    *,
+    valid: bool | None,
+    verifier_payload: dict[str, Any],
+) -> dict[str, float | None]:
+    if item.benchmark == "revisit_constellation":
+        if valid is not True:
+            return {"revisit_score_pct": 0.0}
+        return {"revisit_score_pct": _revisit_score_pct(item, verifier_payload)}
+    if item.benchmark == "spot5":
+        if valid is not True:
+            return {"profit_score_pct": 0.0}
+        return {"profit_score_pct": _spot5_profit_score_pct(item, verifier_payload)}
+    return {}
+
+
 def _metric_stats(values: list[int | float]) -> dict[str, Any]:
     if not values:
         return {
@@ -135,6 +324,7 @@ def _format_stat(value: Any) -> str:
 def _build_missing_record(item: family_plan.RunItem) -> dict[str, Any]:
     metrics = {metric.name: None for metric in item.benchmark_profile.score_metrics}
     flags = {metric.name: None for metric in item.benchmark_profile.flag_metrics}
+    processed_metrics = _processed_metrics_for_run(item, valid=None, verifier_payload={})
     return {
         "config_name": item.config_name,
         "benchmark": item.benchmark,
@@ -152,6 +342,7 @@ def _build_missing_record(item: family_plan.RunItem) -> dict[str, Any]:
         "start_time": None,
         "end_time": None,
         "metrics": metrics,
+        "processed_metrics": processed_metrics,
         "flags": flags,
         "raw_verifier": {},
     }
@@ -160,6 +351,7 @@ def _build_missing_record(item: family_plan.RunItem) -> dict[str, Any]:
 def _build_malformed_record(item: family_plan.RunItem) -> dict[str, Any]:
     metrics = {metric.name: None for metric in item.benchmark_profile.score_metrics}
     flags = {metric.name: None for metric in item.benchmark_profile.flag_metrics}
+    processed_metrics = _processed_metrics_for_run(item, valid=None, verifier_payload={})
     return {
         "config_name": item.config_name,
         "benchmark": item.benchmark,
@@ -177,6 +369,7 @@ def _build_malformed_record(item: family_plan.RunItem) -> dict[str, Any]:
         "start_time": None,
         "end_time": None,
         "metrics": metrics,
+        "processed_metrics": processed_metrics,
         "flags": flags,
         "raw_verifier": {},
     }
@@ -201,6 +394,16 @@ def _normalize_run_record(item: family_plan.RunItem, run_data: dict[str, Any]) -
         for metric in item.benchmark_profile.flag_metrics
     }
 
+    valid = _normalize_valid(
+        verifier_payload,
+        verifier_status if isinstance(verifier_status, str) else "unknown",
+    )
+    processed_metrics = _processed_metrics_for_run(
+        item,
+        valid=valid,
+        verifier_payload=verifier_payload,
+    )
+
     return {
         "config_name": item.config_name,
         "benchmark": item.benchmark,
@@ -213,10 +416,7 @@ def _normalize_run_record(item: family_plan.RunItem, run_data: dict[str, Any]) -
         "overall_status": overall_status if isinstance(overall_status, str) else "unknown",
         "agent_status": agent_status if isinstance(agent_status, str) else "unknown",
         "verifier_status": verifier_status if isinstance(verifier_status, str) else "unknown",
-        "valid": _normalize_valid(
-            verifier_payload,
-            verifier_status if isinstance(verifier_status, str) else "unknown",
-        ),
+        "valid": valid,
         "duration_seconds": run_data.get("duration_seconds")
         if _is_numeric(run_data.get("duration_seconds"))
         else None,
@@ -225,6 +425,7 @@ def _normalize_run_record(item: family_plan.RunItem, run_data: dict[str, Any]) -
         else None,
         "end_time": run_data.get("end_time") if isinstance(run_data.get("end_time"), str) else None,
         "metrics": metrics,
+        "processed_metrics": processed_metrics,
         "flags": flags,
         "raw_verifier": verifier_payload,
     }
@@ -291,6 +492,25 @@ def _metric_values(records: list[dict[str, Any]], metric_name: str) -> list[int 
     return values
 
 
+def _processed_metric_names(records: list[dict[str, Any]]) -> tuple[str, ...]:
+    names: set[str] = set()
+    for record in records:
+        processed_metrics = record.get("processed_metrics")
+        if not isinstance(processed_metrics, dict):
+            continue
+        names.update(str(name) for name in processed_metrics)
+    return tuple(sorted(names))
+
+
+def _processed_metric_values(records: list[dict[str, Any]], metric_name: str) -> list[int | float]:
+    values: list[int | float] = []
+    for record in records:
+        value = record["processed_metrics"].get(metric_name)
+        if _is_numeric(value):
+            values.append(value)
+    return values
+
+
 def _build_group_summary(
     *,
     records: list[dict[str, Any]],
@@ -312,6 +532,10 @@ def _build_group_summary(
     secondary_stats = {
         metric.name: _metric_stats(_metric_values(records, metric.name))
         for metric in secondary_metrics
+    }
+    processed_metric_stats = {
+        metric_name: _metric_stats(_processed_metric_values(records, metric_name))
+        for metric_name in _processed_metric_names(records)
     }
     flag_counts = {
         metric.name: _flag_counts(records, metric.name) for metric in profile.flag_metrics
@@ -345,6 +569,13 @@ def _build_group_summary(
                 "stats": secondary_stats[metric.name],
             }
             for metric in secondary_metrics
+        },
+        "processed_metrics": {
+            metric_name: {
+                "direction": "maximize",
+                "stats": stats,
+            }
+            for metric_name, stats in processed_metric_stats.items()
         },
         "flag_metrics": flag_counts,
     }
@@ -392,14 +623,20 @@ def _matrix_summary_markdown(
         f"- Missing runs: `{missing_runs}`",
         f"- Malformed runs: `{malformed_runs}`",
         "",
-        "| Benchmark | Harness | Expected | Present | Missing | Success | Valid | Invalid | Timeout | No Solution | Verifier Error | Primary Metric |",
-        "|---|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---|",
+        "| Benchmark | Harness | Expected | Present | Missing | Success | Valid | Invalid | Timeout | No Solution | Verifier Error | Processed Score | Primary Metric |",
+        "|---|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---|---|",
     ]
     for row in benchmark_harness_rows:
         primary_metric_text = (
             f"{row['primary_metric_name']}: n={row['primary_metric_count']}, "
             f"mean={_format_stat(row['primary_metric_mean'])}"
             if row["primary_metric_name"]
+            else "-"
+        )
+        processed_metric_text = (
+            f"{row['processed_metric_name']}: n={row['processed_metric_count']}, "
+            f"mean={_format_stat(row['processed_metric_mean'])}"
+            if row["processed_metric_name"]
             else "-"
         )
         lines.append(
@@ -417,6 +654,7 @@ def _matrix_summary_markdown(
                     str(row["timeout_count"]),
                     str(row["no_solution_count"]),
                     str(row["verifier_error_count"]),
+                    processed_metric_text,
                     primary_metric_text,
                 ]
             )
@@ -469,6 +707,11 @@ def main(argv: list[str] | None = None) -> int:
             )
             per_harness[harness] = harness_summary
             primary_metric = harness_summary["primary_metric"] or {}
+            processed_metrics = harness_summary["processed_metrics"]
+            processed_metric_name = next(iter(processed_metrics), None)
+            processed_metric = (
+                processed_metrics[processed_metric_name] if processed_metric_name is not None else {}
+            )
             benchmark_harness_rows.append(
                 {
                     "config_name": plan.config.config_path.stem,
@@ -491,6 +734,16 @@ def main(argv: list[str] | None = None) -> int:
                     "primary_metric_median": (primary_metric.get("stats") or {}).get("median"),
                     "primary_metric_min": (primary_metric.get("stats") or {}).get("min"),
                     "primary_metric_max": (primary_metric.get("stats") or {}).get("max"),
+                    "processed_metric_name": processed_metric_name,
+                    "processed_metric_direction": processed_metric.get("direction"),
+                    "processed_metric_count": (processed_metric.get("stats") or {}).get("count"),
+                    "processed_metric_mean": (processed_metric.get("stats") or {}).get("mean"),
+                    "processed_metric_median": (processed_metric.get("stats") or {}).get("median"),
+                    "processed_metric_min": (processed_metric.get("stats") or {}).get("min"),
+                    "processed_metric_max": (processed_metric.get("stats") or {}).get("max"),
+                    "processed_metric_stats_json": json.dumps(
+                        processed_metrics, sort_keys=True
+                    ),
                     "secondary_metric_stats_json": json.dumps(
                         harness_summary["secondary_metrics"], sort_keys=True
                     ),
@@ -529,6 +782,7 @@ def main(argv: list[str] | None = None) -> int:
         _write_json(summaries_root / "benchmarks" / f"{benchmark}.json", benchmark_summary_payload)
 
         metric_fieldnames = [metric.name for metric in benchmark_profile.score_metrics]
+        processed_metric_fieldnames = list(_processed_metric_names(benchmark_records))
         flag_fieldnames = [metric.name for metric in benchmark_profile.flag_metrics]
         benchmark_csv_rows = []
         for record in benchmark_records:
@@ -551,6 +805,8 @@ def main(argv: list[str] | None = None) -> int:
             }
             for name in metric_fieldnames:
                 row[name] = record["metrics"].get(name)
+            for name in processed_metric_fieldnames:
+                row[name] = record["processed_metrics"].get(name)
             for name in flag_fieldnames:
                 row[name] = record["flags"].get(name)
             benchmark_csv_rows.append(row)
@@ -574,6 +830,7 @@ def main(argv: list[str] | None = None) -> int:
                 "start_time",
                 "end_time",
                 *metric_fieldnames,
+                *processed_metric_fieldnames,
                 *flag_fieldnames,
             ],
         )
@@ -635,6 +892,14 @@ def main(argv: list[str] | None = None) -> int:
             "primary_metric_median",
             "primary_metric_min",
             "primary_metric_max",
+            "processed_metric_name",
+            "processed_metric_direction",
+            "processed_metric_count",
+            "processed_metric_mean",
+            "processed_metric_median",
+            "processed_metric_min",
+            "processed_metric_max",
+            "processed_metric_stats_json",
             "secondary_metric_stats_json",
             "flag_metric_counts_json",
             "overall_status_counts_json",
