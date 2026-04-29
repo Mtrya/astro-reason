@@ -5,10 +5,13 @@ from __future__ import annotations
 
 import argparse
 import csv
+import json
 import math
 import os
+import statistics
 import sys
 import tempfile
+from datetime import datetime
 from pathlib import Path
 
 if __package__ in (None, ""):
@@ -38,8 +41,9 @@ BASELINE_SPECS = {
         "direction": "maximize",
     },
     "revisit_constellation": {
-        "agent_metric": "capped_max_revisit_gap_hours",
-        "direction": "minimize",
+        "agent_metric": "revisit_score_pct",
+        "direction": "maximize",
+        "baseline_transform": "revisit_score_pct",
     },
     "satnet": {
         "agent_metric": "u_rms",
@@ -177,6 +181,68 @@ def _float_field(row: dict[str, str], key: str) -> float | None:
         return None
 
 
+def _parse_iso_datetime(value: str) -> datetime:
+    normalized = value[:-1] + "+00:00" if value.endswith("Z") else value
+    return datetime.fromisoformat(normalized)
+
+
+def _is_numeric(value: object) -> bool:
+    return isinstance(value, (int, float)) and not isinstance(value, bool)
+
+
+def _revisit_solver_score_pct(*, split: str, case_id: str, max_gap_hours: float) -> float | None:
+    mission_path = (
+        family_plan.REPO_ROOT
+        / "benchmarks"
+        / "revisit_constellation"
+        / "dataset"
+        / "cases"
+        / split
+        / case_id
+        / "mission.json"
+    )
+    try:
+        mission = json.loads(mission_path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return None
+    if not isinstance(mission, dict):
+        return None
+
+    horizon_start = mission.get("horizon_start")
+    horizon_end = mission.get("horizon_end")
+    if not isinstance(horizon_start, str) or not isinstance(horizon_end, str):
+        return None
+    try:
+        start = _parse_iso_datetime(horizon_start)
+        end = _parse_iso_datetime(horizon_end)
+    except ValueError:
+        return None
+    horizon_hours = (end - start).total_seconds() / 3600.0
+    if horizon_hours <= 0:
+        return None
+
+    targets = mission.get("targets")
+    if not isinstance(targets, list) or not targets:
+        return None
+    target_scores: list[float] = []
+    for target in targets:
+        if not isinstance(target, dict):
+            continue
+        expected = target.get("expected_revisit_period_hours")
+        if not _is_numeric(expected):
+            continue
+        target_scores.append(
+            family_aggregate._revisit_target_score_pct(
+                max_gap_hours=max_gap_hours,
+                expected_revisit_hours=float(expected),
+                horizon_hours=horizon_hours,
+            )
+        )
+    if not target_scores:
+        return None
+    return statistics.mean(target_scores)
+
+
 def _case_keys(split: str, case_id: str) -> tuple[str, ...]:
     return (f"{split}/{case_id}", case_id)
 
@@ -186,11 +252,19 @@ def _case_baseline(
     benchmark: str,
     split: str,
     case_id: str,
+    transform: str | None = None,
 ) -> float | None:
     benchmark_baselines = SOLVER_BASELINES.get(benchmark, {})
     for key in _case_keys(split, case_id):
         if key in benchmark_baselines:
-            return benchmark_baselines[key]
+            baseline = benchmark_baselines[key]
+            if transform == "revisit_score_pct":
+                return _revisit_solver_score_pct(
+                    split=split,
+                    case_id=case_id,
+                    max_gap_hours=baseline,
+                )
+            return baseline
     return None
 
 
@@ -200,10 +274,12 @@ def _case_score_pct(
     baseline: float,
     direction: str,
 ) -> float | None:
-    if baseline <= 0 or value <= 0:
+    if baseline <= 0 or value < 0:
         return None
     if direction == "maximize":
         return 100.0 * value / baseline
+    if value <= 0:
+        return None
     return 100.0 * baseline / value
 
 
@@ -229,6 +305,11 @@ def _load_scores(summaries_root: Path) -> tuple[list[str], dict[str, dict[str, f
                         benchmark=benchmark,
                         split=row.get("split", ""),
                         case_id=row.get("case_id", ""),
+                        transform=(
+                            str(spec["baseline_transform"])
+                            if "baseline_transform" in spec
+                            else None
+                        ),
                     )
                     if metric_value is None or baseline is None:
                         continue

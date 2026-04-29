@@ -9,7 +9,7 @@ import pytest
 REPO_ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(REPO_ROOT))
 
-from experiments.main_agentic import aggregate, plan
+from experiments.main_agentic import aggregate, plan, plot_radar
 
 
 def _item(benchmark: str, case_id: str) -> SimpleNamespace:
@@ -46,6 +46,29 @@ def test_revisit_processed_metric_scores_invalid_runs_as_zero() -> None:
     )
 
     assert processed_metrics == {"revisit_score_pct": 0.0}
+
+
+def test_revisit_solver_baseline_is_normalized_before_radar_comparison() -> None:
+    assert plot_radar._case_baseline(
+        benchmark="revisit_constellation",
+        split="test",
+        case_id="case_0001",
+        transform="revisit_score_pct",
+    ) == pytest.approx(100.0)
+    assert plot_radar._case_baseline(
+        benchmark="revisit_constellation",
+        split="test",
+        case_id="case_0003",
+        transform="revisit_score_pct",
+    ) == pytest.approx(78.925456)
+
+
+def test_radar_keeps_zero_scores_for_maximize_metrics() -> None:
+    assert plot_radar._case_score_pct(
+        value=0.0,
+        baseline=100.0,
+        direction="maximize",
+    ) == 0.0
 
 
 def test_spot5_reference_profit_uses_computed_fixture_profit() -> None:
