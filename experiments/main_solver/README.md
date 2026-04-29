@@ -97,7 +97,7 @@ Metric abbreviations follow each benchmark verifier or cited metric schema. `sol
 
 Metric notes:
 - `profit` is the verifier-computed imaging profit; higher is better.
-- `weight` is the verifier-computed plan resource weight; it is mainly a feasibility/resource-use check and should stay within benchmark limits.
+- `weight` is the verifier-computed plan resource weight; it is mainly a feasibility/resource-use check and should stay within benchmark limits (200 or 0).
 
 ### SatNet
 
@@ -115,7 +115,7 @@ Metric notes:
 | satnet_rl_ppo_goh2021 | W50_2018 | citation_reported | 0.36 | 0.67 | 879 | 185 | - | 25 |
 
 Metric notes:
-- `u_rms` and `u_max` are the cited utilization balance/load metrics; lower values indicate lower RMS and peak utilization pressure.
+- `u_rms` and `u_max` are the RMS unsatisfied ratio and the max unsatisfied ratio among requests / missions, lower values indicate better request satisfaction.
 - `total_h` and `satisfied` report scheduled service volume; higher values indicate more delivered request-hours and requests.
 - `run_h` is MILP solve time in hours when reported, and `train_h` is RL training time in hours when reported.
 
