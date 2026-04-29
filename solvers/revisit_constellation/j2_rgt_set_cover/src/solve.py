@@ -161,7 +161,7 @@ def solve(case_dir: str, config_dir: str | None, solution_dir: str | None) -> in
             f"local_valid={solution_result.validation.is_valid}"
         )
         return 0
-    except Exception as exc:
+    except (ValueError, FileNotFoundError, PermissionError, OSError, json.JSONDecodeError) as exc:
         write_json(
             output_dir / "status.json",
             {

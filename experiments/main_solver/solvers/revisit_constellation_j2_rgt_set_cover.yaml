@@ -32,9 +32,9 @@ evaluation_policy:
     worker_count_policy: fixed_8_workers
     deterministic: true
   notes:
-    - "Experiment-owned verifier establishes official validity."
+    - "Experiment-owned verifier records benchmark validity."
     - "The public profile is intentionally stronger than the quick sanity policy."
-    - "Case_0003 still exposes untapped algorithmic potential for future min-max repacking work."
+    - "Case_0003 still exposes untapped algorithmic potential for min-max repacking work."
 config:
   active_profile: public
   compute_envelope:

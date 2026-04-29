@@ -17,9 +17,9 @@ def parse_iso_z(value: str) -> datetime:
 def datetime_to_epoch(value: datetime) -> brahe.Epoch:
     if value.tzinfo is None or value.utcoffset() is None:
         raise ValueError("datetime must be timezone-aware UTC")
-    value = value.astimezone(UTC)
     if value.utcoffset().total_seconds() != 0:
         raise ValueError("datetime must be UTC")
+    value = value.astimezone(UTC)
     seconds = float(value.second) + value.microsecond / 1_000_000.0
     return brahe.Epoch.from_datetime(
         value.year,

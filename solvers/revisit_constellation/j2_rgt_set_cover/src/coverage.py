@@ -347,11 +347,15 @@ def geometry_sample_from_state(
     state_eci_m_mps: tuple[float, float, float, float, float, float],
     instant: datetime,
     offset_sec: float,
+    state_ecef_m_mps: tuple[float, float, float, float, float, float] | None = None,
 ) -> VisibilitySample:
     ensure_brahe_ready()
-    epoch = datetime_to_epoch(instant)
     state_eci = np.asarray(state_eci_m_mps, dtype=float)
-    state_ecef = np.asarray(brahe.state_eci_to_ecef(epoch, state_eci), dtype=float)
+    if state_ecef_m_mps is None:
+        epoch = datetime_to_epoch(instant)
+        state_ecef = np.asarray(brahe.state_eci_to_ecef(epoch, state_eci), dtype=float)
+    else:
+        state_ecef = np.asarray(state_ecef_m_mps, dtype=float)
     target_ecef = np.asarray(target.ecef_position_m, dtype=float)
     relative_enz = np.asarray(
         brahe.relative_position_ecef_to_enz(
@@ -367,8 +371,7 @@ def geometry_sample_from_state(
     )
     elevation_deg = float(aer[1])
     slant_range_m = float(aer[2])
-    target_eci = np.asarray(brahe.position_ecef_to_eci(epoch, target_ecef), dtype=float)
-    off_nadir_deg = angle_between_deg(-state_eci[:3], target_eci - state_eci[:3])
+    off_nadir_deg = angle_between_deg(-state_ecef[:3], target_ecef - state_ecef[:3])
     max_allowed_range_m = min(
         target.max_slant_range_m,
         case.satellite_model.sensor.max_range_m,
@@ -529,6 +532,12 @@ def _candidate_visibility_evidence(
         case.horizon_start + timedelta(seconds=offset)
         for offset in offsets
     ]
+    epochs = [datetime_to_epoch(instant) for instant in instants]
+    state_arrays = [np.asarray(state, dtype=float) for state in states]
+    ecef_states = [
+        tuple(float(value) for value in brahe.state_eci_to_ecef(epoch, state))
+        for epoch, state in zip(epochs, state_arrays, strict=True)
+    ]
     for target in targets:
         samples = [
             geometry_sample_from_state(
@@ -537,8 +546,15 @@ def _candidate_visibility_evidence(
                 state_eci_m_mps=state,
                 instant=instant,
                 offset_sec=offset,
+                state_ecef_m_mps=state_ecef,
             )
-            for state, instant, offset in zip(states, instants, offsets, strict=True)
+            for state, state_ecef, instant, offset in zip(
+                states,
+                ecef_states,
+                instants,
+                offsets,
+                strict=True,
+            )
         ]
         hints.extend(
             coarse_hints_from_samples(
@@ -618,25 +634,26 @@ def build_coverage_summary(
             item.hint_id,
         ),
     )
-    candidate_to_targets = {
-        candidate.candidate_id: sorted(
-            {
-                window.target_id
-                for window in windows
-                if window.candidate_id == candidate.candidate_id
-            }
+    candidate_to_targets_sets: dict[str, set[str]] = {
+        candidate.candidate_id: set() for candidate in candidates
+    }
+    target_to_candidates_sets: dict[str, set[str]] = {
+        target.target_id: set() for target in targets
+    }
+    for window in windows:
+        candidate_to_targets_sets.setdefault(window.candidate_id, set()).add(
+            window.target_id
         )
-        for candidate in candidates
+        target_to_candidates_sets.setdefault(window.target_id, set()).add(
+            window.candidate_id
+        )
+    candidate_to_targets = {
+        candidate_id: sorted(target_ids)
+        for candidate_id, target_ids in candidate_to_targets_sets.items()
     }
     target_to_candidates = {
-        target.target_id: sorted(
-            {
-                window.candidate_id
-                for window in windows
-                if window.target_id == target.target_id
-            }
-        )
-        for target in targets
+        target_id: sorted(candidate_ids)
+        for target_id, candidate_ids in target_to_candidates_sets.items()
     }
     target_to_candidates = {
         target_id: candidate_ids

@@ -294,10 +294,18 @@ def load_case(case_dir: str | Path) -> RevisitCase:
             raise ValueError(f"{target_context}.min_duration_sec must be > 0")
         targets[target.target_id] = target
 
+    horizon_start = parse_iso_z(_require_str(mission, "horizon_start", "mission.json"))
+    horizon_end = parse_iso_z(_require_str(mission, "horizon_end", "mission.json"))
+    if horizon_end <= horizon_start:
+        raise ValueError(
+            "mission.json.horizon_end must be after horizon_start: "
+            f"{horizon_end.isoformat()} <= {horizon_start.isoformat()}"
+        )
+
     return RevisitCase(
         case_dir=case_path,
-        horizon_start=parse_iso_z(_require_str(mission, "horizon_start", "mission.json")),
-        horizon_end=parse_iso_z(_require_str(mission, "horizon_end", "mission.json")),
+        horizon_start=horizon_start,
+        horizon_end=horizon_end,
         satellite_model=satellite_model,
         max_num_satellites=_require_int(assets, "max_num_satellites", "assets.json"),
         targets=targets,

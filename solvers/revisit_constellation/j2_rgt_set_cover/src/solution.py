@@ -1966,7 +1966,24 @@ def repair_selection_with_phased_opportunities(
         if final_estimated_gap[target_id] + NUMERICAL_EPS
         < initial_gap_summary[target_id]["max_revisit_gap_hours"]
     ]
-    if repacked_selection != selection:
+    coverage_reduced = (
+        len(repacked_selection.target_assignments) < len(selection.target_assignments)
+    )
+    high_gap_worsened = any(
+        final_estimated_gap[target_id]
+        > initial_gap_summary[target_id]["max_revisit_gap_hours"] + NUMERICAL_EPS
+        for target_id in high_gap_targets
+    )
+    use_repacked = (
+        repacked_selection != selection
+        and bool(improved_targets)
+        and not coverage_reduced
+        and not high_gap_worsened
+        and repacked_selection.within_satellite_budget
+    )
+    final_selection = repacked_selection if use_repacked else selection
+
+    if use_repacked:
         rounds.append(
             SelectionRepairRound(
                 round_index=0,
@@ -1998,22 +2015,43 @@ def repair_selection_with_phased_opportunities(
         if final_estimated_gap[target_id]
         > case.targets[target_id].expected_revisit_period_hours + NUMERICAL_EPS
     ]
-    blocker = None if not unresolved else "refined_repack_incomplete"
+    if use_repacked:
+        blocker = None if not unresolved else "refined_repack_incomplete"
+    elif coverage_reduced:
+        blocker = "refined_repack_would_reduce_assignment_coverage"
+    elif high_gap_worsened:
+        blocker = "refined_repack_would_worsen_high_gap_targets"
+    elif repacked_selection != selection and not improved_targets:
+        blocker = "refined_repack_not_improving"
+    else:
+        blocker = None if not unresolved else "refined_repack_incomplete"
     if not rounds and blocker is None:
         blocker = "no_repair_needed"
 
     for target_id in high_gap_targets:
-        diagnostics[target_id]["final_estimated_max_gap_hours"] = final_estimated_gap[
-            target_id
-        ]
+        diagnostics[target_id]["final_estimated_max_gap_hours"] = (
+            final_estimated_gap[target_id]
+            if use_repacked
+            else initial_gap_summary[target_id]["max_revisit_gap_hours"]
+        )
         diagnostics[target_id]["final_assignment"] = (
-            repacked_selection.target_assignments[target_id].as_dict()
-            if target_id in repacked_selection.target_assignments
+            final_selection.target_assignments[target_id].as_dict()
+            if target_id in final_selection.target_assignments
             else None
         )
 
+    repacking_summary = {
+        **repacking_summary,
+        "accepted": use_repacked,
+        "rejected_reason": None if use_repacked else blocker,
+        "original_assigned_target_count": len(selection.target_assignments),
+        "repacked_assigned_target_count": len(repacked_selection.target_assignments),
+        "returned_candidate_ids": [
+            item.candidate.candidate_id for item in final_selection.selected_candidates
+        ],
+    }
     return SelectionRepairResult(
-        selection=repacked_selection,
+        selection=final_selection,
         initial_selection=selection,
         initial_high_gap_target_ids=tuple(high_gap_targets),
         rounds=tuple(rounds),

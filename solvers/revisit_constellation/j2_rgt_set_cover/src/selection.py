@@ -384,9 +384,9 @@ def select_candidates(
                 margin_by_pair=margin_by_pair,
             )
             trial_total = _selected_satellite_count(trial_ids, trial_assignments)
-            incremental_cost = max(1, trial_total - total_required_satellites)
+            incremental_cost = max(0, trial_total - total_required_satellites)
             gain = len(newly_covered)
-            gain_per_cost = gain / incremental_cost
+            gain_per_cost = math.inf if incremental_cost == 0 else gain / incremental_cost
             round_item = SelectionRound(
                 round_index=len(rounds),
                 selected_candidate_id=candidate_id,

@@ -32,32 +32,13 @@ orbit_library:
   # Number of phase slots along each retained base RGT orbit.
   # Use null to let the solver choose enough slots for the case satellite cap.
   phase_slot_count: 18
-`@classmethod`
-def from_mapping(cls, payload: dict[str, Any], case: RevisitCase) -> "OrbitLibraryConfig":
-    orbit_raw = payload.get("orbit_library", payload)
-    max_candidates = orbit_raw.get("max_candidates")
-    search_mode = orbit_raw.get("search_mode", "phasing")
-    phase_slot_count = orbit_raw.get("phase_slot_count")
-    raan_slot_count = orbit_raw.get("raan_slot_count")
-    max_shells = orbit_raw.get("max_shells")
-    max_closure_error_m = orbit_raw.get("max_closure_error_m")
-    j2_closure_tolerance_m = orbit_raw.get("j2_closure_tolerance_m")
-    j2_refinement_iterations = orbit_raw.get("j2_refinement_iterations")
-    
-    return cls(
-        max_candidates=int(max_candidates),
-        search_mode=search_mode,
-        phase_slot_count=(None if phase_slot_count is None else int(phase_slot_count)),
-        raan_slot_count=(None if raan_slot_count is None else int(raan_slot_count)),
-        max_shells=(None if max_shells is None else int(max_shells)),
-        max_closure_error_m=(None if max_closure_error_m is None else float(max_closure_error_m)),
-        j2_closure_tolerance_m=(
-            5_000.0 if j2_closure_tolerance_m is None else float(j2_closure_tolerance_m)
-        ),
-        j2_refinement_iterations=(
-            6 if j2_refinement_iterations is None else int(j2_refinement_iterations)
-        ),
-    )
+  # Explicit shell/RAAN settings keep profile output stable across cases.
+  raan_slot_count: 2
+  max_shells: 6
+  # Analytical J2 closure evidence used during shell construction.
+  max_closure_error_m: 5000.0
+  j2_closure_tolerance_m: 5000.0
+  j2_refinement_iterations: 6
   # Number of circular-altitude fallback shells if no bounded RGT candidate survives.
   fallback_altitude_count: 3
 

@@ -9,6 +9,7 @@ import brahe
 import numpy as np
 import pytest
 
+from src import rgt as rgt_module
 from src import solution as solution_module
 from src.case_io import (
     AttitudeModel,
@@ -33,7 +34,10 @@ from src.coverage import (
     group_visible_samples,
 )
 from src.rgt import (
+    ClosureScore,
     EARTH_RADIUS_M,
+    J2Rates,
+    RgtTemplate,
     SIDEREAL_DAY_SEC,
     RgtSearchConfig,
     analytical_brouwer_closure_score,
@@ -149,6 +153,44 @@ def _synthetic_candidate(
     )
 
 
+def _synthetic_template(
+    template_id: str,
+    surface_error_m: float,
+    *,
+    repeat_days: int = 1,
+    revolutions: int = 15,
+    inclination_deg: float = 97.8,
+) -> RgtTemplate:
+    return RgtTemplate(
+        template_id=template_id,
+        repeat_days=repeat_days,
+        revolutions=revolutions,
+        inclination_deg=inclination_deg,
+        semi_major_axis_m=EARTH_RADIUS_M + 600_000.0,
+        altitude_m=600_000.0,
+        eccentricity=0.0,
+        raan_deg=0.0,
+        argument_of_perigee_deg=0.0,
+        mean_anomaly_deg=0.0,
+        repeat_period_sec=repeat_days * SIDEREAL_DAY_SEC,
+        state_eci_m_mps=(EARTH_RADIUS_M + 600_000.0, 0.0, 0.0, 0.0, 7_500.0, 0.0),
+        rates=J2Rates(0.0, 0.0, 0.0, 0.0),
+        closure=ClosureScore(
+            longitude_delta_deg=0.0,
+            latitude_delta_deg=0.0,
+            surface_error_m=surface_error_m,
+            start_longitude_deg=0.0,
+            start_latitude_deg=0.0,
+            end_longitude_deg=0.0,
+            end_latitude_deg=0.0,
+        ),
+        accepted=True,
+        rejection_reason=None,
+        iterations=1,
+        correction_iterations=1,
+    )
+
+
 def _synthetic_coverage(
     *,
     candidates: list[RaanCandidate],
@@ -261,6 +303,26 @@ def test_load_case_rejects_bool_integer(tmp_path: Path) -> None:
         load_case(case_dir)
 
 
+def test_load_case_rejects_inverted_horizon(tmp_path: Path) -> None:
+    case_dir = tmp_path / "case"
+    case_dir.mkdir()
+    assets = json.loads((CASE_DIR / "assets.json").read_text(encoding="utf-8"))
+    mission = json.loads((CASE_DIR / "mission.json").read_text(encoding="utf-8"))
+    mission["horizon_end"] = mission["horizon_start"]
+    (case_dir / "assets.json").write_text(json.dumps(assets), encoding="utf-8")
+    (case_dir / "mission.json").write_text(json.dumps(mission), encoding="utf-8")
+
+    with pytest.raises(ValueError, match="horizon_end must be after horizon_start"):
+        load_case(case_dir)
+
+
+def test_datetime_to_epoch_rejects_non_utc_datetime() -> None:
+    non_utc = datetime(2025, 1, 1, tzinfo=timezone(timedelta(hours=8)))
+
+    with pytest.raises(ValueError, match="datetime must be UTC"):
+        datetime_to_epoch(non_utc)
+
+
 def test_circular_state_respects_altitude_bounds() -> None:
     case = load_case(CASE_DIR)
     semi_major_axis, iterations, rejection = solve_rgt_semimajor_axis(
@@ -353,6 +415,59 @@ def test_j2_search_accepts_analytically_closed_template() -> None:
     assert template.closure is not None
     assert template.closure.surface_error_m <= config.closure_tolerance_m
     assert template.rejection_reason is None
+
+
+def test_j2_search_selects_best_templates_after_all_seeds(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    case = load_case(CASE_DIR)
+    config = RgtSearchConfig(
+        max_repeat_days=1,
+        min_revolutions_per_day=11,
+        max_revolutions_per_day=13,
+        inclinations_deg=(30.0, 40.0),
+        max_templates=2,
+        closure_tolerance_m=5_000.0,
+        refinement_iterations=1,
+    )
+    errors_by_seed = {
+        (1, 11, 30.0): 4000.0,
+        (1, 11, 40.0): 3000.0,
+        (1, 12, 30.0): 20.0,
+        (1, 12, 40.0): 10.0,
+        (1, 13, 30.0): 2000.0,
+        (1, 13, 40.0): 1000.0,
+    }
+    calls: list[tuple[int, int, float]] = []
+
+    def fake_construct_template(
+        _case: RevisitCase,
+        _config: RgtSearchConfig,
+        *,
+        repeat_days: int,
+        revolutions: int,
+        inclination_deg: float,
+    ) -> RgtTemplate:
+        key = (repeat_days, revolutions, inclination_deg)
+        calls.append(key)
+        return _synthetic_template(
+            f"tpl_{repeat_days}_{revolutions}_{inclination_deg:g}",
+            errors_by_seed[key],
+            repeat_days=repeat_days,
+            revolutions=revolutions,
+            inclination_deg=inclination_deg,
+        )
+
+    monkeypatch.setattr(rgt_module, "construct_template", fake_construct_template)
+
+    result = search_rgt_templates(case, config)
+
+    assert calls == enumerate_seeds(config)
+    assert result.considered_seed_count == len(calls)
+    assert [item.closure.surface_error_m for item in result.accepted_templates] == [
+        10.0,
+        20.0,
+    ]
 
 
 def test_geometry_visibility_accepts_overhead_and_rejects_range() -> None:
@@ -839,6 +954,56 @@ def test_selection_repair_replaces_failed_candidate_instead_of_adding(
     ]
 
 
+def test_selection_repair_keeps_original_when_repack_drops_assignments(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(
+        solution_module,
+        "_action_geometry_valid",
+        lambda **_: True,
+    )
+    case = _synthetic_case(["t1", "t2"], revisit_hours=8.0, max_num_satellites=3)
+    original = _synthetic_candidate("b_original_t2_only", repeat_hours=24.0, closure_error_m=10.0)
+    replacement = _synthetic_candidate("a_replacement_t1_only", repeat_hours=24.0)
+    coverage = _synthetic_coverage(
+        candidates=[original, replacement],
+        candidate_to_targets={
+            original.candidate_id: ["t1", "t2"],
+            replacement.candidate_id: ["t1"],
+        },
+        windows=[
+            _synthetic_window(original, "t2", 1.0),
+            _synthetic_window(original, "t2", 25.0),
+            _synthetic_window(replacement, "t1", 1.0),
+            _synthetic_window(replacement, "t1", 25.0),
+        ],
+    )
+    selection = select_candidates(case, coverage)
+    initial_gaps = {
+        "t1": {
+            "max_revisit_gap_hours": 24.0,
+            "expected_revisit_period_hours": 8.0,
+        },
+        "t2": {
+            "max_revisit_gap_hours": 8.0,
+            "expected_revisit_period_hours": 8.0,
+        },
+    }
+
+    repair = repair_selection_with_phased_opportunities(
+        case=case,
+        coverage=coverage,
+        selection=selection,
+        initial_gap_summary=initial_gaps,
+        config=SchedulingConfig(),
+    )
+
+    assert not repair.changed
+    assert repair.selection.as_debug_dict() == selection.as_debug_dict()
+    assert repair.blocker == "refined_repack_would_reduce_assignment_coverage"
+    assert repair.as_debug_dict()["refined_repacking_summary"]["accepted"] is False
+
+
 def test_selection_repair_ties_are_deterministic_under_shuffled_candidates(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -857,6 +1022,8 @@ def test_selection_repair_ties_are_deterministic_under_shuffled_candidates(
         second.candidate_id: ["t1"],
     }
     windows = [
+        _synthetic_window(bad, "t2", 1.0),
+        _synthetic_window(bad, "t2", 25.0),
         _synthetic_window(first, "t1", 1.0),
         _synthetic_window(first, "t1", 25.0),
         _synthetic_window(second, "t1", 1.0),

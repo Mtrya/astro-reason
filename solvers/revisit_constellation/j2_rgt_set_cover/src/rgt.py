@@ -859,8 +859,6 @@ def search_rgt_templates(case: RevisitCase, config: RgtSearchConfig) -> RgtSearc
             accepted.append(template)
         else:
             rejected.append(template)
-        if len(accepted) >= config.max_templates:
-            break
 
     accepted.sort(
         key=lambda item: (
@@ -871,6 +869,7 @@ def search_rgt_templates(case: RevisitCase, config: RgtSearchConfig) -> RgtSearc
             item.template_id,
         )
     )
+    accepted = accepted[: max(0, config.max_templates)]
     rejected.sort(key=lambda item: item.template_id)
     return RgtSearchResult(
         accepted_templates=accepted,

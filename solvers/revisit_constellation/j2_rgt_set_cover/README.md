@@ -1,13 +1,8 @@
 # J2 RGT Set-Cover Solver
 
-This solver implements the custom `revisit_constellation` method requested in
-issue #133. It builds genuinely J2-aware repeat-ground-track orbit templates,
-expands them into RAAN-specific candidates, selects candidates as a
-satellite-cost set-cover problem, populates selected candidates with evenly
-spaced satellites, and emits verifier-shaped observation schedules.
+This solver implements a J2-aware repeat-ground-track set-cover method for `revisit_constellation`. It builds repeat-ground-track orbit templates, expands them into RAAN-specific candidates, selects candidates as a satellite-cost set-cover problem, populates selected candidates with evenly spaced satellites, and emits benchmark-shaped observation schedules.
 
-The solver is standalone. It reads benchmark case files directly and does not
-import benchmark, experiment, runtime, or other solver internals.
+The solver is standalone. It reads benchmark case files directly and does not import benchmark, experiment, runtime, or other solver internals.
 
 ## Contract
 
@@ -25,11 +20,7 @@ The solver writes:
 - `debug/selection_summary.json`: selected candidates, assigned targets, total satellite cost, and budget blockers
 - `debug/solution_summary.json`: satellites, selected actions, target gaps, and local validation details
 
-Experiment-owned profiles are defined in
-`experiments/main_solver/solvers/revisit_constellation_j2_rgt_set_cover.yaml`.
-The solver records `active_profile`, `compute_envelope`, and worker counts in
-`status.json.compute_profile`; official verification belongs to
-`experiments/main_solver`.
+Experiment-owned profiles are defined in `experiments/main_solver/solvers/revisit_constellation_j2_rgt_set_cover.yaml`. The solver records `active_profile`, `compute_envelope`, and worker counts in `status.json.compute_profile`; benchmark verification is owned by `experiments/main_solver`.
 
 ## Orbit Templates And Candidates
 
@@ -44,33 +35,22 @@ The solver first constructs closed RGT templates. A template fixes:
 - `argument_of_perigee_deg`
 - `repeat_period_sec`
 
-The template `raan_deg` is `0.0` only as a canonical reference orientation for
-closure scoring. It is not a coverage decision.
+The template `raan_deg` is `0.0` only as a canonical reference orientation for closure scoring. It is not a coverage decision.
 
 A coverage candidate is the flattened tuple:
 
 - all template fields above
 - one concrete `raan_deg`
 
-RAAN is part of the candidate because it rotates the repeating ground track
-against Earth longitudes at the mission epoch and therefore changes which
-targets are useful to cover.
+RAAN is part of the candidate because it rotates the repeating ground track against Earth longitudes at the mission epoch and therefore changes which targets are useful to cover.
 
 ## J2 RGT Construction
 
-For each configured integer repeat template `(revolutions, repeat_days)` and
-inclination, the solver uses secular J2 repeat-ground-track equations to solve
-for semi-major axis. It then uses a solver-local Brouwer-Lyddane-style J2
-analytical propagator to search nearby altitude and mean-anomaly corrections
-cheaply.
+For each configured integer repeat template `(revolutions, repeat_days)` and inclination, the solver uses secular J2 repeat-ground-track equations to solve for semi-major axis. It then uses a solver-local Brouwer-Lyddane-style J2 analytical propagator to search nearby altitude and mean-anomaly corrections cheaply.
 
-The constructor records analytical closure after `repeat_days` sidereal days.
-Tests compare the analytical constructor against Brahe numerical J2 propagation
-over a larger seed set; once those tests pass, the solver trusts the analytical
-constructor directly in the search path.
+The constructor records analytical closure after `repeat_days` sidereal days. Tests compare the analytical constructor against Brahe numerical J2 propagation over a larger seed set; once those tests pass, the solver trusts the analytical constructor directly in the search path.
 
-This is not a Keplerian integer-ratio seed. Brouwer-Lyddane J2 closure evidence
-is required before a template is accepted.
+This is not a Keplerian integer-ratio seed. Brouwer-Lyddane J2 closure evidence is required before a template is accepted.
 
 ## Coverage And Selection
 
@@ -83,42 +63,23 @@ visibility geometry solver-locally:
 - off-nadir angle within the sensor cone
 - grouped visibility evidence must support target `min_duration_sec`
 
-Selection treats each RAAN-specific candidate as a set-cover item with a
-satellite cost. For a target assigned to a candidate:
+Selection treats each RAAN-specific candidate as a set-cover item with a satellite cost. For a target assigned to a candidate:
 
 ```text
 required_satellites = ceil(candidate_repeat_period_hours / target_revisit_hours)
 ```
 
-When one candidate owns multiple assigned targets, its cost is the strictest
-assigned target cost. Greedy selection maximizes newly covered targets per
-satellite cost while respecting `max_num_satellites`. Deterministic ties prefer
-difficult target coverage, lower closure error, shorter repeat period, stronger
-coverage margin, then candidate ID.
+When one candidate owns multiple assigned targets, its cost is the strictest assigned target cost. Greedy selection maximizes newly covered targets per satellite cost while respecting `max_num_satellites`. Deterministic ties prefer difficult target coverage, lower closure error, shorter repeat period, stronger coverage margin, then candidate ID.
 
 ## Realization And Scheduling
 
-Each selected RAAN-specific candidate is expanded into concrete satellites by
-equal ground-track phase spacing. Analytical J2 remains the architecture-search
-model, but final realization uses the same Brahe numerical J2 force model as the
-benchmark verifier for opportunity refinement, slew vectors, and local sampled
-visibility checks.
+Each selected RAAN-specific candidate is expanded into concrete satellites by equal ground-track phase spacing. Analytical J2 remains the architecture-search model, but final realization uses the same Brahe numerical J2 force model as the benchmark verifier for opportunity refinement, slew vectors, and local sampled visibility checks.
 
-Repair first ranks the broad candidate pool analytically, then validates a
-bounded deterministic repair frontier numerically before repacking candidate
-sets. This keeps the repacker aligned with official propagation without
-requiring full numerical propagation for every RAAN candidate.
+Repair first ranks the broad candidate pool analytically, then validates a bounded deterministic repair frontier numerically before repacking candidate sets. This keeps the repacker aligned with benchmark propagation without requiring full numerical propagation for every RAAN candidate.
 
-The final scheduler is assigned-first. For each target assigned to a selected
-candidate, it fills that target's opportunity timeline until the target revisit
-threshold is satisfied, using deterministic gap-profile ties. Only after
-assigned targets are realized does it use remaining compatible opportunities for
-uncovered targets. Same-satellite overlap and slew/settle gaps are checked
-before insertion.
+The final scheduler is assigned-first. For each target assigned to a selected candidate, it fills that target's opportunity timeline until the target revisit threshold is satisfied, using deterministic gap-profile ties. Only after assigned targets are realized does it use remaining compatible opportunities for uncovered targets. Same-satellite overlap and slew/settle gaps are checked before insertion.
 
-The solver-local validator checks benchmark-shaped references, timing, orbit
-bounds, sampled visibility, same-satellite overlap, conservative slew gaps, and
-a conservative no-charge battery risk.
+The solver-local validator checks benchmark-shaped references, timing, orbit bounds, sampled visibility, same-satellite overlap, conservative slew gaps, and a conservative no-charge battery risk.
 
 ## Validation
 
