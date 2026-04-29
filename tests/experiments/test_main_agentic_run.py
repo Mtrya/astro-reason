@@ -17,12 +17,27 @@ def _preview_item(harness: str, case_id: str = "case_0001") -> SimpleNamespace:
         existing_overall_status=None,
         artifact_state="missing",
         item=SimpleNamespace(
+            config_name="matrix",
             benchmark="satnet",
             harness=harness,
             split="test",
             case_id=case_id,
+            results_root=REPO_ROOT / "results" / "agent_runs" / "experiments" / "main_agentic",
         ),
     )
+
+
+def _skipped_preview_item(
+    harness: str,
+    case_id: str = "case_0001",
+    status: str = "success",
+) -> SimpleNamespace:
+    item = _preview_item(harness, case_id)
+    item.action = "skip"
+    item.existing_overall_status = status
+    item.artifact_state = "present"
+    item.reason = "existing_terminal_status"
+    return item
 
 
 def test_next_ready_item_skips_cooling_harness_when_other_harness_is_ready() -> None:
@@ -304,3 +319,60 @@ def test_run_batch_preserves_upfront_submission_when_cooldown_is_zero(
 
     assert exit_code == 0
     assert calls == ["upfront"]
+
+
+def test_run_batch_progress_counts_initial_skips_as_resume_state(
+    monkeypatch,
+    tmp_path: Path,
+    capsys,
+) -> None:
+    runnable_item = _preview_item("codex", "case_0001")
+    skipped_item = _skipped_preview_item("codex", "case_0002")
+    batch_settings = plan.BatchSettings(
+        max_concurrency=2,
+        max_retries=0,
+        harness_cooldown_seconds=0,
+        skip_completed=True,
+        retry_statuses=(),
+    )
+    preview = SimpleNamespace(
+        items=(runnable_item, skipped_item),
+        plan=SimpleNamespace(config=SimpleNamespace(batch=batch_settings)),
+    )
+    seen_total_items: list[int] = []
+    seen_skipped_counts: list[int] = []
+
+    def fake_run_upfront(
+        *,
+        runnable_items: tuple[SimpleNamespace, ...],
+        batch_settings: plan.BatchSettings,
+        timeout_override: int | None,
+        max_workers: int,
+        progress: run.BatchProgress,
+        total_items: int,
+    ) -> None:
+        seen_total_items.append(total_items)
+        seen_skipped_counts.append(progress.skipped_count)
+        run._record_batch_result(
+            progress=progress,
+            total_items=total_items,
+            preview_item=runnable_items[0],
+            result=run.RunExecutionResult(
+                overall_status="success",
+                skipped=False,
+                output_dir=tmp_path / "case_0001",
+                exit_code=0,
+            ),
+        )
+
+    monkeypatch.setattr(run, "_run_runnable_items_upfront", fake_run_upfront)
+
+    exit_code = run._run_batch(SimpleNamespace(timeout=None), preview)
+    output = capsys.readouterr().out
+
+    assert exit_code == 0
+    assert seen_total_items == [1]
+    assert seen_skipped_counts == [1]
+    assert "[1/1 runnable]" in output
+    assert "executed=1, skipped=1" in output
+    assert "Total runs considered: 2" in output

@@ -1097,7 +1097,7 @@ def _print_progress_line(
     counts_text = ", ".join(f"{status}={count}" for status, count in sorted(status_counts.items()))
     action = "skipped" if result.skipped else "executed"
     print(
-        f"[{index}/{total}] {item.benchmark}/{item.harness}/{item.case_id} "
+        f"[{index}/{total} runnable] {item.benchmark}/{item.harness}/{item.case_id} "
         f"-> {result.overall_status} ({action}; executed={executed_count}, skipped={skipped_count}; {counts_text})"
     )
 
@@ -1286,6 +1286,20 @@ def _record_batch_result(
         skipped_count=progress.skipped_count,
         status_counts=progress.status_counts,
     )
+
+
+def _record_initial_skips(
+    *,
+    progress: BatchProgress,
+    skipped_items: tuple[family_plan.BatchPreviewItem, ...],
+) -> None:
+    for preview_item in skipped_items:
+        result = _skip_result(preview_item)
+        progress.results.append(result)
+        progress.skipped_count += 1
+        progress.status_counts[result.overall_status] = (
+            progress.status_counts.get(result.overall_status, 0) + 1
+        )
 
 
 def _skip_result(preview_item: family_plan.BatchPreviewItem) -> RunExecutionResult:
@@ -1515,7 +1529,8 @@ def _run_batch(
     preview: family_plan.BatchPreview,
 ) -> int:
     runnable_items = family_plan.runnable_preview_items(preview)
-    total_items = len(preview.items)
+    skipped_items = tuple(item for item in preview.items if item.action == "skip")
+    total_items = len(runnable_items)
     progress = BatchProgress(
         results=[],
         completed=0,
@@ -1523,6 +1538,7 @@ def _run_batch(
         skipped_count=0,
         status_counts={},
     )
+    _record_initial_skips(progress=progress, skipped_items=skipped_items)
     batch_start = _utc_now()
     max_workers = min(preview.plan.config.batch.max_concurrency, len(runnable_items))
     print(
@@ -1547,16 +1563,6 @@ def _run_batch(
             max_workers=max_workers,
             progress=progress,
             total_items=total_items,
-        )
-
-    for preview_item in preview.items:
-        if preview_item.action != "skip":
-            continue
-        _record_batch_result(
-            progress=progress,
-            total_items=total_items,
-            preview_item=preview_item,
-            result=_skip_result(preview_item),
         )
 
     exit_code = 0
