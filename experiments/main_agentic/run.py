@@ -996,10 +996,10 @@ def _overall_status(agent_status: str, verifier_status: str, interactive: bool) 
             return "interactive_no_solution"
         return "interactive_completed"
 
-    if agent_status != "success":
-        return agent_status
     if verifier_status == "valid":
         return "success"
+    if agent_status != "success":
+        return agent_status
     if verifier_status == "invalid":
         return "verifier_invalid"
     return "verifier_error"

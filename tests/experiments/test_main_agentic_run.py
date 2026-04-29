@@ -59,6 +59,14 @@ def test_next_ready_item_skips_cooling_harness_when_other_harness_is_ready() -> 
     assert ready_index == 1
 
 
+def test_overall_status_treats_valid_timeout_solution_as_success() -> None:
+    assert run._overall_status(
+        agent_status="timeout",
+        verifier_status="valid",
+        interactive=False,
+    ) == "success"
+
+
 def test_earliest_pending_ready_at_ignores_active_harnesses() -> None:
     now = datetime(2026, 4, 28, tzinfo=timezone.utc)
     ready_at = run._earliest_pending_ready_at(

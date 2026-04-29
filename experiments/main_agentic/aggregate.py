@@ -398,6 +398,9 @@ def _normalize_run_record(item: family_plan.RunItem, run_data: dict[str, Any]) -
         verifier_payload,
         verifier_status if isinstance(verifier_status, str) else "unknown",
     )
+    normalized_overall_status = overall_status if isinstance(overall_status, str) else "unknown"
+    if valid is True:
+        normalized_overall_status = "success"
     processed_metrics = _processed_metrics_for_run(
         item,
         valid=valid,
@@ -413,7 +416,7 @@ def _normalize_run_record(item: family_plan.RunItem, run_data: dict[str, Any]) -
         "result_path": _relative_display(family_plan.run_output_dir(item)),
         "artifact_state": "present",
         "mode": run_data.get("mode", "batch"),
-        "overall_status": overall_status if isinstance(overall_status, str) else "unknown",
+        "overall_status": normalized_overall_status,
         "agent_status": agent_status if isinstance(agent_status, str) else "unknown",
         "verifier_status": verifier_status if isinstance(verifier_status, str) else "unknown",
         "valid": valid,

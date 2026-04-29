@@ -1035,6 +1035,9 @@ def _read_existing_overall_status(item: RunItem) -> tuple[str, str | None]:
 
     if not isinstance(data, dict):
         return "malformed_artifact", None
+    verifier_status = data.get("verifier_status")
+    if verifier_status == "valid":
+        return "present", "success"
     status = data.get("overall_status")
     if not isinstance(status, str) or not status:
         return "malformed_artifact", None

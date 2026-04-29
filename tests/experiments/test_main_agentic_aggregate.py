@@ -133,3 +133,28 @@ def test_group_summary_processed_metric_mean_includes_invalid_zero() -> None:
     assert summary["primary_metric"]["stats"]["mean"] == 10.0
     assert summary["processed_metrics"]["profit_score_pct"]["stats"]["count"] == 2
     assert summary["processed_metrics"]["profit_score_pct"]["stats"]["mean"] == 50.0
+
+
+def test_aggregate_counts_valid_timeout_run_as_success(tmp_path: Path) -> None:
+    item = SimpleNamespace(
+        config_name="matrix",
+        benchmark="satnet",
+        harness="codex",
+        split="test",
+        case_id="W10_2018",
+        results_root=tmp_path,
+        benchmark_profile=SimpleNamespace(score_metrics=(), flag_metrics=()),
+    )
+    record = aggregate._normalize_run_record(
+        item,
+        {
+            "overall_status": "timeout",
+            "agent_status": "timeout",
+            "verifier_status": "valid",
+            "verifier": {"valid": True, "metrics": {}},
+        },
+    )
+
+    assert record["overall_status"] == "success"
+    assert record["agent_status"] == "timeout"
+    assert record["verifier_status"] == "valid"

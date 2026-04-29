@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import sys
 from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
 
@@ -49,6 +50,32 @@ def test_load_batch_config_defaults_harness_cooldown_to_zero(tmp_path: Path) -> 
     config = plan.load_batch_config(_write_batch_config(tmp_path))
 
     assert config.batch.harness_cooldown_seconds == 0
+
+
+def test_existing_valid_timeout_run_is_seen_as_success(tmp_path: Path) -> None:
+    item = SimpleNamespace(
+        results_root=tmp_path,
+        config_name="matrix",
+        benchmark="satnet",
+        harness="codex",
+        split="test",
+        case_id="W10_2018",
+    )
+    output_dir = plan.run_output_dir(item)
+    output_dir.mkdir(parents=True)
+    (output_dir / "run.json").write_text(
+        "\n".join(
+            [
+                "overall_status: timeout",
+                "agent_status: timeout",
+                "verifier_status: valid",
+                "",
+            ]
+        ),
+        encoding="utf-8",
+    )
+
+    assert plan._read_existing_overall_status(item) == ("present", "success")
 
 
 def test_load_batch_config_parses_harness_cooldown(tmp_path: Path) -> None:
