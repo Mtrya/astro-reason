@@ -95,6 +95,10 @@ Metric abbreviations follow each benchmark verifier or cited metric schema. `sol
 | spot5_reference_lookup | test/28 | true | 56053 | 0 |
 | spot5_reference_lookup | test/8 | true | 10 | 0 |
 
+Metric notes:
+- `profit` is the verifier-computed imaging profit; higher is better.
+- `weight` is the verifier-computed plan resource weight; it is mainly a feasibility/resource-use check and should stay within benchmark limits.
+
 ### SatNet
 
 | method | case | evidence | u_rms | u_max | total_h | satisfied | run_h | train_h |
@@ -109,6 +113,11 @@ Metric abbreviations follow each benchmark verifier or cited metric schema. `sol
 | satnet_rl_ppo_goh2021 | W30_2018 | citation_reported | 0.28 | 0.85 | 1100 | 229 | - | 13 |
 | satnet_rl_ppo_goh2021 | W40_2018 | citation_reported | 0.39 | 0.82 | 1058 | 216 | - | 6 |
 | satnet_rl_ppo_goh2021 | W50_2018 | citation_reported | 0.36 | 0.67 | 879 | 185 | - | 25 |
+
+Metric notes:
+- `u_rms` and `u_max` are the cited utilization balance/load metrics; lower values indicate lower RMS and peak utilization pressure.
+- `total_h` and `satisfied` report scheduled service volume; higher values indicate more delivered request-hours and requests.
+- `run_h` is MILP solve time in hours when reported, and `train_h` is RL training time in hours when reported.
 
 ### AEOSSP Standard
 
@@ -125,6 +134,11 @@ Metric abbreviations follow each benchmark verifier or cited metric schema. `sol
 | aeossp_standard_mwis_conflict_graph | test/case_0004 | true | 0.7395 | 0.7757 | 1036.2 | 18966.2 | 98.094 |
 | aeossp_standard_mwis_conflict_graph | test/case_0005 | true | 0.7858 | 0.8168 | 966.60 | 22374.9 | 186.04 |
 
+Metric notes:
+- `WCR` is weighted completion ratio and `CR` is completion ratio; higher is better.
+- `TAT` is mean `(completion_time - release_time)` over completed tasks, and `PC` is power consumption; lower is better.
+- `solve_s` is runner wall time in seconds and is an audit/runtime field, not a benchmark score.
+
 ### Stereo Imaging
 
 | method | case | valid | coverage | quality | solve_s |
@@ -139,6 +153,11 @@ Metric abbreviations follow each benchmark verifier or cited metric schema. `sol
 | stereo_imaging_time_window_pruned_stereo_milp | test/case_0003 | true | 0.9421 | 0.9176 | 88.634 |
 | stereo_imaging_time_window_pruned_stereo_milp | test/case_0004 | true | 0.8968 | 0.8532 | 83.311 |
 | stereo_imaging_time_window_pruned_stereo_milp | test/case_0005 | true | 0.9574 | 0.9388 | 88.511 |
+
+Metric notes:
+- `coverage` is `coverage_ratio`, the fraction of targets with at least one valid stereo or tri-stereo imaging product; higher is better.
+- `quality` is `normalized_quality`, the mean best per-target stereo quality score; higher is better.
+- `solve_s` is runner wall time in seconds and is used for audit rather than scoring.
 
 ### Relay Constellation
 
@@ -155,6 +174,11 @@ Metric abbreviations follow each benchmark verifier or cited metric schema. `sol
 | relay_constellation_umcf_srr_contact_plan | test/case_0004 | true | 0.8893 | 0.4133 | 109.27 | 191.25 | 2 | 71.102 |
 | relay_constellation_umcf_srr_contact_plan | test/case_0005 | true | 0.8941 | 0.625 | 169.92 | 342.66 | 4 | 72.663 |
 
+Metric notes:
+- `service` is `service_fraction` and `worst_service` is `worst_demand_service_fraction`; higher is better.
+- `mean_ms` and `p95_ms` are mean and 95th-percentile service latency in milliseconds; lower is better after service metrics.
+- `added` is the number of added relay satellites, and fewer additions are preferred when service metrics are comparable. `solve_s` is runtime.
+
 ### Revisit Constellation
 
 | method | case | valid | sats | actions | capped_gap_h | solver_s |
@@ -170,6 +194,11 @@ Metric abbreviations follow each benchmark verifier or cited metric schema. `sol
 | revisit_constellation_rgt_apc_gap_constructive | test/case_0004 | true | 17 | - | 12.410 | 546.40 |
 | revisit_constellation_rgt_apc_gap_constructive | test/case_0005 | true | 17 | - | 12.000 | 540.70 |
 
+Metric notes:
+- `sats` is the submitted constellation size and `actions` is the number of scheduled observations when the solver reports it.
+- `capped_gap_h` is mean capped maximum revisit gap in hours; lower is better.
+- `solver_s` is solver-reported runtime in seconds and is used for audit rather than scoring.
+
 ### Regional Coverage
 
 | method | case | valid | coverage | weighted_coverage | min_battery_wh | solver_s |
@@ -184,6 +213,11 @@ Metric abbreviations follow each benchmark verifier or cited metric schema. `sol
 | regional_coverage_cp_local_search | test/case_0003 | true | 0.9781 | 0.9776 | 493.13 | 181.53 |
 | regional_coverage_cp_local_search | test/case_0004 | true | 1 | 1 | 496.56 | 113.01 |
 | regional_coverage_cp_local_search | test/case_0005 | true | 1 | 1 | 497.26 | 87.464 |
+
+Metric notes:
+- `coverage` is the overall `coverage_ratio`, and `weighted_coverage` is the region-weighted coverage ratio; higher is better.
+- `min_battery_wh` is the minimum remaining battery margin in watt-hours; higher indicates more energy slack.
+- `solver_s` is solver-reported runtime in seconds and is used for audit rather than scoring.
 
 ## Result Layout
 
