@@ -10,7 +10,6 @@ import os
 import sys
 import tempfile
 from pathlib import Path
-from typing import Any
 
 if __package__ in (None, ""):
     sys.path.insert(0, str(Path(__file__).resolve().parent))
@@ -24,6 +23,92 @@ else:
 FAMILY_DIR = Path(__file__).resolve().parent
 DEFAULT_CONFIG = FAMILY_DIR / "configs" / "matrix.yaml"
 DEFAULT_OUTPUT = FAMILY_DIR / "reports" / "harness_radar.png"
+
+BASELINE_SPECS = {
+    "aeossp_standard": {
+        "agent_metric": "WCR",
+        "direction": "maximize",
+    },
+    "regional_coverage": {
+        "agent_metric": "coverage_ratio",
+        "direction": "maximize",
+    },
+    "relay_constellation": {
+        "agent_metric": "service_fraction",
+        "direction": "maximize",
+    },
+    "revisit_constellation": {
+        "agent_metric": "capped_max_revisit_gap_hours",
+        "direction": "minimize",
+    },
+    "satnet": {
+        "agent_metric": "score_hours",
+        "direction": "maximize",
+    },
+    "spot5": {
+        "agent_metric": "computed_profit",
+        "direction": "maximize",
+    },
+    "stereo_imaging": {
+        "agent_metric": "coverage_ratio",
+        "direction": "maximize",
+    },
+}
+
+# Best per-case traditional-solver baselines from experiments/main_solver.
+# Values are intentionally hardcoded so this plot is stable even if the
+# prose/tables in experiments/main_solver/README.md are later reorganized.
+SOLVER_BASELINES = {
+    "aeossp_standard": {
+        "test/case_0001": 0.7057,
+        "test/case_0002": 0.7763,
+        "test/case_0003": 0.7837,
+        "test/case_0004": 0.7395,
+        "test/case_0005": 0.7858,
+    },
+    "regional_coverage": {
+        "test/case_0001": 1.0,
+        "test/case_0002": 0.9986,
+        "test/case_0003": 0.9781,
+        "test/case_0004": 1.0,
+        "test/case_0005": 1.0,
+    },
+    "relay_constellation": {
+        "test/case_0001": 0.9259,
+        "test/case_0002": 0.9524,
+        "test/case_0003": 0.9911,
+        "test/case_0004": 0.9444,
+        "test/case_0005": 0.9111,
+    },
+    "revisit_constellation": {
+        "test/case_0001": 8.0,
+        "test/case_0002": 8.0,
+        "test/case_0003": 12.464,
+        "test/case_0004": 12.0,
+        "test/case_0005": 12.0,
+    },
+    "satnet": {
+        "test/W10_2018": 886.0,
+        "test/W20_2018": 1059.0,
+        "test/W30_2018": 1100.0,
+        "test/W40_2018": 1058.0,
+        "test/W50_2018": 879.0,
+    },
+    "spot5": {
+        "test/1021": 169243.0,
+        "test/1403": 172143.0,
+        "test/1506": 164241.0,
+        "test/28": 56053.0,
+        "test/8": 10.0,
+    },
+    "stereo_imaging": {
+        "test/case_0001": 0.9789,
+        "test/case_0002": 0.9917,
+        "test/case_0003": 0.9587,
+        "test/case_0004": 0.9444,
+        "test/case_0005": 0.9787,
+    },
+}
 
 
 def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
@@ -92,31 +177,81 @@ def _float_field(row: dict[str, str], key: str) -> float | None:
         return None
 
 
-def _row_score_pct(row: dict[str, str]) -> float | None:
-    processed_mean = _float_field(row, "processed_metric_mean")
-    if processed_mean is not None:
-        return processed_mean
+def _case_keys(split: str, case_id: str) -> tuple[str, ...]:
+    return (f"{split}/{case_id}", case_id)
 
-    primary_mean = _float_field(row, "primary_metric_mean")
-    if primary_mean is None:
-        return None
-    if row.get("primary_metric_direction") == "maximize" and 0.0 <= primary_mean <= 1.0:
-        return primary_mean * 100.0
+
+def _case_baseline(
+    *,
+    benchmark: str,
+    split: str,
+    case_id: str,
+) -> float | None:
+    benchmark_baselines = SOLVER_BASELINES.get(benchmark, {})
+    for key in _case_keys(split, case_id):
+        if key in benchmark_baselines:
+            return benchmark_baselines[key]
     return None
 
 
-def _load_scores(summary_csv: Path) -> tuple[list[str], dict[str, dict[str, float]]]:
-    rows: list[dict[str, str]] = []
-    with summary_csv.open("r", encoding="utf-8", newline="") as handle:
-        rows.extend(csv.DictReader(handle))
+def _case_score_pct(
+    *,
+    value: float,
+    baseline: float,
+    direction: str,
+) -> float | None:
+    if baseline <= 0 or value <= 0:
+        return None
+    if direction == "maximize":
+        return 100.0 * value / baseline
+    return 100.0 * baseline / value
 
-    benchmarks = sorted({row["benchmark"] for row in rows})
-    scores: dict[str, dict[str, float]] = {}
-    for row in rows:
-        score = _row_score_pct(row)
-        if score is None:
+
+def _mean(values: list[float]) -> float | None:
+    if not values:
+        return None
+    return sum(values) / len(values)
+
+
+def _load_scores(summaries_root: Path) -> tuple[list[str], dict[str, dict[str, float]]]:
+    scores_by_harness_benchmark: dict[str, dict[str, list[float]]] = {}
+    for benchmark, spec in BASELINE_SPECS.items():
+        csv_path = summaries_root / "benchmarks" / f"{benchmark}.csv"
+        if not csv_path.exists():
             continue
-        scores.setdefault(row["harness"], {})[row["benchmark"]] = score
+        with csv_path.open("r", encoding="utf-8", newline="") as handle:
+            for row in csv.DictReader(handle):
+                if row.get("valid") != "True":
+                    score = 0.0
+                else:
+                    metric_value = _float_field(row, str(spec["agent_metric"]))
+                    baseline = _case_baseline(
+                        benchmark=benchmark,
+                        split=row.get("split", ""),
+                        case_id=row.get("case_id", ""),
+                    )
+                    if metric_value is None or baseline is None:
+                        continue
+                    score = _case_score_pct(
+                        value=metric_value,
+                        baseline=baseline,
+                        direction=str(spec["direction"]),
+                    )
+                    if score is None:
+                        continue
+                scores_by_harness_benchmark.setdefault(row["harness"], {}).setdefault(
+                    benchmark, []
+                ).append(score)
+
+    scores: dict[str, dict[str, float]] = {}
+    for harness, benchmark_scores in scores_by_harness_benchmark.items():
+        for benchmark, values in benchmark_scores.items():
+            mean_score = _mean(values)
+            if mean_score is not None:
+                scores.setdefault(harness, {})[benchmark] = mean_score
+    benchmarks = [
+        benchmark for benchmark in BASELINE_SPECS if any(benchmark in item for item in scores.values())
+    ]
     return benchmarks, scores
 
 
@@ -179,7 +314,7 @@ def _plot_radar(
     ax.set_ylim(0, radial_max)
     ax.set_yticks([tick for tick in (25, 50, 75, 100) if tick <= radial_max])
     ax.set_yticklabels([str(tick) for tick in ax.get_yticks()], fontsize=8)
-    ax.set_title("Main Agentic Harness Radar", pad=24)
+    ax.set_title("Main Agentic Harness Radar vs Best Main Solver", pad=24)
     ax.legend(loc="upper right", bbox_to_anchor=(1.28, 1.12), frameon=False)
     ax.grid(True, alpha=0.35)
 
@@ -192,8 +327,8 @@ def _plot_radar(
 def main(argv: list[str] | None = None) -> int:
     args = parse_args(argv)
     config_path = args.config.resolve()
-    summary_csv = _ensure_summary_csv(config_path, no_aggregate=args.no_aggregate)
-    benchmarks, scores = _load_scores(summary_csv)
+    _ensure_summary_csv(config_path, no_aggregate=args.no_aggregate)
+    benchmarks, scores = _load_scores(_summaries_root(config_path))
     selected_scores = _selected_scores(scores, list(args.harness))
     _plot_radar(
         benchmarks=benchmarks,
