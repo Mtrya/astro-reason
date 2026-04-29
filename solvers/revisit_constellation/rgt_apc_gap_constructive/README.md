@@ -65,7 +65,7 @@ The benchmark differs from the papers in several important ways:
 - Mercado's AoI freshness is adapted to benchmark midpoint revisit gaps. The current target freshness is the target's largest boundary-inclusive gap from mission start, existing observation midpoints, and mission end.
 - Assignment flexibility is the count of remaining locally feasible observation options for the target.
 - Opportunity cost is the quality-weighted freshness profit of locally conflicting options that would be blocked by choosing an observation.
-- The benchmark's hard validity rules require geometry, non-overlap, slew/settle, and battery feasibility. The solver checks these locally and then relies on official experiment-owned verification for the authoritative result.
+- The benchmark's hard validity rules require geometry, non-overlap, slew/settle, and battery feasibility. The solver checks these locally and then relies on the benchmark verifier for the authoritative result.
 
 APC visibility/access timelines are not final scheduled observations. They are candidate opportunities. The emitted `solution.json` uses the local-search schedule after repair.
 
@@ -86,26 +86,11 @@ APC visibility/access timelines are not final scheduled observations. They are c
 
 ## RGT/APC Orbit Library
 
-The orbit library searches integer repeat-day/revolution shells with a secular
-J2 repeat-ground-track condition, filters shells against the case's
-initial-orbit altitude bounds, scores analytical closure, and expands accepted
-shells into deterministic RAAN and mean-anomaly phase slots. Candidates are
-capped by `orbit_library.max_candidates`, which is intentionally separate from
-the benchmark's final satellite-output cap.
+The orbit library searches integer repeat-day/revolution shells with a secular J2 repeat-ground-track condition, filters shells against the case's initial-orbit altitude bounds, scores analytical closure, and expands accepted shells into deterministic RAAN and mean-anomaly phase slots. Candidates are capped by `orbit_library.max_candidates`, which is intentionally separate from the benchmark's final satellite-output cap.
 
-The default `minmax_architecture` search mode interleaves accepted RGT shells,
-target-derived inclination bands, and balanced RAAN/mean-anomaly phase slots
-before the candidate cap binds. This keeps the Lee-style APC idea of shifted
-access profiles while avoiding the earlier behavior where one nearby base orbit
-could exhaust the whole candidate cap. `target_diversified` and
-`legacy_base_first` are available for direct comparison with earlier
-enumerations.
+The default `minmax_architecture` search mode interleaves accepted RGT shells, target-derived inclination bands, and balanced RAAN/mean-anomaly phase slots before the candidate cap binds. This keeps the Lee-style APC idea of shifted access profiles while avoiding the earlier behavior where one nearby base orbit could exhaust the whole candidate cap. `target_diversified` and `legacy_base_first` are available for direct comparison with earlier enumerations.
 
-The solver reports shell-level analytical closure in
-`debug/closure_search.json` and selected/emitted numerical J2 closure audits in
-`debug/selected_emitted_closure_audit.json`. The analytical closure evidence is
-used during shell construction; the numerical audit is reported as diagnostic
-truth for the emitted satellites.
+The solver reports shell-level analytical closure in `debug/closure_search.json` and selected/emitted numerical J2 closure audits in `debug/selected_emitted_closure_audit.json`. The analytical closure evidence is used during shell construction; the numerical audit is reported as diagnostic evidence for the emitted satellites.
 
 When no RGT candidate survives the altitude bounds, the solver falls back to a small deterministic circular-altitude grid. This fallback is reported in `status.json`; it is a robustness path, not a claim of APC optimality.
 
@@ -119,7 +104,7 @@ Candidate satellites are selected greedily from the larger candidate pool. Each 
 - target count above 12 h
 - threshold violation count
 
-All gap calculations are boundary-inclusive and use observation midpoints, matching the benchmark scoring convention. Mean revisit gap is reported as a diagnostic only; it is not used as a meaningful optimization objective because adjacent observations can reduce the arithmetic mean without reducing long outages. When scores tie, the selector uses deterministic diversity ties: new target coverage, total target coverage, new latitude-band coverage, phase spread from already selected satellites, and finally candidate ID. The experiment profile continues selecting deterministic support satellites up to the case satellite cap after the optimistic selected envelope stops improving, because the scheduler can use those extra platforms to realize the envelope under hard local feasibility constraints.
+All gap calculations are boundary-inclusive and use observation midpoints, matching the benchmark scoring convention. Mean revisit gap is reported as a diagnostic only; it is not used as a meaningful optimization objective because adjacent observations can reduce the arithmetic mean without reducing long outages. When scores tie, the selector uses deterministic diversity ties: new target coverage, total target coverage, new latitude-band coverage, phase spread from already selected satellites, and finally candidate ID. The default experiment config continues selecting deterministic support satellites up to the case satellite cap after the optimistic selected envelope stops improving, because the scheduler can use those extra platforms to realize the envelope under hard local feasibility constraints.
 
 ## Constructive Scheduling And Repair
 
@@ -143,12 +128,7 @@ The solver reads optional config from either:
 
 See [config.example.yaml](./config.example.yaml) for a complete example.
 
-Config files may declare `active_profile` plus named `profiles`. The solver
-first deep-merges the active profile into the shared config and records the
-resolved profile in `status.json`, `debug/run_profile_summary.json`, and
-`debug/parameter_sweep_summary.json`. The experiment-owned default uses
-`smoke` for routine verifier runs; `fair`, `scaled_architecture`, and `stress`
-are deterministic scaled-compute frontiers rather than CI defaults.
+Config files may either provide one direct config, as in [config.example.yaml](./config.example.yaml), or declare `active_profile` plus named `profiles`. When profiles are used, the solver deep-merges the active profile into the shared config and records the resolved settings in `status.json`, `debug/run_profile_summary.json`, and `debug/parameter_sweep_summary.json`. Broader compute envelopes belong in experiment configs rather than the solver-local example.
 
 Key knobs:
 
@@ -205,11 +185,11 @@ Every run writes:
 - `debug/repair_steps.json`: deterministic removal/insertion repair log
 - `debug/local_search_moves.json`: accepted and rejected bounded local-search moves
 - `debug/scheduling_summary.json`: compact option, action, rejection, repair, high-gap, and mode counts
-- `debug/baseline_summary.json`: compact profiling, mode, target coverage, and high-gap evidence for future-phase comparisons
+- `debug/baseline_summary.json`: compact profiling, mode, target coverage, and high-gap evidence for comparisons across runs
 - `debug/opportunity_envelope.json`: all-generated, closure-filtered, selected, hard-feasible, and final schedule envelope metrics
 - `debug/high_gap_intervals.json`: per-target high-gap interval and blocker diagnostics
 - `debug/run_profile_summary.json`: active profile, available profiles, and resolved compute-critical knobs
-- `debug/parameter_sweep_summary.json`: stable deterministic frontier points and their resolved knobs
+- `debug/parameter_sweep_summary.json`: optional sweep points and their resolved knobs
 - `debug/mode_comparison.json`: solver-local no-op, FIFO, constructive, repaired, and local-search comparison metrics
 - `debug/adaptation_notes.json`: paper concepts mapped to benchmark mechanics
 
@@ -246,7 +226,7 @@ Direct solve with a config directory:
   /tmp/revisit_rgt_apc_solution
 ```
 
-Official smoke verification through `main_solver`:
+Smoke verification through `main_solver`:
 
 ```bash
 uv run python experiments/main_solver/run.py \
@@ -267,26 +247,16 @@ The literature reports coverage and AoI-style scheduling behavior, not benchmark
 
 What matters here is:
 
-- official verification passes
+- benchmark verification passes
 - selected satellite count respects the case cap
-- local validation is clean before official verification
+- local validation is clean before benchmark verification
 - constructive/repaired modes improve the primary capped-max metric over no-op
 - repair does not collapse the schedule
 - high-gap and unobserved targets are visible in debug summaries
 
-On the latest Phase 6 smoke run (`test/case_0001`), the experiment-owned
-verifier passed with 18 satellites, 147 observation actions, no hard-validity
-violations, and `capped_max_revisit_gap_hours = 9.345108695652174`. The
-all-generated, closure-filtered, and selected envelopes were all
-`8.876086956521739 h`, while hard local feasibility and the final schedule were
-`9.345108695652174 h`. The remaining smoke loss is therefore scheduling /
-hard-feasibility limited in the current profile, not selected-envelope limited.
+On the latest recorded smoke run (`test/case_0001`), the benchmark verifier passed with 18 satellites, 147 observation actions, no hard-validity violations, and `capped_max_revisit_gap_hours = 9.345108695652174`. The all-generated, closure-filtered, and selected envelopes were all `8.876086956521739 h`, while hard local feasibility and the final schedule were `9.345108695652174 h`. The remaining smoke loss is therefore scheduling and hard-feasibility limited, not selected-envelope limited.
 
-The same smoke run has `max_revisit_gap_hours = 11.966666666666667`, zero
-targets above 12 h, and 12 targets above their stricter 8 h expected revisit
-period. It is materially better than the original PR #126 baseline on the
-primary capped-max and worst-target metrics, but it is not a solved benchmark
-optimum.
+The same smoke run has `max_revisit_gap_hours = 11.966666666666667`, zero targets above 12 h, and 12 targets above their stricter 8 h expected revisit period. The solver remains a valid adapted reproduction baseline, not a solved benchmark optimum.
 
 ## Known Limitations
 
@@ -296,12 +266,8 @@ optimum.
 - The solver uses circular J2-RGT or fallback circular candidates only; it may miss asymmetric non-RGT or elliptical designs that score better.
 - Visibility windows are sampled, so very short opportunities can be missed or approximated.
 - Battery feasibility is handled by conservative solver-local validation and repair, while the benchmark verifier remains authoritative.
-- Full public-case sweeps are slower than the focused smoke because visibility sampling dominates runtime. The experiment-owned profiles record public-case timing and validity evidence outside the solver registry.
+- Full public-case runs are slower than the focused smoke case because visibility sampling dominates runtime. Public-case timing and validity evidence belong in experiment configs and results, not in the solver registry.
 
 ## Evidence And Registry Status
 
-`experiments/main_solver` records this as `evidence_type: reproduced_solver`.
-`solvers/finished_solvers.json` records only solver-contract CI metadata; the
-solver is registered there with `repro_ci: false` because full reproduction runs
-are comparatively expensive, while solver-local tests are exposed through
-`test.sh`.
+`experiments/main_solver` records this as `evidence_type: reproduced_solver`. `solvers/finished_solvers.json` records only solver-contract CI metadata; the solver is registered there with `repro_ci: false` because full reproduction runs are comparatively expensive, while solver-local tests are exposed through `test.sh`.

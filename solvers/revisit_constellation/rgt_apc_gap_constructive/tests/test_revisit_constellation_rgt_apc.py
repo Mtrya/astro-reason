@@ -615,7 +615,7 @@ def test_config_example_loads_all_solver_component_configs(tmp_path: Path) -> No
     selection_config = SelectionConfig.from_mapping(resolved_payload)
     scheduling_config = SchedulingConfig.from_mapping(resolved_payload)
 
-    assert profile_resolution.profile_name == "smoke"
+    assert profile_resolution.profile_name == "custom"
     assert orbit_config.max_candidates == 36
     assert orbit_config.search_mode == "minmax_architecture"
     assert orbit_config.raan_slot_count == 2
@@ -623,7 +623,7 @@ def test_config_example_loads_all_solver_component_configs(tmp_path: Path) -> No
     assert orbit_config.max_closure_error_m == pytest.approx(5000.0)
     assert visibility_config.sample_step_sec == 120.0
     assert visibility_config.worker_count is None
-    assert selection_config.max_selected_satellites is None
+    assert selection_config.max_selected_satellites == 18
     assert selection_config.require_positive_improvement is False
     assert scheduling_config.enable_repair is True
     assert scheduling_config.repair_max_iterations == 3
