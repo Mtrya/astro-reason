@@ -3,12 +3,15 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
+from typing import Any
 
 import brahe
 import numpy as np
 
+from .case_io import RevisitCase
 from .orbit_library import OrbitCandidate
+from .rgt import closure_score_from_geocentric
 
 
 _BRAHE_READY = False
@@ -127,3 +130,93 @@ class PropagationCache:
             candidate_id: self.candidate_state_grid(candidate_id, sample_times)
             for candidate_id in sorted(self._propagators)
         }
+
+
+def numerical_closure_score(
+    case: RevisitCase,
+    candidate: OrbitCandidate,
+    *,
+    duration_sec: float,
+) -> dict[str, float]:
+    ensure_brahe_ready()
+    start_epoch = datetime_to_epoch(case.horizon_start)
+    end_epoch = datetime_to_epoch(
+        case.horizon_start + timedelta(seconds=duration_sec)
+    )
+    force_config = brahe.ForceModelConfig(
+        gravity=brahe.GravityConfiguration.spherical_harmonic(2, 0)
+    )
+    propagator = brahe.NumericalOrbitPropagator.from_eci(
+        start_epoch,
+        np.asarray(candidate.state_eci_m_mps, dtype=float),
+        force_config=force_config,
+    )
+    propagator.propagate_to(end_epoch)
+    start_ecef = np.asarray(propagator.state_ecef(start_epoch), dtype=float)[:3]
+    end_ecef = np.asarray(propagator.state_ecef(end_epoch), dtype=float)[:3]
+    start_geo = brahe.position_ecef_to_geocentric(
+        start_ecef, brahe.AngleFormat.DEGREES
+    )
+    end_geo = brahe.position_ecef_to_geocentric(end_ecef, brahe.AngleFormat.DEGREES)
+    return closure_score_from_geocentric(
+        float(start_geo[0]),
+        float(start_geo[1]),
+        float(end_geo[0]),
+        float(end_geo[1]),
+    ).as_dict()
+
+
+def build_selected_emitted_closure_audit(
+    case: RevisitCase,
+    candidates: list[OrbitCandidate],
+) -> dict[str, Any]:
+    records: list[dict[str, Any]] = []
+    skipped: list[dict[str, str]] = []
+    for candidate in sorted(candidates, key=lambda item: item.candidate_id):
+        if candidate.rgt_repeat_period_sec is None:
+            skipped.append(
+                {
+                    "candidate_id": candidate.candidate_id,
+                    "reason": "candidate_has_no_rgt_repeat_period",
+                }
+            )
+            continue
+        closure = numerical_closure_score(
+            case,
+            candidate,
+            duration_sec=candidate.rgt_repeat_period_sec,
+        )
+        records.append(
+            {
+                "candidate_id": candidate.candidate_id,
+                "source": candidate.source,
+                "rgt_shell_id": candidate.rgt_shell_id,
+                "period_ratio_np": candidate.period_ratio_np,
+                "period_ratio_nd": candidate.period_ratio_nd,
+                "repeat_period_sec": candidate.rgt_repeat_period_sec,
+                "semi_major_axis_m": candidate.semi_major_axis_m,
+                "altitude_m": candidate.altitude_m,
+                "inclination_deg": candidate.inclination_deg,
+                "raan_deg": candidate.raan_deg,
+                "mean_anomaly_deg": candidate.mean_anomaly_deg,
+                "analytical_shell_closure_m": candidate.rgt_analytical_closure_m,
+                "numerical_closure": closure,
+            }
+        )
+    numerical_errors = [
+        float(record["numerical_closure"]["surface_error_m"])
+        for record in records
+    ]
+    return {
+        "model": "brahe_numerical_j2_selected_emitted_audit",
+        "audited_candidate_count": len(records),
+        "skipped_candidate_count": len(skipped),
+        "max_surface_error_m": max(numerical_errors) if numerical_errors else None,
+        "mean_surface_error_m": (
+            float(sum(numerical_errors) / len(numerical_errors))
+            if numerical_errors
+            else None
+        ),
+        "candidates": records,
+        "skipped_candidates": skipped,
+    }

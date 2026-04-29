@@ -27,29 +27,42 @@ evaluation_policy:
     expected_smoke_wall_time_seconds: 120
     expected_public_case_wall_time_seconds: 900
     visibility_worker_count: auto_bounded_to_8
+    measured_smoke_case_0001_solve_seconds: 109.9
+    measured_smoke_case_0001_verifier_seconds: 22.7
     deterministic: true
   notes:
-    - "Experiment-owned profile; solver registry remains CI/contract metadata only."
+    - "This experiment config owns the reproduction compute envelope."
     - "RGT/APC candidate pool is broader than the final satellite cap."
-    - "Official validity is established only through the experiment-owned verifier command below."
+    - "Benchmark validity is established through the verifier command below."
 config:
-  active_profile: smoke
+  compute_envelope:
+    profile_class: fair_public
+    intended_use: public_case_reproduction
+    deterministic: true
+    expected_case_wall_time_seconds: 900
+    worker_count_policy: fixed_8_visibility_workers
+    measured_reference: null
   orbit_library:
-    max_candidates: 36
+    max_candidates: 144
     search_mode: minmax_architecture
-    max_rgt_days: 3
+    max_rgt_days: 4
     min_revolutions_per_day: 10
     max_revolutions_per_day: 18
-    phase_slot_count: null
-    fallback_altitude_count: 3
+    raan_slot_count: 4
+    phase_slot_count: 36
+    max_shells: 6
+    max_closure_error_m: 5000.0
+    j2_closure_tolerance_m: 5000.0
+    j2_refinement_iterations: 6
+    fallback_altitude_count: 5
   visibility:
-    sample_step_sec: 120.0
+    sample_step_sec: 180.0
     max_windows: null
     keep_samples_per_window: 6
-    worker_count: null
+    worker_count: 8
   selection:
     max_selected_satellites: null
-    require_positive_improvement: true
+    require_positive_improvement: false
   scheduling:
     max_actions: null
     max_actions_per_target: null
@@ -63,75 +76,6 @@ config:
     local_search_max_iterations: 4
     local_search_options_per_target: 4
     local_search_removals_per_option: 8
-  profiles:
-    smoke:
-      orbit_library:
-        max_candidates: 36
-        max_rgt_days: 3
-        min_revolutions_per_day: 10
-        max_revolutions_per_day: 18
-        phase_slot_count: null
-        fallback_altitude_count: 3
-      visibility:
-        sample_step_sec: 120.0
-        worker_count: null
-      selection:
-        max_selected_satellites: null
-    fair:
-      orbit_library:
-        max_candidates: 144
-        max_rgt_days: 4
-        min_revolutions_per_day: 10
-        max_revolutions_per_day: 18
-        phase_slot_count: 36
-        fallback_altitude_count: 5
-      visibility:
-        sample_step_sec: 180.0
-        worker_count: 8
-      selection:
-        max_selected_satellites: null
-    scaled_architecture:
-      orbit_library:
-        max_candidates: 216
-        max_rgt_days: 5
-        min_revolutions_per_day: 9
-        max_revolutions_per_day: 19
-        phase_slot_count: 48
-        fallback_altitude_count: 7
-      visibility:
-        sample_step_sec: 180.0
-        worker_count: 8
-      selection:
-        max_selected_satellites: null
-    stress:
-      orbit_library:
-        max_candidates: 432
-        max_rgt_days: 6
-        min_revolutions_per_day: 8
-        max_revolutions_per_day: 20
-        phase_slot_count: 72
-        fallback_altitude_count: 9
-      visibility:
-        sample_step_sec: 120.0
-        worker_count: 8
-      selection:
-        max_selected_satellites: null
-  parameter_sweep:
-    case_id: test/case_0001
-    objective: capped_max_revisit_gap_hours
-    points:
-      - name: smoke_36
-        profile: smoke
-      - name: scaled_72
-        profile: fair
-        overrides:
-          orbit_library:
-            max_candidates: 72
-            phase_slot_count: 24
-      - name: fair_144
-        profile: fair
-      - name: scaled_216
-        profile: scaled_architecture
 cases:
   - id: test/case_0001
     case_dir: benchmarks/revisit_constellation/dataset/cases/test/case_0001

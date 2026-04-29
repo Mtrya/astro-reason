@@ -8,6 +8,7 @@ from typing import Any
 
 from .case_io import RevisitCase
 from .gaps import GapScore, revisit_gaps_hours, score_observation_timelines
+from .orbit_library import OrbitCandidate
 from .scheduling import ScheduledObservation
 from .time_grid import iso_z
 from .visibility import VisibilityWindow
@@ -25,12 +26,18 @@ class EnvelopeArtifacts:
 def _window_timelines(
     windows: list[VisibilityWindow],
     selected_candidate_ids: set[str] | None = None,
+    allowed_candidate_ids: set[str] | None = None,
 ) -> TimelineMap:
     timelines: TimelineMap = {}
     for window in windows:
         if (
             selected_candidate_ids is not None
             and window.candidate_id not in selected_candidate_ids
+        ):
+            continue
+        if (
+            allowed_candidate_ids is not None
+            and window.candidate_id not in allowed_candidate_ids
         ):
             continue
         timelines.setdefault(window.target_id, []).append(window.midpoint)
@@ -166,14 +173,25 @@ def _target_interval_row(
     case: RevisitCase,
     target_id: str,
     all_timelines: TimelineMap,
+    closure_timelines: TimelineMap,
     selected_timelines: TimelineMap,
+    hard_feasible_timelines: TimelineMap,
     final_timelines: TimelineMap,
     all_score: GapScore,
+    closure_score: GapScore,
     selected_score: GapScore,
+    hard_feasible_score: GapScore,
     final_score: GapScore,
+    generated_candidate_ids: set[str],
+    closure_candidate_ids: set[str],
+    selected_candidate_ids: set[str],
+    candidate_cap_limited: bool,
+    selection_budget_limited: bool,
 ) -> dict[str, Any]:
     all_midpoints = sorted(set(all_timelines.get(target_id, [])))
+    closure_midpoints = sorted(set(closure_timelines.get(target_id, [])))
     selected_midpoints = sorted(set(selected_timelines.get(target_id, [])))
+    hard_feasible_midpoints = sorted(set(hard_feasible_timelines.get(target_id, [])))
     final_midpoints = sorted(set(final_timelines.get(target_id, [])))
     worst_start, worst_end, worst_gap_hours = _worst_interval(
         case=case,
@@ -182,7 +200,9 @@ def _target_interval_row(
     )
     target = case.targets[target_id]
     all_target = all_score.target_gap_summary[target_id]
+    closure_target = closure_score.target_gap_summary[target_id]
     selected_target = selected_score.target_gap_summary[target_id]
+    hard_feasible_target = hard_feasible_score.target_gap_summary[target_id]
     final_target = final_score.target_gap_summary[target_id]
     all_can_meet_expected = (
         all_target.max_revisit_gap_hours <= target.expected_revisit_period_hours
@@ -190,12 +210,30 @@ def _target_interval_row(
     selected_can_meet_expected = (
         selected_target.max_revisit_gap_hours <= target.expected_revisit_period_hours
     )
+    closure_can_meet_expected = (
+        closure_target.max_revisit_gap_hours <= target.expected_revisit_period_hours
+    )
+    selected_has_opportunity = bool(selected_midpoints)
     if not all_midpoints:
-        blocker = "no_opportunity"
+        blocker = "no_generated_opportunity"
+    elif not closure_midpoints:
+        blocker = "closure_filtered_away"
     elif not all_can_meet_expected:
-        blocker = "clustered_opportunity"
+        blocker = (
+            "candidate_cap_limited"
+            if candidate_cap_limited
+            else "selected_but_insufficient_temporal_spread"
+        )
+    elif not closure_can_meet_expected:
+        blocker = "closure_filtered_away"
+    elif not selected_has_opportunity and selection_budget_limited:
+        blocker = "selection_budget_limited"
     elif not selected_can_meet_expected:
-        blocker = "selection_gap"
+        blocker = (
+            "selection_budget_limited"
+            if selection_budget_limited
+            else "selected_but_insufficient_temporal_spread"
+        )
     elif final_target.max_revisit_gap_hours > target.expected_revisit_period_hours:
         blocker = "scheduler_conflict"
     else:
@@ -210,14 +248,24 @@ def _target_interval_row(
             final_target.capped_max_revisit_gap_hours
         ),
         "all_candidate_max_revisit_gap_hours": all_target.max_revisit_gap_hours,
+        "closure_filtered_max_revisit_gap_hours": closure_target.max_revisit_gap_hours,
         "selected_candidate_max_revisit_gap_hours": (
             selected_target.max_revisit_gap_hours
+        ),
+        "hard_feasible_selected_max_revisit_gap_hours": (
+            hard_feasible_target.max_revisit_gap_hours
         ),
         "worst_interval_start": iso_z(worst_start),
         "worst_interval_end": iso_z(worst_end),
         "worst_interval_hours": worst_gap_hours,
         "first_opportunity_midpoint": iso_z(all_midpoints[0]) if all_midpoints else None,
         "last_opportunity_midpoint": iso_z(all_midpoints[-1]) if all_midpoints else None,
+        "first_closure_filtered_midpoint": (
+            iso_z(closure_midpoints[0]) if closure_midpoints else None
+        ),
+        "last_closure_filtered_midpoint": (
+            iso_z(closure_midpoints[-1]) if closure_midpoints else None
+        ),
         "first_selected_opportunity_midpoint": (
             iso_z(selected_midpoints[0]) if selected_midpoints else None
         ),
@@ -225,8 +273,15 @@ def _target_interval_row(
             iso_z(selected_midpoints[-1]) if selected_midpoints else None
         ),
         "all_candidate_opportunity_count": len(all_midpoints),
+        "closure_filtered_opportunity_count": len(closure_midpoints),
         "selected_candidate_opportunity_count": len(selected_midpoints),
+        "hard_feasible_selected_opportunity_count": len(hard_feasible_midpoints),
         "scheduled_observation_count": len(final_midpoints),
+        "generated_candidate_count": len(generated_candidate_ids),
+        "closure_candidate_count": len(closure_candidate_ids),
+        "selected_candidate_count": len(selected_candidate_ids),
+        "candidate_cap_limited": candidate_cap_limited,
+        "selection_budget_limited": selection_budget_limited,
         "above_12h_threshold": final_target.max_revisit_gap_hours > 12.0,
         "above_expected_threshold": (
             final_target.max_revisit_gap_hours
@@ -241,11 +296,40 @@ def build_opportunity_envelope_artifacts(
     windows: list[VisibilityWindow],
     selected_candidate_ids: list[str],
     scheduled_observations: list[ScheduledObservation],
+    candidates: list[OrbitCandidate] | None = None,
+    closure_error_limit_m: float | None = None,
+    candidate_cap_limited: bool = False,
+    selection_budget_limited: bool = False,
 ) -> EnvelopeArtifacts:
     """Build all/selected/final opportunity-envelope diagnostics."""
     selected_ids = set(selected_candidate_ids)
+    candidate_by_id = {
+        candidate.candidate_id: candidate
+        for candidate in (candidates or [])
+    }
+    generated_candidate_ids = {
+        candidate.candidate_id for candidate in (candidates or [])
+    } or {window.candidate_id for window in windows}
+    if closure_error_limit_m is None:
+        closure_candidate_ids = set(generated_candidate_ids)
+    else:
+        closure_candidate_ids = {
+            candidate_id
+            for candidate_id in generated_candidate_ids
+            if (
+                candidate_by_id.get(candidate_id) is None
+                or candidate_by_id[candidate_id].rgt_analytical_closure_m is None
+                or candidate_by_id[candidate_id].rgt_analytical_closure_m
+                <= closure_error_limit_m
+            )
+        }
     all_timelines = _window_timelines(windows)
+    closure_timelines = _window_timelines(
+        windows,
+        allowed_candidate_ids=closure_candidate_ids,
+    )
     selected_timelines = _window_timelines(windows, selected_ids)
+    hard_feasible_timelines = _schedule_timelines(scheduled_observations)
     final_timelines = _schedule_timelines(scheduled_observations)
     all_envelope = _envelope_summary(
         case=case,
@@ -259,6 +343,18 @@ def build_opportunity_envelope_artifacts(
         description="Visibility windows from the selected output satellites, before scheduling.",
         timelines=selected_timelines,
     )
+    closure_envelope = _envelope_summary(
+        case=case,
+        name="all_generated_candidates_after_closure_filter",
+        description="All generated visibility windows from candidates within the configured shell-closure limit.",
+        timelines=closure_timelines,
+    )
+    hard_feasible_envelope = _envelope_summary(
+        case=case,
+        name="selected_candidates_after_hard_local_feasibility_filters",
+        description="Midpoints from selected candidates that survived local scheduling feasibility checks.",
+        timelines=hard_feasible_timelines,
+    )
     final_envelope = _envelope_summary(
         case=case,
         name="final_schedule",
@@ -266,18 +362,29 @@ def build_opportunity_envelope_artifacts(
         timelines=final_timelines,
     )
     all_score = score_observation_timelines(case, all_timelines)
+    closure_score = score_observation_timelines(case, closure_timelines)
     selected_score = score_observation_timelines(case, selected_timelines)
+    hard_feasible_score = score_observation_timelines(case, hard_feasible_timelines)
     final_score = score_observation_timelines(case, final_timelines)
     interval_rows = [
         _target_interval_row(
             case=case,
             target_id=target_id,
             all_timelines=all_timelines,
+            closure_timelines=closure_timelines,
             selected_timelines=selected_timelines,
+            hard_feasible_timelines=hard_feasible_timelines,
             final_timelines=final_timelines,
             all_score=all_score,
+            closure_score=closure_score,
             selected_score=selected_score,
+            hard_feasible_score=hard_feasible_score,
             final_score=final_score,
+            generated_candidate_ids=generated_candidate_ids,
+            closure_candidate_ids=closure_candidate_ids,
+            selected_candidate_ids=selected_ids,
+            candidate_cap_limited=candidate_cap_limited,
+            selection_budget_limited=selection_budget_limited,
         )
         for target_id in case.targets
     ]
@@ -299,13 +406,27 @@ def build_opportunity_envelope_artifacts(
         "scheduled_observation_count": len(scheduled_observations),
         "envelopes": [
             all_envelope,
+            closure_envelope,
             selected_envelope,
+            hard_feasible_envelope,
             final_envelope,
         ],
         "comparison": {
+            "closure_filtered_minus_all_capped_max_hours": (
+                closure_score.capped_max_revisit_gap_hours
+                - all_score.capped_max_revisit_gap_hours
+            ),
             "selected_minus_all_capped_max_hours": (
                 selected_score.capped_max_revisit_gap_hours
                 - all_score.capped_max_revisit_gap_hours
+            ),
+            "selected_minus_closure_filtered_capped_max_hours": (
+                selected_score.capped_max_revisit_gap_hours
+                - closure_score.capped_max_revisit_gap_hours
+            ),
+            "hard_feasible_minus_selected_capped_max_hours": (
+                hard_feasible_score.capped_max_revisit_gap_hours
+                - selected_score.capped_max_revisit_gap_hours
             ),
             "final_minus_selected_capped_max_hours": (
                 final_score.capped_max_revisit_gap_hours
@@ -319,7 +440,7 @@ def build_opportunity_envelope_artifacts(
                 all_score.capped_max_revisit_gap_hours > 12.0
             ),
             "current_profile_selection_limited": (
-                all_score.capped_max_revisit_gap_hours <= 12.0
+                closure_score.capped_max_revisit_gap_hours <= 12.0
                 and selected_score.capped_max_revisit_gap_hours > 12.0
             ),
             "current_profile_scheduler_limited": (

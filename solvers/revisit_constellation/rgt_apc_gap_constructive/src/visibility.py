@@ -311,6 +311,125 @@ def _sort_windows(windows: list[VisibilityWindow]) -> list[VisibilityWindow]:
     )
 
 
+def _visibility_group_diagnostics(
+    candidates: list[OrbitCandidate],
+    windows: list[VisibilityWindow],
+) -> dict[str, Any]:
+    candidate_by_id = {candidate.candidate_id: candidate for candidate in candidates}
+    window_counts_by_candidate_target: dict[tuple[str, str], int] = {}
+    for window in windows:
+        key = (window.candidate_id, window.target_id)
+        window_counts_by_candidate_target[key] = (
+            window_counts_by_candidate_target.get(key, 0) + 1
+        )
+
+    by_shell: dict[str, dict[str, Any]] = {}
+    by_shell_raan: dict[tuple[str, int], dict[str, Any]] = {}
+    by_shell_phase: dict[tuple[str, int], dict[str, Any]] = {}
+    candidate_target_rows: list[dict[str, Any]] = []
+    for (candidate_id, target_id), window_count in sorted(
+        window_counts_by_candidate_target.items()
+    ):
+        candidate = candidate_by_id.get(candidate_id)
+        if candidate is None:
+            raise ValueError(
+                "visibility window references unknown candidate_id "
+                f"{candidate_id!r} for target_id {target_id!r} "
+                f"with {window_count} window(s)"
+            )
+        shell_id = candidate.rgt_shell_id or candidate.source
+        shell_row = by_shell.setdefault(
+            shell_id,
+            {
+                "shell_id": shell_id,
+                "candidate_ids": set(),
+                "target_ids": set(),
+                "visibility_window_count": 0,
+            },
+        )
+        shell_row["candidate_ids"].add(candidate_id)
+        shell_row["target_ids"].add(target_id)
+        shell_row["visibility_window_count"] += window_count
+
+        raan_key = (shell_id, candidate.raan_slot_index)
+        raan_row = by_shell_raan.setdefault(
+            raan_key,
+            {
+                "shell_id": shell_id,
+                "raan_slot_index": candidate.raan_slot_index,
+                "raan_deg": candidate.raan_deg,
+                "candidate_ids": set(),
+                "target_ids": set(),
+                "visibility_window_count": 0,
+            },
+        )
+        raan_row["candidate_ids"].add(candidate_id)
+        raan_row["target_ids"].add(target_id)
+        raan_row["visibility_window_count"] += window_count
+
+        phase_key = (shell_id, candidate.phase_slot_index)
+        phase_row = by_shell_phase.setdefault(
+            phase_key,
+            {
+                "shell_id": shell_id,
+                "phase_slot_index": candidate.phase_slot_index,
+                "mean_anomaly_deg": candidate.mean_anomaly_deg,
+                "candidate_ids": set(),
+                "target_ids": set(),
+                "visibility_window_count": 0,
+            },
+        )
+        phase_row["candidate_ids"].add(candidate_id)
+        phase_row["target_ids"].add(target_id)
+        phase_row["visibility_window_count"] += window_count
+
+        candidate_target_rows.append(
+            {
+                "candidate_id": candidate_id,
+                "target_id": target_id,
+                "shell_id": shell_id,
+                "raan_slot_index": candidate.raan_slot_index,
+                "raan_deg": candidate.raan_deg,
+                "phase_slot_index": candidate.phase_slot_index,
+                "mean_anomaly_deg": candidate.mean_anomaly_deg,
+                "visibility_window_count": window_count,
+                "analytical_shell_closure_m": candidate.rgt_analytical_closure_m,
+            }
+        )
+
+    def normalize_rows(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
+        normalized: list[dict[str, Any]] = []
+        for row in rows:
+            next_row = dict(row)
+            candidate_ids = next_row.pop("candidate_ids", set())
+            target_ids = next_row.pop("target_ids", set())
+            next_row["candidate_count"] = len(candidate_ids)
+            next_row["target_count"] = len(target_ids)
+            next_row["candidate_ids"] = sorted(candidate_ids)[:10]
+            next_row["target_ids"] = sorted(target_ids)[:10]
+            normalized.append(next_row)
+        return normalized
+
+    return {
+        "by_shell": normalize_rows(
+            sorted(by_shell.values(), key=lambda row: row["shell_id"])
+        ),
+        "by_shell_raan": normalize_rows(
+            sorted(
+                by_shell_raan.values(),
+                key=lambda row: (row["shell_id"], row["raan_slot_index"]),
+            )
+        ),
+        "by_shell_phase": normalize_rows(
+            sorted(
+                by_shell_phase.values(),
+                key=lambda row: (row["shell_id"], row["phase_slot_index"]),
+            )
+        ),
+        "candidate_target_groups": candidate_target_rows,
+    }
+
+
 def build_visibility_library(
     case: RevisitCase,
     candidates: list[OrbitCandidate],
@@ -364,6 +483,7 @@ def build_visibility_library(
             "worker_count_configured": config.worker_count,
             "worker_count_used": worker_count,
             "parallel_strategy": "candidate_state_grid",
+            "coverage_groups": _visibility_group_diagnostics(candidates, windows),
             "state_cache": {
                 "cached_candidate_count": len(state_grids),
                 "sample_time_count": len(sample_times),

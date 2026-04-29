@@ -12,6 +12,7 @@ from .baseline import build_baseline_evidence
 from .case_io import load_case, load_solver_config
 from .envelope import build_opportunity_envelope_artifacts
 from .orbit_library import OrbitLibraryConfig, generate_orbit_library
+from .propagation import build_selected_emitted_closure_audit
 from .profiles import ProfileResolution, resolve_profile_config
 from .scheduling import SchedulingConfig, schedule_observations
 from .selection import SelectionConfig, select_satellites_greedy
@@ -68,6 +69,7 @@ def _build_status(
     selection_result,
     scheduling_result,
     envelope_artifacts,
+    selected_emitted_closure_audit,
     timing_seconds: dict[str, float],
     baseline_evidence: dict,
 ) -> dict:
@@ -90,6 +92,7 @@ def _build_status(
         "selection_config": selection_config.as_status_dict(),
         "scheduling_config": scheduling_config.as_status_dict(),
         "orbit_library": orbit_library.as_status_dict(),
+        "selected_emitted_closure_audit": selected_emitted_closure_audit,
         "visibility": visibility_library.as_status_dict(),
         "selection": selection_result.as_status_dict(),
         "scheduling": scheduling_result.as_status_dict(),
@@ -191,11 +194,29 @@ def main(argv: list[str] | None = None) -> int:
             config=scheduling_config,
         )
         scheduling_end = time.perf_counter()
+        closure_audit_start = time.perf_counter()
+        selected_emitted_closure_audit = build_selected_emitted_closure_audit(
+            case,
+            selection_result.selected_candidates,
+        )
+        closure_audit_end = time.perf_counter()
         envelope_artifacts = build_opportunity_envelope_artifacts(
             case=case,
             windows=visibility_library.windows,
             selected_candidate_ids=selection_result.selected_candidate_ids,
             scheduled_observations=scheduling_result.scheduled_observations,
+            candidates=orbit_library.candidates,
+            closure_error_limit_m=(
+                orbit_config.max_closure_error_m
+                if orbit_config.max_closure_error_m is not None
+                else orbit_config.j2_closure_tolerance_m
+            ),
+            candidate_cap_limited=bool(
+                orbit_library.caps.get("candidate_count_capped", False)
+            ),
+            selection_budget_limited=bool(
+                selection_result.caps.get("candidate_pool_exceeds_selected_limit", False)
+            ),
         )
 
         solution_path = write_solution(
@@ -212,6 +233,7 @@ def main(argv: list[str] | None = None) -> int:
             "visibility": visibility_end - visibility_start,
             "selection": selection_end - selection_start,
             "scheduling": scheduling_end - scheduling_start,
+            "selected_emitted_closure_audit": closure_audit_end - closure_audit_start,
             "total": total_end - total_start,
         }
         baseline_evidence = build_baseline_evidence(
@@ -237,6 +259,7 @@ def main(argv: list[str] | None = None) -> int:
             selection_result=selection_result,
             scheduling_result=scheduling_result,
             envelope_artifacts=envelope_artifacts,
+            selected_emitted_closure_audit=selected_emitted_closure_audit,
             timing_seconds=timing_seconds,
             baseline_evidence=baseline_evidence,
         )
@@ -244,6 +267,16 @@ def main(argv: list[str] | None = None) -> int:
         write_json(
             solution_dir / "debug" / "orbit_candidates.json",
             [candidate.as_dict() for candidate in orbit_library.candidates],
+        )
+        write_json(
+            solution_dir / "debug" / "closure_search.json",
+            None
+            if orbit_library.rgt_shell_search is None
+            else orbit_library.rgt_shell_search.as_debug_dict(),
+        )
+        write_json(
+            solution_dir / "debug" / "selected_emitted_closure_audit.json",
+            selected_emitted_closure_audit,
         )
         write_json(
             solution_dir / "debug" / "visibility_windows.json",
