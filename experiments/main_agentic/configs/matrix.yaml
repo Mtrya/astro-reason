@@ -20,7 +20,7 @@ harnesses:
   - gemini_cli
   - kimi_cli
   - opencode_glm
-  - opencode_nex
+  - opencode_dpsk
 
 defaults:
   split: test

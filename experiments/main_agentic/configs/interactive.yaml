@@ -12,7 +12,7 @@ harnesses:
   - gemini_cli
   - kimi_cli
   - opencode_glm
-  - opencode_nex
+  - opencode_dpsk
 split: test
 case: case_0001
 timeout_seconds: 3600

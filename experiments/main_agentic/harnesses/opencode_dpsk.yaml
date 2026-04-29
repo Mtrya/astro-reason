@@ -1,10 +1,10 @@
-harness: opencode_nex
+harness: opencode_dpsk
 runtime: base
 
 assemble:
-  - source: experiments/_fragments/configs/opencode_nex/opencode
+  - source: experiments/_fragments/configs/opencode_dpsk/opencode
     target: /home/korolev/.config/opencode
-    example: experiments/_fragments/configs/opencode_nex/opencode.example
+    example: experiments/_fragments/configs/opencode_dpsk/opencode.example
   - source: .agents/skills/brahe
     target: /home/korolev/.config/opencode/skills/brahe
 
@@ -19,5 +19,5 @@ collect:
 forward_env_keys: []
 
 notes:
-  - OpenCode Nex uses the shared OpenCode runtime path under /home/korolev/.config/opencode with a Nex-flavored local config.
+  - OpenCode DeepSeek uses the shared OpenCode runtime path under /home/korolev/.config/opencode with a DeepSeek-flavored local config.
   - The Brahe skill is assembled into /home/korolev/.config/opencode/skills/brahe for OpenCode skill discovery.
