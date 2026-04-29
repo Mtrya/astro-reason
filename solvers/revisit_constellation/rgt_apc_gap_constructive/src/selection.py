@@ -15,7 +15,7 @@ from .visibility import VisibilityWindow
 TimelineMap = dict[str, list[datetime]]
 CandidateTimelineMap = dict[str, TimelineMap]
 SelectionCandidate = tuple[
-    tuple[float, float, float, int, int, int, int, int, float, str],
+    tuple[float, float, float, int, int, int, float, int, int, int, float, float, str],
     str,
     TimelineMap,
     GapScore,
@@ -63,9 +63,12 @@ class SelectionRound:
     candidate_id: str
     opportunity_count: int
     new_target_count: int
+    high_gap_target_count: int
+    high_gap_split_value_hours: float
     candidate_target_count: int
     new_latitude_band_count: int
     phase_spread_deg: float
+    analytical_shell_closure_m: float | None
     score_before: GapScore
     score_after: GapScore
     improvement: GapImprovement
@@ -76,9 +79,12 @@ class SelectionRound:
             "candidate_id": self.candidate_id,
             "opportunity_count": self.opportunity_count,
             "new_target_count": self.new_target_count,
+            "high_gap_target_count": self.high_gap_target_count,
+            "high_gap_split_value_hours": self.high_gap_split_value_hours,
             "candidate_target_count": self.candidate_target_count,
             "new_latitude_band_count": self.new_latitude_band_count,
             "phase_spread_deg": self.phase_spread_deg,
+            "analytical_shell_closure_m": self.analytical_shell_closure_m,
             "score_before": self.score_before.as_dict(),
             "score_after": self.score_after.as_dict(),
             "improvement": self.improvement.as_dict(),
@@ -177,6 +183,8 @@ def _candidate_diversity_diagnostics(
     candidate: OrbitCandidate,
     candidate_timeline: TimelineMap,
     current_timelines: TimelineMap,
+    current_score: GapScore,
+    candidate_score: GapScore,
     selected_candidates: list[OrbitCandidate],
 ) -> dict[str, int | float]:
     candidate_target_ids = {
@@ -188,8 +196,24 @@ def _candidate_diversity_diagnostics(
     new_target_ids = candidate_target_ids - covered_target_ids
     covered_bands = _target_bands(case, covered_target_ids)
     candidate_bands = _target_bands(case, candidate_target_ids)
+    high_gap_target_ids = {
+        target_id
+        for target_id in candidate_target_ids
+        if (
+            current_timelines.get(target_id) is None
+            or current_score.target_gap_summary[target_id].max_revisit_gap_hours
+            > case.targets[target_id].expected_revisit_period_hours
+        )
+    }
+    high_gap_split_value_hours = 0.0
+    for target_id in high_gap_target_ids:
+        before = current_score.target_gap_summary[target_id].max_revisit_gap_hours
+        after = candidate_score.target_gap_summary[target_id].max_revisit_gap_hours
+        high_gap_split_value_hours += max(0.0, before - after)
     return {
         "new_target_count": len(new_target_ids),
+        "high_gap_target_count": len(high_gap_target_ids),
+        "high_gap_split_value_hours": high_gap_split_value_hours,
         "candidate_target_count": len(candidate_target_ids),
         "new_latitude_band_count": len(candidate_bands - covered_bands),
         "phase_spread_deg": _phase_spread_deg(candidate, selected_candidates),
@@ -259,7 +283,14 @@ def _candidate_coverage_summary(
                 "opportunity_count": _opportunity_count(timeline),
                 "inclination_deg": candidate.inclination_deg,
                 "raan_deg": candidate.raan_deg,
+                "raan_slot_index": candidate.raan_slot_index,
+                "raan_slot_count": candidate.raan_slot_count,
                 "mean_anomaly_deg": candidate.mean_anomaly_deg,
+                "phase_slot_index": candidate.phase_slot_index,
+                "phase_slot_count": candidate.phase_slot_count,
+                "rgt_shell_id": candidate.rgt_shell_id,
+                "rgt_repeat_period_sec": candidate.rgt_repeat_period_sec,
+                "rgt_analytical_closure_m": candidate.rgt_analytical_closure_m,
                 "target_ids": target_ids,
             }
         )
@@ -300,15 +331,25 @@ def select_satellites_greedy(
                 candidate=candidate,
                 candidate_timeline=candidate_timeline,
                 current_timelines=current_timelines,
+                current_score=current_score,
+                candidate_score=candidate_score,
                 selected_candidates=selected_candidates,
             )
             # Lower score is better; diversity terms only break score ties.
+            closure_m = (
+                float("inf")
+                if candidate.rgt_analytical_closure_m is None
+                else float(candidate.rgt_analytical_closure_m)
+            )
             key = (
                 *candidate_score.optimization_key,
+                -int(diversity["high_gap_target_count"]),
+                -float(diversity["high_gap_split_value_hours"]),
                 -int(diversity["new_target_count"]),
                 -int(diversity["candidate_target_count"]),
                 -int(diversity["new_latitude_band_count"]),
                 -float(diversity["phase_spread_deg"]),
+                closure_m,
                 candidate_id,
             )
             if best is None or key < best[0]:
@@ -334,9 +375,14 @@ def select_satellites_greedy(
                 candidate_id=candidate_id,
                 opportunity_count=_opportunity_count(candidate_timelines.get(candidate_id, {})),
                 new_target_count=int(diversity["new_target_count"]),
+                high_gap_target_count=int(diversity["high_gap_target_count"]),
+                high_gap_split_value_hours=float(diversity["high_gap_split_value_hours"]),
                 candidate_target_count=int(diversity["candidate_target_count"]),
                 new_latitude_band_count=int(diversity["new_latitude_band_count"]),
                 phase_spread_deg=float(diversity["phase_spread_deg"]),
+                analytical_shell_closure_m=(
+                    candidate_by_id[candidate_id].rgt_analytical_closure_m
+                ),
                 score_before=current_score,
                 score_after=next_score,
                 improvement=improvement,
@@ -376,6 +422,12 @@ def select_satellites_greedy(
             "case_max_num_satellites": case.max_num_satellites,
             "candidate_count": len(candidates),
             "candidate_pool_exceeds_selected_limit": len(candidates) > limit,
+            "closure_aware_tie_breakers": [
+                "high_gap_target_count",
+                "high_gap_split_value_hours",
+                "analytical_shell_closure_m",
+                "candidate_id",
+            ],
             "target_coverage_status_counts": dict(sorted(coverage_status_counts.items())),
             "stopped_by_limit": len(selected_ids) >= limit,
             "stopped_by_no_improvement": len(selected_ids) < limit,

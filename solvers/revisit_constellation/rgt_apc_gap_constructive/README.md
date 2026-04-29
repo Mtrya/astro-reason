@@ -47,7 +47,7 @@ The solver is standalone. It reads `assets.json` and `mission.json`, writes a be
 The pipeline is:
 
 1. Load the public `revisit_constellation` case files.
-2. Generate a deterministic circular RGT/APC-style candidate pool inside the case altitude bounds.
+2. Construct deterministic J2-aware repeat-ground-track shells inside the case altitude bounds, then expand accepted shells into APC-style RAAN and phase candidates.
 3. Sample candidate-target access profiles and group visible samples into observation opportunities.
 4. Greedily select the output satellites from that pool by benchmark-style marginal improvement to revisit-gap timelines plus deterministic coverage-diversity ties.
 5. Build observation actions with Mercado-style freshness, assignment flexibility, and opportunity-cost priorities.
@@ -86,9 +86,26 @@ APC visibility/access timelines are not final scheduled observations. They are c
 
 ## RGT/APC Orbit Library
 
-The orbit library enumerates circular RGT-style base orbits from integer revolution/day ratios and expands them into deterministic phase slots. Candidates are filtered against the case's initial-orbit altitude bounds and capped by `orbit_library.max_candidates`, which is intentionally separate from the benchmark's final satellite-output cap.
+The orbit library searches integer repeat-day/revolution shells with a secular
+J2 repeat-ground-track condition, filters shells against the case's
+initial-orbit altitude bounds, scores analytical closure, and expands accepted
+shells into deterministic RAAN and mean-anomaly phase slots. Candidates are
+capped by `orbit_library.max_candidates`, which is intentionally separate from
+the benchmark's final satellite-output cap.
 
-The default `minmax_architecture` search mode interleaves RGT repeat families, target-derived inclination bands, and balanced RAAN/mean-anomaly phase slots before the candidate cap binds. This keeps the Lee-style APC idea of shifted access profiles while avoiding the earlier behavior where one nearby base orbit could exhaust the whole candidate cap. `target_diversified` and `legacy_base_first` are available for direct comparison with earlier enumerations.
+The default `minmax_architecture` search mode interleaves accepted RGT shells,
+target-derived inclination bands, and balanced RAAN/mean-anomaly phase slots
+before the candidate cap binds. This keeps the Lee-style APC idea of shifted
+access profiles while avoiding the earlier behavior where one nearby base orbit
+could exhaust the whole candidate cap. `target_diversified` and
+`legacy_base_first` are available for direct comparison with earlier
+enumerations.
+
+The solver reports shell-level analytical closure in
+`debug/closure_search.json` and selected/emitted numerical J2 closure audits in
+`debug/selected_emitted_closure_audit.json`. The analytical closure evidence is
+used during shell construction; the numerical audit is reported as diagnostic
+truth for the emitted satellites.
 
 When no RGT candidate survives the altitude bounds, the solver falls back to a small deterministic circular-altitude grid. This fallback is reported in `status.json`; it is a robustness path, not a claim of APC optimality.
 
@@ -102,7 +119,7 @@ Candidate satellites are selected greedily from the larger candidate pool. Each 
 - target count above 12 h
 - threshold violation count
 
-All gap calculations are boundary-inclusive and use observation midpoints, matching the benchmark scoring convention. Mean revisit gap is reported as a diagnostic only; it is not used as a meaningful optimization objective because adjacent observations can reduce the arithmetic mean without reducing long outages. When scores tie, the selector uses deterministic diversity ties: new target coverage, total target coverage, new latitude-band coverage, phase spread from already selected satellites, and finally candidate ID.
+All gap calculations are boundary-inclusive and use observation midpoints, matching the benchmark scoring convention. Mean revisit gap is reported as a diagnostic only; it is not used as a meaningful optimization objective because adjacent observations can reduce the arithmetic mean without reducing long outages. When scores tie, the selector uses deterministic diversity ties: new target coverage, total target coverage, new latitude-band coverage, phase spread from already selected satellites, and finally candidate ID. The experiment profile continues selecting deterministic support satellites up to the case satellite cap after the optimistic selected envelope stops improving, because the scheduler can use those extra platforms to realize the envelope under hard local feasibility constraints.
 
 ## Constructive Scheduling And Repair
 
@@ -143,7 +160,12 @@ Key knobs:
 - `orbit_library.max_rgt_days`
 - `orbit_library.min_revolutions_per_day`
 - `orbit_library.max_revolutions_per_day`
+- `orbit_library.raan_slot_count`
 - `orbit_library.phase_slot_count`
+- `orbit_library.max_shells`
+- `orbit_library.max_closure_error_m`
+- `orbit_library.j2_closure_tolerance_m`
+- `orbit_library.j2_refinement_iterations`
 - `orbit_library.fallback_altitude_count`
 - `visibility.sample_step_sec`
 - `visibility.max_windows`
@@ -171,6 +193,8 @@ Lower visibility sample steps improve opportunity fidelity but increase runtime.
 Every run writes:
 
 - `debug/orbit_candidates.json`: generated candidate satellite states
+- `debug/closure_search.json`: accepted/rejected J2 RGT shell diagnostics
+- `debug/selected_emitted_closure_audit.json`: selected/emitted numerical J2 closure diagnostics
 - `debug/visibility_windows.json`: sampled candidate-target access windows
 - `debug/selection_rounds.json`: greedy satellite-selection rounds and marginal improvements
 - `debug/target_coverage.json`: target-level candidate and selected coverage before scheduling
@@ -182,6 +206,8 @@ Every run writes:
 - `debug/local_search_moves.json`: accepted and rejected bounded local-search moves
 - `debug/scheduling_summary.json`: compact option, action, rejection, repair, high-gap, and mode counts
 - `debug/baseline_summary.json`: compact profiling, mode, target coverage, and high-gap evidence for future-phase comparisons
+- `debug/opportunity_envelope.json`: all-generated, closure-filtered, selected, hard-feasible, and final schedule envelope metrics
+- `debug/high_gap_intervals.json`: per-target high-gap interval and blocker diagnostics
 - `debug/run_profile_summary.json`: active profile, available profiles, and resolved compute-critical knobs
 - `debug/parameter_sweep_summary.json`: stable deterministic frontier points and their resolved knobs
 - `debug/mode_comparison.json`: solver-local no-op, FIFO, constructive, repaired, and local-search comparison metrics
@@ -248,16 +274,29 @@ What matters here is:
 - repair does not collapse the schedule
 - high-gap and unobserved targets are visible in debug summaries
 
-On the official smoke case, the experiment-owned verifier has passed with 18 satellites, 260 observation actions, and no hard-validity violations. The target-diversified candidate pool gives all 23 smoke targets scheduled observations. All targets still remain high-gap against the 8 h revisit threshold, so reported quality should be read as a valid adapted reproduction baseline rather than a solved benchmark optimum.
+On the latest Phase 6 smoke run (`test/case_0001`), the experiment-owned
+verifier passed with 18 satellites, 147 observation actions, no hard-validity
+violations, and `capped_max_revisit_gap_hours = 9.345108695652174`. The
+all-generated, closure-filtered, and selected envelopes were all
+`8.876086956521739 h`, while hard local feasibility and the final schedule were
+`9.345108695652174 h`. The remaining smoke loss is therefore scheduling /
+hard-feasibility limited in the current profile, not selected-envelope limited.
+
+The same smoke run has `max_revisit_gap_hours = 11.966666666666667`, zero
+targets above 12 h, and 12 targets above their stricter 8 h expected revisit
+period. It is materially better than the original PR #126 baseline on the
+primary capped-max and worst-target metrics, but it is not a solved benchmark
+optimum.
 
 ## Known Limitations
 
 - This is a faithful method-family reproduction adapted to the benchmark, not a reproduction of every table or exact optimization model in Zhang, Lee, or Mercado.
 - The Lee APC/BILP coverage-satisfaction model is not solved exactly; RGT/APC is used as deterministic candidate generation and access-profile evidence.
-- The solver uses circular RGT-style or fallback circular candidates only; it may miss asymmetric non-RGT or elliptical designs that score better.
+- The solver uses analytical J2 shell closure for construction and reports a selected/emitted numerical J2 audit. On the latest smoke run, selected numerical closure residuals were still hundreds of kilometers, so the numerical audit should be treated as an honest diagnostic rather than proof of benchmark-propagator closure.
+- The solver uses circular J2-RGT or fallback circular candidates only; it may miss asymmetric non-RGT or elliptical designs that score better.
 - Visibility windows are sampled, so very short opportunities can be missed or approximated.
 - Battery feasibility is handled by conservative solver-local validation and repair, while the benchmark verifier remains authoritative.
-- Full public-case sweeps are slower than the focused smoke because visibility sampling dominates runtime. The experiment-owned fair profile records public-case timing and validity evidence outside the solver registry.
+- Full public-case sweeps are slower than the focused smoke because visibility sampling dominates runtime. The experiment-owned profiles record public-case timing and validity evidence outside the solver registry.
 
 ## Evidence And Registry Status
 

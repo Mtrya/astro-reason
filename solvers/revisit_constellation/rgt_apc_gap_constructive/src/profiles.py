@@ -106,34 +106,82 @@ def _sweep_points(payload: dict[str, Any]) -> list[dict[str, Any]]:
     return points
 
 
+def _stable_value(value: Any) -> Any:
+    if isinstance(value, dict):
+        return {
+            str(key): _stable_value(value[key])
+            for key in sorted(value, key=lambda item: str(item))
+        }
+    if isinstance(value, list):
+        return [_stable_value(item) for item in value]
+    return copy.deepcopy(value)
+
+
 def _config_summary(config: dict[str, Any]) -> dict[str, Any]:
     orbit = config.get("orbit_library")
     visibility = config.get("visibility")
     selection = config.get("selection")
+    scheduling = config.get("scheduling")
+    compute_envelope = config.get("compute_envelope")
     if not isinstance(orbit, dict):
         orbit = {}
     if not isinstance(visibility, dict):
         visibility = {}
     if not isinstance(selection, dict):
         selection = {}
+    if not isinstance(scheduling, dict):
+        scheduling = {}
+    if not isinstance(compute_envelope, dict):
+        compute_envelope = {}
     return {
+        "compute_envelope": _stable_value(compute_envelope),
         "orbit_library": {
             "max_candidates": orbit.get("max_candidates"),
             "search_mode": orbit.get("search_mode"),
             "max_rgt_days": orbit.get("max_rgt_days"),
             "min_revolutions_per_day": orbit.get("min_revolutions_per_day"),
             "max_revolutions_per_day": orbit.get("max_revolutions_per_day"),
+            "raan_slot_count": orbit.get("raan_slot_count"),
             "phase_slot_count": orbit.get("phase_slot_count"),
+            "max_shells": orbit.get("max_shells"),
+            "max_closure_error_m": orbit.get("max_closure_error_m"),
             "fallback_altitude_count": orbit.get("fallback_altitude_count"),
+            "j2_closure_tolerance_m": orbit.get("j2_closure_tolerance_m"),
+            "j2_refinement_iterations": orbit.get("j2_refinement_iterations"),
         },
         "visibility": {
             "sample_step_sec": visibility.get("sample_step_sec"),
             "worker_count": visibility.get("worker_count"),
             "max_windows": visibility.get("max_windows"),
+            "keep_samples_per_window": visibility.get("keep_samples_per_window"),
         },
         "selection": {
             "max_selected_satellites": selection.get("max_selected_satellites"),
             "require_positive_improvement": selection.get("require_positive_improvement"),
+        },
+        "scheduling": {
+            "max_actions": scheduling.get("max_actions"),
+            "max_actions_per_target": scheduling.get("max_actions_per_target"),
+            "observation_margin_sec": scheduling.get("observation_margin_sec"),
+            "transition_gap_sec": scheduling.get("transition_gap_sec"),
+            "require_positive_gap_improvement": scheduling.get(
+                "require_positive_gap_improvement"
+            ),
+            "enforce_simple_energy_budget": scheduling.get(
+                "enforce_simple_energy_budget"
+            ),
+            "enable_repair": scheduling.get("enable_repair"),
+            "repair_max_iterations": scheduling.get("repair_max_iterations"),
+            "enable_local_search": scheduling.get("enable_local_search"),
+            "local_search_max_iterations": scheduling.get(
+                "local_search_max_iterations"
+            ),
+            "local_search_options_per_target": scheduling.get(
+                "local_search_options_per_target"
+            ),
+            "local_search_removals_per_option": scheduling.get(
+                "local_search_removals_per_option"
+            ),
         },
     }
 
@@ -176,6 +224,10 @@ def resolve_profile_config(payload: dict[str, Any]) -> ProfileResolution:
             }
         )
 
+    sweep_raw = payload.get("parameter_sweep", {})
+    if not isinstance(sweep_raw, dict):
+        sweep_raw = {}
+
     return ProfileResolution(
         profile_name=profile_name,
         available_profiles=sorted(profiles),
@@ -183,10 +235,14 @@ def resolve_profile_config(payload: dict[str, Any]) -> ProfileResolution:
         summary={
             "active_profile": profile_name,
             "available_profiles": sorted(profiles),
+            "deterministic": True,
             "resolved": _config_summary(resolved_config),
         },
         sweep_summary={
+            "case_id": sweep_raw.get("case_id"),
+            "objective": sweep_raw.get("objective"),
             "point_count": len(sweep_rows),
+            "stable_order": "profile_name_then_point_name_then_declared_index",
             "points": sweep_rows,
         },
     )
