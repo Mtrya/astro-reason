@@ -19,12 +19,18 @@
       "models": {
         "replace_with_dpsk_model_id": {
           "name": "replace_with_dpsk_model_id",
+          "interleaved": {
+            "field": "reasoning_content"
+          },
           "options": {
             "reasoning_effort": "max"
           }
         },
         "replace_with_dpsk_small_model_id": {
-          "name": "replace_with_dpsk_small_model_id"
+          "name": "replace_with_dpsk_small_model_id",
+          "interleaved": {
+            "field": "reasoning_content"
+          }
         }
       }
     }
