@@ -35,11 +35,11 @@ RUN mkdir -p /etc/apt/keyrings \
     && rm -rf /var/lib/apt/lists/*
 
 RUN npm install -g \
-    @anthropic-ai/claude-code \
-    @google/gemini-cli \
-    @mariozechner/pi-coding-agent \
-    @openai/codex \
-    opencode-ai
+    @anthropic-ai/claude-code@2.1.123 \
+    @google/gemini-cli@0.40.0 \
+    @mariozechner/pi-coding-agent@0.70.6 \
+    @openai/codex@0.125.0 \
+    opencode-ai@1.14.30
 
 RUN uv pip install --system \
     'bsk==2.9.0' \
@@ -68,7 +68,7 @@ RUN uv pip install --system \
     'sympy==1.14.0' \
     'tqdm==4.67.1'
 
-RUN uv tool install --python 3.13 kimi-cli
+RUN uv tool install --python 3.13 kimi-cli==1.40.0
 
 RUN set -eux; \
     for cmd in claude codex gemini jq kimi opencode pi rg tree; do \
