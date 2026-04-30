@@ -195,6 +195,12 @@ experiments/main_agentic/reports/
 
 The family README should stay focused on high-level aggregate tables; use the report files for case-level tables and the radar plot for harness-level cross-benchmark views.
 
+Chat-style trace reports live under `reports/traces/` and can be opened directly in a browser:
+
+```bash
+uv run python experiments/main_agentic/trace_viewer.py
+```
+
 ## Smoke Checks
 
 Before running a matrix after verifier-source or prompt-contract changes, refresh or validate the opaque helpers:
