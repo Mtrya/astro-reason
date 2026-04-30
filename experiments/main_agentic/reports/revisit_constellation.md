@@ -1,3 +1,37 @@
 # Revisit Constellation
 
-Detailed result tables will be added here as main-agentic runs complete.
+Generated from the current `main_agentic` aggregate summaries.
+
+| Harness | Present | Success | Valid | Invalid | Timeout | Primary Mean | Processed Mean |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| codex | 5 | 5 | 5 | 0 | 0 | capped_max_revisit_gap_hours=9.8668 | revisit_score_pct=98.59 |
+| kimi_cli | 3 | 3 | 3 | 0 | 0 | capped_max_revisit_gap_hours=8.6326 | revisit_score_pct=58.16 |
+| opencode_dpsk | 5 | 5 | 5 | 0 | 0 | capped_max_revisit_gap_hours=9.6347 | revisit_score_pct=99.83 |
+
+## codex
+
+| Case | Overall | Verifier | Valid | Duration (s) | capped_max_revisit_gap_hours | num_satellites | revisit_score_pct |
+| --- | --- | --- | --- | ---: | ---: | ---: | ---: |
+| case_0001 | success | valid | true | 1471.7 | 8.0000 | 10 | 100.0 |
+| case_0002 | success | valid | true | 2720.6 | 8.0000 | 12 | 100.0 |
+| case_0003 | success | valid | true | 2673.1 | 8.0000 | 12 | 100.0 |
+| case_0004 | success | valid | true | 2822.4 | 13.33 | 12 | 92.94 |
+| case_0005 | success | valid | true | 2495.0 | 12.00 | 13 | 100.0 |
+
+## kimi_cli
+
+| Case | Overall | Verifier | Valid | Duration (s) | capped_max_revisit_gap_hours | num_satellites | revisit_score_pct |
+| --- | --- | --- | --- | ---: | ---: | ---: | ---: |
+| case_0001 | success | valid | true | 7206.9 | 8.6016 | 18 | 97.08 |
+| case_0002 | success | valid | true | 6163.0 | 8.0000 | 16 | 100.0 |
+| case_0003 | success | valid | true | 7200.5 | 9.2962 | 12 | 93.74 |
+
+## opencode_dpsk
+
+| Case | Overall | Verifier | Valid | Duration (s) | capped_max_revisit_gap_hours | num_satellites | revisit_score_pct |
+| --- | --- | --- | --- | ---: | ---: | ---: | ---: |
+| case_0001 | success | valid | true | 7200.6 | 8.0000 | 18 | 100.0 |
+| case_0002 | success | valid | true | 7123.3 | 8.0000 | 12 | 100.0 |
+| case_0003 | success | valid | true | 7200.5 | 8.1733 | 12 | 99.17 |
+| case_0004 | success | valid | true | 4432.1 | 12.00 | 6 | 100.0 |
+| case_0005 | success | valid | true | 4009.4 | 12.00 | 12 | 100.0 |
