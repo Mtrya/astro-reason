@@ -46,7 +46,7 @@ Filter by benchmark, harness, split, or exact case id:
 ```bash
 uv run python experiments/main_agentic/run.py \
   --benchmark aeossp_standard \
-  --harness opencode_glm \
+  --harness opencode_minimax \
   --split test \
   --case case_0001
 ```
@@ -92,7 +92,7 @@ Preview or rerun only specific stored statuses:
 ```bash
 uv run python experiments/main_agentic/run.py \
   --benchmark aeossp_standard \
-  --harness opencode_glm \
+  --harness opencode_minimax \
   --rerun-status timeout
 ```
 
@@ -101,7 +101,7 @@ Force all selected runs to execute again:
 ```bash
 uv run python experiments/main_agentic/run.py \
   --benchmark aeossp_standard \
-  --harness opencode_glm \
+  --harness opencode_minimax \
   --no-skip-completed
 ```
 
@@ -121,7 +121,7 @@ Override the default interactive case:
 uv run python experiments/main_agentic/run.py \
   --interactive \
   --benchmark aeossp_standard \
-  --harness opencode_glm \
+  --harness opencode_minimax \
   --split test \
   --case case_0001
 ```

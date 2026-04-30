@@ -11,7 +11,7 @@ harnesses:
   - codex
   - gemini_cli
   - kimi_cli
-  - opencode_glm
+  - opencode_minimax
   - opencode_dpsk
 split: test
 case: case_0001
