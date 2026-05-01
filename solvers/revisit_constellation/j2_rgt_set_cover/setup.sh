@@ -9,6 +9,23 @@ export UV_CACHE_DIR="${UV_CACHE_DIR:-/tmp/astroreason-uv-cache}"
 export UV_LINK_MODE="${UV_LINK_MODE:-copy}"
 mkdir -p "${UV_CACHE_DIR}"
 
+if [[ -x "${PYTHON_BIN}" ]]; then
+  if PYTHONPATH="${SCRIPT_DIR}" "${PYTHON_BIN}" - <<'PY' >/dev/null 2>&1
+import brahe
+import numpy
+import pytest
+import yaml
+PY
+  then
+    cat > "${SCRIPT_DIR}/.solver-env" <<ENV
+SOLVER_VENV_DIR=${VENV_DIR}
+SOLVER_PYTHON=${PYTHON_BIN}
+ENV
+    echo "j2_rgt_set_cover setup ok (reused existing venv)"
+    exit 0
+  fi
+fi
+
 if command -v uv >/dev/null 2>&1; then
   uv venv "${VENV_DIR}" --python 3.13 --clear
   uv pip install --python "${PYTHON_BIN}" -r "${SCRIPT_DIR}/requirements.txt"

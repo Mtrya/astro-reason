@@ -56,6 +56,11 @@ config:
     sample_step_sec: 240.0
     keep_samples_per_window: 4
     worker_count: 8
+  certification:
+    max_claims_per_target: 64
+    min_passing_claims_per_target: 8
+    worker_count: 8
+    max_selection_retries: 8
   scheduling:
     observation_duration_sec: 30.0
     opportunity_sample_step_sec: 60.0
@@ -66,11 +71,7 @@ config:
     range_safety_margin_m: 15000.0
     off_nadir_safety_margin_deg: 0.5
     max_actions: 3000
-    max_selection_repair_rounds: 8
-    max_repair_alternates_per_target: 8
-    numerical_repair_candidate_limit: 64
     opportunity_worker_count: 8
-    repair_worker_count: 8
 run_policies:
   quick_case_0001:
     description: Bounded single-case sanity run for iteration and contract checks.
@@ -97,9 +98,13 @@ run_policies:
         sample_step_sec: 300.0
         keep_samples_per_window: 4
         worker_count: 4
+      certification:
+        max_claims_per_target: 32
+        min_passing_claims_per_target: 4
+        worker_count: 4
+        max_selection_retries: 4
       scheduling:
         opportunity_worker_count: 4
-        repair_worker_count: 4
 cases:
   - id: test/case_0001
     case_dir: benchmarks/revisit_constellation/dataset/cases/test/case_0001

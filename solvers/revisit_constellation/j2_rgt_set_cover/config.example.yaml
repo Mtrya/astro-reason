@@ -21,6 +21,12 @@ coverage:
   keep_samples_per_window: 4
   worker_count: 8
 
+certification:
+  max_claims_per_target: 64
+  min_passing_claims_per_target: 8
+  worker_count: 8
+  max_selection_retries: 8
+
 scheduling:
   observation_duration_sec: 30.0
   opportunity_sample_step_sec: 60.0
@@ -31,8 +37,4 @@ scheduling:
   range_safety_margin_m: 15000.0
   off_nadir_safety_margin_deg: 0.5
   max_actions: 3000
-  max_selection_repair_rounds: 8
-  max_repair_alternates_per_target: 8
-  numerical_repair_candidate_limit: 64
   opportunity_worker_count: 8
-  repair_worker_count: 8
