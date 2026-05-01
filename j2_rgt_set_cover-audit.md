@@ -3,13 +3,14 @@
 ## Bottom Line
 
 - Target claim: certified J2 RGT pipeline for `revisit_constellation`, with analytical J2 used only for ranked candidate-target claims and numerical J2 used as the selection/emission gate.
-- Status: verifier-valid on the previously measured five-case hybrid profile; current one-day-first profile has been rechecked on `test/case_0001`.
+- Status: verifier-valid on the previously measured five-case hybrid profile; current adaptive one-day profile has been rechecked on `test/case_0002`, `test/case_0003`, and `test/case_0004`.
 - Compute status: IMPROVED_BUT_NUMERICAL_HOT_PATH_BOUND.
-- Envelope status: METRICS_IMPROVED_ON_CASE_0001, still hot-path-bound.
+- Envelope status: METRICS_IMPROVED_ON_CHECKED_CASES, still hot-path-bound.
 - Headline blockers:
-  - Exact certified selection, numerical certification, and final numerical state-provider construction are now the dominant runtime.
-  - Global candidate leaderboard plus one-day-first search fixed the `case_0001` high-gap failure without needing two-day candidates.
-  - Full five-case quality for the one-day-first profile still needs to be measured.
+  - The old single-threaded DP selection blow-up is fixed by bitset branch-and-bound.
+  - Numerical certification and final numerical state-provider construction are again the dominant runtime.
+  - Denser one-day RAAN search plus adaptive one-day deepening fixed `case_0003` target_014 without using two-day candidates.
+  - Full five-case quality for the adaptive one-day profile still needs to be measured.
 
 ## Current Measurements
 
@@ -62,34 +63,58 @@ spent more than 12 minutes in a single CPU-bound solver process with no
 certification worker children. This identifies exact certified selection, not
 the one-day candidate sweep itself, as the immediate time blocker.
 
+After replacing the mask-DP selector with bitset branch-and-bound and removing
+the two-day fallback:
+
+| Case/profile | Solver s | Passes | Checked candidates | Initial selection s | Assigned targets | High-gap targets | Satellites | Verifier |
+|---|---:|---:|---:|---:|---:|---:|---:|---|
+| test/case_0002, raan48/c48 | 107.5 | 1 | 48 | 1.5 | 28 | 0 | 15 | valid |
+| test/case_0003, raan96/c48 | 150.7 | 1 | 48 | 0.1 | 28 | 1 | 20 | local valid |
+| test/case_0003, raan96/c96 | 227.0 | 1 | 96 | 9.8 | 29 | 0 | 20 | valid |
+| test/case_0003, adaptive raan96 c48->c96 | 380.1 | 2 | 48 then 96 | 0.1 then 9.4 | 29 | 0 | 20 | valid |
+| test/case_0004, raan96/c48 | 163.6 | 1 | 48 | 0.6 | 29 | 0 | 15 | valid |
+| test/case_0004, raan96/c96 | timeout >420 | 1 | 96 | unknown | unknown | unknown | unknown | no status |
+
+`test/case_0003` target_014 was not ignored: it had passing one-day certified
+records in the 48-candidate pool, but exhaustive 5-candidate/20-satellite set
+cover over that pool still topped out at 28/29. Increasing the one-day
+candidate depth to 96 introduced a full 29/29 cover. `test/case_0004` shows why
+96 should be adaptive rather than unconditional: the 48-candidate pass already
+solves it, while the 96-candidate pass timed out before writing status.
+
 ## Anti-Pattern Check
 
 The standing anti-pattern reference is in `docs/internal/revisit_constellation_j2_rgt_certified_pipeline.md`.
 
 Current assessment:
 
-- Step 1 candidate pool richness: improved but still needs all-case confirmation. For `case_0001`, the one-day candidate pool was rich enough to cover all targets within budget.
+- Step 1 candidate pool richness: improved but still needs all-case confirmation. For checked cases, one-day candidates are sufficient when the RAAN grid is dense enough and candidate depth can adapt from 48 to 96.
 - Step 1 returns all candidates instead of a ranked subset: fixed for certification. All analytical claims are still serialized for debug, but certification consumes only the bounded global candidate leaderboard.
 - Step 2 finds most candidates are bad: mixed. On the full run, checked records fail roughly 44-52% by case, mostly revisit-gap failures. Analytical ranking is useful but still noisy.
 - Step 2 finds a bad candidate but uses it anyway: false at the candidate-target record level; rejected records cannot be selected. Partially unresolved at candidate-ID level because the current design may still use another passing target record from a candidate that also had a rejected claim.
-- Step 2 verifies all candidates no matter what: improved. Certification now checks a bounded candidate leaderboard, but it is not yet fully adaptive to exact selection's needs.
+- Step 2 verifies all candidates no matter what: improved. Certification checks a bounded candidate leaderboard and adaptively deepens only when the first one-day pass leaves quality issues, but it is not yet incrementally reused between passes.
 - Opportunistic observations cover unselected targets: fixed in final emission. `build_opportunities` and `select_assigned_first_actions` are assigned-only.
 
 ## Fair Optimization Envelope
 
-The current public profile is a fair reproduction probe, but not yet an ideal quality envelope. It uses numerical certificates, avoids opportunistic emission, and now has a successful full-coverage `case_0001` profile. The remaining issue is hot-path optimization plus all-case confirmation.
+The current public profile is a fair reproduction probe, but not yet an ideal quality envelope. It uses numerical certificates, avoids opportunistic emission, and has successful full-coverage runs on the checked cases above. The remaining issue is numerical hot-path optimization plus all-case confirmation.
 
 This is not mainly a worker-count problem. Parallelism helps, but each checked candidate variant still pays expensive Brahe J2 propagation for every phased satellite, and final solution construction repeats that cost for selected satellites.
 
 ## Key Blockers
 
-1. Exact selection and numerical state providers are now the hot path.
+1. Numerical certification and state providers are the hot path again.
 
-   Current `case_0001` spends about 63 s in certification, 65 s in exact selection, and 48 s constructing final numerical state providers. Case 0004 previously spent about 101 s in solution build, dominated by final selected-satellite propagation.
+   The old exact-selection blow-up dropped from 525 s to 1.5 s on `case_0002`.
+   Current expensive stages are certification and final selected-satellite
+   propagation. `case_0003` adaptive spends about 136 s in deep certification
+   and about 56 s in solution build.
 
 2. Certification is not fully selection-driven.
 
-   The global leaderboard is much better than per-target rank-only, but it still certifies a fixed number of candidates before knowing which variants exact selection needs next.
+   The global leaderboard is much better than per-target rank-only, but the
+   deep pass still recomputes search, coverage, and the first 48 candidates
+   instead of incrementally checking candidates 49-96.
 
 3. Certification has no cheap numerical pre-screen.
 
@@ -99,7 +124,7 @@ This is not mainly a worker-count problem. Parallelism helps, but each checked c
 
    The current certified-record design is safe for emitted target assignments, but it does not expose or enforce the stricter rule: if a candidate claimed any target falsely, mark that candidate ID bad. We need diagnostics, and possibly a config switch, for candidate-global blacklisting.
 
-5. Some residual high-gap targets in other cases may be budget-impossible for the current RGT family, but that is not proven.
+5. Some residual high-gap targets in unmeasured cases may be budget-impossible for the current RGT family, but that is not proven.
 
    The solver certifies every target in most cases, but cannot select all certified targets within the satellite budget. Proving impossibility requires either a stronger candidate family or an exact certified set-cover upper-bound/unsat diagnostic.
 

@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Any
 import math
 
@@ -123,6 +123,7 @@ class SelectionSummary:
     within_satellite_budget: bool
     blacklisted_certification_ids: tuple[str, ...] = ()
     blacklisted_variants: tuple[tuple[str, int], ...] = ()
+    selection_diagnostics: dict[str, Any] = field(default_factory=dict)
 
     def as_debug_dict(self) -> dict[str, Any]:
         return {
@@ -147,6 +148,7 @@ class SelectionSummary:
                 {"candidate_id": candidate_id, "required_satellites": count}
                 for candidate_id, count in self.blacklisted_variants
             ],
+            "selection_diagnostics": self.selection_diagnostics,
         }
 
     def as_status_dict(self) -> dict[str, Any]:
@@ -159,6 +161,7 @@ class SelectionSummary:
             "max_num_satellites": self.max_num_satellites,
             "all_targets_covered": self.all_targets_covered,
             "within_satellite_budget": self.within_satellite_budget,
+            "selection_diagnostics": self.selection_diagnostics,
         }
 
 
@@ -305,6 +308,7 @@ def _build_summary(
     budget_near_misses: list[BudgetNearMiss],
     blacklisted_certification_ids: set[str],
     blacklisted_variants: set[tuple[str, int]],
+    selection_diagnostics: dict[str, Any] | None = None,
 ) -> SelectionSummary:
     assignments_by_target = _assign_targets(case, variants)
     target_assignments: dict[str, TargetAssignment] = {}
@@ -354,6 +358,7 @@ def _build_summary(
         within_satellite_budget=total_required_satellites <= case.max_num_satellites,
         blacklisted_certification_ids=tuple(sorted(blacklisted_certification_ids)),
         blacklisted_variants=tuple(sorted(blacklisted_variants)),
+        selection_diagnostics=selection_diagnostics or {},
     )
 
 
@@ -423,73 +428,124 @@ def _improve_by_replacement(
 def _exact_selection(
     case: RevisitCase,
     variants: list[CandidateVariant],
-) -> list[CandidateVariant]:
+) -> tuple[list[CandidateVariant], dict[str, Any]]:
     target_ids = sorted(case.targets)
     target_index = {target_id: index for index, target_id in enumerate(target_ids)}
-    variant_masks: list[int] = []
-    for variant in variants:
+    full_mask = (1 << len(target_ids)) - 1
+    indexed_variants: list[tuple[int, CandidateVariant, int]] = []
+    for variant_index, variant in enumerate(variants):
         mask = 0
         for target_id in variant.target_ids:
             if target_id in target_index:
                 mask |= 1 << target_index[target_id]
-        variant_masks.append(mask)
+        if mask:
+            indexed_variants.append((variant_index, variant, mask))
 
-    states: list[dict[int, tuple[int, ...]]] = [
-        {0: ()} for _ in range(case.max_num_satellites + 1)
-    ]
-    for variant_index, variant in enumerate(variants):
-        cost = variant.required_satellites
-        if cost > case.max_num_satellites:
-            continue
-        mask = variant_masks[variant_index]
-        if mask == 0:
-            continue
-        for budget in range(case.max_num_satellites - cost, -1, -1):
-            for current_mask, chosen in list(states[budget].items()):
-                if any(
-                    variants[index].candidate.candidate_id
-                    == variant.candidate.candidate_id
-                    for index in chosen
-                ):
-                    continue
-                next_budget = budget + cost
-                next_mask = current_mask | mask
-                next_chosen = tuple(
+    indexed_variants.sort(
+        key=lambda item: (
+            -item[2].bit_count(),
+            item[1].required_satellites,
+            item[1].candidate.candidate_id,
+            item[1].required_satellites,
+        )
+    )
+    suffix_union = [0] * (len(indexed_variants) + 1)
+    for index in range(len(indexed_variants) - 1, -1, -1):
+        suffix_union[index] = suffix_union[index + 1] | indexed_variants[index][2]
+
+    best_indices: tuple[int, ...] = ()
+    best_key = _selection_key(case, [])
+    best_covered = 0
+    best_satellites = 0
+    nodes_visited = 0
+    candidate_sets_evaluated = 0
+    pruned_by_coverage_bound = 0
+    pruned_by_budget_bound = 0
+
+    def evaluate(chosen_indices: tuple[int, ...]) -> None:
+        nonlocal best_indices
+        nonlocal best_key
+        nonlocal best_covered
+        nonlocal best_satellites
+        nonlocal candidate_sets_evaluated
+        candidate_sets_evaluated += 1
+        selected = [variants[index] for index in chosen_indices]
+        key = _selection_key(case, selected)
+        if key < best_key:
+            best_indices = chosen_indices
+            best_key = key
+            best_covered = -key[0]
+            best_satellites = key[1]
+
+    def search(
+        start_index: int,
+        current_mask: int,
+        current_satellites: int,
+        chosen_indices: tuple[int, ...],
+        chosen_candidate_ids: frozenset[str],
+    ) -> None:
+        nonlocal nodes_visited
+        nonlocal pruned_by_coverage_bound
+        nonlocal pruned_by_budget_bound
+        nodes_visited += 1
+        current_covered = current_mask.bit_count()
+        potential_covered = (current_mask | suffix_union[start_index]).bit_count()
+        if potential_covered < best_covered:
+            pruned_by_coverage_bound += 1
+            return
+        if potential_covered == best_covered and current_satellites > best_satellites:
+            pruned_by_budget_bound += 1
+            return
+        if current_covered > best_covered or (
+            current_covered == best_covered
+            and current_satellites <= best_satellites
+        ):
+            evaluate(chosen_indices)
+        if current_mask == full_mask:
+            return
+        for index in range(start_index, len(indexed_variants)):
+            original_index, variant, variant_mask = indexed_variants[index]
+            next_satellites = current_satellites + variant.required_satellites
+            if next_satellites > case.max_num_satellites:
+                continue
+            if variant.candidate.candidate_id in chosen_candidate_ids:
+                continue
+            next_mask = current_mask | variant_mask
+            if next_mask == current_mask:
+                continue
+            if (next_mask | suffix_union[index + 1]).bit_count() < best_covered:
+                pruned_by_coverage_bound += 1
+                continue
+            search(
+                index + 1,
+                next_mask,
+                next_satellites,
+                tuple(
                     sorted(
-                        (*chosen, variant_index),
-                        key=lambda index: (
-                            variants[index].candidate.candidate_id,
-                            variants[index].required_satellites,
+                        (*chosen_indices, original_index),
+                        key=lambda item: (
+                            variants[item].candidate.candidate_id,
+                            variants[item].required_satellites,
                         ),
                     )
-                )
-                current = states[next_budget].get(next_mask)
-                if current is None or _exact_state_key(
-                    case,
-                    [variants[index] for index in next_chosen],
-                ) < _exact_state_key(
-                    case,
-                    [variants[index] for index in current],
-                ):
-                    states[next_budget][next_mask] = next_chosen
+                ),
+                chosen_candidate_ids | frozenset([variant.candidate.candidate_id]),
+            )
 
-    best: tuple[int, ...] = ()
-    best_key = _exact_state_key(case, [])
-    for budget_states in states:
-        for chosen in budget_states.values():
-            selected = [variants[index] for index in chosen]
-            key = _exact_state_key(case, selected)
-            if key < best_key:
-                best = chosen
-                best_key = key
-    return [variants[index] for index in best]
-
-
-def _exact_state_key(
-    case: RevisitCase,
-    selected: list[CandidateVariant],
-) -> tuple[Any, ...]:
-    return _selection_key(case, selected)
+    search(0, 0, 0, (), frozenset())
+    diagnostics = {
+        "algorithm": "branch_and_bound_bitset",
+        "variant_count": len(variants),
+        "search_variant_count": len(indexed_variants),
+        "target_count": len(target_ids),
+        "nodes_visited": nodes_visited,
+        "candidate_sets_evaluated": candidate_sets_evaluated,
+        "pruned_by_coverage_bound": pruned_by_coverage_bound,
+        "pruned_by_budget_bound": pruned_by_budget_bound,
+        "best_covered_target_count": best_covered,
+        "best_satellite_count": best_satellites,
+    }
+    return [variants[index] for index in best_indices], diagnostics
 
 
 def _budget_near_misses(
@@ -538,7 +594,7 @@ def select_candidates(
         blacklisted_certification_ids=blacklist_records,
         blacklisted_variants=blacklist_variants,
     )
-    selected = _exact_selection(case, variants)
+    selected, selection_diagnostics = _exact_selection(case, variants)
     rounds: list[SelectionRound] = []
     budget_near_misses = [] if selected else _budget_near_misses(case, variants)
     selected = _remove_redundant_variants(case, selected)
@@ -550,4 +606,5 @@ def select_candidates(
         budget_near_misses=budget_near_misses,
         blacklisted_certification_ids=blacklist_records,
         blacklisted_variants=blacklist_variants,
+        selection_diagnostics=selection_diagnostics,
     )

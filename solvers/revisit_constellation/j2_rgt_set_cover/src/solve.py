@@ -120,6 +120,26 @@ def _config_with_max_repeat_days(
     return updated
 
 
+def _config_with_max_candidates_to_check(
+    config: dict[str, Any],
+    max_candidates_to_check: int,
+    *,
+    active_profile_suffix: str,
+) -> dict[str, Any]:
+    updated = copy.deepcopy(config)
+    certification = updated.setdefault("certification", {})
+    if not isinstance(certification, dict):
+        raise ValueError("certification config must be a mapping/object")
+    certification["max_candidates_to_check"] = max_candidates_to_check
+    updated["active_profile"] = (
+        f"{updated.get('active_profile', 'custom')}__{active_profile_suffix}"
+    )
+    compute_envelope = updated.setdefault("compute_envelope", {})
+    if isinstance(compute_envelope, dict):
+        compute_envelope["name"] = str(updated["active_profile"])
+    return updated
+
+
 def _high_gap_target_ids(*, case: Any, solution_result: Any) -> list[str]:
     high_gap: list[str] = []
     for target_id, target in sorted(case.targets.items()):
@@ -319,35 +339,29 @@ def _strategy_pass_configs(config: dict[str, Any]) -> list[tuple[str, dict[str, 
     raw_strategy = config.get("strategy", {})
     strategy = raw_strategy if isinstance(raw_strategy, dict) else {}
     one_day_first = bool(strategy.get("one_day_first", True))
-    fallback_max_repeat_days = strategy.get("fallback_max_repeat_days")
     search_config = RgtSearchConfig.from_mapping(config)
+    certification_config = CertificationConfig.from_mapping(config)
     if not one_day_first:
         return [("configured", config)]
-    pass_configs: list[tuple[str, dict[str, Any]]] = []
+    base_config = config
     if search_config.max_repeat_days != 1:
-        pass_configs.append(
-            (
-                "one_day_first",
-                _config_with_max_repeat_days(
-                    config,
-                    1,
-                    active_profile_suffix="one_day_first",
-                ),
-            )
+        base_config = _config_with_max_repeat_days(
+            config,
+            1,
+            active_profile_suffix="one_day_only",
         )
-        pass_configs.append(("fallback_configured", config))
-        return pass_configs
-    pass_configs.append(("one_day_first", config))
-    if fallback_max_repeat_days is not None:
-        fallback_days = int(fallback_max_repeat_days)
-        if fallback_days > 1:
+    pass_configs = [("one_day", base_config)]
+    deepen_max_candidates = strategy.get("deepen_max_candidates_to_check")
+    if deepen_max_candidates is not None:
+        deepen_count = int(deepen_max_candidates)
+        if deepen_count > certification_config.max_candidates_to_check:
             pass_configs.append(
                 (
-                    "fallback_repeat_days",
-                    _config_with_max_repeat_days(
-                        config,
-                        fallback_days,
-                        active_profile_suffix=f"fallback_nd{fallback_days}",
+                    "one_day_deep",
+                    _config_with_max_candidates_to_check(
+                        base_config,
+                        deepen_count,
+                        active_profile_suffix=f"one_day_c{deepen_count}",
                     ),
                 )
             )

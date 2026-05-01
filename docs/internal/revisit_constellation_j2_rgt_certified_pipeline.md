@@ -21,11 +21,18 @@ candidate leaderboard, numerically checks candidate-target pairs for the
 leading candidates, records confirmed candidate-target pairs, and lets
 selection and emission use only those confirmed records.
 
-The current default strategy is staged: first check one-day repeat-track
-candidates with a bounded leaderboard, because they give cheaper four-satellite
-variants that combine well under a 20-satellite budget. If that pass leaves
-high-gap targets or fails local validation, fall back to the configured wider
-repeat-day envelope and choose the better verifier-valid result.
+The current default strategy checks one-day repeat-track candidates only,
+because they give cheaper variants that combine well under the satellite
+budget. It uses a denser one-day RAAN grid, checks the top 48 candidates first,
+and deepens to 96 one-day candidates only when the first pass leaves high-gap
+or uncovered targets. If quality is weak, spend additional compute on denser
+one-day RAAN grids or deeper one-day leaderboards before widening to costlier
+repeat-day families.
+
+For `test/case_0003`, 48 checked one-day candidates contained passing
+target_014 records but no 20-satellite set cover for all 29 targets. Increasing
+the one-day RAAN grid and checking 96 leaderboard candidates found a
+verifier-valid 29/29 solution, while the old two-day fallback was worse.
 
 The invariant is:
 

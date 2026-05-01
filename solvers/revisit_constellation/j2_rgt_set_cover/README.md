@@ -77,7 +77,7 @@ Step 2 consumes the leaderboard in order and numerically checks candidate-target
 ```yaml
 strategy:
   one_day_first: true
-  fallback_max_repeat_days: 2
+  deepen_max_candidates_to_check: 96
 rgt_search:
   max_repeat_days: 1
 certification:
@@ -86,9 +86,11 @@ certification:
   max_selection_retries: 8
 ```
 
-The default strategy checks one-day repeat-track candidates first. If that pass
-does not produce a verifier-valid solution with no high-gap targets, the solver
-falls back to the configured two-day search envelope and compares pass quality.
+The default strategy checks one-day repeat-track candidates only. It starts
+with the top 48 candidates from a denser RAAN grid, and reruns the same
+one-day grid with 96 candidates only if the first pass leaves high-gap or
+uncovered targets. That keeps compute focused on one-day candidates instead of
+spending time on costlier two-day variants.
 
 Geometry and sampling defaults are inherited from `scheduling` unless overridden in `certification`. A target can be selected only through a confirmed candidate-target record whose refined opportunities satisfy the target revisit period.
 
