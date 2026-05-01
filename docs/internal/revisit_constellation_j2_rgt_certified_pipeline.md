@@ -8,18 +8,24 @@ and the anti-patterns to check when performance or quality regresses.
 The solver must keep analytical search and numerical truth separate.
 
 Step 1 is an analytical J2 candidate-ranking stage. It may generate RGT
-templates, expand RAANs, sample coarse visibility, and rank candidate-target
-claims. It must not decide final target coverage.
+templates, expand RAANs, sample coarse visibility, and produce candidate-target
+claims. A claim means "candidate X may cover target Y"; it is evidence for a
+candidate, not the primary ranking unit.
 
-The certification frontier should not be purely per-target-cheapest. It should
-include a small interleaved mix of cheap per-target claims and coarse
-set-cover-efficient claims, because a higher-satellite candidate can be better
-globally if it certifies many targets under the constellation budget.
+Step 1 must build a candidate leaderboard: a deterministic list of candidates
+ranked by which candidates Step 2 should check first. A leaderboard entry is
+one candidate with a concrete satellite count and the targets it claims.
 
-Step 2 is a numerical J2 certification and selection stage. It refines only a
-bounded, ranked frontier of Step 1 claims, certifies candidate-target records
-against benchmark-compatible geometry and revisit constraints, and lets
-selection and emission use only those certified records.
+Step 2 is a numerical J2 checking and selection stage. It consumes the
+candidate leaderboard, numerically checks candidate-target pairs for the
+leading candidates, records confirmed candidate-target pairs, and lets
+selection and emission use only those confirmed records.
+
+The current default strategy is staged: first check one-day repeat-track
+candidates with a bounded leaderboard, because they give cheaper four-satellite
+variants that combine well under a 20-satellite budget. If that pass leaves
+high-gap targets or fails local validation, fall back to the configured wider
+repeat-day envelope and choose the better verifier-valid result.
 
 The invariant is:
 
@@ -38,15 +44,16 @@ Use this list when auditing `j2_rgt_set_cover` or any replacement method.
 
 1. Step 1 does not produce a rich enough candidate pool.
 
-   The analytical frontier is too sparse, too biased, or too low-resolution to
+   The analytical candidate pool is too sparse, too biased, or too low-resolution to
    contain good candidates for the hard targets. Symptoms include many targets
    with zero or very few analytical claims before certification.
 
 2. Step 1 returns all candidates instead of ranking and selecting a subset.
 
-   A large unranked pool makes Step 2 a brute-force numerical screen. Step 1
-   should rank claims and pass only a bounded frontier per target or per
-   candidate family.
+   A large unranked pool makes Step 2 a brute-force numerical screen. Ranking
+   candidate-target pairs target-by-target is also not enough: globally strong
+   candidates can be locally mediocre for each individual target. Step 1 should
+   produce a global candidate leaderboard.
 
 3. Step 2 finds that most Step 1 candidates are bad.
 
@@ -66,15 +73,15 @@ Use this list when auditing `j2_rgt_set_cover` or any replacement method.
 5. Step 2 verifies all candidates no matter what instead of greedily and in
    parallel.
 
-   Certification should be demand-driven: process ranked frontiers, stop once a
-   target has enough passing claims, and prioritize claims that can affect the
-   current selection. Parallel workers should be used for independent numerical
-   refinements, but parallelism is not a substitute for pruning.
+   Numerical checking should be demand-driven: process the candidate
+   leaderboard, prioritize candidates that can affect selection, and use
+   parallel workers for independent candidates. Parallelism is not a substitute
+   for a good leaderboard.
 
 6. Opportunistic observations cover unselected targets.
 
-   Merely visible targets on selected orbits are not certified assignments.
-   Final actions must come only from selected certified candidate-target
+   Merely visible targets on selected orbits are not confirmed assignments.
+   Final actions must come only from selected confirmed candidate-target
    records. Opportunistic observation may be useful for exploratory diagnostics,
    but it must not affect submitted `solution.json`.
 
@@ -84,10 +91,12 @@ A solver run can be valid but still not be a fair optimization run.
 
 The public or quality envelope should be judged by:
 
-- candidate richness: templates, RAAN density, and target-specific frontier
-  depth are large enough to give the method a real shot;
-- certification efficiency: numerical refinement is bounded, ranked,
-  parallelized, and stopped early when extra checks cannot help selection;
+- candidate richness: templates and RAAN density are large enough to give the
+  method a real shot;
+- leaderboard quality: candidates that cover many targets or rare targets
+  bubble up before locally cheap but globally weak candidates;
+- certification efficiency: numerical checking is bounded, ranked, and
+  parallelized;
 - hot-path efficiency: repeated propagation, state-provider construction, and
   target geometry checks are cached, batched, or vectorized where practical;
 - selection usefulness: certified records are selected with a real objective,
@@ -107,6 +116,8 @@ The fair-envelope failure modes are:
   envelope;
 - overbroad search: caps are so large, or pruning so weak, that the solver
   spends its budget proving bad claims;
+- costly-repeat bias: longer-repeat candidates appear strong by raw target
+  count but consume too many satellites to combine well under the case budget;
 - implementation overhead: repeated numerical propagator construction or Python
   geometry loops dominate before selection gets a meaningful pool;
 - impossible cases: even a strong candidate pool has no verifier-valid way to
@@ -116,20 +127,19 @@ The fair-envelope failure modes are:
 
 When investigating a slow or weak run, answer these in order:
 
-1. How many analytical claims were produced per target?
-2. Did the bounded frontier include both cheap claims and high coarse-coverage
-   claims?
-3. How many claims and candidate/count variant groups were checked before early
-   stop?
-4. What fraction of checked claims passed numerical certification?
+1. How many candidates and candidate-target claims did Step 1 produce?
+2. Do high analytical-coverage candidates appear near the top of the candidate
+   leaderboard?
+3. How many candidates and candidate-target pairs did Step 2 check?
+4. What fraction of checked candidate-target pairs passed numerical checking?
 5. Which candidate IDs had any rejected claim, and were any of those candidate
    IDs still selected for other target records?
 6. Which stage dominates `status.json.timing_seconds`?
 7. Does certification rebuild phased satellites or numerical propagators for
    the same candidate and satellite count repeatedly?
-8. Are targets with zero certified claims impossible, under-searched, or
-   blocked by analytical ranking quality?
-9. Did final emission use only selected certified assignments?
+8. Are targets with zero confirmed pairs impossible, under-searched, or blocked
+   by leaderboard quality?
+9. Did final emission use only selected confirmed assignments?
 10. Did retry blacklists target only failed records or did they remove useful
    variants too broadly?
 11. Would more time improve the result, or would it mostly repeat the same
@@ -140,11 +150,11 @@ When investigating a slow or weak run, answer these in order:
 Useful artifacts for this pipeline are:
 
 - `debug/coverage_summary.json`: analytical candidates, coarse evidence, and
-  ranked analytical claims only;
+  analytical candidate-target claims only;
 - `debug/certification_summary.json`: numerical pass/fail truth, rejection
-  reasons, checked counts, frontier limits, and candidate-level rejection
+  reasons, checked counts, candidate leaderboard, and candidate-level rejection
   diagnostics;
-- `debug/selection_summary.json`: selected certified records and uncovered
+- `debug/selection_summary.json`: selected confirmed records and uncovered
   targets;
 - `debug/solution_summary.json`: emitted selected-assignment actions,
   validation, target gaps, and retry history;

@@ -324,7 +324,8 @@ class SolutionBuildSummary:
             "high_gap_target_ids": high_gap_targets,
             "config": self.config.as_dict(),
             "timing_seconds": self.timing_seconds,
-            "retry_count": len(self.retry_history),
+            "attempt_count": len(self.retry_history),
+            "retry_count": max(0, len(self.retry_history) - 1),
             "retry_history": self.retry_history,
         }
 

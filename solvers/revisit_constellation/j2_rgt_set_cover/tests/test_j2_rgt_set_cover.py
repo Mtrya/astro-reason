@@ -39,6 +39,7 @@ from src.certification import (
     CertificationSummary,
     CertifiedCoverage,
     build_analytical_claims,
+    build_candidate_leaderboard,
 )
 from src.rgt import (
     ClosureScore,
@@ -873,6 +874,32 @@ def test_coarse_analytical_claims_are_not_selectable_until_certified() -> None:
     assert selection.selected_candidates == []
     assert selection.target_assignments == {}
     assert selection.uncovered_target_ids == ["t1"]
+
+
+def test_candidate_leaderboard_prioritizes_global_coverage_over_local_cost() -> None:
+    case = _synthetic_case(["t1", "t2", "t3"], revisit_hours=8.0)
+    cheap_single = _synthetic_candidate("cheap_single", repeat_hours=8.0)
+    broad_candidate = _synthetic_candidate("broad_candidate", repeat_hours=48.0)
+    coverage = _synthetic_coverage(
+        candidates=[cheap_single, broad_candidate],
+        candidate_to_targets={
+            cheap_single.candidate_id: ["t1"],
+            broad_candidate.candidate_id: ["t1", "t2", "t3"],
+        },
+        windows=[
+            _synthetic_window(cheap_single, "t1", 1.0),
+            _synthetic_window(broad_candidate, "t1", 1.0),
+            _synthetic_window(broad_candidate, "t2", 2.0),
+            _synthetic_window(broad_candidate, "t3", 3.0),
+        ],
+    )
+
+    leaderboard = build_candidate_leaderboard(build_analytical_claims(case, coverage))
+
+    assert leaderboard[0].candidate_id == broad_candidate.candidate_id
+    assert leaderboard[0].target_ids == ("t1", "t2", "t3")
+    assert leaderboard[0].required_satellites == 6
+    assert leaderboard[1].candidate_id == cheap_single.candidate_id
 
 
 def test_rejected_certified_claim_is_discarded_and_next_claim_selected() -> None:

@@ -5,8 +5,12 @@ compute_envelope:
   expected_case_wall_time_seconds: 360
   worker_count_policy: fixed_8_workers
 
+strategy:
+  one_day_first: true
+  fallback_max_repeat_days: 2
+
 rgt_search:
-  max_repeat_days: 2
+  max_repeat_days: 1
   min_revolutions_per_day: 11
   max_revolutions_per_day: 17
   inclinations_deg: [30.0, 40.0, 45.0, 53.0, 58.0, 63.4, 70.0, 75.0, 82.0, 97.8]
@@ -22,8 +26,7 @@ coverage:
   worker_count: 8
 
 certification:
-  max_claims_per_target: 8
-  min_passing_claims_per_target: 2
+  max_candidates_to_check: 48
   worker_count: 8
   max_selection_retries: 8
 

@@ -34,6 +34,7 @@ evaluation_policy:
   notes:
     - "Experiment-owned verifier records benchmark validity."
     - "The public profile is intentionally stronger than the quick sanity policy."
+    - "The public profile tries one-day RGT candidates first and falls back to two-day candidates only if needed."
     - "Case_0003 still exposes untapped algorithmic potential for min-max repacking work."
 config:
   active_profile: public
@@ -42,8 +43,11 @@ config:
     deterministic: true
     expected_case_wall_time_seconds: 360
     worker_count_policy: fixed_8_workers
+  strategy:
+    one_day_first: true
+    fallback_max_repeat_days: 2
   rgt_search:
-    max_repeat_days: 2
+    max_repeat_days: 1
     min_revolutions_per_day: 11
     max_revolutions_per_day: 17
     inclinations_deg: [30.0, 40.0, 45.0, 53.0, 58.0, 63.4, 70.0, 75.0, 82.0, 97.8]
@@ -57,8 +61,7 @@ config:
     keep_samples_per_window: 4
     worker_count: 8
   certification:
-    max_claims_per_target: 8
-    min_passing_claims_per_target: 2
+    max_candidates_to_check: 48
     worker_count: 8
     max_selection_retries: 8
   scheduling:
@@ -84,8 +87,11 @@ run_policies:
         deterministic: true
         expected_case_wall_time_seconds: 240
         worker_count_policy: fixed_4_workers
+      strategy:
+        one_day_first: true
+        fallback_max_repeat_days: 2
       rgt_search:
-        max_repeat_days: 2
+        max_repeat_days: 1
         min_revolutions_per_day: 12
         max_revolutions_per_day: 16
         inclinations_deg: [30.0, 45.0, 53.0, 63.4, 75.0, 97.8]
@@ -99,8 +105,7 @@ run_policies:
         keep_samples_per_window: 4
         worker_count: 4
       certification:
-        max_claims_per_target: 32
-        min_passing_claims_per_target: 4
+        max_candidates_to_check: 48
         worker_count: 4
         max_selection_retries: 4
       scheduling:

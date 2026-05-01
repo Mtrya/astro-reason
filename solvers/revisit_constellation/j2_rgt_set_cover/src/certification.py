@@ -1,4 +1,4 @@
-"""Numerical certification gate for analytical RGT coverage claims."""
+"""Numerical checking gate for analytical RGT candidate leaderboards."""
 
 from __future__ import annotations
 
@@ -26,6 +26,7 @@ class CertificationConfig:
     min_passing_claims_per_target: int = 8
     worker_count: int = 8
     max_selection_retries: int = 8
+    max_candidates_to_check: int = 96
     opportunity_sample_step_sec: float = 60.0
     validation_sample_step_sec: float = 10.0
     refinement_propagation: str = "numerical_j2"
@@ -64,6 +65,12 @@ class CertificationConfig:
                 raw.get(
                     "max_selection_retries",
                     defaults.max_selection_retries,
+                )
+            ),
+            max_candidates_to_check=int(
+                raw.get(
+                    "max_candidates_to_check",
+                    defaults.max_candidates_to_check,
                 )
             ),
             opportunity_sample_step_sec=float(
@@ -124,10 +131,9 @@ class CertificationConfig:
 
     def as_dict(self) -> dict[str, Any]:
         return {
-            "max_claims_per_target": self.max_claims_per_target,
-            "min_passing_claims_per_target": self.min_passing_claims_per_target,
             "worker_count": self.worker_count,
             "max_selection_retries": self.max_selection_retries,
+            "max_candidates_to_check": self.max_candidates_to_check,
             "opportunity_sample_step_sec": self.opportunity_sample_step_sec,
             "validation_sample_step_sec": self.validation_sample_step_sec,
             "refinement_propagation": self.refinement_propagation,
@@ -167,6 +173,47 @@ class AnalyticalCoverageClaim:
             "geometry_margin": self.geometry_margin,
             "repeat_period_hours": self.repeat_period_hours,
             "closure_error_m": self.closure_error_m,
+        }
+
+
+@dataclass(frozen=True, slots=True)
+class CandidateLeaderboardEntry:
+    rank: int
+    candidate: RaanCandidate
+    required_satellites: int
+    target_ids: tuple[str, ...]
+    claim_ids: tuple[str, ...]
+    target_weight_sum: float
+    target_count: int
+    rare_target_count: int
+    value_per_satellite: float
+    mean_analytical_capped_gap_hours: float
+    worst_analytical_gap_hours: float
+    mean_geometry_margin: float
+
+    @property
+    def candidate_id(self) -> str:
+        return self.candidate.candidate_id
+
+    @property
+    def variant_id(self) -> tuple[str, int]:
+        return (self.candidate_id, self.required_satellites)
+
+    def as_dict(self) -> dict[str, Any]:
+        return {
+            "rank": self.rank,
+            "candidate_id": self.candidate_id,
+            "template_id": self.candidate.template_id,
+            "required_satellites": self.required_satellites,
+            "target_ids": list(self.target_ids),
+            "claim_ids": list(self.claim_ids),
+            "target_weight_sum": self.target_weight_sum,
+            "target_count": self.target_count,
+            "rare_target_count": self.rare_target_count,
+            "value_per_satellite": self.value_per_satellite,
+            "mean_analytical_capped_gap_hours": self.mean_analytical_capped_gap_hours,
+            "worst_analytical_gap_hours": self.worst_analytical_gap_hours,
+            "mean_geometry_margin": self.mean_geometry_margin,
         }
 
 
@@ -225,6 +272,7 @@ class CertificationSummary:
     rejected_reasons: dict[str, int]
     frontier_limited_target_ids: list[str]
     config: CertificationConfig
+    candidate_leaderboard: tuple[CandidateLeaderboardEntry, ...] = ()
     variant_group_count: int = 0
     checked_variant_group_count: int = 0
 
@@ -288,13 +336,18 @@ class CertificationSummary:
             "failed_count": len(self.certified_records) - len(self.passing_records),
             "variant_group_count": self.variant_group_count,
             "checked_variant_group_count": self.checked_variant_group_count,
+            "candidate_leaderboard_count": len(self.candidate_leaderboard),
             "candidate_count_checked": len(candidate_summaries),
             "bad_if_any_claim_failed_candidate_count": len(bad_candidate_ids),
             "bad_if_any_claim_failed_candidate_ids": bad_candidate_ids,
+            "leaderboard_limited_target_ids": self.frontier_limited_target_ids,
             "frontier_limited_target_ids": self.frontier_limited_target_ids,
             "rejected_reasons": self.rejected_reasons,
             "target_summaries": self.target_summaries,
             "candidate_summaries": candidate_summaries,
+            "candidate_leaderboard": [
+                entry.as_dict() for entry in self.candidate_leaderboard
+            ],
             "claims": [claim.as_dict() for claim in self.claims],
             "certified_records": [
                 record.as_dict() for record in self.certified_records
@@ -316,11 +369,14 @@ class CertificationSummary:
             "failed_count": len(self.certified_records) - len(self.passing_records),
             "variant_group_count": self.variant_group_count,
             "checked_variant_group_count": self.checked_variant_group_count,
+            "candidate_leaderboard_count": len(self.candidate_leaderboard),
             "candidate_count_checked": len(candidate_summaries),
             "bad_if_any_claim_failed_candidate_count": len(bad_candidate_ids),
             "bad_if_any_claim_failed_candidate_ids": bad_candidate_ids,
             "certified_target_count": len(certified_targets),
             "certified_target_ids": certified_targets,
+            "leaderboard_limited_target_count": len(self.frontier_limited_target_ids),
+            "leaderboard_limited_target_ids": self.frontier_limited_target_ids,
             "frontier_limited_target_count": len(self.frontier_limited_target_ids),
             "frontier_limited_target_ids": self.frontier_limited_target_ids,
             "rejected_reasons": self.rejected_reasons,
@@ -492,59 +548,128 @@ def _resolved_worker_count(configured: int, work_item_count: int) -> int:
     return max(1, min(configured, work_item_count, os.cpu_count() or 1))
 
 
-def _frontier_claims_for_target(
-    *,
-    target_claims: list[AnalyticalCoverageClaim],
-    coverage: CoverageSummary,
-    limit: int,
-) -> list[AnalyticalCoverageClaim]:
-    if limit <= 0:
-        return []
-    if len(target_claims) <= limit:
-        return list(target_claims)
+def build_candidate_leaderboard(
+    claims: list[AnalyticalCoverageClaim],
+) -> tuple[CandidateLeaderboardEntry, ...]:
+    if not claims:
+        return ()
+    claims_by_target: dict[str, list[AnalyticalCoverageClaim]] = {}
+    for claim in claims:
+        claims_by_target.setdefault(claim.target_id, []).append(claim)
 
-    rank_quota = max(1, limit // 2)
-    utility_quota = max(1, limit - rank_quota)
+    target_candidate_counts = {
+        target_id: len({claim.candidate.candidate_id for claim in target_claims})
+        for target_id, target_claims in claims_by_target.items()
+    }
+    target_weights = {
+        target_id: 1.0 / math.sqrt(max(1, candidate_count))
+        for target_id, candidate_count in target_candidate_counts.items()
+    }
+    rare_cutoff = sorted(target_candidate_counts.values())
+    rare_threshold = rare_cutoff[max(0, min(len(rare_cutoff) - 1, len(rare_cutoff) // 4))]
 
-    def utility_key(claim: AnalyticalCoverageClaim) -> tuple[Any, ...]:
-        coarse_target_count = len(
-            coverage.candidate_to_targets.get(claim.candidate.candidate_id, [])
-        )
-        coarse_target_count = max(1, coarse_target_count)
-        return (
-            claim.required_satellites / coarse_target_count,
-            -coarse_target_count,
-            claim.analytical_capped_gap_hours,
-            claim.analytical_max_gap_hours,
-            -claim.geometry_margin,
-            claim.required_satellites,
-            claim.repeat_period_hours,
-            claim.closure_error_m,
-            claim.candidate.candidate_id,
-        )
+    claims_by_variant: dict[tuple[str, int], list[AnalyticalCoverageClaim]] = {}
+    claims_by_candidate: dict[str, list[AnalyticalCoverageClaim]] = {}
+    for claim in claims:
+        claims_by_candidate.setdefault(claim.candidate.candidate_id, []).append(claim)
+    for candidate_id, candidate_claims in claims_by_candidate.items():
+        for required_satellites in sorted(
+            {claim.required_satellites for claim in candidate_claims}
+        ):
+            claims_by_variant[(candidate_id, required_satellites)] = [
+                claim
+                for claim in candidate_claims
+                if claim.required_satellites <= required_satellites
+            ]
 
-    ranked = target_claims[:rank_quota]
-    utility_ranked = sorted(target_claims, key=utility_key)[:utility_quota]
-    selected: dict[str, AnalyticalCoverageClaim] = {}
-    frontier: list[AnalyticalCoverageClaim] = []
-    for index in range(max(len(ranked), len(utility_ranked))):
-        for source in (ranked, utility_ranked):
-            if index >= len(source):
-                continue
-            claim = source[index]
-            if claim.claim_id in selected:
-                continue
-            selected[claim.claim_id] = claim
-            frontier.append(claim)
-            if len(frontier) >= limit:
-                return frontier
-    for claim in target_claims:
-        if claim.claim_id in selected:
+    entries: list[CandidateLeaderboardEntry] = []
+    for (candidate_id, required_satellites), variant_claims in claims_by_variant.items():
+        best_by_target: dict[str, AnalyticalCoverageClaim] = {}
+        for claim in variant_claims:
+            current = best_by_target.get(claim.target_id)
+            if current is None or (
+                claim.analytical_capped_gap_hours,
+                claim.analytical_max_gap_hours,
+                -claim.geometry_margin,
+                claim.rank,
+            ) < (
+                current.analytical_capped_gap_hours,
+                current.analytical_max_gap_hours,
+                -current.geometry_margin,
+                current.rank,
+            ):
+                best_by_target[claim.target_id] = claim
+        if not best_by_target:
             continue
-        frontier.append(claim)
-        if len(frontier) >= limit:
-            break
-    return frontier
+        selected_claims = tuple(
+            sorted(best_by_target.values(), key=lambda item: item.target_id)
+        )
+        target_ids = tuple(claim.target_id for claim in selected_claims)
+        target_weight_sum = sum(target_weights[target_id] for target_id in target_ids)
+        target_count = len(target_ids)
+        rare_target_count = sum(
+            1
+            for target_id in target_ids
+            if target_candidate_counts[target_id] <= rare_threshold
+        )
+        entries.append(
+            CandidateLeaderboardEntry(
+                rank=0,
+                candidate=selected_claims[0].candidate,
+                required_satellites=required_satellites,
+                target_ids=target_ids,
+                claim_ids=tuple(claim.claim_id for claim in selected_claims),
+                target_weight_sum=target_weight_sum,
+                target_count=target_count,
+                rare_target_count=rare_target_count,
+                value_per_satellite=target_weight_sum
+                / max(1, required_satellites),
+                mean_analytical_capped_gap_hours=sum(
+                    claim.analytical_capped_gap_hours for claim in selected_claims
+                )
+                / target_count,
+                worst_analytical_gap_hours=max(
+                    claim.analytical_max_gap_hours for claim in selected_claims
+                ),
+                mean_geometry_margin=sum(
+                    claim.geometry_margin for claim in selected_claims
+                )
+                / target_count,
+            )
+        )
+
+    ordered = sorted(
+        entries,
+        key=lambda item: (
+            -item.target_weight_sum,
+            -item.target_count,
+            -item.rare_target_count,
+            -item.value_per_satellite,
+            item.required_satellites,
+            item.mean_analytical_capped_gap_hours,
+            item.worst_analytical_gap_hours,
+            -item.mean_geometry_margin,
+            item.candidate.template_closure_error_m,
+            item.candidate_id,
+        ),
+    )
+    return tuple(
+        CandidateLeaderboardEntry(
+            rank=rank,
+            candidate=entry.candidate,
+            required_satellites=entry.required_satellites,
+            target_ids=entry.target_ids,
+            claim_ids=entry.claim_ids,
+            target_weight_sum=entry.target_weight_sum,
+            target_count=entry.target_count,
+            rare_target_count=entry.rare_target_count,
+            value_per_satellite=entry.value_per_satellite,
+            mean_analytical_capped_gap_hours=entry.mean_analytical_capped_gap_hours,
+            worst_analytical_gap_hours=entry.worst_analytical_gap_hours,
+            mean_geometry_margin=entry.mean_geometry_margin,
+        )
+        for rank, entry in enumerate(ordered)
+    )
 
 
 def _scheduling_config(config: CertificationConfig) -> Any:
@@ -663,61 +788,35 @@ def certify_coverage_claims(
     coverage: CoverageSummary,
     config: CertificationConfig,
 ) -> CertificationSummary:
-    if config.max_claims_per_target <= 0:
-        raise ValueError("certification.max_claims_per_target must be > 0")
-    if config.min_passing_claims_per_target <= 0:
-        raise ValueError("certification.min_passing_claims_per_target must be > 0")
+    if config.max_candidates_to_check <= 0:
+        raise ValueError("certification.max_candidates_to_check must be > 0")
 
     claims = build_analytical_claims(case, coverage)
-    frontier_limited: list[str] = []
-    claims_by_target: dict[str, list[AnalyticalCoverageClaim]] = {}
-    claim_priority: dict[str, int] = {}
-    for target_id in sorted(case.targets):
-        target_claims = [claim for claim in claims if claim.target_id == target_id]
-        limited = _frontier_claims_for_target(
-            target_claims=target_claims,
-            coverage=coverage,
-            limit=config.max_claims_per_target,
-        )
-        if len(target_claims) > len(limited):
-            frontier_limited.append(target_id)
-        claims_by_target[target_id] = limited
-        for priority, claim in enumerate(limited):
-            claim_priority[claim.claim_id] = priority
-
-    claims_by_variant: dict[tuple[str, int], list[AnalyticalCoverageClaim]] = {}
-    for target_claims in claims_by_target.values():
-        for claim in target_claims:
-            claims_by_variant.setdefault(
-                (claim.candidate.candidate_id, claim.required_satellites),
-                [],
-            ).append(claim)
+    claim_by_id = {claim.claim_id: claim for claim in claims}
+    candidate_leaderboard = build_candidate_leaderboard(claims)
+    selected_leaderboard = candidate_leaderboard[: config.max_candidates_to_check]
+    checked_claim_ids = {
+        claim_id for entry in selected_leaderboard for claim_id in entry.claim_ids
+    }
+    frontier_limited = sorted(
+        {
+            claim.target_id
+            for claim in claims
+            if claim.claim_id not in checked_claim_ids
+        }
+    )
+    claim_priority = {
+        claim_id: entry.rank
+        for entry in selected_leaderboard
+        for claim_id in entry.claim_ids
+    }
     variant_groups = [
         (
-            key,
-            tuple(
-                sorted(
-                    group_claims,
-                    key=lambda item: (
-                        claim_priority.get(item.claim_id, item.rank),
-                        item.rank,
-                        item.target_id,
-                    ),
-                )
-            ),
+            entry.variant_id,
+            tuple(claim_by_id[claim_id] for claim_id in entry.claim_ids),
         )
-        for key, group_claims in claims_by_variant.items()
+        for entry in selected_leaderboard
     ]
-    variant_groups.sort(
-        key=lambda item: (
-            min(claim_priority.get(claim.claim_id, claim.rank) for claim in item[1]),
-            sum(claim_priority.get(claim.claim_id, claim.rank) for claim in item[1])
-            / max(len(item[1]), 1),
-            min(claim.rank for claim in item[1]),
-            item[0][1],
-            item[0][0],
-        )
-    )
 
     worker_count = _resolved_worker_count(config.worker_count, len(variant_groups))
     worker_config = CertificationConfig(
@@ -725,6 +824,7 @@ def certify_coverage_claims(
         min_passing_claims_per_target=config.min_passing_claims_per_target,
         worker_count=worker_count,
         max_selection_retries=config.max_selection_retries,
+        max_candidates_to_check=config.max_candidates_to_check,
         opportunity_sample_step_sec=config.opportunity_sample_step_sec,
         validation_sample_step_sec=config.validation_sample_step_sec,
         refinement_propagation=config.refinement_propagation,
@@ -733,7 +833,6 @@ def certify_coverage_claims(
         off_nadir_safety_margin_deg=config.off_nadir_safety_margin_deg,
     )
     retained: list[CertifiedCoverage] = []
-    pass_counts = {target_id: 0 for target_id in case.targets}
     checked_variant_group_count = 0
     executor = (
         ProcessPoolExecutor(max_workers=worker_count)
@@ -773,8 +872,6 @@ def certify_coverage_claims(
             ),
         ):
             retained.append(record)
-            if record.meets_revisit:
-                pass_counts[record.target_id] += 1
 
     try:
         batch: list[
@@ -786,19 +883,7 @@ def certify_coverage_claims(
             ]
         ] = []
         for _, group_claims in variant_groups:
-            if all(
-                pass_counts[target_id] >= config.min_passing_claims_per_target
-                for target_id in case.targets
-            ):
-                break
-            active_claims = tuple(
-                claim
-                for claim in group_claims
-                if pass_counts[claim.target_id] < config.min_passing_claims_per_target
-            )
-            if not active_claims:
-                continue
-            batch.append((case, coverage, active_claims, worker_config))
+            batch.append((case, coverage, group_claims, worker_config))
             if len(batch) >= batch_size:
                 consume_batch(batch)
                 batch = []
@@ -806,25 +891,6 @@ def certify_coverage_claims(
     finally:
         if executor is not None:
             executor.shutdown()
-
-    retained_by_target: dict[str, list[CertifiedCoverage]] = {}
-    for record in retained:
-        retained_by_target.setdefault(record.target_id, []).append(record)
-    retained = []
-    for target_id in sorted(case.targets):
-        pass_count = 0
-        for record in sorted(
-            retained_by_target.get(target_id, []),
-            key=lambda item: (
-                claim_priority.get(item.claim.claim_id, item.claim.rank),
-                item.claim.rank,
-            ),
-        ):
-            retained.append(record)
-            if record.meets_revisit:
-                pass_count += 1
-            if pass_count >= config.min_passing_claims_per_target:
-                break
 
     rejected_reasons: dict[str, int] = {}
     target_summaries: dict[str, dict[str, Any]] = {}
@@ -845,6 +911,7 @@ def certify_coverage_claims(
             "checked_count": len(records),
             "passed_count": len(passed),
             "failed_count": len(failed),
+            "leaderboard_limited": target_id in frontier_limited,
             "frontier_limited": target_id in frontier_limited,
             "best_certification_id": (
                 None
@@ -876,6 +943,7 @@ def certify_coverage_claims(
         rejected_reasons=rejected_reasons,
         frontier_limited_target_ids=frontier_limited,
         config=worker_config,
+        candidate_leaderboard=selected_leaderboard,
         variant_group_count=len(variant_groups),
         checked_variant_group_count=checked_variant_group_count,
     )

@@ -420,6 +420,108 @@ def _improve_by_replacement(
     return current
 
 
+def _exact_selection(
+    case: RevisitCase,
+    variants: list[CandidateVariant],
+) -> list[CandidateVariant]:
+    target_ids = sorted(case.targets)
+    target_index = {target_id: index for index, target_id in enumerate(target_ids)}
+    variant_masks: list[int] = []
+    for variant in variants:
+        mask = 0
+        for target_id in variant.target_ids:
+            if target_id in target_index:
+                mask |= 1 << target_index[target_id]
+        variant_masks.append(mask)
+
+    states: list[dict[int, tuple[int, ...]]] = [
+        {0: ()} for _ in range(case.max_num_satellites + 1)
+    ]
+    for variant_index, variant in enumerate(variants):
+        cost = variant.required_satellites
+        if cost > case.max_num_satellites:
+            continue
+        mask = variant_masks[variant_index]
+        if mask == 0:
+            continue
+        for budget in range(case.max_num_satellites - cost, -1, -1):
+            for current_mask, chosen in list(states[budget].items()):
+                if any(
+                    variants[index].candidate.candidate_id
+                    == variant.candidate.candidate_id
+                    for index in chosen
+                ):
+                    continue
+                next_budget = budget + cost
+                next_mask = current_mask | mask
+                next_chosen = tuple(
+                    sorted(
+                        (*chosen, variant_index),
+                        key=lambda index: (
+                            variants[index].candidate.candidate_id,
+                            variants[index].required_satellites,
+                        ),
+                    )
+                )
+                current = states[next_budget].get(next_mask)
+                if current is None or _exact_state_key(
+                    case,
+                    [variants[index] for index in next_chosen],
+                ) < _exact_state_key(
+                    case,
+                    [variants[index] for index in current],
+                ):
+                    states[next_budget][next_mask] = next_chosen
+
+    best: tuple[int, ...] = ()
+    best_key = _exact_state_key(case, [])
+    for budget_states in states:
+        for chosen in budget_states.values():
+            selected = [variants[index] for index in chosen]
+            key = _exact_state_key(case, selected)
+            if key < best_key:
+                best = chosen
+                best_key = key
+    return [variants[index] for index in best]
+
+
+def _exact_state_key(
+    case: RevisitCase,
+    selected: list[CandidateVariant],
+) -> tuple[Any, ...]:
+    return _selection_key(case, selected)
+
+
+def _budget_near_misses(
+    case: RevisitCase,
+    variants: list[CandidateVariant],
+) -> list[BudgetNearMiss]:
+    blocked: list[BudgetNearMiss] = []
+    for variant in variants:
+        if variant.required_satellites <= case.max_num_satellites:
+            continue
+        blocked.append(
+            BudgetNearMiss(
+                candidate_id=variant.candidate.candidate_id,
+                required_satellites=variant.required_satellites,
+                newly_covered_target_ids=variant.target_ids,
+                trial_satellite_count=variant.required_satellites,
+                satellite_over_budget=variant.required_satellites
+                - case.max_num_satellites,
+                gain=len(variant.target_ids),
+            )
+        )
+    return sorted(
+        blocked,
+        key=lambda item: (
+            item.satellite_over_budget,
+            -item.gain,
+            item.required_satellites,
+            item.candidate_id,
+        ),
+    )[:10]
+
+
 def select_candidates(
     case: RevisitCase,
     certification: CertificationSummary,
@@ -436,78 +538,9 @@ def select_candidates(
         blacklisted_certification_ids=blacklist_records,
         blacklisted_variants=blacklist_variants,
     )
-    selected: list[CandidateVariant] = []
+    selected = _exact_selection(case, variants)
     rounds: list[SelectionRound] = []
-    budget_near_misses: list[BudgetNearMiss] = []
-
-    while True:
-        selected_candidate_ids = {variant.candidate.candidate_id for variant in selected}
-        current_assignments = _assign_targets(case, selected)
-        current_key = _selection_key(case, selected)
-        options: list[tuple[tuple[Any, ...], CandidateVariant, dict[str, tuple[CandidateVariant, CertifiedCoverage]]]] = []
-        blocked: list[BudgetNearMiss] = []
-        for variant in variants:
-            if variant.candidate.candidate_id in selected_candidate_ids:
-                continue
-            trial = sorted(
-                [*selected, variant],
-                key=lambda item: (item.candidate.candidate_id, item.required_satellites),
-            )
-            trial_satellite_count = sum(item.required_satellites for item in trial)
-            trial_assignments = _assign_targets(case, trial)
-            newly_covered = sorted(set(trial_assignments).difference(current_assignments))
-            if not newly_covered:
-                continue
-            if trial_satellite_count > case.max_num_satellites:
-                blocked.append(
-                    BudgetNearMiss(
-                        candidate_id=variant.candidate.candidate_id,
-                        required_satellites=variant.required_satellites,
-                        newly_covered_target_ids=tuple(newly_covered),
-                        trial_satellite_count=trial_satellite_count,
-                        satellite_over_budget=trial_satellite_count - case.max_num_satellites,
-                        gain=len(newly_covered),
-                    )
-                )
-                continue
-            trial_key = _selection_key(case, trial)
-            if trial_key < current_key:
-                options.append((trial_key, variant, trial_assignments))
-        if not options:
-            budget_near_misses = sorted(
-                blocked,
-                key=lambda item: (
-                    item.satellite_over_budget,
-                    -item.gain,
-                    item.required_satellites,
-                    item.candidate_id,
-                ),
-            )[:10]
-            break
-        _, chosen, trial_assignments = min(options, key=lambda item: item[0])
-        before_targets = set(current_assignments)
-        selected = sorted(
-            [*selected, chosen],
-            key=lambda item: (item.candidate.candidate_id, item.required_satellites),
-        )
-        metrics = _selection_metrics(case, selected)
-        newly_covered = tuple(sorted(set(trial_assignments).difference(before_targets)))
-        rounds.append(
-            SelectionRound(
-                round_index=len(rounds),
-                selected_candidate_id=chosen.candidate.candidate_id,
-                selected_satellite_count=chosen.required_satellites,
-                newly_covered_target_ids=newly_covered,
-                covered_target_count=metrics[0],
-                total_satellite_count=metrics[1],
-                mean_certified_capped_gap_hours=metrics[2],
-                worst_certified_gap_hours=metrics[3],
-                remaining_uncovered_target_ids=tuple(
-                    sorted(set(case.targets).difference(trial_assignments))
-                ),
-            )
-        )
-
+    budget_near_misses = [] if selected else _budget_near_misses(case, variants)
     selected = _remove_redundant_variants(case, selected)
     selected = _improve_by_replacement(case, selected, variants)
     return _build_summary(
