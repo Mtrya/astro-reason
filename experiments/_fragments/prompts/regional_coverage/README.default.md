@@ -113,11 +113,11 @@ region_coverage_ratio = covered_sample_weight_m2 / total_weight_m2
 If the matching feature in `case/regions.geojson` declares `min_required_coverage_ratio`, then `region_coverage_ratio` below that threshold invalidates the whole solution. Reported aggregate metrics are:
 
 ```text
-coverage_ratio = sum(properties.weight * region_coverage_ratio) / sum(properties.weight)
 weighted_coverage_ratio = sum(covered_sample_weight_m2 over all regions) / sum(total_weight_m2 over all regions)
+coverage_ratio = sum(properties.weight * region_coverage_ratio) / sum(properties.weight)
 ```
 
-The first metric is the region-weighted objective; the second is raw grid-weight coverage. Residual ambiguity is limited to numerical geometry near strip edges and the deterministic polygon/grid approximation; use the local helper for boundary cases.
+The first metric is the primary weighted-area objective; the second is the secondary region-weighted coverage ratio. Residual ambiguity is limited to numerical geometry near strip edges and the deterministic polygon/grid approximation; use the local helper for boundary cases.
 
 ## Validation Notes
 

@@ -17,11 +17,11 @@ collect: []
 aggregation:
   verifier_kind: module_directory
   score_metrics:
-    - name: coverage_ratio
-      path: metrics.coverage_ratio
-      direction: maximize
-      role: primary
     - name: normalized_quality
       path: metrics.normalized_quality
+      direction: maximize
+      role: primary
+    - name: coverage_ratio
+      path: metrics.coverage_ratio
       direction: maximize
       role: secondary

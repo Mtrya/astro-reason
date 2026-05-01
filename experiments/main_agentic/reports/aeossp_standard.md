@@ -6,7 +6,7 @@ Generated from the current `main_agentic` aggregate summaries.
 | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
 | codex | 5 | 5 | 5 | 0 | 0 | WCR=0.7075 | - |
 | kimi_cli | 5 | 5 | 5 | 0 | 0 | WCR=0.6923 | - |
-| opencode_minimax | 1 | 0 | 0 | 0 | 0 | WCR=- | - |
+| opencode_minimax | 5 | 5 | 5 | 0 | 0 | WCR=0.2008 | - |
 | opencode_dpsk | 5 | 5 | 5 | 0 | 0 | WCR=0.5618 | - |
 
 ## codex
@@ -43,4 +43,8 @@ Generated from the current `main_agentic` aggregate summaries.
 
 | Case | Overall | Verifier | Valid | Duration (s) | WCR | CR | TAT | PC |
 | --- | --- | --- | --- | ---: | ---: | ---: | ---: | ---: |
-| case_0002 | agent_failed | no_solution | - | 0.0000 | - | - | - | - |
+| case_0001 | success | valid | true | 4221.5 | 0.5241 | 0.5645 | 979.0 | 15974.8 |
+| case_0002 | success | valid | true | 2363.8 | 0.0084 | 0.0095 | 252.4 | 7165.7 |
+| case_0003 | success | valid | true | 1470.0 | 0.1059 | 0.0805 | 1198.0 | 7521.8 |
+| case_0004 | success | valid | true | 3193.7 | 0.3655 | 0.2275 | 1216.4 | 10697.3 |
+| case_0005 | success | valid | true | 1785.0 | 0.0000 | 0.0000 | - | 7860.0 |

@@ -17,12 +17,12 @@ collect: []
 aggregation:
   verifier_kind: single_file
   score_metrics:
-    - name: coverage_ratio
-      path: metrics.coverage_ratio
-      direction: maximize
-      role: primary
     - name: weighted_coverage_ratio
       path: metrics.weighted_coverage_ratio
+      direction: maximize
+      role: primary
+    - name: coverage_ratio
+      path: metrics.coverage_ratio
       direction: maximize
       role: secondary
     - name: num_actions

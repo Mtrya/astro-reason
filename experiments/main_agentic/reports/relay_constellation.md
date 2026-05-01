@@ -6,6 +6,7 @@ Generated from the current `main_agentic` aggregate summaries.
 | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
 | codex | 5 | 5 | 5 | 0 | 0 | service_fraction=0.9352 | - |
 | kimi_cli | 5 | 5 | 5 | 0 | 0 | service_fraction=0.8681 | - |
+| opencode_minimax | 5 | 4 | 4 | 1 | 0 | service_fraction=0.0000 | - |
 | opencode_dpsk | 5 | 5 | 5 | 0 | 0 | service_fraction=0.5594 | - |
 
 ## codex
@@ -37,3 +38,13 @@ Generated from the current `main_agentic` aggregate summaries.
 | case_0003 | success | valid | true | 7200.8 | 0.0000 | 0.0000 | 8 | - | - |
 | case_0004 | success | valid | true | 4992.2 | 0.9222 | 0.6000 | 8 | 99.30 | 174.9 |
 | case_0005 | success | valid | true | 7200.8 | 0.0000 | 0.0000 | 10 | - | - |
+
+## opencode_minimax
+
+| Case | Overall | Verifier | Valid | Duration (s) | service_fraction | worst_demand_service_fraction | num_added_satellites | mean_latency_ms | latency_p95_ms |
+| --- | --- | --- | --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| case_0001 | success | valid | true | 3344.4 | 0.0000 | 0.0000 | 6 | - | - |
+| case_0002 | success | valid | true | 2326.8 | 0.0000 | 0.0000 | 2 | - | - |
+| case_0003 | success | valid | true | 3290.8 | 0.0000 | 0.0000 | 8 | - | - |
+| case_0004 | verifier_invalid | invalid | false | 3532.6 | 0.0000 | 0.0000 | 8 | - | - |
+| case_0005 | success | valid | true | 2330.2 | 0.0000 | 0.0000 | 1 | - | - |

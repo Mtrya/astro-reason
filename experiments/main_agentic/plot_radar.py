@@ -33,7 +33,7 @@ BASELINE_SPECS = {
         "direction": "maximize",
     },
     "regional_coverage": {
-        "agent_metric": "coverage_ratio",
+        "agent_metric": "weighted_coverage_ratio",
         "direction": "maximize",
     },
     "relay_constellation": {
@@ -54,7 +54,7 @@ BASELINE_SPECS = {
         "direction": "maximize",
     },
     "stereo_imaging": {
-        "agent_metric": "coverage_ratio",
+        "agent_metric": "normalized_quality",
         "direction": "maximize",
     },
 }
@@ -72,8 +72,8 @@ SOLVER_BASELINES = {
     },
     "regional_coverage": {
         "test/case_0001": 1.0,
-        "test/case_0002": 0.9986,
-        "test/case_0003": 0.9781,
+        "test/case_0002": 0.9989,
+        "test/case_0003": 0.9776,
         "test/case_0004": 1.0,
         "test/case_0005": 1.0,
     },
@@ -106,11 +106,11 @@ SOLVER_BASELINES = {
         "test/8": 10.0,
     },
     "stereo_imaging": {
-        "test/case_0001": 0.9789,
-        "test/case_0002": 0.9917,
-        "test/case_0003": 0.9587,
-        "test/case_0004": 0.9444,
-        "test/case_0005": 0.9787,
+        "test/case_0001": 0.9581,
+        "test/case_0002": 0.9887,
+        "test/case_0003": 0.9572,
+        "test/case_0004": 0.9238,
+        "test/case_0005": 0.9747,
     },
 }
 

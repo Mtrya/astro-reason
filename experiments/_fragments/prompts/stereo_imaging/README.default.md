@@ -8,7 +8,7 @@ You are given:
 - a set of ground targets with scene labels in `case/targets.yaml`
 - mission-level stereo validity and quality thresholds in `case/mission.yaml`
 
-Your job is to produce `solution.json`, a schedule of observation actions that creates as many valid stereo or tri-stereo products as possible with good geometry and quality.
+Your job is to produce `solution.json`, a schedule of observation actions that creates high-quality valid stereo or tri-stereo products across as many targets as possible.
 
 This problem is modeled as scheduling raw optical observations, not explicitly choosing image pairs. You submit individual observation actions with boresight steering angles, and the validator later decides which combinations form valid stereo or tri-stereo products for the same target. In other words, the solution should create a set of observations that can be paired or grouped well under the case's stereo geometry rules.
 
@@ -17,10 +17,10 @@ This problem is modeled as scheduling raw optical observations, not explicitly c
 A strong solution should:
 
 - satisfy all hard validity rules
-- cover as many targets as possible with at least one valid stereo or tri-stereo product
-- improve the quality of the best product per target when additional choices are available
+- maximize the normalized quality of the best valid product per target
+- cover as many targets as possible with at least one valid stereo or tri-stereo product when quality choices are comparable
 
-In practical terms, valid stereo coverage matters first, then geometric and quality strength.
+In practical terms, normalized product quality is the primary objective, with valid stereo coverage next.
 
 ## Files In This Workspace
 
@@ -153,8 +153,8 @@ Q_tri = min(1, best_valid_pair_quality + tri_stereo_bonus_by_scene[scene_type] *
 where `R` is `0.6` for having at least two valid pairs plus `0.4` for a near-nadir anchor, capped at `1`. Reported metrics are:
 
 ```text
-coverage_ratio = number of targets with at least one valid product / number of targets
 normalized_quality = sum(best target product quality over all targets) / number of targets
+coverage_ratio = number of targets with at least one valid product / number of targets
 ```
 
 Residual ambiguity is the intentional deterministic overlap approximation: exact continuous AOI overlap is not the scored quantity, so use the local helper to check close overlap-threshold cases.
