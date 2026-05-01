@@ -3,123 +3,123 @@
   "cases": [
     {
       "case_id": "case_0001",
-      "max_num_satellites": 18,
+      "max_num_satellites": 20,
       "path": "cases/test/case_0001",
       "split": "test",
-      "target_count": 23,
-      "uniform_revisit_threshold_hours": 8.0
+      "target_count": 28,
+      "uniform_revisit_threshold_hours": 6.0
     },
     {
       "case_id": "case_0002",
-      "max_num_satellites": 16,
+      "max_num_satellites": 20,
       "path": "cases/test/case_0002",
       "split": "test",
-      "target_count": 20,
+      "target_count": 28,
       "uniform_revisit_threshold_hours": 8.0
     },
     {
       "case_id": "case_0003",
-      "max_num_satellites": 12,
+      "max_num_satellites": 20,
       "path": "cases/test/case_0003",
       "split": "test",
-      "target_count": 24,
-      "uniform_revisit_threshold_hours": 8.0
+      "target_count": 29,
+      "uniform_revisit_threshold_hours": 6.0
     },
     {
       "case_id": "case_0004",
-      "max_num_satellites": 17,
+      "max_num_satellites": 19,
       "path": "cases/test/case_0004",
       "split": "test",
-      "target_count": 20,
-      "uniform_revisit_threshold_hours": 12.0
+      "target_count": 29,
+      "uniform_revisit_threshold_hours": 8.0
     },
     {
       "case_id": "case_0005",
-      "max_num_satellites": 17,
+      "max_num_satellites": 20,
       "path": "cases/test/case_0005",
       "split": "test",
-      "target_count": 19,
-      "uniform_revisit_threshold_hours": 12.0
+      "target_count": 27,
+      "uniform_revisit_threshold_hours": 6.0
     },
     {
       "case_id": "case_0001",
-      "max_num_satellites": 12,
+      "max_num_satellites": 16,
       "path": "cases/train/case_0001",
       "split": "train",
-      "target_count": 18,
+      "target_count": 25,
       "uniform_revisit_threshold_hours": 8.0
     },
     {
       "case_id": "case_0002",
-      "max_num_satellites": 18,
+      "max_num_satellites": 20,
       "path": "cases/train/case_0002",
       "split": "train",
-      "target_count": 19,
+      "target_count": 26,
       "uniform_revisit_threshold_hours": 6.0
     },
     {
       "case_id": "case_0003",
-      "max_num_satellites": 18,
+      "max_num_satellites": 20,
       "path": "cases/train/case_0003",
       "split": "train",
-      "target_count": 23,
-      "uniform_revisit_threshold_hours": 8.0
+      "target_count": 31,
+      "uniform_revisit_threshold_hours": 6.0
     },
     {
       "case_id": "case_0004",
-      "max_num_satellites": 14,
+      "max_num_satellites": 20,
       "path": "cases/train/case_0004",
       "split": "train",
-      "target_count": 19,
-      "uniform_revisit_threshold_hours": 12.0
+      "target_count": 26,
+      "uniform_revisit_threshold_hours": 8.0
     },
     {
       "case_id": "case_0005",
-      "max_num_satellites": 18,
+      "max_num_satellites": 20,
       "path": "cases/train/case_0005",
       "split": "train",
-      "target_count": 18,
+      "target_count": 24,
       "uniform_revisit_threshold_hours": 6.0
     },
     {
       "case_id": "case_0006",
-      "max_num_satellites": 14,
+      "max_num_satellites": 18,
       "path": "cases/train/case_0006",
       "split": "train",
-      "target_count": 18,
+      "target_count": 25,
       "uniform_revisit_threshold_hours": 8.0
     },
     {
       "case_id": "case_0007",
-      "max_num_satellites": 15,
+      "max_num_satellites": 20,
       "path": "cases/train/case_0007",
       "split": "train",
-      "target_count": 21,
-      "uniform_revisit_threshold_hours": 12.0
+      "target_count": 31,
+      "uniform_revisit_threshold_hours": 8.0
     },
     {
       "case_id": "case_0008",
-      "max_num_satellites": 18,
+      "max_num_satellites": 20,
       "path": "cases/train/case_0008",
       "split": "train",
-      "target_count": 21,
+      "target_count": 30,
       "uniform_revisit_threshold_hours": 6.0
     },
     {
       "case_id": "case_0009",
-      "max_num_satellites": 18,
+      "max_num_satellites": 20,
       "path": "cases/train/case_0009",
       "split": "train",
-      "target_count": 22,
+      "target_count": 32,
       "uniform_revisit_threshold_hours": 6.0
     },
     {
       "case_id": "case_0010",
-      "max_num_satellites": 13,
+      "max_num_satellites": 20,
       "path": "cases/train/case_0010",
       "split": "train",
-      "target_count": 24,
-      "uniform_revisit_threshold_hours": 8.0
+      "target_count": 28,
+      "uniform_revisit_threshold_hours": 6.0
     }
   ],
   "example_smoke_case": "test/case_0001",
