@@ -27,21 +27,21 @@ evaluation_policy:
   profile: public
   purpose: "J2-aware repeat-ground-track set-cover solver adapted to revisit_constellation."
   compute_envelope:
-    expected_case_wall_time_seconds: 360
-    expected_full_test_split_wall_time_seconds: 1800
+    expected_case_wall_time_seconds: 420
+    expected_full_test_split_wall_time_seconds: 1500
     worker_count_policy: fixed_8_workers
     deterministic: true
   notes:
     - "Experiment-owned verifier records benchmark validity."
     - "The public profile is intentionally stronger than the quick sanity policy."
     - "The public profile invests the repeat-track budget in one-day RGT candidates."
-    - "Case_0003 still exposes untapped algorithmic potential for min-max repacking work."
+    - "The public profile uses adaptive one-day deepening; case_0003 is the expected deep-pass case."
 config:
   active_profile: public
   compute_envelope:
     name: public
     deterministic: true
-    expected_case_wall_time_seconds: 360
+    expected_case_wall_time_seconds: 420
     worker_count_policy: fixed_8_workers
   strategy:
     one_day_first: true

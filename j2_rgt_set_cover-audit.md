@@ -3,14 +3,14 @@
 ## Bottom Line
 
 - Target claim: certified J2 RGT pipeline for `revisit_constellation`, with analytical J2 used only for ranked candidate-target claims and numerical J2 used as the selection/emission gate.
-- Status: verifier-valid on the previously measured five-case hybrid profile; current adaptive one-day profile has been rechecked on `test/case_0002`, `test/case_0003`, and `test/case_0004`.
+- Status: READY. The current adaptive one-day profile is verifier-valid on all five public `revisit_constellation` test cases with zero threshold violations.
 - Compute status: IMPROVED_BUT_NUMERICAL_HOT_PATH_BOUND.
-- Envelope status: METRICS_IMPROVED_ON_CHECKED_CASES, still hot-path-bound.
+- Envelope status: READY_PUBLIC_TEST_SPLIT, still numerically hot-path-bound.
 - Headline blockers:
   - The old single-threaded DP selection blow-up is fixed by bitset branch-and-bound.
   - Numerical certification and final numerical state-provider construction are again the dominant runtime.
   - Denser one-day RAAN search plus adaptive one-day deepening fixed `case_0003` target_014 without using two-day candidates.
-  - Full five-case quality for the adaptive one-day profile still needs to be measured.
+  - Full five-case quality for the adaptive one-day profile is now measured and passes.
 
 ## Current Measurements
 
@@ -82,13 +82,23 @@ candidate depth to 96 introduced a full 29/29 cover. `test/case_0004` shows why
 96 should be adaptive rather than unconditional: the 48-candidate pass already
 solves it, while the 96-candidate pass timed out before writing status.
 
+READY validation on the public test split:
+
+| Case | Solver s | Chosen pass | Checked records | Passed records | Assigned targets | High-gap targets | Satellites | Actions | Capped gap h |
+|---|---:|---|---:|---:|---:|---:|---:|---:|---:|
+| test/case_0001 | 140.1 | one_day | 828 | 398 | 28 | 0 | 16 | 225 | 6.0 |
+| test/case_0002 | 122.1 | one_day | 803 | 401 | 28 | 0 | 15 | 179 | 8.0 |
+| test/case_0003 | 377.3 | one_day_deep | 1634 | 696 | 29 | 0 | 20 | 234 | 6.0 |
+| test/case_0004 | 163.3 | one_day | 837 | 429 | 29 | 0 | 15 | 185 | 8.0 |
+| test/case_0005 | 149.3 | one_day | 752 | 324 | 27 | 0 | 20 | 217 | 6.0 |
+
 ## Anti-Pattern Check
 
 The standing anti-pattern reference is in `docs/internal/revisit_constellation_j2_rgt_certified_pipeline.md`.
 
 Current assessment:
 
-- Step 1 candidate pool richness: improved but still needs all-case confirmation. For checked cases, one-day candidates are sufficient when the RAAN grid is dense enough and candidate depth can adapt from 48 to 96.
+- Step 1 candidate pool richness: sufficient for the public test split. One-day candidates are sufficient when the RAAN grid is dense enough and candidate depth can adapt from 48 to 96.
 - Step 1 returns all candidates instead of a ranked subset: fixed for certification. All analytical claims are still serialized for debug, but certification consumes only the bounded global candidate leaderboard.
 - Step 2 finds most candidates are bad: mixed. On the full run, checked records fail roughly 44-52% by case, mostly revisit-gap failures. Analytical ranking is useful but still noisy.
 - Step 2 finds a bad candidate but uses it anyway: false at the candidate-target record level; rejected records cannot be selected. Partially unresolved at candidate-ID level because the current design may still use another passing target record from a candidate that also had a rejected claim.
@@ -97,7 +107,7 @@ Current assessment:
 
 ## Fair Optimization Envelope
 
-The current public profile is a fair reproduction probe, but not yet an ideal quality envelope. It uses numerical certificates, avoids opportunistic emission, and has successful full-coverage runs on the checked cases above. The remaining issue is numerical hot-path optimization plus all-case confirmation.
+The current public profile is ready for the public test split. It uses numerical certificates, avoids opportunistic emission, and has successful full-coverage runs on all five public test cases. The remaining issue is numerical hot-path optimization rather than validity or target coverage.
 
 This is not mainly a worker-count problem. Parallelism helps, but each checked candidate variant still pays expensive Brahe J2 propagation for every phased satellite, and final solution construction repeats that cost for selected satellites.
 
