@@ -225,21 +225,76 @@ class CertificationSummary:
     rejected_reasons: dict[str, int]
     frontier_limited_target_ids: list[str]
     config: CertificationConfig
+    variant_group_count: int = 0
+    checked_variant_group_count: int = 0
 
     @property
     def passing_records(self) -> list[CertifiedCoverage]:
         return [record for record in self.certified_records if record.meets_revisit]
 
+    def candidate_summaries(self) -> dict[str, dict[str, Any]]:
+        summaries: dict[str, dict[str, Any]] = {}
+        for record in self.certified_records:
+            item = summaries.setdefault(
+                record.candidate_id,
+                {
+                    "candidate_id": record.candidate_id,
+                    "checked_count": 0,
+                    "passed_count": 0,
+                    "failed_count": 0,
+                    "checked_target_ids": set(),
+                    "passed_target_ids": set(),
+                    "failed_target_ids": set(),
+                    "rejected_reasons": {},
+                    "bad_if_any_claim_failed": False,
+                },
+            )
+            item["checked_count"] += 1
+            item["checked_target_ids"].add(record.target_id)
+            if record.meets_revisit:
+                item["passed_count"] += 1
+                item["passed_target_ids"].add(record.target_id)
+            else:
+                item["failed_count"] += 1
+                item["failed_target_ids"].add(record.target_id)
+                item["bad_if_any_claim_failed"] = True
+                reason = record.rejection_reason or "unknown"
+                item["rejected_reasons"][reason] = (
+                    item["rejected_reasons"].get(reason, 0) + 1
+                )
+        normalized: dict[str, dict[str, Any]] = {}
+        for candidate_id, item in summaries.items():
+            normalized[candidate_id] = {
+                **item,
+                "checked_target_ids": sorted(item["checked_target_ids"]),
+                "passed_target_ids": sorted(item["passed_target_ids"]),
+                "failed_target_ids": sorted(item["failed_target_ids"]),
+                "rejected_reasons": dict(sorted(item["rejected_reasons"].items())),
+            }
+        return dict(sorted(normalized.items()))
+
     def as_debug_dict(self) -> dict[str, Any]:
+        candidate_summaries = self.candidate_summaries()
+        bad_candidate_ids = [
+            candidate_id
+            for candidate_id, item in candidate_summaries.items()
+            if item["bad_if_any_claim_failed"]
+        ]
         return {
             "config": self.config.as_dict(),
             "claim_count": len(self.claims),
             "checked_count": len(self.certified_records),
             "passed_count": len(self.passing_records),
             "failed_count": len(self.certified_records) - len(self.passing_records),
+            "variant_group_count": self.variant_group_count,
+            "checked_variant_group_count": self.checked_variant_group_count,
+            "candidate_count_checked": len(candidate_summaries),
+            "bad_if_any_claim_failed_candidate_count": len(bad_candidate_ids),
+            "bad_if_any_claim_failed_candidate_ids": bad_candidate_ids,
             "frontier_limited_target_ids": self.frontier_limited_target_ids,
             "rejected_reasons": self.rejected_reasons,
             "target_summaries": self.target_summaries,
+            "candidate_summaries": candidate_summaries,
             "claims": [claim.as_dict() for claim in self.claims],
             "certified_records": [
                 record.as_dict() for record in self.certified_records
@@ -248,11 +303,22 @@ class CertificationSummary:
 
     def as_status_dict(self) -> dict[str, Any]:
         certified_targets = sorted({record.target_id for record in self.passing_records})
+        candidate_summaries = self.candidate_summaries()
+        bad_candidate_ids = [
+            candidate_id
+            for candidate_id, item in candidate_summaries.items()
+            if item["bad_if_any_claim_failed"]
+        ]
         return {
             "claim_count": len(self.claims),
             "checked_count": len(self.certified_records),
             "passed_count": len(self.passing_records),
             "failed_count": len(self.certified_records) - len(self.passing_records),
+            "variant_group_count": self.variant_group_count,
+            "checked_variant_group_count": self.checked_variant_group_count,
+            "candidate_count_checked": len(candidate_summaries),
+            "bad_if_any_claim_failed_candidate_count": len(bad_candidate_ids),
+            "bad_if_any_claim_failed_candidate_ids": bad_candidate_ids,
             "certified_target_count": len(certified_targets),
             "certified_target_ids": certified_targets,
             "frontier_limited_target_count": len(self.frontier_limited_target_ids),
@@ -426,6 +492,61 @@ def _resolved_worker_count(configured: int, work_item_count: int) -> int:
     return max(1, min(configured, work_item_count, os.cpu_count() or 1))
 
 
+def _frontier_claims_for_target(
+    *,
+    target_claims: list[AnalyticalCoverageClaim],
+    coverage: CoverageSummary,
+    limit: int,
+) -> list[AnalyticalCoverageClaim]:
+    if limit <= 0:
+        return []
+    if len(target_claims) <= limit:
+        return list(target_claims)
+
+    rank_quota = max(1, limit // 2)
+    utility_quota = max(1, limit - rank_quota)
+
+    def utility_key(claim: AnalyticalCoverageClaim) -> tuple[Any, ...]:
+        coarse_target_count = len(
+            coverage.candidate_to_targets.get(claim.candidate.candidate_id, [])
+        )
+        coarse_target_count = max(1, coarse_target_count)
+        return (
+            claim.required_satellites / coarse_target_count,
+            -coarse_target_count,
+            claim.analytical_capped_gap_hours,
+            claim.analytical_max_gap_hours,
+            -claim.geometry_margin,
+            claim.required_satellites,
+            claim.repeat_period_hours,
+            claim.closure_error_m,
+            claim.candidate.candidate_id,
+        )
+
+    ranked = target_claims[:rank_quota]
+    utility_ranked = sorted(target_claims, key=utility_key)[:utility_quota]
+    selected: dict[str, AnalyticalCoverageClaim] = {}
+    frontier: list[AnalyticalCoverageClaim] = []
+    for index in range(max(len(ranked), len(utility_ranked))):
+        for source in (ranked, utility_ranked):
+            if index >= len(source):
+                continue
+            claim = source[index]
+            if claim.claim_id in selected:
+                continue
+            selected[claim.claim_id] = claim
+            frontier.append(claim)
+            if len(frontier) >= limit:
+                return frontier
+    for claim in target_claims:
+        if claim.claim_id in selected:
+            continue
+        frontier.append(claim)
+        if len(frontier) >= limit:
+            break
+    return frontier
+
+
 def _scheduling_config(config: CertificationConfig) -> Any:
     from .solution import SchedulingConfig
 
@@ -441,25 +562,12 @@ def _scheduling_config(config: CertificationConfig) -> Any:
     )
 
 
-def _certify_claim_worker(
-    args: tuple[RevisitCase, CoverageSummary, AnalyticalCoverageClaim, CertificationConfig],
+def _record_from_quality(
+    *,
+    claim: AnalyticalCoverageClaim,
+    target: Target,
+    quality: Any,
 ) -> CertifiedCoverage:
-    case, coverage, claim, config = args
-    from .solution import _coarse_hints_by_key, _refined_candidate_target_quality
-
-    hints = _coarse_hints_by_key(case=case, coverage=coverage).get(
-        (claim.candidate.candidate_id, claim.target_id),
-        [],
-    )
-    quality = _refined_candidate_target_quality(
-        case=case,
-        coverage=coverage,
-        candidate_id=claim.candidate.candidate_id,
-        target_id=claim.target_id,
-        hints=hints,
-        config=_scheduling_config(config),
-    )
-    target = case.targets[claim.target_id]
     meets = (
         quality.opportunity_count > 0
         and quality.max_gap_hours
@@ -484,6 +592,72 @@ def _certify_claim_worker(
     )
 
 
+def _certify_variant_worker(
+    args: tuple[
+        RevisitCase,
+        CoverageSummary,
+        tuple[AnalyticalCoverageClaim, ...],
+        CertificationConfig,
+    ],
+) -> list[CertifiedCoverage]:
+    case, coverage, claims, config = args
+    if not claims:
+        return []
+
+    from .solution import (
+        NumericalJ2StateProvider,
+        _coarse_hints_by_key,
+        _refined_candidate_target_quality_for_satellites,
+        _single_candidate_selection,
+        generate_phased_satellites,
+    )
+
+    candidate_id = claims[0].candidate.candidate_id
+    required_satellites = claims[0].required_satellites
+    if any(
+        claim.candidate.candidate_id != candidate_id
+        or claim.required_satellites != required_satellites
+        for claim in claims
+    ):
+        raise ValueError("certification variant workers require a single candidate/count")
+
+    selection = _single_candidate_selection(
+        case=case,
+        coverage=coverage,
+        candidate_id=candidate_id,
+        target_ids=sorted({claim.target_id for claim in claims}),
+    )
+    satellites = generate_phased_satellites(case, selection)
+    scheduling_config = _scheduling_config(config)
+    state_provider = (
+        NumericalJ2StateProvider(case, satellites)
+        if scheduling_config.use_numerical_refinement
+        else None
+    )
+    hints_by_key = _coarse_hints_by_key(case=case, coverage=coverage)
+
+    records: list[CertifiedCoverage] = []
+    for claim in sorted(claims, key=lambda item: (item.rank, item.target_id)):
+        quality = _refined_candidate_target_quality_for_satellites(
+            case=case,
+            candidate=claim.candidate,
+            selection=selection,
+            satellites=satellites,
+            target_id=claim.target_id,
+            hints=hints_by_key.get((candidate_id, claim.target_id), []),
+            config=scheduling_config,
+            state_provider=state_provider,
+        )
+        records.append(
+            _record_from_quality(
+                claim=claim,
+                target=case.targets[claim.target_id],
+                quality=quality,
+            )
+        )
+    return records
+
+
 def certify_coverage_claims(
     case: RevisitCase,
     coverage: CoverageSummary,
@@ -497,15 +671,55 @@ def certify_coverage_claims(
     claims = build_analytical_claims(case, coverage)
     frontier_limited: list[str] = []
     claims_by_target: dict[str, list[AnalyticalCoverageClaim]] = {}
+    claim_priority: dict[str, int] = {}
     for target_id in sorted(case.targets):
         target_claims = [claim for claim in claims if claim.target_id == target_id]
-        limited = target_claims[: config.max_claims_per_target]
+        limited = _frontier_claims_for_target(
+            target_claims=target_claims,
+            coverage=coverage,
+            limit=config.max_claims_per_target,
+        )
         if len(target_claims) > len(limited):
             frontier_limited.append(target_id)
         claims_by_target[target_id] = limited
+        for priority, claim in enumerate(limited):
+            claim_priority[claim.claim_id] = priority
 
-    total_limited_claims = sum(len(items) for items in claims_by_target.values())
-    worker_count = _resolved_worker_count(config.worker_count, total_limited_claims)
+    claims_by_variant: dict[tuple[str, int], list[AnalyticalCoverageClaim]] = {}
+    for target_claims in claims_by_target.values():
+        for claim in target_claims:
+            claims_by_variant.setdefault(
+                (claim.candidate.candidate_id, claim.required_satellites),
+                [],
+            ).append(claim)
+    variant_groups = [
+        (
+            key,
+            tuple(
+                sorted(
+                    group_claims,
+                    key=lambda item: (
+                        claim_priority.get(item.claim_id, item.rank),
+                        item.rank,
+                        item.target_id,
+                    ),
+                )
+            ),
+        )
+        for key, group_claims in claims_by_variant.items()
+    ]
+    variant_groups.sort(
+        key=lambda item: (
+            min(claim_priority.get(claim.claim_id, claim.rank) for claim in item[1]),
+            sum(claim_priority.get(claim.claim_id, claim.rank) for claim in item[1])
+            / max(len(item[1]), 1),
+            min(claim.rank for claim in item[1]),
+            item[0][1],
+            item[0][0],
+        )
+    )
+
+    worker_count = _resolved_worker_count(config.worker_count, len(variant_groups))
     worker_config = CertificationConfig(
         max_claims_per_target=config.max_claims_per_target,
         min_passing_claims_per_target=config.min_passing_claims_per_target,
@@ -519,36 +733,76 @@ def certify_coverage_claims(
         off_nadir_safety_margin_deg=config.off_nadir_safety_margin_deg,
     )
     retained: list[CertifiedCoverage] = []
+    pass_counts = {target_id: 0 for target_id in case.targets}
+    checked_variant_group_count = 0
     executor = (
         ProcessPoolExecutor(max_workers=worker_count)
         if worker_count > 1
         else None
     )
+    batch_size = max(1, worker_count)
+
+    def consume_batch(
+        work_items: list[
+            tuple[
+                RevisitCase,
+                CoverageSummary,
+                tuple[AnalyticalCoverageClaim, ...],
+                CertificationConfig,
+            ]
+        ]
+    ) -> None:
+        nonlocal checked_variant_group_count
+        if not work_items:
+            return
+        checked_variant_group_count += len(work_items)
+        if executor is not None:
+            batch_results = list(executor.map(_certify_variant_worker, work_items))
+        else:
+            batch_results = [_certify_variant_worker(item) for item in work_items]
+        batch_records = [
+            record for records in batch_results for record in records
+        ]
+        for record in sorted(
+            batch_records,
+            key=lambda item: (
+                claim_priority.get(item.claim.claim_id, item.claim.rank),
+                item.claim.rank,
+                item.target_id,
+                item.candidate_id,
+            ),
+        ):
+            retained.append(record)
+            if record.meets_revisit:
+                pass_counts[record.target_id] += 1
+
     try:
-        for target_id in sorted(case.targets):
-            target_claims = claims_by_target.get(target_id, [])
-            pass_count = 0
-            batch_size = max(1, worker_count)
-            for start in range(0, len(target_claims), batch_size):
-                batch_claims = target_claims[start : start + batch_size]
-                work_items = [
-                    (case, coverage, claim, worker_config)
-                    for claim in batch_claims
-                ]
-                if executor is not None:
-                    batch_records = list(
-                        executor.map(_certify_claim_worker, work_items)
-                    )
-                else:
-                    batch_records = [
-                        _certify_claim_worker(item) for item in work_items
-                    ]
-                for record in sorted(batch_records, key=lambda item: item.claim.rank):
-                    retained.append(record)
-                    if record.meets_revisit:
-                        pass_count += 1
-                if pass_count >= config.min_passing_claims_per_target:
-                    break
+        batch: list[
+            tuple[
+                RevisitCase,
+                CoverageSummary,
+                tuple[AnalyticalCoverageClaim, ...],
+                CertificationConfig,
+            ]
+        ] = []
+        for _, group_claims in variant_groups:
+            if all(
+                pass_counts[target_id] >= config.min_passing_claims_per_target
+                for target_id in case.targets
+            ):
+                break
+            active_claims = tuple(
+                claim
+                for claim in group_claims
+                if pass_counts[claim.target_id] < config.min_passing_claims_per_target
+            )
+            if not active_claims:
+                continue
+            batch.append((case, coverage, active_claims, worker_config))
+            if len(batch) >= batch_size:
+                consume_batch(batch)
+                batch = []
+        consume_batch(batch)
     finally:
         if executor is not None:
             executor.shutdown()
@@ -561,7 +815,10 @@ def certify_coverage_claims(
         pass_count = 0
         for record in sorted(
             retained_by_target.get(target_id, []),
-            key=lambda item: item.claim.rank,
+            key=lambda item: (
+                claim_priority.get(item.claim.claim_id, item.claim.rank),
+                item.claim.rank,
+            ),
         ):
             retained.append(record)
             if record.meets_revisit:
@@ -608,10 +865,17 @@ def certify_coverage_claims(
         claims=claims,
         certified_records=sorted(
             retained,
-            key=lambda item: (item.target_id, item.claim.rank, item.candidate_id),
+            key=lambda item: (
+                item.target_id,
+                claim_priority.get(item.claim.claim_id, item.claim.rank),
+                item.claim.rank,
+                item.candidate_id,
+            ),
         ),
         target_summaries=target_summaries,
         rejected_reasons=rejected_reasons,
         frontier_limited_target_ids=frontier_limited,
         config=worker_config,
+        variant_group_count=len(variant_groups),
+        checked_variant_group_count=checked_variant_group_count,
     )

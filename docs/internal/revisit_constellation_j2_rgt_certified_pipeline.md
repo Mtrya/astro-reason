@@ -11,6 +11,11 @@ Step 1 is an analytical J2 candidate-ranking stage. It may generate RGT
 templates, expand RAANs, sample coarse visibility, and rank candidate-target
 claims. It must not decide final target coverage.
 
+The certification frontier should not be purely per-target-cheapest. It should
+include a small interleaved mix of cheap per-target claims and coarse
+set-cover-efficient claims, because a higher-satellite candidate can be better
+globally if it certifies many targets under the constellation budget.
+
 Step 2 is a numerical J2 certification and selection stage. It refines only a
 bounded, ranked frontier of Step 1 claims, certifies candidate-target records
 against benchmark-compatible geometry and revisit constraints, and lets
@@ -112,19 +117,22 @@ The fair-envelope failure modes are:
 When investigating a slow or weak run, answer these in order:
 
 1. How many analytical claims were produced per target?
-2. How many claims were checked per target before early stop?
-3. What fraction of checked claims passed numerical certification?
-4. Which candidate IDs had any rejected claim, and were any of those candidate
+2. Did the bounded frontier include both cheap claims and high coarse-coverage
+   claims?
+3. How many claims and candidate/count variant groups were checked before early
+   stop?
+4. What fraction of checked claims passed numerical certification?
+5. Which candidate IDs had any rejected claim, and were any of those candidate
    IDs still selected for other target records?
-5. Which stage dominates `status.json.timing_seconds`?
-6. Does certification rebuild phased satellites or numerical propagators for
+6. Which stage dominates `status.json.timing_seconds`?
+7. Does certification rebuild phased satellites or numerical propagators for
    the same candidate and satellite count repeatedly?
-7. Are targets with zero certified claims impossible, under-searched, or
+8. Are targets with zero certified claims impossible, under-searched, or
    blocked by analytical ranking quality?
-8. Did final emission use only selected certified assignments?
-9. Did retry blacklists target only failed records or did they remove useful
+9. Did final emission use only selected certified assignments?
+10. Did retry blacklists target only failed records or did they remove useful
    variants too broadly?
-10. Would more time improve the result, or would it mostly repeat the same
+11. Would more time improve the result, or would it mostly repeat the same
     expensive checks?
 
 ## Expected Debug Evidence

@@ -57,8 +57,8 @@ config:
     keep_samples_per_window: 4
     worker_count: 8
   certification:
-    max_claims_per_target: 64
-    min_passing_claims_per_target: 8
+    max_claims_per_target: 8
+    min_passing_claims_per_target: 2
     worker_count: 8
     max_selection_retries: 8
   scheduling:

@@ -68,13 +68,13 @@ Numerical certification then refines a bounded frontier:
 
 ```yaml
 certification:
-  max_claims_per_target: 64
-  min_passing_claims_per_target: 8
+  max_claims_per_target: 8
+  min_passing_claims_per_target: 2
   worker_count: 8
   max_selection_retries: 8
 ```
 
-Geometry and sampling defaults are inherited from `scheduling` unless overridden in `certification`. A target can be selected only through a certified candidate-target record whose refined opportunities satisfy the target revisit period.
+Geometry and sampling defaults are inherited from `scheduling` unless overridden in `certification`. The per-target frontier interleaves the best cheap analytical claims with coarse set-cover-efficient claims, so numerical certification checks both low-satellite records and globally useful multi-target candidates. A target can be selected only through a certified candidate-target record whose refined opportunities satisfy the target revisit period.
 
 Selection treats deterministic candidate variants as set-cover items. A variant is one RAAN-specific candidate with a concrete satellite count, and it can cover every certified target record for that candidate whose required satellite count is no larger than the variant count. For a target certified on a candidate:
 
