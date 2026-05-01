@@ -48,6 +48,20 @@ certified set-cover selection, and the staged one-day-first default:
 - Stage timing: closure 8.1 s, coverage 9.7 s, certification 63.2 s, exact initial selection 65.1 s, solution build 56.8 s.
 - Benchmark verifier metrics: `is_valid=true`, `threshold_violation_count=0`, `max_revisit_gap_hours=5.9836`.
 
+Partial all-case rerun after the staged default:
+
+| Case | Solver s | Passes | Chosen pass | Initial selection s | Assigned targets | High-gap targets | Satellites | Note |
+|---|---:|---:|---|---:|---:|---:|---:|---|
+| test/case_0001 | 200.7 | 1 | one_day_first | 65.0 | 28 | 0 | 20 | Full coverage |
+| test/case_0002 | 631.6 | 1 | one_day_first | 525.1 | 28 | 0 | 15 | Full coverage, exact-selection blow-up |
+| test/case_0003 | 439.1 | 2 | one_day_first | 77.6 | 28 | 1 | 20 | Fallback was worse; `target_014` remains high-gap |
+| test/case_0004 | stopped | unknown | unknown | >700 | unknown | unknown | unknown | Single hot Python process, likely exact-selection blow-up |
+
+The partial rerun was stopped during `test/case_0004` because the process had
+spent more than 12 minutes in a single CPU-bound solver process with no
+certification worker children. This identifies exact certified selection, not
+the one-day candidate sweep itself, as the immediate time blocker.
+
 ## Anti-Pattern Check
 
 The standing anti-pattern reference is in `docs/internal/revisit_constellation_j2_rgt_certified_pipeline.md`.
