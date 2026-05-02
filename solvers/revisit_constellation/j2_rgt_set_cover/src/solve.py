@@ -297,13 +297,6 @@ def _run_pipeline_once(
         if next_selection.as_debug_dict() == selection.as_debug_dict():
             break
         selection = next_selection
-    if best_solution_result is None:
-        best_solution_result = build_solution(
-            case=case,
-            coverage=coverage,
-            selection=selection,
-            config=scheduling_config,
-        )
     selection = best_selection
     solution_result = replace(
         best_solution_result,

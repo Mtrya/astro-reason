@@ -55,7 +55,7 @@ This is not a Keplerian integer-ratio seed. Brouwer-Lyddane J2 closure evidence 
 
 ## Coverage, Certification, And Selection
 
-Each accepted template is expanded over a deterministic RAAN grid. The solver samples each candidate over one repeat cycle and checks  enchmark-compatible visibility geometry solver-locally:
+Each accepted template is expanded over a deterministic RAAN grid. The solver samples each candidate over one repeat cycle and checks benchmark-compatible visibility geometry solver-locally:
 
 - target elevation above `min_elevation_deg`
 - slant range within both target and sensor maximum range
@@ -86,15 +86,11 @@ certification:
   max_selection_retries: 8
 ```
 
-The default strategy checks one-day repeat-track candidates only. It starts
-with the top 48 candidates from a denser RAAN grid, and reruns the same
-one-day grid with 96 candidates only if the first pass leaves high-gap or
-uncovered targets. That keeps compute focused on one-day candidates instead of
-spending time on costlier two-day variants.
+The default strategy checks one-day repeat-track candidates only. It starts with the top 48 candidates from a denser RAAN grid, and reruns the same one-day grid with 96 candidates only if the first pass leaves high-gap or uncovered targets. That keeps compute focused on one-day candidates instead of spending time on costlier two-day variants.
 
 Geometry and sampling defaults are inherited from `scheduling` unless overridden in `certification`. A target can be selected only through a confirmed candidate-target record whose refined opportunities satisfy the target revisit period.
 
-Selection treats deterministic candidate variants as set-cover items. A variant is one RAAN-specific candidate with a concrete satellite count, and it can cover every confirmed target record for that candidate whose required satellite count is no larger than the variant count. For a target confirmed on a candidate:
+Selection treats deterministic candidate variants as set-cover items. A variant is one RAAN-specific candidate with a concrete satellite count, and it can cover every target record numerically confirmed at that same satellite count. The selector uses an exact bitset branch-and-bound search over candidate variants: it maximizes confirmed target coverage under the satellite budget, prunes states whose remaining optimistic target gain cannot beat the incumbent, and then applies deterministic tie-breaks. For a target claimed on a candidate, the minimum satellite count starts from:
 
 ```text
 required_satellites = ceil(candidate_repeat_period_hours / target_revisit_hours)

@@ -221,6 +221,7 @@ class CandidateLeaderboardEntry:
 class CertifiedCoverage:
     certification_id: str
     claim: AnalyticalCoverageClaim
+    certified_satellites: int
     refined_opportunity_count: int
     refined_midpoint_offsets_sec: tuple[float, ...]
     max_gap_hours: float
@@ -253,6 +254,7 @@ class CertifiedCoverage:
             "candidate_id": self.candidate_id,
             "target_id": self.target_id,
             "required_satellites": self.required_satellites,
+            "certified_satellites": self.certified_satellites,
             "refined_opportunity_count": self.refined_opportunity_count,
             "refined_midpoint_offsets_sec": list(self.refined_midpoint_offsets_sec),
             "max_gap_hours": self.max_gap_hours,
@@ -692,6 +694,7 @@ def _record_from_quality(
     claim: AnalyticalCoverageClaim,
     target: Target,
     quality: Any,
+    certified_satellites: int,
 ) -> CertifiedCoverage:
     meets = (
         quality.opportunity_count > 0
@@ -705,8 +708,9 @@ def _record_from_quality(
         else:
             rejection_reason = "revisit_gap_exceeded"
     return CertifiedCoverage(
-        certification_id=f"cert__{claim.claim_id}",
+        certification_id=f"cert__{claim.claim_id}__sat{certified_satellites}",
         claim=claim,
+        certified_satellites=certified_satellites,
         refined_opportunity_count=quality.refined_opportunity_count,
         refined_midpoint_offsets_sec=quality.refined_midpoint_offsets_sec,
         max_gap_hours=quality.max_gap_hours,
@@ -738,13 +742,9 @@ def _certify_variant_worker(
     )
 
     candidate_id = claims[0].candidate.candidate_id
-    required_satellites = claims[0].required_satellites
-    if any(
-        claim.candidate.candidate_id != candidate_id
-        or claim.required_satellites != required_satellites
-        for claim in claims
-    ):
-        raise ValueError("certification variant workers require a single candidate/count")
+    if any(claim.candidate.candidate_id != candidate_id for claim in claims):
+        raise ValueError("certification variant workers require a single candidate")
+    required_satellites = max(claim.required_satellites for claim in claims)
 
     selection = _single_candidate_selection(
         case=case,
@@ -778,6 +778,7 @@ def _certify_variant_worker(
                 claim=claim,
                 target=case.targets[claim.target_id],
                 quality=quality,
+                certified_satellites=required_satellites,
             )
         )
     return records
@@ -919,6 +920,7 @@ def certify_coverage_claims(
                 else min(
                     passed,
                     key=lambda item: (
+                        item.certified_satellites,
                         item.required_satellites,
                         item.capped_max_gap_hours,
                         item.max_gap_hours,

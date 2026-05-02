@@ -89,7 +89,6 @@ run_policies:
         worker_count_policy: fixed_4_workers
       strategy:
         one_day_first: true
-        deepen_max_candidates_to_check: 64
       rgt_search:
         max_repeat_days: 1
         min_revolutions_per_day: 12

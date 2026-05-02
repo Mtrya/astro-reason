@@ -25,6 +25,7 @@ class TargetAssignment:
     required_satellites: int
     repeat_period_hours: float
     coverage_margin_score: float
+    certification_required_satellites: int | None = None
     certification_id: str | None = None
     certified_max_gap_hours: float | None = None
     certified_capped_gap_hours: float | None = None
@@ -36,6 +37,7 @@ class TargetAssignment:
             "required_satellites": self.required_satellites,
             "repeat_period_hours": self.repeat_period_hours,
             "coverage_margin_score": self.coverage_margin_score,
+            "certification_required_satellites": self.certification_required_satellites,
             "certification_id": self.certification_id,
             "certified_max_gap_hours": self.certified_max_gap_hours,
             "certified_capped_gap_hours": self.certified_capped_gap_hours,
@@ -182,6 +184,7 @@ class CandidateVariant:
 
 def _candidate_record_key(record: CertifiedCoverage) -> tuple[Any, ...]:
     return (
+        record.certified_satellites,
         record.required_satellites,
         record.capped_max_gap_hours,
         record.max_gap_hours,
@@ -210,12 +213,12 @@ def _build_variants(
     variants: list[CandidateVariant] = []
     for candidate_id, records in sorted(by_candidate.items()):
         candidate = records[0].candidate
-        for required_satellites in sorted({record.required_satellites for record in records}):
+        for required_satellites in sorted({record.certified_satellites for record in records}):
             if (candidate_id, required_satellites) in blacklisted_variants:
                 continue
             covered_records_by_target: dict[str, CertifiedCoverage] = {}
             for record in records:
-                if record.required_satellites > required_satellites:
+                if record.certified_satellites != required_satellites:
                     continue
                 current = covered_records_by_target.get(record.target_id)
                 if current is None or _candidate_record_key(record) < _candidate_record_key(current):
@@ -316,9 +319,10 @@ def _build_summary(
         target_assignments[target_id] = TargetAssignment(
             target_id=target_id,
             candidate_id=variant.candidate.candidate_id,
-            required_satellites=record.required_satellites,
+            required_satellites=variant.required_satellites,
             repeat_period_hours=variant.candidate.repeat_period_sec / 3600.0,
             coverage_margin_score=record.claim.geometry_margin,
+            certification_required_satellites=record.required_satellites,
             certification_id=record.certification_id,
             certified_max_gap_hours=record.max_gap_hours,
             certified_capped_gap_hours=record.capped_max_gap_hours,

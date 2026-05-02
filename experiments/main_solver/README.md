@@ -81,7 +81,7 @@ aggregate_metrics:
 
 ## Main Result Matrix
 
-The tables below summarize the configured `main_solver` matrix from commit `e07f0161ea5d4bb83099ac68131f1a31124c8698`. The run used `experiments/main_solver/config.yaml`, produced 65 selected rows, verified all 55 runnable rows with `valid=true`, and kept the 10 SatNet rows as `citation_reported` evidence. The `revisit_constellation_j2_rgt_set_cover` and `revisit_constellation_rgt_apc_gap_constructive` rows are refreshed on the current public revisit dataset from this branch.
+The tables below summarize the configured `main_solver` matrix from commit `e07f0161ea5d4bb83099ac68131f1a31124c8698`. The run used `experiments/main_solver/config.yaml`, produced 65 selected rows, verified all 55 runnable rows with `valid=true`, and kept the 10 SatNet rows as `citation_reported` evidence.
 
 Metric abbreviations follow each benchmark verifier or cited metric schema. `solve_s` is runner wall time for runnable rows, while `solver_s` is the solver-reported internal total when the solver emits it.
 
@@ -183,11 +183,11 @@ Metric notes:
 
 | method | case | valid | sats | actions | capped_gap_h | solver_s |
 | --- | --- | --- | --- | --- | --- | --- |
-| revisit_constellation_j2_rgt_set_cover | test/case_0001 | true | 16 | 225 | 6 | 140.13 |
-| revisit_constellation_j2_rgt_set_cover | test/case_0002 | true | 15 | 179 | 8 | 122.08 |
-| revisit_constellation_j2_rgt_set_cover | test/case_0003 | true | 20 | 234 | 6 | 377.31 |
-| revisit_constellation_j2_rgt_set_cover | test/case_0004 | true | 15 | 185 | 8 | 163.31 |
-| revisit_constellation_j2_rgt_set_cover | test/case_0005 | true | 20 | 217 | 6 | 149.34 |
+| revisit_constellation_j2_rgt_set_cover | test/case_0001 | true | 16 | 225 | 6 | 138.86 |
+| revisit_constellation_j2_rgt_set_cover | test/case_0002 | true | 15 | 179 | 8 | 120.40 |
+| revisit_constellation_j2_rgt_set_cover | test/case_0003 | true | 20 | 234 | 6 | 378.67 |
+| revisit_constellation_j2_rgt_set_cover | test/case_0004 | true | 15 | 185 | 8 | 162.87 |
+| revisit_constellation_j2_rgt_set_cover | test/case_0005 | true | 20 | 217 | 6 | 148.30 |
 | revisit_constellation_rgt_apc_gap_constructive | test/case_0001 | true | 20 | 250 | 7.3074 | 534.28 |
 | revisit_constellation_rgt_apc_gap_constructive | test/case_0002 | true | 20 | 199 | 9.0287 | 527.49 |
 | revisit_constellation_rgt_apc_gap_constructive | test/case_0003 | true | 20 | 235 | 8.1119 | 557.39 |
