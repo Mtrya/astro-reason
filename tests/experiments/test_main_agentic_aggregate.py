@@ -60,7 +60,7 @@ def test_revisit_solver_baseline_is_normalized_before_radar_comparison() -> None
         split="test",
         case_id="case_0003",
         transform="revisit_score_pct",
-    ) == pytest.approx(78.925456)
+    ) == pytest.approx(100.0)
 
 
 def test_radar_keeps_zero_scores_for_maximize_metrics() -> None:

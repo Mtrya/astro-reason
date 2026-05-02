@@ -85,11 +85,11 @@ SOLVER_BASELINES = {
         "test/case_0005": 0.9111,
     },
     "revisit_constellation": {
-        "test/case_0001": 8.0,
+        "test/case_0001": 6.0,
         "test/case_0002": 8.0,
-        "test/case_0003": 12.464,
-        "test/case_0004": 12.0,
-        "test/case_0005": 12.0,
+        "test/case_0003": 6.0,
+        "test/case_0004": 8.0,
+        "test/case_0005": 6.0,
     },
     "satnet": {
         "test/W10_2018": 0.26,
