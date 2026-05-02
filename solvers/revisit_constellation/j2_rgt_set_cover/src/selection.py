@@ -1,13 +1,21 @@
-"""Satellite-cost set-cover selection for RAAN-phased RGT candidates."""
+"""Certified satellite-cost set-cover selection for RGT candidates."""
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Any
 import math
 
 from .case_io import RevisitCase, Target
-from .coverage import CoverageSummary, RaanCandidate, VisibilityWindow
+from .certification import (
+    CertifiedCoverage,
+    CertificationSummary,
+    satellites_required_for_target,
+)
+from .coverage import RaanCandidate
+
+
+NUMERICAL_EPS = 1.0e-9
 
 
 @dataclass(frozen=True, slots=True)
@@ -17,6 +25,10 @@ class TargetAssignment:
     required_satellites: int
     repeat_period_hours: float
     coverage_margin_score: float
+    certification_required_satellites: int | None = None
+    certification_id: str | None = None
+    certified_max_gap_hours: float | None = None
+    certified_capped_gap_hours: float | None = None
 
     def as_dict(self) -> dict[str, Any]:
         return {
@@ -25,6 +37,10 @@ class TargetAssignment:
             "required_satellites": self.required_satellites,
             "repeat_period_hours": self.repeat_period_hours,
             "coverage_margin_score": self.coverage_margin_score,
+            "certification_required_satellites": self.certification_required_satellites,
+            "certification_id": self.certification_id,
+            "certified_max_gap_hours": self.certified_max_gap_hours,
+            "certified_capped_gap_hours": self.certified_capped_gap_hours,
         }
 
 
@@ -54,41 +70,32 @@ class SelectedCandidate:
 class SelectionRound:
     round_index: int
     selected_candidate_id: str
+    selected_satellite_count: int
     newly_covered_target_ids: tuple[str, ...]
-    gain: int
-    previous_satellite_count: int
-    trial_satellite_count: int
-    incremental_satellite_cost: int
-    gain_per_cost: float
-    difficult_target_score: float
-    coverage_margin_score: float
-    closure_error_m: float
-    repeat_period_sec: float
+    covered_target_count: int
+    total_satellite_count: int
+    mean_certified_capped_gap_hours: float
+    worst_certified_gap_hours: float
     remaining_uncovered_target_ids: tuple[str, ...]
 
     def as_dict(self) -> dict[str, Any]:
         return {
             "round_index": self.round_index,
             "selected_candidate_id": self.selected_candidate_id,
+            "selected_satellite_count": self.selected_satellite_count,
             "newly_covered_target_ids": list(self.newly_covered_target_ids),
-            "gain": self.gain,
-            "previous_satellite_count": self.previous_satellite_count,
-            "trial_satellite_count": self.trial_satellite_count,
-            "incremental_satellite_cost": self.incremental_satellite_cost,
-            "gain_per_cost": self.gain_per_cost,
-            "difficult_target_score": self.difficult_target_score,
-            "coverage_margin_score": self.coverage_margin_score,
-            "closure_error_m": self.closure_error_m,
-            "repeat_period_sec": self.repeat_period_sec,
-            "remaining_uncovered_target_ids": list(
-                self.remaining_uncovered_target_ids
-            ),
+            "covered_target_count": self.covered_target_count,
+            "total_satellite_count": self.total_satellite_count,
+            "mean_certified_capped_gap_hours": self.mean_certified_capped_gap_hours,
+            "worst_certified_gap_hours": self.worst_certified_gap_hours,
+            "remaining_uncovered_target_ids": list(self.remaining_uncovered_target_ids),
         }
 
 
 @dataclass(frozen=True, slots=True)
 class BudgetNearMiss:
     candidate_id: str
+    required_satellites: int
     newly_covered_target_ids: tuple[str, ...]
     trial_satellite_count: int
     satellite_over_budget: int
@@ -97,6 +104,7 @@ class BudgetNearMiss:
     def as_dict(self) -> dict[str, Any]:
         return {
             "candidate_id": self.candidate_id,
+            "required_satellites": self.required_satellites,
             "newly_covered_target_ids": list(self.newly_covered_target_ids),
             "trial_satellite_count": self.trial_satellite_count,
             "satellite_over_budget": self.satellite_over_budget,
@@ -115,6 +123,9 @@ class SelectionSummary:
     budget_near_misses: list[BudgetNearMiss]
     all_targets_covered: bool
     within_satellite_budget: bool
+    blacklisted_certification_ids: tuple[str, ...] = ()
+    blacklisted_variants: tuple[tuple[str, int], ...] = ()
+    selection_diagnostics: dict[str, Any] = field(default_factory=dict)
 
     def as_debug_dict(self) -> dict[str, Any]:
         return {
@@ -134,6 +145,12 @@ class SelectionSummary:
             "budget_near_misses": [
                 near_miss.as_dict() for near_miss in self.budget_near_misses
             ],
+            "blacklisted_certification_ids": list(self.blacklisted_certification_ids),
+            "blacklisted_variants": [
+                {"candidate_id": candidate_id, "required_satellites": count}
+                for candidate_id, count in self.blacklisted_variants
+            ],
+            "selection_diagnostics": self.selection_diagnostics,
         }
 
     def as_status_dict(self) -> dict[str, Any]:
@@ -146,340 +163,452 @@ class SelectionSummary:
             "max_num_satellites": self.max_num_satellites,
             "all_targets_covered": self.all_targets_covered,
             "within_satellite_budget": self.within_satellite_budget,
+            "selection_diagnostics": self.selection_diagnostics,
         }
 
 
-def satellites_required_for_target(
-    candidate: RaanCandidate,
-    target: Target,
-) -> int:
-    revisit_hours = target.expected_revisit_period_hours
-    if revisit_hours <= 0.0:
-        raise ValueError(f"{target.target_id}.expected_revisit_period_hours must be > 0")
-    repeat_period_hours = candidate.repeat_period_sec / 3600.0
-    return max(1, int(math.ceil(repeat_period_hours / revisit_hours)))
+@dataclass(frozen=True, slots=True)
+class CandidateVariant:
+    candidate: RaanCandidate
+    required_satellites: int
+    records: tuple[CertifiedCoverage, ...]
+
+    @property
+    def variant_id(self) -> tuple[str, int]:
+        return (self.candidate.candidate_id, self.required_satellites)
+
+    @property
+    def target_ids(self) -> tuple[str, ...]:
+        return tuple(sorted({record.target_id for record in self.records}))
 
 
-def _candidate_map(summary: CoverageSummary) -> dict[str, RaanCandidate]:
-    return {candidate.candidate_id: candidate for candidate in summary.candidates}
-
-
-def _coverage_margin_by_pair(
-    case: RevisitCase,
-    windows: list[VisibilityWindow],
-) -> dict[tuple[str, str], float]:
-    margins: dict[tuple[str, str], float] = {}
-    for window in windows:
-        target = case.targets[window.target_id]
-        range_limit = min(
-            target.max_slant_range_m,
-            case.satellite_model.sensor.max_range_m,
-        )
-        margin = min(
-            window.max_elevation_deg - target.min_elevation_deg,
-            range_limit - window.min_slant_range_m,
-            case.satellite_model.sensor.max_off_nadir_angle_deg
-            - window.min_off_nadir_deg,
-        )
-        key = (window.candidate_id, window.target_id)
-        margins[key] = max(margins.get(key, -math.inf), float(margin))
-    return margins
-
-
-def _assignment_key(
-    *,
-    candidate: RaanCandidate,
-    target: Target,
-    margin_by_pair: dict[tuple[str, str], float],
-) -> tuple[float, float, float, float, str]:
+def _candidate_record_key(record: CertifiedCoverage) -> tuple[Any, ...]:
     return (
-        satellites_required_for_target(candidate, target),
-        candidate.repeat_period_sec,
-        -margin_by_pair.get((candidate.candidate_id, target.target_id), 0.0),
-        candidate.template_closure_error_m,
-        candidate.candidate_id,
+        record.certified_satellites,
+        record.required_satellites,
+        record.capped_max_gap_hours,
+        record.max_gap_hours,
+        -record.claim.geometry_margin,
+        record.claim.repeat_period_hours,
+        record.claim.closure_error_m,
+        record.candidate_id,
+        record.certification_id,
+    )
+
+
+def _build_variants(
+    certification: CertificationSummary,
+    *,
+    blacklisted_certification_ids: set[str],
+    blacklisted_variants: set[tuple[str, int]],
+) -> list[CandidateVariant]:
+    by_candidate: dict[str, list[CertifiedCoverage]] = {}
+    for record in certification.certified_records:
+        if not record.meets_revisit:
+            continue
+        if record.certification_id in blacklisted_certification_ids:
+            continue
+        by_candidate.setdefault(record.candidate_id, []).append(record)
+
+    variants: list[CandidateVariant] = []
+    for candidate_id, records in sorted(by_candidate.items()):
+        candidate = records[0].candidate
+        for required_satellites in sorted({record.certified_satellites for record in records}):
+            if (candidate_id, required_satellites) in blacklisted_variants:
+                continue
+            covered_records_by_target: dict[str, CertifiedCoverage] = {}
+            for record in records:
+                if record.certified_satellites != required_satellites:
+                    continue
+                current = covered_records_by_target.get(record.target_id)
+                if current is None or _candidate_record_key(record) < _candidate_record_key(current):
+                    covered_records_by_target[record.target_id] = record
+            if covered_records_by_target:
+                variants.append(
+                    CandidateVariant(
+                        candidate=candidate,
+                        required_satellites=required_satellites,
+                        records=tuple(
+                            sorted(
+                                covered_records_by_target.values(),
+                                key=lambda item: (item.target_id, item.certification_id),
+                            )
+                        ),
+                    )
+                )
+    return sorted(
+        variants,
+        key=lambda item: (
+            item.candidate.candidate_id,
+            item.required_satellites,
+        ),
     )
 
 
 def _assign_targets(
-    *,
     case: RevisitCase,
-    summary: CoverageSummary,
-    selected_candidate_ids: list[str],
-    margin_by_pair: dict[tuple[str, str], float],
-) -> dict[str, TargetAssignment]:
-    candidates = _candidate_map(summary)
-    selected = set(selected_candidate_ids)
-    assignments: dict[str, TargetAssignment] = {}
+    variants: list[CandidateVariant],
+) -> dict[str, tuple[CandidateVariant, CertifiedCoverage]]:
+    assignments: dict[str, tuple[CandidateVariant, CertifiedCoverage]] = {}
     for target_id in sorted(case.targets):
-        target = case.targets[target_id]
-        covering = [
-            candidate_id
-            for candidate_id in summary.target_to_candidates.get(target_id, [])
-            if candidate_id in selected
-        ]
+        covering: list[tuple[CandidateVariant, CertifiedCoverage]] = []
+        for variant in variants:
+            for record in variant.records:
+                if record.target_id == target_id:
+                    covering.append((variant, record))
         if not covering:
             continue
-        candidate = min(
-            (candidates[candidate_id] for candidate_id in covering),
-            key=lambda item: _assignment_key(
-                candidate=item,
-                target=target,
-                margin_by_pair=margin_by_pair,
-            ),
-        )
-        assignments[target_id] = TargetAssignment(
-            target_id=target_id,
-            candidate_id=candidate.candidate_id,
-            required_satellites=satellites_required_for_target(candidate, target),
-            repeat_period_hours=candidate.repeat_period_sec / 3600.0,
-            coverage_margin_score=margin_by_pair.get(
-                (candidate.candidate_id, target_id),
-                0.0,
+        assignments[target_id] = min(
+            covering,
+            key=lambda item: (
+                item[1].capped_max_gap_hours,
+                item[1].max_gap_hours,
+                item[0].required_satellites,
+                item[1].claim.closure_error_m,
+                item[0].candidate.candidate_id,
+                item[1].certification_id,
             ),
         )
     return assignments
 
 
-def _selected_satellite_count(
-    selected_candidate_ids: list[str],
-    assignments: dict[str, TargetAssignment],
-) -> int:
-    total = 0
-    for candidate_id in selected_candidate_ids:
-        assigned_costs = [
-            assignment.required_satellites
-            for assignment in assignments.values()
-            if assignment.candidate_id == candidate_id
-        ]
-        if assigned_costs:
-            total += max(assigned_costs)
-    return total
-
-
-def _candidate_round_metrics(
-    *,
-    summary: CoverageSummary,
-    candidate: RaanCandidate,
-    uncovered: set[str],
-    margin_by_pair: dict[tuple[str, str], float],
-) -> tuple[list[str], float, float]:
-    newly_covered = sorted(
-        target_id
-        for target_id in summary.candidate_to_targets.get(candidate.candidate_id, [])
-        if target_id in uncovered
+def _selection_metrics(
+    case: RevisitCase,
+    variants: list[CandidateVariant],
+) -> tuple[int, int, float, float, int, tuple[str, ...]]:
+    assignments = _assign_targets(case, variants)
+    gaps = [record.capped_max_gap_hours for _, record in assignments.values()]
+    raw_gaps = [record.max_gap_hours for _, record in assignments.values()]
+    return (
+        len(assignments),
+        sum(variant.required_satellites for variant in variants),
+        sum(gaps) / len(gaps) if gaps else math.inf,
+        max(raw_gaps, default=math.inf),
+        len(variants),
+        tuple(
+            f"{variant.candidate.candidate_id}:{variant.required_satellites}"
+            for variant in variants
+        ),
     )
-    difficult_target_score = sum(
-        1.0 / max(1, len(summary.target_to_candidates.get(target_id, [])))
-        for target_id in newly_covered
+
+
+def _selection_key(
+    case: RevisitCase,
+    variants: list[CandidateVariant],
+) -> tuple[Any, ...]:
+    covered, satellites, mean_gap, worst_gap, candidate_count, ids = _selection_metrics(
+        case,
+        variants,
     )
-    coverage_margin_score = sum(
-        margin_by_pair.get((candidate.candidate_id, target_id), 0.0)
-        for target_id in newly_covered
-    )
-    return newly_covered, difficult_target_score, coverage_margin_score
+    return (-covered, satellites, mean_gap, worst_gap, candidate_count, ids)
 
 
-def _build_selected_candidates(
-    *,
-    summary: CoverageSummary,
-    selected_candidate_ids: list[str],
-    assignments: dict[str, TargetAssignment],
-) -> list[SelectedCandidate]:
-    candidates = _candidate_map(summary)
-    selected_items: list[SelectedCandidate] = []
-    for candidate_id in selected_candidate_ids:
-        assigned = tuple(
-            target_id
-            for target_id, assignment in sorted(assignments.items())
-            if assignment.candidate_id == candidate_id
-        )
-        assigned_costs = [
-            assignments[target_id].required_satellites for target_id in assigned
-        ]
-        covered = tuple(summary.candidate_to_targets.get(candidate_id, []))
-        redundant = tuple(target_id for target_id in covered if target_id not in assigned)
-        selected_items.append(
-            SelectedCandidate(
-                candidate=candidates[candidate_id],
-                assigned_target_ids=assigned,
-                required_satellites=max(assigned_costs, default=0),
-                covered_target_ids=covered,
-                redundant_target_ids=redundant,
-            )
-        )
-    return selected_items
-
-
-def _remove_redundant_candidates(
+def _build_summary(
     *,
     case: RevisitCase,
-    summary: CoverageSummary,
-    selected_candidate_ids: list[str],
-    margin_by_pair: dict[tuple[str, str], float],
-) -> list[str]:
-    current = list(selected_candidate_ids)
+    variants: list[CandidateVariant],
+    rounds: list[SelectionRound],
+    budget_near_misses: list[BudgetNearMiss],
+    blacklisted_certification_ids: set[str],
+    blacklisted_variants: set[tuple[str, int]],
+    selection_diagnostics: dict[str, Any] | None = None,
+) -> SelectionSummary:
+    assignments_by_target = _assign_targets(case, variants)
+    target_assignments: dict[str, TargetAssignment] = {}
+    for target_id, (variant, record) in sorted(assignments_by_target.items()):
+        target_assignments[target_id] = TargetAssignment(
+            target_id=target_id,
+            candidate_id=variant.candidate.candidate_id,
+            required_satellites=variant.required_satellites,
+            repeat_period_hours=variant.candidate.repeat_period_sec / 3600.0,
+            coverage_margin_score=record.claim.geometry_margin,
+            certification_required_satellites=record.required_satellites,
+            certification_id=record.certification_id,
+            certified_max_gap_hours=record.max_gap_hours,
+            certified_capped_gap_hours=record.capped_max_gap_hours,
+        )
+
+    selected_candidates: list[SelectedCandidate] = []
+    for variant in variants:
+        assigned = tuple(
+            target_id
+            for target_id, (assigned_variant, _) in sorted(assignments_by_target.items())
+            if assigned_variant.variant_id == variant.variant_id
+        )
+        certified_targets = variant.target_ids
+        selected_candidates.append(
+            SelectedCandidate(
+                candidate=variant.candidate,
+                assigned_target_ids=assigned,
+                required_satellites=variant.required_satellites,
+                covered_target_ids=certified_targets,
+                redundant_target_ids=tuple(
+                    target_id for target_id in certified_targets if target_id not in assigned
+                ),
+            )
+        )
+
+    total_required_satellites = sum(variant.required_satellites for variant in variants)
+    uncovered = sorted(set(case.targets).difference(target_assignments))
+    return SelectionSummary(
+        selected_candidates=selected_candidates,
+        target_assignments=target_assignments,
+        uncovered_target_ids=uncovered,
+        total_required_satellites=total_required_satellites,
+        max_num_satellites=case.max_num_satellites,
+        rounds=rounds,
+        budget_near_misses=budget_near_misses,
+        all_targets_covered=not uncovered,
+        within_satellite_budget=total_required_satellites <= case.max_num_satellites,
+        blacklisted_certification_ids=tuple(sorted(blacklisted_certification_ids)),
+        blacklisted_variants=tuple(sorted(blacklisted_variants)),
+        selection_diagnostics=selection_diagnostics or {},
+    )
+
+
+def _remove_redundant_variants(
+    case: RevisitCase,
+    selected: list[CandidateVariant],
+) -> list[CandidateVariant]:
+    current = list(selected)
     changed = True
     while changed:
         changed = False
-        current_assignments = _assign_targets(
-            case=case,
-            summary=summary,
-            selected_candidate_ids=current,
-            margin_by_pair=margin_by_pair,
-        )
-        current_total = _selected_satellite_count(current, current_assignments)
-        for candidate_id in list(current):
-            trial = [item for item in current if item != candidate_id]
-            trial_assignments = _assign_targets(
-                case=case,
-                summary=summary,
-                selected_candidate_ids=trial,
-                margin_by_pair=margin_by_pair,
-            )
-            if set(trial_assignments) != set(current_assignments):
-                continue
-            trial_total = _selected_satellite_count(trial, trial_assignments)
-            if trial_total <= current_total:
+        current_key = _selection_key(case, current)
+        for variant in list(current):
+            trial = [item for item in current if item.variant_id != variant.variant_id]
+            trial_key = _selection_key(case, trial)
+            if trial_key <= current_key:
                 current = trial
                 changed = True
                 break
     return current
 
 
+def _improve_by_replacement(
+    case: RevisitCase,
+    selected: list[CandidateVariant],
+    variants: list[CandidateVariant],
+) -> list[CandidateVariant]:
+    current = list(selected)
+    changed = True
+    while changed:
+        changed = False
+        current_key = _selection_key(case, current)
+        current_candidate_ids = {variant.candidate.candidate_id for variant in current}
+        best = current
+        best_key = current_key
+        for remove in current:
+            base = [item for item in current if item.variant_id != remove.variant_id]
+            base_candidate_ids = {
+                variant.candidate.candidate_id for variant in base
+            }
+            for add in variants:
+                if add.candidate.candidate_id in base_candidate_ids:
+                    continue
+                if add.variant_id == remove.variant_id:
+                    continue
+                if (
+                    add.candidate.candidate_id in current_candidate_ids
+                    and add.candidate.candidate_id != remove.candidate.candidate_id
+                ):
+                    continue
+                trial = sorted(
+                    [*base, add],
+                    key=lambda item: (item.candidate.candidate_id, item.required_satellites),
+                )
+                if sum(item.required_satellites for item in trial) > case.max_num_satellites:
+                    continue
+                trial_key = _selection_key(case, trial)
+                if trial_key < best_key:
+                    best = trial
+                    best_key = trial_key
+        if best_key < current_key:
+            current = best
+            changed = True
+    return current
+
+
+def _exact_selection(
+    case: RevisitCase,
+    variants: list[CandidateVariant],
+) -> tuple[list[CandidateVariant], dict[str, Any]]:
+    target_ids = sorted(case.targets)
+    target_index = {target_id: index for index, target_id in enumerate(target_ids)}
+    full_mask = (1 << len(target_ids)) - 1
+    indexed_variants: list[tuple[int, CandidateVariant, int]] = []
+    for variant_index, variant in enumerate(variants):
+        mask = 0
+        for target_id in variant.target_ids:
+            if target_id in target_index:
+                mask |= 1 << target_index[target_id]
+        if mask:
+            indexed_variants.append((variant_index, variant, mask))
+
+    indexed_variants.sort(
+        key=lambda item: (
+            -item[2].bit_count(),
+            item[1].required_satellites,
+            item[1].candidate.candidate_id,
+            item[1].required_satellites,
+        )
+    )
+    suffix_union = [0] * (len(indexed_variants) + 1)
+    for index in range(len(indexed_variants) - 1, -1, -1):
+        suffix_union[index] = suffix_union[index + 1] | indexed_variants[index][2]
+
+    best_indices: tuple[int, ...] = ()
+    best_key = _selection_key(case, [])
+    best_covered = 0
+    best_satellites = 0
+    nodes_visited = 0
+    candidate_sets_evaluated = 0
+    pruned_by_coverage_bound = 0
+    pruned_by_budget_bound = 0
+
+    def evaluate(chosen_indices: tuple[int, ...]) -> None:
+        nonlocal best_indices
+        nonlocal best_key
+        nonlocal best_covered
+        nonlocal best_satellites
+        nonlocal candidate_sets_evaluated
+        candidate_sets_evaluated += 1
+        selected = [variants[index] for index in chosen_indices]
+        key = _selection_key(case, selected)
+        if key < best_key:
+            best_indices = chosen_indices
+            best_key = key
+            best_covered = -key[0]
+            best_satellites = key[1]
+
+    def search(
+        start_index: int,
+        current_mask: int,
+        current_satellites: int,
+        chosen_indices: tuple[int, ...],
+        chosen_candidate_ids: frozenset[str],
+    ) -> None:
+        nonlocal nodes_visited
+        nonlocal pruned_by_coverage_bound
+        nonlocal pruned_by_budget_bound
+        nodes_visited += 1
+        current_covered = current_mask.bit_count()
+        potential_covered = (current_mask | suffix_union[start_index]).bit_count()
+        if potential_covered < best_covered:
+            pruned_by_coverage_bound += 1
+            return
+        if potential_covered == best_covered and current_satellites > best_satellites:
+            pruned_by_budget_bound += 1
+            return
+        if current_covered > best_covered or (
+            current_covered == best_covered
+            and current_satellites <= best_satellites
+        ):
+            evaluate(chosen_indices)
+        if current_mask == full_mask:
+            return
+        for index in range(start_index, len(indexed_variants)):
+            original_index, variant, variant_mask = indexed_variants[index]
+            next_satellites = current_satellites + variant.required_satellites
+            if next_satellites > case.max_num_satellites:
+                continue
+            if variant.candidate.candidate_id in chosen_candidate_ids:
+                continue
+            next_mask = current_mask | variant_mask
+            if next_mask == current_mask:
+                continue
+            if (next_mask | suffix_union[index + 1]).bit_count() < best_covered:
+                pruned_by_coverage_bound += 1
+                continue
+            search(
+                index + 1,
+                next_mask,
+                next_satellites,
+                tuple(
+                    sorted(
+                        (*chosen_indices, original_index),
+                        key=lambda item: (
+                            variants[item].candidate.candidate_id,
+                            variants[item].required_satellites,
+                        ),
+                    )
+                ),
+                chosen_candidate_ids | frozenset([variant.candidate.candidate_id]),
+            )
+
+    search(0, 0, 0, (), frozenset())
+    diagnostics = {
+        "algorithm": "branch_and_bound_bitset",
+        "variant_count": len(variants),
+        "search_variant_count": len(indexed_variants),
+        "target_count": len(target_ids),
+        "nodes_visited": nodes_visited,
+        "candidate_sets_evaluated": candidate_sets_evaluated,
+        "pruned_by_coverage_bound": pruned_by_coverage_bound,
+        "pruned_by_budget_bound": pruned_by_budget_bound,
+        "best_covered_target_count": best_covered,
+        "best_satellite_count": best_satellites,
+    }
+    return [variants[index] for index in best_indices], diagnostics
+
+
+def _budget_near_misses(
+    case: RevisitCase,
+    variants: list[CandidateVariant],
+) -> list[BudgetNearMiss]:
+    blocked: list[BudgetNearMiss] = []
+    for variant in variants:
+        if variant.required_satellites <= case.max_num_satellites:
+            continue
+        blocked.append(
+            BudgetNearMiss(
+                candidate_id=variant.candidate.candidate_id,
+                required_satellites=variant.required_satellites,
+                newly_covered_target_ids=variant.target_ids,
+                trial_satellite_count=variant.required_satellites,
+                satellite_over_budget=variant.required_satellites
+                - case.max_num_satellites,
+                gain=len(variant.target_ids),
+            )
+        )
+    return sorted(
+        blocked,
+        key=lambda item: (
+            item.satellite_over_budget,
+            -item.gain,
+            item.required_satellites,
+            item.candidate_id,
+        ),
+    )[:10]
+
+
 def select_candidates(
     case: RevisitCase,
-    summary: CoverageSummary,
+    certification: CertificationSummary,
+    *,
+    blacklisted_certification_ids: set[str] | None = None,
+    blacklisted_variants: set[tuple[str, int]] | None = None,
 ) -> SelectionSummary:
-    candidates = _candidate_map(summary)
-    margin_by_pair = _coverage_margin_by_pair(case, summary.windows)
-    selected_candidate_ids: list[str] = []
+    if not isinstance(certification, CertificationSummary):
+        raise TypeError("select_candidates requires a CertificationSummary")
+    blacklist_records = set() if blacklisted_certification_ids is None else set(blacklisted_certification_ids)
+    blacklist_variants = set() if blacklisted_variants is None else set(blacklisted_variants)
+    variants = _build_variants(
+        certification,
+        blacklisted_certification_ids=blacklist_records,
+        blacklisted_variants=blacklist_variants,
+    )
+    selected, selection_diagnostics = _exact_selection(case, variants)
     rounds: list[SelectionRound] = []
-    target_ids = set(case.targets)
-    assignments: dict[str, TargetAssignment] = {}
-    total_required_satellites = 0
-    uncovered = set(target_ids)
-    budget_near_misses: list[BudgetNearMiss] = []
-
-    while uncovered:
-        feasible_options: list[tuple[tuple[Any, ...], SelectionRound]] = []
-        budget_blocked_options: list[BudgetNearMiss] = []
-        for candidate_id in sorted(candidates):
-            if candidate_id in selected_candidate_ids:
-                continue
-            candidate = candidates[candidate_id]
-            newly_covered, difficult_score, margin_score = _candidate_round_metrics(
-                summary=summary,
-                candidate=candidate,
-                uncovered=uncovered,
-                margin_by_pair=margin_by_pair,
-            )
-            if not newly_covered:
-                continue
-            trial_ids = selected_candidate_ids + [candidate_id]
-            trial_assignments = _assign_targets(
-                case=case,
-                summary=summary,
-                selected_candidate_ids=trial_ids,
-                margin_by_pair=margin_by_pair,
-            )
-            trial_total = _selected_satellite_count(trial_ids, trial_assignments)
-            incremental_cost = max(0, trial_total - total_required_satellites)
-            gain = len(newly_covered)
-            gain_per_cost = math.inf if incremental_cost == 0 else gain / incremental_cost
-            round_item = SelectionRound(
-                round_index=len(rounds),
-                selected_candidate_id=candidate_id,
-                newly_covered_target_ids=tuple(newly_covered),
-                gain=gain,
-                previous_satellite_count=total_required_satellites,
-                trial_satellite_count=trial_total,
-                incremental_satellite_cost=incremental_cost,
-                gain_per_cost=gain_per_cost,
-                difficult_target_score=difficult_score,
-                coverage_margin_score=margin_score,
-                closure_error_m=candidate.template_closure_error_m,
-                repeat_period_sec=candidate.repeat_period_sec,
-                remaining_uncovered_target_ids=tuple(
-                    sorted(uncovered.difference(newly_covered))
-                ),
-            )
-            if trial_total > case.max_num_satellites:
-                budget_blocked_options.append(
-                    BudgetNearMiss(
-                        candidate_id=candidate_id,
-                        newly_covered_target_ids=tuple(newly_covered),
-                        trial_satellite_count=trial_total,
-                        satellite_over_budget=trial_total - case.max_num_satellites,
-                        gain=gain,
-                    )
-                )
-                continue
-            tie_key = (
-                -gain_per_cost,
-                -difficult_score,
-                candidate.template_closure_error_m,
-                candidate.repeat_period_sec,
-                -margin_score,
-                candidate.candidate_id,
-            )
-            feasible_options.append((tie_key, round_item))
-
-        if not feasible_options:
-            budget_near_misses = sorted(
-                budget_blocked_options,
-                key=lambda item: (
-                    item.satellite_over_budget,
-                    -item.gain,
-                    item.candidate_id,
-                ),
-            )[:10]
-            break
-
-        _, chosen = min(feasible_options, key=lambda item: item[0])
-        selected_candidate_ids.append(chosen.selected_candidate_id)
-        rounds.append(chosen)
-        assignments = _assign_targets(
-            case=case,
-            summary=summary,
-            selected_candidate_ids=selected_candidate_ids,
-            margin_by_pair=margin_by_pair,
-        )
-        total_required_satellites = _selected_satellite_count(
-            selected_candidate_ids,
-            assignments,
-        )
-        uncovered = target_ids.difference(assignments)
-
-    selected_candidate_ids = _remove_redundant_candidates(
+    budget_near_misses = [] if selected else _budget_near_misses(case, variants)
+    selected = _remove_redundant_variants(case, selected)
+    selected = _improve_by_replacement(case, selected, variants)
+    return _build_summary(
         case=case,
-        summary=summary,
-        selected_candidate_ids=selected_candidate_ids,
-        margin_by_pair=margin_by_pair,
-    )
-    assignments = _assign_targets(
-        case=case,
-        summary=summary,
-        selected_candidate_ids=selected_candidate_ids,
-        margin_by_pair=margin_by_pair,
-    )
-    total_required_satellites = _selected_satellite_count(
-        selected_candidate_ids,
-        assignments,
-    )
-    uncovered_ids = sorted(target_ids.difference(assignments))
-    return SelectionSummary(
-        selected_candidates=_build_selected_candidates(
-            summary=summary,
-            selected_candidate_ids=selected_candidate_ids,
-            assignments=assignments,
-        ),
-        target_assignments=assignments,
-        uncovered_target_ids=uncovered_ids,
-        total_required_satellites=total_required_satellites,
-        max_num_satellites=case.max_num_satellites,
+        variants=selected,
         rounds=rounds,
         budget_near_misses=budget_near_misses,
-        all_targets_covered=not uncovered_ids,
-        within_satellite_budget=total_required_satellites <= case.max_num_satellites,
+        blacklisted_certification_ids=blacklist_records,
+        blacklisted_variants=blacklist_variants,
+        selection_diagnostics=selection_diagnostics,
     )

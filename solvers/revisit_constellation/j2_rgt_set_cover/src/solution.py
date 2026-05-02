@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from concurrent.futures import ProcessPoolExecutor
-from dataclasses import dataclass, replace
+from dataclasses import dataclass, field, replace
 from datetime import UTC, datetime, timedelta
 from typing import Any
 import math
@@ -279,6 +279,7 @@ class SolutionBuildSummary:
     validation: ValidationSummary
     config: SchedulingConfig
     timing_seconds: dict[str, float]
+    retry_history: list[dict[str, Any]] = field(default_factory=list)
 
     def solution_json(self) -> dict[str, Any]:
         return {
@@ -301,6 +302,7 @@ class SolutionBuildSummary:
             "target_gap_summary": self.target_gap_summary,
             "validation": self.validation.as_dict(),
             "timing_seconds": self.timing_seconds,
+            "retry_history": self.retry_history,
         }
 
     def as_status_dict(self) -> dict[str, Any]:
@@ -322,6 +324,9 @@ class SolutionBuildSummary:
             "high_gap_target_ids": high_gap_targets,
             "config": self.config.as_dict(),
             "timing_seconds": self.timing_seconds,
+            "attempt_count": len(self.retry_history),
+            "retry_count": max(0, len(self.retry_history) - 1),
+            "retry_history": self.retry_history,
         }
 
 
@@ -2075,7 +2080,7 @@ def _opportunity_targets_by_candidate(
     *,
     coverage: CoverageSummary,
     selection: SelectionSummary,
-    include_opportunistic: bool = True,
+    include_opportunistic: bool = False,
 ) -> tuple[dict[str, list[str]], dict[str, Any]]:
     assigned_by_candidate = _assigned_targets_by_candidate(selection)
     target_ids_by_candidate: dict[str, list[str]] = {}
@@ -2087,16 +2092,9 @@ def _opportunity_targets_by_candidate(
     ):
         candidate_id = selected.candidate.candidate_id
         assigned_targets = set(assigned_by_candidate.get(candidate_id, []))
-        visible_targets = set(coverage.candidate_to_targets.get(candidate_id, []))
-        target_ids = (
-            sorted(assigned_targets | visible_targets)
-            if include_opportunistic
-            else sorted(assigned_targets)
-        )
+        target_ids = sorted(assigned_targets)
         target_ids_by_candidate[candidate_id] = target_ids
-        for target_id in target_ids:
-            if target_id not in assigned_targets:
-                opportunistic_pairs.append((candidate_id, target_id))
+        _ = include_opportunistic
 
     return target_ids_by_candidate, {
         "assigned_pair_count": sum(
@@ -2115,7 +2113,7 @@ def _opportunity_targets_by_candidate(
             candidate_id: target_ids
             for candidate_id, target_ids in sorted(target_ids_by_candidate.items())
         },
-        "include_opportunistic": include_opportunistic,
+        "include_opportunistic": False,
     }
 
 
@@ -2162,16 +2160,14 @@ def build_opportunities(
     selection: SelectionSummary,
     satellites: list[SatellitePlan],
     config: SchedulingConfig,
-    include_opportunistic: bool = True,
+    include_opportunistic: bool = False,
 ) -> tuple[list[ObservationAction], int, dict[str, Any]]:
     horizon_sec = (case.horizon_end - case.horizon_start).total_seconds()
     target_ids_by_candidate, opportunity_target_summary = (
-        _opportunity_targets_by_candidate(coverage=coverage, selection=selection)
-        if include_opportunistic
-        else _opportunity_targets_by_candidate(
+        _opportunity_targets_by_candidate(
             coverage=coverage,
             selection=selection,
-            include_opportunistic=False,
+            include_opportunistic=include_opportunistic,
         )
     )
     hints_by_key = _coarse_hints_by_key(case=case, coverage=coverage)
@@ -2576,24 +2572,6 @@ def select_assigned_first_actions(
         target_summaries[target_id] = summary
 
     assigned_action_count = len(selected)
-    opportunistic_targets = set(selection.uncovered_target_ids)
-    opportunistic_opportunities = [
-        opportunity
-        for index, opportunity in enumerate(opportunities)
-        if index not in used_indexes and opportunity.target_id in opportunistic_targets
-    ]
-    if opportunistic_targets and len(selected) < config.max_actions:
-        selected = select_gap_aware_actions(
-            case=case,
-            selection=selection,
-            satellites=satellites,
-            opportunities=opportunistic_opportunities,
-            config=config,
-            initial_selected=selected,
-            allowed_target_ids=opportunistic_targets,
-            state_provider=state_provider,
-        )
-
     failed_assigned = sorted(
         target_id
         for target_id, summary in target_summaries.items()
@@ -2605,11 +2583,11 @@ def select_assigned_first_actions(
             key=lambda item: (item.start, item.end, item.satellite_id, item.target_id),
         ),
         {
-            "strategy": "assigned_first_then_uncovered_opportunistic",
+            "strategy": "selected_certified_assignments_only",
             "assigned_target_count": len(target_order),
-            "assigned_action_count_before_opportunistic": assigned_action_count,
-            "opportunistic_target_ids": sorted(opportunistic_targets),
-            "opportunistic_action_count": max(0, len(selected) - assigned_action_count),
+            "assigned_action_count": assigned_action_count,
+            "opportunistic_target_ids": [],
+            "opportunistic_action_count": 0,
             "failed_assigned_target_ids": failed_assigned,
             "target_summaries": target_summaries,
         },
@@ -2826,6 +2804,7 @@ def build_solution(
         selection=selection,
         satellites=satellites,
         config=config,
+        include_opportunistic=False,
     )
     opportunity_generation_sec = time.perf_counter() - stage_start
     stage_start = time.perf_counter()

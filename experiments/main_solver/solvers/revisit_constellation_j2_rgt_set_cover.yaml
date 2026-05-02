@@ -27,23 +27,27 @@ evaluation_policy:
   profile: public
   purpose: "J2-aware repeat-ground-track set-cover solver adapted to revisit_constellation."
   compute_envelope:
-    expected_case_wall_time_seconds: 360
-    expected_full_test_split_wall_time_seconds: 1800
+    expected_case_wall_time_seconds: 420
+    expected_full_test_split_wall_time_seconds: 1500
     worker_count_policy: fixed_8_workers
     deterministic: true
   notes:
     - "Experiment-owned verifier records benchmark validity."
     - "The public profile is intentionally stronger than the quick sanity policy."
-    - "Case_0003 still exposes untapped algorithmic potential for min-max repacking work."
+    - "The public profile invests the repeat-track budget in one-day RGT candidates."
+    - "The public profile uses adaptive one-day deepening; case_0003 is the expected deep-pass case."
 config:
   active_profile: public
   compute_envelope:
     name: public
     deterministic: true
-    expected_case_wall_time_seconds: 360
+    expected_case_wall_time_seconds: 420
     worker_count_policy: fixed_8_workers
+  strategy:
+    one_day_first: true
+    deepen_max_candidates_to_check: 96
   rgt_search:
-    max_repeat_days: 2
+    max_repeat_days: 1
     min_revolutions_per_day: 11
     max_revolutions_per_day: 17
     inclinations_deg: [30.0, 40.0, 45.0, 53.0, 58.0, 63.4, 70.0, 75.0, 82.0, 97.8]
@@ -51,11 +55,15 @@ config:
     closure_tolerance_m: 5000.0
     refinement_iterations: 10
   coverage:
-    raan_count: 48
+    raan_count: 96
     raan_start_deg: 0.0
     sample_step_sec: 240.0
     keep_samples_per_window: 4
     worker_count: 8
+  certification:
+    max_candidates_to_check: 48
+    worker_count: 8
+    max_selection_retries: 8
   scheduling:
     observation_duration_sec: 30.0
     opportunity_sample_step_sec: 60.0
@@ -66,11 +74,7 @@ config:
     range_safety_margin_m: 15000.0
     off_nadir_safety_margin_deg: 0.5
     max_actions: 3000
-    max_selection_repair_rounds: 8
-    max_repair_alternates_per_target: 8
-    numerical_repair_candidate_limit: 64
     opportunity_worker_count: 8
-    repair_worker_count: 8
 run_policies:
   quick_case_0001:
     description: Bounded single-case sanity run for iteration and contract checks.
@@ -83,8 +87,10 @@ run_policies:
         deterministic: true
         expected_case_wall_time_seconds: 240
         worker_count_policy: fixed_4_workers
+      strategy:
+        one_day_first: true
       rgt_search:
-        max_repeat_days: 2
+        max_repeat_days: 1
         min_revolutions_per_day: 12
         max_revolutions_per_day: 16
         inclinations_deg: [30.0, 45.0, 53.0, 63.4, 75.0, 97.8]
@@ -92,14 +98,17 @@ run_policies:
         closure_tolerance_m: 5000.0
         refinement_iterations: 8
       coverage:
-        raan_count: 24
+        raan_count: 48
         raan_start_deg: 0.0
         sample_step_sec: 300.0
         keep_samples_per_window: 4
         worker_count: 4
+      certification:
+        max_candidates_to_check: 64
+        worker_count: 4
+        max_selection_retries: 4
       scheduling:
         opportunity_worker_count: 4
-        repair_worker_count: 4
 cases:
   - id: test/case_0001
     case_dir: benchmarks/revisit_constellation/dataset/cases/test/case_0001

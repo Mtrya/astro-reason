@@ -1,14 +1,16 @@
 from __future__ import annotations
 
+from dataclasses import replace
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
+from types import SimpleNamespace
 import json
-import subprocess
 
 import brahe
 import numpy as np
 import pytest
 
+from src import certification as certification_module
 from src import rgt as rgt_module
 from src import solution as solution_module
 from src.case_io import (
@@ -33,6 +35,14 @@ from src.coverage import (
     geometry_sample_from_state,
     group_visible_samples,
 )
+from src.certification import (
+    AnalyticalCoverageClaim,
+    CertificationConfig,
+    CertificationSummary,
+    CertifiedCoverage,
+    build_analytical_claims,
+    build_candidate_leaderboard,
+)
 from src.rgt import (
     ClosureScore,
     EARTH_RADIUS_M,
@@ -54,7 +64,7 @@ from src.selection import (
     SelectionSummary,
     TargetAssignment,
     satellites_required_for_target,
-    select_candidates,
+    select_candidates as select_certified_candidates,
 )
 from src.solution import (
     ObservationAction,
@@ -73,7 +83,6 @@ from src.time_utils import datetime_to_epoch
 
 REPO_ROOT = Path(__file__).resolve().parents[4]
 CASE_DIR = REPO_ROOT / "benchmarks/revisit_constellation/dataset/cases/test/case_0001"
-SOLVER_DIR = REPO_ROOT / "solvers/revisit_constellation/j2_rgt_set_cover"
 
 
 def _synthetic_target(target_id: str, revisit_hours: float = 8.0) -> Target:
@@ -220,6 +229,119 @@ def _synthetic_coverage(
         config=CoverageConfig(),
         sample_offset_count=0,
     )
+
+
+def _synthetic_certification(
+    case: RevisitCase,
+    coverage: CoverageSummary,
+    *,
+    rejected: set[tuple[str, str]] | None = None,
+) -> CertificationSummary:
+    rejected_pairs = set() if rejected is None else set(rejected)
+    candidates = {candidate.candidate_id: candidate for candidate in coverage.candidates}
+    records: list[CertifiedCoverage] = []
+    claims: list[AnalyticalCoverageClaim] = []
+    rank_by_target: dict[str, int] = {}
+    for candidate_id, target_ids in sorted(coverage.candidate_to_targets.items()):
+        candidate = candidates[candidate_id]
+        for target_id in sorted(target_ids):
+            target = case.targets[target_id]
+            required_satellites = satellites_required_for_target(candidate, target)
+            rank = rank_by_target.get(target_id, 0)
+            rank_by_target[target_id] = rank + 1
+            claim = AnalyticalCoverageClaim(
+                claim_id=f"{candidate_id}__{target_id}",
+                rank=rank,
+                candidate=candidate,
+                target_id=target_id,
+                required_satellites=required_satellites,
+                analytical_window_ids=tuple(
+                    window.window_id
+                    for window in coverage.windows
+                    if window.candidate_id == candidate_id and window.target_id == target_id
+                ),
+                analytical_hint_ids=tuple(
+                    hint.hint_id
+                    for hint in coverage.hints
+                    if hint.candidate_id == candidate_id and hint.target_id == target_id
+                ),
+                analytical_max_gap_hours=target.expected_revisit_period_hours,
+                analytical_capped_gap_hours=target.expected_revisit_period_hours,
+                geometry_margin=0.0,
+                repeat_period_hours=candidate.repeat_period_sec / 3600.0,
+                closure_error_m=candidate.template_closure_error_m,
+            )
+            claims.append(claim)
+            is_rejected = (candidate_id, target_id) in rejected_pairs
+            records.append(
+                CertifiedCoverage(
+                    certification_id=f"cert__{claim.claim_id}__sat{required_satellites}",
+                    claim=claim,
+                    certified_satellites=required_satellites,
+                    refined_opportunity_count=0 if is_rejected else required_satellites,
+                    refined_midpoint_offsets_sec=(),
+                    max_gap_hours=(
+                        target.expected_revisit_period_hours * 2.0
+                        if is_rejected
+                        else target.expected_revisit_period_hours
+                    ),
+                    capped_max_gap_hours=(
+                        target.expected_revisit_period_hours * 2.0
+                        if is_rejected
+                        else target.expected_revisit_period_hours
+                    ),
+                    meets_revisit=not is_rejected,
+                    rejection_reason="revisit_gap_exceeded" if is_rejected else None,
+                    rejection_reasons={},
+                )
+            )
+    target_summaries = {
+        target_id: {
+            "target_id": target_id,
+            "claim_count": len(
+                [claim for claim in claims if claim.target_id == target_id]
+            ),
+            "checked_count": len(
+                [record for record in records if record.target_id == target_id]
+            ),
+            "passed_count": len(
+                [
+                    record
+                    for record in records
+                    if record.target_id == target_id and record.meets_revisit
+                ]
+            ),
+            "failed_count": len(
+                [
+                    record
+                    for record in records
+                    if record.target_id == target_id and not record.meets_revisit
+                ]
+            ),
+            "frontier_limited": False,
+            "best_certification_id": next(
+                (
+                    record.certification_id
+                    for record in records
+                    if record.target_id == target_id and record.meets_revisit
+                ),
+                None,
+            ),
+        }
+        for target_id in sorted(case.targets)
+    }
+    return CertificationSummary(
+        claims=claims,
+        certified_records=records,
+        target_summaries=target_summaries,
+        rejected_reasons={"revisit_gap_exceeded": len(rejected_pairs)} if rejected_pairs else {},
+        frontier_limited_target_ids=[],
+        config=CertificationConfig(worker_count=1),
+    )
+
+
+def select_candidates(case: RevisitCase, coverage: CoverageSummary) -> SelectionSummary:
+    return select_certified_candidates(case, _synthetic_certification(case, coverage))
 
 
 def _synthetic_window(
@@ -719,6 +841,225 @@ def test_budget_failure_reports_uncovered_targets_and_near_miss() -> None:
     assert selection.total_required_satellites == 0
     assert selection.budget_near_misses[0].candidate_id == candidate.candidate_id
     assert selection.budget_near_misses[0].satellite_over_budget == 1
+
+
+def test_coarse_analytical_claims_are_not_selectable_until_certified() -> None:
+    case = _synthetic_case(["t1"], revisit_hours=8.0, max_num_satellites=3)
+    candidate = _synthetic_candidate("candidate", repeat_hours=24.0)
+    coverage = _synthetic_coverage(
+        candidates=[candidate],
+        candidate_to_targets={candidate.candidate_id: ["t1"]},
+        windows=[_synthetic_window(candidate, "t1", 1.0)],
+    )
+    claims = build_analytical_claims(case, coverage)
+    certification = CertificationSummary(
+        claims=claims,
+        certified_records=[],
+        target_summaries={
+            "t1": {
+                "target_id": "t1",
+                "claim_count": len(claims),
+                "checked_count": 0,
+                "passed_count": 0,
+                "failed_count": 0,
+                "frontier_limited": False,
+                "best_certification_id": None,
+            }
+        },
+        rejected_reasons={},
+        frontier_limited_target_ids=[],
+        config=CertificationConfig(worker_count=1),
+    )
+
+    selection = select_certified_candidates(case, certification)
+
+    assert selection.selected_candidates == []
+    assert selection.target_assignments == {}
+    assert selection.uncovered_target_ids == ["t1"]
+
+
+def test_candidate_leaderboard_prioritizes_global_coverage_over_local_cost() -> None:
+    case = _synthetic_case(["t1", "t2", "t3"], revisit_hours=8.0)
+    cheap_single = _synthetic_candidate("cheap_single", repeat_hours=8.0)
+    broad_candidate = _synthetic_candidate("broad_candidate", repeat_hours=48.0)
+    coverage = _synthetic_coverage(
+        candidates=[cheap_single, broad_candidate],
+        candidate_to_targets={
+            cheap_single.candidate_id: ["t1"],
+            broad_candidate.candidate_id: ["t1", "t2", "t3"],
+        },
+        windows=[
+            _synthetic_window(cheap_single, "t1", 1.0),
+            _synthetic_window(broad_candidate, "t1", 1.0),
+            _synthetic_window(broad_candidate, "t2", 2.0),
+            _synthetic_window(broad_candidate, "t3", 3.0),
+        ],
+    )
+
+    leaderboard = build_candidate_leaderboard(build_analytical_claims(case, coverage))
+
+    assert leaderboard[0].candidate_id == broad_candidate.candidate_id
+    assert leaderboard[0].target_ids == ("t1", "t2", "t3")
+    assert leaderboard[0].required_satellites == 6
+    assert leaderboard[1].candidate_id == cheap_single.candidate_id
+
+
+def test_variant_certification_allows_mixed_minimum_satellite_counts(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    case = _synthetic_case(["loose", "tight"], revisit_hours=8.0, max_num_satellites=3)
+    case.targets["loose"] = _synthetic_target("loose", revisit_hours=24.0)
+    candidate = _synthetic_candidate("candidate", repeat_hours=24.0)
+    coverage = _synthetic_coverage(
+        candidates=[candidate],
+        candidate_to_targets={candidate.candidate_id: ["loose", "tight"]},
+        windows=[
+            _synthetic_window(candidate, "loose", 1.0),
+            _synthetic_window(candidate, "tight", 2.0),
+        ],
+    )
+    claims_by_id = {
+        claim.claim_id: claim for claim in build_analytical_claims(case, coverage)
+    }
+    leaderboard = build_candidate_leaderboard(list(claims_by_id.values()))
+    mixed_entry = next(
+        entry for entry in leaderboard if entry.required_satellites == 3
+    )
+
+    monkeypatch.setattr(
+        solution_module,
+        "generate_phased_satellites",
+        lambda case, selection: [],
+    )
+
+    def fake_quality(**kwargs: object) -> SimpleNamespace:
+        selection = kwargs["selection"]
+        assert isinstance(selection, SelectionSummary)
+        assert selection.total_required_satellites == 3
+        return SimpleNamespace(
+            opportunity_count=3,
+            refined_opportunity_count=3,
+            refined_midpoint_offsets_sec=(0.0, 8.0 * 3600.0, 16.0 * 3600.0),
+            max_gap_hours=8.0,
+            capped_max_gap_hours=8.0,
+            rejection_reasons={},
+        )
+
+    monkeypatch.setattr(
+        solution_module,
+        "_refined_candidate_target_quality_for_satellites",
+        fake_quality,
+    )
+
+    records = certification_module._certify_variant_worker(
+        (
+            case,
+            coverage,
+            tuple(claims_by_id[claim_id] for claim_id in mixed_entry.claim_ids),
+            CertificationConfig(worker_count=1, refinement_propagation="analytical_j2"),
+        )
+    )
+
+    assert {record.required_satellites for record in records} == {1, 3}
+    assert {record.certified_satellites for record in records} == {3}
+
+
+def test_selection_uses_certified_variant_count_for_assignments() -> None:
+    case = _synthetic_case(["loose", "tight"], revisit_hours=8.0, max_num_satellites=3)
+    case.targets["loose"] = _synthetic_target("loose", revisit_hours=24.0)
+    candidate = _synthetic_candidate("candidate", repeat_hours=24.0)
+    coverage = _synthetic_coverage(
+        candidates=[candidate],
+        candidate_to_targets={candidate.candidate_id: ["loose", "tight"]},
+    )
+    certification = _synthetic_certification(case, coverage)
+    certification = replace(
+        certification,
+        certified_records=[
+            replace(
+                record,
+                certification_id=f"{record.certification_id}__variant3",
+                certified_satellites=3,
+            )
+            for record in certification.certified_records
+        ],
+    )
+
+    selection = select_certified_candidates(case, certification)
+
+    assert selection.total_required_satellites == 3
+    assert selection.target_assignments["loose"].required_satellites == 3
+    assert selection.target_assignments["loose"].certification_required_satellites == 1
+    assert selection.target_assignments["tight"].required_satellites == 3
+    assert selection.target_assignments["tight"].certification_required_satellites == 3
+
+
+def test_rejected_certified_claim_is_discarded_and_next_claim_selected() -> None:
+    case = _synthetic_case(["t1"], revisit_hours=8.0, max_num_satellites=3)
+    rejected = _synthetic_candidate("a_rejected", repeat_hours=24.0)
+    accepted = _synthetic_candidate("b_accepted", repeat_hours=24.0)
+    coverage = _synthetic_coverage(
+        candidates=[rejected, accepted],
+        candidate_to_targets={
+            rejected.candidate_id: ["t1"],
+            accepted.candidate_id: ["t1"],
+        },
+    )
+    certification = _synthetic_certification(
+        case,
+        coverage,
+        rejected={(rejected.candidate_id, "t1")},
+    )
+
+    selection = select_certified_candidates(case, certification)
+
+    assert selection.target_assignments["t1"].candidate_id == accepted.candidate_id
+    assert selection.selected_candidates[0].candidate.candidate_id == accepted.candidate_id
+
+
+def test_certified_selection_emits_best_valid_partial_when_full_impossible() -> None:
+    case = _synthetic_case(["t1", "t2"], revisit_hours=8.0, max_num_satellites=3)
+    candidate = _synthetic_candidate("candidate", repeat_hours=24.0)
+    coverage = _synthetic_coverage(
+        candidates=[candidate],
+        candidate_to_targets={candidate.candidate_id: ["t1"]},
+    )
+
+    selection = select_certified_candidates(
+        case,
+        _synthetic_certification(case, coverage),
+    )
+
+    assert not selection.all_targets_covered
+    assert set(selection.target_assignments) == {"t1"}
+    assert selection.uncovered_target_ids == ["t2"]
+    assert selection.within_satellite_budget
+
+
+def test_blacklisted_certificate_triggers_certified_reselection() -> None:
+    case = _synthetic_case(["t1"], revisit_hours=8.0, max_num_satellites=3)
+    first = _synthetic_candidate("a_first", repeat_hours=24.0)
+    second = _synthetic_candidate("b_second", repeat_hours=24.0)
+    coverage = _synthetic_coverage(
+        candidates=[first, second],
+        candidate_to_targets={
+            first.candidate_id: ["t1"],
+            second.candidate_id: ["t1"],
+        },
+    )
+    certification = _synthetic_certification(case, coverage)
+    initial = select_certified_candidates(case, certification)
+    failed_certification_id = initial.target_assignments["t1"].certification_id
+    assert failed_certification_id is not None
+
+    reselection = select_certified_candidates(
+        case,
+        certification,
+        blacklisted_certification_ids={failed_certification_id},
+    )
+
+    assert initial.target_assignments["t1"].candidate_id == first.candidate_id
+    assert reselection.target_assignments["t1"].candidate_id == second.candidate_id
 
 
 def test_local_improvement_removes_redundant_selected_candidates() -> None:
@@ -1296,7 +1637,7 @@ def test_serial_and_parallel_opportunity_generation_match() -> None:
     ]
 
 
-def test_opportunity_generation_includes_redundant_visible_targets(
+def test_opportunity_generation_uses_only_selected_certified_assignments(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     case = _synthetic_case(
@@ -1378,16 +1719,11 @@ def test_opportunity_generation_includes_redundant_visible_targets(
         config=SchedulingConfig(opportunity_worker_count=1),
     )
 
-    assert considered == 6
-    assert {action.target_id for action in opportunities} == {
-        "assigned",
-        "uncovered",
-    }
+    assert considered == 3
+    assert {action.target_id for action in opportunities} == {"assigned"}
     assert refinement["opportunity_target_summary"]["assigned_pair_count"] == 1
-    assert refinement["opportunity_target_summary"]["opportunistic_pair_count"] == 1
-    assert refinement["opportunity_target_summary"]["opportunistic_target_ids"] == [
-        "uncovered"
-    ]
+    assert refinement["opportunity_target_summary"]["opportunistic_pair_count"] == 0
+    assert refinement["opportunity_target_summary"]["opportunistic_target_ids"] == []
 
 
 def test_opportunity_refinement_uses_numerical_j2_state_provider(
@@ -1464,7 +1800,7 @@ def test_gap_aware_action_selection_improves_with_phased_opportunities() -> None
     assert len(selected) >= 2
 
 
-def test_assigned_first_scheduler_commits_assigned_revisit_before_opportunistic(
+def test_assigned_first_scheduler_never_adds_unselected_targets(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     monkeypatch.setattr(
@@ -1539,9 +1875,11 @@ def test_assigned_first_scheduler_commits_assigned_revisit_before_opportunistic(
     )
 
     assigned_actions = [action for action in selected if action.target_id == "assigned"]
+    assert {action.target_id for action in selected} == {"assigned"}
     assert len(assigned_actions) == 5
     assert summary["failed_assigned_target_ids"] == []
-    assert summary["assigned_action_count_before_opportunistic"] == 5
+    assert summary["assigned_action_count"] == 5
+    assert summary["opportunistic_action_count"] == 0
 
 
 def test_action_builder_avoids_same_satellite_overlap() -> None:
@@ -1681,106 +2019,3 @@ def test_full_profile_analytical_rgt_matches_numerical_j2_oracle() -> None:
         assert abs(
             numerical_closure.surface_error_m - template.closure.surface_error_m
         ) < config.closure_tolerance_m
-
-
-def test_solve_sh_writes_status_solution_and_debug(tmp_path: Path) -> None:
-    config_dir = tmp_path / "config"
-    output_dir = tmp_path / "solution"
-    config_dir.mkdir()
-    (config_dir / "config.yaml").write_text(
-        "\n".join(
-            [
-                "active_profile: test_public",
-                "compute_envelope:",
-                "  name: test_public",
-                "  deterministic: true",
-                "rgt_search:",
-                "  max_repeat_days: 1",
-                "  min_revolutions_per_day: 15",
-                "  max_revolutions_per_day: 15",
-                "  inclinations_deg: [97.8]",
-                "  max_templates: 1",
-                "  closure_tolerance_m: 5000.0",
-                "  refinement_iterations: 8",
-                "coverage:",
-                "  raan_count: 2",
-                "  sample_step_sec: 7200.0",
-                "  keep_samples_per_window: 2",
-                "  worker_count: 2",
-                "scheduling:",
-                "  observation_duration_sec: 60.0",
-                "  opportunity_sample_step_sec: 300.0",
-                "  min_gap_improvement_sec: 60.0",
-                "  validation_sample_step_sec: 10.0",
-                "  max_actions: 100",
-                "  max_selection_repair_rounds: 2",
-                "  max_repair_alternates_per_target: 4",
-                "  opportunity_worker_count: 2",
-                "  repair_worker_count: 2",
-            ]
-        ),
-        encoding="utf-8",
-    )
-
-    completed = subprocess.run(
-        [
-            "bash",
-            str(SOLVER_DIR / "solve.sh"),
-            str(CASE_DIR),
-            str(config_dir),
-            str(output_dir),
-        ],
-        check=False,
-        cwd=REPO_ROOT,
-        text=True,
-        capture_output=True,
-    )
-
-    assert completed.returncode == 0, completed.stderr
-    status = json.loads((output_dir / "status.json").read_text(encoding="utf-8"))
-    solution = json.loads((output_dir / "solution.json").read_text(encoding="utf-8"))
-    debug = json.loads(
-        (output_dir / "debug/closure_search.json").read_text(encoding="utf-8")
-    )
-    coverage = json.loads(
-        (output_dir / "debug/coverage_summary.json").read_text(encoding="utf-8")
-    )
-    selection = json.loads(
-        (output_dir / "debug/selection_summary.json").read_text(encoding="utf-8")
-    )
-    repair = json.loads(
-        (output_dir / "debug/selection_repair_summary.json").read_text(
-            encoding="utf-8"
-        )
-    )
-    solution_debug = json.loads(
-        (output_dir / "debug/solution_summary.json").read_text(encoding="utf-8")
-    )
-    assert status["status"] == "completed"
-    assert status["solver"] == "j2_rgt_set_cover"
-    assert status["method_status"] == "experiment_ready"
-    assert status["closure_search"]["accepted_count"] == 1
-    assert status["coverage"]["candidate_count"] == 2
-    assert "coarse_hint_count" in status["coverage"]
-    assert status["compute_profile"]["active_profile"] == "test_public"
-    assert status["compute_profile"]["compute_envelope"]["name"] == "test_public"
-    assert status["compute_profile"]["available_profiles"] == []
-    assert status["compute_profile"]["coverage_worker_count"] == 2
-    assert status["compute_profile"]["opportunity_worker_count"] == 2
-    assert status["compute_profile"]["repair_worker_count"] == 2
-    assert "coverage" in status["timing_seconds"]
-    assert "final_solution_timing_seconds" in status["compute_profile"]
-    assert status["selection"]["selected_candidate_count"] >= 0
-    assert set(solution) == {"satellites", "actions"}
-    assert debug["accepted_count"] == 1
-    assert coverage["candidate_count"] == 2
-    assert "target_to_candidates" in coverage
-    assert "coarse_hints" in coverage
-    assert "selected_candidates" in selection
-    assert "target_assignments" in selection
-    assert "target_diagnostics" in repair
-    assert "validation" in solution_debug
-    assert "timing_seconds" in solution_debug
-    assert "opportunity_refinement_summary" in solution_debug
-    assert "opportunity_refinement_summary" in status["solution"]
-    assert status["solution"]["satellite_count"] == len(solution["satellites"])

@@ -1,5 +1,5 @@
 {
-  "max_num_satellites": 14,
+  "max_num_satellites": 20,
   "satellite_model": {
     "attitude_model": {
       "maneuver_discharge_rate_w": 90.0,
@@ -17,7 +17,7 @@
       "sunlight_charge_rate_w": 100.0
     },
     "sensor": {
-      "max_off_nadir_angle_deg": 25.0,
+      "max_off_nadir_angle_deg": 30.0,
       "max_range_m": 1000000.0,
       "obs_discharge_rate_w": 120.0
     }

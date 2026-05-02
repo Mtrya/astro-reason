@@ -5,8 +5,12 @@ compute_envelope:
   expected_case_wall_time_seconds: 360
   worker_count_policy: fixed_8_workers
 
+strategy:
+  one_day_first: true
+  deepen_max_candidates_to_check: 96
+
 rgt_search:
-  max_repeat_days: 2
+  max_repeat_days: 1
   min_revolutions_per_day: 11
   max_revolutions_per_day: 17
   inclinations_deg: [30.0, 40.0, 45.0, 53.0, 58.0, 63.4, 70.0, 75.0, 82.0, 97.8]
@@ -15,11 +19,16 @@ rgt_search:
   refinement_iterations: 10
 
 coverage:
-  raan_count: 48
+  raan_count: 96
   raan_start_deg: 0.0
   sample_step_sec: 240.0
   keep_samples_per_window: 4
   worker_count: 8
+
+certification:
+  max_candidates_to_check: 48
+  worker_count: 8
+  max_selection_retries: 8
 
 scheduling:
   observation_duration_sec: 30.0
@@ -31,8 +40,4 @@ scheduling:
   range_safety_margin_m: 15000.0
   off_nadir_safety_margin_deg: 0.5
   max_actions: 3000
-  max_selection_repair_rounds: 8
-  max_repair_alternates_per_target: 8
-  numerical_repair_candidate_limit: 64
   opportunity_worker_count: 8
-  repair_worker_count: 8

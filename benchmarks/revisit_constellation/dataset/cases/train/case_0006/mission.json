@@ -6,198 +6,275 @@
       "altitude_m": 0.0,
       "expected_revisit_period_hours": 8.0,
       "id": "target_001",
-      "latitude_deg": 31.9497,
-      "longitude_deg": 35.9328,
+      "latitude_deg": 33.7628,
+      "longitude_deg": -84.422,
       "max_slant_range_m": 1800000.0,
       "min_duration_sec": 30.0,
-      "min_elevation_deg": 20.0,
-      "name": "Amman, Jordan"
+      "min_elevation_deg": 25.0,
+      "name": "Atlanta, United States"
     },
     {
       "altitude_m": 0.0,
       "expected_revisit_period_hours": 8.0,
       "id": "target_002",
-      "latitude_deg": -34.6036,
-      "longitude_deg": -58.3814,
+      "latitude_deg": 12.9789,
+      "longitude_deg": 77.5917,
       "max_slant_range_m": 1800000.0,
       "min_duration_sec": 30.0,
-      "min_elevation_deg": 20.0,
-      "name": "Buenos Aires, Argentina"
+      "min_elevation_deg": 25.0,
+      "name": "Bangalore, India"
     },
     {
       "altitude_m": 0.0,
       "expected_revisit_period_hours": 8.0,
       "id": "target_003",
-      "latitude_deg": 21.3294,
-      "longitude_deg": -157.846,
+      "latitude_deg": 13.7525,
+      "longitude_deg": 100.4942,
       "max_slant_range_m": 1800000.0,
       "min_duration_sec": 30.0,
-      "min_elevation_deg": 20.0,
-      "name": "Honolulu, United States"
+      "min_elevation_deg": 25.0,
+      "name": "Bangkok, Thailand"
     },
     {
       "altitude_m": 0.0,
       "expected_revisit_period_hours": 8.0,
       "id": "target_004",
-      "latitude_deg": -6.175,
-      "longitude_deg": 106.8275,
+      "latitude_deg": 38.874,
+      "longitude_deg": 115.464,
       "max_slant_range_m": 1800000.0,
       "min_duration_sec": 30.0,
-      "min_elevation_deg": 20.0,
-      "name": "Jakarta, Indonesia"
+      "min_elevation_deg": 25.0,
+      "name": "Baoding, China"
     },
     {
       "altitude_m": 0.0,
       "expected_revisit_period_hours": 8.0,
       "id": "target_005",
-      "latitude_deg": -26.2044,
-      "longitude_deg": 28.0456,
+      "latitude_deg": 52.52,
+      "longitude_deg": 13.405,
       "max_slant_range_m": 1800000.0,
       "min_duration_sec": 30.0,
-      "min_elevation_deg": 20.0,
-      "name": "Johannesburg, South Africa"
+      "min_elevation_deg": 25.0,
+      "name": "Berlin, Germany"
     },
     {
       "altitude_m": 0.0,
       "expected_revisit_period_hours": 8.0,
       "id": "target_006",
-      "latitude_deg": 24.86,
-      "longitude_deg": 67.01,
+      "latitude_deg": 4.7111,
+      "longitude_deg": -74.0722,
       "max_slant_range_m": 1800000.0,
       "min_duration_sec": 30.0,
-      "min_elevation_deg": 20.0,
-      "name": "Karachi, Pakistan"
+      "min_elevation_deg": 25.0,
+      "name": "Bogot\u00e1, Colombia"
     },
     {
       "altitude_m": 0.0,
       "expected_revisit_period_hours": 8.0,
       "id": "target_007",
-      "latitude_deg": -4.3219,
-      "longitude_deg": 15.3119,
+      "latitude_deg": 23.021,
+      "longitude_deg": 113.752,
       "max_slant_range_m": 1800000.0,
       "min_duration_sec": 30.0,
-      "min_elevation_deg": 20.0,
-      "name": "Kinshasa, Congo (Kinshasa)"
+      "min_elevation_deg": 25.0,
+      "name": "Dongguan, China"
     },
     {
       "altitude_m": 0.0,
       "expected_revisit_period_hours": 8.0,
       "id": "target_008",
-      "latitude_deg": 22.5675,
-      "longitude_deg": 88.37,
+      "latitude_deg": 4.05,
+      "longitude_deg": 9.7,
       "max_slant_range_m": 1800000.0,
       "min_duration_sec": 30.0,
-      "min_elevation_deg": 20.0,
-      "name": "Kolk\u0101ta, India"
+      "min_elevation_deg": 25.0,
+      "name": "Douala, Cameroon"
     },
     {
       "altitude_m": 0.0,
       "expected_revisit_period_hours": 8.0,
       "id": "target_009",
-      "latitude_deg": -12.06,
-      "longitude_deg": -77.0375,
+      "latitude_deg": -33.9581,
+      "longitude_deg": 25.6,
       "max_slant_range_m": 1800000.0,
       "min_duration_sec": 30.0,
-      "min_elevation_deg": 20.0,
-      "name": "Lima, Peru"
+      "min_elevation_deg": 25.0,
+      "name": "Gqeberha, South Africa"
     },
     {
       "altitude_m": 0.0,
       "expected_revisit_period_hours": 8.0,
       "id": "target_010",
-      "latitude_deg": 40.4169,
-      "longitude_deg": -3.7033,
+      "latitude_deg": 41.0136,
+      "longitude_deg": 28.955,
       "max_slant_range_m": 1800000.0,
       "min_duration_sec": 30.0,
-      "min_elevation_deg": 20.0,
-      "name": "Madrid, Spain"
+      "min_elevation_deg": 25.0,
+      "name": "Istanbul, Turkey"
     },
     {
       "altitude_m": 0.0,
       "expected_revisit_period_hours": 8.0,
       "id": "target_011",
-      "latitude_deg": -37.8142,
-      "longitude_deg": 144.9631,
+      "latitude_deg": -6.175,
+      "longitude_deg": 106.8275,
       "max_slant_range_m": 1800000.0,
       "min_duration_sec": 30.0,
-      "min_elevation_deg": 20.0,
-      "name": "Melbourne, Australia"
+      "min_elevation_deg": 25.0,
+      "name": "Jakarta, Indonesia"
     },
     {
       "altitude_m": 0.0,
       "expected_revisit_period_hours": 8.0,
       "id": "target_012",
-      "latitude_deg": 25.784,
-      "longitude_deg": -80.2101,
+      "latitude_deg": 15.6031,
+      "longitude_deg": 32.5265,
       "max_slant_range_m": 1800000.0,
       "min_duration_sec": 30.0,
-      "min_elevation_deg": 20.0,
-      "name": "Miami, United States"
+      "min_elevation_deg": 25.0,
+      "name": "Khartoum, Sudan"
     },
     {
       "altitude_m": 0.0,
       "expected_revisit_period_hours": 8.0,
       "id": "target_013",
-      "latitude_deg": 55.7506,
-      "longitude_deg": 37.6175,
+      "latitude_deg": 22.5675,
+      "longitude_deg": 88.37,
       "max_slant_range_m": 1800000.0,
       "min_duration_sec": 30.0,
-      "min_elevation_deg": 20.0,
-      "name": "Moscow, Russia"
+      "min_elevation_deg": 25.0,
+      "name": "Kolk\u0101ta, India"
     },
     {
       "altitude_m": 0.0,
       "expected_revisit_period_hours": 8.0,
       "id": "target_014",
-      "latitude_deg": 32.9902,
-      "longitude_deg": 112.5285,
+      "latitude_deg": 6.455,
+      "longitude_deg": 3.3841,
       "max_slant_range_m": 1800000.0,
       "min_duration_sec": 30.0,
-      "min_elevation_deg": 20.0,
-      "name": "Nanyang, China"
+      "min_elevation_deg": 25.0,
+      "name": "Lagos, Nigeria"
     },
     {
       "altitude_m": 0.0,
       "expected_revisit_period_hours": 8.0,
       "id": "target_015",
-      "latitude_deg": 45.5371,
-      "longitude_deg": -122.65,
+      "latitude_deg": 31.5497,
+      "longitude_deg": 74.3436,
       "max_slant_range_m": 1800000.0,
       "min_duration_sec": 30.0,
-      "min_elevation_deg": 20.0,
-      "name": "Portland, United States"
+      "min_elevation_deg": 25.0,
+      "name": "Lahore, Pakistan"
     },
     {
       "altitude_m": 0.0,
       "expected_revisit_period_hours": 8.0,
       "id": "target_016",
-      "latitude_deg": -22.9111,
-      "longitude_deg": -43.2056,
+      "latitude_deg": 40.4169,
+      "longitude_deg": -3.7033,
       "max_slant_range_m": 1800000.0,
       "min_duration_sec": 30.0,
-      "min_elevation_deg": 20.0,
-      "name": "Rio de Janeiro, Brazil"
+      "min_elevation_deg": 25.0,
+      "name": "Madrid, Spain"
     },
     {
       "altitude_m": 0.0,
       "expected_revisit_period_hours": 8.0,
       "id": "target_017",
-      "latitude_deg": 37.5667,
-      "longitude_deg": 126.9833,
+      "latitude_deg": -37.8142,
+      "longitude_deg": 144.9631,
       "max_slant_range_m": 1800000.0,
       "min_duration_sec": 30.0,
-      "min_elevation_deg": 20.0,
-      "name": "Seoul, Korea, South"
+      "min_elevation_deg": 25.0,
+      "name": "Melbourne, Australia"
     },
     {
       "altitude_m": 0.0,
       "expected_revisit_period_hours": 8.0,
       "id": "target_018",
+      "latitude_deg": 19.4333,
+      "longitude_deg": -99.1333,
+      "max_slant_range_m": 1800000.0,
+      "min_duration_sec": 30.0,
+      "min_elevation_deg": 25.0,
+      "name": "Mexico City, Mexico"
+    },
+    {
+      "altitude_m": 0.0,
+      "expected_revisit_period_hours": 8.0,
+      "id": "target_019",
+      "latitude_deg": -17.5334,
+      "longitude_deg": -149.5667,
+      "max_slant_range_m": 1800000.0,
+      "min_duration_sec": 30.0,
+      "min_elevation_deg": 25.0,
+      "name": "Papeete, French Polynesia"
+    },
+    {
+      "altitude_m": 0.0,
+      "expected_revisit_period_hours": 8.0,
+      "id": "target_020",
+      "latitude_deg": 48.8567,
+      "longitude_deg": 2.3522,
+      "max_slant_range_m": 1800000.0,
+      "min_duration_sec": 30.0,
+      "min_elevation_deg": 25.0,
+      "name": "Paris, France"
+    },
+    {
+      "altitude_m": 0.0,
+      "expected_revisit_period_hours": 8.0,
+      "id": "target_021",
+      "latitude_deg": -31.9558,
+      "longitude_deg": 115.8597,
+      "max_slant_range_m": 1800000.0,
+      "min_duration_sec": 30.0,
+      "min_elevation_deg": 25.0,
+      "name": "Perth, Australia"
+    },
+    {
+      "altitude_m": 0.0,
+      "expected_revisit_period_hours": 8.0,
+      "id": "target_022",
+      "latitude_deg": 45.5371,
+      "longitude_deg": -122.65,
+      "max_slant_range_m": 1800000.0,
+      "min_duration_sec": 30.0,
+      "min_elevation_deg": 25.0,
+      "name": "Portland, United States"
+    },
+    {
+      "altitude_m": 0.0,
+      "expected_revisit_period_hours": 8.0,
+      "id": "target_023",
+      "latitude_deg": 24.65,
+      "longitude_deg": 46.71,
+      "max_slant_range_m": 1800000.0,
+      "min_duration_sec": 30.0,
+      "min_elevation_deg": 25.0,
+      "name": "Riyadh, Saudi Arabia"
+    },
+    {
+      "altitude_m": 0.0,
+      "expected_revisit_period_hours": 8.0,
+      "id": "target_024",
+      "latitude_deg": -23.5504,
+      "longitude_deg": -46.6339,
+      "max_slant_range_m": 1800000.0,
+      "min_duration_sec": 30.0,
+      "min_elevation_deg": 25.0,
+      "name": "S\u00e3o Paulo, Brazil"
+    },
+    {
+      "altitude_m": 0.0,
+      "expected_revisit_period_hours": 8.0,
+      "id": "target_025",
       "latitude_deg": 35.6889,
       "longitude_deg": 51.3897,
       "max_slant_range_m": 1800000.0,
       "min_duration_sec": 30.0,
-      "min_elevation_deg": 20.0,
+      "min_elevation_deg": 25.0,
       "name": "Tehran, Iran"
     }
   ]

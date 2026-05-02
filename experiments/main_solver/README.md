@@ -183,16 +183,16 @@ Metric notes:
 
 | method | case | valid | sats | actions | capped_gap_h | solver_s |
 | --- | --- | --- | --- | --- | --- | --- |
-| revisit_constellation_j2_rgt_set_cover | test/case_0001 | true | 18 | 156 | 8 | 342.13 |
-| revisit_constellation_j2_rgt_set_cover | test/case_0002 | true | 15 | 130 | 8 | 311.03 |
-| revisit_constellation_j2_rgt_set_cover | test/case_0003 | true | 9 | 137 | 12.464 | 333.74 |
-| revisit_constellation_j2_rgt_set_cover | test/case_0004 | true | 10 | 81 | 12.000 | 236.03 |
-| revisit_constellation_j2_rgt_set_cover | test/case_0005 | true | 12 | 73 | 13.895 | 241.75 |
-| revisit_constellation_rgt_apc_gap_constructive | test/case_0001 | true | 18 | - | 9.9899 | 543.83 |
-| revisit_constellation_rgt_apc_gap_constructive | test/case_0002 | true | 16 | - | 9.9475 | 525.68 |
-| revisit_constellation_rgt_apc_gap_constructive | test/case_0003 | true | 12 | - | 14.431 | 508.24 |
-| revisit_constellation_rgt_apc_gap_constructive | test/case_0004 | true | 17 | - | 12.410 | 546.40 |
-| revisit_constellation_rgt_apc_gap_constructive | test/case_0005 | true | 17 | - | 12.000 | 540.70 |
+| revisit_constellation_j2_rgt_set_cover | test/case_0001 | true | 16 | 225 | 6 | 138.86 |
+| revisit_constellation_j2_rgt_set_cover | test/case_0002 | true | 15 | 179 | 8 | 120.40 |
+| revisit_constellation_j2_rgt_set_cover | test/case_0003 | true | 20 | 234 | 6 | 378.67 |
+| revisit_constellation_j2_rgt_set_cover | test/case_0004 | true | 15 | 185 | 8 | 162.87 |
+| revisit_constellation_j2_rgt_set_cover | test/case_0005 | true | 20 | 217 | 6 | 148.30 |
+| revisit_constellation_rgt_apc_gap_constructive | test/case_0001 | true | 20 | 250 | 7.3074 | 534.28 |
+| revisit_constellation_rgt_apc_gap_constructive | test/case_0002 | true | 20 | 199 | 9.0287 | 527.49 |
+| revisit_constellation_rgt_apc_gap_constructive | test/case_0003 | true | 20 | 235 | 8.1119 | 557.39 |
+| revisit_constellation_rgt_apc_gap_constructive | test/case_0004 | true | 19 | 181 | 10.160 | 525.10 |
+| revisit_constellation_rgt_apc_gap_constructive | test/case_0005 | true | 20 | 194 | 9.5278 | 526.61 |
 
 Metric notes:
 - `sats` is the submitted constellation size and `actions` is the number of scheduled observations when the solver reports it.
