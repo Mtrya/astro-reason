@@ -6,7 +6,7 @@ Generated from the current `main_agentic` aggregate summaries.
 | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
 | codex | 5 | 5 | 5 | 0 | 0 | normalized_quality=0.5378 | - |
 | kimi_cli | 5 | 4 | 4 | 0 | 0 | normalized_quality=0.0039 | - |
-| opencode_minimax | 1 | 0 | 0 | 0 | 0 | normalized_quality=- | - |
+| opencode_minimax | 5 | 1 | 1 | 1 | 0 | normalized_quality=0.0000 | - |
 | opencode_dpsk | 5 | 4 | 4 | 1 | 0 | normalized_quality=0.1624 | - |
 
 ## codex
@@ -43,4 +43,8 @@ Generated from the current `main_agentic` aggregate summaries.
 
 | Case | Overall | Verifier | Valid | Duration (s) | normalized_quality | coverage_ratio |
 | --- | --- | --- | --- | ---: | ---: | ---: |
+| case_0001 | success | valid | true | 6512.8 | 0.0000 | 0.0000 |
 | case_0002 | verifier_error | error | - | 864.1 | - | - |
+| case_0003 | verifier_error | error | - | 4550.7 | - | - |
+| case_0004 | verifier_error | error | - | 717.0 | - | - |
+| case_0005 | verifier_invalid | invalid | false | 3852.4 | 0.0000 | 0.0000 |

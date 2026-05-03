@@ -16,6 +16,7 @@ benchmarks:
 
 harnesses:
   - claude_code
+  - claude_code_dpsk
   - codex
   - gemini_cli
   - kimi_cli
