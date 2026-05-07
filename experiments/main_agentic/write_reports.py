@@ -10,14 +10,18 @@ from pathlib import Path
 
 if __package__ in (None, ""):
     sys.path.insert(0, str(Path(__file__).resolve().parent))
+    sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
     import plan as family_plan  # type: ignore[no-redef]
+    import plot_radar as radar_scores  # type: ignore[no-redef]
 else:
     from . import plan as family_plan
+    from . import plot_radar as radar_scores
 
 
 FAMILY_DIR = Path(__file__).resolve().parent
 DEFAULT_CONFIG = FAMILY_DIR / "configs" / "matrix.yaml"
 DEFAULT_REPORTS_DIR = FAMILY_DIR / "reports"
+DEFAULT_BASELINES = FAMILY_DIR / "baselines" / "main_solver.yaml"
 STANDARD_RUN_COLUMNS = {
     "config_name",
     "benchmark",
@@ -34,6 +38,10 @@ STANDARD_RUN_COLUMNS = {
     "duration_seconds",
     "start_time",
     "end_time",
+}
+PROCESSED_METRIC_COLUMNS = {
+    "profit_score_pct",
+    "revisit_score_pct",
 }
 BENCHMARK_TITLES = {
     "aeossp_standard": "AEOSSP Standard",
@@ -61,6 +69,12 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         type=Path,
         default=DEFAULT_REPORTS_DIR,
         help="Directory where benchmark report markdown files should be written.",
+    )
+    parser.add_argument(
+        "--baseline-data",
+        type=Path,
+        default=DEFAULT_BASELINES,
+        help="YAML file containing baseline constants for normalized score computation.",
     )
     return parser.parse_args(argv)
 
@@ -107,8 +121,49 @@ def _metric_columns(rows: list[dict[str, str]]) -> list[str]:
     return [
         name
         for name in fieldnames
-        if name not in STANDARD_RUN_COLUMNS and any(row.get(name) not in (None, "") for row in rows)
+        if name not in STANDARD_RUN_COLUMNS
+        and name not in PROCESSED_METRIC_COLUMNS
+        and any(row.get(name) not in (None, "") for row in rows)
     ]
+
+
+def _valid_value(row: dict[str, str]) -> bool:
+    return row.get("valid") == "True"
+
+
+def _normalized_score(
+    *,
+    benchmark: str,
+    row: dict[str, str],
+    baseline_data: dict[str, object],
+) -> float:
+    if not _valid_value(row):
+        return 0.0
+    score = radar_scores._normalized_score_pct(
+        benchmark=benchmark,
+        split=row.get("split", ""),
+        case_id=row.get("case_id", ""),
+        metrics=radar_scores._numeric_row_metrics(row),
+        baseline_data=baseline_data,
+    )
+    return score if score is not None else 0.0
+
+
+def _mean_normalized_score(
+    *,
+    benchmark: str,
+    harness: str,
+    rows: list[dict[str, str]],
+    baseline_data: dict[str, object],
+) -> float | None:
+    scores = [
+        _normalized_score(benchmark=benchmark, row=row, baseline_data=baseline_data)
+        for row in rows
+        if row.get("harness") == harness
+    ]
+    if not scores:
+        return None
+    return sum(scores) / len(scores)
 
 
 def _table(headers: list[str], rows: list[list[str]], *, numeric_from: int = 0) -> list[str]:
@@ -141,6 +196,7 @@ def _write_benchmark_report(
     summary_rows: list[dict[str, str]],
     run_rows: list[dict[str, str]],
     reports_dir: Path,
+    baseline_data: dict[str, object],
 ) -> None:
     title = BENCHMARK_TITLES.get(benchmark, benchmark.replace("_", " ").title())
     present_rows = [row for row in run_rows if row.get("artifact_state") == "present"]
@@ -168,7 +224,7 @@ def _write_benchmark_report(
                 "Invalid",
                 "Timeout",
                 "Primary Mean",
-                "Processed Mean",
+                "Normalized Mean",
             ],
             [
                 [
@@ -183,10 +239,15 @@ def _write_benchmark_report(
                         if row.get("primary_metric_name")
                         else "-"
                     ),
-                    (
-                        f"{row['processed_metric_name']}={_format_value(row.get('processed_metric_mean'))}"
-                        if row.get("processed_metric_name")
-                        else "-"
+                    _format_value(
+                        str(
+                            _mean_normalized_score(
+                                benchmark=benchmark,
+                                harness=row["harness"],
+                                rows=present_rows,
+                                baseline_data=baseline_data,
+                            )
+                        )
                     ),
                 ]
                 for row in benchmark_summary_rows
@@ -199,20 +260,27 @@ def _write_benchmark_report(
     for harness in sorted({row["harness"] for row in present_rows}):
         harness_rows = [row for row in present_rows if row["harness"] == harness]
         lines.extend([f"## {harness}", ""])
-        headers = ["Case", "Overall", "Verifier", "Valid", "Duration (s)", *metric_columns]
+        headers = ["Case", "Valid", "Duration (s)", "Normalized Score", *metric_columns]
         table_rows = []
         for row in sorted(harness_rows, key=lambda item: item["case_id"]):
             table_rows.append(
                 [
                     row["case_id"],
-                    row["overall_status"],
-                    row["verifier_status"],
-                    _format_value(row.get("valid")),
+                    "true" if _valid_value(row) else "false",
                     _format_value(row.get("duration_seconds")),
+                    _format_value(
+                        str(
+                            _normalized_score(
+                                benchmark=benchmark,
+                                row=row,
+                                baseline_data=baseline_data,
+                            )
+                        )
+                    ),
                     *[_format_value(row.get(metric)) for metric in metric_columns],
                 ]
             )
-        lines.extend(_table(headers, table_rows, numeric_from=4))
+        lines.extend(_table(headers, table_rows, numeric_from=2))
         lines.append("")
 
     reports_dir.mkdir(parents=True, exist_ok=True)
@@ -224,6 +292,7 @@ def main(argv: list[str] | None = None) -> int:
     config_path = args.config.resolve()
     summaries_root = _summaries_root(config_path)
     summary_rows = _read_csv(summaries_root / "benchmark_harness_summary.csv")
+    baseline_data = radar_scores._load_baseline_data(args.baseline_data.resolve())
 
     for benchmark_csv in sorted((summaries_root / "benchmarks").glob("*.csv")):
         benchmark = benchmark_csv.stem
@@ -232,6 +301,7 @@ def main(argv: list[str] | None = None) -> int:
             summary_rows=summary_rows,
             run_rows=_read_csv(benchmark_csv),
             reports_dir=args.reports_dir.resolve(),
+            baseline_data=baseline_data,
         )
 
     print(f"Reports written to {args.reports_dir}")

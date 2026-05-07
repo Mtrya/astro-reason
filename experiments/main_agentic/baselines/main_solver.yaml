@@ -1,0 +1,366 @@
+source: experiments/main_solver/README.md
+source_commit: e07f0161ea5d4bb83099ac68131f1a31124c8698
+description: >
+  Main-solver baseline rows copied from the Main Result Matrix tables. Radar
+  plotting computes reader-facing normalized scores from these benchmark-native
+  metrics, then compares main-agentic harness scores against the best normalized
+  solver score for the same benchmark case.
+notes:
+  - Regional Coverage rows include num_actions from a regenerated
+    results/main_solver/summary.json because the README table documents the
+    coverage and battery metrics but omits action count.
+
+normalization:
+  satnet:
+    u_rms_cap: 1.0
+    u_max_cap: 1.0
+  relay_constellation:
+    min_added_satellites: 0
+    latency_cap_ms: 1000.0
+  revisit_constellation:
+    min_satellites: 1
+  regional_coverage:
+    battery_capacity_mode: max_satellite_capacity_wh
+
+rows:
+  - benchmark: spot5
+    method: spot5_reference_lookup
+    split: test
+    case_id: "1021"
+    metrics: {computed_profit: 169243, computed_weight: 200}
+  - benchmark: spot5
+    method: spot5_reference_lookup
+    split: test
+    case_id: "1403"
+    metrics: {computed_profit: 172143, computed_weight: 199}
+  - benchmark: spot5
+    method: spot5_reference_lookup
+    split: test
+    case_id: "1506"
+    metrics: {computed_profit: 164241, computed_weight: 200}
+  - benchmark: spot5
+    method: spot5_reference_lookup
+    split: test
+    case_id: "28"
+    metrics: {computed_profit: 56053, computed_weight: 0}
+  - benchmark: spot5
+    method: spot5_reference_lookup
+    split: test
+    case_id: "8"
+    metrics: {computed_profit: 10, computed_weight: 0}
+
+  - benchmark: satnet
+    method: satnet_milp_claudet2022
+    split: test
+    case_id: W10_2018
+    evidence: citation_reported
+    metrics: {u_rms: 0.26, u_max: 0.479, score_hours: 822, n_satisfied_requests: 203, run_h: 18}
+  - benchmark: satnet
+    method: satnet_milp_claudet2022
+    split: test
+    case_id: W20_2018
+    evidence: citation_reported
+    metrics: {u_rms: 0.21, u_max: 0.641, score_hours: 1059, n_satisfied_requests: 249, run_h: 10.500}
+  - benchmark: satnet
+    method: satnet_milp_claudet2022
+    split: test
+    case_id: W30_2018
+    evidence: citation_reported
+    metrics: {u_rms: 0.29, u_max: 0.643, score_hours: 983, n_satisfied_requests: 231, run_h: 13.500}
+  - benchmark: satnet
+    method: satnet_milp_claudet2022
+    split: test
+    case_id: W40_2018
+    evidence: citation_reported
+    metrics: {u_rms: 0.4, u_max: 1.0, score_hours: 949, n_satisfied_requests: 223, run_h: 22.500}
+  - benchmark: satnet
+    method: satnet_milp_claudet2022
+    split: test
+    case_id: W50_2018
+    evidence: citation_reported
+    metrics: {u_rms: 0.35, u_max: 0.6, score_hours: 816, n_satisfied_requests: 197, run_h: 7.5}
+  - benchmark: satnet
+    method: satnet_rl_ppo_goh2021
+    split: test
+    case_id: W10_2018
+    evidence: citation_reported
+    metrics: {u_rms: 0.28, u_max: 0.71, score_hours: 886, n_satisfied_requests: 204, train_h: 4}
+  - benchmark: satnet
+    method: satnet_rl_ppo_goh2021
+    split: test
+    case_id: W20_2018
+    evidence: citation_reported
+    metrics: {u_rms: 0.27, u_max: 0.81, score_hours: 1000, n_satisfied_requests: 223, train_h: 18}
+  - benchmark: satnet
+    method: satnet_rl_ppo_goh2021
+    split: test
+    case_id: W30_2018
+    evidence: citation_reported
+    metrics: {u_rms: 0.28, u_max: 0.85, score_hours: 1100, n_satisfied_requests: 229, train_h: 13}
+  - benchmark: satnet
+    method: satnet_rl_ppo_goh2021
+    split: test
+    case_id: W40_2018
+    evidence: citation_reported
+    metrics: {u_rms: 0.39, u_max: 0.82, score_hours: 1058, n_satisfied_requests: 216, train_h: 6}
+  - benchmark: satnet
+    method: satnet_rl_ppo_goh2021
+    split: test
+    case_id: W50_2018
+    evidence: citation_reported
+    metrics: {u_rms: 0.36, u_max: 0.67, score_hours: 879, n_satisfied_requests: 185, train_h: 25}
+
+  - benchmark: aeossp_standard
+    method: aeossp_standard_greedy_lns
+    split: test
+    case_id: case_0001
+    metrics: {WCR: 0.6183, CR: 0.6662, TAT: 1118.2, PC: 17313.3, solve_s: 75.456}
+  - benchmark: aeossp_standard
+    method: aeossp_standard_greedy_lns
+    split: test
+    case_id: case_0002
+    metrics: {WCR: 0.6978, CR: 0.7393, TAT: 1120.8, PC: 18804.4, solve_s: 82.712}
+  - benchmark: aeossp_standard
+    method: aeossp_standard_greedy_lns
+    split: test
+    case_id: case_0003
+    metrics: {WCR: 0.6988, CR: 0.7324, TAT: 1150.9, PC: 17408.7, solve_s: 73.521}
+  - benchmark: aeossp_standard
+    method: aeossp_standard_greedy_lns
+    split: test
+    case_id: case_0004
+    metrics: {WCR: 0.6706, CR: 0.7094, TAT: 1140.3, PC: 17715.6, solve_s: 77.502}
+  - benchmark: aeossp_standard
+    method: aeossp_standard_greedy_lns
+    split: test
+    case_id: case_0005
+    metrics: {WCR: 0.7227, CR: 0.7589, TAT: 1111.2, PC: 21240.9, solve_s: 104.31}
+  - benchmark: aeossp_standard
+    method: aeossp_standard_mwis_conflict_graph
+    split: test
+    case_id: case_0001
+    metrics: {WCR: 0.7057, CR: 0.7432, TAT: 1051.1, PC: 18773.7, solve_s: 107.43}
+  - benchmark: aeossp_standard
+    method: aeossp_standard_mwis_conflict_graph
+    split: test
+    case_id: case_0002
+    metrics: {WCR: 0.7763, CR: 0.8057, TAT: 1013.3, PC: 20150.9, solve_s: 144.54}
+  - benchmark: aeossp_standard
+    method: aeossp_standard_mwis_conflict_graph
+    split: test
+    case_id: case_0003
+    metrics: {WCR: 0.7837, CR: 0.8063, TAT: 1021.9, PC: 18710.1, solve_s: 64.606}
+  - benchmark: aeossp_standard
+    method: aeossp_standard_mwis_conflict_graph
+    split: test
+    case_id: case_0004
+    metrics: {WCR: 0.7395, CR: 0.7757, TAT: 1036.2, PC: 18966.2, solve_s: 98.094}
+  - benchmark: aeossp_standard
+    method: aeossp_standard_mwis_conflict_graph
+    split: test
+    case_id: case_0005
+    metrics: {WCR: 0.7858, CR: 0.8168, TAT: 966.60, PC: 22374.9, solve_s: 186.04}
+
+  - benchmark: stereo_imaging
+    method: stereo_imaging_cp_local_search_stereo_insertion
+    split: test
+    case_id: case_0001
+    metrics: {coverage_ratio: 0.9789, normalized_quality: 0.9581, solve_s: 67.004}
+  - benchmark: stereo_imaging
+    method: stereo_imaging_cp_local_search_stereo_insertion
+    split: test
+    case_id: case_0002
+    metrics: {coverage_ratio: 0.9917, normalized_quality: 0.9887, solve_s: 77.642}
+  - benchmark: stereo_imaging
+    method: stereo_imaging_cp_local_search_stereo_insertion
+    split: test
+    case_id: case_0003
+    metrics: {coverage_ratio: 0.9587, normalized_quality: 0.9572, solve_s: 100.67}
+  - benchmark: stereo_imaging
+    method: stereo_imaging_cp_local_search_stereo_insertion
+    split: test
+    case_id: case_0004
+    metrics: {coverage_ratio: 0.9444, normalized_quality: 0.9238, solve_s: 63.700}
+  - benchmark: stereo_imaging
+    method: stereo_imaging_cp_local_search_stereo_insertion
+    split: test
+    case_id: case_0005
+    metrics: {coverage_ratio: 0.9787, normalized_quality: 0.9747, solve_s: 317.79}
+  - benchmark: stereo_imaging
+    method: stereo_imaging_time_window_pruned_stereo_milp
+    split: test
+    case_id: case_0001
+    metrics: {coverage_ratio: 0.9296, normalized_quality: 0.913, solve_s: 100.82}
+  - benchmark: stereo_imaging
+    method: stereo_imaging_time_window_pruned_stereo_milp
+    split: test
+    case_id: case_0002
+    metrics: {coverage_ratio: 0.9917, normalized_quality: 0.9772, solve_s: 83.624}
+  - benchmark: stereo_imaging
+    method: stereo_imaging_time_window_pruned_stereo_milp
+    split: test
+    case_id: case_0003
+    metrics: {coverage_ratio: 0.9421, normalized_quality: 0.9176, solve_s: 88.634}
+  - benchmark: stereo_imaging
+    method: stereo_imaging_time_window_pruned_stereo_milp
+    split: test
+    case_id: case_0004
+    metrics: {coverage_ratio: 0.8968, normalized_quality: 0.8532, solve_s: 83.311}
+  - benchmark: stereo_imaging
+    method: stereo_imaging_time_window_pruned_stereo_milp
+    split: test
+    case_id: case_0005
+    metrics: {coverage_ratio: 0.9574, normalized_quality: 0.9388, solve_s: 88.511}
+
+  - benchmark: relay_constellation
+    method: relay_constellation_mclp_teg_contact_plan
+    split: test
+    case_id: case_0001
+    metrics: {service_fraction: 0.9259, worst_demand_service_fraction: 0.5556, mean_latency_ms: 158.96, latency_p95_ms: 289.55, num_added_satellites: 3, solve_s: 503.04}
+  - benchmark: relay_constellation
+    method: relay_constellation_mclp_teg_contact_plan
+    split: test
+    case_id: case_0002
+    metrics: {service_fraction: 0.9524, worst_demand_service_fraction: 0.6667, mean_latency_ms: 123.49, latency_p95_ms: 220.87, num_added_satellites: 3, solve_s: 514.57}
+  - benchmark: relay_constellation
+    method: relay_constellation_mclp_teg_contact_plan
+    split: test
+    case_id: case_0003
+    metrics: {service_fraction: 0.93, worst_demand_service_fraction: 0.65, mean_latency_ms: 101.51, latency_p95_ms: 177.11, num_added_satellites: 2, solve_s: 521.76}
+  - benchmark: relay_constellation
+    method: relay_constellation_mclp_teg_contact_plan
+    split: test
+    case_id: case_0004
+    metrics: {service_fraction: 0.9444, worst_demand_service_fraction: 0.6667, mean_latency_ms: 100.39, latency_p95_ms: 166.51, num_added_satellites: 3, solve_s: 506.59}
+  - benchmark: relay_constellation
+    method: relay_constellation_mclp_teg_contact_plan
+    split: test
+    case_id: case_0005
+    metrics: {service_fraction: 0.9111, worst_demand_service_fraction: 0.625, mean_latency_ms: 151.25, latency_p95_ms: 232.03, num_added_satellites: 4, solve_s: 503.74}
+  - benchmark: relay_constellation
+    method: relay_constellation_umcf_srr_contact_plan
+    split: test
+    case_id: case_0001
+    metrics: {service_fraction: 0.9241, worst_demand_service_fraction: 0.5444, mean_latency_ms: 156.93, latency_p95_ms: 298.10, num_added_satellites: 3, solve_s: 68.750}
+  - benchmark: relay_constellation
+    method: relay_constellation_umcf_srr_contact_plan
+    split: test
+    case_id: case_0002
+    metrics: {service_fraction: 0.9393, worst_demand_service_fraction: 0.6667, mean_latency_ms: 133.96, latency_p95_ms: 234.08, num_added_satellites: 2, solve_s: 71.955}
+  - benchmark: relay_constellation
+    method: relay_constellation_umcf_srr_contact_plan
+    split: test
+    case_id: case_0003
+    metrics: {service_fraction: 0.9911, worst_demand_service_fraction: 0.9667, mean_latency_ms: 108.60, latency_p95_ms: 191.60, num_added_satellites: 2, solve_s: 70.903}
+  - benchmark: relay_constellation
+    method: relay_constellation_umcf_srr_contact_plan
+    split: test
+    case_id: case_0004
+    metrics: {service_fraction: 0.8893, worst_demand_service_fraction: 0.4133, mean_latency_ms: 109.27, latency_p95_ms: 191.25, num_added_satellites: 2, solve_s: 71.102}
+  - benchmark: relay_constellation
+    method: relay_constellation_umcf_srr_contact_plan
+    split: test
+    case_id: case_0005
+    metrics: {service_fraction: 0.8941, worst_demand_service_fraction: 0.625, mean_latency_ms: 169.92, latency_p95_ms: 342.66, num_added_satellites: 4, solve_s: 72.663}
+
+  - benchmark: revisit_constellation
+    method: revisit_constellation_j2_rgt_set_cover
+    split: test
+    case_id: case_0001
+    metrics: {num_satellites: 16, num_actions: 225, capped_max_revisit_gap_hours: 6, solver_s: 138.86}
+  - benchmark: revisit_constellation
+    method: revisit_constellation_j2_rgt_set_cover
+    split: test
+    case_id: case_0002
+    metrics: {num_satellites: 15, num_actions: 179, capped_max_revisit_gap_hours: 8, solver_s: 120.40}
+  - benchmark: revisit_constellation
+    method: revisit_constellation_j2_rgt_set_cover
+    split: test
+    case_id: case_0003
+    metrics: {num_satellites: 20, num_actions: 234, capped_max_revisit_gap_hours: 6, solver_s: 378.67}
+  - benchmark: revisit_constellation
+    method: revisit_constellation_j2_rgt_set_cover
+    split: test
+    case_id: case_0004
+    metrics: {num_satellites: 15, num_actions: 185, capped_max_revisit_gap_hours: 8, solver_s: 162.87}
+  - benchmark: revisit_constellation
+    method: revisit_constellation_j2_rgt_set_cover
+    split: test
+    case_id: case_0005
+    metrics: {num_satellites: 20, num_actions: 217, capped_max_revisit_gap_hours: 6, solver_s: 148.30}
+  - benchmark: revisit_constellation
+    method: revisit_constellation_rgt_apc_gap_constructive
+    split: test
+    case_id: case_0001
+    metrics: {num_satellites: 20, num_actions: 250, capped_max_revisit_gap_hours: 7.3074, solver_s: 534.28}
+  - benchmark: revisit_constellation
+    method: revisit_constellation_rgt_apc_gap_constructive
+    split: test
+    case_id: case_0002
+    metrics: {num_satellites: 20, num_actions: 199, capped_max_revisit_gap_hours: 9.0287, solver_s: 527.49}
+  - benchmark: revisit_constellation
+    method: revisit_constellation_rgt_apc_gap_constructive
+    split: test
+    case_id: case_0003
+    metrics: {num_satellites: 20, num_actions: 235, capped_max_revisit_gap_hours: 8.1119, solver_s: 557.39}
+  - benchmark: revisit_constellation
+    method: revisit_constellation_rgt_apc_gap_constructive
+    split: test
+    case_id: case_0004
+    metrics: {num_satellites: 19, num_actions: 181, capped_max_revisit_gap_hours: 10.160, solver_s: 525.10}
+  - benchmark: revisit_constellation
+    method: revisit_constellation_rgt_apc_gap_constructive
+    split: test
+    case_id: case_0005
+    metrics: {num_satellites: 20, num_actions: 194, capped_max_revisit_gap_hours: 9.5278, solver_s: 526.61}
+
+  - benchmark: regional_coverage
+    method: regional_coverage_celf_submodular
+    split: test
+    case_id: case_0001
+    metrics: {coverage_ratio: 0.9055332856083976, weighted_coverage_ratio: 0.8977907041071329, num_actions: 64, min_battery_wh: 492.8958333333384, solver_s: 70.3607}
+  - benchmark: regional_coverage
+    method: regional_coverage_celf_submodular
+    split: test
+    case_id: case_0002
+    metrics: {coverage_ratio: 0.9976037091836792, weighted_coverage_ratio: 0.9979400351089733, num_actions: 64, min_battery_wh: 496.67361111111575, solver_s: 75.1555}
+  - benchmark: regional_coverage
+    method: regional_coverage_celf_submodular
+    split: test
+    case_id: case_0003
+    metrics: {coverage_ratio: 0.9470523723999346, weighted_coverage_ratio: 0.9481100795351001, num_actions: 61, min_battery_wh: 493.13194444444946, solver_s: 72.3819}
+  - benchmark: regional_coverage
+    method: regional_coverage_celf_submodular
+    split: test
+    case_id: case_0004
+    metrics: {coverage_ratio: 1.0, weighted_coverage_ratio: 0.9999999999999998, num_actions: 39, min_battery_wh: 496.5555555555602, solver_s: 77.2140}
+  - benchmark: regional_coverage
+    method: regional_coverage_celf_submodular
+    split: test
+    case_id: case_0005
+    metrics: {coverage_ratio: 0.9978499899940338, weighted_coverage_ratio: 0.9976318594639438, num_actions: 44, min_battery_wh: 491.62500000000466, solver_s: 64.1510}
+  - benchmark: regional_coverage
+    method: regional_coverage_cp_local_search
+    split: test
+    case_id: case_0001
+    metrics: {coverage_ratio: 1.0, weighted_coverage_ratio: 1.0, num_actions: 16, min_battery_wh: 492.8958333333384, solver_s: 56.8392}
+  - benchmark: regional_coverage
+    method: regional_coverage_cp_local_search
+    split: test
+    case_id: case_0002
+    metrics: {coverage_ratio: 0.9986353649220631, weighted_coverage_ratio: 0.998883101940679, num_actions: 19, min_battery_wh: 496.67361111111575, solver_s: 57.0387}
+  - benchmark: regional_coverage
+    method: regional_coverage_cp_local_search
+    split: test
+    case_id: case_0003
+    metrics: {coverage_ratio: 0.978109866976869, weighted_coverage_ratio: 0.9776231380048687, num_actions: 39, min_battery_wh: 493.13194444444946, solver_s: 59.9455}
+  - benchmark: regional_coverage
+    method: regional_coverage_cp_local_search
+    split: test
+    case_id: case_0004
+    metrics: {coverage_ratio: 1.0, weighted_coverage_ratio: 0.9999999999999998, num_actions: 12, min_battery_wh: 496.5555555555602, solver_s: 59.5567}
+  - benchmark: regional_coverage
+    method: regional_coverage_cp_local_search
+    split: test
+    case_id: case_0005
+    metrics: {coverage_ratio: 1.0000000000000002, weighted_coverage_ratio: 1.0, num_actions: 9, min_battery_wh: 497.26388888889346, solver_s: 54.0977}

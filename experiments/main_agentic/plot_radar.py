@@ -5,14 +5,16 @@ from __future__ import annotations
 
 import argparse
 import csv
+import functools
 import json
 import math
 import os
-import statistics
 import sys
 import tempfile
 from datetime import datetime
 from pathlib import Path
+
+import yaml
 
 if __package__ in (None, ""):
     sys.path.insert(0, str(Path(__file__).resolve().parent))
@@ -29,93 +31,16 @@ from experiments._shared import score_normalization as score_norm
 FAMILY_DIR = Path(__file__).resolve().parent
 DEFAULT_CONFIG = FAMILY_DIR / "configs" / "matrix.yaml"
 DEFAULT_OUTPUT = FAMILY_DIR / "reports" / "harness_radar.png"
-
-BASELINE_SPECS = {
-    "aeossp_standard": {
-        "agent_metric": "WCR",
-        "direction": "maximize",
-    },
-    "regional_coverage": {
-        "agent_metric": "weighted_coverage_ratio",
-        "direction": "maximize",
-    },
-    "relay_constellation": {
-        "agent_metric": "service_fraction",
-        "direction": "maximize",
-    },
-    "revisit_constellation": {
-        "agent_metric": "revisit_score_pct",
-        "direction": "maximize",
-        "baseline_transform": "revisit_score_pct",
-    },
-    "satnet": {
-        "agent_metric": "u_rms",
-        "direction": "minimize",
-    },
-    "spot5": {
-        "agent_metric": "computed_profit",
-        "direction": "maximize",
-    },
-    "stereo_imaging": {
-        "agent_metric": "normalized_quality",
-        "direction": "maximize",
-    },
-}
-
-# Best per-case traditional-solver baselines from experiments/main_solver.
-# Values are intentionally hardcoded so this plot is stable even if the
-# prose/tables in experiments/main_solver/README.md are later reorganized.
-SOLVER_BASELINES = {
-    "aeossp_standard": {
-        "test/case_0001": 0.7057,
-        "test/case_0002": 0.7763,
-        "test/case_0003": 0.7837,
-        "test/case_0004": 0.7395,
-        "test/case_0005": 0.7858,
-    },
-    "regional_coverage": {
-        "test/case_0001": 1.0,
-        "test/case_0002": 0.9989,
-        "test/case_0003": 0.9776,
-        "test/case_0004": 1.0,
-        "test/case_0005": 1.0,
-    },
-    "relay_constellation": {
-        "test/case_0001": 0.9259,
-        "test/case_0002": 0.9524,
-        "test/case_0003": 0.9911,
-        "test/case_0004": 0.9444,
-        "test/case_0005": 0.9111,
-    },
-    "revisit_constellation": {
-        "test/case_0001": 6.0,
-        "test/case_0002": 8.0,
-        "test/case_0003": 6.0,
-        "test/case_0004": 8.0,
-        "test/case_0005": 6.0,
-    },
-    "satnet": {
-        "test/W10_2018": 0.26,
-        "test/W20_2018": 0.21,
-        "test/W30_2018": 0.28,
-        "test/W40_2018": 0.39,
-        "test/W50_2018": 0.35,
-    },
-    "spot5": {
-        "test/1021": 169243.0,
-        "test/1403": 172143.0,
-        "test/1506": 164241.0,
-        "test/28": 56053.0,
-        "test/8": 10.0,
-    },
-    "stereo_imaging": {
-        "test/case_0001": 0.9581,
-        "test/case_0002": 0.9887,
-        "test/case_0003": 0.9572,
-        "test/case_0004": 0.9238,
-        "test/case_0005": 0.9747,
-    },
-}
+DEFAULT_BASELINES = FAMILY_DIR / "baselines" / "main_solver.yaml"
+BENCHMARK_ORDER = (
+    "aeossp_standard",
+    "regional_coverage",
+    "relay_constellation",
+    "revisit_constellation",
+    "satnet",
+    "spot5",
+    "stereo_imaging",
+)
 
 
 def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
@@ -144,6 +69,12 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         "--no-aggregate",
         action="store_true",
         help="Do not regenerate aggregate summaries when the summary CSV is missing.",
+    )
+    parser.add_argument(
+        "--baseline-data",
+        type=Path,
+        default=DEFAULT_BASELINES,
+        help="YAML file containing main-solver baseline metrics.",
     )
     return parser.parse_args(argv)
 
@@ -184,35 +115,74 @@ def _float_field(row: dict[str, str], key: str) -> float | None:
         return None
 
 
+def _numeric_row_metrics(row: dict[str, str]) -> dict[str, object]:
+    metadata_fields = {
+        "config_name",
+        "benchmark",
+        "harness",
+        "split",
+        "case_id",
+        "result_path",
+        "artifact_state",
+        "mode",
+        "overall_status",
+        "agent_status",
+        "verifier_status",
+        "valid",
+        "start_time",
+        "end_time",
+    }
+    metrics: dict[str, object] = {}
+    for key, value in row.items():
+        if key in metadata_fields or value in (None, ""):
+            continue
+        numeric = _float_field(row, key)
+        if numeric is not None:
+            metrics[key] = numeric
+    return metrics
+
+
 def _parse_iso_datetime(value: str) -> datetime:
     normalized = value[:-1] + "+00:00" if value.endswith("Z") else value
     return datetime.fromisoformat(normalized)
 
 
-def _is_numeric(value: object) -> bool:
-    return isinstance(value, (int, float)) and not isinstance(value, bool)
+def _case_key(split: str, case_id: str) -> str:
+    return f"{split}/{case_id}"
 
 
-def _revisit_solver_score_pct(*, split: str, case_id: str, max_gap_hours: float) -> float | None:
-    mission_path = (
+def _case_dir(*, benchmark: str, split: str, case_id: str) -> Path:
+    return (
         family_plan.REPO_ROOT
         / "benchmarks"
-        / "revisit_constellation"
+        / benchmark
         / "dataset"
         / "cases"
         / split
         / case_id
-        / "mission.json"
     )
+
+
+def _load_json_file(path: Path) -> dict[str, object] | None:
     try:
-        mission = json.loads(mission_path.read_text(encoding="utf-8"))
+        data = json.loads(path.read_text(encoding="utf-8"))
     except (OSError, json.JSONDecodeError):
         return None
-    if not isinstance(mission, dict):
-        return None
+    return data if isinstance(data, dict) else None
 
-    horizon_start = mission.get("horizon_start")
-    horizon_end = mission.get("horizon_end")
+
+def _load_yaml_file(path: Path) -> dict[str, object] | None:
+    try:
+        data = yaml.safe_load(path.read_text(encoding="utf-8"))
+    except (OSError, yaml.YAMLError):
+        return None
+    return data if isinstance(data, dict) else None
+
+
+def _horizon_seconds_from_strings(
+    horizon_start: object,
+    horizon_end: object,
+) -> float | None:
     if not isinstance(horizon_start, str) or not isinstance(horizon_end, str):
         return None
     try:
@@ -220,68 +190,258 @@ def _revisit_solver_score_pct(*, split: str, case_id: str, max_gap_hours: float)
         end = _parse_iso_datetime(horizon_end)
     except ValueError:
         return None
-    horizon_hours = (end - start).total_seconds() / 3600.0
-    if horizon_hours <= 0:
-        return None
+    horizon_seconds = (end - start).total_seconds()
+    return horizon_seconds if horizon_seconds > 0 else None
 
-    targets = mission.get("targets")
-    if not isinstance(targets, list) or not targets:
-        return None
-    target_scores: list[float] = []
-    for target in targets:
-        if not isinstance(target, dict):
+
+def _nested_number(payload: dict[str, object], path: tuple[str, ...]) -> float | None:
+    current: object = payload
+    for part in path:
+        if not isinstance(current, dict) or part not in current:
+            return None
+        current = current[part]
+    return score_norm.to_float(current)
+
+
+def _satellite_resource_models(path: Path) -> list[dict[str, object]]:
+    try:
+        data = yaml.safe_load(path.read_text(encoding="utf-8"))
+    except (OSError, yaml.YAMLError):
+        return []
+    raw_satellites = data.get("satellites", data) if isinstance(data, dict) else data
+    if not isinstance(raw_satellites, list):
+        return []
+    models: list[dict[str, object]] = []
+    for satellite in raw_satellites:
+        if not isinstance(satellite, dict):
             continue
-        expected = target.get("expected_revisit_period_hours")
-        if not _is_numeric(expected):
+        resource_model = satellite.get("resource_model")
+        if isinstance(resource_model, dict):
+            models.append(resource_model)
             continue
-        target_scores.append(
-            score_norm.revisit_target_gap_score_pct(
-                max_gap_hours=max_gap_hours,
-                expected_revisit_hours=float(expected),
-                horizon_hours=horizon_hours,
-            )
+        power_model = satellite.get("power")
+        if isinstance(power_model, dict):
+            models.append(power_model)
+    return models
+
+
+def _satellite_battery_capacities(path: Path) -> list[float]:
+    capacities: list[float] = []
+    for resource_model in _satellite_resource_models(path):
+        capacity = score_norm.to_float(resource_model.get("battery_capacity_wh"))
+        if capacity is not None:
+            capacities.append(capacity)
+    return capacities
+
+
+@functools.lru_cache(maxsize=None)
+def _aeossp_case_constants(split: str, case_id: str) -> dict[str, float]:
+    case_dir = _case_dir(benchmark="aeossp_standard", split=split, case_id=case_id)
+    mission = _load_yaml_file(case_dir / "mission.yaml") or {}
+    mission_payload = (
+        mission.get("mission") if isinstance(mission.get("mission"), dict) else mission
+    )
+    horizon_seconds = (
+        _horizon_seconds_from_strings(
+            mission_payload.get("horizon_start"),
+            mission_payload.get("horizon_end"),
         )
-    if not target_scores:
-        return None
-    return statistics.mean(target_scores)
+        if isinstance(mission_payload, dict)
+        else None
+    )
+    battery_capacities = _satellite_battery_capacities(case_dir / "satellites.yaml")
+    constants: dict[str, float] = {}
+    if horizon_seconds is not None:
+        constants["horizon_seconds"] = horizon_seconds
+    if battery_capacities:
+        constants["case_energy_budget"] = sum(battery_capacities)
+    return constants
 
 
-def _case_keys(split: str, case_id: str) -> tuple[str, ...]:
-    return (f"{split}/{case_id}", case_id)
+@functools.lru_cache(maxsize=None)
+def _regional_case_constants(split: str, case_id: str) -> dict[str, float]:
+    case_dir = _case_dir(benchmark="regional_coverage", split=split, case_id=case_id)
+    manifest = _load_json_file(case_dir / "manifest.json") or {}
+    max_actions = _nested_number(manifest, ("scoring", "max_actions_total"))
+    battery_capacities = _satellite_battery_capacities(case_dir / "satellites.yaml")
+    constants: dict[str, float] = {}
+    if max_actions is not None:
+        constants["max_actions_total"] = max_actions
+    if battery_capacities:
+        constants["battery_capacity_wh"] = max(battery_capacities)
+    return constants
 
 
-def _case_baseline(
+@functools.lru_cache(maxsize=None)
+def _relay_case_constants(split: str, case_id: str) -> dict[str, float]:
+    case_dir = _case_dir(benchmark="relay_constellation", split=split, case_id=case_id)
+    manifest = _load_json_file(case_dir / "manifest.json") or {}
+    max_added = _nested_number(manifest, ("constraints", "max_added_satellites"))
+    return {"max_added_satellites": max_added} if max_added is not None else {}
+
+
+@functools.lru_cache(maxsize=None)
+def _revisit_case_constants(split: str, case_id: str) -> dict[str, float]:
+    case_dir = _case_dir(benchmark="revisit_constellation", split=split, case_id=case_id)
+    mission = _load_json_file(case_dir / "mission.json") or {}
+    assets = _load_json_file(case_dir / "assets.json") or {}
+    horizon_seconds = _horizon_seconds_from_strings(
+        mission.get("horizon_start"),
+        mission.get("horizon_end"),
+    )
+    expected_values: list[float] = []
+    targets = mission.get("targets")
+    if isinstance(targets, list):
+        for target in targets:
+            if isinstance(target, dict):
+                expected = score_norm.to_float(
+                    target.get("expected_revisit_period_hours")
+                )
+                if expected is not None:
+                    expected_values.append(expected)
+    max_satellites = score_norm.to_float(assets.get("max_num_satellites"))
+    constants: dict[str, float] = {}
+    if horizon_seconds is not None:
+        constants["horizon_hours"] = horizon_seconds / 3600.0
+    if expected_values:
+        constants["expected_revisit_hours"] = sum(expected_values) / len(expected_values)
+    if max_satellites is not None:
+        constants["max_satellites"] = max_satellites
+    return constants
+
+
+def _load_baseline_data(path: Path) -> dict[str, object]:
+    data = _load_yaml_file(path)
+    if data is None:
+        raise SystemExit(f"Baseline data must be a YAML mapping: {path}")
+    if not isinstance(data.get("rows"), list):
+        raise SystemExit(f"Baseline data must contain a rows list: {path}")
+    return data
+
+
+def _baseline_rows(baseline_data: dict[str, object]) -> list[dict[str, object]]:
+    rows = baseline_data.get("rows")
+    if not isinstance(rows, list):
+        return []
+    return [row for row in rows if isinstance(row, dict)]
+
+
+def _normalization_config(
+    baseline_data: dict[str, object],
+    benchmark: str,
+) -> dict[str, object]:
+    normalization = baseline_data.get("normalization")
+    if not isinstance(normalization, dict):
+        return {}
+    config = normalization.get(benchmark)
+    return config if isinstance(config, dict) else {}
+
+
+def _case_total_possible_profit(
+    baseline_data: dict[str, object],
+    *,
+    split: str,
+    case_id: str,
+) -> float | None:
+    best_profit: float | None = None
+    for row in _baseline_rows(baseline_data):
+        if (
+            row.get("benchmark") != "spot5"
+            or row.get("split") != split
+            or str(row.get("case_id")) != case_id
+        ):
+            continue
+        metrics = row.get("metrics")
+        if not isinstance(metrics, dict):
+            continue
+        profit = score_norm.to_float(metrics.get("computed_profit"))
+        if profit is not None:
+            best_profit = profit if best_profit is None else max(best_profit, profit)
+    return best_profit
+
+
+def _normalized_score_pct(
     *,
     benchmark: str,
     split: str,
     case_id: str,
-    transform: str | None = None,
+    metrics: dict[str, object],
+    baseline_data: dict[str, object],
 ) -> float | None:
-    benchmark_baselines = SOLVER_BASELINES.get(benchmark, {})
-    for key in _case_keys(split, case_id):
-        if key in benchmark_baselines:
-            baseline = benchmark_baselines[key]
-            if transform == "revisit_score_pct":
-                return _revisit_solver_score_pct(
-                    split=split,
-                    case_id=case_id,
-                    max_gap_hours=baseline,
-                )
-            return baseline
+    if benchmark == "aeossp_standard":
+        constants = _aeossp_case_constants(split, case_id)
+        return score_norm.aeossp_standard_score_pct(
+            wcr=metrics.get("WCR"),
+            cr=metrics.get("CR"),
+            tat=metrics.get("TAT"),
+            pc=metrics.get("PC"),
+            horizon_seconds=constants.get("horizon_seconds"),
+            case_energy_budget=constants.get("case_energy_budget"),
+        )
+    if benchmark == "regional_coverage":
+        constants = _regional_case_constants(split, case_id)
+        return score_norm.regional_coverage_score_pct(
+            weighted_coverage_ratio=metrics.get("weighted_coverage_ratio"),
+            coverage_ratio=metrics.get("coverage_ratio"),
+            num_actions=metrics.get("num_actions"),
+            min_battery_wh=metrics.get("min_battery_wh"),
+            max_actions_total=constants.get("max_actions_total"),
+            battery_capacity_wh=constants.get("battery_capacity_wh"),
+        )
+    if benchmark == "relay_constellation":
+        constants = _relay_case_constants(split, case_id)
+        config = _normalization_config(baseline_data, benchmark)
+        return score_norm.relay_constellation_score_pct(
+            service_fraction=metrics.get("service_fraction"),
+            worst_demand_service_fraction=metrics.get("worst_demand_service_fraction"),
+            num_added_satellites=metrics.get("num_added_satellites"),
+            mean_latency_ms=metrics.get("mean_latency_ms"),
+            latency_p95_ms=metrics.get("latency_p95_ms"),
+            min_added_satellites=config.get("min_added_satellites"),
+            max_added_satellites=constants.get("max_added_satellites"),
+            latency_cap_ms=config.get("latency_cap_ms"),
+        )
+    if benchmark == "revisit_constellation":
+        constants = _revisit_case_constants(split, case_id)
+        max_gap = score_norm.to_float(metrics.get("capped_max_revisit_gap_hours"))
+        expected = constants.get("expected_revisit_hours")
+        horizon = constants.get("horizon_hours")
+        if max_gap is None or expected is None or horizon is None:
+            return None
+        gap_score = score_norm.revisit_target_gap_score(
+            max_gap_hours=max_gap,
+            expected_revisit_hours=expected,
+            horizon_hours=horizon,
+        )
+        config = _normalization_config(baseline_data, benchmark)
+        return score_norm.revisit_constellation_score_pct(
+            gap_score=gap_score,
+            num_satellites=metrics.get("num_satellites"),
+            min_satellites=config.get("min_satellites"),
+            max_satellites=constants.get("max_satellites"),
+        )
+    if benchmark == "satnet":
+        config = _normalization_config(baseline_data, benchmark)
+        return score_norm.satnet_score_pct(
+            u_rms=metrics.get("u_rms"),
+            u_max=metrics.get("u_max"),
+            u_rms_cap=config.get("u_rms_cap"),
+            u_max_cap=config.get("u_max_cap"),
+        )
+    if benchmark == "spot5":
+        return score_norm.spot5_score_pct(
+            computed_profit=metrics.get("computed_profit"),
+            total_possible_profit=_case_total_possible_profit(
+                baseline_data,
+                split=split,
+                case_id=case_id,
+            ),
+        )
+    if benchmark == "stereo_imaging":
+        return score_norm.stereo_imaging_score_pct(
+            normalized_quality=metrics.get("normalized_quality"),
+        )
     return None
-
-
-def _case_score_pct(
-    *,
-    value: float,
-    baseline: float,
-    direction: str,
-) -> float | None:
-    return score_norm.score_against_baseline_pct(
-        value=value,
-        baseline=baseline,
-        direction=direction,
-    )
 
 
 def _mean(values: list[float]) -> float | None:
@@ -290,9 +450,42 @@ def _mean(values: list[float]) -> float | None:
     return sum(values) / len(values)
 
 
-def _load_scores(summaries_root: Path) -> tuple[list[str], dict[str, dict[str, float]]]:
+def _best_solver_scores_by_case(
+    baseline_data: dict[str, object],
+) -> dict[str, dict[str, float]]:
+    scores: dict[str, dict[str, float]] = {}
+    for row in _baseline_rows(baseline_data):
+        benchmark = row.get("benchmark")
+        split = row.get("split")
+        case_id = row.get("case_id")
+        metrics = row.get("metrics")
+        if not isinstance(benchmark, str) or not isinstance(split, str):
+            continue
+        if case_id is None or not isinstance(metrics, dict):
+            continue
+        normalized_score = _normalized_score_pct(
+            benchmark=benchmark,
+            split=split,
+            case_id=str(case_id),
+            metrics=metrics,
+            baseline_data=baseline_data,
+        )
+        if normalized_score is None or normalized_score <= 0:
+            continue
+        case_key = _case_key(split, str(case_id))
+        current = scores.setdefault(benchmark, {}).get(case_key)
+        if current is None or normalized_score > current:
+            scores[benchmark][case_key] = normalized_score
+    return scores
+
+
+def _load_scores(
+    summaries_root: Path,
+    baseline_data: dict[str, object],
+) -> tuple[list[str], dict[str, dict[str, float]]]:
+    best_solver_scores = _best_solver_scores_by_case(baseline_data)
     scores_by_harness_benchmark: dict[str, dict[str, list[float]]] = {}
-    for benchmark, spec in BASELINE_SPECS.items():
+    for benchmark in BENCHMARK_ORDER:
         csv_path = summaries_root / "benchmarks" / f"{benchmark}.csv"
         if not csv_path.exists():
             continue
@@ -301,26 +494,19 @@ def _load_scores(summaries_root: Path) -> tuple[list[str], dict[str, dict[str, f
                 if row.get("valid") != "True":
                     score = 0.0
                 else:
-                    metric_value = _float_field(row, str(spec["agent_metric"]))
-                    baseline = _case_baseline(
+                    normalized_score = _normalized_score_pct(
                         benchmark=benchmark,
                         split=row.get("split", ""),
                         case_id=row.get("case_id", ""),
-                        transform=(
-                            str(spec["baseline_transform"])
-                            if "baseline_transform" in spec
-                            else None
-                        ),
+                        metrics=_numeric_row_metrics(row),
+                        baseline_data=baseline_data,
                     )
-                    if metric_value is None or baseline is None:
-                        continue
-                    score = _case_score_pct(
-                        value=metric_value,
-                        baseline=baseline,
-                        direction=str(spec["direction"]),
+                    baseline = best_solver_scores.get(benchmark, {}).get(
+                        _case_key(row.get("split", ""), row.get("case_id", ""))
                     )
-                    if score is None:
+                    if normalized_score is None or baseline is None or baseline <= 0:
                         continue
+                    score = 100.0 * normalized_score / baseline
                 scores_by_harness_benchmark.setdefault(row["harness"], {}).setdefault(
                     benchmark, []
                 ).append(score)
@@ -332,7 +518,9 @@ def _load_scores(summaries_root: Path) -> tuple[list[str], dict[str, dict[str, f
             if mean_score is not None:
                 scores.setdefault(harness, {})[benchmark] = mean_score
     benchmarks = [
-        benchmark for benchmark in BASELINE_SPECS if any(benchmark in item for item in scores.values())
+        benchmark
+        for benchmark in BENCHMARK_ORDER
+        if any(benchmark in item for item in scores.values())
     ]
     return benchmarks, scores
 
@@ -410,7 +598,8 @@ def main(argv: list[str] | None = None) -> int:
     args = parse_args(argv)
     config_path = args.config.resolve()
     _ensure_summary_csv(config_path, no_aggregate=args.no_aggregate)
-    benchmarks, scores = _load_scores(_summaries_root(config_path))
+    baseline_data = _load_baseline_data(args.baseline_data.resolve())
+    benchmarks, scores = _load_scores(_summaries_root(config_path), baseline_data)
     selected_scores = _selected_scores(scores, list(args.harness))
     _plot_radar(
         benchmarks=benchmarks,
