@@ -83,13 +83,17 @@ def test_spot5_reference_profit_uses_computed_fixture_profit() -> None:
     assert aggregate._spot5_reference_profit("test", "1021") == 169243
 
 
-def test_spot5_profit_score_normalizes_against_reference_profit() -> None:
+def test_spot5_max_profit_uses_unconstrained_case_profit() -> None:
+    assert aggregate._spot5_max_profit("test", "8") == 12
+
+
+def test_spot5_profit_score_normalizes_against_max_profit() -> None:
     score = aggregate._spot5_profit_score_pct(
         _item("spot5", "8"),
         {"metrics": {"computed_profit": 5}},
     )
 
-    assert score == pytest.approx(50.0)
+    assert score == pytest.approx(100.0 * 5 / 12)
 
 
 def test_group_summary_processed_metric_mean_includes_invalid_zero() -> None:

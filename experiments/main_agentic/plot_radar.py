@@ -337,29 +337,6 @@ def _normalization_config(
     return config if isinstance(config, dict) else {}
 
 
-def _case_total_possible_profit(
-    baseline_data: dict[str, object],
-    *,
-    split: str,
-    case_id: str,
-) -> float | None:
-    best_profit: float | None = None
-    for row in _baseline_rows(baseline_data):
-        if (
-            row.get("benchmark") != "spot5"
-            or row.get("split") != split
-            or str(row.get("case_id")) != case_id
-        ):
-            continue
-        metrics = row.get("metrics")
-        if not isinstance(metrics, dict):
-            continue
-        profit = score_norm.to_float(metrics.get("computed_profit"))
-        if profit is not None:
-            best_profit = profit if best_profit is None else max(best_profit, profit)
-    return best_profit
-
-
 def _normalized_score_pct(
     *,
     benchmark: str,
@@ -431,11 +408,7 @@ def _normalized_score_pct(
     if benchmark == "spot5":
         return score_norm.spot5_score_pct(
             computed_profit=metrics.get("computed_profit"),
-            total_possible_profit=_case_total_possible_profit(
-                baseline_data,
-                split=split,
-                case_id=case_id,
-            ),
+            total_possible_profit=family_aggregate._spot5_max_profit(split, case_id),
         )
     if benchmark == "stereo_imaging":
         return score_norm.stereo_imaging_score_pct(
@@ -583,8 +556,7 @@ def _plot_radar(
     ax.set_xticklabels(labels, fontsize=9)
     ax.set_ylim(0, radial_max)
     ax.set_yticks([tick for tick in (25, 50, 75, 100) if tick <= radial_max])
-    ax.set_yticklabels([str(tick) for tick in ax.get_yticks()], fontsize=8)
-    ax.set_title("Main Agentic Harness Radar vs Best Main Solver", pad=24)
+    ax.set_yticklabels([f"{tick:g}%" for tick in ax.get_yticks()], fontsize=8)
     ax.legend(loc="upper right", bbox_to_anchor=(1.28, 1.12), frameon=False)
     ax.grid(True, alpha=0.35)
 

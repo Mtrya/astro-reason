@@ -6,6 +6,9 @@ description: >
   metrics, then compares main-agentic harness scores against the best normalized
   solver score for the same benchmark case.
 notes:
+  - SPOT5 normalized_score divides computed_profit by the unconstrained
+    max_profit for the case, computed as the sum of candidate profits in the
+    .spot instance file.
   - Regional Coverage rows include num_actions from a regenerated
     results/main_solver/summary.json because the README table documents the
     coverage and battery metrics but omits action count.

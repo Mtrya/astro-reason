@@ -254,18 +254,22 @@ def _spot5_reference_profit(split: str, case_id: str) -> int | None:
     return sum(profit for profit, assignment in zip(profits, assignments) if assignment != 0)
 
 
+def _spot5_max_profit(split: str, case_id: str) -> int | None:
+    profits = _spot5_case_profits(split, case_id)
+    return None if profits is None else sum(profits)
+
+
 def _spot5_profit_score_pct(item: family_plan.RunItem, verifier_payload: dict[str, Any]) -> float | None:
     metrics = verifier_payload.get("metrics")
     if not isinstance(metrics, dict):
         return None
     computed_profit = _coerce_numeric(metrics.get("computed_profit"))
-    reference_profit = _spot5_reference_profit(item.split, item.case_id)
-    if computed_profit is None or reference_profit is None or reference_profit <= 0:
+    max_profit = _spot5_max_profit(item.split, item.case_id)
+    if computed_profit is None or max_profit is None or max_profit <= 0:
         return None
     return score_norm.spot5_score_pct(
         computed_profit=computed_profit,
-        total_possible_profit=reference_profit,
-        clip=False,
+        total_possible_profit=max_profit,
     )
 
 
