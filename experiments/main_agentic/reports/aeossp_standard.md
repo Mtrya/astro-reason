@@ -7,7 +7,7 @@ Generated from the current `main_agentic` aggregate summaries.
 | codex | 5 | 5 | 5 | 0 | 0 | WCR=0.7075 | 72.91 |
 | kimi_cli | 5 | 5 | 5 | 0 | 0 | WCR=0.6923 | 72.03 |
 | opencode_minimax | 5 | 5 | 5 | 0 | 0 | WCR=0.2008 | 36.44 |
-| opencode_dpsk | 5 | 5 | 5 | 0 | 0 | WCR=0.5618 | 64.24 |
+| opencode_dpsk | 5 | 5 | 5 | 0 | 0 | WCR=0.6820 | 71.44 |
 
 ## codex
 
@@ -34,7 +34,7 @@ Generated from the current `main_agentic` aggregate summaries.
 | Case | Valid | Duration (s) | Normalized Score | WCR | CR | TAT | PC |
 | --- | --- | ---: | ---: | ---: | ---: | ---: | ---: |
 | case_0001 | true | 3947.2 | 67.09 | 0.6201 | 0.6559 | 984.0 | 17523.0 |
-| case_0002 | true | 2859.4 | 37.70 | 0.1136 | 0.0776 | 1234.9 | 8372.5 |
+| case_0002 | true | 7082.5 | 73.70 | 0.7150 | 0.7393 | 935.2 | 19302.8 |
 | case_0003 | true | 5314.2 | 70.77 | 0.6675 | 0.6865 | 988.9 | 17036.8 |
 | case_0004 | true | 3372.0 | 70.92 | 0.6789 | 0.7126 | 1092.8 | 18052.6 |
 | case_0005 | true | 4366.7 | 74.73 | 0.7287 | 0.7563 | 934.8 | 21445.9 |

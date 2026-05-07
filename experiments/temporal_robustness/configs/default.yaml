@@ -3,7 +3,6 @@ mode: batch
 
 benchmark: aeossp_standard
 splits:
-  - test
   - test_horizon_2022
 cases:
   - case_0001

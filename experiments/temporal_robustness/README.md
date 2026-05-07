@@ -20,11 +20,13 @@ The default matrix runs:
 
 Both split families expose the same problem description, prompt, Brahe skill, opaque verifier helper, runtime image, and harness-specific config style. The official verifier still runs outside the solving workspace.
 
-Interpret `paired_deltas.csv` as case-matched movement from the baseline horizon
-to the shifted horizon for each harness. Similar performance across the paired
-splits weakens the concern that results are driven by memorized epoch-specific
-inputs. Large drops should be inspected before interpretation, since they may
-reflect either real horizon sensitivity or a brittle implementation path.
+Interpret results as split-level aggregate movement rather than case-matched
+deltas. The two splits reuse labels such as `case_0001`, but those labels are
+split-scoped: `test/case_0001` and `test_horizon_2022/case_0001` are different
+benchmark cases. Similar aggregate performance across splits weakens the
+concern that results are driven by memorized epoch-specific inputs. Large drops
+should be inspected before interpretation, since they may reflect either real
+horizon sensitivity or a brittle implementation path.
 
 ## Run
 
@@ -63,4 +65,4 @@ Batch artifacts live under:
 results/agent_runs/experiments/temporal_robustness/<config>/<split>/aeossp_standard/<harness>/<case>/
 ```
 
-Aggregation writes `summary.json`, `runs.csv`, and `paired_deltas.csv` under the configured summaries directory.
+Aggregation writes `summary.json` and `runs.csv` under the configured summaries directory.

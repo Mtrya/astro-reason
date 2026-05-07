@@ -179,19 +179,22 @@ def _records(config: dict[str, Any], config_path: Path) -> list[dict[str, Any]]:
 
 def _summary(rows: list[dict[str, Any]]) -> dict[str, Any]:
     by_split: dict[str, Any] = {}
-    by_harness: dict[str, Any] = {}
+    by_harness_split: dict[str, Any] = {}
     for split in sorted({str(row["split"]) for row in rows}):
         split_rows = [row for row in rows if row["split"] == split]
         by_split[split] = _group_summary(split_rows)
     for harness in sorted({str(row["harness"]) for row in rows}):
-        harness_rows = [row for row in rows if row["harness"] == harness]
-        by_harness[harness] = _group_summary(harness_rows)
+        for split in sorted({str(row["split"]) for row in rows}):
+            group_rows = [
+                row for row in rows if row["harness"] == harness and row["split"] == split
+            ]
+            by_harness_split[f"{harness}/{split}"] = _group_summary(group_rows)
     return {
-        "schema_version": 1,
+        "schema_version": 2,
         "experiment": "temporal_robustness",
         "generated_at": datetime.now(timezone.utc).isoformat(),
         "by_split": by_split,
-        "by_harness": by_harness,
+        "by_harness_split": by_harness_split,
     }
 
 
@@ -211,52 +214,6 @@ def _group_summary(rows: list[dict[str, Any]]) -> dict[str, Any]:
     }
 
 
-def _paired_split_family(config: dict[str, Any], config_path: Path) -> tuple[str, str]:
-    splits = config.get("splits")
-    if not isinstance(splits, list) or len(splits) != 2 or any(not isinstance(split, str) for split in splits):
-        raise SystemExit(
-            f"Temporal robustness aggregation requires exactly two configured splits: {config_path}"
-        )
-    return splits[0], splits[1]
-
-
-def _paired_deltas(
-    rows: list[dict[str, Any]],
-    *,
-    baseline_split: str,
-    shifted_split: str,
-) -> list[dict[str, Any]]:
-    by_key = {
-        (str(row["harness"]), str(row["split"]), str(row["case_id"])): row
-        for row in rows
-    }
-    harnesses = sorted({str(row["harness"]) for row in rows})
-    case_ids = sorted({str(row["case_id"]) for row in rows})
-    deltas: list[dict[str, Any]] = []
-    for harness in harnesses:
-        for case_id in case_ids:
-            baseline = by_key.get((harness, baseline_split, case_id))
-            shifted = by_key.get((harness, shifted_split, case_id))
-            row: dict[str, Any] = {
-                "harness": harness,
-                "case_id": case_id,
-                "baseline_status": baseline.get("overall_status") if baseline else "missing_artifact",
-                "shifted_status": shifted.get("overall_status") if shifted else "missing_artifact",
-            }
-            for metric in METRICS:
-                baseline_value = baseline.get(metric) if baseline else None
-                shifted_value = shifted.get(metric) if shifted else None
-                row[f"baseline_{metric}"] = baseline_value
-                row[f"shifted_{metric}"] = shifted_value
-                row[f"delta_{metric}"] = (
-                    shifted_value - baseline_value
-                    if isinstance(baseline_value, float) and isinstance(shifted_value, float)
-                    else None
-                )
-            deltas.append(row)
-    return deltas
-
-
 def _write_csv(path: Path, rows: list[dict[str, Any]], fieldnames: list[str]) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     with path.open("w", encoding="utf-8", newline="") as handle:
@@ -272,8 +229,6 @@ def main(argv: list[str] | None = None) -> int:
     config = _load_config(config_path)
     rows = _records(config, config_path)
     summary = _summary(rows)
-    baseline_split, shifted_split = _paired_split_family(config, config_path)
-    deltas = _paired_deltas(rows, baseline_split=baseline_split, shifted_split=shifted_split)
     aggregate_dir = _aggregate_dir(config, config_path)
     aggregate_dir.mkdir(parents=True, exist_ok=True)
     (aggregate_dir / "summary.json").write_text(
@@ -294,14 +249,9 @@ def main(argv: list[str] | None = None) -> int:
         *METRICS,
         "result_path",
     ]
-    delta_fields = ["harness", "case_id", "baseline_status", "shifted_status"]
-    for metric in METRICS:
-        delta_fields.extend([f"baseline_{metric}", f"shifted_{metric}", f"delta_{metric}"])
     _write_csv(aggregate_dir / "runs.csv", rows, run_fields)
-    _write_csv(aggregate_dir / "paired_deltas.csv", deltas, delta_fields)
     print(f"Wrote {_display_path(aggregate_dir / 'summary.json')}")
     print(f"Wrote {_display_path(aggregate_dir / 'runs.csv')}")
-    print(f"Wrote {_display_path(aggregate_dir / 'paired_deltas.csv')}")
     return 0
 
 
