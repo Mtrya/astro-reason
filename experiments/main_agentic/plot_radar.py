@@ -16,11 +16,14 @@ from pathlib import Path
 
 if __package__ in (None, ""):
     sys.path.insert(0, str(Path(__file__).resolve().parent))
+    sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
     import aggregate as family_aggregate  # type: ignore[no-redef]
     import plan as family_plan  # type: ignore[no-redef]
 else:
     from . import aggregate as family_aggregate
     from . import plan as family_plan
+
+from experiments._shared import score_normalization as score_norm
 
 
 FAMILY_DIR = Path(__file__).resolve().parent
@@ -232,7 +235,7 @@ def _revisit_solver_score_pct(*, split: str, case_id: str, max_gap_hours: float)
         if not _is_numeric(expected):
             continue
         target_scores.append(
-            family_aggregate._revisit_target_score_pct(
+            score_norm.revisit_target_gap_score_pct(
                 max_gap_hours=max_gap_hours,
                 expected_revisit_hours=float(expected),
                 horizon_hours=horizon_hours,
@@ -274,13 +277,11 @@ def _case_score_pct(
     baseline: float,
     direction: str,
 ) -> float | None:
-    if baseline <= 0 or value < 0:
-        return None
-    if direction == "maximize":
-        return 100.0 * value / baseline
-    if value <= 0:
-        return None
-    return 100.0 * baseline / value
+    return score_norm.score_against_baseline_pct(
+        value=value,
+        baseline=baseline,
+        direction=direction,
+    )
 
 
 def _mean(values: list[float]) -> float | None:

@@ -18,15 +18,17 @@ import yaml
 
 if __package__ in (None, ""):
     sys.path.insert(0, str(Path(__file__).resolve().parent))
+    sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
     import plan as family_plan  # type: ignore[no-redef]
 else:
     from . import plan as family_plan
+
+from experiments._shared import score_normalization as score_norm
 
 
 FAMILY_DIR = Path(__file__).resolve().parent
 DEFAULT_CONFIG = FAMILY_DIR / "configs" / "matrix.yaml"
 SUMMARY_VERSION = 2
-REVISIT_SCORE_POWER = 2.0
 
 
 def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
@@ -151,16 +153,11 @@ def _revisit_target_score_pct(
     expected_revisit_hours: float,
     horizon_hours: float,
 ) -> float:
-    if max_gap_hours >= horizon_hours:
-        return 0.0
-    if max_gap_hours <= expected_revisit_hours:
-        return 100.0
-    denominator = horizon_hours - expected_revisit_hours
-    if denominator <= 0:
-        return 0.0
-    ratio = (horizon_hours - max_gap_hours) / denominator
-    ratio = min(1.0, max(0.0, ratio))
-    return 100.0 * (ratio ** REVISIT_SCORE_POWER)
+    return score_norm.revisit_target_gap_score_pct(
+        max_gap_hours=max_gap_hours,
+        expected_revisit_hours=expected_revisit_hours,
+        horizon_hours=horizon_hours,
+    )
 
 
 def _revisit_score_pct(item: family_plan.RunItem, verifier_payload: dict[str, Any]) -> float | None:
@@ -174,24 +171,15 @@ def _revisit_score_pct(item: family_plan.RunItem, verifier_payload: dict[str, An
     if not isinstance(target_gap_summary, dict) or not target_gap_summary:
         return None
 
-    target_scores: list[float] = []
-    for target_summary in target_gap_summary.values():
-        if not isinstance(target_summary, dict):
-            continue
-        max_gap = _coerce_numeric(target_summary.get("max_revisit_gap_hours"))
-        expected = _coerce_numeric(target_summary.get("expected_revisit_period_hours"))
-        if max_gap is None or expected is None:
-            continue
-        target_scores.append(
-            _revisit_target_score_pct(
-                max_gap_hours=float(max_gap),
-                expected_revisit_hours=float(expected),
-                horizon_hours=horizon_hours,
-            )
-        )
-    if not target_scores:
-        return None
-    return statistics.mean(target_scores)
+    target_summaries = [
+        target_summary
+        for target_summary in target_gap_summary.values()
+        if isinstance(target_summary, dict)
+    ]
+    return score_norm.revisit_gap_score_pct_from_target_summaries(
+        target_summaries,
+        horizon_hours=horizon_hours,
+    )
 
 
 def _spot5_case_file(split: str, case_id: str) -> Path:
@@ -274,7 +262,11 @@ def _spot5_profit_score_pct(item: family_plan.RunItem, verifier_payload: dict[st
     reference_profit = _spot5_reference_profit(item.split, item.case_id)
     if computed_profit is None or reference_profit is None or reference_profit <= 0:
         return None
-    return 100.0 * (float(computed_profit) / reference_profit)
+    return score_norm.spot5_score_pct(
+        computed_profit=computed_profit,
+        total_possible_profit=reference_profit,
+        clip=False,
+    )
 
 
 def _processed_metrics_for_run(
