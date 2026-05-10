@@ -2675,7 +2675,7 @@
           "weight_m2": 25000000.0
         },
         {
-          "latitude_deg": 27.86809791389965,
+          "latitude_deg": 27.868097913899646,
           "longitude_deg": -92.9532945387557,
           "sample_id": "gulf_of_mexico_s000446",
           "weight_m2": 25000000.0
@@ -3420,7 +3420,7 @@
         },
         {
           "latitude_deg": 27.779450703467212,
-          "longitude_deg": -92.79984238182746,
+          "longitude_deg": -92.79984238182747,
           "sample_id": "gulf_of_mexico_s000570",
           "weight_m2": 25000000.0
         },
@@ -8117,7 +8117,7 @@
           "weight_m2": 25000000.0
         },
         {
-          "latitude_deg": 26.386074511466187,
+          "latitude_deg": 26.38607451146618,
           "longitude_deg": -92.03108970515149,
           "sample_id": "gulf_of_mexico_s001353",
           "weight_m2": 25000000.0
@@ -8291,7 +8291,7 @@
           "weight_m2": 25000000.0
         },
         {
-          "latitude_deg": 27.69466448438396,
+          "latitude_deg": 27.694664484383964,
           "longitude_deg": -92.03838215510817,
           "sample_id": "gulf_of_mexico_s001382",
           "weight_m2": 25000000.0
@@ -8765,7 +8765,7 @@
           "weight_m2": 7962613.916515322
         },
         {
-          "latitude_deg": 25.799790081747815,
+          "latitude_deg": 25.799790081747812,
           "longitude_deg": -91.92823397936809,
           "sample_id": "gulf_of_mexico_s001461",
           "weight_m2": 24990911.536549374
@@ -10661,7 +10661,7 @@
           "weight_m2": 25000000.0
         },
         {
-          "latitude_deg": 25.93588500247916,
+          "latitude_deg": 25.935885002479157,
           "longitude_deg": -91.67928213511543,
           "sample_id": "gulf_of_mexico_s001777",
           "weight_m2": 25000000.0
@@ -10955,7 +10955,7 @@
           "weight_m2": 25000000.0
         },
         {
-          "latitude_deg": 28.14701527408378,
+          "latitude_deg": 28.147015274083785,
           "longitude_deg": -91.68470522381116,
           "sample_id": "gulf_of_mexico_s001826",
           "weight_m2": 25000000.0
@@ -14873,7 +14873,7 @@
           "weight_m2": 25000000.0
         },
         {
-          "latitude_deg": 25.93588500247916,
+          "latitude_deg": 25.935885002479157,
           "longitude_deg": -91.13024166488458,
           "sample_id": "gulf_of_mexico_s002479",
           "weight_m2": 25000000.0
@@ -15167,7 +15167,7 @@
           "weight_m2": 25000000.0
         },
         {
-          "latitude_deg": 28.14701527408378,
+          "latitude_deg": 28.147015274083785,
           "longitude_deg": -91.12481857618884,
           "sample_id": "gulf_of_mexico_s002528",
           "weight_m2": 25000000.0
@@ -17459,7 +17459,7 @@
           "weight_m2": 25000000.0
         },
         {
-          "latitude_deg": 26.386074511466187,
+          "latitude_deg": 26.38607451146618,
           "longitude_deg": -90.77843409484852,
           "sample_id": "gulf_of_mexico_s002910",
           "weight_m2": 25000000.0
@@ -17633,7 +17633,7 @@
           "weight_m2": 25000000.0
         },
         {
-          "latitude_deg": 27.69466448438396,
+          "latitude_deg": 27.694664484383964,
           "longitude_deg": -90.77114164489184,
           "sample_id": "gulf_of_mexico_s002939",
           "weight_m2": 25000000.0
@@ -22608,7 +22608,7 @@
         },
         {
           "latitude_deg": 27.779450703467212,
-          "longitude_deg": -90.00968141817255,
+          "longitude_deg": -90.00968141817253,
           "sample_id": "gulf_of_mexico_s003768",
           "weight_m2": 25000000.0
         },
@@ -23285,7 +23285,7 @@
           "weight_m2": 25000000.0
         },
         {
-          "latitude_deg": 26.19871262237197,
+          "latitude_deg": 26.198712622371975,
           "longitude_deg": -89.87892778437461,
           "sample_id": "gulf_of_mexico_s003881",
           "weight_m2": 25000000.0
@@ -25811,7 +25811,7 @@
           "weight_m2": 1264594.944025603
         },
         {
-          "latitude_deg": 26.189281708072055,
+          "latitude_deg": 26.189281708072063,
           "longitude_deg": -89.12912822459924,
           "sample_id": "gulf_of_mexico_s004302",
           "weight_m2": 24237076.486387037
@@ -26664,7 +26664,7 @@
         },
         {
           "latitude_deg": 41.757765863965545,
-          "longitude_deg": 30.389854134890086,
+          "longitude_deg": 30.38985413489009,
           "sample_id": "black_sea_s000123",
           "weight_m2": 25000000.0
         },
@@ -26795,7 +26795,7 @@
           "weight_m2": 25000000.0
         },
         {
-          "latitude_deg": 42.0296465930329,
+          "latitude_deg": 42.029646593032915,
           "longitude_deg": 30.432484345354453,
           "sample_id": "black_sea_s000145",
           "weight_m2": 25000000.0
@@ -27702,7 +27702,7 @@
         },
         {
           "latitude_deg": 42.35889683889959,
-          "longitude_deg": 30.83633357103143,
+          "longitude_deg": 30.83633357103144,
           "sample_id": "black_sea_s000296",
           "weight_m2": 25000000.0
         },
@@ -28260,13 +28260,13 @@
         },
         {
           "latitude_deg": 41.871934556522724,
-          "longitude_deg": 31.10607979651128,
+          "longitude_deg": 31.106079796511274,
           "sample_id": "black_sea_s000389",
           "weight_m2": 25000000.0
         },
         {
           "latitude_deg": 41.91690270907596,
-          "longitude_deg": 31.103639850959738,
+          "longitude_deg": 31.103639850959745,
           "sample_id": "black_sea_s000390",
           "weight_m2": 25000000.0
         },
@@ -28644,7 +28644,7 @@
         },
         {
           "latitude_deg": 42.14535596922975,
-          "longitude_deg": 31.2122675097436,
+          "longitude_deg": 31.212267509743604,
           "sample_id": "black_sea_s000453",
           "weight_m2": 25000000.0
         },
@@ -29022,7 +29022,7 @@
         },
         {
           "latitude_deg": 42.148848308413264,
-          "longitude_deg": 31.33318198044031,
+          "longitude_deg": 31.33318198044032,
           "sample_id": "black_sea_s000516",
           "weight_m2": 25000000.0
         },
@@ -29352,7 +29352,7 @@
         },
         {
           "latitude_deg": 41.61247765883007,
-          "longitude_deg": 31.480316783671107,
+          "longitude_deg": 31.480316783671103,
           "sample_id": "black_sea_s000571",
           "weight_m2": 25000000.0
         },
@@ -29880,7 +29880,7 @@
         },
         {
           "latitude_deg": 42.380332600913476,
-          "longitude_deg": 31.564360741895133,
+          "longitude_deg": 31.56436074189514,
           "sample_id": "black_sea_s000659",
           "weight_m2": 25000000.0
         },
@@ -30756,7 +30756,7 @@
         },
         {
           "latitude_deg": 42.02658529221814,
-          "longitude_deg": 31.822791502815324,
+          "longitude_deg": 31.82279150281532,
           "sample_id": "black_sea_s000805",
           "weight_m2": 25000000.0
         },
@@ -31530,7 +31530,7 @@
         },
         {
           "latitude_deg": 42.255741723691266,
-          "longitude_deg": 31.994739683407456,
+          "longitude_deg": 31.994739683407463,
           "sample_id": "black_sea_s000934",
           "weight_m2": 25000000.0
         },
@@ -35471,7 +35471,7 @@
           "weight_m2": 3024862.4443261656
         },
         {
-          "latitude_deg": 41.3443235094997,
+          "latitude_deg": 41.34432350949971,
           "longitude_deg": 32.92390124409498,
           "sample_id": "black_sea_s001591",
           "weight_m2": 5947251.47840727
@@ -37584,7 +37584,7 @@
         },
         {
           "latitude_deg": 41.827907241826885,
-          "longitude_deg": 33.33655821643556,
+          "longitude_deg": 33.33655821643557,
           "sample_id": "black_sea_s001943",
           "weight_m2": 25000000.0
         },
@@ -38459,7 +38459,7 @@
           "weight_m2": 25000000.0
         },
         {
-          "latitude_deg": 41.7396949839154,
+          "latitude_deg": 41.739694983915385,
           "longitude_deg": 33.5185874580289,
           "sample_id": "black_sea_s002089",
           "weight_m2": 25000000.0
@@ -41322,7 +41322,7 @@
         },
         {
           "latitude_deg": 42.553650412295525,
-          "longitude_deg": 34.05295836359475,
+          "longitude_deg": 34.052958363594755,
           "sample_id": "black_sea_s002566",
           "weight_m2": 25000000.0
         },
@@ -46740,7 +46740,7 @@
         },
         {
           "latitude_deg": 42.553650412295525,
-          "longitude_deg": 35.08792983640526,
+          "longitude_deg": 35.08792983640525,
           "sample_id": "black_sea_s003469",
           "weight_m2": 25000000.0
         },
@@ -49601,7 +49601,7 @@
           "weight_m2": 25000000.0
         },
         {
-          "latitude_deg": 44.12549417237909,
+          "latitude_deg": 44.125494172379085,
           "longitude_deg": 35.601144899209125,
           "sample_id": "black_sea_s003946",
           "weight_m2": 25000000.0
@@ -49619,7 +49619,7 @@
           "weight_m2": 10807761.471045889
         },
         {
-          "latitude_deg": 41.7396949839154,
+          "latitude_deg": 41.739694983915385,
           "longitude_deg": 35.62230074197111,
           "sample_id": "black_sea_s003949",
           "weight_m2": 25000000.0
@@ -50652,7 +50652,7 @@
         },
         {
           "latitude_deg": 41.827907241826885,
-          "longitude_deg": 35.80432998356444,
+          "longitude_deg": 35.804329983564436,
           "sample_id": "black_sea_s004121",
           "weight_m2": 25000000.0
         },
@@ -57030,7 +57030,7 @@
         },
         {
           "latitude_deg": 42.93576694342325,
-          "longitude_deg": 36.929147103621645,
+          "longitude_deg": 36.92914710362164,
           "sample_id": "black_sea_s005184",
           "weight_m2": 25000000.0
         },
@@ -58224,7 +58224,7 @@
         },
         {
           "latitude_deg": 42.255741723691266,
-          "longitude_deg": 37.146148516592554,
+          "longitude_deg": 37.14614851659255,
           "sample_id": "black_sea_s005383",
           "weight_m2": 25000000.0
         },
@@ -59352,7 +59352,7 @@
         },
         {
           "latitude_deg": 44.25395023821534,
-          "longitude_deg": 37.38864588691707,
+          "longitude_deg": 37.388645886917075,
           "sample_id": "black_sea_s005571",
           "weight_m2": 6953.754229934507
         },
@@ -60324,7 +60324,7 @@
         },
         {
           "latitude_deg": 43.95425888392949,
-          "longitude_deg": 37.65451319595458,
+          "longitude_deg": 37.65451319595457,
           "sample_id": "black_sea_s005733",
           "weight_m2": 25000000.0
         },
@@ -60936,7 +60936,7 @@
         },
         {
           "latitude_deg": 43.63444695470732,
-          "longitude_deg": 37.824238100242106,
+          "longitude_deg": 37.82423810024211,
           "sample_id": "black_sea_s005835",
           "weight_m2": 25000000.0
         },
@@ -60972,7 +60972,7 @@
         },
         {
           "latitude_deg": 43.90420965244317,
-          "longitude_deg": 37.83881945111414,
+          "longitude_deg": 37.838819451114134,
           "sample_id": "black_sea_s005841",
           "weight_m2": 25000000.0
         },
@@ -61074,7 +61074,7 @@
         },
         {
           "latitude_deg": 43.18308621163714,
-          "longitude_deg": 37.86181187848114,
+          "longitude_deg": 37.861811878481134,
           "sample_id": "black_sea_s005858",
           "weight_m2": 25000000.0
         },
@@ -61758,7 +61758,7 @@
         },
         {
           "latitude_deg": 43.130864557362884,
-          "longitude_deg": 38.1050712829653,
+          "longitude_deg": 38.10507128296529,
           "sample_id": "black_sea_s005972",
           "weight_m2": 25000000.0
         },
@@ -62867,7 +62867,7 @@
           "weight_m2": 25000000.0
         },
         {
-          "latitude_deg": 43.24301276014572,
+          "latitude_deg": 43.24301276014571,
           "longitude_deg": 38.789631241623006,
           "sample_id": "black_sea_s006157",
           "weight_m2": 25000000.0

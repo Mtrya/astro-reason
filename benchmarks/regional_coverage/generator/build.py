@@ -9,13 +9,13 @@ import shutil
 from collections import Counter
 from dataclasses import asdict, dataclass
 from datetime import UTC, datetime, timedelta
+from functools import lru_cache
 from pathlib import Path
 from typing import Any
 
 import yaml
-from pyproj import CRS, Geod, Transformer
-from shapely.geometry import Polygon, box, mapping, shape
-from shapely.ops import transform
+from pyproj import Geod
+from shapely.geometry import Polygon, mapping, shape
 
 from .cached_satellites import CACHED_SATELLITES
 
@@ -24,6 +24,7 @@ SUPPORTED_CELESTRAK_SNAPSHOT_EPOCH_UTC = "2025-07-17T00:00:00Z"
 WGS84_GEOD = Geod(ellps="WGS84")
 _EARTH_MEAN_RADIUS_M = 6_371_008.8
 _REGION_LIBRARY_PATH = Path(__file__).with_name("region_library.geojson")
+_GRID_CACHE_PATH = Path(__file__).with_name("grid_cache") / "coverage_grids_5000m.json"
 
 
 @dataclass(frozen=True)
@@ -233,10 +234,77 @@ def _datetime_at(base_start: datetime, hour_offset: int) -> datetime:
     return base_start + timedelta(hours=hour_offset)
 
 
-def _ring_area_m2(poly: Polygon) -> float:
-    lon, lat = poly.exterior.xy
-    area_m2, _ = WGS84_GEOD.polygon_area_perimeter(lon, lat)
-    return abs(area_m2)
+@lru_cache(maxsize=1)
+def _load_coverage_grid_cache() -> dict[str, Any]:
+    try:
+        payload = json.loads(_GRID_CACHE_PATH.read_text(encoding="utf-8"))
+    except FileNotFoundError as exc:
+        raise FileNotFoundError(f"missing regional coverage grid cache: {_GRID_CACHE_PATH}") from exc
+    cache = _require_mapping(payload, "coverage grid cache")
+    if _require_int(cache, "cache_version", "coverage grid cache") != 1:
+        raise ValueError("coverage grid cache.cache_version must be 1")
+    return cache
+
+
+def _cached_region_area_m2(region_id: str) -> float:
+    cache = _load_coverage_grid_cache()
+    areas = _require_mapping(cache.get("region_areas_m2"), "coverage grid cache.region_areas_m2")
+    if region_id not in areas:
+        raise ValueError(f"coverage grid cache is missing area for {region_id}")
+    return _require_float(areas, region_id, "coverage grid cache.region_areas_m2")
+
+
+def _cached_region_grid(region_id: str, sample_spacing_m: float) -> RegionCoverageGrid:
+    cache = _load_coverage_grid_cache()
+    cached_spacing = _require_float(cache, "sample_spacing_m", "coverage grid cache")
+    if cached_spacing != sample_spacing_m:
+        raise ValueError(
+            "coverage grid cache sample spacing does not match split config: "
+            f"{cached_spacing} != {sample_spacing_m}"
+        )
+    regions = _require_mapping(cache.get("regions"), "coverage grid cache.regions")
+    if region_id not in regions:
+        raise ValueError(f"coverage grid cache is missing grid for {region_id}")
+    payload = _require_mapping(regions[region_id], f"coverage grid cache.regions.{region_id}")
+    sample_payloads = _require_sequence(
+        payload.get("samples"),
+        f"coverage grid cache.regions.{region_id}.samples",
+    )
+    samples: list[GridSample] = []
+    for sample in sample_payloads:
+        sample_payload = _require_mapping(sample, f"coverage grid cache.regions.{region_id}.sample")
+        sample_id = sample_payload.get("sample_id")
+        if not isinstance(sample_id, str) or not sample_id:
+            raise ValueError(f"coverage grid cache.regions.{region_id}.sample_id must be a non-empty string")
+        samples.append(
+            GridSample(
+                sample_id=sample_id,
+                longitude_deg=_require_float(
+                    sample_payload,
+                    "longitude_deg",
+                    f"coverage grid cache.regions.{region_id}.sample",
+                ),
+                latitude_deg=_require_float(
+                    sample_payload,
+                    "latitude_deg",
+                    f"coverage grid cache.regions.{region_id}.sample",
+                ),
+                weight_m2=_require_float(
+                    sample_payload,
+                    "weight_m2",
+                    f"coverage grid cache.regions.{region_id}.sample",
+                ),
+            )
+        )
+    return RegionCoverageGrid(
+        region_id=region_id,
+        total_weight_m2=_require_float(
+            payload,
+            "total_weight_m2",
+            f"coverage grid cache.regions.{region_id}",
+        ),
+        samples=tuple(samples),
+    )
 
 
 def _angular_distance_deg(region_a: RegionRecord, region_b: RegionRecord) -> float:
@@ -249,17 +317,15 @@ def _angular_distance_deg(region_a: RegionRecord, region_b: RegionRecord) -> flo
     return math.degrees(distance_m / _EARTH_MEAN_RADIUS_M)
 
 
-def _region_crs(region: RegionRecord) -> CRS:
-    return CRS.from_proj4(
-        "+proj=laea +lat_0={lat:.8f} +lon_0={lon:.8f} +datum=WGS84 +units=m +no_defs".format(
-            lat=region.centroid_lat,
-            lon=region.centroid_lon,
-        )
-    )
-
-
 def _load_region_library() -> tuple[RegionRecord, ...]:
     raw = json.loads(_REGION_LIBRARY_PATH.read_text(encoding="utf-8"))
+    cache = _load_coverage_grid_cache()
+    cached_regions = set(_require_mapping(cache.get("regions"), "coverage grid cache.regions"))
+    cached_areas = set(_require_mapping(cache.get("region_areas_m2"), "coverage grid cache.region_areas_m2"))
+    region_ids = {str(feature["properties"]["region_id"]) for feature in raw["features"]}
+    if cached_regions != region_ids or cached_areas != region_ids:
+        raise ValueError("coverage grid cache must contain exactly the region library regions")
+
     records: list[RegionRecord] = []
     for feature in raw["features"]:
         region_id = str(feature["properties"]["region_id"])
@@ -270,7 +336,7 @@ def _load_region_library() -> tuple[RegionRecord, ...]:
         bounds = polygon.bounds
         if bounds[2] - bounds[0] >= 180.0:
             raise ValueError(f"Region {region_id} appears to cross the antimeridian.")
-        area_m2 = _ring_area_m2(polygon)
+        area_m2 = _cached_region_area_m2(region_id)
         centroid = polygon.centroid
         records.append(
             RegionRecord(
@@ -344,44 +410,7 @@ def _region_feature(region: RegionRecord) -> dict[str, Any]:
 
 
 def _generate_region_grid(region: RegionRecord, sample_spacing_m: float) -> RegionCoverageGrid:
-    local_crs = _region_crs(region)
-    to_local = Transformer.from_crs("EPSG:4326", local_crs, always_xy=True)
-    to_lonlat = Transformer.from_crs(local_crs, "EPSG:4326", always_xy=True)
-    projected_poly = transform(to_local.transform, region.polygon_lonlat)
-    min_x, min_y, max_x, max_y = projected_poly.bounds
-    start_x = math.floor(min_x / sample_spacing_m) * sample_spacing_m
-    start_y = math.floor(min_y / sample_spacing_m) * sample_spacing_m
-    end_x = math.ceil(max_x / sample_spacing_m) * sample_spacing_m
-    end_y = math.ceil(max_y / sample_spacing_m) * sample_spacing_m
-
-    samples: list[GridSample] = []
-    sample_counter = 0
-    x = start_x
-    while x < end_x:
-        y = start_y
-        while y < end_y:
-            cell = box(x, y, x + sample_spacing_m, y + sample_spacing_m)
-            clipped = projected_poly.intersection(cell)
-            if not clipped.is_empty and clipped.area > 0.0:
-                centroid = clipped.centroid
-                lon, lat = to_lonlat.transform(float(centroid.x), float(centroid.y))
-                sample_counter += 1
-                samples.append(
-                    GridSample(
-                        sample_id=f"{region.region_id}_s{sample_counter:06d}",
-                        longitude_deg=float(lon),
-                        latitude_deg=float(lat),
-                        weight_m2=float(clipped.area),
-                    )
-                )
-            y += sample_spacing_m
-        x += sample_spacing_m
-    total_weight_m2 = sum(sample.weight_m2 for sample in samples)
-    return RegionCoverageGrid(
-        region_id=region.region_id,
-        total_weight_m2=total_weight_m2,
-        samples=tuple(samples),
-    )
+    return _cached_region_grid(region.region_id, sample_spacing_m)
 
 
 def _coverage_grid_payload(grids: tuple[RegionCoverageGrid, ...], sample_spacing_m: float) -> dict[str, Any]:

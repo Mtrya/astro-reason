@@ -2544,7 +2544,7 @@
         },
         {
           "latitude_deg": 8.856609005537647,
-          "longitude_deg": 42.88911592833113,
+          "longitude_deg": 42.88911592833114,
           "sample_id": "horn_of_africa_s000424",
           "weight_m2": 25000000.0
         },
@@ -4049,7 +4049,7 @@
           "weight_m2": 25000000.0
         },
         {
-          "latitude_deg": 9.761305242518493,
+          "latitude_deg": 9.76130524251849,
           "longitude_deg": 43.06802757693758,
           "sample_id": "horn_of_africa_s000675",
           "weight_m2": 25000000.0
@@ -9707,8 +9707,8 @@
           "weight_m2": 25000000.0
         },
         {
-          "latitude_deg": 7.050110898871294,
-          "longitude_deg": 43.66438152991888,
+          "latitude_deg": 7.050110898871293,
+          "longitude_deg": 43.66438152991887,
           "sample_id": "horn_of_africa_s001618",
           "weight_m2": 25000000.0
         },
@@ -11231,7 +11231,7 @@
           "weight_m2": 25000000.0
         },
         {
-          "latitude_deg": 6.914631608922046,
+          "latitude_deg": 6.914631608922047,
           "longitude_deg": 43.80027000946328,
           "sample_id": "horn_of_africa_s001872",
           "weight_m2": 25000000.0
@@ -20417,7 +20417,7 @@
           "weight_m2": 25000000.0
         },
         {
-          "latitude_deg": 6.914631608922046,
+          "latitude_deg": 6.914631608922047,
           "longitude_deg": 44.65980603053672,
           "sample_id": "horn_of_africa_s003403",
           "weight_m2": 25000000.0
@@ -21773,8 +21773,8 @@
           "weight_m2": 25000000.0
         },
         {
-          "latitude_deg": 7.050110898871294,
-          "longitude_deg": 44.79569451008113,
+          "latitude_deg": 7.050110898871293,
+          "longitude_deg": 44.795694510081134,
           "sample_id": "horn_of_africa_s003629",
           "weight_m2": 25000000.0
         },
@@ -27215,7 +27215,7 @@
           "weight_m2": 25000000.0
         },
         {
-          "latitude_deg": 7.274927380222717,
+          "latitude_deg": 7.274927380222719,
           "longitude_deg": 45.38458367332173,
           "sample_id": "horn_of_africa_s004536",
           "weight_m2": 25000000.0
@@ -27545,7 +27545,7 @@
           "weight_m2": 25000000.0
         },
         {
-          "latitude_deg": 9.761305242518493,
+          "latitude_deg": 9.76130524251849,
           "longitude_deg": 45.39204846306243,
           "sample_id": "horn_of_africa_s004591",
           "weight_m2": 25000000.0
@@ -28968,7 +28968,7 @@
         },
         {
           "latitude_deg": 8.856609005537647,
-          "longitude_deg": 45.570960111668875,
+          "longitude_deg": 45.57096011166887,
           "sample_id": "horn_of_africa_s004828",
           "weight_m2": 25000000.0
         },
@@ -31830,7 +31830,7 @@
         },
         {
           "latitude_deg": 22.2837159261236,
-          "longitude_deg": 22.01281775286483,
+          "longitude_deg": 22.012817752864827,
           "sample_id": "sahara_east_s000007",
           "weight_m2": 12984641.167488225
         },
@@ -32514,7 +32514,7 @@
         },
         {
           "latitude_deg": 22.736554882771017,
-          "longitude_deg": 22.0903152854548,
+          "longitude_deg": 22.090315285454796,
           "sample_id": "sahara_east_s000121",
           "weight_m2": 25000000.0
         },
@@ -33311,8 +33311,8 @@
           "weight_m2": 25000000.0
         },
         {
-          "latitude_deg": 22.692881181084562,
-          "longitude_deg": 22.188434353657314,
+          "latitude_deg": 22.69288118108456,
+          "longitude_deg": 22.18843435365731,
           "sample_id": "sahara_east_s000254",
           "weight_m2": 25000000.0
         },
@@ -33521,7 +33521,7 @@
           "weight_m2": 25000000.0
         },
         {
-          "latitude_deg": 24.272537239769346,
+          "latitude_deg": 24.272537239769353,
           "longitude_deg": 22.16077308738454,
           "sample_id": "sahara_east_s000289",
           "weight_m2": 25000000.0
@@ -33762,7 +33762,7 @@
         },
         {
           "latitude_deg": 23.054688280578976,
-          "longitude_deg": 22.23107648496314,
+          "longitude_deg": 22.231076484963143,
           "sample_id": "sahara_east_s000329",
           "weight_m2": 25000000.0
         },
@@ -34014,7 +34014,7 @@
         },
         {
           "latitude_deg": 24.950202430665804,
-          "longitude_deg": 22.197808063349857,
+          "longitude_deg": 22.197808063349854,
           "sample_id": "sahara_east_s000371",
           "weight_m2": 25000000.0
         },
@@ -34872,7 +34872,7 @@
         },
         {
           "latitude_deg": 22.33449214711023,
-          "longitude_deg": 22.388624070858633,
+          "longitude_deg": 22.388624070858636,
           "sample_id": "sahara_east_s000514",
           "weight_m2": 25000000.0
         },
@@ -35178,7 +35178,7 @@
         },
         {
           "latitude_deg": 24.63640785819172,
-          "longitude_deg": 22.351700924899127,
+          "longitude_deg": 22.35170092489913,
           "sample_id": "sahara_east_s000565",
           "weight_m2": 25000000.0
         },
@@ -35790,7 +35790,7 @@
         },
         {
           "latitude_deg": 23.19344183242822,
-          "longitude_deg": 22.472998300520135,
+          "longitude_deg": 22.472998300520132,
           "sample_id": "sahara_east_s000667",
           "weight_m2": 25000000.0
         },
@@ -38976,7 +38976,7 @@
         },
         {
           "latitude_deg": 22.97229626210825,
-          "longitude_deg": 22.86647011660285,
+          "longitude_deg": 22.866470116602848,
           "sample_id": "sahara_east_s001198",
           "weight_m2": 25000000.0
         },
@@ -42822,7 +42822,7 @@
         },
         {
           "latitude_deg": 24.691628003996293,
-          "longitude_deg": 23.289585053142215,
+          "longitude_deg": 23.28958505314222,
           "sample_id": "sahara_east_s001839",
           "weight_m2": 25000000.0
         },
@@ -43236,7 +43236,7 @@
         },
         {
           "latitude_deg": 24.782280747245466,
-          "longitude_deg": 23.338161714724606,
+          "longitude_deg": 23.33816171472461,
           "sample_id": "sahara_east_s001908",
           "weight_m2": 25000000.0
         },
@@ -48101,7 +48101,7 @@
           "weight_m2": 19540953.77077785
         },
         {
-          "latitude_deg": 22.07691920136456,
+          "latitude_deg": 22.076919201364557,
           "longitude_deg": 23.99133697553714,
           "sample_id": "sahara_east_s002719",
           "weight_m2": 25000000.0
@@ -48479,7 +48479,7 @@
           "weight_m2": 25000000.0
         },
         {
-          "latitude_deg": 24.92116299520072,
+          "latitude_deg": 24.921162995200724,
           "longitude_deg": 23.98031997712665,
           "sample_id": "sahara_east_s002782",
           "weight_m2": 25000000.0
@@ -49319,7 +49319,7 @@
           "weight_m2": 25000000.0
         },
         {
-          "latitude_deg": 22.167634390647695,
+          "latitude_deg": 22.1676343906477,
           "longitude_deg": 24.13643454440398,
           "sample_id": "sahara_east_s002922",
           "weight_m2": 25000000.0
@@ -49673,7 +49673,7 @@
           "weight_m2": 25000000.0
         },
         {
-          "latitude_deg": 24.831302552312927,
+          "latitude_deg": 24.831302552312923,
           "longitude_deg": 24.12906531009578,
           "sample_id": "sahara_east_s002981",
           "weight_m2": 25000000.0
@@ -55349,7 +55349,7 @@
           "weight_m2": 25000000.0
         },
         {
-          "latitude_deg": 22.167634390647695,
+          "latitude_deg": 22.1676343906477,
           "longitude_deg": 24.86356545559602,
           "sample_id": "sahara_east_s003927",
           "weight_m2": 25000000.0
@@ -55703,7 +55703,7 @@
           "weight_m2": 25000000.0
         },
         {
-          "latitude_deg": 24.831302552312927,
+          "latitude_deg": 24.831302552312923,
           "longitude_deg": 24.87093468990422,
           "sample_id": "sahara_east_s003986",
           "weight_m2": 25000000.0
@@ -56543,7 +56543,7 @@
           "weight_m2": 19540953.77077785
         },
         {
-          "latitude_deg": 22.07691920136456,
+          "latitude_deg": 22.076919201364557,
           "longitude_deg": 25.00866302446286,
           "sample_id": "sahara_east_s004126",
           "weight_m2": 25000000.0
@@ -56921,7 +56921,7 @@
           "weight_m2": 25000000.0
         },
         {
-          "latitude_deg": 24.92116299520072,
+          "latitude_deg": 24.921162995200724,
           "longitude_deg": 25.019680022873345,
           "sample_id": "sahara_east_s004189",
           "weight_m2": 25000000.0
@@ -62130,7 +62130,7 @@
         },
         {
           "latitude_deg": 24.782280747245466,
-          "longitude_deg": 25.661838285275394,
+          "longitude_deg": 25.66183828527539,
           "sample_id": "sahara_east_s005057",
           "weight_m2": 25000000.0
         },
@@ -62520,7 +62520,7 @@
         },
         {
           "latitude_deg": 24.691628003996293,
-          "longitude_deg": 25.710414946857785,
+          "longitude_deg": 25.71041494685778,
           "sample_id": "sahara_east_s005122",
           "weight_m2": 25000000.0
         },
@@ -65910,7 +65910,7 @@
         },
         {
           "latitude_deg": 22.97229626210825,
-          "longitude_deg": 26.13352988339715,
+          "longitude_deg": 26.133529883397152,
           "sample_id": "sahara_east_s005687",
           "weight_m2": 25000000.0
         },
@@ -69156,7 +69156,7 @@
         },
         {
           "latitude_deg": 23.19344183242822,
-          "longitude_deg": 26.527001699479865,
+          "longitude_deg": 26.527001699479868,
           "sample_id": "sahara_east_s006228",
           "weight_m2": 25000000.0
         },
@@ -69846,7 +69846,7 @@
         },
         {
           "latitude_deg": 22.33449214711023,
-          "longitude_deg": 26.611375929141367,
+          "longitude_deg": 26.611375929141364,
           "sample_id": "sahara_east_s006343",
           "weight_m2": 25000000.0
         },
@@ -70152,7 +70152,7 @@
         },
         {
           "latitude_deg": 24.63640785819172,
-          "longitude_deg": 26.64829907510087,
+          "longitude_deg": 26.648299075100866,
           "sample_id": "sahara_east_s006394",
           "weight_m2": 25000000.0
         },
@@ -71400,7 +71400,7 @@
         },
         {
           "latitude_deg": 24.950202430665804,
-          "longitude_deg": 26.80219193665014,
+          "longitude_deg": 26.802191936650143,
           "sample_id": "sahara_east_s006602",
           "weight_m2": 25000000.0
         },
@@ -71501,8 +71501,8 @@
           "weight_m2": 25000000.0
         },
         {
-          "latitude_deg": 22.692881181084562,
-          "longitude_deg": 26.811565646342686,
+          "latitude_deg": 22.69288118108456,
+          "longitude_deg": 26.81156564634269,
           "sample_id": "sahara_east_s006619",
           "weight_m2": 25000000.0
         },
@@ -71711,7 +71711,7 @@
           "weight_m2": 25000000.0
         },
         {
-          "latitude_deg": 24.272537239769346,
+          "latitude_deg": 24.272537239769353,
           "longitude_deg": 26.839226912615455,
           "sample_id": "sahara_east_s006654",
           "weight_m2": 25000000.0
@@ -74459,7 +74459,7 @@
           "weight_m2": 25000000.0
         },
         {
-          "latitude_deg": -1.0291924137191129,
+          "latitude_deg": -1.0291924137191126,
           "longitude_deg": -63.90916198981945,
           "sample_id": "amazon_north_s000203",
           "weight_m2": 25000000.0
@@ -75275,7 +75275,7 @@
           "weight_m2": 25000000.0
         },
         {
-          "latitude_deg": -1.0293011832758128,
+          "latitude_deg": -1.0293011832758132,
           "longitude_deg": -63.81931139840312,
           "sample_id": "amazon_north_s000339",
           "weight_m2": 25000000.0
@@ -77699,7 +77699,7 @@
           "weight_m2": 25000000.0
         },
         {
-          "latitude_deg": -1.210465360831028,
+          "latitude_deg": -1.2104653608310283,
           "longitude_deg": -63.54989008013549,
           "sample_id": "amazon_north_s000743",
           "weight_m2": 25000000.0
@@ -78071,7 +78071,7 @@
           "weight_m2": 25000000.0
         },
         {
-          "latitude_deg": -1.4818100056175056,
+          "latitude_deg": -1.4818100056175059,
           "longitude_deg": -63.505164701413136,
           "sample_id": "amazon_north_s000805",
           "weight_m2": 25000000.0
@@ -79259,7 +79259,7 @@
           "weight_m2": 25000000.0
         },
         {
-          "latitude_deg": -1.7532393917887803,
+          "latitude_deg": -1.75323939178878,
           "longitude_deg": -63.370573572138575,
           "sample_id": "amazon_north_s001003",
           "weight_m2": 25000000.0
@@ -80303,7 +80303,7 @@
           "weight_m2": 25000000.0
         },
         {
-          "latitude_deg": -3.1098207819165635,
+          "latitude_deg": -3.109820781916563,
           "longitude_deg": -63.23699836328705,
           "sample_id": "amazon_north_s001177",
           "weight_m2": 25000000.0
@@ -80465,7 +80465,7 @@
           "weight_m2": 25000000.0
         },
         {
-          "latitude_deg": -1.8890114615631732,
+          "latitude_deg": -1.8890114615631737,
           "longitude_deg": -63.235858412339596,
           "sample_id": "amazon_north_s001204",
           "weight_m2": 25000000.0
@@ -80483,7 +80483,7 @@
           "weight_m2": 25000000.0
         },
         {
-          "latitude_deg": -1.7533631064284707,
+          "latitude_deg": -1.753363106428471,
           "longitude_deg": -63.23575761256968,
           "sample_id": "amazon_north_s001207",
           "weight_m2": 25000000.0
@@ -80567,7 +80567,7 @@
           "weight_m2": 25000000.0
         },
         {
-          "latitude_deg": -1.120318551258338,
+          "latitude_deg": -1.1203185512583382,
           "longitude_deg": -63.23535543965971,
           "sample_id": "amazon_north_s001221",
           "weight_m2": 25000000.0
@@ -81365,7 +81365,7 @@
           "weight_m2": 25000000.0
         },
         {
-          "latitude_deg": -1.256045376327655,
+          "latitude_deg": -1.2560453763276547,
           "longitude_deg": -63.14557947119076,
           "sample_id": "amazon_north_s001354",
           "weight_m2": 25000000.0
@@ -81407,7 +81407,7 @@
           "weight_m2": 3577087.518479093
         },
         {
-          "latitude_deg": -3.996444705302776,
+          "latitude_deg": -3.996444705302777,
           "longitude_deg": -63.10302100148246,
           "sample_id": "amazon_north_s001361",
           "weight_m2": 5275389.530885295
@@ -82187,7 +82187,7 @@
           "weight_m2": 25000000.0
         },
         {
-          "latitude_deg": -1.2108922934427084,
+          "latitude_deg": -1.2108922934427082,
           "longitude_deg": -63.05570512934467,
           "sample_id": "amazon_north_s001491",
           "weight_m2": 25000000.0
@@ -82217,7 +82217,7 @@
           "weight_m2": 25000000.0
         },
         {
-          "latitude_deg": -1.0041689251056507,
+          "latitude_deg": -1.0041689251056505,
           "longitude_deg": -63.05560920772218,
           "sample_id": "amazon_north_s001496",
           "weight_m2": 3577087.518479093
@@ -83093,7 +83093,7 @@
           "weight_m2": 25000000.0
         },
         {
-          "latitude_deg": -3.607479827178117,
+          "latitude_deg": -3.6074798271781177,
           "longitude_deg": -62.92255428824376,
           "sample_id": "amazon_north_s001642",
           "weight_m2": 25000000.0
@@ -83387,13 +83387,13 @@
           "weight_m2": 25000000.0
         },
         {
-          "latitude_deg": -1.3918572666219076,
+          "latitude_deg": -1.3918572666219073,
           "longitude_deg": -62.921011712490156,
           "sample_id": "amazon_north_s001691",
           "weight_m2": 25000000.0
         },
         {
-          "latitude_deg": -1.3466384023602047,
+          "latitude_deg": -1.3466384023602045,
           "longitude_deg": -62.92099093771456,
           "sample_id": "amazon_north_s001692",
           "weight_m2": 25000000.0
@@ -83429,7 +83429,7 @@
           "weight_m2": 25000000.0
         },
         {
-          "latitude_deg": -1.0753209338049723,
+          "latitude_deg": -1.075320933804972,
           "longitude_deg": -62.92087525657456,
           "sample_id": "amazon_north_s001698",
           "weight_m2": 25000000.0
@@ -84221,7 +84221,7 @@
           "weight_m2": 25000000.0
         },
         {
-          "latitude_deg": -1.2562525553747563,
+          "latitude_deg": -1.256252555374756,
           "longitude_deg": -62.83110017835021,
           "sample_id": "amazon_north_s001830",
           "weight_m2": 25000000.0
@@ -84731,7 +84731,7 @@
           "weight_m2": 25000000.0
         },
         {
-          "latitude_deg": -3.5623884598215954,
+          "latitude_deg": -3.562388459821596,
           "longitude_deg": -62.74250730206839,
           "sample_id": "amazon_north_s001915",
           "weight_m2": 25000000.0
@@ -84995,7 +84995,7 @@
           "weight_m2": 25000000.0
         },
         {
-          "latitude_deg": -1.5728340856975984,
+          "latitude_deg": -1.5728340856975982,
           "longitude_deg": -62.74136965268482,
           "sample_id": "amazon_north_s001959",
           "weight_m2": 25000000.0
@@ -85037,7 +85037,7 @@
           "weight_m2": 25000000.0
         },
         {
-          "latitude_deg": -1.2562996416210934,
+          "latitude_deg": -1.2562996416210932,
           "longitude_deg": -62.74125019353109,
           "sample_id": "amazon_north_s001966",
           "weight_m2": 25000000.0
@@ -85121,13 +85121,13 @@
           "weight_m2": 25000000.0
         },
         {
-          "latitude_deg": -3.6980699859079285,
+          "latitude_deg": -3.6980699859079276,
           "longitude_deg": -62.69760208032966,
           "sample_id": "amazon_north_s001980",
           "weight_m2": 25000000.0
         },
         {
-          "latitude_deg": -3.6528517539139407,
+          "latitude_deg": -3.6528517539139402,
           "longitude_deg": -62.69756982726578,
           "sample_id": "amazon_north_s001981",
           "weight_m2": 25000000.0
@@ -85433,13 +85433,13 @@
           "weight_m2": 25000000.0
         },
         {
-          "latitude_deg": -1.3467607353596218,
+          "latitude_deg": -1.346760735359622,
           "longitude_deg": -62.696355821857516,
           "sample_id": "amazon_north_s002032",
           "weight_m2": 25000000.0
         },
         {
-          "latitude_deg": -1.3015410508400977,
+          "latitude_deg": -1.301541050840098,
           "longitude_deg": -62.696340436410956,
           "sample_id": "amazon_north_s002033",
           "weight_m2": 25000000.0
@@ -85487,7 +85487,7 @@
           "weight_m2": 3577087.518479093
         },
         {
-          "latitude_deg": -3.9967898316765473,
+          "latitude_deg": -3.996789831676547,
           "longitude_deg": -62.65280198224067,
           "sample_id": "amazon_north_s002041",
           "weight_m2": 5275389.530885295
@@ -85542,7 +85542,7 @@
         },
         {
           "latitude_deg": -3.607659297787678,
-          "longitude_deg": -62.652534964716295,
+          "longitude_deg": -62.65253496471628,
           "sample_id": "amazon_north_s002050",
           "weight_m2": 25000000.0
         },
@@ -85835,7 +85835,7 @@
           "weight_m2": 25000000.0
         },
         {
-          "latitude_deg": -1.3920007201963465,
+          "latitude_deg": -1.3920007201963462,
           "longitude_deg": -62.65144383906173,
           "sample_id": "amazon_north_s002099",
           "weight_m2": 25000000.0
@@ -85847,7 +85847,7 @@
           "weight_m2": 25000000.0
         },
         {
-          "latitude_deg": -1.3015613351795436,
+          "latitude_deg": -1.3015613351795434,
           "longitude_deg": -62.65141475109594,
           "sample_id": "amazon_north_s002101",
           "weight_m2": 25000000.0
@@ -86207,7 +86207,7 @@
           "weight_m2": 25000000.0
         },
         {
-          "latitude_deg": -1.6633343175136834,
+          "latitude_deg": -1.663334317513683,
           "longitude_deg": -62.60660424546056,
           "sample_id": "amazon_north_s002161",
           "weight_m2": 25000000.0
@@ -86675,13 +86675,13 @@
           "weight_m2": 25000000.0
         },
         {
-          "latitude_deg": -1.211157287687485,
+          "latitude_deg": -1.2111572876874848,
           "longitude_deg": -62.56153963662278,
           "sample_id": "amazon_north_s002239",
           "weight_m2": 25000000.0
         },
         {
-          "latitude_deg": -1.1659366925745347,
+          "latitude_deg": -1.1659366925745345,
           "longitude_deg": -62.56152800988897,
           "sample_id": "amazon_north_s002240",
           "weight_m2": 25000000.0
@@ -89501,7 +89501,7 @@
           "weight_m2": 25000000.0
         },
         {
-          "latitude_deg": -1.4373437173142898,
+          "latitude_deg": -1.43734371731429,
           "longitude_deg": -62.247103947959,
           "sample_id": "amazon_north_s002710",
           "weight_m2": 25000000.0
@@ -89513,7 +89513,7 @@
           "weight_m2": 25000000.0
         },
         {
-          "latitude_deg": -1.3469034574783338,
+          "latitude_deg": -1.346903457478334,
           "longitude_deg": -62.247092684959625,
           "sample_id": "amazon_north_s002712",
           "weight_m2": 25000000.0
@@ -90509,7 +90509,7 @@
           "weight_m2": 25000000.0
         },
         {
-          "latitude_deg": -3.0652149818123484,
+          "latitude_deg": -3.065214981812348,
           "longitude_deg": -62.112447757596634,
           "sample_id": "amazon_north_s002878",
           "weight_m2": 25000000.0
@@ -90659,7 +90659,7 @@
           "weight_m2": 25000000.0
         },
         {
-          "latitude_deg": -1.934771064664729,
+          "latitude_deg": -1.9347710646647294,
           "longitude_deg": -62.112351792144715,
           "sample_id": "amazon_north_s002903",
           "weight_m2": 25000000.0
@@ -90755,7 +90755,7 @@
           "weight_m2": 25000000.0
         },
         {
-          "latitude_deg": -1.211257664613206,
+          "latitude_deg": -1.2112576646132063,
           "longitude_deg": -62.112307499693785,
           "sample_id": "amazon_north_s002919",
           "weight_m2": 25000000.0
@@ -92549,7 +92549,7 @@
           "weight_m2": 25000000.0
         },
         {
-          "latitude_deg": -3.0652149818123484,
+          "latitude_deg": -3.065214981812348,
           "longitude_deg": -61.88755224240336,
           "sample_id": "amazon_north_s003218",
           "weight_m2": 25000000.0
@@ -92699,7 +92699,7 @@
           "weight_m2": 25000000.0
         },
         {
-          "latitude_deg": -1.934771064664729,
+          "latitude_deg": -1.9347710646647294,
           "longitude_deg": -61.887648207855285,
           "sample_id": "amazon_north_s003243",
           "weight_m2": 25000000.0
@@ -92795,7 +92795,7 @@
           "weight_m2": 25000000.0
         },
         {
-          "latitude_deg": -1.211257664613206,
+          "latitude_deg": -1.2112576646132063,
           "longitude_deg": -61.887692500306215,
           "sample_id": "amazon_north_s003259",
           "weight_m2": 25000000.0
@@ -93989,7 +93989,7 @@
           "weight_m2": 25000000.0
         },
         {
-          "latitude_deg": -1.4373437173142898,
+          "latitude_deg": -1.43734371731429,
           "longitude_deg": -61.752896052041,
           "sample_id": "amazon_north_s003458",
           "weight_m2": 25000000.0
@@ -94001,7 +94001,7 @@
           "weight_m2": 25000000.0
         },
         {
-          "latitude_deg": -1.3469034574783338,
+          "latitude_deg": -1.346903457478334,
           "longitude_deg": -61.752907315040375,
           "sample_id": "amazon_north_s003460",
           "weight_m2": 25000000.0
@@ -96875,13 +96875,13 @@
           "weight_m2": 25000000.0
         },
         {
-          "latitude_deg": -1.211157287687485,
+          "latitude_deg": -1.2111572876874848,
           "longitude_deg": -61.43846036337722,
           "sample_id": "amazon_north_s003939",
           "weight_m2": 25000000.0
         },
         {
-          "latitude_deg": -1.1659366925745347,
+          "latitude_deg": -1.1659366925745345,
           "longitude_deg": -61.438471990111026,
           "sample_id": "amazon_north_s003940",
           "weight_m2": 25000000.0
@@ -97223,7 +97223,7 @@
           "weight_m2": 25000000.0
         },
         {
-          "latitude_deg": -1.6633343175136834,
+          "latitude_deg": -1.663334317513683,
           "longitude_deg": -61.39339575453943,
           "sample_id": "amazon_north_s003997",
           "weight_m2": 25000000.0
@@ -97319,7 +97319,7 @@
           "weight_m2": 3577087.518479093
         },
         {
-          "latitude_deg": -3.9967898316765473,
+          "latitude_deg": -3.996789831676547,
           "longitude_deg": -61.34719801775933,
           "sample_id": "amazon_north_s004013",
           "weight_m2": 5275389.530885295
@@ -97374,7 +97374,7 @@
         },
         {
           "latitude_deg": -3.607659297787678,
-          "longitude_deg": -61.347465035283705,
+          "longitude_deg": -61.34746503528371,
           "sample_id": "amazon_north_s004022",
           "weight_m2": 25000000.0
         },
@@ -97667,7 +97667,7 @@
           "weight_m2": 25000000.0
         },
         {
-          "latitude_deg": -1.3920007201963465,
+          "latitude_deg": -1.3920007201963462,
           "longitude_deg": -61.34855616093827,
           "sample_id": "amazon_north_s004071",
           "weight_m2": 25000000.0
@@ -97679,7 +97679,7 @@
           "weight_m2": 25000000.0
         },
         {
-          "latitude_deg": -1.3015613351795436,
+          "latitude_deg": -1.3015613351795434,
           "longitude_deg": -61.34858524890406,
           "sample_id": "amazon_north_s004073",
           "weight_m2": 25000000.0
@@ -97769,13 +97769,13 @@
           "weight_m2": 25000000.0
         },
         {
-          "latitude_deg": -3.6980699859079285,
+          "latitude_deg": -3.6980699859079276,
           "longitude_deg": -61.30239791967034,
           "sample_id": "amazon_north_s004088",
           "weight_m2": 25000000.0
         },
         {
-          "latitude_deg": -3.6528517539139407,
+          "latitude_deg": -3.6528517539139402,
           "longitude_deg": -61.30243017273421,
           "sample_id": "amazon_north_s004089",
           "weight_m2": 25000000.0
@@ -98081,13 +98081,13 @@
           "weight_m2": 25000000.0
         },
         {
-          "latitude_deg": -1.3467607353596218,
+          "latitude_deg": -1.346760735359622,
           "longitude_deg": -61.303644178142484,
           "sample_id": "amazon_north_s004140",
           "weight_m2": 25000000.0
         },
         {
-          "latitude_deg": -1.3015410508400977,
+          "latitude_deg": -1.301541050840098,
           "longitude_deg": -61.303659563589044,
           "sample_id": "amazon_north_s004141",
           "weight_m2": 25000000.0
@@ -98195,7 +98195,7 @@
           "weight_m2": 25000000.0
         },
         {
-          "latitude_deg": -3.5623884598215954,
+          "latitude_deg": -3.562388459821596,
           "longitude_deg": -61.25749269793161,
           "sample_id": "amazon_north_s004159",
           "weight_m2": 25000000.0
@@ -98459,7 +98459,7 @@
           "weight_m2": 25000000.0
         },
         {
-          "latitude_deg": -1.5728340856975984,
+          "latitude_deg": -1.5728340856975982,
           "longitude_deg": -61.25863034731518,
           "sample_id": "amazon_north_s004203",
           "weight_m2": 25000000.0
@@ -98501,7 +98501,7 @@
           "weight_m2": 25000000.0
         },
         {
-          "latitude_deg": -1.2562996416210934,
+          "latitude_deg": -1.2562996416210932,
           "longitude_deg": -61.258749806468906,
           "sample_id": "amazon_north_s004210",
           "weight_m2": 25000000.0
@@ -99317,7 +99317,7 @@
           "weight_m2": 25000000.0
         },
         {
-          "latitude_deg": -1.2562525553747563,
+          "latitude_deg": -1.256252555374756,
           "longitude_deg": -61.16889982164979,
           "sample_id": "amazon_north_s004346",
           "weight_m2": 25000000.0
@@ -99821,7 +99821,7 @@
           "weight_m2": 25000000.0
         },
         {
-          "latitude_deg": -3.607479827178117,
+          "latitude_deg": -3.6074798271781177,
           "longitude_deg": -61.07744571175623,
           "sample_id": "amazon_north_s004430",
           "weight_m2": 25000000.0
@@ -100115,13 +100115,13 @@
           "weight_m2": 25000000.0
         },
         {
-          "latitude_deg": -1.3918572666219076,
+          "latitude_deg": -1.3918572666219073,
           "longitude_deg": -61.07898828750984,
           "sample_id": "amazon_north_s004479",
           "weight_m2": 25000000.0
         },
         {
-          "latitude_deg": -1.3466384023602047,
+          "latitude_deg": -1.3466384023602045,
           "longitude_deg": -61.07900906228543,
           "sample_id": "amazon_north_s004480",
           "weight_m2": 25000000.0
@@ -100157,7 +100157,7 @@
           "weight_m2": 25000000.0
         },
         {
-          "latitude_deg": -1.0753209338049723,
+          "latitude_deg": -1.075320933804972,
           "longitude_deg": -61.07912474342544,
           "sample_id": "amazon_north_s004486",
           "weight_m2": 25000000.0
@@ -101363,7 +101363,7 @@
           "weight_m2": 25000000.0
         },
         {
-          "latitude_deg": -1.2108922934427084,
+          "latitude_deg": -1.2108922934427082,
           "longitude_deg": -60.94429487065533,
           "sample_id": "amazon_north_s004687",
           "weight_m2": 25000000.0
@@ -101393,13 +101393,13 @@
           "weight_m2": 25000000.0
         },
         {
-          "latitude_deg": -1.0041689251056507,
+          "latitude_deg": -1.0041689251056505,
           "longitude_deg": -60.944390792277815,
           "sample_id": "amazon_north_s004692",
           "weight_m2": 3577087.518479093
         },
         {
-          "latitude_deg": -3.996444705302776,
+          "latitude_deg": -3.996444705302777,
           "longitude_deg": -60.89697899851753,
           "sample_id": "amazon_north_s004693",
           "weight_m2": 5275389.530885295
@@ -102173,7 +102173,7 @@
           "weight_m2": 25000000.0
         },
         {
-          "latitude_deg": -1.256045376327655,
+          "latitude_deg": -1.2560453763276547,
           "longitude_deg": -60.85442052880924,
           "sample_id": "amazon_north_s004822",
           "weight_m2": 25000000.0
@@ -102743,7 +102743,7 @@
           "weight_m2": 25000000.0
         },
         {
-          "latitude_deg": -3.1098207819165635,
+          "latitude_deg": -3.109820781916563,
           "longitude_deg": -60.76300163671295,
           "sample_id": "amazon_north_s004917",
           "weight_m2": 25000000.0
@@ -102905,7 +102905,7 @@
           "weight_m2": 25000000.0
         },
         {
-          "latitude_deg": -1.8890114615631732,
+          "latitude_deg": -1.8890114615631737,
           "longitude_deg": -60.764141587660404,
           "sample_id": "amazon_north_s004944",
           "weight_m2": 25000000.0
@@ -102923,7 +102923,7 @@
           "weight_m2": 25000000.0
         },
         {
-          "latitude_deg": -1.7533631064284707,
+          "latitude_deg": -1.753363106428471,
           "longitude_deg": -60.764242387430315,
           "sample_id": "amazon_north_s004947",
           "weight_m2": 25000000.0
@@ -103007,7 +103007,7 @@
           "weight_m2": 25000000.0
         },
         {
-          "latitude_deg": -1.120318551258338,
+          "latitude_deg": -1.1203185512583382,
           "longitude_deg": -60.76464456034028,
           "sample_id": "amazon_north_s004961",
           "weight_m2": 25000000.0
@@ -104147,7 +104147,7 @@
           "weight_m2": 25000000.0
         },
         {
-          "latitude_deg": -1.7532393917887803,
+          "latitude_deg": -1.75323939178878,
           "longitude_deg": -60.629426427861425,
           "sample_id": "amazon_north_s005151",
           "weight_m2": 25000000.0
@@ -105407,7 +105407,7 @@
           "weight_m2": 25000000.0
         },
         {
-          "latitude_deg": -1.4818100056175056,
+          "latitude_deg": -1.4818100056175059,
           "longitude_deg": -60.49483529858686,
           "sample_id": "amazon_north_s005361",
           "weight_m2": 25000000.0
@@ -105851,7 +105851,7 @@
           "weight_m2": 25000000.0
         },
         {
-          "latitude_deg": -1.210465360831028,
+          "latitude_deg": -1.2104653608310283,
           "longitude_deg": -60.45010991986451,
           "sample_id": "amazon_north_s005435",
           "weight_m2": 25000000.0
@@ -108323,7 +108323,7 @@
           "weight_m2": 25000000.0
         },
         {
-          "latitude_deg": -1.0293011832758128,
+          "latitude_deg": -1.0293011832758132,
           "longitude_deg": -60.18068860159688,
           "sample_id": "amazon_north_s005847",
           "weight_m2": 25000000.0
@@ -109139,7 +109139,7 @@
           "weight_m2": 25000000.0
         },
         {
-          "latitude_deg": -1.0291924137191129,
+          "latitude_deg": -1.0291924137191126,
           "longitude_deg": -60.09083801018054,
           "sample_id": "amazon_north_s005983",
           "weight_m2": 25000000.0

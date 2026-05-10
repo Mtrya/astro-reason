@@ -1031,7 +1031,7 @@
           "weight_m2": 25000000.0
         },
         {
-          "latitude_deg": -4.622200299136326,
+          "latitude_deg": -4.622200299136325,
           "longitude_deg": 130.21842380372775,
           "sample_id": "indonesia_east_s000172",
           "weight_m2": 25000000.0
@@ -6155,7 +6155,7 @@
           "weight_m2": 25000000.0
         },
         {
-          "latitude_deg": -5.844999692173307,
+          "latitude_deg": -5.844999692173308,
           "longitude_deg": 130.9365514668842,
           "sample_id": "indonesia_east_s001026",
           "weight_m2": 25000000.0
@@ -6293,7 +6293,7 @@
           "weight_m2": 25000000.0
         },
         {
-          "latitude_deg": -4.8051542145327755,
+          "latitude_deg": -4.805154214532775,
           "longitude_deg": 130.93908597433293,
           "sample_id": "indonesia_east_s001049",
           "weight_m2": 25000000.0
@@ -9575,7 +9575,7 @@
           "weight_m2": 25000000.0
         },
         {
-          "latitude_deg": -5.84579399524755,
+          "latitude_deg": -5.845793995247551,
           "longitude_deg": 131.29776222242796,
           "sample_id": "indonesia_east_s001596",
           "weight_m2": 25000000.0
@@ -9713,7 +9713,7 @@
           "weight_m2": 25000000.0
         },
         {
-          "latitude_deg": -4.805909530463748,
+          "latitude_deg": -4.805909530463747,
           "longitude_deg": 131.29969161913124,
           "sample_id": "indonesia_east_s001619",
           "weight_m2": 25000000.0
@@ -9911,7 +9911,7 @@
           "weight_m2": 25000000.0
         },
         {
-          "latitude_deg": -3.3137572677852325,
+          "latitude_deg": -3.313757267785233,
           "longitude_deg": 131.30195943042352,
           "sample_id": "indonesia_east_s001652",
           "weight_m2": 25000000.0
@@ -10865,7 +10865,7 @@
           "weight_m2": 25000000.0
         },
         {
-          "latitude_deg": -3.1330131482605785,
+          "latitude_deg": -3.133013148260578,
           "longitude_deg": 131.3921478811706,
           "sample_id": "indonesia_east_s001811",
           "weight_m2": 25000000.0
@@ -12827,7 +12827,7 @@
           "weight_m2": 17832277.843967263
         },
         {
-          "latitude_deg": -6.614942106618132,
+          "latitude_deg": -6.614942106618133,
           "longitude_deg": 131.61264330706442,
           "sample_id": "indonesia_east_s002138",
           "weight_m2": 25000000.0
@@ -13169,7 +13169,7 @@
           "weight_m2": 25000000.0
         },
         {
-          "latitude_deg": -4.037732213348338,
+          "latitude_deg": -4.037732213348337,
           "longitude_deg": 131.61611354831368,
           "sample_id": "indonesia_east_s002195",
           "weight_m2": 25000000.0
@@ -13793,13 +13793,13 @@
           "weight_m2": 7236665.651089975
         },
         {
-          "latitude_deg": -6.7312835837948555,
+          "latitude_deg": -6.731283583794856,
           "longitude_deg": 131.7202316110692,
           "sample_id": "indonesia_east_s002299",
           "weight_m2": 918518.8569442937
         },
         {
-          "latitude_deg": -6.703075243217921,
+          "latitude_deg": -6.70307524321792,
           "longitude_deg": 131.70479548865376,
           "sample_id": "indonesia_east_s002300",
           "weight_m2": 21842881.0811016
@@ -13817,7 +13817,7 @@
           "weight_m2": 25000000.0
         },
         {
-          "latitude_deg": -6.569849753773478,
+          "latitude_deg": -6.569849753773479,
           "longitude_deg": 131.70313299365728,
           "sample_id": "indonesia_east_s002303",
           "weight_m2": 25000000.0
@@ -14147,7 +14147,7 @@
           "weight_m2": 25000000.0
         },
         {
-          "latitude_deg": -4.0830577755371085,
+          "latitude_deg": -4.083057775537108,
           "longitude_deg": 131.70611942930594,
           "sample_id": "indonesia_east_s002358",
           "weight_m2": 25000000.0
@@ -14237,7 +14237,7 @@
           "weight_m2": 25000000.0
         },
         {
-          "latitude_deg": -3.4047624408778008,
+          "latitude_deg": -3.4047624408778003,
           "longitude_deg": 131.70674984007732,
           "sample_id": "indonesia_east_s002373",
           "weight_m2": 25000000.0
@@ -14675,7 +14675,7 @@
           "weight_m2": 25000000.0
         },
         {
-          "latitude_deg": -3.7665765237824234,
+          "latitude_deg": -3.7665765237824225,
           "longitude_deg": 131.75143264781317,
           "sample_id": "indonesia_east_s002446",
           "weight_m2": 25000000.0
@@ -16223,7 +16223,7 @@
           "weight_m2": 25000000.0
         },
         {
-          "latitude_deg": -3.2376174875121047,
+          "latitude_deg": -3.237617487512104,
           "longitude_deg": 131.87935072110184,
           "sample_id": "indonesia_east_s002704",
           "weight_m2": 7504579.58734245
@@ -17387,7 +17387,7 @@
           "weight_m2": 25000000.0
         },
         {
-          "latitude_deg": -5.575452519388605,
+          "latitude_deg": -5.575452519388606,
           "longitude_deg": 132.02035348769456,
           "sample_id": "indonesia_east_s002898",
           "weight_m2": 25000000.0
@@ -17453,7 +17453,7 @@
           "weight_m2": 25000000.0
         },
         {
-          "latitude_deg": -5.078095561573164,
+          "latitude_deg": -5.078095561573163,
           "longitude_deg": 132.0206972733261,
           "sample_id": "indonesia_east_s002909",
           "weight_m2": 25000000.0
@@ -19211,7 +19211,7 @@
           "weight_m2": 25000000.0
         },
         {
-          "latitude_deg": -6.6154863710159,
+          "latitude_deg": -6.6154863710158995,
           "longitude_deg": 132.20040273764093,
           "sample_id": "indonesia_east_s003202",
           "weight_m2": 25000000.0
@@ -19553,7 +19553,7 @@
           "weight_m2": 25000000.0
         },
         {
-          "latitude_deg": -4.0382125957337776,
+          "latitude_deg": -4.038212595733778,
           "longitude_deg": 132.2014344821799,
           "sample_id": "indonesia_east_s003259",
           "weight_m2": 25000000.0
@@ -24611,7 +24611,7 @@
           "weight_m2": 25000000.0
         },
         {
-          "latitude_deg": -6.6154863710159,
+          "latitude_deg": -6.6154863710158995,
           "longitude_deg": 132.69773246235908,
           "sample_id": "indonesia_east_s004102",
           "weight_m2": 25000000.0
@@ -24953,7 +24953,7 @@
           "weight_m2": 25000000.0
         },
         {
-          "latitude_deg": -4.0382125957337776,
+          "latitude_deg": -4.038212595733778,
           "longitude_deg": 132.69670071782014,
           "sample_id": "indonesia_east_s004159",
           "weight_m2": 25000000.0
@@ -26711,7 +26711,7 @@
           "weight_m2": 25000000.0
         },
         {
-          "latitude_deg": -5.575452519388605,
+          "latitude_deg": -5.575452519388606,
           "longitude_deg": 132.87778171230548,
           "sample_id": "indonesia_east_s004452",
           "weight_m2": 25000000.0
@@ -26777,7 +26777,7 @@
           "weight_m2": 25000000.0
         },
         {
-          "latitude_deg": -5.078095561573164,
+          "latitude_deg": -5.078095561573163,
           "longitude_deg": 132.8774379266739,
           "sample_id": "indonesia_east_s004463",
           "weight_m2": 25000000.0
@@ -29435,7 +29435,7 @@
           "weight_m2": 25000000.0
         },
         {
-          "latitude_deg": -6.88641038172974,
+          "latitude_deg": -6.886410381729741,
           "longitude_deg": 133.15022283711423,
           "sample_id": "indonesia_east_s004906",
           "weight_m2": 25000000.0
@@ -29849,7 +29849,7 @@
           "weight_m2": 25000000.0
         },
         {
-          "latitude_deg": -7.248082834674023,
+          "latitude_deg": -7.248082834674025,
           "longitude_deg": 133.1960030313122,
           "sample_id": "indonesia_east_s004975",
           "weight_m2": 25000000.0
@@ -29939,7 +29939,7 @@
           "weight_m2": 25000000.0
         },
         {
-          "latitude_deg": -6.569849753773478,
+          "latitude_deg": -6.569849753773479,
           "longitude_deg": 133.19500220634276,
           "sample_id": "indonesia_east_s004990",
           "weight_m2": 25000000.0
@@ -30269,7 +30269,7 @@
           "weight_m2": 25000000.0
         },
         {
-          "latitude_deg": -4.0830577755371085,
+          "latitude_deg": -4.083057775537108,
           "longitude_deg": 133.1920157706941,
           "sample_id": "indonesia_east_s005045",
           "weight_m2": 25000000.0
@@ -30845,7 +30845,7 @@
           "weight_m2": 25000000.0
         },
         {
-          "latitude_deg": -6.614942106618132,
+          "latitude_deg": -6.614942106618133,
           "longitude_deg": 133.28549189293562,
           "sample_id": "indonesia_east_s005141",
           "weight_m2": 25000000.0
@@ -33947,7 +33947,7 @@
           "weight_m2": 25000000.0
         },
         {
-          "latitude_deg": -5.84579399524755,
+          "latitude_deg": -5.845793995247551,
           "longitude_deg": 133.60037297757208,
           "sample_id": "indonesia_east_s005658",
           "weight_m2": 25000000.0
@@ -34085,7 +34085,7 @@
           "weight_m2": 25000000.0
         },
         {
-          "latitude_deg": -4.805909530463748,
+          "latitude_deg": -4.805909530463747,
           "longitude_deg": 133.5984435808688,
           "sample_id": "indonesia_east_s005681",
           "weight_m2": 25000000.0
@@ -37013,7 +37013,7 @@
           "weight_m2": 25000000.0
         },
         {
-          "latitude_deg": -5.844999692173307,
+          "latitude_deg": -5.844999692173308,
           "longitude_deg": 133.96158373311584,
           "sample_id": "indonesia_east_s006169",
           "weight_m2": 25000000.0
@@ -37151,7 +37151,7 @@
           "weight_m2": 25000000.0
         },
         {
-          "latitude_deg": -4.8051542145327755,
+          "latitude_deg": -4.805154214532775,
           "longitude_deg": 133.95904922566712,
           "sample_id": "indonesia_east_s006192",
           "weight_m2": 25000000.0
@@ -43145,7 +43145,7 @@
           "weight_m2": 23401461.095079675
         },
         {
-          "latitude_deg": -6.075414044713914,
+          "latitude_deg": -6.075414044713915,
           "longitude_deg": 135.1697393592199,
           "sample_id": "indonesia_east_s007191",
           "weight_m2": 8015556.974840803
@@ -43157,7 +43157,7 @@
           "weight_m2": 12369054.979467764
         },
         {
-          "latitude_deg": -6.563739534449537,
+          "latitude_deg": -6.563739534449538,
           "longitude_deg": 135.22959836276806,
           "sample_id": "indonesia_east_s007193",
           "weight_m2": 25000000.0
@@ -43397,7 +43397,7 @@
           "weight_m2": 25000000.0
         },
         {
-          "latitude_deg": -6.42737549569339,
+          "latitude_deg": -6.427375495693389,
           "longitude_deg": 135.40960474394825,
           "sample_id": "indonesia_east_s007233",
           "weight_m2": 24857859.298647415
@@ -43716,7 +43716,7 @@
         },
         {
           "latitude_deg": 44.409906558464,
-          "longitude_deg": -88.78274823957666,
+          "longitude_deg": -88.78274823957668,
           "sample_id": "great_lakes_s000045",
           "weight_m2": 14002837.76523589
         },
@@ -45174,7 +45174,7 @@
         },
         {
           "latitude_deg": 43.521147110649046,
-          "longitude_deg": -88.26789954498967,
+          "longitude_deg": -88.26789954498969,
           "sample_id": "great_lakes_s000288",
           "weight_m2": 25000000.0
         },
@@ -53477,7 +53477,7 @@
           "weight_m2": 25000000.0
         },
         {
-          "latitude_deg": 43.352983576204345,
+          "latitude_deg": 43.35298357620434,
           "longitude_deg": -87.02961456663257,
           "sample_id": "great_lakes_s001672",
           "weight_m2": 25000000.0
@@ -53831,7 +53831,7 @@
           "weight_m2": 25000000.0
         },
         {
-          "latitude_deg": 46.00764223428458,
+          "latitude_deg": 46.007642234284596,
           "longitude_deg": -87.05120800613118,
           "sample_id": "great_lakes_s001731",
           "weight_m2": 25000000.0
@@ -56063,7 +56063,7 @@
           "weight_m2": 6303663.539569825
         },
         {
-          "latitude_deg": 42.99628510864421,
+          "latitude_deg": 42.9962851086442,
           "longitude_deg": -86.66021125028851,
           "sample_id": "great_lakes_s002103",
           "weight_m2": 22171293.865238477
@@ -56453,7 +56453,7 @@
           "weight_m2": 25000000.0
         },
         {
-          "latitude_deg": 45.91863103649501,
+          "latitude_deg": 45.91863103649499,
           "longitude_deg": -86.66375295507801,
           "sample_id": "great_lakes_s002168",
           "weight_m2": 25000000.0
@@ -57773,7 +57773,7 @@
           "weight_m2": 25000000.0
         },
         {
-          "latitude_deg": 45.91863103649501,
+          "latitude_deg": 45.91863103649499,
           "longitude_deg": -86.470411984922,
           "sample_id": "great_lakes_s002388",
           "weight_m2": 25000000.0
@@ -59250,7 +59250,7 @@
         },
         {
           "latitude_deg": 44.02845788864531,
-          "longitude_deg": -86.22405211279121,
+          "longitude_deg": -86.2240521127912,
           "sample_id": "great_lakes_s002634",
           "weight_m2": 25000000.0
         },
@@ -60005,7 +60005,7 @@
           "weight_m2": 25000000.0
         },
         {
-          "latitude_deg": 43.352983576204345,
+          "latitude_deg": 43.35298357620434,
           "longitude_deg": -86.10455037336743,
           "sample_id": "great_lakes_s002760",
           "weight_m2": 25000000.0
@@ -60359,7 +60359,7 @@
           "weight_m2": 25000000.0
         },
         {
-          "latitude_deg": 46.00764223428458,
+          "latitude_deg": 46.007642234284596,
           "longitude_deg": -86.08295693386883,
           "sample_id": "great_lakes_s002819",
           "weight_m2": 25000000.0

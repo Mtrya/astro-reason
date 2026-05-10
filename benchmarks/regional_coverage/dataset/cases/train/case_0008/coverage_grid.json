@@ -42,7 +42,7 @@
         },
         {
           "latitude_deg": 22.2837159261236,
-          "longitude_deg": 22.01281775286483,
+          "longitude_deg": 22.012817752864827,
           "sample_id": "sahara_east_s000007",
           "weight_m2": 12984641.167488225
         },
@@ -726,7 +726,7 @@
         },
         {
           "latitude_deg": 22.736554882771017,
-          "longitude_deg": 22.0903152854548,
+          "longitude_deg": 22.090315285454796,
           "sample_id": "sahara_east_s000121",
           "weight_m2": 25000000.0
         },
@@ -1523,8 +1523,8 @@
           "weight_m2": 25000000.0
         },
         {
-          "latitude_deg": 22.692881181084562,
-          "longitude_deg": 22.188434353657314,
+          "latitude_deg": 22.69288118108456,
+          "longitude_deg": 22.18843435365731,
           "sample_id": "sahara_east_s000254",
           "weight_m2": 25000000.0
         },
@@ -1733,7 +1733,7 @@
           "weight_m2": 25000000.0
         },
         {
-          "latitude_deg": 24.272537239769346,
+          "latitude_deg": 24.272537239769353,
           "longitude_deg": 22.16077308738454,
           "sample_id": "sahara_east_s000289",
           "weight_m2": 25000000.0
@@ -1974,7 +1974,7 @@
         },
         {
           "latitude_deg": 23.054688280578976,
-          "longitude_deg": 22.23107648496314,
+          "longitude_deg": 22.231076484963143,
           "sample_id": "sahara_east_s000329",
           "weight_m2": 25000000.0
         },
@@ -2226,7 +2226,7 @@
         },
         {
           "latitude_deg": 24.950202430665804,
-          "longitude_deg": 22.197808063349857,
+          "longitude_deg": 22.197808063349854,
           "sample_id": "sahara_east_s000371",
           "weight_m2": 25000000.0
         },
@@ -3084,7 +3084,7 @@
         },
         {
           "latitude_deg": 22.33449214711023,
-          "longitude_deg": 22.388624070858633,
+          "longitude_deg": 22.388624070858636,
           "sample_id": "sahara_east_s000514",
           "weight_m2": 25000000.0
         },
@@ -3390,7 +3390,7 @@
         },
         {
           "latitude_deg": 24.63640785819172,
-          "longitude_deg": 22.351700924899127,
+          "longitude_deg": 22.35170092489913,
           "sample_id": "sahara_east_s000565",
           "weight_m2": 25000000.0
         },
@@ -4002,7 +4002,7 @@
         },
         {
           "latitude_deg": 23.19344183242822,
-          "longitude_deg": 22.472998300520135,
+          "longitude_deg": 22.472998300520132,
           "sample_id": "sahara_east_s000667",
           "weight_m2": 25000000.0
         },
@@ -7188,7 +7188,7 @@
         },
         {
           "latitude_deg": 22.97229626210825,
-          "longitude_deg": 22.86647011660285,
+          "longitude_deg": 22.866470116602848,
           "sample_id": "sahara_east_s001198",
           "weight_m2": 25000000.0
         },
@@ -11034,7 +11034,7 @@
         },
         {
           "latitude_deg": 24.691628003996293,
-          "longitude_deg": 23.289585053142215,
+          "longitude_deg": 23.28958505314222,
           "sample_id": "sahara_east_s001839",
           "weight_m2": 25000000.0
         },
@@ -11448,7 +11448,7 @@
         },
         {
           "latitude_deg": 24.782280747245466,
-          "longitude_deg": 23.338161714724606,
+          "longitude_deg": 23.33816171472461,
           "sample_id": "sahara_east_s001908",
           "weight_m2": 25000000.0
         },
@@ -16313,7 +16313,7 @@
           "weight_m2": 19540953.77077785
         },
         {
-          "latitude_deg": 22.07691920136456,
+          "latitude_deg": 22.076919201364557,
           "longitude_deg": 23.99133697553714,
           "sample_id": "sahara_east_s002719",
           "weight_m2": 25000000.0
@@ -16691,7 +16691,7 @@
           "weight_m2": 25000000.0
         },
         {
-          "latitude_deg": 24.92116299520072,
+          "latitude_deg": 24.921162995200724,
           "longitude_deg": 23.98031997712665,
           "sample_id": "sahara_east_s002782",
           "weight_m2": 25000000.0
@@ -17531,7 +17531,7 @@
           "weight_m2": 25000000.0
         },
         {
-          "latitude_deg": 22.167634390647695,
+          "latitude_deg": 22.1676343906477,
           "longitude_deg": 24.13643454440398,
           "sample_id": "sahara_east_s002922",
           "weight_m2": 25000000.0
@@ -17885,7 +17885,7 @@
           "weight_m2": 25000000.0
         },
         {
-          "latitude_deg": 24.831302552312927,
+          "latitude_deg": 24.831302552312923,
           "longitude_deg": 24.12906531009578,
           "sample_id": "sahara_east_s002981",
           "weight_m2": 25000000.0
@@ -23561,7 +23561,7 @@
           "weight_m2": 25000000.0
         },
         {
-          "latitude_deg": 22.167634390647695,
+          "latitude_deg": 22.1676343906477,
           "longitude_deg": 24.86356545559602,
           "sample_id": "sahara_east_s003927",
           "weight_m2": 25000000.0
@@ -23915,7 +23915,7 @@
           "weight_m2": 25000000.0
         },
         {
-          "latitude_deg": 24.831302552312927,
+          "latitude_deg": 24.831302552312923,
           "longitude_deg": 24.87093468990422,
           "sample_id": "sahara_east_s003986",
           "weight_m2": 25000000.0
@@ -24755,7 +24755,7 @@
           "weight_m2": 19540953.77077785
         },
         {
-          "latitude_deg": 22.07691920136456,
+          "latitude_deg": 22.076919201364557,
           "longitude_deg": 25.00866302446286,
           "sample_id": "sahara_east_s004126",
           "weight_m2": 25000000.0
@@ -25133,7 +25133,7 @@
           "weight_m2": 25000000.0
         },
         {
-          "latitude_deg": 24.92116299520072,
+          "latitude_deg": 24.921162995200724,
           "longitude_deg": 25.019680022873345,
           "sample_id": "sahara_east_s004189",
           "weight_m2": 25000000.0
@@ -30342,7 +30342,7 @@
         },
         {
           "latitude_deg": 24.782280747245466,
-          "longitude_deg": 25.661838285275394,
+          "longitude_deg": 25.66183828527539,
           "sample_id": "sahara_east_s005057",
           "weight_m2": 25000000.0
         },
@@ -30732,7 +30732,7 @@
         },
         {
           "latitude_deg": 24.691628003996293,
-          "longitude_deg": 25.710414946857785,
+          "longitude_deg": 25.71041494685778,
           "sample_id": "sahara_east_s005122",
           "weight_m2": 25000000.0
         },
@@ -34122,7 +34122,7 @@
         },
         {
           "latitude_deg": 22.97229626210825,
-          "longitude_deg": 26.13352988339715,
+          "longitude_deg": 26.133529883397152,
           "sample_id": "sahara_east_s005687",
           "weight_m2": 25000000.0
         },
@@ -37368,7 +37368,7 @@
         },
         {
           "latitude_deg": 23.19344183242822,
-          "longitude_deg": 26.527001699479865,
+          "longitude_deg": 26.527001699479868,
           "sample_id": "sahara_east_s006228",
           "weight_m2": 25000000.0
         },
@@ -38058,7 +38058,7 @@
         },
         {
           "latitude_deg": 22.33449214711023,
-          "longitude_deg": 26.611375929141367,
+          "longitude_deg": 26.611375929141364,
           "sample_id": "sahara_east_s006343",
           "weight_m2": 25000000.0
         },
@@ -38364,7 +38364,7 @@
         },
         {
           "latitude_deg": 24.63640785819172,
-          "longitude_deg": 26.64829907510087,
+          "longitude_deg": 26.648299075100866,
           "sample_id": "sahara_east_s006394",
           "weight_m2": 25000000.0
         },
@@ -39612,7 +39612,7 @@
         },
         {
           "latitude_deg": 24.950202430665804,
-          "longitude_deg": 26.80219193665014,
+          "longitude_deg": 26.802191936650143,
           "sample_id": "sahara_east_s006602",
           "weight_m2": 25000000.0
         },
@@ -39713,8 +39713,8 @@
           "weight_m2": 25000000.0
         },
         {
-          "latitude_deg": 22.692881181084562,
-          "longitude_deg": 26.811565646342686,
+          "latitude_deg": 22.69288118108456,
+          "longitude_deg": 26.81156564634269,
           "sample_id": "sahara_east_s006619",
           "weight_m2": 25000000.0
         },
@@ -39923,7 +39923,7 @@
           "weight_m2": 25000000.0
         },
         {
-          "latitude_deg": 24.272537239769346,
+          "latitude_deg": 24.272537239769353,
           "longitude_deg": 26.839226912615455,
           "sample_id": "sahara_east_s006654",
           "weight_m2": 25000000.0
@@ -44129,7 +44129,7 @@
           "weight_m2": 25000000.0
         },
         {
-          "latitude_deg": 27.86809791389965,
+          "latitude_deg": 27.868097913899646,
           "longitude_deg": -92.9532945387557,
           "sample_id": "gulf_of_mexico_s000446",
           "weight_m2": 25000000.0
@@ -44874,7 +44874,7 @@
         },
         {
           "latitude_deg": 27.779450703467212,
-          "longitude_deg": -92.79984238182746,
+          "longitude_deg": -92.79984238182747,
           "sample_id": "gulf_of_mexico_s000570",
           "weight_m2": 25000000.0
         },
@@ -49571,7 +49571,7 @@
           "weight_m2": 25000000.0
         },
         {
-          "latitude_deg": 26.386074511466187,
+          "latitude_deg": 26.38607451146618,
           "longitude_deg": -92.03108970515149,
           "sample_id": "gulf_of_mexico_s001353",
           "weight_m2": 25000000.0
@@ -49745,7 +49745,7 @@
           "weight_m2": 25000000.0
         },
         {
-          "latitude_deg": 27.69466448438396,
+          "latitude_deg": 27.694664484383964,
           "longitude_deg": -92.03838215510817,
           "sample_id": "gulf_of_mexico_s001382",
           "weight_m2": 25000000.0
@@ -50219,7 +50219,7 @@
           "weight_m2": 7962613.916515322
         },
         {
-          "latitude_deg": 25.799790081747815,
+          "latitude_deg": 25.799790081747812,
           "longitude_deg": -91.92823397936809,
           "sample_id": "gulf_of_mexico_s001461",
           "weight_m2": 24990911.536549374
@@ -52115,7 +52115,7 @@
           "weight_m2": 25000000.0
         },
         {
-          "latitude_deg": 25.93588500247916,
+          "latitude_deg": 25.935885002479157,
           "longitude_deg": -91.67928213511543,
           "sample_id": "gulf_of_mexico_s001777",
           "weight_m2": 25000000.0
@@ -52409,7 +52409,7 @@
           "weight_m2": 25000000.0
         },
         {
-          "latitude_deg": 28.14701527408378,
+          "latitude_deg": 28.147015274083785,
           "longitude_deg": -91.68470522381116,
           "sample_id": "gulf_of_mexico_s001826",
           "weight_m2": 25000000.0
@@ -56327,7 +56327,7 @@
           "weight_m2": 25000000.0
         },
         {
-          "latitude_deg": 25.93588500247916,
+          "latitude_deg": 25.935885002479157,
           "longitude_deg": -91.13024166488458,
           "sample_id": "gulf_of_mexico_s002479",
           "weight_m2": 25000000.0
@@ -56621,7 +56621,7 @@
           "weight_m2": 25000000.0
         },
         {
-          "latitude_deg": 28.14701527408378,
+          "latitude_deg": 28.147015274083785,
           "longitude_deg": -91.12481857618884,
           "sample_id": "gulf_of_mexico_s002528",
           "weight_m2": 25000000.0
@@ -58913,7 +58913,7 @@
           "weight_m2": 25000000.0
         },
         {
-          "latitude_deg": 26.386074511466187,
+          "latitude_deg": 26.38607451146618,
           "longitude_deg": -90.77843409484852,
           "sample_id": "gulf_of_mexico_s002910",
           "weight_m2": 25000000.0
@@ -59087,7 +59087,7 @@
           "weight_m2": 25000000.0
         },
         {
-          "latitude_deg": 27.69466448438396,
+          "latitude_deg": 27.694664484383964,
           "longitude_deg": -90.77114164489184,
           "sample_id": "gulf_of_mexico_s002939",
           "weight_m2": 25000000.0
@@ -64062,7 +64062,7 @@
         },
         {
           "latitude_deg": 27.779450703467212,
-          "longitude_deg": -90.00968141817255,
+          "longitude_deg": -90.00968141817253,
           "sample_id": "gulf_of_mexico_s003768",
           "weight_m2": 25000000.0
         },
@@ -64739,7 +64739,7 @@
           "weight_m2": 25000000.0
         },
         {
-          "latitude_deg": 26.19871262237197,
+          "latitude_deg": 26.198712622371975,
           "longitude_deg": -89.87892778437461,
           "sample_id": "gulf_of_mexico_s003881",
           "weight_m2": 25000000.0
@@ -67265,7 +67265,7 @@
           "weight_m2": 1264594.944025603
         },
         {
-          "latitude_deg": 26.189281708072055,
+          "latitude_deg": 26.189281708072063,
           "longitude_deg": -89.12912822459924,
           "sample_id": "gulf_of_mexico_s004302",
           "weight_m2": 24237076.486387037
