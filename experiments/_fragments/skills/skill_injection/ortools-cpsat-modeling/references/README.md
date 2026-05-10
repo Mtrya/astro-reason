@@ -1,6 +1,6 @@
 # OR-Tools CP-SAT Modeling References
 
-Use this file as an agent-facing API reminder. The runnable examples are in this skill directory under `examples/`.
+API reminder for small CP-SAT selection models. The examples under `examples/` show binary coverage and sequential lexicographic solves.
 
 ## Official API Links
 
@@ -37,7 +37,7 @@ Solution-bearing statuses:
 - `cp_model.OPTIMAL`
 - `cp_model.FEASIBLE`
 
-Non-solution statuses unless you saved an incumbent yourself:
+Non-solution statuses unless a callback or checkpoint saved an incumbent:
 
 - `cp_model.INFEASIBLE`
 - `cp_model.MODEL_INVALID`

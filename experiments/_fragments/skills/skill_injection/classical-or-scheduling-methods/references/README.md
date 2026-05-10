@@ -1,6 +1,6 @@
 # Classical OR Scheduling Methods References
 
-Use this file as an agent-facing reminder for product-style scheduling and local search.
+Method reminders for product-style scheduling and local search.
 
 ## Useful Literature
 
@@ -8,7 +8,7 @@ Use this file as an agent-facing reminder for product-style scheduling and local
 - Kim, Ahn, Choi, and Cho, "Task Scheduling of Multiple Agile Satellites with Transition Time and Stereo Imaging Constraints", Journal of Aerospace Information Systems, 2020. DOI: https://doi.org/10.2514/1.I010775
 - Vasquez and Hao, "A Logic-Constrained Knapsack Formulation and a Tabu Algorithm for the Daily Photograph Scheduling of an Earth Observation Satellite", Computational Optimization and Applications, 2001. DOI: https://doi.org/10.1023/A:1011203002719
 
-These sources motivate the patterns below, but the task contract you are solving is always the authority.
+The task's scoring and validity contract remains the authority.
 
 ## Pattern Glossary
 

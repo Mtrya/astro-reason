@@ -5,7 +5,7 @@ description: Use for combinatorial scheduling and selection problems where a sol
 
 # Classical OR Scheduling Methods
 
-Use this skill when solving a scheduling or selection task with many feasible actions, resource conflicts, and a scoring objective that rewards coverage or profit. It gives method patterns, not permission to call another solver.
+Use these patterns when solving a scheduling or selection task with many feasible actions, resource conflicts, and a scoring objective that rewards coverage or profit. Build the schedule from candidates and products you can inspect.
 
 For method reminders, read `references/README.md`. For a compact worked example using neutral jobs/resources/products, read `examples/conflict_graph_and_insertion.md`.
 

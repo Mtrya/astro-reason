@@ -1,6 +1,6 @@
 # Python Optimization For Search References
 
-Use this file as an agent-facing checklist for search code. The runnable example is `examples/search_loop_patterns.py` inside this skill directory.
+Search-code checklist. `examples/search_loop_patterns.py` shows the same ideas on synthetic data.
 
 ## Profiling
 

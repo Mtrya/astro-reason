@@ -5,9 +5,9 @@ description: Use when writing or speeding up Python search-heavy solvers, candid
 
 # Python Optimization For Search
 
-Use this skill when a Python solver is slow because it repeatedly builds candidates, evaluates pairwise/product feasibility, scans large pools, or runs improvement loops. Keep correctness first: every optimization must preserve a simple, inspectable data flow and deterministic output.
+When a Python solver is slow because it repeatedly builds candidates, evaluates pairwise/product feasibility, scans large pools, or runs improvement loops, keep correctness first: every optimization must preserve a simple, inspectable data flow and deterministic output.
 
-For practical reminders and a runnable synthetic pattern, see `references/README.md` and `examples/search_loop_patterns.py`.
+For practical reminders and a synthetic pattern, see `references/README.md` and `examples/search_loop_patterns.py`.
 
 ## Workflow
 
@@ -76,8 +76,8 @@ For practical reminders and a runnable synthetic pattern, see `references/README
 - Include a small status sidecar with score, counters, timing, seed, selected count, and last completed phase.
 - Prefer an early valid lower-quality output over waiting until the end to write the only solution.
 
-## Boundaries
+## Keep It Safe
 
-- Do not include task-specific formulas, hidden case details, or commands that ask another solver to do the work.
-- Do not include OR-Tools, CP-SAT, MILP, or domain-specific stereo product strategy here.
-- Do not install packages system-wide. Use the existing environment and standard library tools unless the task already allows NumPy.
+- Optimize only after you have a correctness check.
+- Keep the old simple path or a small expected-output test near risky rewrites.
+- Prefer changes that make the data flow easier to inspect: fewer repeated scans, clearer indexes, and explicit checkpoints.

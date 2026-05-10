@@ -1,6 +1,6 @@
 # Stereo Imaging Product Strategy References
 
-Use this file as an agent-facing reminder for interpreting stereo-imaging products and verifier reports.
+Product and verifier-report reminders for stereo-imaging schedules.
 
 ## Product Facts
 

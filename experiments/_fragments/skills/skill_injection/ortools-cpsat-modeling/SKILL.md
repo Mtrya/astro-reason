@@ -1,13 +1,13 @@
 ---
 name: ortools-cpsat-modeling
-description: Use when building small-to-medium OR-Tools CP-SAT models in Python for binary selection, conflict constraints, coverage linkage, lexicographic objectives, solver limits, status handling, incumbent extraction, and fallback decisions; keep it generic to CP-SAT and do not use for stereo-imaging-specific formulas or reproducing another solver.
+description: Use when building small-to-medium OR-Tools CP-SAT models in Python for binary selection, conflict constraints, coverage linkage, lexicographic objectives, solver limits, status handling, incumbent extraction, and fallback decisions.
 ---
 
 # OR-Tools CP-SAT Modeling
 
-Use this skill when candidate or product data is already clean and you want an exact or bounded CP-SAT selection model. CP-SAT is a modeling layer, not a data-cleaning substitute: build candidates, product ids, conflict edges, and objective terms first.
+When candidate or product data is already clean and an exact or bounded CP-SAT selection model is useful, treat CP-SAT as a modeling layer, not a data-cleaning substitute: build candidates, product ids, conflict edges, and objective terms first.
 
-For API notes and runnable examples, see `references/README.md`, `examples/binary_coverage_cp_sat.py`, and `examples/sequential_lexicographic_solve.py`.
+For API notes and examples, see `references/README.md`, `examples/binary_coverage_cp_sat.py`, and `examples/sequential_lexicographic_solve.py`.
 
 ## Minimal Pattern
 
@@ -91,8 +91,8 @@ If no product covers an entity, fix its coverage variable to zero. This pattern 
 - The instance is tiny and greedy already reaches the known target.
 - You need continuous nonlinear geometry rather than an integer selection model.
 
-## Boundaries
+## Keep It Safe
 
-- Keep this generic to OR-Tools CP-SAT.
-- Do not include task-specific product formulas, hidden case details, or commands that ask another solver to solve the task for you.
-- Do not install packages system-wide. Use an isolated environment when validating OR-Tools examples.
+- Model only candidates and conflicts you already trust.
+- Keep domain-specific feasibility checks outside the CP-SAT model unless they are already converted to integer variables and constraints.
+- Preserve a deterministic fallback solution when a time-limited solve returns no feasible status.
