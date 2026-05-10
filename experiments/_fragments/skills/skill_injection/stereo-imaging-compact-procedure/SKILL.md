@@ -22,8 +22,8 @@ Build candidate stereo products before committing them to the final schedule:
 1. Pair or triple observations for the same target.
 2. Keep pairs close enough in midpoint time.
 3. Favor viewpoint diversity, but not extreme off-nadir geometry.
-4. For tri-stereo, include one near-nadir anchor when possible.
-5. Rank products by new target coverage first, then expected quality.
+4. For tri-stereo, include one near-nadir anchor; without it, treat the observations as pair candidates, not a tri-stereo product.
+5. Rank valid products by best-per-target quality impact: validity margin, scene-band convergence, overlap margin, similar pixel scale, low timeline cost, and new target coverage.
 
 If a target has many single observations but no score, the likely failure is that those observations never form a valid stereo or tri-stereo product.
 
@@ -33,14 +33,14 @@ Schedule a product as one unit. Tentatively insert all observations for that pai
 
 Keep each satellite's actions sorted by start time. After each insertion, check only the neighboring actions on that satellite for overlap and transition gap problems. Cross-satellite observations do not conflict with each other, but each satellite still has its own timeline constraints.
 
-## Coverage First, Quality Second
+## Seed Coverage, Then Improve Quality
 
 The safest growth loop is:
 
-1. Seed one valid product for as many targets as possible.
+1. Seed one robust valid product for many targets so uncovered targets do not contribute zero.
 2. Repair conflicts by removing the lowest-value whole product, not a random single observation.
-3. Upgrade covered targets only when the replacement keeps validity.
-4. Add tri-stereo upgrades after pair coverage is stable.
+3. Compare later moves by their effect on best-per-target normalized quality while keeping validity.
+4. Add tri-stereo upgrades after robust pair coverage exists.
 
 Do not spend the whole run polishing one target while many targets have no valid product. Normalized quality is averaged over all targets, so uncovered targets contribute zero.
 
@@ -51,4 +51,4 @@ Do not spend the whole run polishing one target while many targets have no valid
 - Many pair failures: back away from thresholds. Use more central access times, less extreme steering, and similar pixel scale.
 - Repair collapse: insert fewer products per satellite or remove low-quality products that block several uncovered targets.
 
-For a worked workflow, read `examples/product_first_workflow.md`.
+If you are stuck on the first construction pass, use `examples/product_first_workflow.md` as a small product-table template.

@@ -7,7 +7,18 @@ description: Use when writing or speeding up Python search-heavy solvers, candid
 
 When a Python solver is slow because it repeatedly builds candidates, evaluates pairwise/product feasibility, scans large pools, or runs improvement loops, keep correctness first: every optimization must preserve a simple, inspectable data flow and deterministic output.
 
-For practical reminders and a synthetic pattern, see `references/README.md` and `examples/search_loop_patterns.py`.
+Use `examples/search_loop_patterns.py` only when you need a runnable pattern for batching, deterministic search, and atomic checkpoint writes.
+
+## Symptom To Fix
+
+| Symptom | First fix |
+|---|---|
+| Candidate generation is slow | Batch by natural independent blocks and cache parsed/static inputs. |
+| Pair/product filtering is slow | Precompute indexes by target/resource/time bucket and vectorize dense numeric masks. |
+| Search rescans everything | Store candidate ids and conflict neighborhoods; update only affected neighbors. |
+| Multiprocessing is slower | Increase task size, send smaller inputs, or return to deterministic serial code. |
+| Improvements are hard to debug | Sort by stable keys, log accept/reject counters, and recompute the objective from scratch after moves. |
+| Risk of no final output | Write the best complete solution early and replace it atomically on improvement. |
 
 ## Workflow
 
@@ -73,7 +84,7 @@ For practical reminders and a synthetic pattern, see `references/README.md` and 
 
 - Write a complete solution whenever the best score improves and after each major phase.
 - Write atomically through a temporary file plus rename so interrupted runs leave a readable previous checkpoint.
-- Include a small status sidecar with score, counters, timing, seed, selected count, and last completed phase.
+- Include a small local scratch status sidecar with score, counters, timing, seed, selected count, and last completed phase; do not treat it as part of the final submission unless the task explicitly asks for it.
 - Prefer an early valid lower-quality output over waiting until the end to write the only solution.
 
 ## Keep It Safe

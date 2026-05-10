@@ -1,13 +1,24 @@
 ---
 name: classical-or-scheduling-methods
-description: Use for combinatorial scheduling and selection problems where a solver must build candidates, reason about conflicts, seed a feasible schedule, improve it with insertion/removal/local-search moves, repair violations, and preserve deterministic tie-breaking under coverage-first or lexicographic objectives.
+description: Use for combinatorial scheduling and selection problems where a solver must build candidates, reason about conflicts, seed a feasible schedule, improve it with insertion/removal/local-search moves, repair violations, and preserve deterministic tie-breaking under coverage-aware or lexicographic objectives.
 ---
 
 # Classical OR Scheduling Methods
 
 Use these patterns when solving a scheduling or selection task with many feasible actions, resource conflicts, and a scoring objective that rewards coverage or profit. Build the schedule from candidates and products you can inspect.
 
-For method reminders, read `references/README.md`. For a compact worked example using neutral jobs/resources/products, read `examples/conflict_graph_and_insertion.md`.
+Use `examples/conflict_graph_and_insertion.md` only when you need a tiny neutral pattern for conflict sets, rollback, or repair loss. Use `references/README.md` only for terminology lookup.
+
+## What To Do Next
+
+| State | Next move |
+|---|---|
+| No schedule yet | Build feasible actions, then compatible products/jobs. |
+| Too many candidates | Prune dominated choices but keep alternatives per job for repair. |
+| First feasible schedule needed | Insert whole products with stable tie-breaking and rollback. |
+| A new product conflicts | Compare the added value with the value lost by removing conflicting products. |
+| Final schedule is invalid | Repair by removing the smallest-loss whole product in each conflict set. |
+| Feasible but weak | Try insert, replace, remove-then-insert, and swap moves under the task's actual metric. |
 
 ## Core Model
 
@@ -46,7 +57,7 @@ Build a first feasible schedule with stable ordering:
 3. Insert only if the full product is feasible.
 4. After one pass, try upgrade moves that replace a covered job's product with a higher-quality product.
 
-For coverage-first objectives, seed coverage before polishing quality. This prevents high-quality duplicates from blocking many easy wins.
+For objectives where uncovered jobs contribute zero, seed broad feasible coverage before polishing duplicates. After the seed, evaluate moves by the task's actual metric and priority order.
 
 ## Insertion And Rollback
 

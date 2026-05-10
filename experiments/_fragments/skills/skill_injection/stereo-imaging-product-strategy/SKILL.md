@@ -7,7 +7,7 @@ description: Use when solving AstroReason stereo_imaging cases and you need ster
 
 After the case schema is clear, improve `solution.json` based on product behavior. The case prompt remains the authority for exact thresholds, units, and output fields.
 
-For product reminders, read `references/README.md`. For debugging workflows, read `examples/verifier_diagnosis_checklist.md` and `examples/product_ranking_table.md`. If you have a verifier JSON report, `scripts/summarize_verifier_report.py` can summarize it using only the JSON fields.
+If you have a verifier JSON report, `scripts/summarize_verifier_report.py` can summarize it using only the JSON fields. If you are stuck choosing the next product, use `examples/product_ranking_table.md`; if you are stuck after a failed check, use `examples/verifier_diagnosis_checklist.md`.
 
 ## Product Mindset
 
@@ -19,6 +19,17 @@ You submit raw observations, but the score comes from derived stereo products:
 - Add, remove, and repair observations in pair/triple units whenever possible.
 
 Before scheduling a product, ask: which target does it cover, which product mode does it use, why should the pair/triple pass overlap, convergence, and pixel-scale checks, and which same-satellite timeline conflicts can it create?
+
+## Choose The Next Move
+
+| Current state | Next move |
+|---|---|
+| Invalid `solution.json` | Repair hard action violations before reading product metrics. |
+| Valid but zero score | Add one robust same-target pair; do not add unrelated singles. |
+| Many zero-score targets | Seed robust pairs for zero-score targets before polishing duplicates. |
+| Most targets covered | Upgrade the best product per target by normalized-quality gain. |
+| Pair failures near thresholds | Move inward in access time, reduce extreme steering, or choose a more similar pixel-scale view. |
+| Schedule repair removes many products | Revert to the last valid file and reinsert fewer whole products. |
 
 ## Product Modes
 
@@ -32,7 +43,7 @@ If cross-satellite stereo is allowed, it is often the safer first product mode f
 
 ## Quality Strategy
 
-Optimize coverage first, then improve best-per-target quality:
+After validity, optimize best-per-target product quality. Use broad first-pass coverage as a practical way to avoid zero-contribution targets, then compare upgrades by their effect on normalized quality:
 
 - Match convergence to the target `scene_type` preference band when possible.
 - Avoid barely-valid products near convergence, overlap, pixel-scale, access, solar, duration, and slew thresholds.
@@ -49,7 +60,7 @@ Scene preferences:
 | `rugged` | moderate-strong baseline, typically 10-20 deg |
 | `open` | stronger baseline, typically 15-25 deg |
 
-Do not chase an extreme convergence angle if it damages overlap or pixel-scale ratio. A comfortable product that covers a new target usually beats a fragile high-baseline product.
+Do not chase an extreme convergence angle if it damages overlap or pixel-scale ratio. A comfortable product on an uncovered target often improves normalized quality more reliably than a fragile high-baseline duplicate.
 
 ## Verifier Diagnosis Loop
 
@@ -57,7 +68,7 @@ After every verifier run, classify the outcome:
 
 - **Invalid:** fix `violations` first. Do not interpret product metrics until hard constraints pass.
 - **Valid, zero score:** observations are legal singles but no valid products were derived. Add same-target pairs/triples or adjust product geometry.
-- **Valid, low coverage:** inspect which target IDs are absent or zero in `diagnostics.per_target_best_score`; prioritize one robust product for each uncovered target.
+- **Valid, low coverage:** inspect which target IDs are absent or zero in `diagnostics.per_target_best_score`; add robust products for zero-score targets, then compare upgrades by quality gain.
 - **Valid, low quality:** inspect `diagnostics.pair_evaluations` for products that passed but have weak convergence, overlap, or pixel-scale quality components; replace only when coverage stays intact.
 - **Repair collapse:** if fixes remove many observations, preserve the last valid solution and re-add products one target at a time.
 
@@ -79,7 +90,7 @@ If a field is absent in a compact or no-verifier workspace, reproduce the same r
 1. For invalid schedules, repair in this order: schema and IDs, timestamps and duration, mission horizon, combined off-nadir, access/solar, same-satellite overlap, same-satellite slew gap.
 2. For valid-zero schedules, group observations by `target_id`; each covered target needs at least two compatible observations or three for tri-stereo.
 3. For failed pairs, change one cause at a time: move midpoint times inward, reduce extreme steering, choose a different satellite, or increase baseline only if convergence is too low.
-4. For low coverage, add a robust pair for an uncovered target before upgrading an already-covered one.
+4. For low coverage, add a robust pair for an uncovered target before polishing duplicates, then compare future moves by best-per-target quality gain.
 5. For low quality, upgrade the best product for a target, not every product touching that target.
 6. For tri-stereo, first keep a valid pair, then add the near-nadir anchor or third view; do not let the upgrade break the pair baseline.
 

@@ -22,7 +22,7 @@ The task's scoring and validity contract remains the authority.
 ## Search Patterns
 
 - Generate candidates with cheap feasibility filters before expensive scoring.
-- Build products from compatible candidates and rank by new coverage first.
+- Build products from compatible candidates and rank by the task's true objective; use new coverage early when uncovered jobs contribute zero.
 - Seed a broad feasible schedule before polishing quality.
 - Use insert, replace, remove-then-insert, and swap neighborhoods.
 - When adding a product creates conflicts, compare the added value with the value lost by removing conflicting products.

@@ -7,7 +7,17 @@ description: Use when building small-to-medium OR-Tools CP-SAT models in Python 
 
 When candidate or product data is already clean and an exact or bounded CP-SAT selection model is useful, treat CP-SAT as a modeling layer, not a data-cleaning substitute: build candidates, product ids, conflict edges, and objective terms first.
 
-For API notes and examples, see `references/README.md`, `examples/binary_coverage_cp_sat.py`, and `examples/sequential_lexicographic_solve.py`.
+Use `examples/binary_coverage_cp_sat.py` or `examples/sequential_lexicographic_solve.py` only when you need a runnable synthetic pattern. Use `references/README.md` only for API-name or status-code lookup.
+
+## Modeling Recipe
+
+1. Build trusted products, action ids, conflict edges, and objective terms outside CP-SAT.
+2. Create one Boolean `x[product_id]` per selectable product.
+3. Add conflict constraints such as `x[a] + x[b] <= 1`.
+4. Link target/job coverage or best-score variables to selected products.
+5. Maximize the task's actual priority order, using sequential solves when weights are awkward.
+6. Set a time limit and treat only `OPTIMAL` or `FEASIBLE` as solution-bearing statuses.
+7. Convert selected products back into the required raw output actions; keep scratch solver logs out of the final submission unless requested.
 
 ## Minimal Pattern
 
@@ -15,16 +25,17 @@ For API notes and examples, see `references/README.md`, `examples/binary_coverag
 from ortools.sat.python import cp_model
 
 model = cp_model.CpModel()
-x = model.new_bool_var("select_x")
-model.add(x <= 1)
-model.maximize(x)
+x = {pid: model.new_bool_var(f"select_{pid}") for pid in product_ids}
+for left, right in conflict_edges:
+    model.add(x[left] + x[right] <= 1)
+model.maximize(sum(weight[pid] * x[pid] for pid in product_ids))
 
 solver = cp_model.CpSolver()
 solver.parameters.max_time_in_seconds = 10.0
 status = solver.solve(model)
 
 if status in (cp_model.OPTIMAL, cp_model.FEASIBLE):
-    selected = solver.value(x)
+    selected = [pid for pid in product_ids if solver.value(x[pid])]
 ```
 
 Use the lowercase Python API (`new_bool_var`, `add`, `maximize`, `solve`, `value`) unless the installed package shows otherwise. Check `solver.status_name(status)` when logging.
@@ -81,7 +92,7 @@ If no product covers an entity, fix its coverage variable to zero. This pattern 
 
 - Always emit the best feasible solution when status is `FEASIBLE`.
 - If CP-SAT returns no solution-bearing status under the time limit, fall back to a deterministic greedy seed or previously checkpointed feasible solution rather than emitting nothing.
-- Do not silently switch from exact CP-SAT to greedy; record the backend/status in a sidecar.
+- Do not silently switch from exact CP-SAT to greedy; record the backend/status in a local scratch sidecar, not as part of the final task submission unless explicitly requested.
 
 ## When Not To Use CP-SAT Yet
 

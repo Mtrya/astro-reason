@@ -25,7 +25,7 @@ Group same-target candidates before adding them to the schedule:
 | P2 | A + C | same-satellite same-pass backup | slew gap in one timeline |
 | P3 | A + B + C | tri-stereo upgrade with near-nadir anchor | more timeline conflicts |
 
-Rank products by whether they cover a new target, then by likely quality. Prefer products with margin over products that barely touch thresholds.
+Rank products by likely best-per-target quality impact and validity margin. Use new target coverage as a strong tie-breaker because zero-score targets add nothing.
 
 ## 3. Insert As A Unit
 
@@ -45,7 +45,7 @@ When two products compete for the same satellite time:
 
 | keep | remove | why |
 |---|---|---|
-| product covering an uncovered target | duplicate upgrade on an already-covered target | coverage improves normalized score more reliably |
+| robust product for a zero-score target | fragile duplicate upgrade on an already-covered target | uncovered targets contribute zero, while fragile products risk validity |
 | product with a near-nadir tri anchor | marginal pair near thresholds | more robust validation |
 | product blocking few future options | product blocking many candidates | preserves schedule flexibility |
 

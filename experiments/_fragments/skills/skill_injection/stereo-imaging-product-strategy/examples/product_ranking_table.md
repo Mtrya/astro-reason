@@ -14,11 +14,11 @@ Use a table like this while building or repairing a schedule. The entries are il
 
 Sort candidate products by:
 
-1. New target coverage before duplicate products.
-2. Expected validity margin around overlap, convergence, pixel-scale ratio, access, solar, and slew constraints.
-3. Scene-appropriate convergence rather than maximum convergence.
-4. Lower same-satellite timeline cost.
-5. Higher expected best-per-target quality.
+1. Validity margin around overlap, convergence, pixel-scale ratio, access, solar, and slew constraints.
+2. Higher expected best-per-target quality impact.
+3. New target coverage before duplicate products when quality impact is comparable, because uncovered targets contribute zero.
+4. Scene-appropriate convergence rather than maximum convergence.
+5. Lower same-satellite timeline cost.
 6. Stable target/product ID.
 
 ## Decisions
