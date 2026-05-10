@@ -72,6 +72,15 @@ class ResultSettings:
 
 
 @dataclass(frozen=True)
+class BenchmarkSelection:
+    benchmark: str
+    split: str
+    cases: tuple[str, ...]
+    conditions: tuple[str, ...]
+    harnesses: tuple[str, ...]
+
+
+@dataclass(frozen=True)
 class FamilyConfig:
     name: str
     mode: str
@@ -80,6 +89,7 @@ class FamilyConfig:
     cases: tuple[str, ...]
     conditions: tuple[str, ...]
     harnesses: tuple[str, ...]
+    benchmarks: tuple[BenchmarkSelection, ...]
     timeout_seconds: int
     batch: BatchSettings
     resources: ResourceLimits
@@ -161,6 +171,7 @@ class RunResult:
 def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Run the skill-injection ablation")
     parser.add_argument("--config", type=Path, default=DEFAULT_CONFIG, help="Family config path.")
+    parser.add_argument("--benchmark", action="append", default=[], help="Limit to a benchmark.")
     parser.add_argument("--condition", action="append", default=[], help="Limit to a condition.")
     parser.add_argument("--harness", action="append", default=[], help="Limit to a harness.")
     parser.add_argument("--case", action="append", default=[], help="Limit to a case id.")
@@ -304,16 +315,65 @@ def _parse_skill_specs(items: Any, path: Path) -> tuple[SkillSpec, ...]:
     return tuple(specs)
 
 
+def _parse_benchmark_selections(data: dict[str, Any], path: Path) -> tuple[BenchmarkSelection, ...]:
+    raw = data.get("benchmarks")
+    if raw is None:
+        return (
+            BenchmarkSelection(
+                benchmark=_require_str(data, "benchmark", "Family config", path),
+                split=_require_str(data, "split", "Family config", path),
+                cases=_string_tuple(data, "cases", "Family config", path),
+                conditions=_string_tuple(data, "conditions", "Family config", path),
+                harnesses=_string_tuple(data, "harnesses", "Family config", path),
+            ),
+        )
+    if not isinstance(raw, list) or not raw:
+        raise SystemExit(f"Family config benchmarks must be a non-empty list: {path}")
+    default_split = data.get("split")
+    default_cases = data.get("cases")
+    default_conditions = data.get("conditions")
+    default_harnesses = data.get("harnesses")
+    selections: list[BenchmarkSelection] = []
+    for index, item in enumerate(raw):
+        if not isinstance(item, dict):
+            raise SystemExit(f"benchmarks[{index}] must be a mapping: {path}")
+        selection_data = {
+            "split": item.get("split", default_split),
+            "cases": item.get("cases", default_cases),
+            "conditions": item.get("conditions", default_conditions),
+            "harnesses": item.get("harnesses", default_harnesses),
+        }
+        label = f"benchmarks[{index}]"
+        selections.append(
+            BenchmarkSelection(
+                benchmark=_require_str(item, "benchmark", label, path),
+                split=_require_str(selection_data, "split", label, path),
+                cases=_string_tuple(selection_data, "cases", label, path),
+                conditions=_string_tuple(selection_data, "conditions", label, path),
+                harnesses=_string_tuple(selection_data, "harnesses", label, path),
+            )
+        )
+    return tuple(selections)
+
+
 def load_family_config(path: Path) -> FamilyConfig:
     data = _load_yaml(path, "Family config")
+    benchmark_selections = _parse_benchmark_selections(data, path)
+    first = benchmark_selections[0]
+    all_cases = tuple(dict.fromkeys(case for selection in benchmark_selections for case in selection.cases))
+    all_conditions = tuple(
+        dict.fromkeys(condition for selection in benchmark_selections for condition in selection.conditions)
+    )
+    all_harnesses = tuple(dict.fromkeys(harness for selection in benchmark_selections for harness in selection.harnesses))
     return FamilyConfig(
         name=_require_str(data, "name", "Family config", path),
         mode=_require_str(data, "mode", "Family config", path),
-        benchmark=_require_str(data, "benchmark", "Family config", path),
-        split=_require_str(data, "split", "Family config", path),
-        cases=_string_tuple(data, "cases", "Family config", path),
-        conditions=_string_tuple(data, "conditions", "Family config", path),
-        harnesses=_string_tuple(data, "harnesses", "Family config", path),
+        benchmark=first.benchmark,
+        split=first.split,
+        cases=all_cases,
+        conditions=all_conditions,
+        harnesses=all_harnesses,
+        benchmarks=benchmark_selections,
         timeout_seconds=int(data.get("timeout_seconds", 7200)),
         batch=_batch_settings(data, path),
         resources=_resource_limits(data),
@@ -391,6 +451,13 @@ def _select(configured: tuple[str, ...], requested: tuple[str, ...], label: str)
     return tuple(item for item in configured if item in set(requested))
 
 
+def _select_intersection(configured: tuple[str, ...], requested: tuple[str, ...]) -> tuple[str, ...]:
+    if not requested:
+        return configured
+    requested_set = set(requested)
+    return tuple(item for item in configured if item in requested_set)
+
+
 def _case_dir(benchmark: str, split: str, case_id: str) -> Path:
     return REPO_ROOT / "benchmarks" / benchmark / "dataset" / "cases" / split / case_id
 
@@ -442,44 +509,52 @@ def _output_dir_for_item(item: RunItem) -> Path:
 def build_items(
     config: FamilyConfig,
     *,
+    benchmarks: tuple[str, ...] = (),
     conditions: tuple[str, ...],
     harnesses: tuple[str, ...],
     cases: tuple[str, ...],
 ) -> tuple[RunItem, ...]:
-    selected_conditions = _select(config.conditions, conditions, "condition")
-    selected_harnesses = _select(config.harnesses, harnesses, "harness")
-    selected_cases = _select(config.cases, cases, "case")
+    selected_benchmarks = _select(tuple(selection.benchmark for selection in config.benchmarks), benchmarks, "benchmark")
+    _select(config.conditions, conditions, "condition")
+    _select(config.harnesses, harnesses, "harness")
+    _select(config.cases, cases, "case")
     items: list[RunItem] = []
-    for condition_name in selected_conditions:
-        condition = load_condition_profile(condition_name)
-        for harness_name in selected_harnesses:
-            harness = load_harness_profile(harness_name)
-            skill_specs = _skill_assemble_specs(condition, harness)
-            for case_id in selected_cases:
-                assemble = (
-                    *_base_assemble_specs(config.benchmark, config.split, case_id),
-                    *harness.assemble,
-                    *skill_specs,
-                )
-                items.append(
-                    RunItem(
-                        config_name=config.name,
-                        config_path=config.config_path,
-                        benchmark=config.benchmark,
-                        split=config.split,
-                        case_id=case_id,
-                        condition=condition.condition,
-                        harness=harness.harness,
-                        runtime=harness.runtime,
-                        timeout_seconds=config.timeout_seconds,
-                        resources=config.resources,
-                        results_root=config.results.root,
-                        assemble=assemble,
-                        collect=harness.collect,
-                        forward_env_keys=harness.forward_env_keys,
-                        headless_shell_command=harness.headless_shell_command,
+    for selection in config.benchmarks:
+        if selection.benchmark not in selected_benchmarks:
+            continue
+        selected_conditions = _select_intersection(selection.conditions, conditions)
+        selected_harnesses = _select_intersection(selection.harnesses, harnesses)
+        selected_cases = _select_intersection(selection.cases, cases)
+        for condition_name in selected_conditions:
+            condition = load_condition_profile(condition_name)
+            for harness_name in selected_harnesses:
+                harness = load_harness_profile(harness_name)
+                skill_specs = _skill_assemble_specs(condition, harness)
+                for case_id in selected_cases:
+                    assemble = (
+                        *_base_assemble_specs(selection.benchmark, selection.split, case_id),
+                        *harness.assemble,
+                        *skill_specs,
                     )
-                )
+                    items.append(
+                        RunItem(
+                            config_name=config.name,
+                            config_path=config.config_path,
+                            benchmark=selection.benchmark,
+                            split=selection.split,
+                            case_id=case_id,
+                            condition=condition.condition,
+                            harness=harness.harness,
+                            runtime=harness.runtime,
+                            timeout_seconds=config.timeout_seconds,
+                            resources=config.resources,
+                            results_root=config.results.root,
+                            assemble=assemble,
+                            collect=harness.collect,
+                            forward_env_keys=harness.forward_env_keys,
+                            headless_shell_command=harness.headless_shell_command,
+                        )
+                    )
     return tuple(items)
 
 
@@ -961,8 +1036,8 @@ def print_dry_run(
 ) -> None:
     print(f"Config: {config.config_path}")
     print(f"Mode: {config.mode}")
-    print(f"Benchmark: {config.benchmark}")
-    print(f"Split: {config.split}")
+    print(f"Benchmarks: {', '.join(dict.fromkeys(item.benchmark for item in items))}")
+    print(f"Splits: {', '.join(dict.fromkeys(item.split for item in items))}")
     print(f"Conditions: {', '.join(dict.fromkeys(item.condition for item in items))}")
     print(f"Harnesses: {', '.join(dict.fromkeys(item.harness for item in items))}")
     print(f"Run count: {len(items)}")
@@ -997,7 +1072,7 @@ def print_dry_run(
         missing = missing_assemble_sources(item)
         state = "ready" if not missing else f"missing_sources={len(missing)}"
         print(
-            f"- {item.condition}/{item.harness}/{item.case_id}: {state} -> "
+            f"- {item.benchmark}/{item.condition}/{item.harness}/{item.case_id}: {state} -> "
             f"{_relative(_output_dir(config, item))}"
         )
 
@@ -1015,6 +1090,7 @@ def main(argv: list[str] | None = None) -> int:
         config = replace(config, batch=replace(config.batch, max_concurrency=args.max_concurrency))
     items = build_items(
         config,
+        benchmarks=tuple(args.benchmark),
         conditions=tuple(args.condition),
         harnesses=tuple(args.harness),
         cases=tuple(args.case),

@@ -4,10 +4,12 @@ This experiment family tracks issue #59: measuring whether task-specific,
 repository-owned skills improve space-agent performance when benchmark,
 runtime, verifier exposure, and harness settings are otherwise fixed.
 
-The initial benchmark is `stereo_imaging`. It was selected because weak
+The initial benchmark was `stereo_imaging`. It was selected because weak
 harnesses often produce invalid or valid-but-near-zero solutions under opaque
 verifier exposure, while transparent verifier exposure shows the task is
-learnable when agents receive better constraint feedback.
+learnable when agents receive better constraint feedback. The matrix now also
+includes `satnet` on `codex` for a narrower test of whether generic Python
+optimization plus OR-Tools CP-SAT guidance improves a resource-scheduling task.
 
 ## Conditions
 
@@ -16,6 +18,8 @@ learnable when agents receive better constraint feedback.
 - `skill_pack`: four focused skills covering Python search performance,
   OR-Tools CP-SAT modeling, classical OR scheduling methods, and
   stereo-imaging product strategy.
+- `satnet_ortools_python`: two generic skills for SatNet only:
+  Python search optimization and OR-Tools CP-SAT modeling.
 
 Skill assembly is owned by the condition profiles under:
 
@@ -40,14 +44,25 @@ Preview the configured matrix:
 uv run python experiments/skill_injection/run.py --dry-run
 ```
 
-Preview only the control condition:
+Preview one stereo skill condition:
 
 ```bash
 uv run python experiments/skill_injection/run.py \
   --dry-run \
-  --condition no_skill \
+  --condition compact_domain \
   --harness opencode_dpsk \
   --case case_0001
+```
+
+Preview the SatNet skill condition:
+
+```bash
+uv run python experiments/skill_injection/run.py \
+  --dry-run \
+  --benchmark satnet \
+  --condition satnet_ortools_python \
+  --harness codex \
+  --case W10_2018
 ```
 
 Run selected work:

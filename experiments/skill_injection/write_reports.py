@@ -64,6 +64,20 @@ def _format_status_counts(value: Any) -> str:
     return ", ".join(f"{key}: {_format_value(count)}" for key, count in sorted(value.items()))
 
 
+def _benchmark_summary(summary: dict[str, Any], benchmark: str) -> dict[str, Any]:
+    by_condition = {
+        key.split("/", maxsplit=1)[1]: value
+        for key, value in (summary.get("by_benchmark_condition") or {}).items()
+        if isinstance(key, str) and key.startswith(f"{benchmark}/")
+    }
+    by_condition_harness = {
+        key.removeprefix(f"{benchmark}/"): value
+        for key, value in (summary.get("by_benchmark_condition_harness") or {}).items()
+        if isinstance(key, str) and key.startswith(f"{benchmark}/")
+    }
+    return {**summary, "by_condition": by_condition, "by_condition_harness": by_condition_harness}
+
+
 def _condition_rows(summary: dict[str, Any]) -> list[list[str]]:
     by_condition = summary.get("by_condition")
     if not isinstance(by_condition, dict):
@@ -81,6 +95,9 @@ def _condition_rows(summary: dict[str, Any]) -> list[list[str]]:
                 _format_value(values.get("valid_rate")),
                 _format_value(values.get("mean_coverage_ratio")),
                 _format_value(values.get("mean_normalized_quality")),
+                _format_value(values.get("mean_score_hours")),
+                _format_value(values.get("mean_u_rms")),
+                _format_value(values.get("mean_u_max")),
                 _format_value(values.get("mean_normalized_score_pct")),
                 _format_status_counts(values.get("overall_status_counts")),
             ]
@@ -107,6 +124,9 @@ def _condition_harness_rows(summary: dict[str, Any]) -> list[list[str]]:
                 _format_value(values.get("valid_rate")),
                 _format_value(values.get("mean_coverage_ratio")),
                 _format_value(values.get("mean_normalized_quality")),
+                _format_value(values.get("mean_score_hours")),
+                _format_value(values.get("mean_u_rms")),
+                _format_value(values.get("mean_u_max")),
                 _format_value(values.get("mean_normalized_score_pct")),
                 _format_status_counts(values.get("overall_status_counts")),
             ]
@@ -138,6 +158,9 @@ def _case_rows(rows: list[dict[str, str]]) -> list[list[str]]:
                 _format_value(row.get("skill_count")),
                 _format_value(row.get("coverage_ratio")),
                 _format_value(row.get("normalized_quality")),
+                _format_value(row.get("score_hours")),
+                _format_value(row.get("u_rms")),
+                _format_value(row.get("u_max")),
                 _format_value(row.get("normalized_score_pct")),
             ]
         )
@@ -154,6 +177,7 @@ def _write_report(
     reports_dir.mkdir(parents=True, exist_ok=True)
     report_path = reports_dir / f"{benchmark}.md"
     rows = [row for row in rows if row.get("benchmark") == benchmark]
+    summary = _benchmark_summary(summary, benchmark)
     lines = [
         "# Skill Injection",
         "",
@@ -174,6 +198,9 @@ def _write_report(
                 "Valid Rate",
                 "Mean Coverage",
                 "Mean Quality",
+                "Mean Hours",
+                "Mean U RMS",
+                "Mean U Max",
                 "Mean Score",
                 "Overall Statuses",
             ],
@@ -193,6 +220,9 @@ def _write_report(
                 "Valid Rate",
                 "Mean Coverage",
                 "Mean Quality",
+                "Mean Hours",
+                "Mean U RMS",
+                "Mean U Max",
                 "Mean Score",
                 "Overall Statuses",
             ],
@@ -216,6 +246,9 @@ def _write_report(
                 "Skills",
                 "Coverage",
                 "Quality",
+                "Hours",
+                "U RMS",
+                "U Max",
                 "Score",
             ],
             _case_rows(rows),

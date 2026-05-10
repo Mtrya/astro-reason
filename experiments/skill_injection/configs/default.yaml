@@ -1,24 +1,36 @@
 name: skill_injection
 mode: batch
 
-benchmark: stereo_imaging
-split: test
-cases:
-  - case_0001
-  - case_0002
-  - case_0003
-  - case_0004
-  - case_0005
-
-conditions:
-  # no_skill is the main_agentic default and is collected by aggregate.py from
-  # results/agent_runs/experiments/main_agentic/matrix instead of rerun here.
-  - compact_domain
-  - skill_pack
-
-harnesses:
-  - opencode_dpsk
-  - opencode_minimax
+benchmarks:
+  - benchmark: stereo_imaging
+    split: test
+    cases:
+      - case_0001
+      - case_0002
+      - case_0003
+      - case_0004
+      - case_0005
+    # no_skill is the main_agentic default and is collected by aggregate.py from
+    # results/agent_runs/experiments/main_agentic/matrix instead of rerun here.
+    conditions:
+      - compact_domain
+      - skill_pack
+    harnesses:
+      - opencode_dpsk
+      - opencode_minimax
+  - benchmark: satnet
+    split: test
+    cases:
+      - W10_2018
+      - W20_2018
+      - W30_2018
+      - W40_2018
+      - W50_2018
+    # no_skill is likewise collected from main_agentic/matrix.
+    conditions:
+      - satnet_ortools_python
+    harnesses:
+      - codex
 
 timeout_seconds: 7200
 

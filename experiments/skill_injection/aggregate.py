@@ -21,6 +21,7 @@ else:
     from . import run as family_run
 
 from experiments._shared import aggregate as shared_aggregate
+from experiments._shared import main_solver_baselines
 from experiments._shared import score_normalization as score_norm
 
 
@@ -32,6 +33,11 @@ DEFAULT_MAIN_AGENTIC_ROOT = (
 METRIC_FIELDS = (
     "coverage_ratio",
     "normalized_quality",
+    "score_hours",
+    "n_satisfied_requests",
+    "u_rms",
+    "u_max",
+    "n_tracks",
     "normalized_score_pct",
 )
 
@@ -52,14 +58,22 @@ def _aggregate_dir(config: family_run.FamilyConfig) -> Path:
     return config.results.aggregate_dir
 
 
-def _run_path(config: family_run.FamilyConfig, *, condition: str, harness: str, case_id: str) -> Path:
+def _run_path(
+    config: family_run.FamilyConfig,
+    *,
+    condition: str,
+    benchmark: str,
+    harness: str,
+    split: str,
+    case_id: str,
+) -> Path:
     return (
         config.results.root
         / config.config_path.stem
         / condition
-        / config.benchmark
+        / benchmark
         / harness
-        / config.split
+        / split
         / case_id
         / "run.json"
     )
@@ -99,16 +113,23 @@ def _metric_from_mapping(metrics: dict[str, Any], key: str) -> float | None:
 
 def _metrics_from_mapping(metrics: dict[str, Any]) -> dict[str, float | None]:
     values = {field: _metric_from_mapping(metrics, field) for field in METRIC_FIELDS if field != "normalized_score_pct"}
-    values["normalized_score_pct"] = score_norm.stereo_imaging_score_pct(
-        normalized_quality=values.get("normalized_quality")
-    )
     return values
 
 
-def _normalized_score_pct(valid: bool | None, metrics: dict[str, Any]) -> float | None:
+def _normalized_score_pct(*, benchmark: str, valid: bool | None, metrics: dict[str, Any]) -> float | None:
     if valid is not True:
         return 0.0 if valid is False else None
-    return score_norm.stereo_imaging_score_pct(normalized_quality=metrics.get("normalized_quality"))
+    if benchmark == "stereo_imaging":
+        return score_norm.stereo_imaging_score_pct(normalized_quality=metrics.get("normalized_quality"))
+    if benchmark == "satnet":
+        config = main_solver_baselines.NORMALIZATION["satnet"]
+        return score_norm.satnet_score_pct(
+            u_rms=metrics.get("u_rms"),
+            u_max=metrics.get("u_max"),
+            u_rms_cap=config.get("u_rms_cap"),
+            u_max_cap=config.get("u_max_cap"),
+        )
+    return None
 
 
 def _condition_skills(condition: str) -> tuple[str, ...]:
@@ -119,6 +140,8 @@ def _condition_skills(condition: str) -> tuple[str, ...]:
 def _missing_row(
     *,
     config: family_run.FamilyConfig,
+    benchmark: str,
+    split: str,
     condition: str,
     harness: str,
     case_id: str,
@@ -127,8 +150,8 @@ def _missing_row(
     skills: tuple[str, ...],
 ) -> dict[str, Any]:
     return {
-        "benchmark": config.benchmark,
-        "split": config.split,
+        "benchmark": benchmark,
+        "split": split,
         "condition": condition,
         "harness": harness,
         "case_id": case_id,
@@ -149,6 +172,8 @@ def _missing_row(
 def _agent_row(
     *,
     config: family_run.FamilyConfig,
+    benchmark: str,
+    split: str,
     condition: str,
     harness: str,
     case_id: str,
@@ -160,6 +185,8 @@ def _agent_row(
     if payload is None:
         return _missing_row(
             config=config,
+            benchmark=benchmark,
+            split=split,
             condition=condition,
             harness=harness,
             case_id=case_id,
@@ -176,8 +203,8 @@ def _agent_row(
     if not isinstance(skill_names, list) or any(not isinstance(name, str) for name in skill_names):
         skill_names = list(skills)
     return {
-        "benchmark": payload.get("benchmark", config.benchmark),
-        "split": payload.get("split", config.split),
+        "benchmark": payload.get("benchmark", benchmark),
+        "split": payload.get("split", split),
         "condition": payload.get("condition", condition),
         "harness": payload.get("harness", harness),
         "case_id": payload.get("case_id", case_id),
@@ -191,43 +218,57 @@ def _agent_row(
         "skill_count": len(skill_names),
         "skills": skill_names,
         **metric_values,
-        "normalized_score_pct": _normalized_score_pct(valid, metric_values),
+        "normalized_score_pct": _normalized_score_pct(
+            benchmark=str(payload.get("benchmark", benchmark)),
+            valid=valid,
+            metrics=metric_values,
+        ),
         "result_path": _display_path(run_path),
     }
 
 
-def _condition_names(config: family_run.FamilyConfig) -> tuple[str, ...]:
-    configured = tuple(condition for condition in config.conditions if condition != "no_skill")
+def _condition_names(selection: family_run.BenchmarkSelection) -> tuple[str, ...]:
+    configured = tuple(condition for condition in selection.conditions if condition != "no_skill")
     return ("no_skill", *configured)
 
 
 def _records(config: family_run.FamilyConfig, *, main_agentic_root: Path = DEFAULT_MAIN_AGENTIC_ROOT) -> list[dict[str, Any]]:
     rows: list[dict[str, Any]] = []
-    condition_names = _condition_names(config)
-    skills_by_condition = {condition: _condition_skills(condition) for condition in condition_names}
-    for condition in condition_names:
-        for harness in config.harnesses:
-            for case_id in config.cases:
-                if condition == "no_skill":
-                    run_path = _main_agentic_run_path(
-                        main_agentic_root,
-                        benchmark=config.benchmark,
-                        harness=harness,
-                        split=config.split,
-                        case_id=case_id,
+    for selection in config.benchmarks:
+        condition_names = _condition_names(selection)
+        skills_by_condition = {condition: _condition_skills(condition) for condition in condition_names}
+        for condition in condition_names:
+            for harness in selection.harnesses:
+                for case_id in selection.cases:
+                    if condition == "no_skill":
+                        run_path = _main_agentic_run_path(
+                            main_agentic_root,
+                            benchmark=selection.benchmark,
+                            harness=harness,
+                            split=selection.split,
+                            case_id=case_id,
+                        )
+                    else:
+                        run_path = _run_path(
+                            config,
+                            condition=condition,
+                            benchmark=selection.benchmark,
+                            harness=harness,
+                            split=selection.split,
+                            case_id=case_id,
+                        )
+                    rows.append(
+                        _agent_row(
+                            config=config,
+                            benchmark=selection.benchmark,
+                            split=selection.split,
+                            condition=condition,
+                            harness=harness,
+                            case_id=case_id,
+                            run_path=run_path,
+                            skills=skills_by_condition[condition],
+                        )
                     )
-                else:
-                    run_path = _run_path(config, condition=condition, harness=harness, case_id=case_id)
-                rows.append(
-                    _agent_row(
-                        config=config,
-                        condition=condition,
-                        harness=harness,
-                        case_id=case_id,
-                        run_path=run_path,
-                        skills=skills_by_condition[condition],
-                    )
-                )
     return rows
 
 
@@ -285,10 +326,20 @@ def _summary(rows: list[dict[str, Any]]) -> dict[str, Any]:
             for key, value in by_benchmark_condition.items()
             if key.startswith("stereo_imaging/")
         },
+        "by_satnet_condition": {
+            key.split("/", maxsplit=1)[1]: value
+            for key, value in by_benchmark_condition.items()
+            if key.startswith("satnet/")
+        },
         "by_condition_harness": {
             key.removeprefix("stereo_imaging/"): value
             for key, value in by_benchmark_condition_harness.items()
             if key.startswith("stereo_imaging/")
+        },
+        "by_satnet_condition_harness": {
+            key.removeprefix("satnet/"): value
+            for key, value in by_benchmark_condition_harness.items()
+            if key.startswith("satnet/")
         },
     }
 

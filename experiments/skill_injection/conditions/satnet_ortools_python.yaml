@@ -1,0 +1,7 @@
+condition: satnet_ortools_python
+description: Inject generic Python search optimization plus OR-Tools CP-SAT modeling skills for SatNet.
+skills:
+  - name: python-optimization-for-search
+    source: experiments/_fragments/skills/skill_injection/python-optimization-for-search
+  - name: ortools-cpsat-modeling
+    source: experiments/_fragments/skills/skill_injection/ortools-cpsat-modeling

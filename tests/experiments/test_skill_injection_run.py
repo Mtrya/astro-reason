@@ -51,6 +51,29 @@ def test_skill_pack_condition_assembles_four_skill_sources() -> None:
     ]
 
 
+def test_satnet_selection_uses_codex_and_two_generic_skills() -> None:
+    config = run.load_family_config(run.DEFAULT_CONFIG)
+    (item,) = run.build_items(
+        config,
+        benchmarks=("satnet",),
+        conditions=("satnet_ortools_python",),
+        harnesses=("codex",),
+        cases=("W10_2018",),
+    )
+    specs = [
+        spec
+        for spec in item.assemble
+        if "experiments/_fragments/skills/skill_injection" in spec.source.as_posix()
+    ]
+
+    assert item.benchmark == "satnet"
+    assert item.harness == "codex"
+    assert [spec.target.name for spec in specs] == [
+        "python-optimization-for-search",
+        "ortools-cpsat-modeling",
+    ]
+
+
 def test_missing_assemble_sources_report_skill_directories_only_for_skill_conditions() -> None:
     config = run.load_family_config(run.DEFAULT_CONFIG)
     items = run.build_items(
