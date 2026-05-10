@@ -267,3 +267,35 @@ def test_trace_data_files_are_browser_loadable(tmp_path: Path) -> None:
     event_text = (output_dir / "data" / "events" / "run_1.js").read_text(encoding="utf-8")
     assert "window.TRACE_EVENTS" in event_text
     assert "event_1" in event_text
+
+
+def test_trace_source_detection_uses_harness_log_conventions(tmp_path: Path) -> None:
+    output_dir = tmp_path / "run"
+    logs = output_dir / "session_logs"
+
+    codex_rollout = logs / "sessions" / "2026" / "05" / "10" / "rollout-2.jsonl"
+    codex_rollout.parent.mkdir(parents=True)
+    codex_rollout.write_text("{}\n", encoding="utf-8")
+
+    kimi_context = logs / "sessions" / "workspace" / "session" / "context_3.jsonl"
+    kimi_context.parent.mkdir(parents=True, exist_ok=True)
+    kimi_context.write_text("{}\n", encoding="utf-8")
+
+    opencode_db = logs / "opencode" / "opencode.db"
+    opencode_db.parent.mkdir(parents=True, exist_ok=True)
+    opencode_db.write_text("", encoding="utf-8")
+
+    codex_source = trace_viewer._find_trace_source(output_dir, "codex")
+    kimi_source = trace_viewer._find_trace_source(output_dir, "kimi_cli")
+    opencode_source = trace_viewer._find_trace_source(output_dir, "opencode_dpsk")
+
+    assert codex_source is not None
+    assert codex_source.kind == "codex"
+    assert codex_source.path == codex_rollout
+    assert kimi_source is not None
+    assert kimi_source.kind == "kimi_cli"
+    assert kimi_source.path == kimi_context
+    assert opencode_source is not None
+    assert opencode_source.kind == "opencode"
+    assert opencode_source.path == opencode_db
+    assert trace_viewer._find_trace_source(output_dir, "unknown_harness") is None

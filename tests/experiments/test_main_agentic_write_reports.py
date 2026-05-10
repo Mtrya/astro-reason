@@ -75,3 +75,30 @@ def test_case_tables_use_valid_and_normalized_score_columns(tmp_path: Path) -> N
     assert "| case_0002 | false | 20.00 | 0.0000 | - | - |" in report
     assert "profit_score_pct" not in report
 
+
+def test_empty_benchmark_report_mentions_absent_artifacts(tmp_path: Path) -> None:
+    write_reports._write_benchmark_report(
+        benchmark="stereo_imaging",
+        summary_rows=[
+            {
+                "benchmark": "stereo_imaging",
+                "harness": "codex",
+                "present_runs": "0",
+            }
+        ],
+        run_rows=[
+            {
+                "benchmark": "stereo_imaging",
+                "harness": "codex",
+                "artifact_state": "missing_artifact",
+                "case_id": "case_0001",
+            }
+        ],
+        reports_dir=tmp_path,
+        baseline_data={},
+    )
+
+    report = (tmp_path / "stereo_imaging.md").read_text(encoding="utf-8")
+
+    assert "# Stereo Imaging" in report
+    assert "No present run artifacts yet." in report

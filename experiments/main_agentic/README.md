@@ -10,7 +10,9 @@ The tracked family shape is about benchmarks, harnesses, prompts, execution, and
 experiments/main_agentic/
 ├── run.py              # execute batch runs or prepare an interactive workspace
 ├── plan.py             # preview matrix expansion and skip/rerun decisions
-├── aggregate.py        # summarize completed batch artifacts
+├── aggregate.py        # family CLI for summarizing completed batch artifacts
+├── trace_viewer.py     # family CLI for static trace reports
+├── write_reports.py    # family CLI for benchmark markdown reports
 ├── configs/
 │   ├── matrix.yaml      # canonical batch matrix
 │   └── interactive.yaml # local interactive debugging defaults
@@ -25,6 +27,8 @@ experiments/_fragments/
 ├── prompts/<benchmark>/
 └── configs/<harness>/
 ```
+
+Reusable analysis helpers for aggregation, report formatting, and trace parsing live under `experiments/_shared/`. The main-agentic scripts remain the family-owned CLIs and import those shared helpers instead of other experiment families importing from `main_agentic`.
 
 ## Batch Runs
 

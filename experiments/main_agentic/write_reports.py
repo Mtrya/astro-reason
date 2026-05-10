@@ -17,6 +17,8 @@ else:
     from . import plan as family_plan
     from . import plot_radar as radar_scores
 
+from experiments._shared import write_reports as shared_reports
+
 
 FAMILY_DIR = Path(__file__).resolve().parent
 DEFAULT_CONFIG = FAMILY_DIR / "configs" / "matrix.yaml"
@@ -96,41 +98,6 @@ def _read_csv(path: Path) -> list[dict[str, str]]:
         return list(csv.DictReader(handle))
 
 
-def _format_value(value: str | None) -> str:
-    if value in (None, ""):
-        return "-"
-    if value in {"True", "False"}:
-        return value.lower()
-    try:
-        numeric = float(value)
-    except ValueError:
-        return value
-    if numeric.is_integer() and "." not in value.lower().split("e", maxsplit=1)[0]:
-        return str(int(numeric))
-    if abs(numeric) >= 100:
-        return f"{numeric:.1f}"
-    if abs(numeric) >= 10:
-        return f"{numeric:.2f}"
-    return f"{numeric:.4f}"
-
-
-def _metric_columns(rows: list[dict[str, str]]) -> list[str]:
-    if not rows:
-        return []
-    fieldnames = list(rows[0])
-    return [
-        name
-        for name in fieldnames
-        if name not in STANDARD_RUN_COLUMNS
-        and name not in PROCESSED_METRIC_COLUMNS
-        and any(row.get(name) not in (None, "") for row in rows)
-    ]
-
-
-def _valid_value(row: dict[str, str]) -> bool:
-    return row.get("valid") == "True"
-
-
 def _normalized_score(
     *,
     benchmark: str,
@@ -164,30 +131,6 @@ def _mean_normalized_score(
     if not scores:
         return None
     return sum(scores) / len(scores)
-
-
-def _table(headers: list[str], rows: list[list[str]], *, numeric_from: int = 0) -> list[str]:
-    align = ["---"] * len(headers)
-    for index in range(numeric_from, len(headers)):
-        align[index] = "---:"
-    lines = [
-        "| " + " | ".join(headers) + " |",
-        "| " + " | ".join(align) + " |",
-    ]
-    for row in rows:
-        lines.append("| " + " | ".join(row) + " |")
-    return lines
-
-
-def _summary_rows(
-    benchmark: str,
-    summary_rows: list[dict[str, str]],
-) -> list[dict[str, str]]:
-    return [
-        row
-        for row in summary_rows
-        if row.get("benchmark") == benchmark and row.get("present_runs") not in ("", "0")
-    ]
 
 
 def _write_benchmark_report(
@@ -306,6 +249,17 @@ def main(argv: list[str] | None = None) -> int:
 
     print(f"Reports written to {args.reports_dir}")
     return 0
+
+
+_format_value = shared_reports.format_value
+_metric_columns = lambda rows: shared_reports.metric_columns(
+    rows,
+    standard_columns=STANDARD_RUN_COLUMNS,
+    processed_metric_columns=PROCESSED_METRIC_COLUMNS,
+)
+_valid_value = shared_reports.valid_value
+_table = shared_reports.table
+_summary_rows = shared_reports.summary_rows
 
 
 if __name__ == "__main__":

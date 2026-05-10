@@ -4,12 +4,9 @@
 from __future__ import annotations
 
 import argparse
-import csv
 import functools
 import json
-import statistics
 import sys
-from collections import Counter
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
@@ -23,6 +20,7 @@ if __package__ in (None, ""):
 else:
     from . import plan as family_plan
 
+from experiments._shared import aggregate as shared_aggregate
 from experiments._shared import score_normalization as score_norm
 
 
@@ -62,51 +60,6 @@ def _load_config_mode(config_path: Path) -> str:
     if not isinstance(mode, str) or not mode:
         raise SystemExit(f"Family config must define a non-empty mode: {config_path}")
     return mode
-
-
-def _read_run_json(path: Path) -> dict[str, Any] | None:
-    if not path.exists():
-        return None
-    try:
-        data = json.loads(path.read_text(encoding="utf-8"))
-    except json.JSONDecodeError:
-        return None
-    return data if isinstance(data, dict) else None
-
-
-def _get_path_value(payload: dict[str, Any], path: str) -> Any:
-    current: Any = payload
-    for part in path.split("."):
-        if not isinstance(current, dict) or part not in current:
-            return None
-        current = current[part]
-    return current
-
-
-def _normalize_valid(verifier_payload: dict[str, Any], verifier_status: str) -> bool | None:
-    valid = verifier_payload.get("valid")
-    if isinstance(valid, bool):
-        return valid
-    is_valid = verifier_payload.get("is_valid")
-    if isinstance(is_valid, bool):
-        return is_valid
-    if verifier_status == "valid":
-        return True
-    if verifier_status == "invalid":
-        return False
-    return None
-
-
-def _is_numeric(value: Any) -> bool:
-    return isinstance(value, (int, float)) and not isinstance(value, bool)
-
-
-def _coerce_numeric(value: Any) -> int | float | None:
-    if not _is_numeric(value):
-        return None
-    if isinstance(value, int):
-        return value
-    return float(value)
 
 
 def _parse_iso_datetime(value: str) -> datetime:
@@ -290,33 +243,6 @@ def _processed_metrics_for_run(
     return {}
 
 
-def _metric_stats(values: list[int | float]) -> dict[str, Any]:
-    if not values:
-        return {
-            "count": 0,
-            "mean": None,
-            "median": None,
-            "min": None,
-            "max": None,
-        }
-    normalized = [float(value) for value in values]
-    return {
-        "count": len(normalized),
-        "mean": statistics.mean(normalized),
-        "median": statistics.median(normalized),
-        "min": min(normalized),
-        "max": max(normalized),
-    }
-
-
-def _format_stat(value: Any) -> str:
-    if value is None:
-        return "-"
-    if isinstance(value, float):
-        return f"{value:.4f}"
-    return str(value)
-
-
 def _build_missing_record(item: family_plan.RunItem) -> dict[str, Any]:
     metrics = {metric.name: None for metric in item.benchmark_profile.score_metrics}
     flags = {metric.name: None for metric in item.benchmark_profile.flag_metrics}
@@ -443,161 +369,6 @@ def _load_expected_records(plan: family_plan.BatchPlan) -> list[dict[str, Any]]:
             continue
         records.append(_normalize_run_record(item, run_data))
     return records
-
-
-def _status_counts(records: list[dict[str, Any]], key: str) -> dict[str, int]:
-    counter = Counter(str(record.get(key, "unknown")) for record in records)
-    return dict(sorted(counter.items()))
-
-
-def _flag_counts(records: list[dict[str, Any]], metric_name: str) -> dict[str, int]:
-    true_count = 0
-    false_count = 0
-    null_count = 0
-    for record in records:
-        value = record["flags"].get(metric_name)
-        if value is True:
-            true_count += 1
-        elif value is False:
-            false_count += 1
-        else:
-            null_count += 1
-    return {
-        "true_count": true_count,
-        "false_count": false_count,
-        "null_count": null_count,
-    }
-
-
-def _primary_metric(profile: family_plan.BenchmarkProfile) -> family_plan.MetricSpec | None:
-    for metric in profile.score_metrics:
-        if metric.role == "primary":
-            return metric
-    return None
-
-
-def _secondary_metrics(profile: family_plan.BenchmarkProfile) -> tuple[family_plan.MetricSpec, ...]:
-    return tuple(metric for metric in profile.score_metrics if metric.role == "secondary")
-
-
-def _metric_values(records: list[dict[str, Any]], metric_name: str) -> list[int | float]:
-    values: list[int | float] = []
-    for record in records:
-        if record["valid"] is not True:
-            continue
-        value = record["metrics"].get(metric_name)
-        if _is_numeric(value):
-            values.append(value)
-    return values
-
-
-def _processed_metric_names(records: list[dict[str, Any]]) -> tuple[str, ...]:
-    names: set[str] = set()
-    for record in records:
-        processed_metrics = record.get("processed_metrics")
-        if not isinstance(processed_metrics, dict):
-            continue
-        names.update(str(name) for name in processed_metrics)
-    return tuple(sorted(names))
-
-
-def _processed_metric_values(records: list[dict[str, Any]], metric_name: str) -> list[int | float]:
-    values: list[int | float] = []
-    for record in records:
-        value = record["processed_metrics"].get(metric_name)
-        if _is_numeric(value):
-            values.append(value)
-    return values
-
-
-def _build_group_summary(
-    *,
-    records: list[dict[str, Any]],
-    profile: family_plan.BenchmarkProfile,
-    benchmark: str,
-    harness: str | None = None,
-) -> dict[str, Any]:
-    expected_runs = len(records)
-    present_runs = sum(1 for record in records if record["artifact_state"] == "present")
-    missing_runs = sum(1 for record in records if record["artifact_state"] == "missing_artifact")
-    malformed_runs = sum(
-        1 for record in records if record["artifact_state"] == "malformed_artifact"
-    )
-    primary_metric = _primary_metric(profile)
-    secondary_metrics = _secondary_metrics(profile)
-    primary_stats = (
-        _metric_stats(_metric_values(records, primary_metric.name)) if primary_metric else None
-    )
-    secondary_stats = {
-        metric.name: _metric_stats(_metric_values(records, metric.name))
-        for metric in secondary_metrics
-    }
-    processed_metric_stats = {
-        metric_name: _metric_stats(_processed_metric_values(records, metric_name))
-        for metric_name in _processed_metric_names(records)
-    }
-    flag_counts = {
-        metric.name: _flag_counts(records, metric.name) for metric in profile.flag_metrics
-    }
-
-    summary = {
-        "benchmark": benchmark,
-        "expected_runs": expected_runs,
-        "present_runs": present_runs,
-        "missing_runs": missing_runs,
-        "malformed_runs": malformed_runs,
-        "overall_status_counts": _status_counts(records, "overall_status"),
-        "agent_status_counts": _status_counts(records, "agent_status"),
-        "verifier_status_counts": _status_counts(records, "verifier_status"),
-        "valid_count": sum(1 for record in records if record["valid"] is True),
-        "invalid_count": sum(1 for record in records if record["valid"] is False),
-        "primary_metric": (
-            {
-                "name": primary_metric.name,
-                "path": primary_metric.path,
-                "direction": primary_metric.direction,
-                "stats": primary_stats,
-            }
-            if primary_metric is not None
-            else None
-        ),
-        "secondary_metrics": {
-            metric.name: {
-                "path": metric.path,
-                "direction": metric.direction,
-                "stats": secondary_stats[metric.name],
-            }
-            for metric in secondary_metrics
-        },
-        "processed_metrics": {
-            metric_name: {
-                "direction": "maximize",
-                "stats": stats,
-            }
-            for metric_name, stats in processed_metric_stats.items()
-        },
-        "flag_metrics": flag_counts,
-    }
-    if harness is not None:
-        summary["harness"] = harness
-    return summary
-
-
-def _ensure_dir(path: Path) -> None:
-    path.mkdir(parents=True, exist_ok=True)
-
-
-def _write_json(path: Path, payload: Any) -> None:
-    _ensure_dir(path.parent)
-    path.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n", encoding="utf-8")
-
-
-def _write_csv(path: Path, rows: list[dict[str, Any]], fieldnames: list[str]) -> None:
-    _ensure_dir(path.parent)
-    with path.open("w", encoding="utf-8", newline="") as handle:
-        writer = csv.DictWriter(handle, fieldnames=fieldnames)
-        writer.writeheader()
-        writer.writerows(rows)
 
 
 def _matrix_summary_markdown(
@@ -911,9 +682,25 @@ def main(argv: list[str] | None = None) -> int:
     return 0
 
 
-def _write_text(path: Path, content: str) -> None:
-    _ensure_dir(path.parent)
-    path.write_text(content, encoding="utf-8")
+_read_run_json = shared_aggregate.read_run_json
+_get_path_value = shared_aggregate.get_path_value
+_normalize_valid = shared_aggregate.normalize_valid
+_is_numeric = shared_aggregate.is_numeric
+_coerce_numeric = shared_aggregate.coerce_numeric
+_metric_stats = shared_aggregate.metric_stats
+_format_stat = shared_aggregate.format_stat
+_status_counts = shared_aggregate.status_counts
+_flag_counts = shared_aggregate.flag_counts
+_primary_metric = shared_aggregate.primary_metric
+_secondary_metrics = shared_aggregate.secondary_metrics
+_metric_values = shared_aggregate.metric_values
+_processed_metric_names = shared_aggregate.processed_metric_names
+_processed_metric_values = shared_aggregate.processed_metric_values
+_build_group_summary = shared_aggregate.build_group_summary
+_ensure_dir = shared_aggregate.ensure_dir
+_write_json = shared_aggregate.write_json
+_write_csv = shared_aggregate.write_csv
+_write_text = shared_aggregate.write_text
 
 
 if __name__ == "__main__":

@@ -169,3 +169,77 @@ def test_aggregate_counts_valid_timeout_run_as_success(tmp_path: Path) -> None:
     assert record["overall_status"] == "success"
     assert record["agent_status"] == "timeout"
     assert record["verifier_status"] == "valid"
+
+
+def test_load_expected_records_classifies_missing_malformed_and_present_artifacts(
+    tmp_path: Path,
+) -> None:
+    profile = plan.BenchmarkProfile(
+        benchmark="synthetic_benchmark",
+        assemble=(),
+        collect=(),
+        verifier_kind="single_file",
+        score_metrics=(
+            plan.MetricSpec(
+                name="score",
+                path="metrics.score",
+                direction="maximize",
+                role="primary",
+            ),
+        ),
+        flag_metrics=(
+            plan.FlagMetricSpec(
+                name="used_helper",
+                path="diagnostics.used_helper",
+            ),
+        ),
+        profile_path=tmp_path / "synthetic.yaml",
+    )
+
+    def item(case_id: str) -> SimpleNamespace:
+        return SimpleNamespace(
+            config_name="matrix",
+            benchmark="synthetic_benchmark",
+            harness="codex",
+            split="test",
+            case_id=case_id,
+            results_root=tmp_path,
+            benchmark_profile=profile,
+        )
+
+    missing = item("missing")
+    malformed = item("malformed")
+    present = item("present")
+    plan_like = SimpleNamespace(items=(missing, malformed, present))
+
+    plan.run_output_dir(malformed).mkdir(parents=True)
+    (plan.run_output_dir(malformed) / "run.json").write_text("{not json", encoding="utf-8")
+    plan.run_output_dir(present).mkdir(parents=True)
+    (plan.run_output_dir(present) / "run.json").write_text(
+        """
+        {
+          "overall_status": "success",
+          "agent_status": "success",
+          "verifier_status": "valid",
+          "duration_seconds": 12.5,
+          "verifier": {
+            "valid": true,
+            "metrics": {"score": 42},
+            "diagnostics": {"used_helper": true}
+          }
+        }
+        """,
+        encoding="utf-8",
+    )
+
+    records = aggregate._load_expected_records(plan_like)
+
+    assert [record["artifact_state"] for record in records] == [
+        "missing_artifact",
+        "malformed_artifact",
+        "present",
+    ]
+    assert records[0]["metrics"] == {"score": None}
+    assert records[1]["valid"] is None
+    assert records[2]["metrics"] == {"score": 42}
+    assert records[2]["flags"] == {"used_helper": True}
