@@ -1,0 +1,61 @@
+{
+  "valid": true,
+  "metrics": {
+    "valid": true,
+    "coverage_ratio": 0.5,
+    "normalized_quality": 0.42
+  },
+  "violations": [],
+  "derived_observations": [
+    {
+      "action_index": 0,
+      "satellite_id": "sat_a",
+      "target_id": "t_001",
+      "access_interval_id": "sat_a:t_001:0",
+      "boresight_off_nadir_deg": 6.0,
+      "solar_elevation_deg": 25.0,
+      "effective_pixel_scale_m": 1.2
+    },
+    {
+      "action_index": 1,
+      "satellite_id": "sat_b",
+      "target_id": "t_001",
+      "access_interval_id": "sat_b:t_001:0",
+      "boresight_off_nadir_deg": 13.0,
+      "solar_elevation_deg": 27.0,
+      "effective_pixel_scale_m": 1.3
+    },
+    {
+      "action_index": 2,
+      "satellite_id": "sat_a",
+      "target_id": "t_002",
+      "access_interval_id": "sat_a:t_002:0",
+      "boresight_off_nadir_deg": 18.0,
+      "solar_elevation_deg": 22.0,
+      "effective_pixel_scale_m": 1.9
+    }
+  ],
+  "diagnostics": {
+    "pair_evaluations": [
+      {
+        "target_id": "t_001",
+        "observation_indices": [0, 1],
+        "valid": true,
+        "convergence_deg": 12.5,
+        "overlap_fraction": 0.91,
+        "pixel_scale_ratio": 1.08,
+        "quality": 0.84
+      },
+      {
+        "target_id": "t_002",
+        "observation_indices": [2],
+        "valid": false,
+        "reason": "needs at least two observations"
+      }
+    ],
+    "per_target_best_score": {
+      "t_001": 0.84,
+      "t_002": 0.0
+    }
+  }
+}
