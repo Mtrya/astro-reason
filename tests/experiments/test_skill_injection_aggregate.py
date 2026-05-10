@@ -25,7 +25,6 @@ def _write_test_config(tmp_path: Path) -> Path:
                 "cases:",
                 "  - case_0001",
                 "conditions:",
-                "  - no_skill",
                 "  - compact_domain",
                 "harnesses:",
                 "  - opencode_dpsk",
@@ -50,9 +49,8 @@ def _write_test_config(tmp_path: Path) -> Path:
 def _write_fake_run(config_path: Path, tmp_path: Path) -> None:
     run_dir = (
         tmp_path
-        / "results"
-        / config_path.stem
-        / "no_skill"
+        / "main_agentic"
+        / "matrix"
         / "stereo_imaging"
         / "opencode_dpsk"
         / "test"
@@ -91,7 +89,14 @@ def test_skill_injection_aggregate_writes_rows_and_summary(tmp_path: Path) -> No
     config_path = _write_test_config(tmp_path)
     _write_fake_run(config_path, tmp_path)
 
-    assert aggregate.main(["--config", str(config_path)]) == 0
+    assert aggregate.main(
+        [
+            "--config",
+            str(config_path),
+            "--main-agentic-root",
+            str(tmp_path / "main_agentic" / "matrix"),
+        ]
+    ) == 0
 
     summary_path = tmp_path / "results" / "summaries" / "summary.json"
     runs_path = tmp_path / "results" / "summaries" / "runs.csv"
@@ -101,8 +106,10 @@ def test_skill_injection_aggregate_writes_rows_and_summary(tmp_path: Path) -> No
 
     assert len(rows) == 2
     assert rows[0]["condition"] == "no_skill"
+    assert rows[0]["source_experiment"] == "main_agentic"
     assert rows[0]["normalized_score_pct"] == "25"
     assert rows[1]["condition"] == "compact_domain"
+    assert rows[1]["source_experiment"] == "skill_injection"
     assert rows[1]["artifact_state"] == "missing_artifact"
     assert summary["by_condition"]["no_skill"]["mean_normalized_score_pct"] == 25.0
     assert summary["by_condition"]["compact_domain"]["missing_count"] == 1
@@ -111,7 +118,14 @@ def test_skill_injection_aggregate_writes_rows_and_summary(tmp_path: Path) -> No
 def test_skill_injection_write_reports_from_aggregate(tmp_path: Path) -> None:
     config_path = _write_test_config(tmp_path)
     _write_fake_run(config_path, tmp_path)
-    aggregate.main(["--config", str(config_path)])
+    aggregate.main(
+        [
+            "--config",
+            str(config_path),
+            "--main-agentic-root",
+            str(tmp_path / "main_agentic" / "matrix"),
+        ]
+    )
 
     reports_dir = tmp_path / "reports"
     assert write_reports.main(["--config", str(config_path), "--reports-dir", str(reports_dir)]) == 0

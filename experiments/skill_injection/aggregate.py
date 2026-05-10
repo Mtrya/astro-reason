@@ -26,6 +26,9 @@ from experiments._shared import score_normalization as score_norm
 
 FAMILY_DIR = Path(__file__).resolve().parent
 DEFAULT_CONFIG = FAMILY_DIR / "configs" / "default.yaml"
+DEFAULT_MAIN_AGENTIC_ROOT = (
+    REPO_ROOT / "results" / "agent_runs" / "experiments" / "main_agentic" / "matrix"
+)
 METRIC_FIELDS = (
     "coverage_ratio",
     "normalized_quality",
@@ -36,6 +39,12 @@ METRIC_FIELDS = (
 def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Aggregate skill-injection run artifacts.")
     parser.add_argument("--config", type=Path, default=DEFAULT_CONFIG)
+    parser.add_argument(
+        "--main-agentic-root",
+        type=Path,
+        default=DEFAULT_MAIN_AGENTIC_ROOT,
+        help="Root containing main_agentic matrix artifacts used for no_skill rows.",
+    )
     return parser.parse_args(argv)
 
 
@@ -54,6 +63,17 @@ def _run_path(config: family_run.FamilyConfig, *, condition: str, harness: str, 
         / case_id
         / "run.json"
     )
+
+
+def _main_agentic_run_path(
+    root: Path,
+    *,
+    benchmark: str,
+    harness: str,
+    split: str,
+    case_id: str,
+) -> Path:
+    return root / benchmark / harness / split / case_id / "run.json"
 
 
 def _display_path(path: Path) -> str:
@@ -113,6 +133,7 @@ def _missing_row(
         "harness": harness,
         "case_id": case_id,
         "artifact_state": artifact_state,
+        "source_experiment": "main_agentic" if condition == "no_skill" else "skill_injection",
         "overall_status": artifact_state,
         "agent_status": artifact_state,
         "verifier_status": artifact_state,
@@ -161,6 +182,7 @@ def _agent_row(
         "harness": payload.get("harness", harness),
         "case_id": payload.get("case_id", case_id),
         "artifact_state": "present",
+        "source_experiment": "main_agentic" if condition == "no_skill" else "skill_injection",
         "overall_status": payload.get("overall_status", "unknown"),
         "agent_status": payload.get("agent_status", "unknown"),
         "verifier_status": payload.get("verifier_status", "unknown"),
@@ -174,13 +196,28 @@ def _agent_row(
     }
 
 
-def _records(config: family_run.FamilyConfig) -> list[dict[str, Any]]:
+def _condition_names(config: family_run.FamilyConfig) -> tuple[str, ...]:
+    configured = tuple(condition for condition in config.conditions if condition != "no_skill")
+    return ("no_skill", *configured)
+
+
+def _records(config: family_run.FamilyConfig, *, main_agentic_root: Path = DEFAULT_MAIN_AGENTIC_ROOT) -> list[dict[str, Any]]:
     rows: list[dict[str, Any]] = []
-    skills_by_condition = {condition: _condition_skills(condition) for condition in config.conditions}
-    for condition in config.conditions:
+    condition_names = _condition_names(config)
+    skills_by_condition = {condition: _condition_skills(condition) for condition in condition_names}
+    for condition in condition_names:
         for harness in config.harnesses:
             for case_id in config.cases:
-                run_path = _run_path(config, condition=condition, harness=harness, case_id=case_id)
+                if condition == "no_skill":
+                    run_path = _main_agentic_run_path(
+                        main_agentic_root,
+                        benchmark=config.benchmark,
+                        harness=harness,
+                        split=config.split,
+                        case_id=case_id,
+                    )
+                else:
+                    run_path = _run_path(config, condition=condition, harness=harness, case_id=case_id)
                 rows.append(
                     _agent_row(
                         config=config,
@@ -274,6 +311,7 @@ def _write_csv(path: Path, rows: list[dict[str, Any]]) -> None:
         "harness",
         "case_id",
         "artifact_state",
+        "source_experiment",
         "overall_status",
         "agent_status",
         "verifier_status",
@@ -296,7 +334,7 @@ def main(argv: list[str] | None = None) -> int:
     args = parse_args(argv)
     config = family_run.load_family_config(args.config.resolve())
     aggregate_dir = _aggregate_dir(config)
-    rows = _records(config)
+    rows = _records(config, main_agentic_root=args.main_agentic_root.resolve())
     summary = _summary(rows)
     shared_aggregate.write_json(aggregate_dir / "summary.json", summary)
     _write_csv(aggregate_dir / "runs.csv", rows)

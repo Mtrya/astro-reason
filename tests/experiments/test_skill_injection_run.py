@@ -13,20 +13,19 @@ def test_default_config_builds_stereo_skill_injection_matrix() -> None:
     config = run.load_family_config(run.DEFAULT_CONFIG)
     items = run.build_items(
         config,
-        conditions=("no_skill", "compact_domain"),
+        conditions=(),
         harnesses=("opencode_dpsk",),
         cases=("case_0001",),
     )
 
     assert [(item.condition, item.harness, item.case_id) for item in items] == [
-        ("no_skill", "opencode_dpsk", "case_0001"),
         ("compact_domain", "opencode_dpsk", "case_0001"),
+        ("skill_pack", "opencode_dpsk", "case_0001"),
     ]
     assert items[0].benchmark == "stereo_imaging"
-    assert not any("skill_injection" in spec.source.as_posix() for spec in items[0].assemble)
     assert any(
         spec.target.as_posix().endswith("/skills/stereo-imaging-compact-procedure")
-        for spec in items[1].assemble
+        for spec in items[0].assemble
     )
 
 
@@ -56,7 +55,7 @@ def test_missing_assemble_sources_report_skill_directories_only_for_skill_condit
     config = run.load_family_config(run.DEFAULT_CONFIG)
     items = run.build_items(
         config,
-        conditions=("no_skill", "skill_pack"),
+        conditions=("compact_domain", "skill_pack"),
         harnesses=("opencode_dpsk",),
         cases=("case_0001",),
     )
@@ -66,10 +65,14 @@ def test_missing_assemble_sources_report_skill_directories_only_for_skill_condit
         for item in items
     }
 
-    assert not any("skill_injection" in path.as_posix() for path in missing_by_condition["no_skill"])
     assert [
         path.name
         for path in missing_by_condition["skill_pack"]
+        if "experiments/_fragments/skills/skill_injection" in path.as_posix()
+    ] == []
+    assert [
+        path.name
+        for path in missing_by_condition["compact_domain"]
         if "experiments/_fragments/skills/skill_injection" in path.as_posix()
     ] == []
 

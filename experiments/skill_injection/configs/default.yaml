@@ -11,7 +11,8 @@ cases:
   - case_0005
 
 conditions:
-  - no_skill
+  # no_skill is the main_agentic default and is collected by aggregate.py from
+  # results/agent_runs/experiments/main_agentic/matrix instead of rerun here.
   - compact_domain
   - skill_pack
 
@@ -38,4 +39,3 @@ resources:
 results:
   root: results/agent_runs/experiments/skill_injection
   aggregate_dir: summaries
-

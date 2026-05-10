@@ -11,7 +11,7 @@ learnable when agents receive better constraint feedback.
 
 ## Conditions
 
-- `no_skill`: control condition; no injected task-specific skills.
+- `no_skill`: control condition; no injected task-specific skills. This is the `main_agentic` default and is collected from existing `main_agentic/matrix` artifacts instead of rerun in this family.
 - `compact_domain`: one compact stereo-imaging procedural skill.
 - `skill_pack`: four focused skills covering Python search performance,
   OR-Tools CP-SAT modeling, classical OR scheduling methods, and
@@ -79,6 +79,12 @@ This writes:
 ```text
 results/agent_runs/experiments/skill_injection/summaries/summary.json
 results/agent_runs/experiments/skill_injection/summaries/runs.csv
+```
+
+Aggregation always includes `no_skill` rows by reading:
+
+```text
+results/agent_runs/experiments/main_agentic/matrix/
 ```
 
 Write reader-facing markdown reports from aggregate artifacts:
