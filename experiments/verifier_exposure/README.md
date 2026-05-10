@@ -59,6 +59,12 @@ Aggregate completed runs:
 uv run python experiments/verifier_exposure/aggregate.py
 ```
 
+Write the markdown report from aggregate artifacts:
+
+```bash
+uv run python experiments/verifier_exposure/write_reports.py
+```
+
 ## Results
 
 Batch run artifacts live under:
