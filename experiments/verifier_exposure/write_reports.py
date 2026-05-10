@@ -20,6 +20,7 @@ else:
     from . import aggregate as family_aggregate
 
 from experiments._shared import write_reports as shared_reports
+from experiments._shared import score_normalization as score_norm
 
 FAMILY_DIR = Path(__file__).resolve().parent
 DEFAULT_CONFIG = FAMILY_DIR / "configs" / "default.yaml"
@@ -69,6 +70,47 @@ def _format_value(value: Any) -> str:
     return shared_reports.format_value(str(value))
 
 
+def _valid_value(row: dict[str, Any]) -> bool:
+    value = row.get("valid")
+    if isinstance(value, bool):
+        return value
+    return value == "True"
+
+
+def _float_value(value: Any) -> float | None:
+    if value in (None, ""):
+        return None
+    if isinstance(value, bool):
+        return None
+    if isinstance(value, (int, float)):
+        return float(value)
+    if not isinstance(value, str):
+        return None
+    try:
+        return float(value)
+    except ValueError:
+        return None
+
+
+def _normalized_score_pct(row: dict[str, Any]) -> float | None:
+    if not _valid_value(row):
+        return 0.0
+    return score_norm.stereo_imaging_score_pct(
+        normalized_quality=_float_value(row.get("normalized_quality")),
+    )
+
+
+def _mean_normalized_score_pct(rows: list[dict[str, Any]]) -> float | None:
+    values = [
+        score
+        for row in rows
+        if (score := _normalized_score_pct(row)) is not None
+    ]
+    if not values:
+        return None
+    return sum(values) / len(values)
+
+
 def _format_status_counts(value: Any) -> str:
     if not isinstance(value, dict) or not value:
         return "-"
@@ -92,6 +134,7 @@ def _exposure_summary_rows(summary: dict[str, Any]) -> list[list[str]]:
                 _format_value(values.get("valid_rate")),
                 _format_value(values.get("mean_coverage_ratio")),
                 _format_value(values.get("mean_normalized_quality")),
+                _format_value(values.get("mean_normalized_score_pct")),
                 _format_status_counts(values.get("overall_status_counts")),
                 _format_status_counts(values.get("verifier_status_counts")),
             ]
@@ -119,6 +162,7 @@ def _exposure_harness_summary_rows(summary: dict[str, Any]) -> list[list[str]]:
                 _format_value(values.get("valid_rate")),
                 _format_value(values.get("mean_coverage_ratio")),
                 _format_value(values.get("mean_normalized_quality")),
+                _format_value(values.get("mean_normalized_score_pct")),
                 _format_status_counts(values.get("overall_status_counts")),
             ]
         )
@@ -149,12 +193,46 @@ def _case_rows(rows: list[dict[str, str]]) -> list[list[str]]:
                 _format_value(row.get("duration_seconds")),
                 _format_value(row.get("coverage_ratio")),
                 _format_value(row.get("normalized_quality")),
+                _format_value(_normalized_score_pct(row)),
             ]
         )
     return table_rows
 
 
+def _summary_with_normalized_scores(
+    summary: dict[str, Any],
+    rows: list[dict[str, str]],
+) -> dict[str, Any]:
+    updated = dict(summary)
+    for key in ("by_exposure", "by_exposure_system", "by_exposure_harness"):
+        groups = summary.get(key)
+        if not isinstance(groups, dict):
+            continue
+        updated_groups: dict[str, Any] = {}
+        for group_key, values in groups.items():
+            if not isinstance(values, dict):
+                updated_groups[group_key] = values
+                continue
+            exposure, _, system = str(group_key).partition("/")
+            group_rows = [
+                row
+                for row in rows
+                if row.get("exposure") == str(group_key)
+                or (
+                    row.get("exposure") == exposure
+                    and system
+                    and (row.get("system") or row.get("harness")) == system
+                )
+            ]
+            next_values = dict(values)
+            next_values["mean_normalized_score_pct"] = _mean_normalized_score_pct(group_rows)
+            updated_groups[group_key] = next_values
+        updated[key] = updated_groups
+    return updated
+
+
 def _write_report(*, summary: dict[str, Any], rows: list[dict[str, str]], reports_dir: Path) -> Path:
+    summary = _summary_with_normalized_scores(summary, rows)
     reports_dir.mkdir(parents=True, exist_ok=True)
     report_path = reports_dir / "stereo_imaging.md"
     lines = [
@@ -176,6 +254,7 @@ def _write_report(*, summary: dict[str, Any], rows: list[dict[str, str]], report
                 "Valid Rate",
                 "Mean Coverage",
                 "Mean Quality",
+                "Mean Score",
                 "Overall Statuses",
                 "Verifier Statuses",
             ],
@@ -195,6 +274,7 @@ def _write_report(*, summary: dict[str, Any], rows: list[dict[str, str]], report
                 "Valid Rate",
                 "Mean Coverage",
                 "Mean Quality",
+                "Mean Score",
                 "Overall Statuses",
             ],
             _exposure_harness_summary_rows(summary),
@@ -216,6 +296,7 @@ def _write_report(*, summary: dict[str, Any], rows: list[dict[str, str]], report
                 "Duration (s)",
                 "Coverage",
                 "Quality",
+                "Score",
             ],
             _case_rows(rows),
             numeric_from=8,

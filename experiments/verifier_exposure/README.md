@@ -68,6 +68,17 @@ Write the markdown report from aggregate artifacts:
 uv run python experiments/verifier_exposure/write_reports.py
 ```
 
+Plot normalized scores by verifier exposure tier:
+
+```bash
+uv run python experiments/verifier_exposure/plot_exposure.py
+```
+
+The plotted score is the shared stereo-imaging normalized score:
+`normalized_quality` clipped to `[0, 1]` and reported as percentage points.
+Missing and invalid runs receive score `0`, matching the main-agentic radar
+plot convention.
+
 Generate chat-style trace reports:
 
 ```bash

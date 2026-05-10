@@ -7,7 +7,7 @@ from pathlib import Path
 REPO_ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(REPO_ROOT))
 
-from experiments.verifier_exposure import aggregate, write_reports
+from experiments.verifier_exposure import aggregate, plot_exposure, write_reports
 
 
 def _write_run(path: Path, *, harness: str, coverage: float, quality: float) -> None:
@@ -156,8 +156,68 @@ def test_write_report_renders_exposure_and_case_tables(tmp_path: Path) -> None:
 
     report = report_path.read_text(encoding="utf-8")
     assert report_path == tmp_path / "stereo_imaging.md"
-    assert "| Exposure | Runs | Valid | Valid Rate | Mean Coverage | Mean Quality |" in report
-    assert "| none | 2 | 1 | 0.5000 | 0.2500 | 0.7500 | missing_artifact: 1, success: 1 |" in report
-    assert "| none | agent | codex | 1 | 1 | 1.0000 | 0.2500 | 0.7500 | success: 1 |" in report
-    assert "| none | agent | codex | case_0001 | present | success | valid | true | 12.50 |" in report
+    assert "| Exposure | Runs | Valid | Valid Rate | Mean Coverage | Mean Quality | Mean Score |" in report
+    assert "| none | 2 | 1 | 0.5000 | 0.2500 | 0.7500 | 37.50 | missing_artifact: 1, success: 1 |" in report
+    assert "| none | agent | codex | 1 | 1 | 1.0000 | 0.2500 | 0.7500 | 75.00 | success: 1 |" in report
+    assert "| none | agent | codex | case_0001 | present | success | valid | true | 12.50 | 0.2500 | 0.7500 | 75.00 |" in report
     assert "| none | agent | opencode_dpsk | case_0002 | missing_or_malformed | missing_artifact |" in report
+
+
+def test_normalized_score_gates_missing_and_invalid_rows_to_zero() -> None:
+    assert write_reports._normalized_score_pct(
+        {"valid": "True", "normalized_quality": "0.75"}
+    ) == 75.0
+    assert write_reports._normalized_score_pct(
+        {"valid": "False", "normalized_quality": "0.75"}
+    ) == 0.0
+    assert write_reports._normalized_score_pct(
+        {"valid": "", "normalized_quality": ""}
+    ) == 0.0
+
+
+def test_plot_exposure_scores_average_by_harness_and_exposure(tmp_path: Path) -> None:
+    rows = [
+        {
+            "kind": "agent",
+            "exposure": "transparent",
+            "harness": "codex",
+            "system": "codex",
+            "valid": "True",
+            "normalized_quality": "0.8",
+        },
+        {
+            "kind": "agent",
+            "exposure": "transparent",
+            "harness": "codex",
+            "system": "codex",
+            "valid": "False",
+            "normalized_quality": "0.9",
+        },
+        {
+            "kind": "agent",
+            "exposure": "opaque",
+            "harness": "opencode_dpsk",
+            "system": "opencode_dpsk",
+            "valid": "True",
+            "normalized_quality": "0.25",
+        },
+        {
+            "kind": "solver",
+            "exposure": "opaque",
+            "harness": "",
+            "system": "some_solver",
+            "valid": "True",
+            "normalized_quality": "1.0",
+        },
+    ]
+
+    scores = plot_exposure._scores_by_harness(rows)
+
+    assert scores["codex"]["transparent"] == 40.0
+    assert scores["codex"]["opaque"] is None
+    assert scores["opencode_dpsk"]["opaque"] == 25.0
+
+    output = tmp_path / "scores.png"
+    plot_exposure._plot_scores(scores, output_path=output)
+    assert output.exists()
+    assert output.stat().st_size > 0
