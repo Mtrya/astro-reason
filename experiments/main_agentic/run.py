@@ -26,6 +26,8 @@ if __package__ in (None, ""):
 else:
     from . import plan as family_plan
 
+from experiments._shared import workspace as workspace_utils
+
 
 WORKSPACE_MOUNT = Path("/app/workspace")
 OUTPUT_MOUNT = Path("/app/run/output")
@@ -35,7 +37,6 @@ CONTAINER_XDG_DATA_HOME = CONTAINER_HOME / ".local" / "share"
 CONTAINER_USER_NAME = "korolev"
 CONTAINER_GROUP_NAME = "korolev"
 PROMPT_FILE_NAME = "PROMPT.md"
-PLACEHOLDER_PATTERN = re.compile(r"\{([A-Za-z_][A-Za-z0-9_]*)\}")
 SATNET_COMPACT_PATTERN = re.compile(
     r"(VALID|INVALID):\s+(?:total_hours|score)=([+-]?(?:\d+(?:\.\d*)?|\.\d+))h,\s+tracks=(\d+)"
 )
@@ -164,36 +165,21 @@ def _duration_seconds(start: datetime, end: datetime) -> float:
 
 
 def _container_path_to_host_path(container_path: Path, roots: MountRoots) -> Path:
-    for prefix, host_root in (
-        (WORKSPACE_MOUNT, roots.workspace),
-        (CONTAINER_HOME, roots.home),
-        (OUTPUT_MOUNT, roots.output),
-    ):
-        try:
-            relative = container_path.relative_to(prefix)
-        except ValueError:
-            continue
-        return host_root / relative
-    raise SystemExit(f"Container path is outside mounted roots: {container_path}")
+    return workspace_utils.container_path_to_host_path(
+        container_path,
+        roots,
+        workspace_mount=WORKSPACE_MOUNT,
+        home_mount=CONTAINER_HOME,
+        output_mount=OUTPUT_MOUNT,
+    )
 
 
 def _collect_target_host_path(target: Path, output_dir: Path) -> Path:
-    if not target.parts:
-        raise SystemExit(
-            f"Collect target must start with results_root/, repo/, benchmark(s)/, or experiments/: {target}"
-        )
-    root = target.parts[0]
-    relative = Path(*target.parts[1:]) if len(target.parts) > 1 else Path()
-    if root == "results_root":
-        return output_dir / relative
-    if root == "repo":
-        return family_plan.REPO_ROOT / relative
-    if root == "benchmark":
-        return family_plan.REPO_ROOT / "benchmarks" / relative
-    if root in {"experiments", "benchmarks"}:
-        return family_plan.REPO_ROOT / target
-    raise SystemExit(
-        f"Collect target must start with results_root/, repo/, benchmark(s)/, or experiments/: {target}"
+    return workspace_utils.collect_target_host_path(
+        target,
+        output_dir,
+        repo_root=family_plan.REPO_ROOT,
+        allow_benchmark_alias=True,
     )
 
 
@@ -204,21 +190,7 @@ def _relative_display(path: Path) -> str:
 
 
 def _format_rendered_text(template: str, replacements: dict[str, str]) -> str:
-    missing_keys: set[str] = set()
-
-    def replace(match: re.Match[str]) -> str:
-        key = match.group(1)
-        if key in replacements:
-            return replacements[key]
-        missing_keys.add(key)
-        return match.group(0)
-
-    rendered = PLACEHOLDER_PATTERN.sub(replace, template)
-    if missing_keys:
-        # Leave unknown braces untouched so JSON/code/math examples survive.
-        for key in missing_keys:
-            rendered = rendered.replace(f"{{{key}}}", f"{{{key}}}")
-    return rendered
+    return workspace_utils.render_template(template, replacements)
 
 
 def _copy_file_or_directory(
@@ -228,24 +200,12 @@ def _copy_file_or_directory(
     render: bool,
     context: dict[str, str],
 ) -> None:
-    if destination.exists():
-        if destination.is_dir():
-            shutil.rmtree(destination)
-        else:
-            destination.unlink()
-
-    if source.is_dir():
-        if render:
-            raise SystemExit(f"Cannot render a directory source: {source}")
-        shutil.copytree(source, destination)
-        return
-
-    destination.parent.mkdir(parents=True, exist_ok=True)
-    if render:
-        rendered = _format_rendered_text(source.read_text(encoding="utf-8"), context)
-        destination.write_text(rendered, encoding="utf-8")
-        return
-    shutil.copy2(source, destination)
+    workspace_utils.copy_file_or_directory(
+        source,
+        destination,
+        render=render,
+        context=context,
+    )
 
 
 def _build_container_identity(temp_dir: Path) -> ContainerIdentity:
@@ -492,44 +452,30 @@ def _assemble_workspace(
     split: str,
     case_id: str,
 ) -> list[dict[str, Any]]:
-    records: list[dict[str, Any]] = []
     context = _template_context(benchmark, split, case_id, assemble_specs)
 
-    for spec in assemble_specs:
-        source_exists = spec.source.exists()
-        if not source_exists:
-            if spec.missing_ok:
-                records.append(
-                    {
-                        "source": _relative_display(spec.source),
-                        "target": spec.target.as_posix(),
-                        "present": False,
-                        "rendered": spec.render,
-                    }
-                )
-                continue
-            opaque_benchmark = family_plan.opaque_verifier_benchmark(spec.source)
-            if opaque_benchmark is not None:
-                rebuild_command = family_plan.opaque_verifier_rebuild_command((opaque_benchmark,))
-                raise SystemExit(
-                    "Required opaque verifier artifact does not exist: "
-                    f"{spec.source}. Rebuild it with: {rebuild_command}"
-                )
-            example_note = f" Copy the example file {spec.example} and fill it in." if spec.example else ""
-            raise SystemExit(f"Required assemble source does not exist: {spec.source}.{example_note}")
+    def missing_source_message(spec: family_plan.AssembleSpec) -> str:
+        opaque_benchmark = family_plan.opaque_verifier_benchmark(spec.source)
+        if opaque_benchmark is not None:
+            rebuild_command = family_plan.opaque_verifier_rebuild_command((opaque_benchmark,))
+            return (
+                "Required opaque verifier artifact does not exist: "
+                f"{spec.source}. Rebuild it with: {rebuild_command}"
+            )
+        example_note = f" Copy the example file {spec.example} and fill it in." if spec.example else ""
+        return f"Required assemble source does not exist: {spec.source}.{example_note}"
 
-        destination = _container_path_to_host_path(spec.target, roots)
-        _copy_file_or_directory(spec.source, destination, render=spec.render, context=context)
-        records.append(
-            {
-                "source": _relative_display(spec.source),
-                "target": spec.target.as_posix(),
-                "present": True,
-                "rendered": spec.render,
-            }
-        )
-
-    return records
+    return workspace_utils.assemble_workspace(
+        assemble_specs,
+        roots,
+        context=context,
+        repo_root=family_plan.REPO_ROOT,
+        workspace_mount=WORKSPACE_MOUNT,
+        home_mount=CONTAINER_HOME,
+        output_mount=OUTPUT_MOUNT,
+        require_nonempty_dirs=False,
+        missing_source_message=missing_source_message,
+    )
 
 
 def _collect_artifacts(
@@ -537,41 +483,16 @@ def _collect_artifacts(
     roots: MountRoots,
     output_dir: Path,
 ) -> list[dict[str, Any]]:
-    records: list[dict[str, Any]] = []
-    for spec in collect_specs:
-        source = _container_path_to_host_path(spec.source, roots)
-        destination = _collect_target_host_path(spec.target, output_dir)
-        if not source.exists():
-            if spec.missing_ok:
-                records.append(
-                    {
-                        "source": spec.source.as_posix(),
-                        "target": spec.target.as_posix(),
-                        "present": False,
-                    }
-                )
-                continue
-            raise SystemExit(f"Required collected source does not exist: {source}")
-
-        if destination.exists():
-            if destination.is_dir():
-                shutil.rmtree(destination)
-            else:
-                destination.unlink()
-        destination.parent.mkdir(parents=True, exist_ok=True)
-        if source.is_dir():
-            shutil.copytree(source, destination)
-        else:
-            shutil.copy2(source, destination)
-
-        records.append(
-            {
-                "source": spec.source.as_posix(),
-                "target": spec.target.as_posix(),
-                "present": True,
-            }
-        )
-    return records
+    return workspace_utils.collect_artifacts(
+        collect_specs,
+        roots,
+        output_dir,
+        repo_root=family_plan.REPO_ROOT,
+        workspace_mount=WORKSPACE_MOUNT,
+        home_mount=CONTAINER_HOME,
+        output_mount=OUTPUT_MOUNT,
+        allow_benchmark_alias=True,
+    )
 
 
 def _build_container_script(

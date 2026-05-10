@@ -7,7 +7,6 @@ import argparse
 import concurrent.futures
 import json
 import os
-import re
 import shlex
 import shutil
 import subprocess
@@ -22,6 +21,11 @@ import yaml
 
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
+if __package__ in (None, ""):
+    sys.path.insert(0, str(REPO_ROOT))
+
+from experiments._shared import workspace as workspace_utils
+
 FAMILY_DIR = Path(__file__).resolve().parent
 DEFAULT_CONFIG = FAMILY_DIR / "configs" / "default.yaml"
 INTERACTIVE_CONFIG = FAMILY_DIR / "configs" / "interactive.yaml"
@@ -31,7 +35,6 @@ CONTAINER_HOME = Path("/home/korolev")
 INTERACTIVE_WORKSPACES_ROOT = REPO_ROOT / ".runtime" / "interactive_workspaces"
 OPAQUE_ARTIFACT_ROOT = REPO_ROOT / "experiments" / "_fragments" / "opaque_verifiers" / "artifacts"
 OPAQUE_BUILD_SCRIPT = REPO_ROOT / "experiments" / "_fragments" / "opaque_verifiers" / "build.py"
-PLACEHOLDER_PATTERN = re.compile(r"\{([A-Za-z_][A-Za-z0-9_]*)\}")
 
 
 @dataclass(frozen=True)
@@ -445,9 +448,7 @@ def _interactive_output_dir(config: InteractiveConfig, harness_identity: str, sp
 
 
 def _relative(path: Path) -> str:
-    if path.is_relative_to(REPO_ROOT):
-        return path.relative_to(REPO_ROOT).as_posix()
-    return path.as_posix()
+    return workspace_utils.relative_display(path, REPO_ROOT)
 
 
 def _opaque_benchmark(path: Path) -> str | None:
@@ -509,37 +510,20 @@ def _template_context(item: RunItem) -> dict[str, str]:
 
 
 def _safe_render(text: str, replacements: dict[str, str]) -> str:
-    def replace(match: re.Match[str]) -> str:
-        key = match.group(1)
-        return replacements.get(key, match.group(0))
-
-    return PLACEHOLDER_PATTERN.sub(replace, text)
+    return workspace_utils.render_template(text, replacements)
 
 
 def _copy_file_or_directory(source: Path, destination: Path, *, render: bool, context: dict[str, str]) -> None:
-    if destination.exists():
-        if destination.is_dir():
-            shutil.rmtree(destination)
-        else:
-            destination.unlink()
-    if source.is_dir():
-        if render:
-            raise SystemExit(f"Cannot render directory source: {source}")
-        shutil.copytree(source, destination)
-        return
-    destination.parent.mkdir(parents=True, exist_ok=True)
-    if render:
-        destination.write_text(_safe_render(source.read_text(encoding="utf-8"), context), encoding="utf-8")
-    else:
-        shutil.copy2(source, destination)
+    workspace_utils.copy_file_or_directory(
+        source,
+        destination,
+        render=render,
+        context=context,
+    )
 
 
 def _source_available(source: Path) -> bool:
-    if not source.exists():
-        return False
-    if source.is_dir():
-        return any(source.iterdir())
-    return True
+    return workspace_utils.source_available(source, require_nonempty_dirs=True)
 
 
 def _prepare_roots(workspace_dir: Path, runtime_dir: Path, output_dir: Path) -> MountRoots:
@@ -570,85 +554,62 @@ def _build_container_identity(runtime_dir: Path) -> ContainerIdentity:
 
 
 def _container_to_host(container_path: Path, roots: MountRoots) -> Path:
-    for prefix, root in (
-        (WORKSPACE_MOUNT, roots.workspace),
-        (CONTAINER_HOME, roots.home),
-        (OUTPUT_MOUNT, roots.output),
-    ):
-        try:
-            return root / container_path.relative_to(prefix)
-        except ValueError:
-            continue
-    raise SystemExit(f"Container path is outside mounted roots: {container_path}")
+    return workspace_utils.container_path_to_host_path(
+        container_path,
+        roots,
+        workspace_mount=WORKSPACE_MOUNT,
+        home_mount=CONTAINER_HOME,
+        output_mount=OUTPUT_MOUNT,
+    )
 
 
 def _collect_target(target: Path, output_dir: Path) -> Path:
-    if not target.parts:
-        raise SystemExit(f"Collect target is empty: {target}")
-    root = target.parts[0]
-    rest = Path(*target.parts[1:]) if len(target.parts) > 1 else Path()
-    if root == "results_root":
-        return output_dir / rest
-    if root == "repo":
-        return REPO_ROOT / rest
-    if root in {"experiments", "benchmarks"}:
-        return REPO_ROOT / target
-    raise SystemExit(f"Unsupported collect target root: {target}")
+    return workspace_utils.collect_target_host_path(
+        target,
+        output_dir,
+        repo_root=REPO_ROOT,
+    )
 
 
 def _assemble_workspace(item: RunItem, roots: MountRoots, extra_specs: tuple[AssembleSpec, ...] = ()) -> list[dict[str, Any]]:
-    records: list[dict[str, Any]] = []
     context = _template_context(item)
     specs = (*_benchmark_assemble_specs(item.benchmark, item.split, item.case_id), *item.profile.assemble, *extra_specs)
-    for spec in specs:
-        if not _source_available(spec.source):
-            if spec.missing_ok:
-                records.append({"source": _relative(spec.source), "target": spec.target.as_posix(), "present": False})
-                continue
-            opaque_benchmark = _opaque_benchmark(spec.source)
-            if opaque_benchmark:
-                raise SystemExit(
-                    f"Required opaque verifier artifact does not exist: {spec.source}. "
-                    f"Rebuild it with: {_opaque_rebuild_command(opaque_benchmark)}"
-                )
-            example_note = f" Copy {spec.example} into place first." if spec.example else ""
-            raise SystemExit(f"Required assemble source does not exist: {spec.source}.{example_note}")
-        _validate_opaque_artifact(spec.source)
-        destination = _container_to_host(spec.target, roots)
-        _copy_file_or_directory(spec.source, destination, render=spec.render, context=context)
-        records.append(
-            {
-                "source": _relative(spec.source),
-                "target": spec.target.as_posix(),
-                "present": True,
-                "rendered": spec.render,
-            }
-        )
-    return records
+
+    def missing_source_message(spec: AssembleSpec) -> str:
+        opaque_benchmark = _opaque_benchmark(spec.source)
+        if opaque_benchmark:
+            return (
+                f"Required opaque verifier artifact does not exist: {spec.source}. "
+                f"Rebuild it with: {_opaque_rebuild_command(opaque_benchmark)}"
+            )
+        example_note = f" Copy {spec.example} into place first." if spec.example else ""
+        return f"Required assemble source does not exist: {spec.source}.{example_note}"
+
+    return workspace_utils.assemble_workspace(
+        specs,
+        roots,
+        context=context,
+        repo_root=REPO_ROOT,
+        workspace_mount=WORKSPACE_MOUNT,
+        home_mount=CONTAINER_HOME,
+        output_mount=OUTPUT_MOUNT,
+        require_nonempty_dirs=True,
+        missing_source_message=missing_source_message,
+        validate_source=_validate_opaque_artifact,
+        record_rendered_for_missing=False,
+    )
 
 
 def _collect_artifacts(profile: HarnessProfile, roots: MountRoots, output_dir: Path) -> list[dict[str, Any]]:
-    records: list[dict[str, Any]] = []
-    for spec in profile.collect:
-        source = _container_to_host(spec.source, roots)
-        target = _collect_target(spec.target, output_dir)
-        if not source.exists():
-            if spec.missing_ok:
-                records.append({"source": spec.source.as_posix(), "target": spec.target.as_posix(), "present": False})
-                continue
-            raise SystemExit(f"Required collected source does not exist: {source}")
-        if target.exists():
-            if target.is_dir():
-                shutil.rmtree(target)
-            else:
-                target.unlink()
-        target.parent.mkdir(parents=True, exist_ok=True)
-        if source.is_dir():
-            shutil.copytree(source, target)
-        else:
-            shutil.copy2(source, target)
-        records.append({"source": spec.source.as_posix(), "target": spec.target.as_posix(), "present": True})
-    return records
+    return workspace_utils.collect_artifacts(
+        profile.collect,
+        roots,
+        output_dir,
+        repo_root=REPO_ROOT,
+        workspace_mount=WORKSPACE_MOUNT,
+        home_mount=CONTAINER_HOME,
+        output_mount=OUTPUT_MOUNT,
+    )
 
 
 def _build_docker_command(

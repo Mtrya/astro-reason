@@ -7,7 +7,7 @@ from types import SimpleNamespace
 REPO_ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(REPO_ROOT))
 
-from experiments._shared import aggregate, trace_viewer, write_reports
+from experiments._shared import aggregate, trace_viewer, workspace, write_reports
 
 
 def test_shared_analysis_modules_expose_family_neutral_helpers() -> None:
@@ -53,4 +53,7 @@ def test_shared_analysis_modules_expose_family_neutral_helpers() -> None:
     assert summary["primary_metric"]["stats"]["mean"] == 10.0
     assert "solution_json" in event["tags"]
     assert "verifier" in event["tags"]
+    assert workspace.render_template("{case_id} {unknown}", {"case_id": "case_0001"}) == (
+        "case_0001 {unknown}"
+    )
     assert write_reports.format_value("12.5") == "12.50"
