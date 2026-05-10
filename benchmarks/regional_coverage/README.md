@@ -45,8 +45,7 @@ dataset/
             └── coverage_grid.json
 ```
 
-The current canonical release contains 5 cases. Each case is self-contained.
-The verifier reads one case directory and one per-case solution file.
+The current canonical release contains 5 cases. Each case is self-contained. The verifier reads one case directory and one per-case solution file.
 
 The dataset-level `example_solution.json` is a runnable smoke example, not a baseline.
 

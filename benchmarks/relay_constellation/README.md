@@ -23,8 +23,7 @@ The space agent must return:
 - a bounded set of additional relay satellites
 - a time-bounded contact plan that activates communication links
 
-The benchmark is augmentation-focused, not greenfield redesign. Existing backbone satellites are immutable. The intended augmentation story is
-LEO-first: the solver adds lower-altitude relays to improve service and reduce latency relative to the provided MEO baseline.
+The benchmark is augmentation-focused, not greenfield redesign. Existing backbone satellites are immutable. The intended augmentation story is LEO-first: the solver adds lower-altitude relays to improve service and reduce latency relative to the provided MEO baseline.
 
 Out of scope:
 
@@ -82,9 +81,7 @@ Important fields:
 
 ### `network.json`
 
-`network.json` contains the immutable relay backbone and ground endpoints.
-Generated cases publish only ground endpoints that participate in at least one demanded window;
-endpoint IDs are renumbered after pruning so they remain compact and deterministic.
+`network.json` contains the immutable relay backbone and ground endpoints. Generated cases publish only ground endpoints that participate in at least one demanded window; endpoint IDs are renumbered after pruning so they remain compact and deterministic.
 
 - `backbone_satellites[]`
   - `satellite_id`
@@ -324,10 +321,7 @@ uv run python -m benchmarks.relay_constellation.visualizer.run solution \
   --solution-path benchmarks/relay_constellation/dataset/example_solution.json
 ```
 
-This emits `ground_tracks.png` for the backbone plus added satellites and
-`scheduled_connectivity.png` for verifier-derived connectivity from the
-submitted actions. It also emits one detailed PNG per demanded window under
-`demand_windows/`, with route-color labels and the actual served route nodes.
+This emits `ground_tracks.png` for the backbone plus added satellites and `scheduled_connectivity.png` for verifier-derived connectivity from the submitted actions. It also emits one detailed PNG per demanded window under `demand_windows/`, with route-color labels and the actual served route nodes.
 
 ## Tests
 

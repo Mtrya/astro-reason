@@ -60,8 +60,7 @@ Each variable represents a photograph request:
   - Value `13`: HRG front + rear cameras
 - **extra_fields**: Not sure, ignored 
 
-For 14 single-orbit instances: all `recorder_consumption = 0`
-For 7 multi-orbit instances: `recorder_consumption` indicates memory usage
+For 14 single-orbit instances: all `recorder_consumption = 0` For 7 multi-orbit instances: `recorder_consumption` indicates memory usage
 
 Examples:
 
@@ -71,12 +70,7 @@ Examples:
 1 1 3 1 0 2 0 3 0
 ```
 
-1 -> var_id (the second variable)
-1 -> profit (one point of profit gained if selected)
-3 -> domain_size: 3 possible camera assignments (which is 1, 2, 3)
-1 0 -> value_id 1, recorder_consumption 0
-2 0 -> value_id 2, recorder_consumption 0
-3 0 -> value_id 3, recorder_consumption 0
+1 -> var_id (the second variable) 1 -> profit (one point of profit gained if selected) 3 -> domain_size: 3 possible camera assignments (which is 1, 2, 3) 1 0 -> value_id 1, recorder_consumption 0 2 0 -> value_id 2, recorder_consumption 0 3 0 -> value_id 3, recorder_consumption 0
 
 2. multi-orbit, domain_size = 3
 
@@ -84,13 +78,7 @@ Examples:
 38 2 3 1 451.1500000000069 2 451.1500000000069 3 451.1500000000069 213302 1
 ```
 
-38 -> var_id (the 39th variable)
-2 -> profit (two points of profit gained if selected)
-3 -> domain_size: 3 possible camera assignments (which is 1, 2, 3)
-1 451.1500000000069 -> value_id 1, recorder_consumption 451.1500000000069
-2 451.1500000000069 -> value_id 2, recorder_consumption 451.1500000000069
-3 451.1500000000069 -> value_id 3, recorder_consumption 451.1500000000069
-213302 1 -> extra_field, ignored
+38 -> var_id (the 39th variable) 2 -> profit (two points of profit gained if selected) 3 -> domain_size: 3 possible camera assignments (which is 1, 2, 3) 1 451.1500000000069 -> value_id 1, recorder_consumption 451.1500000000069 2 451.1500000000069 -> value_id 2, recorder_consumption 451.1500000000069 3 451.1500000000069 -> value_id 3, recorder_consumption 451.1500000000069 213302 1 -> extra_field, ignored
 
 3. multi-orbit, domain_size = 1
 
@@ -98,11 +86,7 @@ Examples:
 125 2000 1 13 1804.5999999999822 136703 1
 ```
 
-125 -> var_id (the 126th variable)
-2000 -> profit (two thousand points of profit gained if selected)
-1 -> domain_size: 1 possible camera assignment (which is 13)
-13 1804.5999999999822 -> value_id 13, recorder_consumption 1804.5999999999822
-136703 1 -> extra_field, ignored
+125 -> var_id (the 126th variable) 2000 -> profit (two thousand points of profit gained if selected) 1 -> domain_size: 1 possible camera assignment (which is 13) 13 1804.5999999999822 -> value_id 13, recorder_consumption 1804.5999999999822 136703 1 -> extra_field, ignored
 
 ### Constraint Specification
 
@@ -126,11 +110,7 @@ Examples:
 2 242 240 13 3 13 1
 ```
 
-2 -> arity (binary)
-242 -> var_id_1
-240 -> var_id_2
-13 3 -> forbidden_tuple 1
-13 1 -> forbidden_tuple 2
+2 -> arity (binary) 242 -> var_id_1 240 -> var_id_2 13 3 -> forbidden_tuple 1 13 1 -> forbidden_tuple 2
 
 It's forbidden to assign value 13 to variable 242 AND assign value 3 to variable 240 at the same time; It's forbidden to assign value 13 to variable 242 AND value 1 to variable 240 at the same time
 
@@ -140,11 +120,7 @@ It's forbidden to assign value 13 to variable 242 AND assign value 3 to variable
 3 124 81 72 13 2 13
 ```
 
-3 -> arity (ternary)
-124 -> var_id_1
-81 -> var_id_2
-72 -> var_id_3
-13 2 13 -> forbidden_tuple 1
+3 -> arity (ternary) 124 -> var_id_1 81 -> var_id_2 72 -> var_id_3 13 2 13 -> forbidden_tuple 1
 
 It's forbidden to assign value 13 to variable 124 AND assign value 2 to variable 81 AND assign value 13 to variable 72 at the same time
 
@@ -239,22 +215,18 @@ Constraint: `total_weight ≤ 200`
 | Multi-orbit | 1401, 1403, 1405, 1502, 1504, 1506 | 163-855 | Variable | 200 |
 | Multi-orbit (largest) | 1021 | 1,057 | 20,730 | 200 |
 
-**14 instances without memory constraint** (capacity = 0)
-**7 instances with memory constraint** (capacity = 200)
+**14 instances without memory constraint** (capacity = 0) **7 instances with memory constraint** (capacity = 200)
 
 ## Committed Splits
 
-The finished benchmark keeps four committed splits in
-`benchmarks/spot5/splits.yaml`:
+The finished benchmark keeps four committed splits in `benchmarks/spot5/splits.yaml`:
 
 - `single_orbit`: all published instances with numeric id `< 1000`
 - `multi_orbit`: all published instances with numeric id `> 1000`
 - `test`: an overlapping 5-case sample drawn with seed `42`
 - `train`: an overlapping 10-case sample drawn with seed `163`
 
-Overlap is intentional. For example, case `8` appears in both
-`single_orbit`, `test`, and `train`. The dataset-level smoke example is paired with
-`single_orbit/8`.
+Overlap is intentional. For example, case `8` appears in both `single_orbit`, `test`, and `train`. The dataset-level smoke example is paired with `single_orbit/8`.
 
 ## Known Solutions & Validation
 
@@ -313,9 +285,7 @@ The verifier checks:
 
 ## License & Attribution
 
-**Data License**: CC BY 4.0 (Creative Commons Attribution 4.0 International)
-**Source**: Mendeley Data, DOI: 10.17632/2kbzg9nw3b.1
-**Attribution**:
+**Data License**: CC BY 4.0 (Creative Commons Attribution 4.0 International) **Source**: Mendeley Data, DOI: 10.17632/2kbzg9nw3b.1 **Attribution**:
 - Original problem: CNES (French Space Agency) & ONERA
 - Problem abstraction: Vasquez & Hao (2001), Wei & Hao (2021)
 - Reference solutions: DCKP-RSOA algorithm (Wei & Hao, 2021)

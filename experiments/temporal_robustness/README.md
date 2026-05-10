@@ -2,14 +2,7 @@
 
 `temporal_robustness` compares AEOSSP performance across two benchmark-owned epoch families while keeping the solving surface otherwise fixed.
 
-The motivation is to probe whether results depend on epoch-specific knowledge
-that could plausibly be present in model pretraining data. AEOSSP instances are
-generated from TLE-like orbital inputs, so this experiment compares a default
-test horizon with a shifted horizon that should be less likely to have appeared
-in model-visible corpora. The task still requires building and validating a
-solution algorithm, so memorized orbital elements alone should not be enough;
-the intended signal is whether performance stays roughly comparable when the
-epoch changes.
+The motivation is to probe whether results depend on epoch-specific knowledge that could plausibly be present in model pretraining data. AEOSSP instances are generated from TLE-like orbital inputs, so this experiment compares a default test horizon with a shifted horizon that should be less likely to have appeared in model-visible corpora. The task still requires building and validating a solution algorithm, so memorized orbital elements alone should not be enough; the intended signal is whether performance stays roughly comparable when the epoch changes.
 
 The default matrix runs:
 
@@ -20,13 +13,7 @@ The default matrix runs:
 
 Both split families expose the same problem description, prompt, Brahe skill, opaque verifier helper, runtime image, and harness-specific config style. The official verifier still runs outside the solving workspace.
 
-Interpret results as split-level aggregate movement rather than case-matched
-deltas. The two splits reuse labels such as `case_0001`, but those labels are
-split-scoped: `test/case_0001` and `test_horizon_2022/case_0001` are different
-benchmark cases. Similar aggregate performance across splits weakens the
-concern that results are driven by memorized epoch-specific inputs. Large drops
-should be inspected before interpretation, since they may reflect either real
-horizon sensitivity or a brittle implementation path.
+Interpret results as split-level aggregate movement rather than case-matched deltas. The two splits reuse labels such as `case_0001`, but those labels are split-scoped: `test/case_0001` and `test_horizon_2022/case_0001` are different benchmark cases. Similar aggregate performance across splits weakens the concern that results are driven by memorized epoch-specific inputs. Large drops should be inspected before interpretation, since they may reflect either real horizon sensitivity or a brittle implementation path.
 
 ## Run
 

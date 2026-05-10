@@ -80,10 +80,7 @@ Published SatNet comparisons also emphasize fairness across missions. The princi
 
 ### Problem Instance Format (`cases/<CASE_ID>/problem.json`)
 
-Each canonical SatNet case is stored in its own directory under
-`benchmarks/satnet/dataset/cases/test/`. The verifier remains split-agnostic
-and accepts a direct case directory path. The `problem.json` file in a case
-directory contains a JSON array of requests for exactly one week/year pair:
+Each canonical SatNet case is stored in its own directory under `benchmarks/satnet/dataset/cases/test/`. The verifier remains split-agnostic and accepts a direct case directory path. The `problem.json` file in a case directory contains a JSON array of requests for exactly one week/year pair:
 
 ```json
 [
@@ -165,8 +162,7 @@ START_TIME --[setup_time]--> TRACKING_ON --[actual_comms]--> TRACKING_OFF --[tea
 
 ### Maintenance Schedule Format (`cases/<CASE_ID>/maintenance.csv`)
 
-Each case directory also contains a maintenance CSV filtered to that same
-week/year instance:
+Each case directory also contains a maintenance CSV filtered to that same week/year instance:
 
 ```csv
 week,year,starttime,endtime,antenna

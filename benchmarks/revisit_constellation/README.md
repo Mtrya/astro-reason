@@ -109,8 +109,7 @@ All states are interpreted as GCRF Cartesian states in SI units.
 
 ### `actions`
 
-The action list defines the mission schedule for the proposed constellation.
-Supported action types are:
+The action list defines the mission schedule for the proposed constellation. Supported action types are:
 
 - `observation`
 
@@ -144,8 +143,7 @@ Additional hard-validity checks may be added as the schema becomes more concrete
 
 ## Metrics And Ranking
 
-The legacy mapping-coverage branch is intentionally removed from this benchmark.
-The new benchmark is purely revisit-driven.
+The legacy mapping-coverage branch is intentionally removed from this benchmark. The new benchmark is purely revisit-driven.
 
 The verifier reports these metrics for valid solutions:
 
@@ -256,10 +254,7 @@ uv run python -m benchmarks.revisit_constellation.visualizer.run solution \
   --solution-path benchmarks/revisit_constellation/dataset/example_solution.json
 ```
 
-The `overview` command writes `overview.png`. The `solution` command writes one
-PNG page per rendered observed target; each page shows a bounded set of
-observation snapshots with target-relevant satellite ground tracks and the
-active observing satellite highlighted.
+The `overview` command writes `overview.png`. The `solution` command writes one PNG page per rendered observed target; each page shows a bounded set of observation snapshots with target-relevant satellite ground tracks and the active observing satellite highlighted.
 
 ## Canonical Benchmark Shape
 
@@ -302,8 +297,7 @@ The committed dataset lives under `dataset/cases/<split>/` and includes dataset-
 - `train`: 10 public generated development cases, `case_0001` through `case_0010`.
 - `test`: five held-out evaluation cases, `case_0001` through `case_0005`.
 
-The split seeds and case-generation controls are declared in `splits.yaml`; the train and test splits use disjoint seeds and target-selection offsets.
-Targets are sampled from the documented world-cities source with log-scaled population as the primary signal and geographic spread as a secondary balancing term. The committed train and test cases share this policy, including the same minimum target separation setting, while retaining deterministic per-case seeds.
+The split seeds and case-generation controls are declared in `splits.yaml`; the train and test splits use disjoint seeds and target-selection offsets. Targets are sampled from the documented world-cities source with log-scaled population as the primary signal and geographic spread as a secondary balancing term. The committed train and test cases share this policy, including the same minimum target separation setting, while retaining deterministic per-case seeds.
 
 The canonical generator entry point is:
 

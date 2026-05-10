@@ -450,6 +450,4 @@ uv run python tests/fixtures/sgp4_skyfield/generate.py summary
 | `sample_count` | `145` |
 | `boundary_tolerance_sec` | `1` |
 
-轨道状态使用 **Skyfield** `EarthSatellite`（GCRS 坐标系）。
-可见性使用 Skyfield 地面几何（卫星对目标）和球形地球线段清障测试（卫星对卫星，半径 6371000.0 m）。
-光照区判定使用 **Skyfield** `ICRF.is_sunlit()` 和 JPL `de421.bsp` 星历。fixture 生成器将该星历缓存到 `tests/fixtures/sgp4_skyfield/.skyfield-data/` 下。
+轨道状态使用 **Skyfield** `EarthSatellite`（GCRS 坐标系）。 可见性使用 Skyfield 地面几何（卫星对目标）和球形地球线段清障测试（卫星对卫星，半径 6371000.0 m）。 光照区判定使用 **Skyfield** `ICRF.is_sunlit()` 和 JPL `de421.bsp` 星历。fixture 生成器将该星历缓存到 `tests/fixtures/sgp4_skyfield/.skyfield-data/` 下。

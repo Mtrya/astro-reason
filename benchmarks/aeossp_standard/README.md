@@ -268,8 +268,7 @@ uv run python -m benchmarks.aeossp_standard.generator.run \
   benchmarks/aeossp_standard/splits.yaml
 ```
 
-For larger split families or CI rebuilds, pass `--jobs N` to generate independent
-cases in parallel while keeping deterministic case seeds and index ordering.
+For larger split families or CI rebuilds, pass `--jobs N` to generate independent cases in parallel while keeping deterministic case seeds and index ordering.
 
 Verifier:
 
@@ -315,8 +314,7 @@ Current split decision:
 - `test` is the primary medium-difficulty evaluation split
 - `test_horizon_2022` keeps the same medium controls and uses the vendored 2022 historical TLE cache so the mission horizons move to April 2022
 - `test_hard` is the higher-pressure evaluation split; it uses more satellites,
-  more tasks, longer durations, tighter windows, and a lower city fraction so
-  canonical generation remains bounded on single-core CI runners
+more tasks, longer durations, tighter windows, and a lower city fraction so canonical generation remains bounded on single-core CI runners
 - `train` mirrors `test` controls with `10` cases
 
 Current canonical medium family:
@@ -328,9 +326,7 @@ Current canonical medium family:
 - mixed city / land-background target sources
 - task windows derived from real access opportunities
 
-The full canonical split family contains 30 generated cases. It is designed to
-regenerate comfortably on a single CPU core; use `--jobs N` only as an optional
-local speedup.
+The full canonical split family contains 30 generated cases. It is designed to regenerate comfortably on a single CPU core; use `--jobs N` only as an optional local speedup.
 
 Public source workflow:
 

@@ -60,8 +60,7 @@ benchmarks/spot5/dataset/cases/<split>/<case_id>/<case_id>.spot
   - 值 `13`：HRG 前 + 后相机
 - **extra_fields**：不确定，忽略
 
-对于 14 个单轨道实例：所有 `recorder_consumption = 0`
-对于 7 个多轨道实例：`recorder_consumption` 表示内存使用量
+对于 14 个单轨道实例：所有 `recorder_consumption = 0` 对于 7 个多轨道实例：`recorder_consumption` 表示内存使用量
 
 示例：
 
@@ -71,12 +70,7 @@ benchmarks/spot5/dataset/cases/<split>/<case_id>/<case_id>.spot
 1 1 3 1 0 2 0 3 0
 ```
 
-1 -> var_id（第二个变量）
-1 -> profit（若被选中获得 1 点利润）
-3 -> domain_size：3 种可能的相机分配（即 1、2、3）
-1 0 -> value_id 1, recorder_consumption 0
-2 0 -> value_id 2, recorder_consumption 0
-3 0 -> value_id 3, recorder_consumption 0
+1 -> var_id（第二个变量） 1 -> profit（若被选中获得 1 点利润） 3 -> domain_size：3 种可能的相机分配（即 1、2、3） 1 0 -> value_id 1, recorder_consumption 0 2 0 -> value_id 2, recorder_consumption 0 3 0 -> value_id 3, recorder_consumption 0
 
 2. 多轨道，domain_size = 3
 
@@ -84,13 +78,7 @@ benchmarks/spot5/dataset/cases/<split>/<case_id>/<case_id>.spot
 38 2 3 1 451.1500000000069 2 451.1500000000069 3 451.1500000000069 213302 1
 ```
 
-38 -> var_id（第 39 个变量）
-2 -> profit（若被选中获得 2 点利润）
-3 -> domain_size：3 种可能的相机分配（即 1、2、3）
-1 451.1500000000069 -> value_id 1, recorder_consumption 451.1500000000069
-2 451.1500000000069 -> value_id 2, recorder_consumption 451.1500000000069
-3 451.1500000000069 -> value_id 3, recorder_consumption 451.1500000000069
-213302 1 -> extra_field, 忽略
+38 -> var_id（第 39 个变量） 2 -> profit（若被选中获得 2 点利润） 3 -> domain_size：3 种可能的相机分配（即 1、2、3） 1 451.1500000000069 -> value_id 1, recorder_consumption 451.1500000000069 2 451.1500000000069 -> value_id 2, recorder_consumption 451.1500000000069 3 451.1500000000069 -> value_id 3, recorder_consumption 451.1500000000069 213302 1 -> extra_field, 忽略
 
 3. 多轨道，domain_size = 1
 
@@ -98,11 +86,7 @@ benchmarks/spot5/dataset/cases/<split>/<case_id>/<case_id>.spot
 125 2000 1 13 1804.5999999999822 136703 1
 ```
 
-125 -> var_id（第 126 个变量）
-2000 -> profit（若被选中获得 2000 点利润）
-1 -> domain_size：1 种可能的相机分配（即 13）
-13 1804.5999999999822 -> value_id 13, recorder_consumption 1804.5999999999822
-136703 1 -> extra_field, 忽略
+125 -> var_id（第 126 个变量） 2000 -> profit（若被选中获得 2000 点利润） 1 -> domain_size：1 种可能的相机分配（即 13） 13 1804.5999999999822 -> value_id 13, recorder_consumption 1804.5999999999822 136703 1 -> extra_field, 忽略
 
 ### 约束规格
 
@@ -126,11 +110,7 @@ benchmarks/spot5/dataset/cases/<split>/<case_id>/<case_id>.spot
 2 242 240 13 3 13 1
 ```
 
-2 -> arity（二元）
-242 -> var_id_1
-240 -> var_id_2
-13 3 -> forbidden_tuple 1
-13 1 -> forbidden_tuple 2
+2 -> arity（二元） 242 -> var_id_1 240 -> var_id_2 13 3 -> forbidden_tuple 1 13 1 -> forbidden_tuple 2
 
 禁止将值 13 分配给变量 242 **且** 将值 3 分配给变量 240；禁止将值 13 分配给变量 242 **且** 将值 1 分配给变量 240。
 
@@ -140,11 +120,7 @@ benchmarks/spot5/dataset/cases/<split>/<case_id>/<case_id>.spot
 3 124 81 72 13 2 13
 ```
 
-3 -> arity（三元）
-124 -> var_id_1
-81 -> var_id_2
-72 -> var_id_3
-13 2 13 -> forbidden_tuple 1
+3 -> arity（三元） 124 -> var_id_1 81 -> var_id_2 72 -> var_id_3 13 2 13 -> forbidden_tuple 1
 
 禁止将值 13 分配给变量 124 **且** 将值 2 分配给变量 81 **且** 将值 13 分配给变量 72。
 
@@ -239,8 +215,7 @@ total_weight = sum(
 | 多轨道 | 1401, 1403, 1405, 1502, 1504, 1506 | 163–855 | 可变 | 200 |
 | 多轨道（最大） | 1021 | 1,057 | 20,730 | 200 |
 
-**14 个实例无存储约束**（capacity = 0）
-**7 个实例有存储约束**（capacity = 200）
+**14 个实例无存储约束**（capacity = 0） **7 个实例有存储约束**（capacity = 200）
 
 ## 已提交子集
 
@@ -310,9 +285,7 @@ uv run python benchmarks/spot5/verifier.py \
 
 ## 许可与归属
 
-**数据许可**：CC BY 4.0（知识共享署名 4.0 国际）
-**来源**：Mendeley Data，DOI: 10.17632/2kbzg9nw3b.1
-**归属**：
+**数据许可**：CC BY 4.0（知识共享署名 4.0 国际） **来源**：Mendeley Data，DOI: 10.17632/2kbzg9nw3b.1 **归属**：
 - 原始问题：CNES（法国航天局）与 ONERA
 - 问题抽象：Vasquez & Hao（2001），Wei & Hao（2021）
 - 参考解：DCKP-RSOA 算法（Wei & Hao，2021）

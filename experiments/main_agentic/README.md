@@ -183,9 +183,7 @@ Interactive workspaces live under:
 
 Every concrete run writes one `run.json`. Aggregation reads `run.json` artifacts, not raw session logs.
 
-External verification is performed through benchmark-owned verifier executable entrypoints. `main_agentic` does not import benchmark-internal verifier APIs.
-The agent workspace may include an opaque local verifier helper assembled from `experiments/_fragments/opaque_verifiers/artifacts/`, but official evaluation still runs through the benchmark-owned verifier CLIs outside the workspace.
-Most verifiers emit JSON; SatNet and SPOT5 currently emit text CLI reports, so the runner parses their verbose output into the same `run.json` verifier section used by aggregation.
+External verification is performed through benchmark-owned verifier executable entrypoints. `main_agentic` does not import benchmark-internal verifier APIs. The agent workspace may include an opaque local verifier helper assembled from `experiments/_fragments/opaque_verifiers/artifacts/`, but official evaluation still runs through the benchmark-owned verifier CLIs outside the workspace. Most verifiers emit JSON; SatNet and SPOT5 currently emit text CLI reports, so the runner parses their verbose output into the same `run.json` verifier section used by aggregation.
 
 Detailed benchmark tables and generated reader-facing plots live under:
 
@@ -253,8 +251,7 @@ This writes matrix-level and benchmark-level summaries under:
 results/agent_runs/experiments/main_agentic/matrix/summaries/
 ```
 
-No cross-benchmark universal score is invented; metric summaries stay benchmark-native.
-Reader-facing radar plots can be generated from those summaries with:
+No cross-benchmark universal score is invented; metric summaries stay benchmark-native. Reader-facing radar plots can be generated from those summaries with:
 
 ```bash
 uv run python experiments/main_agentic/plot_radar.py --harness kimi_cli
