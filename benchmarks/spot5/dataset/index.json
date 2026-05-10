@@ -2,8 +2,9 @@
   "benchmark": "spot5",
   "case_id_format": "instance_stem",
   "source": {
-    "kind": "local_directory",
-    "source_dir_name": "spot5-source"
+    "kind": "upstream_zip",
+    "dataset_page": "https://data.mendeley.com/datasets/2kbzg9nw3b/1",
+    "download_url": "https://data.mendeley.com/public-api/zip/2kbzg9nw3b/download/1"
   },
   "example_smoke_case": "single_orbit/8",
   "cases": [
