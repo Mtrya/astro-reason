@@ -2981,7 +2981,7 @@
           "weight_m2": 25000000.0
         },
         {
-          "latitude_deg": 15.422922296666837,
+          "latitude_deg": 15.422922296666833,
           "longitude_deg": 87.3142335996384,
           "sample_id": "bay_of_bengal_s000497",
           "weight_m2": 25000000.0
@@ -5663,7 +5663,7 @@
           "weight_m2": 25000000.0
         },
         {
-          "latitude_deg": 16.147779839122332,
+          "latitude_deg": 16.147779839122336,
           "longitude_deg": 87.63617700863001,
           "sample_id": "bay_of_bengal_s000944",
           "weight_m2": 25000000.0
@@ -5988,7 +5988,7 @@
         },
         {
           "latitude_deg": 15.560621508329945,
-          "longitude_deg": 87.68617074072127,
+          "longitude_deg": 87.68617074072128,
           "sample_id": "bay_of_bengal_s000998",
           "weight_m2": 25000000.0
         },
@@ -7325,7 +7325,7 @@
           "weight_m2": 25000000.0
         },
         {
-          "latitude_deg": 16.284233481007938,
+          "latitude_deg": 16.28423348100794,
           "longitude_deg": 87.82248972326241,
           "sample_id": "bay_of_bengal_s001221",
           "weight_m2": 25000000.0
@@ -8351,7 +8351,7 @@
           "weight_m2": 25000000.0
         },
         {
-          "latitude_deg": 14.070648524939493,
+          "latitude_deg": 14.070648524939491,
           "longitude_deg": 87.97171420021095,
           "sample_id": "bay_of_bengal_s001392",
           "weight_m2": 25000000.0
@@ -9569,7 +9569,7 @@
           "weight_m2": 25000000.0
         },
         {
-          "latitude_deg": 16.33032992114316,
+          "latitude_deg": 16.330329921143164,
           "longitude_deg": 88.05620182839654,
           "sample_id": "bay_of_bengal_s001595",
           "weight_m2": 25000000.0
@@ -10145,7 +10145,7 @@
           "weight_m2": 25000000.0
         },
         {
-          "latitude_deg": 13.574131120663738,
+          "latitude_deg": 13.57413112066374,
           "longitude_deg": 88.15834216255254,
           "sample_id": "bay_of_bengal_s001691",
           "weight_m2": 25000000.0
@@ -12965,7 +12965,7 @@
           "weight_m2": 25000000.0
         },
         {
-          "latitude_deg": 16.331202717408665,
+          "latitude_deg": 16.33120271740867,
           "longitude_deg": 88.38371176280977,
           "sample_id": "bay_of_bengal_s002161",
           "weight_m2": 25000000.0
@@ -13919,7 +13919,7 @@
           "weight_m2": 25000000.0
         },
         {
-          "latitude_deg": 16.01505685130872,
+          "latitude_deg": 16.015056851308724,
           "longitude_deg": 88.47783078315588,
           "sample_id": "bay_of_bengal_s002320",
           "weight_m2": 25000000.0
@@ -14058,7 +14058,7 @@
         },
         {
           "latitude_deg": 13.303713798255615,
-          "longitude_deg": 88.52825745643003,
+          "longitude_deg": 88.52825745643001,
           "sample_id": "bay_of_bengal_s002343",
           "weight_m2": 25000000.0
         },
@@ -20514,7 +20514,7 @@
         },
         {
           "latitude_deg": 13.303713798255615,
-          "longitude_deg": 89.12811780356998,
+          "longitude_deg": 89.12811780356999,
           "sample_id": "bay_of_bengal_s003419",
           "weight_m2": 25000000.0
         },
@@ -21347,7 +21347,7 @@
           "weight_m2": 25000000.0
         },
         {
-          "latitude_deg": 16.01505685130872,
+          "latitude_deg": 16.015056851308724,
           "longitude_deg": 89.17854447684412,
           "sample_id": "bay_of_bengal_s003558",
           "weight_m2": 25000000.0
@@ -24179,7 +24179,7 @@
           "weight_m2": 25000000.0
         },
         {
-          "latitude_deg": 13.574131120663738,
+          "latitude_deg": 13.57413112066374,
           "longitude_deg": 89.49803309744745,
           "sample_id": "bay_of_bengal_s004030",
           "weight_m2": 25000000.0
@@ -25949,7 +25949,7 @@
           "weight_m2": 25000000.0
         },
         {
-          "latitude_deg": 14.070648524939493,
+          "latitude_deg": 14.070648524939491,
           "longitude_deg": 89.68466105978905,
           "sample_id": "bay_of_bengal_s004325",
           "weight_m2": 25000000.0
@@ -28560,7 +28560,7 @@
         },
         {
           "latitude_deg": 15.560621508329945,
-          "longitude_deg": 89.97020451927874,
+          "longitude_deg": 89.97020451927872,
           "sample_id": "bay_of_bengal_s004760",
           "weight_m2": 25000000.0
         },
@@ -31499,7 +31499,7 @@
           "weight_m2": 25000000.0
         },
         {
-          "latitude_deg": 15.422922296666837,
+          "latitude_deg": 15.422922296666833,
           "longitude_deg": 90.3421416603616,
           "sample_id": "bay_of_bengal_s005250",
           "weight_m2": 25000000.0

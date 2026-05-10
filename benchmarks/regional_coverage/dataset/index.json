@@ -75,7 +75,7 @@
         "sar_narrow"
       ],
       "split": "train",
-      "total_region_area_m2": 381753588242.4833
+      "total_region_area_m2": 381753588242.4825
     },
     {
       "case_id": "case_0002",
@@ -87,7 +87,7 @@
         "sar_wide"
       ],
       "split": "train",
-      "total_region_area_m2": 281321375986.5574
+      "total_region_area_m2": 281321375986.5578
     },
     {
       "case_id": "case_0003",
@@ -99,7 +99,7 @@
         "sar_narrow"
       ],
       "split": "train",
-      "total_region_area_m2": 314976818199.5091
+      "total_region_area_m2": 314976818199.50964
     },
     {
       "case_id": "case_0004",
@@ -112,7 +112,7 @@
         "sar_wide"
       ],
       "split": "train",
-      "total_region_area_m2": 267793422138.54706
+      "total_region_area_m2": 267793422138.5465
     },
     {
       "case_id": "case_0005",
@@ -125,7 +125,7 @@
         "sar_wide"
       ],
       "split": "train",
-      "total_region_area_m2": 416455306549.6701
+      "total_region_area_m2": 416455306549.66956
     },
     {
       "case_id": "case_0006",
@@ -151,7 +151,7 @@
         "sar_wide"
       ],
       "split": "train",
-      "total_region_area_m2": 445449317646.5259
+      "total_region_area_m2": 445449317646.52527
     },
     {
       "case_id": "case_0008",
@@ -164,7 +164,7 @@
         "sar_wide"
       ],
       "split": "train",
-      "total_region_area_m2": 273554615359.33295
+      "total_region_area_m2": 273554615359.3333
     },
     {
       "case_id": "case_0009",
@@ -177,7 +177,7 @@
         "sar_wide"
       ],
       "split": "train",
-      "total_region_area_m2": 358520770366.4133
+      "total_region_area_m2": 358520770366.4136
     },
     {
       "case_id": "case_0010",
@@ -189,7 +189,7 @@
         "sar_wide"
       ],
       "split": "train",
-      "total_region_area_m2": 252495480252.52338
+      "total_region_area_m2": 252495480252.52374
     }
   ],
   "example_smoke_case": "test/case_0001",
