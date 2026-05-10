@@ -4,8 +4,7 @@
 from __future__ import annotations
 
 import argparse
-import json
-import statistics
+import sys
 from collections import defaultdict
 from pathlib import Path
 from typing import Any
@@ -14,6 +13,12 @@ import yaml
 
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
+if __package__ in (None, ""):
+    sys.path.insert(0, str(REPO_ROOT))
+
+from experiments._shared import aggregate as shared_aggregate
+from experiments._shared import write_reports as shared_reports
+
 FAMILY_DIR = Path(__file__).resolve().parent
 DEFAULT_CONFIG = FAMILY_DIR / "configs" / "default.yaml"
 DEFAULT_BASELINES = FAMILY_DIR / "baselines" / "main_solver.yaml"
@@ -44,19 +49,9 @@ def _load_yaml(path: Path) -> dict[str, Any]:
     return data
 
 
-def _read_json(path: Path) -> dict[str, Any] | None:
-    if not path.exists():
-        return None
-    try:
-        payload = json.loads(path.read_text(encoding="utf-8"))
-    except json.JSONDecodeError:
-        return None
-    return payload if isinstance(payload, dict) else None
-
-
 def _metric(metrics: dict[str, Any], name: str) -> float | None:
-    value = metrics.get(name)
-    return float(value) if isinstance(value, (int, float)) and not isinstance(value, bool) else None
+    value = shared_aggregate.coerce_numeric(metrics.get(name))
+    return float(value) if value is not None else None
 
 
 def _verifier_metrics(payload: dict[str, Any] | None) -> dict[str, float | None]:
@@ -79,7 +74,7 @@ def _agent_run_path(*, split: str, harness: str, case_id: str, config_name: str)
 
 def _agent_row(*, split: str, harness: str, case_id: str, config_name: str) -> dict[str, Any]:
     path = _agent_run_path(split=split, harness=harness, case_id=case_id, config_name=config_name)
-    payload = _read_json(path)
+    payload = shared_aggregate.read_run_json(path)
     verifier = payload.get("verifier") if isinstance(payload, dict) and isinstance(payload.get("verifier"), dict) else {}
     metrics = _verifier_metrics(payload)
     valid = verifier.get("valid") if isinstance(verifier.get("valid"), bool) else None
@@ -159,7 +154,9 @@ def _all_rows(config: dict[str, Any], config_path: Path, baseline_data: dict[str
 
 
 def _mean(values: list[float]) -> float | None:
-    return statistics.mean(values) if values else None
+    stats = shared_aggregate.metric_stats(values)
+    mean = stats["mean"]
+    return float(mean) if mean is not None else None
 
 
 def _format(value: Any) -> str:
@@ -167,25 +164,13 @@ def _format(value: Any) -> str:
         return "-"
     if isinstance(value, bool):
         return "true" if value else "false"
-    if isinstance(value, float):
-        if abs(value) >= 100:
-            return f"{value:.1f}"
-        if abs(value) >= 10:
-            return f"{value:.2f}"
-        return f"{value:.4f}"
+    if isinstance(value, (int, float)) and not isinstance(value, bool):
+        return shared_reports.format_value(str(value))
     return str(value)
 
 
 def _table(headers: list[str], rows: list[list[str]], *, numeric_from: int = 0) -> list[str]:
-    align = ["---"] * len(headers)
-    for index in range(numeric_from, len(headers)):
-        align[index] = "---:"
-    lines = [
-        "| " + " | ".join(headers) + " |",
-        "| " + " | ".join(align) + " |",
-    ]
-    lines.extend("| " + " | ".join(row) + " |" for row in rows)
-    return lines
+    return shared_reports.table(headers, rows, numeric_from=numeric_from)
 
 
 def _system_label(system: str) -> str:

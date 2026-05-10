@@ -5,9 +5,7 @@ from __future__ import annotations
 
 import argparse
 import csv
-import json
-import statistics
-from collections import Counter
+import sys
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
@@ -16,6 +14,11 @@ import yaml
 
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
+if __package__ in (None, ""):
+    sys.path.insert(0, str(REPO_ROOT))
+
+from experiments._shared import aggregate as shared_aggregate
+
 FAMILY_DIR = Path(__file__).resolve().parent
 DEFAULT_CONFIG = FAMILY_DIR / "configs" / "default.yaml"
 
@@ -70,16 +73,6 @@ def _run_path(
     return root / config_name / exposure / benchmark / harness / split / case_id / "run.json"
 
 
-def _read_run_json(path: Path) -> dict[str, Any] | None:
-    if not path.exists():
-        return None
-    try:
-        payload = json.loads(path.read_text(encoding="utf-8"))
-    except json.JSONDecodeError:
-        return None
-    return payload if isinstance(payload, dict) else None
-
-
 def _metric(payload: dict[str, Any], key: str) -> float | None:
     verifier = payload.get("verifier")
     if not isinstance(verifier, dict):
@@ -87,14 +80,14 @@ def _metric(payload: dict[str, Any], key: str) -> float | None:
     metrics = verifier.get("metrics")
     if not isinstance(metrics, dict):
         return None
-    value = metrics.get(key)
-    if isinstance(value, (int, float)) and not isinstance(value, bool):
-        return float(value)
-    return None
+    value = shared_aggregate.coerce_numeric(metrics.get(key))
+    return float(value) if value is not None else None
 
 
 def _mean(values: list[float]) -> float | None:
-    return statistics.mean(values) if values else None
+    stats = shared_aggregate.metric_stats(values)
+    mean = stats["mean"]
+    return float(mean) if mean is not None else None
 
 
 def _format(value: Any) -> str:
@@ -139,7 +132,7 @@ def _records(config: dict[str, Any], config_path: Path) -> list[dict[str, Any]]:
                     split=split,
                     case_id=str(case_id),
                 )
-                payload = _read_run_json(run_path)
+                payload = shared_aggregate.read_run_json(run_path)
                 if payload is None:
                     rows.append(
                         {
@@ -186,8 +179,8 @@ def _summary(rows: list[dict[str, Any]]) -> dict[str, Any]:
             "run_count": len(exposure_rows),
             "valid_count": sum(1 for value in valid_values if value),
             "valid_rate": (sum(1 for value in valid_values if value) / len(valid_values)) if valid_values else None,
-            "overall_status_counts": dict(Counter(str(row["overall_status"]) for row in exposure_rows)),
-            "verifier_status_counts": dict(Counter(str(row["verifier_status"]) for row in exposure_rows)),
+            "overall_status_counts": shared_aggregate.status_counts(exposure_rows, "overall_status"),
+            "verifier_status_counts": shared_aggregate.status_counts(exposure_rows, "verifier_status"),
             "mean_coverage_ratio": _mean(
                 [row["coverage_ratio"] for row in exposure_rows if isinstance(row["coverage_ratio"], float)]
             ),
@@ -208,7 +201,7 @@ def _summary(rows: list[dict[str, Any]]) -> dict[str, Any]:
                 "run_count": len(group_rows),
                 "valid_count": sum(1 for value in valid_values if value),
                 "valid_rate": (sum(1 for value in valid_values if value) / len(valid_values)) if valid_values else None,
-                "overall_status_counts": dict(Counter(str(row["overall_status"]) for row in group_rows)),
+                "overall_status_counts": shared_aggregate.status_counts(group_rows, "overall_status"),
                 "mean_coverage_ratio": _mean(
                     [row["coverage_ratio"] for row in group_rows if isinstance(row["coverage_ratio"], float)]
                 ),
@@ -243,7 +236,7 @@ def _write_csv(path: Path, rows: list[dict[str, Any]]) -> None:
         "normalized_quality",
         "result_path",
     ]
-    path.parent.mkdir(parents=True, exist_ok=True)
+    shared_aggregate.ensure_dir(path.parent)
     with path.open("w", encoding="utf-8", newline="") as handle:
         writer = csv.DictWriter(handle, fieldnames=fieldnames)
         writer.writeheader()
@@ -258,11 +251,8 @@ def main(argv: list[str] | None = None) -> int:
     aggregate_dir = _aggregate_dir(config, config_path)
     rows = _records(config, config_path)
     summary = _summary(rows)
-    aggregate_dir.mkdir(parents=True, exist_ok=True)
-    (aggregate_dir / "summary.json").write_text(
-        json.dumps(summary, indent=2, sort_keys=True) + "\n",
-        encoding="utf-8",
-    )
+    shared_aggregate.ensure_dir(aggregate_dir)
+    shared_aggregate.write_json(aggregate_dir / "summary.json", summary)
     _write_csv(aggregate_dir / "runs.csv", rows)
     print(f"Wrote {aggregate_dir / 'summary.json'}")
     print(f"Wrote {aggregate_dir / 'runs.csv'}")

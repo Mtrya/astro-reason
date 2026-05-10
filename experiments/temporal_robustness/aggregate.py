@@ -5,9 +5,7 @@ from __future__ import annotations
 
 import argparse
 import csv
-import json
-import statistics
-from collections import Counter
+import sys
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
@@ -16,6 +14,11 @@ import yaml
 
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
+if __package__ in (None, ""):
+    sys.path.insert(0, str(REPO_ROOT))
+
+from experiments._shared import aggregate as shared_aggregate
+
 FAMILY_DIR = Path(__file__).resolve().parent
 DEFAULT_CONFIG = FAMILY_DIR / "configs" / "default.yaml"
 METRICS = ("WCR", "CR", "TAT", "PC")
@@ -64,16 +67,6 @@ def _display_path(path: Path) -> str:
     return path.as_posix()
 
 
-def _read_run_json(path: Path) -> dict[str, Any] | None:
-    if not path.exists():
-        return None
-    try:
-        payload = json.loads(path.read_text(encoding="utf-8"))
-    except json.JSONDecodeError:
-        return None
-    return payload if isinstance(payload, dict) else None
-
-
 def _metric(payload: dict[str, Any], name: str) -> float | None:
     verifier = payload.get("verifier")
     if not isinstance(verifier, dict):
@@ -81,14 +74,14 @@ def _metric(payload: dict[str, Any], name: str) -> float | None:
     metrics = verifier.get("metrics")
     if not isinstance(metrics, dict):
         return None
-    value = metrics.get(name)
-    if isinstance(value, (int, float)) and not isinstance(value, bool):
-        return float(value)
-    return None
+    value = shared_aggregate.coerce_numeric(metrics.get(name))
+    return float(value) if value is not None else None
 
 
 def _mean(values: list[float]) -> float | None:
-    return statistics.mean(values) if values else None
+    stats = shared_aggregate.metric_stats(values)
+    mean = stats["mean"]
+    return float(mean) if mean is not None else None
 
 
 def _format(value: Any) -> str:
@@ -134,7 +127,7 @@ def _records(config: dict[str, Any], config_path: Path) -> list[dict[str, Any]]:
                     harness=str(harness),
                     case_id=str(case_id),
                 )
-                payload = _read_run_json(run_path)
+                payload = shared_aggregate.read_run_json(run_path)
                 row: dict[str, Any] = {
                     "split": split,
                     "benchmark": benchmark,
@@ -158,6 +151,7 @@ def _records(config: dict[str, Any], config_path: Path) -> list[dict[str, Any]]:
                     rows.append(row)
                     continue
                 verifier = payload.get("verifier") if isinstance(payload.get("verifier"), dict) else {}
+                duration_seconds = shared_aggregate.coerce_numeric(payload.get("duration_seconds"))
                 row.update(
                     {
                         "artifact_state": "present",
@@ -165,10 +159,7 @@ def _records(config: dict[str, Any], config_path: Path) -> list[dict[str, Any]]:
                         "agent_status": payload.get("agent_status", "unknown"),
                         "verifier_status": payload.get("verifier_status", "unknown"),
                         "valid": verifier.get("valid") if isinstance(verifier.get("valid"), bool) else None,
-                        "duration_seconds": payload.get("duration_seconds")
-                        if isinstance(payload.get("duration_seconds"), (int, float))
-                        and not isinstance(payload.get("duration_seconds"), bool)
-                        else None,
+                        "duration_seconds": duration_seconds,
                     }
                 )
                 for metric in METRICS:
@@ -208,14 +199,14 @@ def _group_summary(rows: list[dict[str, Any]]) -> dict[str, Any]:
         "run_count": len(rows),
         "valid_count": sum(1 for value in valid_values if value),
         "valid_rate": (sum(1 for value in valid_values if value) / len(valid_values)) if valid_values else None,
-        "overall_status_counts": dict(Counter(str(row["overall_status"]) for row in rows)),
-        "verifier_status_counts": dict(Counter(str(row["verifier_status"]) for row in rows)),
+        "overall_status_counts": shared_aggregate.status_counts(rows, "overall_status"),
+        "verifier_status_counts": shared_aggregate.status_counts(rows, "verifier_status"),
         **metric_means,
     }
 
 
 def _write_csv(path: Path, rows: list[dict[str, Any]], fieldnames: list[str]) -> None:
-    path.parent.mkdir(parents=True, exist_ok=True)
+    shared_aggregate.ensure_dir(path.parent)
     with path.open("w", encoding="utf-8", newline="") as handle:
         writer = csv.DictWriter(handle, fieldnames=fieldnames)
         writer.writeheader()
@@ -230,11 +221,8 @@ def main(argv: list[str] | None = None) -> int:
     rows = _records(config, config_path)
     summary = _summary(rows)
     aggregate_dir = _aggregate_dir(config, config_path)
-    aggregate_dir.mkdir(parents=True, exist_ok=True)
-    (aggregate_dir / "summary.json").write_text(
-        json.dumps(summary, indent=2, sort_keys=True) + "\n",
-        encoding="utf-8",
-    )
+    shared_aggregate.ensure_dir(aggregate_dir)
+    shared_aggregate.write_json(aggregate_dir / "summary.json", summary)
     run_fields = [
         "split",
         "benchmark",
