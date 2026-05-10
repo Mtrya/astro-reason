@@ -426,6 +426,266 @@ def _extract_kimi_events(
     return events
 
 
+def _claude_row_metadata(row: dict[str, Any]) -> dict[str, Any]:
+    return {
+        key: row.get(key)
+        for key in (
+            "uuid",
+            "parentUuid",
+            "sessionId",
+            "cwd",
+            "version",
+            "gitBranch",
+            "slug",
+        )
+        if row.get(key) is not None
+    }
+
+
+def _claude_message_metadata(row: dict[str, Any], message: dict[str, Any]) -> dict[str, Any]:
+    metadata = _claude_row_metadata(row)
+    metadata.update(
+        {
+            key: message.get(key)
+            for key in ("id", "model", "stop_reason", "stop_sequence", "usage")
+            if message.get(key) is not None
+        }
+    )
+    return metadata
+
+
+def _claude_tool_result_text(row: dict[str, Any], item: dict[str, Any]) -> str:
+    text = _flatten_text(item.get("content"))
+    if text:
+        return text
+    return _flatten_text(row.get("toolUseResult"))
+
+
+def _extract_claude_code_events(
+    path: Path,
+    *,
+    preview_chars: int,
+    expanded_chars: int,
+) -> list[dict[str, Any]]:
+    events: list[dict[str, Any]] = []
+    call_names: dict[str, str] = {}
+    for row in _read_jsonl(path):
+        row_type = row.get("type")
+        timestamp = row.get("timestamp") if isinstance(row.get("timestamp"), str) else None
+        timestamp_ms = _timestamp_ms(timestamp)
+
+        if row_type == "queue-operation":
+            operation = str(row.get("operation") or "operation")
+            events.append(
+                _event(
+                    source="claude_code",
+                    event_type="status",
+                    role="status",
+                    title=f"Queue {operation.title()}",
+                    text=_flatten_text(row.get("content") or operation),
+                    seq=len(events),
+                    timestamp=timestamp,
+                    timestamp_ms=timestamp_ms,
+                    collapsed=True,
+                    metadata={
+                        "operation": row.get("operation"),
+                        "session_id": row.get("sessionId"),
+                    },
+                    preview_chars=preview_chars,
+                    expanded_chars=expanded_chars,
+                )
+            )
+            continue
+
+        if row_type == "attachment":
+            attachment = row.get("attachment")
+            attachment = attachment if isinstance(attachment, dict) else {}
+            attachment_type = str(attachment.get("type") or "attachment")
+            events.append(
+                _event(
+                    source="claude_code",
+                    event_type="status",
+                    role="system",
+                    title=f"Attachment: {attachment_type}",
+                    text=_flatten_text(attachment.get("content") or attachment),
+                    seq=len(events),
+                    timestamp=timestamp,
+                    timestamp_ms=timestamp_ms,
+                    collapsed=True,
+                    metadata={
+                        **_claude_row_metadata(row),
+                        "attachment_type": attachment_type,
+                        "skill_count": attachment.get("skillCount"),
+                        "is_initial": attachment.get("isInitial"),
+                    },
+                    preview_chars=preview_chars,
+                    expanded_chars=expanded_chars,
+                )
+            )
+            continue
+
+        if row_type == "last-prompt":
+            events.append(
+                _event(
+                    source="claude_code",
+                    event_type="status",
+                    role="status",
+                    title="Last Prompt",
+                    text=_flatten_text(row.get("lastPrompt")),
+                    seq=len(events),
+                    collapsed=True,
+                    metadata={
+                        "leaf_uuid": row.get("leafUuid"),
+                        "session_id": row.get("sessionId"),
+                    },
+                    preview_chars=preview_chars,
+                    expanded_chars=expanded_chars,
+                )
+            )
+            continue
+
+        message = row.get("message")
+        if not isinstance(message, dict):
+            continue
+        role = str(message.get("role") or row_type or "assistant")
+        content = message.get("content")
+        metadata = _claude_message_metadata(row, message)
+
+        if isinstance(content, str):
+            viewer_role = role if role in {"user", "assistant", "system"} else "system"
+            events.append(
+                _event(
+                    source="claude_code",
+                    event_type="message",
+                    role=viewer_role,
+                    title=viewer_role.title(),
+                    text=content,
+                    seq=len(events),
+                    timestamp=timestamp,
+                    timestamp_ms=timestamp_ms,
+                    metadata=metadata,
+                    preview_chars=preview_chars,
+                    expanded_chars=expanded_chars,
+                )
+            )
+            continue
+
+        if not isinstance(content, list):
+            continue
+
+        for item in content:
+            if not isinstance(item, dict):
+                continue
+            item_type = str(item.get("type") or "content")
+            item_metadata = {**metadata, "content_type": item_type}
+
+            if item_type == "thinking":
+                events.append(
+                    _event(
+                        source="claude_code",
+                        event_type="reasoning",
+                        role="reasoning",
+                        title="Reasoning",
+                        text=_flatten_text(item.get("thinking")) or "[reasoning block]",
+                        seq=len(events),
+                        timestamp=timestamp,
+                        timestamp_ms=timestamp_ms,
+                        collapsed=True,
+                        metadata=item_metadata,
+                        preview_chars=preview_chars,
+                        expanded_chars=expanded_chars,
+                    )
+                )
+            elif item_type == "text":
+                viewer_role = role if role in {"user", "assistant", "system"} else "assistant"
+                events.append(
+                    _event(
+                        source="claude_code",
+                        event_type="message",
+                        role=viewer_role,
+                        title=viewer_role.title(),
+                        text=_flatten_text(item.get("text")),
+                        seq=len(events),
+                        timestamp=timestamp,
+                        timestamp_ms=timestamp_ms,
+                        metadata=item_metadata,
+                        preview_chars=preview_chars,
+                        expanded_chars=expanded_chars,
+                    )
+                )
+            elif item_type == "tool_use":
+                call_id = str(item.get("id") or "")
+                name = str(item.get("name") or "tool")
+                if call_id:
+                    call_names[call_id] = name
+                events.append(
+                    _event(
+                        source="claude_code",
+                        event_type="tool_call",
+                        role="assistant",
+                        title=name,
+                        text=_flatten_text(item.get("input")),
+                        seq=len(events),
+                        timestamp=timestamp,
+                        timestamp_ms=timestamp_ms,
+                        collapsed=True,
+                        metadata={
+                            **item_metadata,
+                            "call_id": call_id,
+                            "tool_name": name,
+                            "tool_input": item.get("input"),
+                        },
+                        preview_chars=preview_chars,
+                        expanded_chars=expanded_chars,
+                    )
+                )
+            elif item_type == "tool_result":
+                call_id = str(item.get("tool_use_id") or "")
+                name = call_names.get(call_id, "tool result")
+                is_error = item.get("is_error") is True
+                events.append(
+                    _event(
+                        source="claude_code",
+                        event_type="tool_result",
+                        role="tool",
+                        title=name,
+                        text=_claude_tool_result_text(row, item),
+                        seq=len(events),
+                        timestamp=timestamp,
+                        timestamp_ms=timestamp_ms,
+                        collapsed=True,
+                        tags=["error"] if is_error else [],
+                        metadata={
+                            **item_metadata,
+                            "call_id": call_id,
+                            "tool_name": name,
+                            "is_error": is_error,
+                            "source_tool_assistant_uuid": row.get("sourceToolAssistantUUID"),
+                        },
+                        preview_chars=preview_chars,
+                        expanded_chars=expanded_chars,
+                    )
+                )
+            else:
+                events.append(
+                    _event(
+                        source="claude_code",
+                        event_type="message",
+                        role=role if role in {"user", "assistant", "system"} else "system",
+                        title=item_type.replace("_", " ").title(),
+                        text=_flatten_text(item),
+                        seq=len(events),
+                        timestamp=timestamp,
+                        timestamp_ms=timestamp_ms,
+                        collapsed=True,
+                        metadata=item_metadata,
+                        preview_chars=preview_chars,
+                        expanded_chars=expanded_chars,
+                    )
+                )
+    return events
+
+
 def _json_from_sql(value: Any) -> dict[str, Any]:
     if not isinstance(value, str):
         return {}
@@ -599,6 +859,12 @@ def _find_trace_source(output_dir: Path, harness: str) -> TraceSource | None:
         candidates = sorted(logs_dir.glob("sessions/*/*/*/rollout-*.jsonl"))
         if candidates:
             return TraceSource("codex", candidates[-1])
+    if harness.startswith("claude_code"):
+        candidates = sorted(logs_dir.glob("projects/*/*.jsonl"))
+        if not candidates:
+            candidates = sorted((logs_dir / harness).glob("projects/*/*.jsonl"))
+        if candidates:
+            return TraceSource("claude_code", candidates[-1])
     if harness == "kimi_cli":
         context = _latest_kimi_context(logs_dir)
         if context is not None:
@@ -656,6 +922,15 @@ def _load_trace_events(
     if source.kind == "kimi_cli":
         return (
             _extract_kimi_events(
+                source.path,
+                preview_chars=preview_chars,
+                expanded_chars=expanded_chars,
+            ),
+            [],
+        )
+    if source.kind == "claude_code":
+        return (
+            _extract_claude_code_events(
                 source.path,
                 preview_chars=preview_chars,
                 expanded_chars=expanded_chars,
@@ -860,4 +1135,3 @@ def _write_trace_data(
             f"{json.dumps(events_by_run.get(run_id, []), ensure_ascii=False, separators=(',', ':'))};\n"
         )
         (events_dir / f"{run_id}.js").write_text(content, encoding="utf-8")
-

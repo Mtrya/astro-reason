@@ -24,6 +24,7 @@ DEFAULT_OUTPUT_DIR = FAMILY_DIR / "reports" / "traces"
 
 TraceSource = shared_trace.TraceSource
 _event = shared_trace._event
+_extract_claude_code_events = shared_trace._extract_claude_code_events
 _extract_codex_events = shared_trace._extract_codex_events
 _extract_kimi_events = shared_trace._extract_kimi_events
 _extract_opencode_events = shared_trace._extract_opencode_events

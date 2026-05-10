@@ -254,6 +254,173 @@ def test_opencode_database_events_are_normalized(tmp_path: Path) -> None:
     ]
 
 
+def test_claude_code_session_events_are_normalized(tmp_path: Path) -> None:
+    session_log = tmp_path / "claude.jsonl"
+    _write_jsonl(
+        session_log,
+        [
+            {
+                "type": "queue-operation",
+                "operation": "enqueue",
+                "timestamp": "2026-05-03T07:00:10.212Z",
+                "sessionId": "session_1",
+                "content": "Please solve and write solution.json.",
+            },
+            {
+                "type": "attachment",
+                "timestamp": "2026-05-03T07:00:10.230Z",
+                "sessionId": "session_1",
+                "attachment": {
+                    "type": "skill_listing",
+                    "content": "- brahe",
+                    "skillCount": 1,
+                    "isInitial": True,
+                },
+            },
+            {
+                "type": "user",
+                "timestamp": "2026-05-03T07:00:11.000Z",
+                "uuid": "user_1",
+                "sessionId": "session_1",
+                "message": {
+                    "role": "user",
+                    "content": "Use the files in case/.",
+                },
+            },
+            {
+                "type": "assistant",
+                "timestamp": "2026-05-03T07:00:12.000Z",
+                "uuid": "assistant_1",
+                "sessionId": "session_1",
+                "message": {
+                    "id": "message_1",
+                    "role": "assistant",
+                    "model": "claude-test",
+                    "content": [
+                        {"type": "thinking", "thinking": "Need inspect case."},
+                        {"type": "text", "text": "I will inspect the case."},
+                        {
+                            "type": "tool_use",
+                            "id": "call_1",
+                            "name": "Bash",
+                            "input": {
+                                "command": "python verifier case solution.json",
+                                "description": "Verify",
+                            },
+                        },
+                    ],
+                    "stop_reason": "tool_use",
+                    "usage": {"input_tokens": 1, "output_tokens": 2},
+                },
+            },
+            {
+                "type": "user",
+                "timestamp": "2026-05-03T07:00:13.000Z",
+                "uuid": "tool_result_1",
+                "sessionId": "session_1",
+                "message": {
+                    "role": "user",
+                    "content": [
+                        {
+                            "type": "tool_result",
+                            "tool_use_id": "call_1",
+                            "content": "VALID",
+                            "is_error": False,
+                        }
+                    ],
+                },
+                "sourceToolAssistantUUID": "assistant_1",
+            },
+            {
+                "type": "last-prompt",
+                "lastPrompt": "Please solve...",
+                "leafUuid": "leaf_1",
+                "sessionId": "session_1",
+            },
+        ],
+    )
+
+    events = trace_viewer._extract_claude_code_events(
+        session_log,
+        preview_chars=80,
+        expanded_chars=500,
+    )
+
+    assert [event["event_type"] for event in events] == [
+        "status",
+        "status",
+        "message",
+        "reasoning",
+        "message",
+        "tool_call",
+        "tool_result",
+        "status",
+    ]
+    assert events[0]["title"] == "Queue Enqueue"
+    assert events[1]["metadata"]["attachment_type"] == "skill_listing"
+    assert events[2]["role"] == "user"
+    assert events[3]["collapsed"] is True
+    assert events[4]["role"] == "assistant"
+    assert events[5]["metadata"]["tool_name"] == "Bash"
+    assert events[5]["metadata"]["usage"] == {"input_tokens": 1, "output_tokens": 2}
+    assert "verifier" in events[5]["tags"]
+    assert events[6]["title"] == "Bash"
+    assert "verifier" in events[6]["tags"]
+    assert "solution_json" in events[0]["tags"]
+
+
+def test_claude_code_tool_result_errors_are_tagged(tmp_path: Path) -> None:
+    session_log = tmp_path / "claude.jsonl"
+    _write_jsonl(
+        session_log,
+        [
+            {
+                "type": "assistant",
+                "timestamp": "2026-05-03T07:00:12.000Z",
+                "message": {
+                    "role": "assistant",
+                    "content": [
+                        {
+                            "type": "tool_use",
+                            "id": "call_1",
+                            "name": "Read",
+                            "input": {"file_path": "missing.json"},
+                        }
+                    ],
+                },
+            },
+            {
+                "type": "user",
+                "timestamp": "2026-05-03T07:00:13.000Z",
+                "message": {
+                    "role": "user",
+                    "content": [
+                        {
+                            "type": "tool_result",
+                            "tool_use_id": "call_1",
+                            "content": "",
+                            "is_error": True,
+                        }
+                    ],
+                },
+                "toolUseResult": "Error: file not found",
+            },
+        ],
+    )
+
+    events = trace_viewer._extract_claude_code_events(
+        session_log,
+        preview_chars=80,
+        expanded_chars=500,
+    )
+
+    assert [event["event_type"] for event in events] == ["tool_call", "tool_result"]
+    assert events[1]["title"] == "Read"
+    assert events[1]["text"] == "Error: file not found"
+    assert "error" in events[1]["tags"]
+    assert events[1]["metadata"]["is_error"] is True
+
+
 def test_trace_data_files_are_browser_loadable(tmp_path: Path) -> None:
     output_dir = tmp_path / "traces"
     runs = [{"id": "run_1", "data_file": "data/events/run_1.js"}]
@@ -285,9 +452,20 @@ def test_trace_source_detection_uses_harness_log_conventions(tmp_path: Path) -> 
     opencode_db.parent.mkdir(parents=True, exist_ok=True)
     opencode_db.write_text("", encoding="utf-8")
 
+    claude_log = logs / "projects" / "-app-workspace" / "session.jsonl"
+    claude_log.parent.mkdir(parents=True, exist_ok=True)
+    claude_log.write_text("{}\n", encoding="utf-8")
+
+    namespaced_claude_log = (
+        logs / "claude_code_dpsk" / "projects" / "-app-workspace" / "session.jsonl"
+    )
+    namespaced_claude_log.parent.mkdir(parents=True, exist_ok=True)
+    namespaced_claude_log.write_text("{}\n", encoding="utf-8")
+
     codex_source = trace_viewer._find_trace_source(output_dir, "codex")
     kimi_source = trace_viewer._find_trace_source(output_dir, "kimi_cli")
     opencode_source = trace_viewer._find_trace_source(output_dir, "opencode_dpsk")
+    claude_source = trace_viewer._find_trace_source(output_dir, "claude_code")
 
     assert codex_source is not None
     assert codex_source.kind == "codex"
@@ -298,4 +476,13 @@ def test_trace_source_detection_uses_harness_log_conventions(tmp_path: Path) -> 
     assert opencode_source is not None
     assert opencode_source.kind == "opencode"
     assert opencode_source.path == opencode_db
+    assert claude_source is not None
+    assert claude_source.kind == "claude_code"
+    assert claude_source.path == claude_log
     assert trace_viewer._find_trace_source(output_dir, "unknown_harness") is None
+
+    claude_log.unlink()
+    namespaced_source = trace_viewer._find_trace_source(output_dir, "claude_code_dpsk")
+    assert namespaced_source is not None
+    assert namespaced_source.kind == "claude_code"
+    assert namespaced_source.path == namespaced_claude_log

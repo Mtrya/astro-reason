@@ -203,6 +203,9 @@ Chat-style trace reports live under `reports/traces/` and can be opened directly
 uv run python experiments/main_agentic/trace_viewer.py
 ```
 
+The trace viewer parses Codex, Claude Code, Kimi CLI, and OpenCode session logs when those
+harness artifacts are present.
+
 ## Smoke Checks
 
 Before running a matrix after verifier-source or prompt-contract changes, refresh or validate the opaque helpers:
