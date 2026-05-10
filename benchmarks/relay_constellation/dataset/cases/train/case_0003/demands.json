@@ -1,0 +1,36 @@
+{
+  "demanded_windows": [
+    {
+      "demand_id": "demand_003",
+      "destination_endpoint_id": "ground_003",
+      "end_time": "2026-01-02T08:35:00Z",
+      "source_endpoint_id": "ground_001",
+      "start_time": "2026-01-02T08:05:00Z",
+      "weight": 1.0
+    },
+    {
+      "demand_id": "demand_001",
+      "destination_endpoint_id": "ground_003",
+      "end_time": "2026-01-02T09:15:00Z",
+      "source_endpoint_id": "ground_002",
+      "start_time": "2026-01-02T08:15:00Z",
+      "weight": 1.0
+    },
+    {
+      "demand_id": "demand_004",
+      "destination_endpoint_id": "ground_003",
+      "end_time": "2026-01-02T17:15:00Z",
+      "source_endpoint_id": "ground_001",
+      "start_time": "2026-01-02T16:15:00Z",
+      "weight": 1.0
+    },
+    {
+      "demand_id": "demand_002",
+      "destination_endpoint_id": "ground_003",
+      "end_time": "2026-01-03T06:30:00Z",
+      "source_endpoint_id": "ground_002",
+      "start_time": "2026-01-03T05:15:00Z",
+      "weight": 1.0
+    }
+  ]
+}

@@ -20,7 +20,7 @@ source:
     module: benchmarks/stereo_imaging/generator/lookup_tables.py
 
 splits:
-  test:
+  test: &test_split
     seed: 20260406
     case_count: 5
     case_seed_stride: 10007
@@ -68,3 +68,8 @@ splits:
     satellites:
       min_per_case: 10
       max_per_case: 12
+
+  train:
+    <<: *test_split
+    seed: 20270406
+    case_count: 10
