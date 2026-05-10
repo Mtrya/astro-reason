@@ -2,10 +2,7 @@
 
 ## Goal
 
-Write `stereo-imaging-compact-procedure`, the single compact skill used by the
-`compact_domain` condition. It should be short enough for weak harnesses to use
-under time pressure while still teaching the candidate-product-schedule-repair
-decomposition.
+Write `stereo-imaging-compact-procedure`, the single compact skill used by the `compact_domain` condition. It should be short enough for weak harnesses to use under time pressure while still teaching the candidate-product-schedule-repair decomposition.
 
 ## Inputs To Read
 
@@ -40,18 +37,13 @@ decomposition.
 
 - Keep `SKILL.md` under roughly 1000 words.
 - Use imperative, procedural sections rather than dense exposition.
-- Include a "valid but zero score" diagnosis: observations are likely not
-  forming valid stereo/tri-stereo products.
-- Include a "do not ride thresholds" warning for access, off-nadir, slew,
-  convergence, overlap, and pixel-scale ratio.
-- `references/README.md` should map each major recipe point to local sources:
-  benchmark README for validity/scoring, CP solver README for atomic product
-  insertion/local search, MILP README for candidate-product-conflict structure.
+- Include a "valid but zero score" diagnosis: observations are likely not forming valid stereo/tri-stereo products.
+- Include a "do not ride thresholds" warning for access, off-nadir, slew, convergence, overlap, and pixel-scale ratio.
+- `references/README.md` should map each major recipe point to local sources: benchmark README for validity/scoring, CP solver README for atomic product insertion/local search, MILP README for candidate-product-conflict structure.
 
 ## Validation
 
-- Read `SKILL.md` alongside the current stereo prompt and remove duplicated
-  benchmark-contract boilerplate.
+- Read `SKILL.md` alongside the current stereo prompt and remove duplicated benchmark-contract boilerplate.
 - Confirm no solver execution commands appear.
 - Run:
   - `uv run python experiments/skill_injection/run.py --dry-run --condition compact_domain --case case_0001`
@@ -65,10 +57,4 @@ decomposition.
 
 ## Suggested Prompt
 
-Read `experiments/skill_injection/roadmaps/SKILL_WRITING_ROADMAP.md`, issue #59,
-and this phase doc. Inspect the current stereo README, prompt fragment, and both
-stereo solver READMEs. Implement only the `stereo-imaging-compact-procedure`
-skill directory with `SKILL.md`, `references/README.md`, and
-`examples/product_first_workflow.md`. Do not write the other four skills.
-Run the skill-injection dry-run and focused tests before committing.
-
+Read `experiments/skill_injection/roadmaps/SKILL_WRITING_ROADMAP.md`, issue #59, and this phase doc. Inspect the current stereo README, prompt fragment, and both stereo solver READMEs. Implement only the `stereo-imaging-compact-procedure` skill directory with `SKILL.md`, `references/README.md`, and `examples/product_first_workflow.md`. Do not write the other four skills. Run the skill-injection dry-run and focused tests before committing.
