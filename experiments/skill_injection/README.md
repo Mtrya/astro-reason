@@ -81,6 +81,24 @@ Useful execution controls:
 - `--rerun-status STATUS`: rerun only artifacts currently recorded with this status, or missing/malformed artifacts via `missing_artifact` / `malformed_artifact`.
 - `--no-skip-completed`: ignore stored `run.json` statuses and rerun selected items.
 
+## Interactive Workspaces
+
+Prepare an interactive Docker workspace matching one skill-injection condition:
+
+```bash
+uv run python experiments/skill_injection/run.py \
+  --interactive \
+  --condition satnet_ortools_python \
+  --benchmark satnet \
+  --harness codex \
+  --case W10_2018
+```
+
+The interactive shell starts in `/app/workspace` with the same prompt, case files,
+opaque verifier helper, harness config, and injected skills that the batch run
+would expose. Inside the shell, run the printed harness command manually when
+ready. Re-run with `--force` to replace an existing interactive workspace.
+
 ## Aggregation And Reports
 
 Aggregate completed and missing artifacts:

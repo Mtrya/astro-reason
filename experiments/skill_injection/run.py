@@ -7,6 +7,7 @@ import argparse
 import concurrent.futures
 import json
 import os
+import re
 import shlex
 import shutil
 import subprocess
@@ -29,9 +30,15 @@ from experiments._shared import workspace as workspace_utils
 
 FAMILY_DIR = Path(__file__).resolve().parent
 DEFAULT_CONFIG = FAMILY_DIR / "configs" / "default.yaml"
+INTERACTIVE_CONFIG = FAMILY_DIR / "configs" / "interactive.yaml"
 WORKSPACE_MOUNT = Path("/app/workspace")
 OUTPUT_MOUNT = Path("/app/run/output")
 CONTAINER_HOME = Path("/home/korolev")
+INTERACTIVE_WORKSPACES_ROOT = REPO_ROOT / ".runtime" / "interactive_workspaces"
+SATNET_COMPACT_PATTERN = re.compile(
+    r"(VALID|INVALID):\s+total_hours=([+-]?(?:\d+(?:\.\d*)?|\.\d+))h,\s+tracks=(\d+)"
+)
+STATUS_PATTERN = re.compile(r"^Status:\s+(VALID|INVALID)\s*$", re.MULTILINE)
 
 
 @dataclass(frozen=True)
@@ -94,6 +101,21 @@ class FamilyConfig:
     batch: BatchSettings
     resources: ResourceLimits
     results: ResultSettings
+    config_path: Path
+
+
+@dataclass(frozen=True)
+class InteractiveConfig:
+    name: str
+    mode: str
+    benchmark: str
+    split: str
+    case_id: str
+    condition: str
+    harnesses: tuple[str, ...]
+    timeout_seconds: int
+    resources: ResourceLimits
+    results_root: Path
     config_path: Path
 
 
@@ -170,7 +192,8 @@ class RunResult:
 
 def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Run the skill-injection ablation")
-    parser.add_argument("--config", type=Path, default=DEFAULT_CONFIG, help="Family config path.")
+    parser.add_argument("--config", type=Path, help="Family config path.")
+    parser.add_argument("--interactive", action="store_true", help="Prepare one interactive workspace.")
     parser.add_argument("--benchmark", action="append", default=[], help="Limit to a benchmark.")
     parser.add_argument("--condition", action="append", default=[], help="Limit to a condition.")
     parser.add_argument("--harness", action="append", default=[], help="Limit to a harness.")
@@ -180,6 +203,7 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--rerun-status", action="append", default=[], help="Rerun stored statuses.")
     parser.add_argument("--no-skip-completed", action="store_true", help="Run selected items regardless of stored status.")
     parser.add_argument("--dry-run", action="store_true", help="Preview the selected work.")
+    parser.add_argument("--force", action="store_true", help="Replace an existing interactive workspace/runtime.")
     return parser.parse_args(argv)
 
 
@@ -258,6 +282,17 @@ def _batch_settings(data: dict[str, Any], path: Path) -> BatchSettings:
         skip_completed=bool(raw.get("skip_completed", True)),
         retry_statuses=tuple(str(item) for item in retry_statuses),
     )
+
+
+def _positive_int(value: Any, field: str, path: Path | None = None) -> int:
+    suffix = f": {path}" if path is not None else ""
+    try:
+        parsed = int(value)
+    except (TypeError, ValueError) as exc:
+        raise SystemExit(f"{field} must be a positive integer{suffix}") from exc
+    if parsed <= 0:
+        raise SystemExit(f"{field} must be a positive integer{suffix}")
+    return parsed
 
 
 def _parse_assemble(items: Any, path: Path) -> tuple[AssembleSpec, ...]:
@@ -378,6 +413,23 @@ def load_family_config(path: Path) -> FamilyConfig:
         batch=_batch_settings(data, path),
         resources=_resource_limits(data),
         results=_result_settings(data, path),
+        config_path=path.resolve(),
+    )
+
+
+def load_interactive_config(path: Path) -> InteractiveConfig:
+    data = _load_yaml(path, "Interactive config")
+    return InteractiveConfig(
+        name=_require_str(data, "name", "Interactive config", path),
+        mode=_require_str(data, "mode", "Interactive config", path),
+        benchmark=_require_str(data, "benchmark", "Interactive config", path),
+        split=_require_str(data, "split", "Interactive config", path),
+        case_id=_require_str(data, "case", "Interactive config", path),
+        condition=_require_str(data, "condition", "Interactive config", path),
+        harnesses=_string_tuple(data, "harnesses", "Interactive config", path),
+        timeout_seconds=_positive_int(data.get("timeout_seconds", 3600), "timeout_seconds", path),
+        resources=_resource_limits(data),
+        results_root=_result_settings(data, path).root,
         config_path=path.resolve(),
     )
 
@@ -506,6 +558,19 @@ def _output_dir_for_item(item: RunItem) -> Path:
     )
 
 
+def _interactive_workspace_dir(item: RunItem) -> Path:
+    return (
+        INTERACTIVE_WORKSPACES_ROOT
+        / "experiments"
+        / "skill_injection"
+        / item.condition
+        / item.benchmark
+        / item.harness
+        / item.split
+        / item.case_id
+    )
+
+
 def build_items(
     config: FamilyConfig,
     *,
@@ -556,6 +621,46 @@ def build_items(
                         )
                     )
     return tuple(items)
+
+
+def _build_item(
+    *,
+    config_name: str,
+    config_path: Path,
+    benchmark: str,
+    split: str,
+    case_id: str,
+    condition_name: str,
+    harness_name: str,
+    timeout_seconds: int,
+    resources: ResourceLimits,
+    results_root: Path,
+) -> RunItem:
+    condition = load_condition_profile(condition_name)
+    harness = load_harness_profile(harness_name)
+    skill_specs = _skill_assemble_specs(condition, harness)
+    assemble = (
+        *_base_assemble_specs(benchmark, split, case_id),
+        *harness.assemble,
+        *skill_specs,
+    )
+    return RunItem(
+        config_name=config_name,
+        config_path=config_path,
+        benchmark=benchmark,
+        split=split,
+        case_id=case_id,
+        condition=condition.condition,
+        harness=harness.harness,
+        runtime=harness.runtime,
+        timeout_seconds=timeout_seconds,
+        resources=resources,
+        results_root=results_root,
+        assemble=assemble,
+        collect=harness.collect,
+        forward_env_keys=harness.forward_env_keys,
+        headless_shell_command=harness.headless_shell_command,
+    )
 
 
 def missing_assemble_sources(item: RunItem) -> tuple[AssembleSpec, ...]:
@@ -687,6 +792,8 @@ def _build_docker_command(
     runtime: RuntimeManifest,
     roots: MountRoots,
     identity: ContainerIdentity,
+    *,
+    interactive: bool = False,
 ) -> list[str]:
     cmd = ["docker", "run", "--rm", "-w", str(WORKSPACE_MOUNT)]
     cmd.extend(["--user", f"{os.getuid()}:{os.getgid()}"])
@@ -705,6 +812,10 @@ def _build_docker_command(
         cmd.extend(["--memory", item.resources.memory])
     if item.resources.shm_size:
         cmd.extend(["--shm-size", item.resources.shm_size])
+    if interactive:
+        cmd.append("-i")
+        if sys.stdin.isatty() and sys.stdout.isatty():
+            cmd.append("-t")
     cmd.extend(
         [
             "-v",
@@ -720,17 +831,21 @@ def _build_docker_command(
             runtime.image,
         ]
     )
-    shell_script = "\n".join(
-        [
-            "set -euo pipefail",
-            f"mkdir -p {shlex.quote(str(CONTAINER_HOME))}",
-            f"mkdir -p {shlex.quote(str(CONTAINER_HOME / '.config'))}",
-            f"mkdir -p {shlex.quote(str(CONTAINER_HOME / '.local' / 'share'))}",
-            f"cd {shlex.quote(str(WORKSPACE_MOUNT))}",
+    lines = [
+        "set -euo pipefail",
+        f"mkdir -p {shlex.quote(str(CONTAINER_HOME))}",
+        f"mkdir -p {shlex.quote(str(CONTAINER_HOME / '.config'))}",
+        f"mkdir -p {shlex.quote(str(CONTAINER_HOME / '.local' / 'share'))}",
+        f"cd {shlex.quote(str(WORKSPACE_MOUNT))}",
+    ]
+    if interactive:
+        lines.append("exec /bin/bash -i")
+    else:
+        lines.append(
             f"exec timeout --signal=TERM {item.timeout_seconds} /bin/bash -lc "
-            f"{shlex.quote(item.headless_shell_command)}",
-        ]
-    )
+            f"{shlex.quote(item.headless_shell_command)}"
+        )
+    shell_script = "\n".join(lines)
     cmd.extend(["/bin/bash", "-lc", shell_script])
     return cmd
 
@@ -780,23 +895,112 @@ def _copy_solution(workspace_dir: Path, output_dir: Path) -> bool:
     return True
 
 
+def _verifier_command(benchmark: str, case_dir: Path, solution: Path) -> list[str]:
+    package_verifier = REPO_ROOT / "benchmarks" / benchmark / "verifier"
+    if package_verifier.exists():
+        return [
+            "uv",
+            "run",
+            "python",
+            "-m",
+            f"benchmarks.{benchmark}.verifier.run",
+            str(case_dir),
+            str(solution),
+        ]
+    script_verifier = REPO_ROOT / "benchmarks" / benchmark / "verifier.py"
+    if not script_verifier.exists():
+        raise SystemExit(f"No verifier found for benchmark {benchmark}")
+    cmd = ["uv", "run", "python", str(script_verifier), str(case_dir), str(solution)]
+    if benchmark == "satnet":
+        cmd.append("--verbose")
+    return cmd
+
+
+def _float_line(label: str, text: str) -> float | None:
+    match = re.search(rf"^{re.escape(label)}:\s+([+-]?(?:\d+(?:\.\d*)?|\.\d+))\s*$", text, re.MULTILINE)
+    return float(match.group(1)) if match else None
+
+
+def _int_line(label: str, text: str) -> int | None:
+    match = re.search(rf"^{re.escape(label)}:\s+(\d+)\s*$", text, re.MULTILINE)
+    return int(match.group(1)) if match else None
+
+
+def _status_valid(text: str) -> bool | None:
+    match = STATUS_PATTERN.search(text)
+    return (match.group(1) == "VALID") if match else None
+
+
+def _cli_section_items(text: str, section: str) -> list[str]:
+    pattern = re.compile(rf"^{re.escape(section)}:\s*$((?:\n\s+- .*)*)", re.MULTILINE)
+    match = pattern.search(text)
+    if not match:
+        return []
+    return [line.strip()[2:] for line in match.group(1).splitlines() if line.strip().startswith("- ")]
+
+
+def _parse_satnet_cli_payload(stdout: str, exit_code: int) -> dict[str, Any]:
+    valid = _status_valid(stdout)
+    score_hours = _float_line("Total tracking hours", stdout)
+    n_tracks = _int_line("Tracks", stdout)
+    n_satisfied_requests = _int_line("Satisfied requests", stdout)
+    u_rms = _float_line("U_rms", stdout)
+    u_max = _float_line("U_max", stdout)
+
+    if valid is None:
+        compact_match = SATNET_COMPACT_PATTERN.search(stdout)
+        if compact_match is not None:
+            valid = compact_match.group(1) == "VALID"
+            score_hours = float(compact_match.group(2))
+            n_tracks = int(compact_match.group(3))
+
+    if valid is None or score_hours is None or n_tracks is None:
+        return {
+            "status": "error",
+            "valid": False,
+            "error": "SatNet verifier output did not match expected CLI schema.",
+            "exit_code": exit_code,
+        }
+    return {
+        "valid": valid,
+        "metrics": {
+            "score_hours": score_hours,
+            "n_tracks": n_tracks,
+            "n_satisfied_requests": n_satisfied_requests,
+            "u_rms": u_rms,
+            "u_max": u_max,
+        },
+        "diagnostics": {},
+        "errors": _cli_section_items(stdout, "Errors"),
+        "warnings": _cli_section_items(stdout, "Warnings"),
+    }
+
+
+def _parse_cli_verifier_payload(benchmark: str, stdout: str, exit_code: int) -> dict[str, Any] | None:
+    if benchmark == "satnet":
+        return _parse_satnet_cli_payload(stdout, exit_code)
+    return None
+
+
 def _external_verifier(item: RunItem, output_dir: Path, solution_present: bool) -> tuple[str, dict[str, Any]]:
     if not solution_present:
         return "no_solution", {"valid": False, "error": "No solution.json was produced."}
-    cmd = [
-        "uv",
-        "run",
-        "python",
-        "-m",
-        f"benchmarks.{item.benchmark}.verifier.run",
-        str(_case_dir(item.benchmark, item.split, item.case_id)),
-        str(output_dir / "solution.json"),
-    ]
+    cmd = _verifier_command(
+        item.benchmark,
+        _case_dir(item.benchmark, item.split, item.case_id),
+        output_dir / "solution.json",
+    )
     exit_code, stdout, stderr, launched = _run_capture(cmd, cwd=REPO_ROOT)
     (output_dir / "verifier_stdout.txt").write_text(stdout, encoding="utf-8")
     (output_dir / "verifier_stderr.txt").write_text(stderr, encoding="utf-8")
     if not launched:
         return "error", {"valid": False, "error": stderr}
+    cli_payload = _parse_cli_verifier_payload(item.benchmark, stdout, exit_code)
+    if cli_payload is not None:
+        valid = cli_payload.get("valid")
+        if isinstance(valid, bool) and exit_code in (0, 1):
+            return ("valid" if valid else "invalid"), cli_payload
+        return "error", {**cli_payload, "stderr": stderr.strip()}
     try:
         parsed = json.loads(stdout) if stdout.strip() else {}
     except json.JSONDecodeError:
@@ -842,6 +1046,7 @@ def _write_run_json(
     item: RunItem,
     output_dir: Path,
     *,
+    mode: str = "batch",
     assembled: list[dict[str, Any]],
     collected: list[dict[str, Any]],
     start_time: datetime,
@@ -855,7 +1060,7 @@ def _write_run_json(
     payload = {
         "schema_version": 1,
         "experiment": "skill_injection",
-        "mode": "batch",
+        "mode": mode,
         "config": _relative(item.config_path),
         "benchmark": item.benchmark,
         "split": item.split,
@@ -1027,6 +1232,101 @@ def _run_batch(config: FamilyConfig, items: tuple[RunItem, ...], args: argparse.
     return 0 if all(status == "success" for status in executed_statuses) else 1
 
 
+def _run_interactive(args: argparse.Namespace) -> int:
+    config_path = (args.config or INTERACTIVE_CONFIG).resolve()
+    config = load_interactive_config(config_path)
+    benchmark = args.benchmark[-1] if args.benchmark else config.benchmark
+    condition = args.condition[-1] if args.condition else config.condition
+    harness = args.harness[-1] if args.harness else config.harnesses[0]
+    case_id = args.case[-1] if args.case else config.case_id
+    if config.harnesses and harness not in config.harnesses:
+        raise SystemExit(f"Unknown harness for interactive config: {harness}")
+    item = _build_item(
+        config_name=config.config_path.stem,
+        config_path=config.config_path,
+        benchmark=benchmark,
+        split=config.split,
+        case_id=case_id,
+        condition_name=condition,
+        harness_name=harness,
+        timeout_seconds=(
+            _positive_int(args.timeout, "--timeout")
+            if args.timeout is not None
+            else config.timeout_seconds
+        ),
+        resources=config.resources,
+        results_root=config.results_root,
+    )
+    output_dir = _output_dir_for_item(item)
+    workspace_dir = _interactive_workspace_dir(item)
+    runtime_dir = output_dir / "interactive_runtime"
+
+    if args.dry_run:
+        print(f"Interactive benchmark: {item.benchmark}")
+        print(f"Interactive condition: {item.condition}")
+        print(f"Interactive harness: {item.harness}")
+        print(f"Interactive case: {item.split}/{item.case_id}")
+        print(f"Workspace: {_relative(workspace_dir)}")
+        print(f"Output: {_relative(output_dir)}")
+        print(f"Prompt: {CONTAINER_HOME / 'PROMPT.md'}")
+        print("Inside the shell, run the harness command manually when ready:")
+        print(f"  {item.headless_shell_command}")
+        missing = missing_assemble_sources(item)
+        if missing:
+            print("Missing assemble sources:")
+            for spec in missing:
+                print(f"  - {_relative(spec.source)}")
+        else:
+            print("Missing assemble sources: none")
+        return 0
+
+    existing_paths = [path for path in (workspace_dir, runtime_dir) if path.exists()]
+    if existing_paths and not args.force:
+        lines = ["Interactive workspace/runtime already exists. Re-run with --force to replace:"]
+        lines.extend(f"- {_relative(path)}" for path in existing_paths)
+        raise SystemExit("\n".join(lines))
+    for path in existing_paths:
+        shutil.rmtree(path)
+
+    output_dir.mkdir(parents=True, exist_ok=True)
+    runtime_dir.mkdir(parents=True, exist_ok=True)
+    roots = _prepare_roots(workspace_dir, runtime_dir, output_dir)
+    identity = _build_container_identity(runtime_dir)
+    assembled = _assemble_workspace(item, roots)
+    runtime = load_runtime(item.runtime)
+    cmd = _build_docker_command(item, runtime, roots, identity, interactive=True)
+    start = datetime.now(timezone.utc)
+    try:
+        exit_code = subprocess.run(cmd, check=False).returncode
+        launched = True
+    except FileNotFoundError as exc:
+        (output_dir / "agent_stderr.txt").write_text(f"Failed to launch process: {exc}\n", encoding="utf-8")
+        exit_code = 127
+        launched = False
+    end = datetime.now(timezone.utc)
+    solution_present = _copy_solution(workspace_dir, output_dir)
+    collected = _collect_artifacts(item, roots, output_dir)
+    agent_status = _agent_status(exit_code, launched, solution_present)
+    verifier_status, verifier_result = _external_verifier(item, output_dir, solution_present)
+    _write_run_json(
+        item,
+        output_dir,
+        mode="interactive",
+        assembled=assembled,
+        collected=collected,
+        start_time=start,
+        end_time=end,
+        agent_exit_code=exit_code,
+        agent_status=agent_status,
+        verifier_status=verifier_status,
+        verifier_result=verifier_result,
+        overall_status="interactive_exit",
+    )
+    print(f"Interactive workspace: {_relative(workspace_dir)}")
+    print(f"Run metadata: {_relative(output_dir / 'run.json')}")
+    return 0
+
+
 def print_dry_run(
     config: FamilyConfig,
     items: tuple[RunItem, ...],
@@ -1079,7 +1379,9 @@ def print_dry_run(
 
 def main(argv: list[str] | None = None) -> int:
     args = parse_args(argv)
-    config = load_family_config(args.config)
+    if args.interactive:
+        return _run_interactive(args)
+    config = load_family_config((args.config or DEFAULT_CONFIG).resolve())
     if args.timeout is not None:
         if args.timeout <= 0:
             raise SystemExit("--timeout must be positive")

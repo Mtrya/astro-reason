@@ -5,18 +5,17 @@ benchmark: stereo_imaging
 split: test
 case: case_0001
 condition: compact_domain
-
 harnesses:
   - opencode_dpsk
+  - opencode_minimax
+  - codex
 
-timeout_seconds: 7200
+timeout_seconds: 3600
 
 resources:
-  cpus: 8
-  memory: 32g
-  shm_size: 16g
+  cpus: 2
+  memory: 8g
+  shm_size: 1g
 
 results:
   root: results/agent_runs/experiments/skill_injection
-  aggregate_dir: summaries
-

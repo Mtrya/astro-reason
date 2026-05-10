@@ -74,6 +74,50 @@ def test_satnet_selection_uses_codex_and_two_generic_skills() -> None:
     ]
 
 
+def test_interactive_dry_run_selects_satnet_codex(capsys) -> None:
+    assert run.main(
+        [
+            "--interactive",
+            "--dry-run",
+            "--benchmark",
+            "satnet",
+            "--condition",
+            "satnet_ortools_python",
+            "--harness",
+            "codex",
+            "--case",
+            "W10_2018",
+        ]
+    ) == 0
+
+    output = capsys.readouterr().out
+    assert "Interactive benchmark: satnet" in output
+    assert "Interactive condition: satnet_ortools_python" in output
+    assert "Interactive harness: codex" in output
+    assert "Missing assemble sources: none" in output
+
+
+def test_satnet_cli_verifier_payload_parses_verbose_metrics() -> None:
+    payload = run._parse_satnet_cli_payload(
+        "\n".join(
+            [
+                "Status: VALID",
+                "U_rms: 0.250000",
+                "U_max: 0.500000",
+                "Total tracking hours: 42.5000",
+                "Tracks: 7",
+                "Satisfied requests: 4",
+            ]
+        ),
+        0,
+    )
+
+    assert payload["valid"] is True
+    assert payload["metrics"]["score_hours"] == 42.5
+    assert payload["metrics"]["n_tracks"] == 7
+    assert payload["metrics"]["n_satisfied_requests"] == 4
+
+
 def test_missing_assemble_sources_report_skill_directories_only_for_skill_conditions() -> None:
     config = run.load_family_config(run.DEFAULT_CONFIG)
     items = run.build_items(
