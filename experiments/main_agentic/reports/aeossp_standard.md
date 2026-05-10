@@ -4,10 +4,17 @@ Generated from the current `main_agentic` aggregate summaries.
 
 | Harness | Present | Success | Valid | Invalid | Timeout | Primary Mean | Normalized Mean |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| claude_code | 1 | 1 | 1 | 0 | 0 | WCR=0.6854 | 70.87 |
 | codex | 5 | 5 | 5 | 0 | 0 | WCR=0.7075 | 72.91 |
 | kimi_cli | 5 | 5 | 5 | 0 | 0 | WCR=0.6923 | 72.03 |
 | opencode_minimax | 5 | 5 | 5 | 0 | 0 | WCR=0.2008 | 36.44 |
 | opencode_dpsk | 5 | 5 | 5 | 0 | 0 | WCR=0.6820 | 71.44 |
+
+## claude_code
+
+| Case | Valid | Duration (s) | Normalized Score | WCR | CR | TAT | PC |
+| --- | --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| case_0001 | true | 7200.1 | 70.87 | 0.6854 | 0.7268 | 1071.2 | 18621.4 |
 
 ## codex
 
