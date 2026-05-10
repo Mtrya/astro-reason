@@ -1,13 +1,13 @@
 # Canonical relay_constellation dataset construction for the finished benchmark.
 #
-# The train split reuses the test construction controls with a distinct seed so
-# memory-accumulation experiments can learn on benchmark-owned, non-test cases.
+# This benchmark currently publishes one split, but the split entry is still the
+# reader-facing contract for how the seeded case family is built.
 
 # Pair the committed example solution with the final published relay case.
 example_smoke_case: test/case_0005
 
 splits:
-  test: &test_split
+  test:
     # Benchmark-wide deterministic seed for the split; each case derives its
     # own RNG stream from this seed plus the configured stride below.
     seed: 2026
@@ -86,8 +86,3 @@ splits:
         max_isl_range_m: 20000000.0
         max_links_per_satellite: 3
         max_links_per_endpoint: 1
-
-  train:
-    <<: *test_split
-    seed: 2027
-    case_count: 10

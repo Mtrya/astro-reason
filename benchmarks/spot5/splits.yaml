@@ -8,17 +8,12 @@
 # instance so smoke tests can keep using the compact 8.spot case.
 example_smoke_case: single_orbit/8
 
-# The overlapping test and train splits below were sampled from the published
-# case-id list in lexicographic order.
+# The overlapping test split below was sampled from the published case-id list
+# in lexicographic order using random.Random(42).sample(case_ids, 5).
 test_split_sampling:
   seed: 42
   population_order: lexicographic_case_id
   sample_size: 5
-
-train_split_sampling:
-  seed: 163
-  population_order: lexicographic_case_id
-  sample_size: 10
 
 splits:
   # Published instances with numeric id < 1000.
@@ -56,17 +51,3 @@ splits:
     - 1021
     - 28
     - 1506
-
-  # Overlap is intentional: this 10-case split supports training and
-  # memory-accumulation workflows without changing the full family splits.
-  train:
-    - 507
-    - 54
-    - 5
-    - 1502
-    - 503
-    - 29
-    - 1403
-    - 8
-    - 509
-    - 42

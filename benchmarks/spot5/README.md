@@ -244,16 +244,15 @@ Constraint: `total_weight ≤ 200`
 
 ## Committed Splits
 
-The finished benchmark keeps four committed splits in
+The finished benchmark keeps three committed splits in
 `benchmarks/spot5/splits.yaml`:
 
 - `single_orbit`: all published instances with numeric id `< 1000`
 - `multi_orbit`: all published instances with numeric id `> 1000`
 - `test`: an overlapping 5-case sample drawn with seed `42`
-- `train`: an overlapping 10-case sample drawn with seed `163`
 
 Overlap is intentional. For example, case `8` appears in both
-`single_orbit`, `test`, and `train`. The dataset-level smoke example is paired with
+`single_orbit` and `test`. The dataset-level smoke example is paired with
 `single_orbit/8`.
 
 ## Known Solutions & Validation

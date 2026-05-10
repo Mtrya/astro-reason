@@ -21,13 +21,13 @@ Each benchmark is exposed as a separate **config** (subset) within this dataset.
 
 | Config | Cases | Splits | Domain |
 |---|---|---|---|
-| `aeossp_standard` | 30 | `test`, `test_easy`, `test_hard`, `test_horizon_2022`, `train` | Agile Earth-observation satellite scheduling |
-| `regional_coverage` | 15 | `test`, `train` | SAR-like regional strip-observation planning |
-| `relay_constellation` | 15 | `test`, `train` | Relay satellite constellation augmentation |
-| `revisit_constellation` | 15 | `test`, `train` | Constellation design for uniform target revisit |
+| `aeossp_standard` | 5 | `test` | Agile Earth-observation satellite scheduling |
+| `regional_coverage` | 5 | `test` | SAR-like regional strip-observation planning |
+| `relay_constellation` | 5 | `test` | Relay satellite constellation augmentation |
+| `revisit_constellation` | 5 | `test` | Constellation design for uniform target revisit |
 | `satnet` | 5 | `test` | Deep Space Network (DSN) antenna scheduling |
-| `spot5` | 31 | `single_orbit`, `multi_orbit`, `test`, `train` | SPOT-5 daily photograph scheduling (DCKP) |
-| `stereo_imaging` | 15 | `test`, `train` | Optical stereo/tri-stereo imaging planning |
+| `spot5` | 21 | `single_orbit`, `multi_orbit`, `test` | SPOT-5 daily photograph scheduling (DCKP) |
+| `stereo_imaging` | 5 | `test` | Optical stereo/tri-stereo imaging planning |
 
 ## Dataset Structure
 
@@ -127,15 +127,13 @@ An optical satellite stereo imaging benchmark. The solver schedules timed observ
 
 ## Data Splits and Splits Policy
 
-- `aeossp_standard`, `regional_coverage`, `relay_constellation`, `revisit_constellation`, and `stereo_imaging`: expose benchmark-owned `train` splits for learning workflows and separate `test`-family splits for held-out evaluation.
-- `satnet`: exposes only the five published 2018 `test` cases; no `train` split is committed.
-- `spot5`: Exposes four splits:
+- `aeossp_standard`, `regional_coverage`, `relay_constellation`, `revisit_constellation`, `satnet`, `stereo_imaging`: Currently expose a single committed split `test`.
+- `spot5`: Exposes three splits:
   - `single_orbit`: 14 cases without memory constraints.
   - `multi_orbit`: 7 cases with a memory capacity of 200.
   - `test`: A 5-case sample drawn with seed 42 (overlaps with `single_orbit` and `multi_orbit`).
-  - `train`: A 10-case sample drawn with seed 163 (overlaps with the full family splits).
 
-Future benchmark releases may add additional splits (e.g., `val`) transparently without changing the schema.
+Future benchmark releases may add additional splits (e.g., `train`, `val`) transparently without changing the schema.
 
 ## Dataset Creation
 
