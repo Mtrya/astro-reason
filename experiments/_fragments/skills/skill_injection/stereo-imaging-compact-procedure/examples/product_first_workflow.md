@@ -1,7 +1,6 @@
 # Product-First Workflow
 
-This example is synthetic. It shows the planning shape, not a case-specific
-answer.
+This example is synthetic. It shows the planning shape, not a case-specific answer.
 
 ## 1. Start With Candidate Singles
 
@@ -14,8 +13,7 @@ Create a working table of observation candidates:
 | C | T01 | S1 | same pass | medium | forward | backup |
 | D | T02 | S3 | mid-window | large | modest | first view |
 
-Keep candidates comfortably inside access windows. If you do not know the exact
-edge, choose shorter observations near the middle of likely access.
+Keep candidates comfortably inside access windows. If you do not know the exact edge, choose shorter observations near the middle of likely access.
 
 ## 2. Build Products Per Target
 
@@ -27,8 +25,7 @@ Group same-target candidates before adding them to the schedule:
 | P2 | A + C | same-satellite same-pass backup | slew gap in one timeline |
 | P3 | A + B + C | tri-stereo upgrade with near-nadir anchor | more timeline conflicts |
 
-Rank products by whether they cover a new target, then by likely quality. Prefer
-products with margin over products that barely touch thresholds.
+Rank products by whether they cover a new target, then by likely quality. Prefer products with margin over products that barely touch thresholds.
 
 ## 3. Insert As A Unit
 
@@ -40,8 +37,7 @@ For each product:
 4. Check only nearby same-satellite neighbors for overlap and transition gaps.
 5. Keep the product only if all its observations fit.
 
-If one observation fails, discard or retime the whole product. Do not leave a
-single image behind unless it still supports another valid product.
+If one observation fails, discard or retime the whole product. Do not leave a single image behind unless it still supports another valid product.
 
 ## 4. Repair By Product Value
 
@@ -53,6 +49,4 @@ When two products compete for the same satellite time:
 | product with a near-nadir tri anchor | marginal pair near thresholds | more robust validation |
 | product blocking few future options | product blocking many candidates | preserves schedule flexibility |
 
-After repair, validate the full `solution.json`. If it is valid but scores zero,
-look at product formation: add or retime same-target pairs/triples rather than
-adding more unrelated single observations.
+After repair, validate the full `solution.json`. If it is valid but scores zero, look at product formation: add or retime same-target pairs/triples rather than adding more unrelated single observations.
