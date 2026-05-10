@@ -1,7 +1,7 @@
 name: verifier_exposure_interactive
 mode: interactive
 
-benchmark: relay_constellation
+benchmark: stereo_imaging
 split: test
 case: case_0001
 exposure: opaque

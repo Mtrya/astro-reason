@@ -151,10 +151,8 @@ def _records(config: dict[str, Any], config_path: Path) -> list[dict[str, Any]]:
                             "agent_status": "missing_artifact",
                             "verifier_status": "missing_artifact",
                             "valid": None,
-                            "service_fraction": None,
-                            "worst_demand_service_fraction": None,
-                            "mean_latency_ms": None,
-                            "latency_p95_ms": None,
+                            "coverage_ratio": None,
+                            "normalized_quality": None,
                             "result_path": _display_path(run_path),
                         }
                     )
@@ -170,10 +168,8 @@ def _records(config: dict[str, Any], config_path: Path) -> list[dict[str, Any]]:
                         "agent_status": payload.get("agent_status", "unknown"),
                         "verifier_status": payload.get("verifier_status", "unknown"),
                         "valid": verifier.get("valid") if isinstance(verifier.get("valid"), bool) else None,
-                        "service_fraction": _metric(payload, "service_fraction"),
-                        "worst_demand_service_fraction": _metric(payload, "worst_demand_service_fraction"),
-                        "mean_latency_ms": _metric(payload, "mean_latency_ms"),
-                        "latency_p95_ms": _metric(payload, "latency_p95_ms"),
+                        "coverage_ratio": _metric(payload, "coverage_ratio"),
+                        "normalized_quality": _metric(payload, "normalized_quality"),
                         "result_path": _display_path(run_path),
                     }
                 )
@@ -192,18 +188,15 @@ def _summary(rows: list[dict[str, Any]]) -> dict[str, Any]:
             "valid_rate": (sum(1 for value in valid_values if value) / len(valid_values)) if valid_values else None,
             "overall_status_counts": dict(Counter(str(row["overall_status"]) for row in exposure_rows)),
             "verifier_status_counts": dict(Counter(str(row["verifier_status"]) for row in exposure_rows)),
-            "mean_service_fraction": _mean(
-                [row["service_fraction"] for row in exposure_rows if isinstance(row["service_fraction"], float)]
+            "mean_coverage_ratio": _mean(
+                [row["coverage_ratio"] for row in exposure_rows if isinstance(row["coverage_ratio"], float)]
             ),
-            "mean_worst_demand_service_fraction": _mean(
+            "mean_normalized_quality": _mean(
                 [
-                    row["worst_demand_service_fraction"]
+                    row["normalized_quality"]
                     for row in exposure_rows
-                    if isinstance(row["worst_demand_service_fraction"], float)
+                    if isinstance(row["normalized_quality"], float)
                 ]
-            ),
-            "mean_latency_ms": _mean(
-                [row["mean_latency_ms"] for row in exposure_rows if isinstance(row["mean_latency_ms"], float)]
             ),
         }
     by_exposure_harness: dict[str, Any] = {}
@@ -216,14 +209,14 @@ def _summary(rows: list[dict[str, Any]]) -> dict[str, Any]:
                 "valid_count": sum(1 for value in valid_values if value),
                 "valid_rate": (sum(1 for value in valid_values if value) / len(valid_values)) if valid_values else None,
                 "overall_status_counts": dict(Counter(str(row["overall_status"]) for row in group_rows)),
-                "mean_service_fraction": _mean(
-                    [row["service_fraction"] for row in group_rows if isinstance(row["service_fraction"], float)]
+                "mean_coverage_ratio": _mean(
+                    [row["coverage_ratio"] for row in group_rows if isinstance(row["coverage_ratio"], float)]
                 ),
-                "mean_worst_demand_service_fraction": _mean(
+                "mean_normalized_quality": _mean(
                     [
-                        row["worst_demand_service_fraction"]
+                        row["normalized_quality"]
                         for row in group_rows
-                        if isinstance(row["worst_demand_service_fraction"], float)
+                        if isinstance(row["normalized_quality"], float)
                     ]
                 ),
             }
@@ -246,10 +239,8 @@ def _write_csv(path: Path, rows: list[dict[str, Any]]) -> None:
         "agent_status",
         "verifier_status",
         "valid",
-        "service_fraction",
-        "worst_demand_service_fraction",
-        "mean_latency_ms",
-        "latency_p95_ms",
+        "coverage_ratio",
+        "normalized_quality",
         "result_path",
     ]
     path.parent.mkdir(parents=True, exist_ok=True)

@@ -1,7 +1,7 @@
 name: verifier_exposure
 mode: batch
 
-benchmark: relay_constellation
+benchmark: stereo_imaging
 split: test
 cases:
   - case_0001
@@ -11,7 +11,7 @@ cases:
   - case_0005
 exposures:
   - transparent
-  - opaque
+  # - opaque # Will not run opaque again for it's already been run in the main_agentic experiment
   - none
 harnesses:
   - codex

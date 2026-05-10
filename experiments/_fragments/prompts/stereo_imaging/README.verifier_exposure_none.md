@@ -1,0 +1,222 @@
+# Stereo Imaging Scheduling Problem
+
+This workspace contains one optical stereo-imaging planning problem over a fixed mission horizon.
+
+You are given:
+
+- a fixed set of real satellites with frozen TLEs and compact sensor/agility parameters in `case/satellites.yaml`
+- a set of ground targets with scene labels in `case/targets.yaml`
+- mission-level stereo validity and quality thresholds in `case/mission.yaml`
+
+Your job is to produce `solution.json`, a schedule of observation actions that creates high-quality valid stereo or tri-stereo products across as many targets as possible.
+
+This problem is modeled as scheduling raw optical observations, not explicitly choosing image pairs. You submit individual observation actions with boresight steering angles, and the validator later decides which combinations form valid stereo or tri-stereo products for the same target.
+
+No local verifier helper is available in this workspace. Use this README as the validation contract while you work.
+
+## Expected Output
+
+Write one JSON object named `solution.json` at the workspace root.
+
+The required top-level field is:
+
+- `actions`
+
+Each action should describe one observation with:
+
+- `type`
+- `satellite_id`
+- `target_id`
+- `start_time`
+- `end_time`
+- `off_nadir_along_deg`
+- `off_nadir_across_deg`
+
+The output should schedule raw observations only. Stereo pairing, tri-stereo grouping, overlap checks, convergence checks, and quality scoring are derived during validation.
+
+## Modeling Contract
+
+Use SI units, degrees, and timezone-aware ISO 8601 timestamps. Naive timestamps are rejected; a trailing `Z` is the safest UTC form. `case/mission.yaml` contains a top-level `mission` mapping. Actions whose `type` is not `"observation"` are ignored; submit only observation actions. Each interpreted action must reference `satellite_id` from `case/satellites.yaml`, `target_id` from `case/targets.yaml`, and satisfy:
+
+```text
+mission.horizon_start <= start_time < end_time <= mission.horizon_end
+min_obs_duration_s <= end_time - start_time <= max_obs_duration_s
+```
+
+The satellite set is fixed by TLEs in `case/satellites.yaml`; you choose only raw observation windows and two boresight steering angles. `off_nadir_along_deg` tilts along the flight direction and `off_nadir_across_deg` tilts cross-track in the satellite local frame. The boresight vector is proportional to:
+
+```text
+nadir_hat
++ tan(off_nadir_along_deg) * along_hat
++ tan(off_nadir_across_deg) * across_hat
+```
+
+with tangent inputs in radians. The combined tilt compared to `max_off_nadir_deg` is:
+
+```text
+combined_deg = degrees(atan(sqrt(tan(along_rad)^2 + tan(across_rad)^2)))
+combined_deg <= max_off_nadir_deg
+```
+
+At the observation midpoint, the commanded boresight ray must intersect the WGS84 ellipsoid. Effective pixel scale is:
+
+```text
+effective_pixel_scale_m = slant_range_m * pixel_ifov_deg * pi / 180
+```
+
+Target access is derived from the target center at `longitude_deg`, `latitude_deg`, and `elevation_ref_m`; it is not a submitted claim. The full observation interval must lie inside one continuous access interval for the same satellite-target pair. Access is sampled at:
+
+```text
+access_step_s = max(0.25, min(1.0, min_obs_duration_s / 2))
+```
+
+including both action boundaries. At every sampled instant, access requires clear line of sight to the target center, target-center off-nadir no greater than `max_off_nadir_deg`, and target solar elevation at least `mission.validity_thresholds.min_solar_elevation_deg`.
+
+Same-satellite observation intervals are half-open `[start_time, end_time)` and must not overlap. For consecutive same-satellite observations, let `theta` be the angle between the commanded boresight vector at the previous `end_time` and the commanded boresight vector at the next `start_time`. With `omega = max_slew_velocity_deg_per_s` and `alpha = max_slew_acceleration_deg_per_s2`:
+
+```text
+if theta <= omega^2 / alpha:
+  slew_time_s = 2 * sqrt(theta / alpha)
+else:
+  slew_time_s = theta / omega + omega / alpha
+
+required_gap_s = slew_time_s + settling_time_s
+```
+
+The gap between observations must be at least `required_gap_s`.
+
+Validated observations can form stereo products only when they share a common `target_id` and satisfy one of the mission-allowed product modes:
+
+- same-satellite same-pass: common `satellite_id` and membership in the same continuous access interval for that satellite-target pair
+- cross-satellite: different `satellite_id` values, allowed only when `mission.allow_cross_satellite_stereo` is true
+
+Every product pair must also satisfy the bounded temporal constraint:
+
+```text
+abs(midpoint_time_i - midpoint_time_j) <= mission.max_stereo_pair_separation_s
+```
+
+Crossing a UTC calendar-date boundary is not invalid by itself. A pair centered at 23:59 and 00:01 can still be valid if it satisfies the temporal bound and all geometry rules. Cross-satellite products do not require inter-satellite slew or non-overlap checks; same-satellite observations still obey the same-satellite overlap and slew/settle rules above.
+
+For a pair, convergence angle `gamma_deg` is the angle at the target between the two target-to-satellite midpoint directions. Pixel scale ratio is:
+
+```text
+pixel_scale_ratio = max(scale_i, scale_j) / min(scale_i, scale_j)
+```
+
+A valid stereo pair requires:
+
+```text
+overlap_fraction >= min_overlap_fraction
+min_convergence_deg <= gamma_deg <= max_convergence_deg
+pixel_scale_ratio <= max_pixel_scale_ratio
+```
+
+A valid tri-stereo set requires three observations of the same target, all constituent pairs satisfying the mission-allowed product mode and bounded temporal constraint, common overlap at least `min_overlap_fraction`, at least two valid constituent pairs under the same pair rules, and at least one observation with `boresight_off_nadir_deg <= near_nadir_anchor_max_off_nadir_deg`.
+
+Overlap is a deterministic approximation inside each target's circular AOI of radius `aoi_radius_m`. Each observation footprint is a pushbroom strip in the target-centered local tangent plane. The strip centerline is sampled every 8 seconds between observation start and end using the commanded boresight, and half-width is:
+
+```text
+strip_half_width_m = slant_range_m * tan(radians(0.5 * cross_track_pixels * pixel_ifov_deg))
+```
+
+Pair overlap uses 100 deterministic Monte Carlo samples; tri common overlap uses 100 samples; pair checks inside tri-product scoring use 80 samples. Do not submit footprints, overlap fractions, product choices, or quality scores.
+
+Coverage comes only from valid stereo or tri-stereo products. For each target, the retained score is the best valid product quality. Pair quality is:
+
+```text
+Q_pair = pair_weights.geometry * Q_geom
+       + pair_weights.overlap * min(1, overlap_fraction / 0.95)
+       + pair_weights.resolution * max(0, 1 - (pixel_scale_ratio - 1) / 0.5)
+```
+
+`Q_geom` is best when `gamma_deg` falls in the scene-type preference band for `scene_type` and decays linearly outside it:
+
+```text
+urban_structured: 8-18 deg
+vegetated: 8-14 deg
+rugged: 10-20 deg
+open: 15-25 deg
+```
+
+Tri-stereo quality is:
+
+```text
+Q_tri = min(1, best_valid_pair_quality + tri_stereo_bonus_by_scene[scene_type] * R)
+```
+
+where `R` is `0.6` for having at least two valid pairs plus `0.4` for a near-nadir anchor, capped at `1`. Reported metrics are:
+
+```text
+normalized_quality = sum(best target product quality over all targets) / number of targets
+coverage_ratio = number of targets with at least one valid product / number of targets
+```
+
+## Validation Pseudocode
+
+Use this as a practical approximation of how `solution.json` is checked.
+
+```text
+load mission, satellites, targets, and solution
+discard any action whose type is not "observation"
+
+validate action syntax and hard constraints:
+  reject missing actions array or malformed interpreted actions
+  parse timestamps as timezone-aware UTC
+  reject unknown satellite_id or target_id
+  reject end_time <= start_time
+  reject observations outside the mission horizon
+  reject duration outside the satellite's min/max observation duration
+  compute combined off-nadir from along/cross steering angles
+  reject if combined off-nadir exceeds the satellite maximum
+
+validate same-satellite scheduling:
+  sort each satellite's observations by start_time
+  reject half-open interval overlap
+  for each consecutive pair:
+    propagate the satellite at previous end_time and next start_time
+    compute the angle between commanded boresight vectors
+    compute minimum slew time from velocity and acceleration limits
+    reject if the available gap is smaller than slew time plus settling time
+
+derive each observation:
+  propagate the TLE satellite to the observation midpoint
+  compute the commanded boresight ground intercept
+  reject if the boresight ray does not intersect the WGS84 ellipsoid
+  compute solar elevation, boresight off-nadir, azimuth, slant range, and pixel scale
+  check the full observation interval on the access sampling grid
+  reject if any sampled instant lacks line of sight, off-nadir access, or solar elevation
+  assign an access interval id for same-pass grouping
+
+evaluate stereo pairs by target:
+  consider pairs with the same target and valid access interval ids
+  allow same-satellite pairs only inside the same access interval
+  allow cross-satellite pairs only if mission.allow_cross_satellite_stereo is true
+  reject pairs whose midpoint separation exceeds max_stereo_pair_separation_s
+  compute convergence angle, pixel scale ratio, and deterministic AOI overlap
+  mark the pair valid only if overlap, convergence, and pixel-ratio thresholds pass
+  compute pair quality for valid pairs
+
+evaluate tri-stereo triples by target:
+  require all three observations to satisfy pair mode and temporal rules
+  compute deterministic common AOI overlap
+  require common overlap, at least two valid constituent pairs, and a near-nadir anchor
+  compute tri-stereo quality from the best valid pair plus scene bonus
+
+compute metrics:
+  per_target_best_score is the best valid pair or tri quality for each target
+  coverage_ratio = covered target count / target count
+  normalized_quality = sum(per_target_best_score) / target count
+```
+
+Numerical comparisons allow only small tolerance around exact boundaries. Avoid designs that rely on being exactly at duration, off-nadir, access, slew, convergence, overlap, pixel-ratio, or horizon limits.
+
+## What Good Solutions Do
+
+A strong solution should:
+
+- satisfy all hard validity rules
+- maximize the normalized quality of the best valid product per target
+- cover as many targets as possible with at least one valid stereo or tri-stereo product when quality choices are comparable
+
+In practical terms, normalized product quality is the primary objective, with valid stereo coverage next.
