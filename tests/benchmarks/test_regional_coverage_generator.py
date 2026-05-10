@@ -41,7 +41,7 @@ def _write_splits_yaml(path: Path, *, snapshot_epoch_utc: str = SUPPORTED_CELEST
                     "coverage_sample_step_s": 5,
                 },
                 "grid": {
-                    "sample_spacing_m": 20000.0,
+                    "sample_spacing_m": 5000.0,
                     "sample_count": {"min": 100, "max": 100000},
                 },
                 "scoring": {
