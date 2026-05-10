@@ -16,8 +16,10 @@ if __package__ in (None, ""):
     sys.path.insert(0, str(REPO_ROOT))
     sys.path.insert(0, str(Path(__file__).resolve().parent))
     import aggregate as family_aggregate  # type: ignore[no-redef]
+    import plot_scores as family_plots  # type: ignore[no-redef]
 else:
     from . import aggregate as family_aggregate
+    from . import plot_scores as family_plots
 
 from experiments._shared import write_reports as shared_reports
 
@@ -185,9 +187,18 @@ def _write_report(
         "",
         "Generated from the current `skill_injection` aggregate artifacts.",
         "",
+    ]
+    plot_specs = [spec for spec in family_plots.PLOT_SPECS if spec.benchmark == benchmark]
+    if plot_specs:
+        lines.extend(["## Score Plots", ""])
+        for spec in plot_specs:
+            lines.extend([f"![{spec.benchmark} / {spec.harness}]({spec.output_name})", ""])
+    lines.extend(
+        [
         "## Condition Summary",
         "",
-    ]
+        ]
+    )
     lines.extend(
         shared_reports.table(
             [
@@ -268,7 +279,8 @@ def _display_path(path: Path) -> str:
 
 def main(argv: list[str] | None = None) -> int:
     args = parse_args(argv)
-    config = family_aggregate.family_run.load_family_config(args.config.resolve())
+    config_path = args.config.resolve()
+    config = family_aggregate.family_run.load_family_config(config_path)
     aggregate_dir = family_aggregate._aggregate_dir(config)
     summary = _read_json(aggregate_dir / "summary.json")
     rows = _read_csv(aggregate_dir / "runs.csv")
@@ -281,6 +293,11 @@ def main(argv: list[str] | None = None) -> int:
             benchmark=benchmark,
         )
         print(f"Wrote {_display_path(report_path)}")
+    for plot_path in family_plots.write_default_plots(
+        config_path=config_path,
+        reports_dir=args.reports_dir.resolve(),
+    ):
+        print(f"Wrote {_display_path(plot_path)}")
     return 0
 
 

@@ -10,6 +10,7 @@ REPO_ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(REPO_ROOT))
 
 from experiments.skill_injection import aggregate, write_reports
+from experiments.skill_injection import plot_scores
 
 
 def _write_test_config(tmp_path: Path) -> Path:
@@ -135,6 +136,8 @@ def test_skill_injection_write_reports_from_aggregate(tmp_path: Path) -> None:
     assert "no_skill" in report
     assert "compact_domain" in report
     assert "25" in report
+    for spec in plot_scores.PLOT_SPECS:
+        assert (reports_dir / spec.output_name).exists()
 
 
 def test_skill_injection_aggregate_supports_satnet_selection(tmp_path: Path) -> None:

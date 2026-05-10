@@ -108,8 +108,22 @@ Write reader-facing markdown reports from aggregate artifacts:
 uv run python experiments/skill_injection/write_reports.py
 ```
 
-Reports are written under:
+Reports and plots are written under:
 
 ```text
 experiments/skill_injection/reports/
+```
+
+The score plot artifacts are:
+
+```text
+experiments/skill_injection/reports/stereo_imaging_opencode_dpsk_scores.png
+experiments/skill_injection/reports/stereo_imaging_opencode_minimax_scores.png
+experiments/skill_injection/reports/satnet_codex_scores.png
+```
+
+Refresh only the score plots:
+
+```bash
+uv run python experiments/skill_injection/plot_scores.py
 ```
