@@ -63,6 +63,5 @@ def test_missing_assemble_sources_report_planned_skill_directories_only_for_skil
         for path in missing_by_condition["skill_pack"]
         if "experiments/_fragments/skills/skill_injection" in path.as_posix()
     ] == [
-        "classical-or-scheduling-methods",
         "stereo-imaging-product-strategy",
     ]
