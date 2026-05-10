@@ -8,7 +8,7 @@ Generated from the current `verifier_exposure` aggregate artifacts.
 
 | Exposure | Runs | Valid | Valid Rate | Mean Coverage | Mean Quality | Mean Score | Overall Statuses | Verifier Statuses |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
-| none | 10 | 4 | 0.4444 | 0.2756 | 0.2709 | 18.96 | missing_artifact: 1, success: 4, verifier_error: 2, verifier_invalid: 3 | error: 2, invalid: 3, missing_artifact: 1, valid: 4 |
+| none | 10 | 4 | 0.4000 | 0.2412 | 0.2370 | 18.96 | success: 4, verifier_error: 2, verifier_invalid: 4 | error: 2, invalid: 4, valid: 4 |
 | opaque | 10 | 9 | 0.9000 | 0.4621 | 0.4064 | 33.39 | success: 9, verifier_invalid: 1 | invalid: 1, valid: 9 |
 | solver | 10 | 10 | 1.0000 | 0.9570 | 0.9402 | 94.02 | verified: 10 | verified: 10 |
 | transparent | 10 | 10 | 1.0000 | 0.9037 | 0.8221 | 82.21 | success: 10 | valid: 10 |
@@ -18,7 +18,7 @@ Generated from the current `verifier_exposure` aggregate artifacts.
 | Exposure | Kind | System | Runs | Valid | Valid Rate | Mean Coverage | Mean Quality | Mean Score | Overall Statuses |
 | --- | --- | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
 | none | agent | codex | 5 | 4 | 0.8000 | 0.3859 | 0.3792 | 37.92 | success: 4, verifier_invalid: 1 |
-| none | agent | opencode_dpsk | 5 | 0 | 0.0000 | 0.0000 | 0.0000 | 0.0000 | missing_artifact: 1, verifier_error: 2, verifier_invalid: 2 |
+| none | agent | opencode_dpsk | 5 | 0 | 0.0000 | 0.0000 | 0.0000 | 0.0000 | verifier_error: 2, verifier_invalid: 3 |
 | opaque | agent | codex | 5 | 5 | 1.0000 | 0.5755 | 0.5378 | 53.78 | success: 5 |
 | opaque | agent | opencode_dpsk | 5 | 4 | 0.8000 | 0.3487 | 0.2749 | 13.00 | success: 4, verifier_invalid: 1 |
 | solver | solver | stereo_imaging_cp_local_search_stereo_insertion | 5 | 5 | 1.0000 | 0.9705 | 0.9605 | 96.05 | verified: 5 |
@@ -39,7 +39,7 @@ Generated from the current `verifier_exposure` aggregate artifacts.
 | none | test | agent | opencode_dpsk | case_0002 | present | verifier_error | error | false | 5898.6 | - | - | 0.0000 |
 | none | test | agent | opencode_dpsk | case_0003 | present | verifier_error | error | false | 4290.0 | - | - | 0.0000 |
 | none | test | agent | opencode_dpsk | case_0004 | present | verifier_invalid | invalid | false | 4286.7 | 0 | 0 | 0.0000 |
-| none | test | agent | opencode_dpsk | case_0005 | missing_or_malformed | missing_artifact | missing_artifact | - | - | - | - | 0.0000 |
+| none | test | agent | opencode_dpsk | case_0005 | present | verifier_invalid | invalid | false | 4484.5 | 0 | 0 | 0.0000 |
 | opaque | test | agent | codex | case_0001 | present | success | valid | true | 1602.6 | 0.2254 | 0.2057 | 20.57 |
 | opaque | test | agent | codex | case_0002 | present | success | valid | true | 1829.6 | 0.9917 | 0.9675 | 96.75 |
 | opaque | test | agent | codex | case_0003 | present | success | valid | true | 2561.9 | 0.7934 | 0.6906 | 69.06 |

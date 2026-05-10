@@ -4,10 +4,21 @@ Generated from the current `main_agentic` aggregate summaries.
 
 | Harness | Present | Success | Valid | Invalid | Timeout | Primary Mean | Normalized Mean |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| claude_code | 5 | 0 | 0 | 0 | 0 | weighted_coverage_ratio=- | 0.0000 |
 | codex | 5 | 5 | 5 | 0 | 0 | weighted_coverage_ratio=0.8797 | 72.08 |
 | kimi_cli | 5 | 5 | 5 | 0 | 0 | weighted_coverage_ratio=0.9441 | 73.15 |
 | opencode_minimax | 5 | 5 | 5 | 0 | 0 | weighted_coverage_ratio=0.0440 | 17.73 |
 | opencode_dpsk | 5 | 5 | 5 | 0 | 0 | weighted_coverage_ratio=0.3965 | 35.79 |
+
+## claude_code
+
+| Case | Valid | Duration (s) | Normalized Score | weighted_coverage_ratio | coverage_ratio | num_actions | min_battery_wh |
+| --- | --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| case_0001 | false | 5.3680 | 0.0000 | - | - | - | - |
+| case_0002 | false | 4.7040 | 0.0000 | - | - | - | - |
+| case_0003 | false | 4.1650 | 0.0000 | - | - | - | - |
+| case_0004 | false | 3.8770 | 0.0000 | - | - | - | - |
+| case_0005 | false | 4.5630 | 0.0000 | - | - | - | - |
 
 ## codex
 

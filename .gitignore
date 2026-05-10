@@ -16,7 +16,6 @@ venv.bak/
 .codex
 .solver-env
 roadmap/
-experiments/skill_injection/roadmaps/
 
 # Solver-local setup/build artifacts
 solvers/**/.solver-env

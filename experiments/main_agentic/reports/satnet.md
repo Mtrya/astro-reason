@@ -4,11 +4,22 @@ Generated from the current `main_agentic` aggregate summaries.
 
 | Harness | Present | Success | Valid | Invalid | Timeout | Primary Mean | Normalized Mean |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| claude_code | 5 | 0 | 0 | 0 | 0 | score_hours=- | 0.0000 |
 | claude_code_dpsk | 5 | 5 | 5 | 0 | 0 | score_hours=1030.8 | 45.77 |
 | codex | 5 | 5 | 5 | 0 | 0 | score_hours=1461.8 | 31.98 |
 | kimi_cli | 5 | 5 | 5 | 0 | 0 | score_hours=1207.6 | 45.21 |
 | opencode_minimax | 5 | 2 | 2 | 0 | 0 | score_hours=930.5 | 13.52 |
 | opencode_dpsk | 5 | 4 | 4 | 0 | 0 | score_hours=1127.6 | 40.41 |
+
+## claude_code
+
+| Case | Valid | Duration (s) | Normalized Score | score_hours | n_satisfied_requests | u_rms | u_max | n_tracks |
+| --- | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| W10_2018 | false | 4.9480 | 0.0000 | - | - | - | - | - |
+| W20_2018 | false | 3.8790 | 0.0000 | - | - | - | - | - |
+| W30_2018 | false | 4.2460 | 0.0000 | - | - | - | - | - |
+| W40_2018 | false | 4.3420 | 0.0000 | - | - | - | - | - |
+| W50_2018 | false | 4.8720 | 0.0000 | - | - | - | - | - |
 
 ## claude_code_dpsk
 

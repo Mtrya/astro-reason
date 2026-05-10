@@ -4,10 +4,19 @@ Generated from the current `main_agentic` aggregate summaries.
 
 | Harness | Present | Success | Valid | Invalid | Timeout | Primary Mean | Normalized Mean |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| claude_code | 3 | 0 | 0 | 0 | 0 | computed_profit=- | 0.0000 |
 | codex | 5 | 5 | 5 | 0 | 0 | computed_profit=115339.4 | 37.63 |
 | kimi_cli | 5 | 5 | 5 | 0 | 0 | computed_profit=115339.4 | 37.63 |
 | opencode_minimax | 5 | 4 | 4 | 0 | 0 | computed_profit=56820.5 | 25.40 |
 | opencode_dpsk | 5 | 5 | 5 | 0 | 0 | computed_profit=112136.4 | 35.46 |
+
+## claude_code
+
+| Case | Valid | Duration (s) | Normalized Score | computed_profit | computed_weight | computed_selected |
+| --- | --- | ---: | ---: | ---: | ---: | ---: |
+| 1021 | false | 5.5870 | 0.0000 | - | - | - |
+| 1403 | false | 4.8110 | 0.0000 | - | - | - |
+| 1506 | false | 0.6000 | 0.0000 | - | - | - |
 
 ## codex
 

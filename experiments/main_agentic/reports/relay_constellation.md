@@ -4,10 +4,21 @@ Generated from the current `main_agentic` aggregate summaries.
 
 | Harness | Present | Success | Valid | Invalid | Timeout | Primary Mean | Normalized Mean |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| claude_code | 5 | 0 | 0 | 0 | 0 | service_fraction=- | 0.0000 |
 | codex | 5 | 5 | 5 | 0 | 0 | service_fraction=0.9352 | 64.91 |
 | kimi_cli | 5 | 5 | 5 | 0 | 0 | service_fraction=0.8681 | 57.77 |
 | opencode_minimax | 5 | 4 | 4 | 1 | 0 | service_fraction=0.0000 | 0.0000 |
 | opencode_dpsk | 5 | 5 | 5 | 0 | 0 | service_fraction=0.5594 | 35.67 |
+
+## claude_code
+
+| Case | Valid | Duration (s) | Normalized Score | service_fraction | worst_demand_service_fraction | num_added_satellites | mean_latency_ms | latency_p95_ms |
+| --- | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| case_0001 | false | 5.3500 | 0.0000 | - | - | - | - | - |
+| case_0002 | false | 4.3160 | 0.0000 | - | - | - | - | - |
+| case_0003 | false | 5.4470 | 0.0000 | - | - | - | - | - |
+| case_0004 | false | 4.9980 | 0.0000 | - | - | - | - | - |
+| case_0005 | false | 7.0740 | 0.0000 | - | - | - | - | - |
 
 ## codex
 
