@@ -1,0 +1,68 @@
+{
+  "demanded_windows": [
+    {
+      "demand_id": "demand_007",
+      "destination_endpoint_id": "ground_005",
+      "end_time": "2026-01-05T14:00:00Z",
+      "source_endpoint_id": "ground_002",
+      "start_time": "2026-01-05T12:30:00Z",
+      "weight": 1.0
+    },
+    {
+      "demand_id": "demand_002",
+      "destination_endpoint_id": "ground_002",
+      "end_time": "2026-01-06T17:05:00Z",
+      "source_endpoint_id": "ground_001",
+      "start_time": "2026-01-06T15:05:00Z",
+      "weight": 1.0
+    },
+    {
+      "demand_id": "demand_005",
+      "destination_endpoint_id": "ground_004",
+      "end_time": "2026-01-07T11:35:00Z",
+      "source_endpoint_id": "ground_001",
+      "start_time": "2026-01-07T10:35:00Z",
+      "weight": 1.0
+    },
+    {
+      "demand_id": "demand_004",
+      "destination_endpoint_id": "ground_004",
+      "end_time": "2026-01-07T19:55:00Z",
+      "source_endpoint_id": "ground_003",
+      "start_time": "2026-01-07T17:55:00Z",
+      "weight": 1.0
+    },
+    {
+      "demand_id": "demand_001",
+      "destination_endpoint_id": "ground_002",
+      "end_time": "2026-01-07T22:10:00Z",
+      "source_endpoint_id": "ground_001",
+      "start_time": "2026-01-07T20:40:00Z",
+      "weight": 1.0
+    },
+    {
+      "demand_id": "demand_003",
+      "destination_endpoint_id": "ground_004",
+      "end_time": "2026-01-07T23:30:00Z",
+      "source_endpoint_id": "ground_003",
+      "start_time": "2026-01-07T21:00:00Z",
+      "weight": 1.0
+    },
+    {
+      "demand_id": "demand_006",
+      "destination_endpoint_id": "ground_003",
+      "end_time": "2026-01-08T16:05:00Z",
+      "source_endpoint_id": "ground_001",
+      "start_time": "2026-01-08T13:35:00Z",
+      "weight": 1.0
+    },
+    {
+      "demand_id": "demand_008",
+      "destination_endpoint_id": "ground_005",
+      "end_time": "2026-01-08T19:55:00Z",
+      "source_endpoint_id": "ground_002",
+      "start_time": "2026-01-08T18:55:00Z",
+      "weight": 1.0
+    }
+  ]
+}

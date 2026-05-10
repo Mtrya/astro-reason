@@ -51,7 +51,7 @@ dataset/
             └── demands.json
 ```
 
-`dataset/example_solution.json` is one real solution object with the same schema as normal submissions. `dataset/index.json` records case metadata and the smoke pairing through split-relative `example_smoke_case`, and the committed split construction lives in `benchmarks/relay_constellation/splits.yaml`.
+`dataset/example_solution.json` is one real solution object with the same schema as normal submissions. `dataset/index.json` records case metadata and the smoke pairing through split-relative `example_smoke_case`, and the committed split construction lives in `benchmarks/relay_constellation/splits.yaml`. The committed contract defines a 5-case `test` split plus a 10-case `train` split that inherits the test generation controls with a distinct seed.
 
 ## Case Inputs
 
