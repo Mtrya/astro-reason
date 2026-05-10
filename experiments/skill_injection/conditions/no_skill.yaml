@@ -1,4 +1,3 @@
 condition: no_skill
 description: Control condition with no injected task-specific skills.
-skill_bundle: null
-
+skills: []

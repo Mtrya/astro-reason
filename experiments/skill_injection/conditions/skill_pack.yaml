@@ -1,4 +1,11 @@
 condition: skill_pack
 description: Inject the multi-skill toolkit for performance, OR modeling, OR methods, and stereo-specific reasoning.
-skill_bundle: skill_pack
-
+skills:
+  - name: python-optimization-for-search
+    source: experiments/_fragments/skills/skill_injection/python-optimization-for-search
+  - name: ortools-cpsat-modeling
+    source: experiments/_fragments/skills/skill_injection/ortools-cpsat-modeling
+  - name: classical-or-scheduling-methods
+    source: experiments/_fragments/skills/skill_injection/classical-or-scheduling-methods
+  - name: stereo-imaging-product-strategy
+    source: experiments/_fragments/skills/skill_injection/stereo-imaging-product-strategy

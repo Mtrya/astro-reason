@@ -17,15 +17,20 @@ learnable when agents receive better constraint feedback.
   OR-Tools CP-SAT modeling, classical OR scheduling methods, and
   stereo-imaging product strategy.
 
-The non-control skill directories are intentionally planned, not complete. The
-bundle manifests live under:
+Skill assembly is owned by the condition profiles under:
+
+```text
+experiments/skill_injection/conditions/
+```
+
+The copied skill payloads live under:
 
 ```text
 experiments/_fragments/skills/skill_injection/
 ```
 
-Do not run `compact_domain` or `skill_pack` as evidence until their referenced
-skill directories exist and the writing roadmap phases are complete.
+That fragments directory should contain only actual skill directories, not
+experiment manifests.
 
 ## Planning
 
@@ -46,14 +51,4 @@ uv run python experiments/skill_injection/run.py \
 ```
 
 The runner currently implements dry-run planning only. Execution, aggregation,
-reports, and plots should be added after the skill content exists, so the
-experiment does not accidentally publish placeholder guidance.
-
-## Skill Writing Roadmaps
-
-The source-grounded skill writing plan is in:
-
-```text
-experiments/skill_injection/roadmaps/SKILL_WRITING_ROADMAP.md
-```
-
+reports, and plots still need to be added before publishing experiment results.

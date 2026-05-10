@@ -1,9 +1,0 @@
-bundle: compact_domain
-status: planned
-description: One compact stereo-imaging procedural skill for the lossy-domain-guidance condition.
-skills:
-  - name: stereo-imaging-compact-procedure
-    source: experiments/_fragments/skills/skill_injection/stereo-imaging-compact-procedure
-    status: planned
-    roadmap: experiments/skill_injection/roadmaps/SKILL_1_COMPACT_STEREO_PROCEDURE.md
-

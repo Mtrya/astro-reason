@@ -30,12 +30,21 @@ def test_default_config_builds_stereo_skill_injection_matrix() -> None:
     )
 
 
-def test_skill_pack_expands_to_four_planned_skill_sources() -> None:
-    harness = run.load_harness_profile("opencode_dpsk")
-    bundle = run.load_skill_bundle("skill_pack", harness)
+def test_skill_pack_condition_assembles_four_skill_sources() -> None:
+    config = run.load_family_config(run.DEFAULT_CONFIG)
+    (item,) = run.build_items(
+        config,
+        conditions=("skill_pack",),
+        harnesses=("opencode_dpsk",),
+        cases=("case_0001",),
+    )
+    specs = [
+        spec
+        for spec in item.assemble
+        if "experiments/_fragments/skills/skill_injection" in spec.source.as_posix()
+    ]
 
-    assert bundle.status == "planned"
-    assert [spec.target.name for spec in bundle.skills] == [
+    assert [spec.target.name for spec in specs] == [
         "python-optimization-for-search",
         "ortools-cpsat-modeling",
         "classical-or-scheduling-methods",
@@ -43,7 +52,7 @@ def test_skill_pack_expands_to_four_planned_skill_sources() -> None:
     ]
 
 
-def test_missing_assemble_sources_report_planned_skill_directories_only_for_skill_conditions() -> None:
+def test_missing_assemble_sources_report_skill_directories_only_for_skill_conditions() -> None:
     config = run.load_family_config(run.DEFAULT_CONFIG)
     items = run.build_items(
         config,
@@ -63,3 +72,16 @@ def test_missing_assemble_sources_report_planned_skill_directories_only_for_skil
         for path in missing_by_condition["skill_pack"]
         if "experiments/_fragments/skills/skill_injection" in path.as_posix()
     ] == []
+
+
+def test_skill_fragment_root_contains_only_skill_directories() -> None:
+    skill_root = REPO_ROOT / "experiments" / "_fragments" / "skills" / "skill_injection"
+
+    assert sorted(path.name for path in skill_root.iterdir()) == [
+        "classical-or-scheduling-methods",
+        "ortools-cpsat-modeling",
+        "python-optimization-for-search",
+        "stereo-imaging-compact-procedure",
+        "stereo-imaging-product-strategy",
+    ]
+    assert all(path.is_dir() for path in skill_root.iterdir())

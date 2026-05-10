@@ -24,7 +24,6 @@ DEFAULT_CONFIG = FAMILY_DIR / "configs" / "default.yaml"
 WORKSPACE_MOUNT = Path("/app/workspace")
 OUTPUT_MOUNT = Path("/app/run/output")
 CONTAINER_HOME = Path("/home/korolev")
-SKILL_BUNDLE_DIR = REPO_ROOT / "experiments" / "_fragments" / "skills" / "skill_injection"
 
 
 @dataclass(frozen=True)
@@ -81,10 +80,16 @@ class FamilyConfig:
 
 
 @dataclass(frozen=True)
+class SkillSpec:
+    name: str
+    source: Path
+
+
+@dataclass(frozen=True)
 class ConditionProfile:
     condition: str
     description: str
-    skill_bundle: str | None
+    skills: tuple[SkillSpec, ...]
     profile_path: Path
 
 
@@ -98,15 +103,6 @@ class HarnessProfile:
     forward_env_keys: tuple[str, ...]
     headless_shell_command: str
     profile_path: Path
-
-
-@dataclass(frozen=True)
-class SkillBundle:
-    bundle: str
-    status: str
-    description: str
-    skills: tuple[AssembleSpec, ...]
-    manifest_path: Path
 
 
 @dataclass(frozen=True)
@@ -247,6 +243,24 @@ def _parse_collect(items: Any, path: Path) -> tuple[CollectSpec, ...]:
     return tuple(specs)
 
 
+def _parse_skill_specs(items: Any, path: Path) -> tuple[SkillSpec, ...]:
+    if items is None:
+        return ()
+    if not isinstance(items, list):
+        raise SystemExit(f"skills must be a list: {path}")
+    specs: list[SkillSpec] = []
+    for index, item in enumerate(items):
+        if not isinstance(item, dict):
+            raise SystemExit(f"skills[{index}] must be a mapping: {path}")
+        specs.append(
+            SkillSpec(
+                name=_require_str(item, "name", f"skills[{index}]", path),
+                source=_repo_path(_require_str(item, "source", f"skills[{index}]", path)),
+            )
+        )
+    return tuple(specs)
+
+
 def load_family_config(path: Path) -> FamilyConfig:
     data = _load_yaml(path, "Family config")
     return FamilyConfig(
@@ -271,13 +285,10 @@ def load_condition_profile(condition: str) -> ConditionProfile:
     profile_condition = _require_str(data, "condition", "Condition profile", path)
     if profile_condition != condition:
         raise SystemExit(f"Condition profile mismatch in {path}: {profile_condition}")
-    bundle = data.get("skill_bundle")
-    if bundle is not None and not isinstance(bundle, str):
-        raise SystemExit(f"skill_bundle must be a string or null: {path}")
     return ConditionProfile(
         condition=condition,
         description=str(data.get("description", "")),
-        skill_bundle=bundle,
+        skills=_parse_skill_specs(data.get("skills", []), path),
         profile_path=path.resolve(),
     )
 
@@ -306,36 +317,16 @@ def load_harness_profile(harness: str) -> HarnessProfile:
     )
 
 
-def load_skill_bundle(bundle: str, harness: HarnessProfile) -> SkillBundle:
-    path = SKILL_BUNDLE_DIR / f"{bundle}.yaml"
-    data = _load_yaml(path, "Skill bundle")
-    profile_bundle = _require_str(data, "bundle", "Skill bundle", path)
-    if profile_bundle != bundle:
-        raise SystemExit(f"Skill bundle mismatch in {path}: {profile_bundle}")
-    raw_skills = data.get("skills")
-    if not isinstance(raw_skills, list):
-        raise SystemExit(f"skills must be a list: {path}")
-    skills: list[AssembleSpec] = []
-    for index, item in enumerate(raw_skills):
-        if not isinstance(item, dict):
-            raise SystemExit(f"skills[{index}] must be a mapping: {path}")
-        name = _require_str(item, "name", f"skills[{index}]", path)
-        source = _repo_path(_require_str(item, "source", f"skills[{index}]", path))
-        skills.append(
-            AssembleSpec(
-                source=source,
-                target=harness.skill_target_root / name,
-                render=False,
-                missing_ok=False,
-                example=None,
-            )
+def _skill_assemble_specs(condition: ConditionProfile, harness: HarnessProfile) -> tuple[AssembleSpec, ...]:
+    return tuple(
+        AssembleSpec(
+            source=skill.source,
+            target=harness.skill_target_root / skill.name,
+            render=False,
+            missing_ok=False,
+            example=None,
         )
-    return SkillBundle(
-        bundle=bundle,
-        status=str(data.get("status", "planned")),
-        description=str(data.get("description", "")),
-        skills=tuple(skills),
-        manifest_path=path.resolve(),
+        for skill in condition.skills
     )
 
 
@@ -403,9 +394,7 @@ def build_items(
         condition = load_condition_profile(condition_name)
         for harness_name in selected_harnesses:
             harness = load_harness_profile(harness_name)
-            skill_specs: tuple[AssembleSpec, ...] = ()
-            if condition.skill_bundle:
-                skill_specs = load_skill_bundle(condition.skill_bundle, harness).skills
+            skill_specs = _skill_assemble_specs(condition, harness)
             for case_id in selected_cases:
                 assemble = (
                     *_base_assemble_specs(config.benchmark, config.split, case_id),

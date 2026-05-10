@@ -1,4 +1,5 @@
 condition: compact_domain
 description: Inject one compact, lossy stereo-imaging procedural skill.
-skill_bundle: compact_domain
-
+skills:
+  - name: stereo-imaging-compact-procedure
+    source: experiments/_fragments/skills/skill_injection/stereo-imaging-compact-procedure
