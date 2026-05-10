@@ -1,4 +1,5 @@
 *
 !.gitignore
+!.claude.json.example
 !.claude.example/
 !.claude.example/**
