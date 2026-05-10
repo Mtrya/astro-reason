@@ -32,7 +32,7 @@ experiments/_fragments/skills/skill_injection/
 That fragments directory should contain only actual skill directories, not
 experiment manifests.
 
-## Planning
+## Running
 
 Preview the configured matrix:
 
@@ -50,5 +50,45 @@ uv run python experiments/skill_injection/run.py \
   --case case_0001
 ```
 
-The runner currently implements dry-run planning only. Execution, aggregation,
-reports, and plots still need to be added before publishing experiment results.
+Run selected work:
+
+```bash
+uv run python experiments/skill_injection/run.py \
+  --condition skill_pack \
+  --harness opencode_dpsk \
+  --case case_0001
+```
+
+Useful execution controls:
+
+- `--timeout`: override `timeout_seconds` for this invocation.
+- `--max-concurrency`: override `batch.max_concurrency`.
+- `--rerun-status STATUS`: rerun only artifacts currently recorded with this status, or missing/malformed artifacts via `missing_artifact` / `malformed_artifact`.
+- `--no-skip-completed`: ignore stored `run.json` statuses and rerun selected items.
+
+## Aggregation And Reports
+
+Aggregate completed and missing artifacts:
+
+```bash
+uv run python experiments/skill_injection/aggregate.py
+```
+
+This writes:
+
+```text
+results/agent_runs/experiments/skill_injection/summaries/summary.json
+results/agent_runs/experiments/skill_injection/summaries/runs.csv
+```
+
+Write reader-facing markdown reports from aggregate artifacts:
+
+```bash
+uv run python experiments/skill_injection/write_reports.py
+```
+
+Reports are written under:
+
+```text
+experiments/skill_injection/reports/
+```

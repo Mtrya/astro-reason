@@ -1,11 +1,19 @@
 #!/usr/bin/env python3
-"""Plan the skill-injection ablation experiment."""
+"""Run the skill-injection ablation experiment."""
 
 from __future__ import annotations
 
 import argparse
+import concurrent.futures
+import json
+import os
+import shlex
+import shutil
+import subprocess
 import sys
-from dataclasses import dataclass
+import tempfile
+from dataclasses import dataclass, replace
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
@@ -106,25 +114,60 @@ class HarnessProfile:
 
 
 @dataclass(frozen=True)
+class RuntimeManifest:
+    name: str
+    image: str
+
+
+@dataclass(frozen=True)
 class RunItem:
     config_name: str
+    config_path: Path
     benchmark: str
     split: str
     case_id: str
     condition: str
     harness: str
+    runtime: str
     timeout_seconds: int
+    resources: ResourceLimits
     results_root: Path
     assemble: tuple[AssembleSpec, ...]
     collect: tuple[CollectSpec, ...]
+    forward_env_keys: tuple[str, ...]
+    headless_shell_command: str
+
+
+@dataclass(frozen=True)
+class MountRoots:
+    workspace: Path
+    home: Path
+    output: Path
+
+
+@dataclass(frozen=True)
+class ContainerIdentity:
+    passwd_file: Path
+    group_file: Path
+
+
+@dataclass(frozen=True)
+class RunResult:
+    overall_status: str
+    skipped: bool
+    output_dir: Path
 
 
 def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
-    parser = argparse.ArgumentParser(description="Plan the skill-injection ablation")
+    parser = argparse.ArgumentParser(description="Run the skill-injection ablation")
     parser.add_argument("--config", type=Path, default=DEFAULT_CONFIG, help="Family config path.")
     parser.add_argument("--condition", action="append", default=[], help="Limit to a condition.")
     parser.add_argument("--harness", action="append", default=[], help="Limit to a harness.")
     parser.add_argument("--case", action="append", default=[], help="Limit to a case id.")
+    parser.add_argument("--timeout", type=int, help="Override timeout_seconds.")
+    parser.add_argument("--max-concurrency", type=int, help="Override batch.max_concurrency.")
+    parser.add_argument("--rerun-status", action="append", default=[], help="Rerun stored statuses.")
+    parser.add_argument("--no-skip-completed", action="store_true", help="Run selected items regardless of stored status.")
     parser.add_argument("--dry-run", action="store_true", help="Preview the selected work.")
     return parser.parse_args(argv)
 
@@ -317,6 +360,15 @@ def load_harness_profile(harness: str) -> HarnessProfile:
     )
 
 
+def load_runtime(name: str) -> RuntimeManifest:
+    path = REPO_ROOT / "runtimes" / name / "runtime.yaml"
+    data = _load_yaml(path, "Runtime manifest")
+    runtime_name = _require_str(data, "name", "Runtime manifest", path)
+    if runtime_name != name:
+        raise SystemExit(f"Runtime manifest mismatch in {path}: {runtime_name}")
+    return RuntimeManifest(name=runtime_name, image=_require_str(data, "image", "Runtime manifest", path))
+
+
 def _skill_assemble_specs(condition: ConditionProfile, harness: HarnessProfile) -> tuple[AssembleSpec, ...]:
     return tuple(
         AssembleSpec(
@@ -339,6 +391,10 @@ def _select(configured: tuple[str, ...], requested: tuple[str, ...], label: str)
     return tuple(item for item in configured if item in set(requested))
 
 
+def _case_dir(benchmark: str, split: str, case_id: str) -> Path:
+    return REPO_ROOT / "benchmarks" / benchmark / "dataset" / "cases" / split / case_id
+
+
 def _base_assemble_specs(benchmark: str, split: str, case_id: str) -> tuple[AssembleSpec, ...]:
     return (
         AssembleSpec(
@@ -347,7 +403,7 @@ def _base_assemble_specs(benchmark: str, split: str, case_id: str) -> tuple[Asse
             render=True,
         ),
         AssembleSpec(
-            source=REPO_ROOT / "benchmarks" / benchmark / "dataset" / "cases" / split / case_id,
+            source=_case_dir(benchmark, split, case_id),
             target=WORKSPACE_MOUNT / "case",
         ),
         AssembleSpec(
@@ -368,9 +424,13 @@ def _base_assemble_specs(benchmark: str, split: str, case_id: str) -> tuple[Asse
 
 
 def _output_dir(config: FamilyConfig, item: RunItem) -> Path:
+    return _output_dir_for_item(item)
+
+
+def _output_dir_for_item(item: RunItem) -> Path:
     return (
         item.results_root
-        / config.config_path.stem
+        / item.config_path.stem
         / item.condition
         / item.benchmark
         / item.harness
@@ -404,15 +464,20 @@ def build_items(
                 items.append(
                     RunItem(
                         config_name=config.name,
+                        config_path=config.config_path,
                         benchmark=config.benchmark,
                         split=config.split,
                         case_id=case_id,
                         condition=condition.condition,
                         harness=harness.harness,
+                        runtime=harness.runtime,
                         timeout_seconds=config.timeout_seconds,
+                        resources=config.resources,
                         results_root=config.results.root,
                         assemble=assemble,
                         collect=harness.collect,
+                        forward_env_keys=harness.forward_env_keys,
+                        headless_shell_command=harness.headless_shell_command,
                     )
                 )
     return tuple(items)
@@ -431,7 +496,469 @@ def _relative(path: Path) -> str:
     return workspace_utils.relative_display(path, REPO_ROOT)
 
 
-def print_dry_run(config: FamilyConfig, items: tuple[RunItem, ...]) -> None:
+def _existing_status(output_dir: Path) -> tuple[str, str | None]:
+    run_json = output_dir / "run.json"
+    if not run_json.exists():
+        return "missing_artifact", None
+    try:
+        payload = json.loads(run_json.read_text(encoding="utf-8"))
+    except json.JSONDecodeError:
+        return "malformed_artifact", None
+    if not isinstance(payload, dict) or not isinstance(payload.get("overall_status"), str):
+        return "malformed_artifact", None
+    return "present", payload["overall_status"]
+
+
+def _should_run(
+    item: RunItem,
+    *,
+    rerun_statuses: tuple[str, ...],
+    no_skip_completed: bool,
+    skip_completed: bool,
+    retry_statuses: tuple[str, ...],
+) -> tuple[bool, str]:
+    artifact_state, status = _existing_status(_output_dir_for_item(item))
+    candidate = status if artifact_state == "present" else artifact_state
+    if rerun_statuses:
+        return candidate in rerun_statuses, f"status={candidate}"
+    if no_skip_completed:
+        return True, "forced"
+    if artifact_state != "present":
+        return True, artifact_state
+    if status in retry_statuses:
+        return True, f"retryable={status}"
+    if skip_completed:
+        return False, f"existing={status}"
+    return True, "configured"
+
+
+def _template_context(item: RunItem) -> dict[str, str]:
+    dataset_dir = REPO_ROOT / "benchmarks" / item.benchmark / "dataset"
+    example_name = "No example solution is provided for this workspace."
+    for candidate in ("example_solution.json", "example_solution.yaml", "example_solution.yml"):
+        if (dataset_dir / candidate).exists():
+            example_name = candidate
+            break
+    return {
+        "benchmark": item.benchmark,
+        "split": item.split,
+        "case_id": item.case_id,
+        "example_solution_name": example_name,
+        "verifier_location": "verifier",
+        "verifier_command": "./verifier case/ solution.json",
+    }
+
+
+def _prepare_roots(workspace_dir: Path, runtime_dir: Path, output_dir: Path) -> MountRoots:
+    roots = MountRoots(workspace=workspace_dir, home=runtime_dir / "home", output=output_dir)
+    roots.workspace.mkdir(parents=True, exist_ok=True)
+    roots.home.mkdir(parents=True, exist_ok=True)
+    roots.output.mkdir(parents=True, exist_ok=True)
+    return roots
+
+
+def _build_container_identity(runtime_dir: Path) -> ContainerIdentity:
+    passwd_file = runtime_dir / "passwd"
+    group_file = runtime_dir / "group"
+    uid = os.getuid()
+    gid = os.getgid()
+    passwd_file.write_text(
+        "\n".join(
+            [
+                "root:x:0:0:root:/root:/bin/bash",
+                f"korolev:x:{uid}:{gid}:AstroReason User:{CONTAINER_HOME}:/bin/bash",
+            ]
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    group_file.write_text(f"root:x:0:\nkorolev:x:{gid}:\n", encoding="utf-8")
+    return ContainerIdentity(passwd_file=passwd_file, group_file=group_file)
+
+
+def _assemble_workspace(item: RunItem, roots: MountRoots) -> list[dict[str, Any]]:
+    def missing_source_message(spec: AssembleSpec) -> str:
+        example_note = f" Copy {spec.example} into place first." if spec.example else ""
+        return f"Required assemble source does not exist: {spec.source}.{example_note}"
+
+    return workspace_utils.assemble_workspace(
+        item.assemble,
+        roots,
+        context=_template_context(item),
+        repo_root=REPO_ROOT,
+        workspace_mount=WORKSPACE_MOUNT,
+        home_mount=CONTAINER_HOME,
+        output_mount=OUTPUT_MOUNT,
+        require_nonempty_dirs=True,
+        missing_source_message=missing_source_message,
+        record_rendered_for_missing=False,
+    )
+
+
+def _collect_artifacts(item: RunItem, roots: MountRoots, output_dir: Path) -> list[dict[str, Any]]:
+    return workspace_utils.collect_artifacts(
+        item.collect,
+        roots,
+        output_dir,
+        repo_root=REPO_ROOT,
+        workspace_mount=WORKSPACE_MOUNT,
+        home_mount=CONTAINER_HOME,
+        output_mount=OUTPUT_MOUNT,
+    )
+
+
+def _build_docker_command(
+    item: RunItem,
+    runtime: RuntimeManifest,
+    roots: MountRoots,
+    identity: ContainerIdentity,
+) -> list[str]:
+    cmd = ["docker", "run", "--rm", "-w", str(WORKSPACE_MOUNT)]
+    cmd.extend(["--user", f"{os.getuid()}:{os.getgid()}"])
+    cmd.extend(["-e", f"HOME={CONTAINER_HOME}"])
+    cmd.extend(["-e", "USER=korolev"])
+    cmd.extend(["-e", "LOGNAME=korolev"])
+    cmd.extend(["-e", f"XDG_CONFIG_HOME={CONTAINER_HOME / '.config'}"])
+    cmd.extend(["-e", f"XDG_DATA_HOME={CONTAINER_HOME / '.local' / 'share'}"])
+    for env_key in item.forward_env_keys:
+        env_value = os.environ.get(env_key)
+        if env_value is not None:
+            cmd.extend(["-e", f"{env_key}={env_value}"])
+    if item.resources.cpus:
+        cmd.extend(["--cpus", item.resources.cpus])
+    if item.resources.memory:
+        cmd.extend(["--memory", item.resources.memory])
+    if item.resources.shm_size:
+        cmd.extend(["--shm-size", item.resources.shm_size])
+    cmd.extend(
+        [
+            "-v",
+            f"{roots.workspace.resolve()}:{WORKSPACE_MOUNT}",
+            "-v",
+            f"{roots.output.resolve()}:{OUTPUT_MOUNT}",
+            "-v",
+            f"{roots.home.resolve()}:{CONTAINER_HOME}",
+            "-v",
+            f"{identity.passwd_file.resolve()}:/etc/passwd:ro",
+            "-v",
+            f"{identity.group_file.resolve()}:/etc/group:ro",
+            runtime.image,
+        ]
+    )
+    shell_script = "\n".join(
+        [
+            "set -euo pipefail",
+            f"mkdir -p {shlex.quote(str(CONTAINER_HOME))}",
+            f"mkdir -p {shlex.quote(str(CONTAINER_HOME / '.config'))}",
+            f"mkdir -p {shlex.quote(str(CONTAINER_HOME / '.local' / 'share'))}",
+            f"cd {shlex.quote(str(WORKSPACE_MOUNT))}",
+            f"exec timeout --signal=TERM {item.timeout_seconds} /bin/bash -lc "
+            f"{shlex.quote(item.headless_shell_command)}",
+        ]
+    )
+    cmd.extend(["/bin/bash", "-lc", shell_script])
+    return cmd
+
+
+def _run_to_files(cmd: list[str], stdout_path: Path, stderr_path: Path) -> tuple[int, bool]:
+    stdout_path.parent.mkdir(parents=True, exist_ok=True)
+    stderr_path.parent.mkdir(parents=True, exist_ok=True)
+    try:
+        with stdout_path.open("w", encoding="utf-8") as stdout_handle:
+            with stderr_path.open("w", encoding="utf-8") as stderr_handle:
+                result = subprocess.run(
+                    cmd,
+                    stdout=stdout_handle,
+                    stderr=stderr_handle,
+                    text=True,
+                    encoding="utf-8",
+                    errors="replace",
+                    check=False,
+                )
+    except FileNotFoundError as exc:
+        stderr_path.write_text(f"Failed to launch process: {exc}\n", encoding="utf-8")
+        return 127, False
+    return result.returncode, True
+
+
+def _run_capture(cmd: list[str], *, cwd: Path | None = None) -> tuple[int, str, str, bool]:
+    try:
+        result = subprocess.run(
+            cmd,
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+            errors="replace",
+            cwd=cwd,
+            check=False,
+        )
+    except FileNotFoundError as exc:
+        return 127, "", f"Failed to launch process: {exc}", False
+    return result.returncode, result.stdout or "", result.stderr or "", True
+
+
+def _copy_solution(workspace_dir: Path, output_dir: Path) -> bool:
+    source = workspace_dir / "solution.json"
+    if not source.exists():
+        return False
+    shutil.copy2(source, output_dir / "solution.json")
+    return True
+
+
+def _external_verifier(item: RunItem, output_dir: Path, solution_present: bool) -> tuple[str, dict[str, Any]]:
+    if not solution_present:
+        return "no_solution", {"valid": False, "error": "No solution.json was produced."}
+    cmd = [
+        "uv",
+        "run",
+        "python",
+        "-m",
+        f"benchmarks.{item.benchmark}.verifier.run",
+        str(_case_dir(item.benchmark, item.split, item.case_id)),
+        str(output_dir / "solution.json"),
+    ]
+    exit_code, stdout, stderr, launched = _run_capture(cmd, cwd=REPO_ROOT)
+    (output_dir / "verifier_stdout.txt").write_text(stdout, encoding="utf-8")
+    (output_dir / "verifier_stderr.txt").write_text(stderr, encoding="utf-8")
+    if not launched:
+        return "error", {"valid": False, "error": stderr}
+    try:
+        parsed = json.loads(stdout) if stdout.strip() else {}
+    except json.JSONDecodeError:
+        return "error", {"valid": False, "error": "Verifier emitted malformed JSON.", "exit_code": exit_code}
+    if not isinstance(parsed, dict) or not isinstance(parsed.get("valid"), bool):
+        return "error", {"valid": False, "error": "Verifier JSON did not contain boolean valid.", "raw": parsed}
+    if exit_code not in (0, 1):
+        return "error", {"valid": False, "error": stderr.strip() or "Verifier exited unexpectedly.", "raw": parsed}
+    return ("valid" if parsed["valid"] else "invalid"), parsed
+
+
+def _agent_status(exit_code: int, launched: bool, solution_present: bool) -> str:
+    if not launched:
+        return "runner_error"
+    if exit_code == 124:
+        return "timeout"
+    if exit_code != 0:
+        return "agent_failed"
+    if not solution_present:
+        return "no_solution"
+    return "success"
+
+
+def _overall_status(agent_status: str, verifier_status: str) -> str:
+    if agent_status != "success":
+        return agent_status
+    if verifier_status == "valid":
+        return "success"
+    if verifier_status == "invalid":
+        return "verifier_invalid"
+    return "verifier_error"
+
+
+def _skill_names(item: RunItem) -> list[str]:
+    return [
+        spec.target.name
+        for spec in item.assemble
+        if "experiments/_fragments/skills/skill_injection" in spec.source.as_posix()
+    ]
+
+
+def _write_run_json(
+    item: RunItem,
+    output_dir: Path,
+    *,
+    assembled: list[dict[str, Any]],
+    collected: list[dict[str, Any]],
+    start_time: datetime,
+    end_time: datetime,
+    agent_exit_code: int,
+    agent_status: str,
+    verifier_status: str,
+    verifier_result: dict[str, Any],
+    overall_status: str,
+) -> None:
+    payload = {
+        "schema_version": 1,
+        "experiment": "skill_injection",
+        "mode": "batch",
+        "config": _relative(item.config_path),
+        "benchmark": item.benchmark,
+        "split": item.split,
+        "case_id": item.case_id,
+        "condition": item.condition,
+        "harness": item.harness,
+        "runtime": item.runtime,
+        "skills": _skill_names(item),
+        "workspace_verifier": {
+            "exposed": True,
+            "kind": "opaque_binary",
+            "location": "verifier",
+            "command": "./verifier case/ solution.json",
+        },
+        "start_time": start_time.isoformat(),
+        "end_time": end_time.isoformat(),
+        "duration_seconds": round((end_time - start_time).total_seconds(), 3),
+        "agent_exit_code": agent_exit_code,
+        "agent_status": agent_status,
+        "verifier_status": verifier_status,
+        "overall_status": overall_status,
+        "artifacts": {"assemble": assembled, "collect": collected},
+        "verifier": verifier_result,
+    }
+    output_dir.mkdir(parents=True, exist_ok=True)
+    (output_dir / "run.json").write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+
+
+def _write_runner_error(item: RunItem, output_dir: Path, exc: BaseException) -> None:
+    now = datetime.now(timezone.utc)
+    output_dir.mkdir(parents=True, exist_ok=True)
+    (output_dir / "runner_error.txt").write_text(f"{type(exc).__name__}: {exc}\n", encoding="utf-8")
+    _write_run_json(
+        item,
+        output_dir,
+        assembled=[],
+        collected=[],
+        start_time=now,
+        end_time=now,
+        agent_exit_code=127,
+        agent_status="runner_error",
+        verifier_status="error",
+        verifier_result={"valid": False, "error": f"{type(exc).__name__}: {exc}"},
+        overall_status="runner_error",
+    )
+
+
+def _run_item(item: RunItem) -> RunResult:
+    output_dir = _output_dir_for_item(item)
+    if output_dir.exists():
+        shutil.rmtree(output_dir)
+    output_dir.mkdir(parents=True, exist_ok=True)
+    runtime = load_runtime(item.runtime)
+    with tempfile.TemporaryDirectory(prefix="astroreason-skill-injection-workspace-") as workspace_tmp:
+        with tempfile.TemporaryDirectory(prefix="astroreason-skill-injection-runtime-") as runtime_tmp:
+            workspace_dir = Path(workspace_tmp)
+            runtime_dir = Path(runtime_tmp)
+            roots = _prepare_roots(workspace_dir, runtime_dir, output_dir)
+            identity = _build_container_identity(runtime_dir)
+            assembled = _assemble_workspace(item, roots)
+            cmd = _build_docker_command(item, runtime, roots, identity)
+            start = datetime.now(timezone.utc)
+            exit_code, launched = _run_to_files(cmd, output_dir / "agent_stdout.txt", output_dir / "agent_stderr.txt")
+            end = datetime.now(timezone.utc)
+            solution_present = _copy_solution(workspace_dir, output_dir)
+            collected = _collect_artifacts(item, roots, output_dir)
+            agent_status = _agent_status(exit_code, launched, solution_present)
+            verifier_status, verifier_result = _external_verifier(item, output_dir, solution_present)
+            overall = _overall_status(agent_status, verifier_status)
+            _write_run_json(
+                item,
+                output_dir,
+                assembled=assembled,
+                collected=collected,
+                start_time=start,
+                end_time=end,
+                agent_exit_code=exit_code,
+                agent_status=agent_status,
+                verifier_status=verifier_status,
+                verifier_result=verifier_result,
+                overall_status=overall,
+            )
+    return RunResult(overall_status=overall, skipped=False, output_dir=output_dir)
+
+
+def _run_item_with_retries(item: RunItem, batch: BatchSettings) -> RunResult:
+    attempts = batch.max_retries + 1
+    last_result: RunResult | None = None
+    for attempt in range(1, attempts + 1):
+        try:
+            result = _run_item(item)
+        except Exception as exc:
+            output_dir = _output_dir_for_item(item)
+            _write_runner_error(item, output_dir, exc)
+            result = RunResult(overall_status="runner_error", skipped=False, output_dir=output_dir)
+        last_result = result
+        if result.overall_status not in batch.retry_statuses:
+            return result
+        if attempt < attempts:
+            print(
+                f"retry {item.condition}/{item.harness}/{item.case_id}: "
+                f"{result.overall_status} (attempt {attempt}/{attempts})"
+            )
+    if last_result is None:
+        raise RuntimeError("Run finished without a result.")
+    return last_result
+
+
+def _run_batch(config: FamilyConfig, items: tuple[RunItem, ...], args: argparse.Namespace) -> int:
+    selected: list[RunItem] = []
+    skipped_results: list[RunResult] = []
+    rerun_statuses = tuple(args.rerun_status)
+    for item in items:
+        should_run, reason = _should_run(
+            item,
+            rerun_statuses=rerun_statuses,
+            no_skip_completed=args.no_skip_completed,
+            skip_completed=config.batch.skip_completed,
+            retry_statuses=config.batch.retry_statuses,
+        )
+        if should_run:
+            selected.append(item)
+        else:
+            artifact_state, status = _existing_status(_output_dir_for_item(item))
+            skipped_results.append(
+                RunResult(overall_status=status or artifact_state, skipped=True, output_dir=_output_dir_for_item(item))
+            )
+            print(f"skip {item.condition}/{item.harness}/{item.case_id}: {reason}")
+
+    missing: list[AssembleSpec] = []
+    seen: set[Path] = set()
+    for item in selected:
+        for spec in missing_assemble_sources(item):
+            if spec.source not in seen:
+                missing.append(spec)
+                seen.add(spec.source)
+    if missing:
+        lines = ["Missing required assemble sources:"]
+        for spec in missing:
+            example_note = f" Copy {_relative(spec.example)} into place first." if spec.example else ""
+            lines.append(f"- {_relative(spec.source)}{example_note}")
+        raise SystemExit("\n".join(lines))
+
+    status_counts: dict[str, int] = {}
+    executed_statuses: list[str] = []
+    for result in skipped_results:
+        status_counts[result.overall_status] = status_counts.get(result.overall_status, 0) + 1
+
+    with concurrent.futures.ThreadPoolExecutor(max_workers=config.batch.max_concurrency) as executor:
+        futures = {executor.submit(_run_item_with_retries, item, config.batch): item for item in selected}
+        completed = 0
+        for future in concurrent.futures.as_completed(futures):
+            item = futures[future]
+            completed += 1
+            try:
+                result = future.result()
+            except Exception as exc:
+                output_dir = _output_dir_for_item(item)
+                _write_runner_error(item, output_dir, exc)
+                result = RunResult(overall_status="runner_error", skipped=False, output_dir=output_dir)
+            executed_statuses.append(result.overall_status)
+            status_counts[result.overall_status] = status_counts.get(result.overall_status, 0) + 1
+            action = "skipped" if result.skipped else "executed"
+            print(
+                f"[{completed}/{len(selected)}] {item.condition}/{item.harness}/{item.case_id} "
+                f"-> {result.overall_status} ({action}; {_relative(result.output_dir)})"
+            )
+    print("Status counts: " + ", ".join(f"{key}={value}" for key, value in sorted(status_counts.items())))
+    return 0 if all(status == "success" for status in executed_statuses) else 1
+
+
+def print_dry_run(
+    config: FamilyConfig,
+    items: tuple[RunItem, ...],
+    *,
+    rerun_statuses: tuple[str, ...] = (),
+    no_skip_completed: bool = False,
+) -> None:
     print(f"Config: {config.config_path}")
     print(f"Mode: {config.mode}")
     print(f"Benchmark: {config.benchmark}")
@@ -440,6 +967,22 @@ def print_dry_run(config: FamilyConfig, items: tuple[RunItem, ...]) -> None:
     print(f"Harnesses: {', '.join(dict.fromkeys(item.harness for item in items))}")
     print(f"Run count: {len(items)}")
     print(f"Max concurrency: {config.batch.max_concurrency}")
+    runnable = 0
+    skipped = 0
+    for item in items:
+        should_run, _ = _should_run(
+            item,
+            rerun_statuses=rerun_statuses,
+            no_skip_completed=no_skip_completed,
+            skip_completed=config.batch.skip_completed,
+            retry_statuses=config.batch.retry_statuses,
+        )
+        if should_run:
+            runnable += 1
+        else:
+            skipped += 1
+    print(f"Runnable now: {runnable}")
+    print(f"Skipped now: {skipped}")
     missing_by_source: dict[str, int] = {}
     for item in items:
         for spec in missing_assemble_sources(item):
@@ -462,6 +1005,14 @@ def print_dry_run(config: FamilyConfig, items: tuple[RunItem, ...]) -> None:
 def main(argv: list[str] | None = None) -> int:
     args = parse_args(argv)
     config = load_family_config(args.config)
+    if args.timeout is not None:
+        if args.timeout <= 0:
+            raise SystemExit("--timeout must be positive")
+        config = replace(config, timeout_seconds=args.timeout)
+    if args.max_concurrency is not None:
+        if args.max_concurrency <= 0:
+            raise SystemExit("--max-concurrency must be positive")
+        config = replace(config, batch=replace(config.batch, max_concurrency=args.max_concurrency))
     items = build_items(
         config,
         conditions=tuple(args.condition),
@@ -469,9 +1020,14 @@ def main(argv: list[str] | None = None) -> int:
         cases=tuple(args.case),
     )
     if args.dry_run:
-        print_dry_run(config, items)
+        print_dry_run(
+            config,
+            items,
+            rerun_statuses=tuple(args.rerun_status),
+            no_skip_completed=args.no_skip_completed,
+        )
         return 0
-    raise SystemExit("Only --dry-run planning is implemented before skill content is complete.")
+    return _run_batch(config, items, args)
 
 
 if __name__ == "__main__":

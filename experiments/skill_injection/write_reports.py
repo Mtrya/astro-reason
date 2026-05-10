@@ -1,0 +1,255 @@
+#!/usr/bin/env python3
+"""Write skill-injection reports from aggregate artifacts."""
+
+from __future__ import annotations
+
+import argparse
+import csv
+import json
+import sys
+from pathlib import Path
+from typing import Any
+
+
+REPO_ROOT = Path(__file__).resolve().parents[2]
+if __package__ in (None, ""):
+    sys.path.insert(0, str(REPO_ROOT))
+    sys.path.insert(0, str(Path(__file__).resolve().parent))
+    import aggregate as family_aggregate  # type: ignore[no-redef]
+else:
+    from . import aggregate as family_aggregate
+
+from experiments._shared import write_reports as shared_reports
+
+
+FAMILY_DIR = Path(__file__).resolve().parent
+DEFAULT_CONFIG = FAMILY_DIR / "configs" / "default.yaml"
+DEFAULT_REPORTS_DIR = FAMILY_DIR / "reports"
+
+
+def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
+    parser = argparse.ArgumentParser(description="Write skill-injection markdown reports.")
+    parser.add_argument("--config", type=Path, default=DEFAULT_CONFIG)
+    parser.add_argument("--reports-dir", type=Path, default=DEFAULT_REPORTS_DIR)
+    return parser.parse_args(argv)
+
+
+def _read_json(path: Path) -> dict[str, Any]:
+    if not path.exists():
+        raise SystemExit(f"Aggregate summary does not exist: {path}")
+    data = json.loads(path.read_text(encoding="utf-8"))
+    if not isinstance(data, dict):
+        raise SystemExit(f"Aggregate summary must be a mapping: {path}")
+    return data
+
+
+def _read_csv(path: Path) -> list[dict[str, str]]:
+    if not path.exists():
+        raise SystemExit(f"Aggregate CSV does not exist: {path}")
+    with path.open("r", encoding="utf-8", newline="") as handle:
+        return list(csv.DictReader(handle))
+
+
+def _format_value(value: Any) -> str:
+    if value is None:
+        return "-"
+    if isinstance(value, bool):
+        return "true" if value else "false"
+    return shared_reports.format_value(str(value))
+
+
+def _format_status_counts(value: Any) -> str:
+    if not isinstance(value, dict) or not value:
+        return "-"
+    return ", ".join(f"{key}: {_format_value(count)}" for key, count in sorted(value.items()))
+
+
+def _condition_rows(summary: dict[str, Any]) -> list[list[str]]:
+    by_condition = summary.get("by_condition")
+    if not isinstance(by_condition, dict):
+        return []
+    rows: list[list[str]] = []
+    for condition, values in sorted(by_condition.items()):
+        if not isinstance(values, dict):
+            continue
+        rows.append(
+            [
+                str(condition),
+                _format_value(values.get("run_count")),
+                _format_value(values.get("present_count")),
+                _format_value(values.get("valid_count")),
+                _format_value(values.get("valid_rate")),
+                _format_value(values.get("mean_coverage_ratio")),
+                _format_value(values.get("mean_normalized_quality")),
+                _format_value(values.get("mean_normalized_score_pct")),
+                _format_status_counts(values.get("overall_status_counts")),
+            ]
+        )
+    return rows
+
+
+def _condition_harness_rows(summary: dict[str, Any]) -> list[list[str]]:
+    by_condition_harness = summary.get("by_condition_harness")
+    if not isinstance(by_condition_harness, dict):
+        return []
+    rows: list[list[str]] = []
+    for key, values in sorted(by_condition_harness.items()):
+        if not isinstance(values, dict):
+            continue
+        condition, _, harness = str(key).partition("/")
+        rows.append(
+            [
+                condition,
+                harness,
+                _format_value(values.get("run_count")),
+                _format_value(values.get("present_count")),
+                _format_value(values.get("valid_count")),
+                _format_value(values.get("valid_rate")),
+                _format_value(values.get("mean_coverage_ratio")),
+                _format_value(values.get("mean_normalized_quality")),
+                _format_value(values.get("mean_normalized_score_pct")),
+                _format_status_counts(values.get("overall_status_counts")),
+            ]
+        )
+    return rows
+
+
+def _case_rows(rows: list[dict[str, str]]) -> list[list[str]]:
+    table_rows: list[list[str]] = []
+    for row in sorted(
+        rows,
+        key=lambda item: (
+            item.get("condition", ""),
+            item.get("harness", ""),
+            item.get("case_id", ""),
+        ),
+    ):
+        table_rows.append(
+            [
+                row.get("condition", ""),
+                row.get("harness", ""),
+                row.get("split", ""),
+                row.get("case_id", ""),
+                _format_value(row.get("artifact_state")),
+                _format_value(row.get("overall_status")),
+                _format_value(row.get("verifier_status")),
+                _format_value(row.get("valid")),
+                _format_value(row.get("duration_seconds")),
+                _format_value(row.get("skill_count")),
+                _format_value(row.get("coverage_ratio")),
+                _format_value(row.get("normalized_quality")),
+                _format_value(row.get("normalized_score_pct")),
+            ]
+        )
+    return table_rows
+
+
+def _write_report(
+    *,
+    summary: dict[str, Any],
+    rows: list[dict[str, str]],
+    reports_dir: Path,
+    benchmark: str,
+) -> Path:
+    reports_dir.mkdir(parents=True, exist_ok=True)
+    report_path = reports_dir / f"{benchmark}.md"
+    rows = [row for row in rows if row.get("benchmark") == benchmark]
+    lines = [
+        "# Skill Injection",
+        "",
+        f"{benchmark} skill-ablation results across configured conditions and harnesses.",
+        "",
+        "Generated from the current `skill_injection` aggregate artifacts.",
+        "",
+        "## Condition Summary",
+        "",
+    ]
+    lines.extend(
+        shared_reports.table(
+            [
+                "Condition",
+                "Runs",
+                "Present",
+                "Valid",
+                "Valid Rate",
+                "Mean Coverage",
+                "Mean Quality",
+                "Mean Score",
+                "Overall Statuses",
+            ],
+            _condition_rows(summary),
+            numeric_from=1,
+        )
+    )
+    lines.extend(["", "## Condition And Harness Summary", ""])
+    lines.extend(
+        shared_reports.table(
+            [
+                "Condition",
+                "Harness",
+                "Runs",
+                "Present",
+                "Valid",
+                "Valid Rate",
+                "Mean Coverage",
+                "Mean Quality",
+                "Mean Score",
+                "Overall Statuses",
+            ],
+            _condition_harness_rows(summary),
+            numeric_from=2,
+        )
+    )
+    lines.extend(["", "## Cases", ""])
+    lines.extend(
+        shared_reports.table(
+            [
+                "Condition",
+                "Harness",
+                "Split",
+                "Case",
+                "Artifact",
+                "Overall Status",
+                "Verifier Status",
+                "Valid",
+                "Duration (s)",
+                "Skills",
+                "Coverage",
+                "Quality",
+                "Score",
+            ],
+            _case_rows(rows),
+            numeric_from=8,
+        )
+    )
+    lines.append("")
+    report_path.write_text("\n".join(lines), encoding="utf-8")
+    return report_path
+
+
+def _display_path(path: Path) -> str:
+    if path.is_relative_to(REPO_ROOT):
+        return path.relative_to(REPO_ROOT).as_posix()
+    return path.as_posix()
+
+
+def main(argv: list[str] | None = None) -> int:
+    args = parse_args(argv)
+    config = family_aggregate.family_run.load_family_config(args.config.resolve())
+    aggregate_dir = family_aggregate._aggregate_dir(config)
+    summary = _read_json(aggregate_dir / "summary.json")
+    rows = _read_csv(aggregate_dir / "runs.csv")
+    benchmarks = sorted({row.get("benchmark") or config.benchmark for row in rows})
+    for benchmark in benchmarks:
+        report_path = _write_report(
+            summary=summary,
+            rows=rows,
+            reports_dir=args.reports_dir.resolve(),
+            benchmark=benchmark,
+        )
+        print(f"Wrote {_display_path(report_path)}")
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())
