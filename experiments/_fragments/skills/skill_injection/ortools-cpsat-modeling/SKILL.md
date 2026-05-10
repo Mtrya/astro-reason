@@ -1,13 +1,13 @@
 ---
 name: ortools-cpsat-modeling
-description: Use when building small-to-medium OR-Tools CP-SAT models in Python for binary selection, conflict constraints, coverage linkage, lexicographic objectives, solver limits, status handling, incumbent extraction, and fallback decisions; keep it generic to CP-SAT and do not use for stereo-imaging-specific formulas or first-party solver reproduction.
+description: Use when building small-to-medium OR-Tools CP-SAT models in Python for binary selection, conflict constraints, coverage linkage, lexicographic objectives, solver limits, status handling, incumbent extraction, and fallback decisions; keep it generic to CP-SAT and do not use for stereo-imaging-specific formulas or reproducing another solver.
 ---
 
 # OR-Tools CP-SAT Modeling
 
 Use this skill when candidate or product data is already clean and you want an exact or bounded CP-SAT selection model. CP-SAT is a modeling layer, not a data-cleaning substitute: build candidates, product ids, conflict edges, and objective terms first.
 
-For validated API notes and runnable examples, see `references/README.md`, `examples/binary_coverage_cp_sat.py`, and `examples/sequential_lexicographic_solve.py`.
+For API notes and runnable examples, see `references/README.md`, `examples/binary_coverage_cp_sat.py`, and `examples/sequential_lexicographic_solve.py`.
 
 ## Minimal Pattern
 
@@ -94,5 +94,5 @@ If no product covers an entity, fix its coverage variable to zero. This pattern 
 ## Boundaries
 
 - Keep this generic to OR-Tools CP-SAT.
-- Do not include benchmark-specific product formulas, hidden case details, repository solver code, or commands that ask a solver to solve the task for the space agent.
+- Do not include task-specific product formulas, hidden case details, or commands that ask another solver to solve the task for you.
 - Do not install packages system-wide. Use an isolated environment when validating OR-Tools examples.

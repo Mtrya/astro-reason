@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Summarize a stereo_imaging verifier-like JSON report without benchmark imports."""
+"""Summarize a stereo_imaging verifier-like JSON report using only JSON fields."""
 
 from __future__ import annotations
 

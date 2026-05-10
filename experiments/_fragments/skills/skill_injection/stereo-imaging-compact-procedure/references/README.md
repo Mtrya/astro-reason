@@ -1,22 +1,30 @@
-# Source Grounding
+# Compact Reference
 
-This compact skill is grounded in the public stereo-imaging contract and the two repository solver writeups. It intentionally avoids solver commands, solver source excerpts, and case-specific answers.
+Use this as a quick reminder when the main skill feels too terse.
 
-## Local Sources Used
+## Score-Critical Facts
 
-- `benchmarks/stereo_imaging/README.md`: source for the public solution schema, hard action constraints, stereo-pair and tri-stereo definitions, scoring semantics, and the ranking order of validity, coverage, then normalized quality.
-- `experiments/_fragments/prompts/stereo_imaging/README.default.md`: source for the workspace-facing phrasing that agents see, including the reminder that submitted actions are raw observations and products are derived by validation.
-- `solvers/stereo_imaging/cp_local_search_stereo_insertion/README.md`: source for the candidate generation, product-library, coverage-first seed, atomic product insertion, rollback, local-search, and conservative repair concepts.
-- `solvers/stereo_imaging/time_window_pruned_stereo_milp/README.md`: source for the candidate/product/conflict decomposition, coverage variables, and lexicographic covered-target then best-per-target-quality objective.
+- The submitted file contains raw observation actions, not pair choices or quality claims.
+- A target scores only through a valid stereo pair or tri-stereo set.
+- Legal single observations can still produce zero coverage.
+- Invalid schedules lose before coverage or quality matters.
+- Coverage is target-level: several products for one target do not cover several targets.
 
-## Recipe Mapping
+## Product Checklist
 
-- "First make a valid skeleton" comes from the public solution schema and the benchmark ranking rule that invalid schedules lose before any metric matters.
-- "Think in products before scheduling" comes from the benchmark's derived stereo-pair/tri-stereo definitions and both solver writeups' use of explicit candidate products before final schedule selection.
-- "Insert products atomically" comes from the CP/local-search writeup's product-level insertion, rollback, and repair strategy, combined with the benchmark same-satellite overlap and slew-plus-settle constraints.
-- "Coverage first, quality second" comes from the benchmark primary ranking and the MILP writeup's coverage-first, best-per-target-quality objective.
-- "Valid but zero score" follows from the benchmark distinction between valid individual observations and valid stereo or tri-stereo products: legal single images alone do not cover a target.
+For each intended product, check:
 
-## Validation Note
+- All observations use the same `target_id`.
+- Same-satellite pairs are in the same continuous access interval.
+- Cross-satellite pairs use different satellites and are allowed by the mission.
+- Pair midpoints are within the mission separation limit.
+- Convergence is within hard limits and preferably inside the scene band.
+- Overlap and pixel-scale ratio have margin, not boundary luck.
+- Tri-stereo has a near-nadir anchor and at least two valid constituent pairs.
 
-The skill was checked against the current stereo prompt to avoid repeating the full benchmark contract. It contains no setup, solve, verification, or other solver execution command recipes, and it does not reference private case answers.
+## Repair Checklist
+
+- Repair hard action validity first: schema, time, horizon, duration, IDs, off-nadir, access, solar, overlap, slew gap.
+- Then repair product validity: same target, product mode, temporal separation, convergence, overlap, pixel-scale ratio.
+- Remove or move whole products when possible so orphan observations do not clutter the schedule.
+- Keep a valid low-score solution while testing upgrades.

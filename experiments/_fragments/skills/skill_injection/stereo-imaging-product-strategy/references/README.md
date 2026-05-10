@@ -1,51 +1,50 @@
 # Stereo Imaging Product Strategy References
 
-This skill was grounded on 2026-05-10 in the public stereo benchmark contract, both stereo prompt fragments, and the two stereo solver READMEs. It intentionally focuses on product strategy and verifier diagnosis, not performance engineering or solver modeling syntax.
+Use this file as an agent-facing reminder for interpreting stereo-imaging products and verifier reports.
 
-## Local Sources Read
+## Product Facts
 
-- `benchmarks/stereo_imaging/README.md`
-  - Source for the solution schema, hard action constraints, verifier report fields, stereo pair and tri-stereo product definitions, quality model, scene-type convergence preferences, ranking order, and visualizer/verifier context.
-- `experiments/_fragments/prompts/stereo_imaging/README.default.md`
-  - Source for the workspace-facing statement that the agent submits raw observations while validation derives pair and tri-stereo products.
-  - Source for the detailed same-satellite slew, access, overlap, product, and quality wording visible in default runs.
-- `experiments/_fragments/prompts/stereo_imaging/README.verifier_exposure_none.md`
-  - Source for the no-verifier condition phrasing and validation pseudocode. The skill uses this to stay useful when no local verifier helper exists.
-- `solvers/stereo_imaging/cp_local_search_stereo_insertion/README.md`
-  - Source for candidate/product-library thinking, product-atomic insertion and rollback, deterministic coverage-first seeding, tri-stereo upgrade passes, local product-level moves, and conservative repair.
-- `solvers/stereo_imaging/time_window_pruned_stereo_milp/README.md`
-  - Source for candidate-prune-optimize decomposition, same-satellite/cross-satellite product modes, conflict graph framing, coverage-first best-per-target-quality semantics, and product enumeration risk notes.
+- You submit observation actions; the validator derives products.
+- Coverage comes from valid pair or tri-stereo products, not from individual observations.
+- Per-target score is the best valid product for that target.
+- Extra products for an already-covered target help only if they improve that target's best score or preserve alternatives during repair.
+- Same-satellite and cross-satellite products have different scheduling risks.
 
-## Skill Mapping
+## Product Modes
 
-- "Product mindset" comes from the benchmark distinction between raw submitted observations and derived stereo/tri products.
-- "Product modes" comes from the benchmark's same-satellite same-pass, cross-satellite, and tri-stereo definitions, with solver README evidence that these modes should be represented at product level.
-- "Quality strategy" comes from the benchmark quality model: scene-specific convergence preference, overlap score, pixel-scale-ratio score, and tri-stereo bonus with near-nadir anchor.
-- "Verifier diagnosis loop" comes from the benchmark report structure and prompt pseudocode. The skill maps common outcomes to the fields that should explain them.
-- "Repair playbook" comes from the benchmark hard constraints plus the solver README concept of conservative product-level repair.
+- **Same-satellite same-pass:** same target, same satellite, same continuous access interval. Watch same-satellite overlap and slew/settle gaps.
+- **Cross-satellite:** same target, different satellites, within the mission pair separation limit, and allowed by mission settings. Watch each satellite timeline separately.
+- **Tri-stereo:** three observations of one target, pair mode/time rules for all constituent pairs, common overlap, at least two valid pairs, and one near-nadir anchor.
 
-## Deliberate Boundaries
+## Scene-Aware Convergence
 
-- No solver source code, solver commands, first-party solver invocation recipes, or case-specific answers.
-- No complete geometry propagation implementation.
-- No Python performance guidance; that belongs to `python-optimization-for-search`.
-- No OR-Tools or CP-SAT modeling guidance; that belongs to `ortools-cpsat-modeling`.
-- No claim that local solver approximations exactly match the verifier in every numerical edge case.
+Scene preferences are quality preferences, not just validity gates:
 
-## Diagnostic Field Names Checked
+| scene_type | useful convergence band |
+|---|---|
+| `urban_structured` | 8-18 deg |
+| `vegetated` | 8-14 deg |
+| `rugged` | 10-20 deg |
+| `open` | 15-25 deg |
 
-The skill references public verifier fields documented in the benchmark README:
+If overlap or pixel-scale ratio becomes fragile, prefer a more conservative product over an extreme baseline.
 
-- `valid`
-- `metrics.coverage_ratio`
-- `metrics.normalized_quality`
-- `violations`
-- `derived_observations`
-- `diagnostics.pair_evaluations`
-- `diagnostics.per_target_best_score`
+## Verifier Fields
 
-The report-summary script accepts missing fields so it can still help with compact or hand-built verifier-like reports.
+Look for these fields when a verifier report is available:
 
-## Validation Note
+- `valid`: whether hard constraints passed.
+- `metrics.coverage_ratio`: fraction of targets with at least one valid product.
+- `metrics.normalized_quality`: mean best-per-target product score.
+- `violations`: hard failures to repair before reading product quality.
+- `derived_observations`: per-action geometry and access information.
+- `diagnostics.pair_evaluations`: product-level evidence such as convergence, overlap fraction, pixel-scale ratio, and validity.
+- `diagnostics.per_target_best_score`: target-level scoreboard for coverage and quality.
 
-The bundled script was run against `examples/synthetic_verifier_report.json`. Focused skill-injection dry-runs and tests were run after the directory was added.
+## Typical Diagnosis
+
+- Invalid file: fix hard constraints first.
+- Valid but zero score: legal observations are not forming products.
+- Low coverage: prioritize zero-score targets before polishing covered targets.
+- Low quality: use pair evaluations to identify whether convergence, overlap, or pixel-scale ratio is the weak component.
+- Tri-stereo failure: check near-nadir anchor, common overlap, and valid constituent pairs.

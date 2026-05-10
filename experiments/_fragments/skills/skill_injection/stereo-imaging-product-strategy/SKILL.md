@@ -7,7 +7,7 @@ description: Use when solving AstroReason stereo_imaging cases and you need ster
 
 Use this skill after you understand the case schema and need to improve `solution.json` based on product behavior. The case prompt remains the authority for exact thresholds, units, and output fields.
 
-For source mapping, read `references/README.md`. For debugging workflows, read `examples/verifier_diagnosis_checklist.md` and `examples/product_ranking_table.md`. If you have a verifier JSON report, `scripts/summarize_verifier_report.py` can summarize it without benchmark imports.
+For product reminders, read `references/README.md`. For debugging workflows, read `examples/verifier_diagnosis_checklist.md` and `examples/product_ranking_table.md`. If you have a verifier JSON report, `scripts/summarize_verifier_report.py` can summarize it using only the JSON fields.
 
 ## Product Mindset
 
