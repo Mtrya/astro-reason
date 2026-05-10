@@ -1,0 +1,22 @@
+name: skill_injection_interactive
+mode: interactive
+
+benchmark: stereo_imaging
+split: test
+case: case_0001
+condition: compact_domain
+
+harnesses:
+  - opencode_dpsk
+
+timeout_seconds: 7200
+
+resources:
+  cpus: 8
+  memory: 32g
+  shm_size: 16g
+
+results:
+  root: results/agent_runs/experiments/skill_injection
+  aggregate_dir: summaries
+

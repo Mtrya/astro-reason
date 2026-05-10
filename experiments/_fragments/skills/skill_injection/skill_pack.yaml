@@ -1,0 +1,20 @@
+bundle: skill_pack
+status: planned
+description: Multi-skill toolkit condition for richer expert guidance.
+skills:
+  - name: python-optimization-for-search
+    source: experiments/_fragments/skills/skill_injection/python-optimization-for-search
+    status: planned
+    roadmap: experiments/skill_injection/roadmaps/SKILL_2_PYTHON_OPTIMIZATION_FOR_SEARCH.md
+  - name: ortools-cpsat-modeling
+    source: experiments/_fragments/skills/skill_injection/ortools-cpsat-modeling
+    status: planned
+    roadmap: experiments/skill_injection/roadmaps/SKILL_3_ORTOOLS_CPSAT_MODELING.md
+  - name: classical-or-scheduling-methods
+    source: experiments/_fragments/skills/skill_injection/classical-or-scheduling-methods
+    status: planned
+    roadmap: experiments/skill_injection/roadmaps/SKILL_4_CLASSICAL_OR_SCHEDULING_METHODS.md
+  - name: stereo-imaging-product-strategy
+    source: experiments/_fragments/skills/skill_injection/stereo-imaging-product-strategy
+    status: planned
+    roadmap: experiments/skill_injection/roadmaps/SKILL_5_STEREO_IMAGING_PRODUCT_STRATEGY.md
