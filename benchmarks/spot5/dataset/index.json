@@ -2,9 +2,8 @@
   "benchmark": "spot5",
   "case_id_format": "instance_stem",
   "source": {
-    "kind": "upstream_zip",
-    "dataset_page": "https://data.mendeley.com/datasets/2kbzg9nw3b/1",
-    "download_url": "https://data.mendeley.com/public-api/zip/2kbzg9nw3b/download/1"
+    "kind": "local_directory",
+    "source_dir_name": "spot5-source"
   },
   "example_smoke_case": "single_orbit/8",
   "cases": [
@@ -189,6 +188,76 @@
       "path": "cases/test/1506",
       "instance_file": "1506.spot",
       "is_multi_orbit": true
+    },
+    {
+      "split": "train",
+      "case_id": "507",
+      "path": "cases/train/507",
+      "instance_file": "507.spot",
+      "is_multi_orbit": false
+    },
+    {
+      "split": "train",
+      "case_id": "54",
+      "path": "cases/train/54",
+      "instance_file": "54.spot",
+      "is_multi_orbit": false
+    },
+    {
+      "split": "train",
+      "case_id": "5",
+      "path": "cases/train/5",
+      "instance_file": "5.spot",
+      "is_multi_orbit": false
+    },
+    {
+      "split": "train",
+      "case_id": "1502",
+      "path": "cases/train/1502",
+      "instance_file": "1502.spot",
+      "is_multi_orbit": true
+    },
+    {
+      "split": "train",
+      "case_id": "503",
+      "path": "cases/train/503",
+      "instance_file": "503.spot",
+      "is_multi_orbit": false
+    },
+    {
+      "split": "train",
+      "case_id": "29",
+      "path": "cases/train/29",
+      "instance_file": "29.spot",
+      "is_multi_orbit": false
+    },
+    {
+      "split": "train",
+      "case_id": "1403",
+      "path": "cases/train/1403",
+      "instance_file": "1403.spot",
+      "is_multi_orbit": true
+    },
+    {
+      "split": "train",
+      "case_id": "8",
+      "path": "cases/train/8",
+      "instance_file": "8.spot",
+      "is_multi_orbit": false
+    },
+    {
+      "split": "train",
+      "case_id": "509",
+      "path": "cases/train/509",
+      "instance_file": "509.spot",
+      "is_multi_orbit": false
+    },
+    {
+      "split": "train",
+      "case_id": "42",
+      "path": "cases/train/42",
+      "instance_file": "42.spot",
+      "is_multi_orbit": false
     }
   ]
 }

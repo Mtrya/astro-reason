@@ -43,7 +43,9 @@ The canonical cases are generated from the aggregate upstream SatNet data:
 
 The committed split assignment is recorded in [splits.yaml](../splits.yaml),
 which currently places all five published cases in the `test` split and pairs
-`dataset/example_solution.json` with `test/W10_2018`.
+`dataset/example_solution.json` with `test/W10_2018`. SatNet intentionally has
+no `train` split because the benchmark only commits the five published 2018
+cases.
 
 Use [generator.py](../generator.py) to regenerate this layout from the upstream source or a local copy of the upstream `data/` directory:
 

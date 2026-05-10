@@ -15,7 +15,7 @@ source:
     path: generator/region_library.geojson
 
 splits:
-  test:
+  test: &test_split
     seed: 20260408
     case_count: 5
     dataset_attempt_stride: 1000003
@@ -38,7 +38,7 @@ splits:
       max_actions_total: 64
       revisit_bonus_alpha: 0.0
 
-    regions:
+    regions: &test_regions
       count:
         values: [2, 3, 4]
         weights: [1, 2, 1]
@@ -106,3 +106,11 @@ splits:
             slew_power_w: 45
             sunlit_charge_power_w: 230
             imaging_duty_limit_s_per_orbit: 1200
+
+  train:
+    <<: *test_split
+    seed: 20270408
+    case_count: 10
+    regions:
+      <<: *test_regions
+      max_region_reuse: 4

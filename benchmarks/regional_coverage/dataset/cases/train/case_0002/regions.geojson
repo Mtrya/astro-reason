@@ -1,0 +1,89 @@
+{
+  "features": [
+    {
+      "geometry": {
+        "coordinates": [
+          [
+            [
+              131.5,
+              -3.0
+            ],
+            [
+              134.0,
+              -4.5
+            ],
+            [
+              135.5,
+              -6.5
+            ],
+            [
+              133.0,
+              -7.5
+            ],
+            [
+              130.5,
+              -6.0
+            ],
+            [
+              129.8,
+              -4.0
+            ],
+            [
+              131.5,
+              -3.0
+            ]
+          ]
+        ],
+        "type": "Polygon"
+      },
+      "properties": {
+        "region_id": "indonesia_east",
+        "weight": 1.0
+      },
+      "type": "Feature"
+    },
+    {
+      "geometry": {
+        "coordinates": [
+          [
+            [
+              -86.5,
+              43.0
+            ],
+            [
+              -84.0,
+              44.5
+            ],
+            [
+              -85.0,
+              46.5
+            ],
+            [
+              -88.0,
+              46.0
+            ],
+            [
+              -89.0,
+              44.0
+            ],
+            [
+              -87.8,
+              42.8
+            ],
+            [
+              -86.5,
+              43.0
+            ]
+          ]
+        ],
+        "type": "Polygon"
+      },
+      "properties": {
+        "region_id": "great_lakes",
+        "weight": 1.0
+      },
+      "type": "Feature"
+    }
+  ],
+  "type": "FeatureCollection"
+}

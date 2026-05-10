@@ -28,7 +28,8 @@ example solution with a case in CI (see `docs/benchmark_contract.md`).
 
 The committed split assignment is recorded in [splits.yaml](../splits.yaml).
 It defines the full `single_orbit` and `multi_orbit` families plus an
-overlapping 5-case `test` split sampled with seed `42`.
+overlapping 5-case `test` split sampled with seed `42` and an overlapping
+10-case `train` split sampled with seed `163`.
 
 To regenerate this layout from the upstream Mendeley release, run:
 

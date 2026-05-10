@@ -424,11 +424,12 @@ uv run python -m benchmarks.regional_coverage.generator.run \
     --output-dir /tmp/regional_coverage_dataset
 ```
 
-The committed `splits.yaml` includes an exact supported CelesTrak snapshot epoch label for the vendored real-TLE subset. The generator rejects any other epoch because this benchmark does not ship alternate cached TLE snapshots.
+The committed `splits.yaml` includes an exact supported CelesTrak snapshot epoch label for the vendored real-TLE subset. It defines a 5-case `test` split plus a 10-case `train` split that inherits the test generation controls with a distinct seed. The generator rejects any other epoch because this benchmark does not ship alternate cached TLE snapshots.
 
 Running the canonical generator rewrites `benchmarks/regional_coverage/dataset/`, including:
 
 - `dataset/cases/test/`
+- `dataset/cases/train/`
 - `dataset/index.json`
 
 ### Visualizer

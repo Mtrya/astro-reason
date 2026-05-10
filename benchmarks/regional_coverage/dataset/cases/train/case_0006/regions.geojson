@@ -1,0 +1,85 @@
+{
+  "features": [
+    {
+      "geometry": {
+        "coordinates": [
+          [
+            [
+              88.2,
+              16.8
+            ],
+            [
+              90.5,
+              15.8
+            ],
+            [
+              91.0,
+              13.5
+            ],
+            [
+              88.8,
+              12.8
+            ],
+            [
+              87.0,
+              14.0
+            ],
+            [
+              86.8,
+              16.0
+            ],
+            [
+              88.2,
+              16.8
+            ]
+          ]
+        ],
+        "type": "Polygon"
+      },
+      "properties": {
+        "region_id": "bay_of_bengal",
+        "weight": 1.0
+      },
+      "type": "Feature"
+    },
+    {
+      "geometry": {
+        "coordinates": [
+          [
+            [
+              46.5,
+              18.0
+            ],
+            [
+              49.0,
+              16.8
+            ],
+            [
+              51.0,
+              18.3
+            ],
+            [
+              49.5,
+              20.5
+            ],
+            [
+              46.8,
+              20.0
+            ],
+            [
+              46.5,
+              18.0
+            ]
+          ]
+        ],
+        "type": "Polygon"
+      },
+      "properties": {
+        "region_id": "arabian_peninsula",
+        "weight": 1.0
+      },
+      "type": "Feature"
+    }
+  ],
+  "type": "FeatureCollection"
+}
