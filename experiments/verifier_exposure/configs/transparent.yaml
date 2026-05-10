@@ -3,18 +3,18 @@ exposure: transparent
 workspace_verifier:
   exposed: true
   kind: readable_source
-  location: verifier/
-  command: python -m verifier.run case/ solution.json
+  location: "{workspace_verifier_location}"
+  command: "{workspace_verifier_command}"
 
 assemble:
-  - source: experiments/_fragments/prompts/stereo_imaging/README.default.md
+  - source: "{prompt_readme}"
     target: /app/workspace/README.md
     render: true
   - source: benchmarks/{benchmark}/dataset/cases/{split}/{case_id}
     target: /app/workspace/case
-  - source: benchmarks/{benchmark}/verifier
-    target: /app/workspace/verifier
-  - source: experiments/_fragments/prompts/stereo_imaging/PROMPT.default.md
+  - source: "{verifier_source}"
+    target: "{workspace_verifier_target}"
+  - source: "{prompt_prompt}"
     target: /home/korolev/PROMPT.md
     render: true
   - source: experiments/_fragments/prompts/_shared/AGENTS.main_agentic.default.md

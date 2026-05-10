@@ -93,11 +93,17 @@ def _float_value(value: Any) -> float | None:
 
 
 def _normalized_score_pct(row: dict[str, Any]) -> float | None:
+    existing = _float_value(row.get("normalized_score_pct"))
+    if existing is not None:
+        return existing
     if not _valid_value(row):
         return 0.0
-    return score_norm.stereo_imaging_score_pct(
-        normalized_quality=_float_value(row.get("normalized_quality")),
-    )
+    benchmark = row.get("benchmark")
+    if benchmark == "stereo_imaging" or benchmark in (None, ""):
+        return score_norm.stereo_imaging_score_pct(
+            normalized_quality=_float_value(row.get("normalized_quality")),
+        )
+    return None
 
 
 def _mean_normalized_score_pct(rows: list[dict[str, Any]]) -> float | None:
@@ -183,6 +189,7 @@ def _case_rows(rows: list[dict[str, str]]) -> list[list[str]]:
         table_rows.append(
             [
                 row.get("exposure", ""),
+                row.get("split", ""),
                 row.get("kind", "agent"),
                 row.get("system") or row.get("harness", ""),
                 row.get("case_id", ""),
@@ -231,14 +238,37 @@ def _summary_with_normalized_scores(
     return updated
 
 
-def _write_report(*, summary: dict[str, Any], rows: list[dict[str, str]], reports_dir: Path) -> Path:
-    summary = _summary_with_normalized_scores(summary, rows)
+def _benchmark_summary(summary: dict[str, Any], benchmark: str) -> dict[str, Any]:
+    by_exposure = {
+        key.split("/", maxsplit=1)[1]: value
+        for key, value in (summary.get("by_benchmark_exposure") or {}).items()
+        if isinstance(key, str) and key.startswith(f"{benchmark}/")
+    }
+    by_exposure_system = {
+        key.removeprefix(f"{benchmark}/"): value
+        for key, value in (summary.get("by_benchmark_exposure_system") or {}).items()
+        if isinstance(key, str) and key.startswith(f"{benchmark}/")
+    }
+    if by_exposure:
+        return {**summary, "by_exposure": by_exposure, "by_exposure_system": by_exposure_system}
+    return summary
+
+
+def _write_report(
+    *,
+    summary: dict[str, Any],
+    rows: list[dict[str, str]],
+    reports_dir: Path,
+    benchmark: str = "stereo_imaging",
+) -> Path:
+    rows = [row for row in rows if row.get("benchmark", benchmark) in ("", benchmark)]
+    summary = _summary_with_normalized_scores(_benchmark_summary(summary, benchmark), rows)
     reports_dir.mkdir(parents=True, exist_ok=True)
-    report_path = reports_dir / "stereo_imaging.md"
+    report_path = reports_dir / f"{benchmark}.md"
     lines = [
         "# Verifier Exposure",
         "",
-        "Stereo-imaging comparison across verifier exposure tiers.",
+        f"{benchmark} comparison across verifier exposure tiers.",
         "",
         "Generated from the current `verifier_exposure` aggregate artifacts.",
         "",
@@ -286,6 +316,7 @@ def _write_report(*, summary: dict[str, Any], rows: list[dict[str, str]], report
         shared_reports.table(
             [
                 "Exposure",
+                "Split",
                 "Kind",
                 "System",
                 "Case",
@@ -299,7 +330,7 @@ def _write_report(*, summary: dict[str, Any], rows: list[dict[str, str]], report
                 "Score",
             ],
             _case_rows(rows),
-            numeric_from=8,
+            numeric_from=9,
         )
     )
     lines.append("")
@@ -318,12 +349,17 @@ def main(argv: list[str] | None = None) -> int:
     config_path = args.config.resolve()
     config = family_aggregate._load_config(config_path)
     aggregate_dir = family_aggregate._aggregate_dir(config, config_path)
-    report_path = _write_report(
-        summary=_read_json(aggregate_dir / "summary.json"),
-        rows=_read_csv(aggregate_dir / "runs.csv"),
-        reports_dir=args.reports_dir.resolve(),
-    )
-    print(f"Wrote {_display_path(report_path)}")
+    summary = _read_json(aggregate_dir / "summary.json")
+    rows = _read_csv(aggregate_dir / "runs.csv")
+    benchmarks = sorted({row.get("benchmark", "stereo_imaging") or "stereo_imaging" for row in rows})
+    for benchmark in benchmarks:
+        report_path = _write_report(
+            summary=summary,
+            rows=rows,
+            reports_dir=args.reports_dir.resolve(),
+            benchmark=benchmark,
+        )
+        print(f"Wrote {_display_path(report_path)}")
     return 0
 
 

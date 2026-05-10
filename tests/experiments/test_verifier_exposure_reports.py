@@ -7,7 +7,7 @@ from pathlib import Path
 REPO_ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(REPO_ROOT))
 
-from experiments.verifier_exposure import aggregate, plot_exposure, write_reports
+from experiments.verifier_exposure import aggregate, plot_exposure, run as verifier_run, write_reports
 
 
 def _write_run(path: Path, *, harness: str, coverage: float, quality: float) -> None:
@@ -88,10 +88,10 @@ def test_aggregate_records_include_opaque_and_solver_baselines(tmp_path: Path) -
         ("agent", "main_agentic", "opaque", "codex"),
         ("solver", "main_solver", "solver", "stereo_solver"),
     ]
-    assert summary["schema_version"] == 2
-    assert summary["by_exposure"]["opaque"]["mean_coverage_ratio"] == 0.4
-    assert summary["by_exposure"]["solver"]["mean_normalized_quality"] == 0.8
-    assert summary["by_exposure_system"]["solver/stereo_solver"]["kind"] == "solver"
+    assert summary["schema_version"] == 3
+    assert summary["by_benchmark_exposure"]["stereo_imaging/opaque"]["mean_coverage_ratio"] == 0.4
+    assert summary["by_benchmark_exposure"]["stereo_imaging/solver"]["mean_normalized_quality"] == 0.8
+    assert summary["by_benchmark_exposure_system"]["stereo_imaging/solver/stereo_solver"]["kind"] == "solver"
 
 
 def test_write_report_renders_exposure_and_case_tables(tmp_path: Path) -> None:
@@ -159,8 +159,8 @@ def test_write_report_renders_exposure_and_case_tables(tmp_path: Path) -> None:
     assert "| Exposure | Runs | Valid | Valid Rate | Mean Coverage | Mean Quality | Mean Score |" in report
     assert "| none | 2 | 1 | 0.5000 | 0.2500 | 0.7500 | 37.50 | missing_artifact: 1, success: 1 |" in report
     assert "| none | agent | codex | 1 | 1 | 1.0000 | 0.2500 | 0.7500 | 75.00 | success: 1 |" in report
-    assert "| none | agent | codex | case_0001 | present | success | valid | true | 12.50 | 0.2500 | 0.7500 | 75.00 |" in report
-    assert "| none | agent | opencode_dpsk | case_0002 | missing_or_malformed | missing_artifact |" in report
+    assert "| none |  | agent | codex | case_0001 | present | success | valid | true | 12.50 | 0.2500 | 0.7500 | 75.00 |" in report
+    assert "| none |  | agent | opencode_dpsk | case_0002 | missing_or_malformed | missing_artifact |" in report
 
 
 def test_normalized_score_gates_missing_and_invalid_rows_to_zero() -> None:
@@ -221,3 +221,83 @@ def test_plot_exposure_scores_average_by_harness_and_exposure(tmp_path: Path) ->
     plot_exposure._plot_scores(scores, output_path=output)
     assert output.exists()
     assert output.stat().st_size > 0
+
+
+def test_satnet_normalized_score_uses_shared_caps() -> None:
+    baseline_data = {"normalization": {"satnet": {"u_rms_cap": 1.0, "u_max_cap": 1.0}}}
+
+    score = aggregate._normalized_score_pct(
+        benchmark="satnet",
+        valid=True,
+        metrics={"u_rms": 0.2, "u_max": 0.6},
+        baseline_data=baseline_data,
+    )
+
+    assert score == 70.0
+    assert aggregate._normalized_score_pct(
+        benchmark="satnet",
+        valid=False,
+        metrics={"u_rms": 0.0, "u_max": 0.0},
+        baseline_data=baseline_data,
+    ) == 0.0
+
+
+def test_verifier_exposure_config_supports_multiple_benchmarks(tmp_path: Path) -> None:
+    config_path = tmp_path / "default.yaml"
+    config_path.write_text(
+        "\n".join(
+            [
+                "name: verifier_exposure",
+                "mode: batch",
+                "benchmarks:",
+                "  - benchmark: stereo_imaging",
+                "    split: test",
+                "    cases: [case_0001]",
+                "  - benchmark: satnet",
+                "    split: test",
+                "    cases: [W10_2018]",
+                "exposures: [transparent]",
+                "harnesses: [codex]",
+                "timeout_seconds: 7200",
+                "batch:",
+                "  max_concurrency: 1",
+                "resources: {}",
+                "results:",
+                f"  root: {tmp_path / 'results'}",
+                "  aggregate_dir: summaries",
+                "",
+            ]
+        ),
+        encoding="utf-8",
+    )
+
+    config = verifier_run.load_family_config(config_path)
+    _, items = verifier_run._build_items(
+        config,
+        benchmarks=(),
+        exposures=(),
+        harnesses=(),
+        cases=(),
+        split=None,
+        timeout=None,
+        max_concurrency=None,
+    )
+
+    assert [(item.benchmark, item.case_id) for item in items] == [
+        ("stereo_imaging", "case_0001"),
+        ("satnet", "W10_2018"),
+    ]
+
+
+def test_transparent_satnet_profile_uses_script_verifier() -> None:
+    profile = verifier_run.load_exposure_profile(
+        "transparent",
+        harness="codex",
+        benchmark="satnet",
+        split="test",
+        case_id="W10_2018",
+    )
+
+    assert profile.verifier_location == "verifier.py"
+    assert profile.verifier_command == "python verifier.py case/ solution.json --verbose"
+    assert any(spec.source.as_posix().endswith("benchmarks/satnet/verifier.py") for spec in profile.assemble)

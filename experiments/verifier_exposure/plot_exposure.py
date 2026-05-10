@@ -24,7 +24,7 @@ else:
 
 FAMILY_DIR = Path(__file__).resolve().parent
 DEFAULT_CONFIG = FAMILY_DIR / "configs" / "default.yaml"
-DEFAULT_OUTPUT = FAMILY_DIR / "reports" / "verifier_exposure_scores.png"
+DEFAULT_REPORTS_DIR = FAMILY_DIR / "reports"
 DEFAULT_HARNESSES = ("codex", "opencode_dpsk")
 EXPOSURE_ORDER = ("transparent", "opaque", "none")
 EXPOSURE_LABELS = {
@@ -49,11 +49,12 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         default=DEFAULT_CONFIG,
         help="Config whose aggregate artifacts should be plotted.",
     )
+    parser.add_argument("--benchmark", action="append", default=[], help="Benchmark to plot.")
     parser.add_argument(
-        "--output",
+        "--reports-dir",
         type=Path,
-        default=DEFAULT_OUTPUT,
-        help="Output image path.",
+        default=DEFAULT_REPORTS_DIR,
+        help="Directory where benchmark score plots should be written.",
     )
     return parser.parse_args(argv)
 
@@ -89,12 +90,17 @@ def _mean_score(
 def _scores_by_harness(
     rows: list[dict[str, str]],
     *,
+    benchmark: str = "stereo_imaging",
     harnesses: tuple[str, ...] = DEFAULT_HARNESSES,
     exposures: tuple[str, ...] = EXPOSURE_ORDER,
 ) -> dict[str, dict[str, float | None]]:
     return {
         harness: {
-            exposure: _mean_score(rows, harness=harness, exposure=exposure)
+            exposure: _mean_score(
+                [row for row in rows if row.get("benchmark", benchmark) in ("", benchmark)],
+                harness=harness,
+                exposure=exposure,
+            )
             for exposure in exposures
         }
         for harness in harnesses
@@ -105,6 +111,7 @@ def _plot_scores(
     scores: dict[str, dict[str, float | None]],
     *,
     output_path: Path,
+    benchmark: str = "stereo_imaging",
 ) -> None:
     os.environ.setdefault(
         "MPLCONFIGDIR",
@@ -140,11 +147,11 @@ def _plot_scores(
             )
 
     axes[0].set_ylabel("Normalized score")
-    fig.suptitle("Verifier Exposure Normalized Scores", fontsize=15, fontweight="bold")
+    fig.suptitle(f"{benchmark} Verifier Exposure Scores", fontsize=15, fontweight="bold")
     fig.text(
         0.5,
         0.02,
-        "Score is stereo normalized quality as percentage points; missing and invalid runs score 0.",
+        "Score is the shared benchmark normalized score; missing and invalid runs score 0.",
         ha="center",
         fontsize=9,
         color="#475467",
@@ -159,11 +166,17 @@ def main(argv: list[str] | None = None) -> int:
     args = parse_args(argv)
     config_path = args.config.resolve()
     rows = _read_csv(_aggregate_csv_path(config_path))
-    _plot_scores(
-        _scores_by_harness(rows),
-        output_path=args.output.resolve(),
+    benchmarks = tuple(args.benchmark) or tuple(
+        sorted({row.get("benchmark", "stereo_imaging") or "stereo_imaging" for row in rows})
     )
-    print(f"Wrote {args.output}")
+    for benchmark in benchmarks:
+        output = args.reports_dir.resolve() / f"{benchmark}_scores.png"
+        _plot_scores(
+            _scores_by_harness(rows, benchmark=benchmark),
+            output_path=output,
+            benchmark=benchmark,
+        )
+        print(f"Wrote {output}")
     return 0
 
 

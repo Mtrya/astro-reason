@@ -106,60 +106,57 @@ def _build_trace_viewer(
 ) -> tuple[int, int]:
     config_path = config_path.resolve()
     config = family_aggregate._load_config(config_path)
-    benchmark = config.get("benchmark")
-    split = config.get("split")
-    if not isinstance(benchmark, str) or not isinstance(split, str):
-        raise SystemExit(f"Config benchmark and split must be strings: {config_path}")
     root = family_aggregate._result_root(config, config_path)
     config_name = config_path.stem
 
     runs: list[dict[str, Any]] = []
     events_by_run: dict[str, list[dict[str, Any]]] = {}
-    for exposure in _config_list(config, "exposures"):
-        for harness in _config_list(config, "harnesses"):
-            for case_id in _config_list(config, "cases"):
-                run_json = family_aggregate._run_path(
-                    root,
-                    config_name,
-                    exposure=exposure,
-                    benchmark=benchmark,
-                    harness=harness,
-                    split=split,
-                    case_id=case_id,
-                )
-                if not run_json.exists():
-                    continue
-                run_data = shared_trace._read_json(run_json)
-                if run_data is None:
-                    continue
-                output = run_json.parent
-                run = _run_payload(
-                    exposure=exposure,
-                    benchmark=benchmark,
-                    harness=harness,
-                    split=split,
-                    case_id=case_id,
-                    output_dir=output,
-                    run_data=run_data,
-                )
-                trace_source = shared_trace._find_trace_source(output, harness)
-                events: list[dict[str, Any]] = []
-                todos: list[dict[str, Any]] = []
-                if trace_source is not None:
-                    events, todos = shared_trace._load_trace_events(
-                        trace_source,
-                        preview_chars=preview_chars,
-                        expanded_chars=expanded_chars,
+    for benchmark, split, case_ids in family_aggregate._benchmark_selections(config, config_path):
+        for exposure in _config_list(config, "exposures"):
+            for harness in _config_list(config, "harnesses"):
+                for case_id in case_ids:
+                    run_json = family_aggregate._run_path(
+                        root,
+                        config_name,
+                        exposure=exposure,
+                        benchmark=benchmark,
+                        harness=harness,
+                        split=split,
+                        case_id=case_id,
                     )
-                    run["trace_source"] = _relative_display(trace_source.path)
-                    run["trace_kind"] = trace_source.kind
-                else:
-                    run["trace_source"] = None
-                    run["trace_kind"] = None
-                run.update(shared_trace._event_summary(events, todos))
-                run["event_count"] = len(events)
-                runs.append(run)
-                events_by_run[run["id"]] = events
+                    if not run_json.exists():
+                        continue
+                    run_data = shared_trace._read_json(run_json)
+                    if run_data is None:
+                        continue
+                    output = run_json.parent
+                    run = _run_payload(
+                        exposure=exposure,
+                        benchmark=benchmark,
+                        harness=harness,
+                        split=split,
+                        case_id=case_id,
+                        output_dir=output,
+                        run_data=run_data,
+                    )
+                    trace_source = shared_trace._find_trace_source(output, harness)
+                    events: list[dict[str, Any]] = []
+                    todos: list[dict[str, Any]] = []
+                    if trace_source is not None:
+                        events, todos = shared_trace._load_trace_events(
+                            trace_source,
+                            preview_chars=preview_chars,
+                            expanded_chars=expanded_chars,
+                        )
+                        run["trace_source"] = _relative_display(trace_source.path)
+                        run["trace_kind"] = trace_source.kind
+                    else:
+                        run["trace_source"] = None
+                        run["trace_kind"] = None
+                    run.update(shared_trace._event_summary(events, todos))
+                    run["event_count"] = len(events)
+                    runs.append(run)
+                    events_by_run[run["id"]] = events
 
     output_dir.mkdir(parents=True, exist_ok=True)
     shared_trace._write_index_html(output_dir)

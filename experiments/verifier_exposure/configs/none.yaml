@@ -7,12 +7,12 @@ workspace_verifier:
   command: No verifier helper is available in this workspace.
 
 assemble:
-  - source: experiments/_fragments/prompts/stereo_imaging/README.verifier_exposure_none.md
+  - source: "{prompt_readme}"
     target: /app/workspace/README.md
     render: true
   - source: benchmarks/{benchmark}/dataset/cases/{split}/{case_id}
     target: /app/workspace/case
-  - source: experiments/_fragments/prompts/stereo_imaging/PROMPT.default.md
+  - source: "{prompt_prompt}"
     target: /home/korolev/PROMPT.md
     render: true
   - source: experiments/_fragments/prompts/_shared/AGENTS.main_agentic.default.md

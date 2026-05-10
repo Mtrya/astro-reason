@@ -1,50 +1,52 @@
 # Verifier Exposure
 
-`verifier_exposure` is a focused ablation for stereo-imaging scheduling. It varies what local verifier help the space agent sees inside the workspace while holding the benchmark, cases, prompts, runtime image, and official external evaluation fixed.
+`verifier_exposure` is a focused ablation of local verifier help. It varies what local verifier help the space agent sees inside the workspace while holding cases, prompts, runtime image, and official external evaluation fixed within each benchmark.
 
-`stereo_imaging` is used deliberately because it stresses both orbital access geometry and schedule optimization. The task uses real TLE propagation, target access checks, boresight steering, slew timing, and deterministic stereo and tri-stereo product scoring before any quality-improvement strategy can be trusted.
+The default matrix now covers two complementary benchmarks. `stereo_imaging` stresses both orbital access geometry and schedule optimization: the task uses real TLE propagation, target access checks, boresight steering, slew timing, and deterministic stereo and tri-stereo product scoring before any quality-improvement strategy can be trusted. `satnet` is an easier-to-state interval scheduling task: view periods are given directly, but agents must still respect setup/teardown timing, maintenance, antenna exclusivity, arrayed contacts, and fairness-related scoring.
 
-A transparent verifier can help for reasons that an opaque verifier cannot: it demonstrates how to use the exact astrodynamics, access, footprint-overlap, and quality-scoring routines, and it exposes internal routines the agent may call directly instead of reimplementing geometry from scratch. The opaque tier preserves only local feedback, while the `none` tier removes both source guidance and executable feedback but uses a more explicit problem brief to avoid turning the ablation into a task-description failure.
+A transparent verifier can help for reasons that an opaque verifier cannot: it demonstrates exact validity and scoring details, and for geometry-heavy tasks it exposes internal routines the agent may call directly instead of reimplementing them from scratch. The opaque tier preserves local feedback, while the `none` tier removes both source guidance and executable feedback.
 
 The three exposure tiers are:
 
-- `transparent`: readable stereo verifier source is assembled into the workspace.
+- `transparent`: readable benchmark verifier source is assembled into the workspace.
 - `opaque`: a runnable opaque verifier artifact is assembled into the workspace.
-- `none`: no runnable verifier helper is assembled; the README carries a more explicit validation pseudocode description.
+- `none`: no runnable verifier helper is assembled.
 
-Official evaluation always runs outside the agent workspace through the benchmark-owned stereo verifier CLI.
+Official evaluation always runs outside the agent workspace through the benchmark-owned verifier CLI.
 
 The default matrix runs:
 
-- benchmark: `stereo_imaging`
-- split: `test`
+- benchmarks: `stereo_imaging`, `satnet`
+- split: `test` for both benchmarks
 - exposures: `transparent`, `opaque`, `none`
 - harnesses: `codex`, `opencode_dpsk`
-- cases: `case_0001` through `case_0005`
+- stereo cases: `case_0001` through `case_0005`
+- SatNet cases: `W10_2018`, `W20_2018`, `W30_2018`, `W40_2018`, `W50_2018`
 
 Interpret summaries primarily by exposure tier, then by harness. A large gap between `transparent` and `opaque` suggests agents benefit from implementation guidance for the underlying access geometry, overlap approximation, and product scoring, not just from validation feedback. A large gap between `opaque` and `none` suggests local checker feedback is important even when verifier source is unavailable. If all tiers remain weak, the bottleneck is more likely the search strategy after the geometry layer is understood.
 
 ## Run
 
-Preview the default 30-run matrix:
+Preview the default 40-run matrix:
 
 ```bash
 uv run python experiments/verifier_exposure/run.py --dry-run
 ```
 
-Run all exposures and harnesses across all five stereo-imaging test cases:
+Run all configured transparent and none exposures across both benchmarks:
 
 ```bash
 uv run python experiments/verifier_exposure/run.py
 ```
 
-Filter by exposure, harness, or case:
+Filter by benchmark, exposure, harness, or case:
 
 ```bash
 uv run python experiments/verifier_exposure/run.py \
+  --benchmark satnet \
   --exposure none \
   --harness opencode_dpsk \
-  --case case_0001
+  --case W10_2018
 ```
 
 Prepare one interactive workspace:
@@ -59,7 +61,7 @@ Aggregate completed runs:
 uv run python experiments/verifier_exposure/aggregate.py
 ```
 
-Aggregation also includes `opaque` agent rows from the matching `main_agentic` stereo-imaging
+Aggregation also includes `opaque` agent rows from the matching `main_agentic`
 runs and solver baseline rows parsed from `experiments/main_solver/README.md`.
 
 Write the markdown report from aggregate artifacts:
@@ -74,10 +76,11 @@ Plot normalized scores by verifier exposure tier:
 uv run python experiments/verifier_exposure/plot_exposure.py
 ```
 
-The plotted score is the shared stereo-imaging normalized score:
-`normalized_quality` clipped to `[0, 1]` and reported as percentage points.
-Missing and invalid runs receive score `0`, matching the main-agentic radar
-plot convention.
+The plotted score uses the shared benchmark-specific normalized score. For
+stereo imaging this is `normalized_quality` clipped to `[0, 1]` and reported as
+percentage points. For SatNet this is the shared `u_rms`/`u_max` normalized
+score. Missing and invalid runs receive score `0`, matching the main-agentic
+radar plot convention.
 
 Generate chat-style trace reports:
 
@@ -90,7 +93,7 @@ uv run python experiments/verifier_exposure/trace_viewer.py
 Batch run artifacts live under:
 
 ```text
-results/agent_runs/experiments/verifier_exposure/<config>/<exposure>/stereo_imaging/<harness>/test/<case>/
+results/agent_runs/experiments/verifier_exposure/<config>/<exposure>/<benchmark>/<harness>/test/<case>/
 ```
 
 Every run records `exposure`, assembled workspace files, local verifier helper state, agent status, external verifier status, and parsed verifier results in `run.json`.
@@ -98,5 +101,5 @@ Every run records `exposure`, assembled workspace files, local verifier helper s
 The `opaque` exposure is read from:
 
 ```text
-results/agent_runs/experiments/main_agentic/matrix/stereo_imaging/<harness>/test/<case>/
+results/agent_runs/experiments/main_agentic/matrix/<benchmark>/<harness>/test/<case>/
 ```

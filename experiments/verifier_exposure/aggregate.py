@@ -19,12 +19,23 @@ if __package__ in (None, ""):
 
 from experiments._shared import aggregate as shared_aggregate
 from experiments._shared import main_solver_baselines
+from experiments._shared import score_normalization as score_norm
 
 FAMILY_DIR = Path(__file__).resolve().parent
 DEFAULT_CONFIG = FAMILY_DIR / "configs" / "default.yaml"
 DEFAULT_BASELINES = main_solver_baselines.DEFAULT_MAIN_SOLVER_README
 DEFAULT_MAIN_AGENTIC_ROOT = (
     REPO_ROOT / "results" / "agent_runs" / "experiments" / "main_agentic" / "matrix"
+)
+METRIC_FIELDS = (
+    "coverage_ratio",
+    "normalized_quality",
+    "score_hours",
+    "n_satisfied_requests",
+    "u_rms",
+    "u_max",
+    "n_tracks",
+    "normalized_score_pct",
 )
 
 
@@ -107,6 +118,8 @@ def _main_agentic_run_path(
 
 def _missing_agent_row(
     *,
+    benchmark: str,
+    split: str,
     exposure: str,
     harness: str,
     case_id: str,
@@ -116,6 +129,8 @@ def _missing_agent_row(
     return {
         "kind": "agent",
         "source_experiment": source_experiment,
+        "benchmark": benchmark,
+        "split": split,
         "exposure": exposure,
         "system": harness,
         "harness": harness,
@@ -126,23 +141,27 @@ def _missing_agent_row(
         "verifier_status": "missing_artifact",
         "valid": None,
         "duration_seconds": None,
-        "coverage_ratio": None,
-        "normalized_quality": None,
+        **{field: None for field in METRIC_FIELDS},
         "result_path": _display_path(run_path),
     }
 
 
 def _agent_row(
     *,
+    benchmark: str,
+    split: str,
     exposure: str,
     harness: str,
     case_id: str,
     run_path: Path,
     source_experiment: str,
+    baseline_data: dict[str, Any],
 ) -> dict[str, Any]:
     payload = shared_aggregate.read_run_json(run_path)
     if payload is None:
         return _missing_agent_row(
+            benchmark=_benchmark_from_expected_path(run_path, source_experiment),
+            split=_split_from_expected_path(run_path, source_experiment),
             exposure=exposure,
             harness=harness,
             case_id=case_id,
@@ -150,10 +169,17 @@ def _agent_row(
             source_experiment=source_experiment,
         )
     verifier = payload.get("verifier") if isinstance(payload.get("verifier"), dict) else {}
+    metrics = verifier.get("metrics") if isinstance(verifier.get("metrics"), dict) else {}
     duration_seconds = shared_aggregate.coerce_numeric(payload.get("duration_seconds"))
+    benchmark = payload.get("benchmark", benchmark)
+    split = payload.get("split", split)
+    valid = verifier.get("valid") if isinstance(verifier.get("valid"), bool) else None
+    metric_values = _metrics_from_mapping(metrics)
     return {
         "kind": "agent",
         "source_experiment": source_experiment,
+        "benchmark": benchmark,
+        "split": split,
         "exposure": payload.get("exposure", exposure),
         "system": payload.get("harness", harness),
         "harness": payload.get("harness", harness),
@@ -162,12 +188,53 @@ def _agent_row(
         "overall_status": payload.get("overall_status", "unknown"),
         "agent_status": payload.get("agent_status", "unknown"),
         "verifier_status": payload.get("verifier_status", "unknown"),
-        "valid": verifier.get("valid") if isinstance(verifier.get("valid"), bool) else None,
+        "valid": valid,
         "duration_seconds": duration_seconds,
-        "coverage_ratio": _metric(payload, "coverage_ratio"),
-        "normalized_quality": _metric(payload, "normalized_quality"),
+        **metric_values,
+        "normalized_score_pct": _normalized_score_pct(
+            benchmark=str(benchmark),
+            valid=valid,
+            metrics=metric_values,
+            baseline_data=baseline_data,
+        ),
         "result_path": _display_path(run_path),
     }
+
+
+def _benchmark_from_run_path(path: Path) -> str | None:
+    parts = path.parts
+    for index, part in enumerate(parts):
+        if part == "main_agentic" and index + 2 < len(parts):
+            return parts[index + 2]
+    return None
+
+
+def _benchmark_from_expected_path(path: Path, source_experiment: str) -> str:
+    parts = path.parts
+    if source_experiment == "main_agentic":
+        for index, part in enumerate(parts):
+            if part == "matrix" and index + 1 < len(parts):
+                return parts[index + 1]
+    for index, part in enumerate(parts):
+        if part == "verifier_exposure" and index + 3 < len(parts):
+            return parts[index + 3]
+    return ""
+
+
+def _split_from_expected_path(path: Path, source_experiment: str) -> str:
+    parts = path.parts
+    if source_experiment == "main_agentic":
+        for index, part in enumerate(parts):
+            if part == "matrix" and index + 3 < len(parts):
+                return parts[index + 3]
+    for index, part in enumerate(parts):
+        if part == "verifier_exposure" and index + 5 < len(parts):
+            return parts[index + 5]
+    return ""
+
+
+def _metrics_from_mapping(metrics: dict[str, Any]) -> dict[str, float | None]:
+    return {field: _metric_from_mapping(metrics, field) for field in METRIC_FIELDS if field != "normalized_score_pct"}
 
 
 def _metric(payload: dict[str, Any], key: str) -> float | None:
@@ -192,6 +259,38 @@ def _mean(values: list[float]) -> float | None:
     return float(mean) if mean is not None else None
 
 
+def _normalization_config(baseline_data: dict[str, Any], benchmark: str) -> dict[str, Any]:
+    normalization = baseline_data.get("normalization")
+    if not isinstance(normalization, dict):
+        return {}
+    config = normalization.get(benchmark)
+    return config if isinstance(config, dict) else {}
+
+
+def _normalized_score_pct(
+    *,
+    benchmark: str,
+    valid: bool | None,
+    metrics: dict[str, Any],
+    baseline_data: dict[str, Any],
+) -> float | None:
+    if valid is not True:
+        return 0.0
+    if benchmark == "stereo_imaging":
+        return score_norm.stereo_imaging_score_pct(
+            normalized_quality=metrics.get("normalized_quality"),
+        )
+    if benchmark == "satnet":
+        config = _normalization_config(baseline_data, benchmark)
+        return score_norm.satnet_score_pct(
+            u_rms=metrics.get("u_rms"),
+            u_max=metrics.get("u_max"),
+            u_rms_cap=config.get("u_rms_cap"),
+            u_max_cap=config.get("u_max_cap"),
+        )
+    return None
+
+
 def _format(value: Any) -> str:
     if value is None:
         return ""
@@ -211,6 +310,31 @@ def _config_list(config: dict[str, Any], key: str) -> tuple[str, ...]:
     if not isinstance(values, list) or any(not isinstance(value, str) for value in values):
         raise SystemExit(f"Config {key} must be a list of strings")
     return tuple(values)
+
+
+def _benchmark_selections(config: dict[str, Any], path: Path) -> tuple[tuple[str, str, tuple[str, ...]], ...]:
+    raw = config.get("benchmarks")
+    if raw is None:
+        benchmark = config.get("benchmark")
+        split = config.get("split")
+        if not isinstance(benchmark, str) or not isinstance(split, str):
+            raise SystemExit("Config benchmark and split must be strings")
+        return ((benchmark, split, _config_list(config, "cases")),)
+    if not isinstance(raw, list) or not raw:
+        raise SystemExit(f"Config benchmarks must be a non-empty list: {path}")
+    selections: list[tuple[str, str, tuple[str, ...]]] = []
+    for index, item in enumerate(raw):
+        if not isinstance(item, dict):
+            raise SystemExit(f"Config benchmarks[{index}] must be a mapping: {path}")
+        benchmark = item.get("benchmark")
+        split = item.get("split")
+        cases = item.get("cases", [])
+        if not isinstance(benchmark, str) or not isinstance(split, str):
+            raise SystemExit(f"Config benchmarks[{index}] benchmark and split must be strings: {path}")
+        if not isinstance(cases, list) or any(not isinstance(case, str) for case in cases):
+            raise SystemExit(f"Config benchmarks[{index}].cases must be a list of strings: {path}")
+        selections.append((benchmark, split, tuple(cases)))
+    return tuple(selections)
 
 
 def _solver_rows(
@@ -241,10 +365,13 @@ def _solver_rows(
         if not isinstance(metrics, dict):
             metrics = {}
         valid = row.get("valid")
+        metric_values = _metrics_from_mapping(metrics)
         records.append(
             {
                 "kind": "solver",
                 "source_experiment": "main_solver",
+                "benchmark": benchmark,
+                "split": split,
                 "exposure": "solver",
                 "system": method,
                 "harness": "",
@@ -255,8 +382,13 @@ def _solver_rows(
                 "verifier_status": row.get("status", "verified"),
                 "valid": valid if isinstance(valid, bool) else True,
                 "duration_seconds": _metric_from_mapping(metrics, "solve_s"),
-                "coverage_ratio": _metric_from_mapping(metrics, "coverage_ratio"),
-                "normalized_quality": _metric_from_mapping(metrics, "normalized_quality"),
+                **metric_values,
+                "normalized_score_pct": _normalized_score_pct(
+                    benchmark=benchmark,
+                    valid=valid if isinstance(valid, bool) else True,
+                    metrics=metric_values,
+                    baseline_data=baseline_data,
+                ),
                 "result_path": _display_path(baseline_path),
             }
         )
@@ -272,25 +404,43 @@ def _records(
     main_agentic_root: Path = DEFAULT_MAIN_AGENTIC_ROOT,
 ) -> list[dict[str, Any]]:
     root = _result_root(config, config_path)
-    benchmark = config.get("benchmark")
-    split = config.get("split")
     exposures = _config_list(config, "exposures")
-    case_ids = _config_list(config, "cases")
     harnesses = _config_list(config, "harnesses")
     if not harnesses:
         raise SystemExit(f"Config harnesses must contain at least one item: {config_path}")
-    if not isinstance(benchmark, str) or not isinstance(split, str):
-        raise SystemExit("Config benchmark and split must be strings")
     rows: list[dict[str, Any]] = []
-    for exposure in exposures:
-        if exposure == "opaque":
-            continue
+    for benchmark, split, case_ids in _benchmark_selections(config, config_path):
+        for exposure in exposures:
+            if exposure == "opaque":
+                continue
+            for harness in harnesses:
+                for case_id in case_ids:
+                    run_path = _run_path(
+                        root,
+                        config_path.stem,
+                        exposure=exposure,
+                        benchmark=benchmark,
+                        harness=harness,
+                        split=split,
+                        case_id=case_id,
+                    )
+                    rows.append(
+                        _agent_row(
+                            benchmark=benchmark,
+                            split=split,
+                            exposure=exposure,
+                            harness=harness,
+                            case_id=case_id,
+                            run_path=run_path,
+                            source_experiment="verifier_exposure",
+                            baseline_data=baseline_data,
+                        )
+                    )
+
         for harness in harnesses:
             for case_id in case_ids:
-                run_path = _run_path(
-                    root,
-                    config_path.stem,
-                    exposure=exposure,
+                run_path = _main_agentic_run_path(
+                    main_agentic_root,
                     benchmark=benchmark,
                     harness=harness,
                     split=split,
@@ -298,105 +448,82 @@ def _records(
                 )
                 rows.append(
                     _agent_row(
-                        exposure=exposure,
+                        benchmark=benchmark,
+                        split=split,
+                        exposure="opaque",
                         harness=harness,
                         case_id=case_id,
                         run_path=run_path,
-                        source_experiment="verifier_exposure",
+                        source_experiment="main_agentic",
+                        baseline_data=baseline_data,
                     )
                 )
 
-    for harness in harnesses:
-        for case_id in case_ids:
-            run_path = _main_agentic_run_path(
-                main_agentic_root,
+        rows.extend(
+            _solver_rows(
+                baseline_data=baseline_data,
+                baseline_path=baseline_path,
                 benchmark=benchmark,
-                harness=harness,
                 split=split,
-                case_id=case_id,
+                case_ids=case_ids,
             )
-            rows.append(
-                _agent_row(
-                    exposure="opaque",
-                    harness=harness,
-                    case_id=case_id,
-                    run_path=run_path,
-                    source_experiment="main_agentic",
-                )
-            )
-
-    rows.extend(
-        _solver_rows(
-            baseline_data=baseline_data,
-            baseline_path=baseline_path,
-            benchmark=benchmark,
-            split=split,
-            case_ids=case_ids,
         )
-    )
     return rows
 
 
 def _summary(rows: list[dict[str, Any]]) -> dict[str, Any]:
-    exposures = sorted({str(row["exposure"]) for row in rows})
-    by_exposure: dict[str, Any] = {}
-    for exposure in exposures:
-        exposure_rows = [row for row in rows if row["exposure"] == exposure]
-        valid_values = [row["valid"] for row in exposure_rows if isinstance(row["valid"], bool)]
-        by_exposure[exposure] = {
-            "run_count": len(exposure_rows),
-            "valid_count": sum(1 for value in valid_values if value),
-            "valid_rate": (
-                sum(1 for value in valid_values if value) / len(valid_values)
-                if valid_values
-                else None
-            ),
-            "overall_status_counts": shared_aggregate.status_counts(exposure_rows, "overall_status"),
-            "verifier_status_counts": shared_aggregate.status_counts(exposure_rows, "verifier_status"),
-            "mean_coverage_ratio": _mean(
-                [row["coverage_ratio"] for row in exposure_rows if isinstance(row["coverage_ratio"], float)]
-            ),
-            "mean_normalized_quality": _mean(
-                [
-                    row["normalized_quality"]
-                    for row in exposure_rows
-                    if isinstance(row["normalized_quality"], float)
-                ]
-            ),
-        }
-    by_exposure_system: dict[str, Any] = {}
-    for exposure in exposures:
-        for system in sorted({str(row["system"]) for row in rows if row["exposure"] == exposure}):
-            group_rows = [row for row in rows if row["exposure"] == exposure and row["system"] == system]
-            valid_values = [row["valid"] for row in group_rows if isinstance(row["valid"], bool)]
-            by_exposure_system[f"{exposure}/{system}"] = {
-                "kind": group_rows[0].get("kind", "agent") if group_rows else "unknown",
-                "run_count": len(group_rows),
-                "valid_count": sum(1 for value in valid_values if value),
-                "valid_rate": (
-                    sum(1 for value in valid_values if value) / len(valid_values)
-                    if valid_values
-                    else None
-                ),
-                "overall_status_counts": shared_aggregate.status_counts(group_rows, "overall_status"),
-                "mean_coverage_ratio": _mean(
-                    [row["coverage_ratio"] for row in group_rows if isinstance(row["coverage_ratio"], float)]
-                ),
-                "mean_normalized_quality": _mean(
-                    [
-                        row["normalized_quality"]
-                        for row in group_rows
-                        if isinstance(row["normalized_quality"], float)
-                    ]
-                ),
-            }
+    by_benchmark_exposure: dict[str, Any] = {}
+    by_benchmark_exposure_system: dict[str, Any] = {}
+    for benchmark in sorted({str(row["benchmark"]) for row in rows}):
+        benchmark_rows = [row for row in rows if row["benchmark"] == benchmark]
+        for exposure in sorted({str(row["exposure"]) for row in benchmark_rows}):
+            exposure_rows = [row for row in benchmark_rows if row["exposure"] == exposure]
+            by_benchmark_exposure[f"{benchmark}/{exposure}"] = _group_summary(exposure_rows)
+            for system in sorted({str(row["system"]) for row in exposure_rows}):
+                group_rows = [row for row in exposure_rows if row["system"] == system]
+                summary = _group_summary(group_rows)
+                summary["kind"] = group_rows[0].get("kind", "agent") if group_rows else "unknown"
+                by_benchmark_exposure_system[f"{benchmark}/{exposure}/{system}"] = summary
     return {
-        "schema_version": 2,
+        "schema_version": 3,
         "experiment": "verifier_exposure",
         "generated_at": datetime.now(timezone.utc).isoformat(),
-        "by_exposure": by_exposure,
-        "by_exposure_system": by_exposure_system,
-        "by_exposure_harness": by_exposure_system,
+        "by_benchmark_exposure": by_benchmark_exposure,
+        "by_benchmark_exposure_system": by_benchmark_exposure_system,
+        "by_exposure": {
+            key.split("/", maxsplit=1)[1]: value
+            for key, value in by_benchmark_exposure.items()
+            if key.startswith("stereo_imaging/")
+        },
+        "by_exposure_system": {
+            key.removeprefix("stereo_imaging/"): value
+            for key, value in by_benchmark_exposure_system.items()
+            if key.startswith("stereo_imaging/")
+        },
+        "by_exposure_harness": {
+            key.removeprefix("stereo_imaging/"): value
+            for key, value in by_benchmark_exposure_system.items()
+            if key.startswith("stereo_imaging/")
+        },
+    }
+
+
+def _group_summary(rows: list[dict[str, Any]]) -> dict[str, Any]:
+    valid_values = [row["valid"] for row in rows if isinstance(row["valid"], bool)]
+    return {
+        "run_count": len(rows),
+        "valid_count": sum(1 for value in valid_values if value),
+        "valid_rate": (
+            sum(1 for value in valid_values if value) / len(valid_values)
+            if valid_values
+            else None
+        ),
+        "overall_status_counts": shared_aggregate.status_counts(rows, "overall_status"),
+        "verifier_status_counts": shared_aggregate.status_counts(rows, "verifier_status"),
+        **{
+            f"mean_{field}": _mean([row[field] for row in rows if isinstance(row.get(field), float)])
+            for field in METRIC_FIELDS
+        },
     }
 
 
@@ -404,6 +531,8 @@ def _write_csv(path: Path, rows: list[dict[str, Any]]) -> None:
     fieldnames = [
         "kind",
         "source_experiment",
+        "benchmark",
+        "split",
         "exposure",
         "system",
         "harness",
@@ -414,8 +543,7 @@ def _write_csv(path: Path, rows: list[dict[str, Any]]) -> None:
         "verifier_status",
         "valid",
         "duration_seconds",
-        "coverage_ratio",
-        "normalized_quality",
+        *METRIC_FIELDS,
         "result_path",
     ]
     shared_aggregate.ensure_dir(path.parent)

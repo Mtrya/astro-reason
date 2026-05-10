@@ -29,6 +29,10 @@ WORKSPACE_MOUNT = Path("/app/workspace")
 OUTPUT_MOUNT = Path("/app/run/output")
 CONTAINER_HOME = Path("/home/korolev")
 PLACEHOLDER_PATTERN = re.compile(r"\{([A-Za-z_][A-Za-z0-9_]*)\}")
+SATNET_COMPACT_PATTERN = re.compile(
+    r"(VALID|INVALID):\s+(?:total_hours|score)=([+-]?(?:\d+(?:\.\d*)?|\.\d+))h,\s+tracks=(\d+)"
+)
+STATUS_PATTERN = re.compile(r"^Status:\s+(VALID|INVALID)\s*$", re.MULTILINE)
 OPAQUE_ARTIFACT_ROOT = REPO_ROOT / "experiments" / "_fragments" / "opaque_verifiers" / "artifacts"
 OPAQUE_BUILD_SCRIPT = REPO_ROOT / "experiments" / "_fragments" / "opaque_verifiers" / "build.py"
 INTERACTIVE_WORKSPACES_ROOT = REPO_ROOT / ".runtime" / "interactive_workspaces"
@@ -72,12 +76,20 @@ class ResultSettings:
 
 
 @dataclass(frozen=True)
+class BenchmarkSelection:
+    benchmark: str
+    split: str
+    cases: tuple[str, ...]
+
+
+@dataclass(frozen=True)
 class FamilyConfig:
     name: str
     mode: str
     benchmark: str
     split: str
     cases: tuple[str, ...]
+    benchmarks: tuple[BenchmarkSelection, ...]
     exposures: tuple[str, ...]
     harnesses: tuple[str, ...]
     timeout_seconds: int
@@ -160,6 +172,7 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Run the verifier-exposure ablation")
     parser.add_argument("--config", type=Path, help="Override the default config path.")
     parser.add_argument("--interactive", action="store_true", help="Prepare one interactive workspace.")
+    parser.add_argument("--benchmark", action="append", default=[], help="Limit to a benchmark.")
     parser.add_argument("--exposure", action="append", default=[], help="Limit to an exposure tier.")
     parser.add_argument("--case", action="append", default=[], help="Limit to a case id.")
     parser.add_argument("--harness", action="append", default=[], help="Limit to a harness.")
@@ -264,12 +277,15 @@ def _positive_int(value: Any, field: str, path: Path | None = None) -> int:
 def load_family_config(path: Path) -> FamilyConfig:
     data = _load_yaml(path, "Family config")
     results = _result_settings(data, path)
+    benchmarks = _benchmark_selections(data, path)
+    first = benchmarks[0]
     return FamilyConfig(
         name=_require_str(data, "name", "Family config", path),
         mode=_require_str(data, "mode", "Family config", path),
-        benchmark=_require_str(data, "benchmark", "Family config", path),
-        split=_require_str(data, "split", "Family config", path),
-        cases=_string_tuple(data, "cases", "Family config", path),
+        benchmark=first.benchmark,
+        split=first.split,
+        cases=first.cases,
+        benchmarks=benchmarks,
         exposures=_string_tuple(data, "exposures", "Family config", path),
         harnesses=_required_string_tuple(data, "harnesses", "Family config", path),
         timeout_seconds=_positive_int(data.get("timeout_seconds", 7200), "timeout_seconds", path),
@@ -278,6 +294,32 @@ def load_family_config(path: Path) -> FamilyConfig:
         results=results,
         config_path=path.resolve(),
     )
+
+
+def _benchmark_selections(data: dict[str, Any], path: Path) -> tuple[BenchmarkSelection, ...]:
+    raw = data.get("benchmarks")
+    if raw is None:
+        return (
+            BenchmarkSelection(
+                benchmark=_require_str(data, "benchmark", "Family config", path),
+                split=_require_str(data, "split", "Family config", path),
+                cases=_string_tuple(data, "cases", "Family config", path),
+            ),
+        )
+    if not isinstance(raw, list) or not raw:
+        raise SystemExit(f"Family config benchmarks must be a non-empty list: {path}")
+    selections: list[BenchmarkSelection] = []
+    for index, item in enumerate(raw):
+        if not isinstance(item, dict):
+            raise SystemExit(f"Family config benchmarks[{index}] must be a mapping: {path}")
+        selections.append(
+            BenchmarkSelection(
+                benchmark=_require_str(item, "benchmark", f"benchmarks[{index}]", path),
+                split=_require_str(item, "split", f"benchmarks[{index}]", path),
+                cases=_string_tuple(item, "cases", f"benchmarks[{index}]", path),
+            )
+        )
+    return tuple(selections)
 
 
 def load_interactive_config(path: Path) -> InteractiveConfig:
@@ -383,6 +425,12 @@ def load_exposure_profile(
         "split": split,
         "case_id": case_id,
         "exposure": exposure,
+        "prompt_readme": _prompt_readme(benchmark, exposure).as_posix(),
+        "prompt_prompt": _prompt_prompt(benchmark).as_posix(),
+        "verifier_source": _transparent_verifier_source(benchmark).as_posix(),
+        "workspace_verifier_location": _workspace_verifier_location(benchmark),
+        "workspace_verifier_target": _workspace_verifier_target(benchmark).as_posix(),
+        "workspace_verifier_command": _workspace_verifier_command(benchmark),
     }
     harness_profile = load_harness_profile(harness)
     return ExposureProfile(
@@ -390,14 +438,57 @@ def load_exposure_profile(
         runtime=harness_profile.runtime,
         verifier_exposed=bool(verifier.get("exposed", False)),
         verifier_kind=_require_str(verifier, "kind", "workspace_verifier", path),
-        verifier_location=_require_str(verifier, "location", "workspace_verifier", path),
-        verifier_command=_require_str(verifier, "command", "workspace_verifier", path),
+        verifier_location=_render_template(
+            _require_str(verifier, "location", "workspace_verifier", path),
+            replacements,
+        ),
+        verifier_command=_render_template(
+            _require_str(verifier, "command", "workspace_verifier", path),
+            replacements,
+        ),
         assemble=(*_parse_assemble(data.get("assemble"), path, replacements), *harness_profile.assemble),
         collect=harness_profile.collect,
         forward_env_keys=harness_profile.forward_env_keys,
         headless_shell_command=harness_profile.headless_shell_command,
         profile_path=path.resolve(),
     )
+
+
+def _prompt_readme(benchmark: str, exposure: str) -> Path:
+    prompt_dir = REPO_ROOT / "experiments" / "_fragments" / "prompts" / benchmark
+    if exposure == "none":
+        specific = prompt_dir / "README.verifier_exposure_none.md"
+        if specific.exists():
+            return specific.relative_to(REPO_ROOT)
+    return (prompt_dir / "README.default.md").relative_to(REPO_ROOT)
+
+
+def _prompt_prompt(benchmark: str) -> Path:
+    return Path("experiments") / "_fragments" / "prompts" / benchmark / "PROMPT.default.md"
+
+
+def _transparent_verifier_source(benchmark: str) -> Path:
+    package_verifier = REPO_ROOT / "benchmarks" / benchmark / "verifier"
+    if package_verifier.exists():
+        return package_verifier.relative_to(REPO_ROOT)
+    script_verifier = REPO_ROOT / "benchmarks" / benchmark / "verifier.py"
+    if script_verifier.exists():
+        return script_verifier.relative_to(REPO_ROOT)
+    raise SystemExit(f"No transparent verifier source found for benchmark: {benchmark}")
+
+
+def _workspace_verifier_location(benchmark: str) -> str:
+    return "verifier/" if (REPO_ROOT / "benchmarks" / benchmark / "verifier").exists() else "verifier.py"
+
+
+def _workspace_verifier_target(benchmark: str) -> Path:
+    return WORKSPACE_MOUNT / ("verifier" if _workspace_verifier_location(benchmark) == "verifier/" else "verifier.py")
+
+
+def _workspace_verifier_command(benchmark: str) -> str:
+    if (REPO_ROOT / "benchmarks" / benchmark / "verifier").exists():
+        return "python -m verifier.run case/ solution.json"
+    return "python verifier.py case/ solution.json --verbose"
 
 
 def load_harness_profile(name: str) -> HarnessProfile:
@@ -795,20 +886,18 @@ def _external_verifier(item: RunItem, output_dir: Path, solution_present: bool) 
         return "no_solution", {"valid": False, "error": "No solution.json was produced."}
     case_dir = _case_dir(item.benchmark, item.split, item.case_id)
     solution = output_dir / "solution.json"
-    cmd = [
-        "uv",
-        "run",
-        "python",
-        "-m",
-        f"benchmarks.{item.benchmark}.verifier.run",
-        str(case_dir),
-        str(solution),
-    ]
+    cmd = _verifier_command(item.benchmark, case_dir, solution)
     exit_code, stdout, stderr, launched = _run_capture(cmd, cwd=REPO_ROOT)
     (output_dir / "verifier_stdout.txt").write_text(stdout, encoding="utf-8")
     (output_dir / "verifier_stderr.txt").write_text(stderr, encoding="utf-8")
     if not launched:
         return "error", {"valid": False, "error": stderr}
+    compact_payload = _parse_compact_cli_verifier_payload(item.benchmark, stdout, exit_code)
+    if compact_payload is not None:
+        valid = compact_payload.get("valid")
+        if isinstance(valid, bool) and exit_code in (0, 1):
+            return ("valid" if valid else "invalid"), compact_payload
+        return "error", {**compact_payload, "stderr": stderr.strip()}
     try:
         parsed = json.loads(stdout) if stdout.strip() else {}
     except json.JSONDecodeError:
@@ -820,6 +909,103 @@ def _external_verifier(item: RunItem, output_dir: Path, solution_present: bool) 
     if parsed["valid"]:
         return "valid", parsed
     return "invalid", parsed
+
+
+def _verifier_command(benchmark: str, case_dir: Path, solution: Path) -> list[str]:
+    package_verifier = REPO_ROOT / "benchmarks" / benchmark / "verifier"
+    if package_verifier.exists():
+        return [
+            "uv",
+            "run",
+            "python",
+            "-m",
+            f"benchmarks.{benchmark}.verifier.run",
+            str(case_dir),
+            str(solution),
+        ]
+    script_verifier = REPO_ROOT / "benchmarks" / benchmark / "verifier.py"
+    if not script_verifier.exists():
+        raise SystemExit(f"No verifier found for benchmark {benchmark}")
+    cmd = ["uv", "run", "python", str(script_verifier), str(case_dir), str(solution)]
+    if benchmark in {"satnet", "spot5"}:
+        cmd.append("--verbose")
+    return cmd
+
+
+def _float_line(label: str, text: str) -> float | None:
+    match = re.search(rf"^{re.escape(label)}:\s+([+-]?(?:\d+(?:\.\d*)?|\.\d+))\s*$", text, re.MULTILINE)
+    return float(match.group(1)) if match else None
+
+
+def _int_line(label: str, text: str) -> int | None:
+    match = re.search(rf"^{re.escape(label)}:\s+(\d+)\s*$", text, re.MULTILINE)
+    return int(match.group(1)) if match else None
+
+
+def _status_valid(text: str) -> bool | None:
+    match = STATUS_PATTERN.search(text)
+    if match:
+        return match.group(1) == "VALID"
+    return None
+
+
+def _cli_section_items(text: str, section: str) -> list[str]:
+    pattern = re.compile(
+        rf"^{re.escape(section)}:\s*$((?:\n\s+- .*)*)",
+        re.MULTILINE,
+    )
+    match = pattern.search(text)
+    if not match:
+        return []
+    return [line.strip()[2:] for line in match.group(1).splitlines() if line.strip().startswith("- ")]
+
+
+def _parse_satnet_cli_payload(stdout: str, exit_code: int) -> dict[str, Any]:
+    valid = _status_valid(stdout)
+    score_hours = _float_line("Total tracking hours", stdout)
+    if score_hours is None:
+        score_hours = _float_line("Score (hours)", stdout)
+    n_tracks = _int_line("Tracks", stdout)
+    n_satisfied_requests = _int_line("Satisfied requests", stdout)
+    u_rms = _float_line("U_rms", stdout)
+    u_max = _float_line("U_max", stdout)
+
+    if valid is None:
+        compact_match = SATNET_COMPACT_PATTERN.search(stdout)
+        if compact_match is not None:
+            valid = compact_match.group(1) == "VALID"
+            score_hours = float(compact_match.group(2))
+            n_tracks = int(compact_match.group(3))
+
+    if valid is None or score_hours is None or n_tracks is None:
+        return {
+            "status": "error",
+            "error": "SatNet verifier output did not match expected CLI schema.",
+            "exit_code": exit_code,
+        }
+    return {
+        "valid": valid,
+        "metrics": {
+            "score_hours": score_hours,
+            "n_tracks": n_tracks,
+            "n_satisfied_requests": n_satisfied_requests,
+            "u_rms": u_rms,
+            "u_max": u_max,
+        },
+        "diagnostics": {},
+        "errors": _cli_section_items(stdout, "Errors"),
+        "warnings": _cli_section_items(stdout, "Warnings"),
+    }
+
+
+def _parse_compact_cli_verifier_payload(
+    benchmark: str,
+    stdout: str,
+    exit_code: int,
+) -> dict[str, Any] | None:
+    if benchmark == "satnet":
+        return _parse_satnet_cli_payload(stdout, exit_code)
+    return None
 
 
 def _copy_solution(workspace_dir: Path, output_dir: Path) -> bool:
@@ -871,7 +1057,7 @@ def _interactive_workspace_dir(
     *,
     exposure: str,
     harness: str,
-    split: str,
+    split: str | None,
     case_id: str,
 ) -> Path:
     return (
@@ -1012,6 +1198,7 @@ def _run_item(item: RunItem) -> RunResult:
 def _build_items(
     config: FamilyConfig,
     *,
+    benchmarks: tuple[str, ...],
     exposures: tuple[str, ...],
     harnesses: tuple[str, ...],
     cases: tuple[str, ...],
@@ -1019,9 +1206,16 @@ def _build_items(
     timeout: int | None,
     max_concurrency: int | None,
 ) -> tuple[FamilyConfig, tuple[RunItem, ...]]:
+    selected_benchmark_names = _select(
+        tuple(selection.benchmark for selection in config.benchmarks),
+        benchmarks,
+        "benchmark",
+    )
+    selected_benchmarks = [
+        selection for selection in config.benchmarks if selection.benchmark in selected_benchmark_names
+    ]
     selected_exposures = _select(config.exposures, exposures, "exposure")
     selected_harnesses = _select(config.harnesses, harnesses, "harness")
-    selected_cases = _select(config.cases, cases, "case")
     if max_concurrency is not None:
         if max_concurrency <= 0:
             raise SystemExit("--max-concurrency must be positive")
@@ -1032,31 +1226,44 @@ def _build_items(
         else config.timeout_seconds
     )
     items: list[RunItem] = []
-    for exposure in selected_exposures:
-        for case_id in selected_cases:
-            for harness in selected_harnesses:
-                profile = load_exposure_profile(
-                    exposure,
-                    harness=harness,
-                    benchmark=config.benchmark,
-                    split=split,
-                    case_id=case_id,
-                )
-                items.append(
-                    RunItem(
-                        config_name=config.config_path.stem,
-                        config_path=config.config_path,
-                        benchmark=config.benchmark,
+    unmatched_cases = set(cases)
+    for benchmark_selection in selected_benchmarks:
+        effective_split = split or benchmark_selection.split
+        selected_cases = (
+            tuple(case_id for case_id in benchmark_selection.cases if case_id in set(cases))
+            if cases
+            else benchmark_selection.cases
+        )
+        unmatched_cases.difference_update(selected_cases)
+        if cases and not selected_cases:
+            continue
+        for exposure in selected_exposures:
+            for case_id in selected_cases:
+                for harness in selected_harnesses:
+                    profile = load_exposure_profile(
+                        exposure,
                         harness=harness,
-                        exposure=exposure,
-                        split=split,
+                        benchmark=benchmark_selection.benchmark,
+                        split=effective_split,
                         case_id=case_id,
-                        timeout_seconds=effective_timeout,
-                        resources=config.resources,
-                        results_root=config.results.root,
-                        profile=profile,
                     )
-                )
+                    items.append(
+                        RunItem(
+                            config_name=config.config_path.stem,
+                            config_path=config.config_path,
+                            benchmark=benchmark_selection.benchmark,
+                            harness=harness,
+                            exposure=exposure,
+                            split=effective_split,
+                            case_id=case_id,
+                            timeout_seconds=effective_timeout,
+                            resources=config.resources,
+                            results_root=config.results.root,
+                            profile=profile,
+                        )
+                    )
+    if unmatched_cases:
+        raise SystemExit(f"Unknown case(s): {', '.join(sorted(unmatched_cases))}")
     return config, tuple(items)
 
 
@@ -1076,7 +1283,7 @@ def _describe_items(items: tuple[RunItem, ...], config: FamilyConfig) -> str:
     lines = [
         f"Config: {config.config_path}",
         "Mode: batch",
-        f"Benchmark: {config.benchmark}",
+        f"Benchmarks: {', '.join(dict.fromkeys(item.benchmark for item in items))}",
         f"Harnesses: {', '.join(dict.fromkeys(item.harness for item in items))}",
         f"Exposures: {', '.join(dict.fromkeys(item.exposure for item in items))}",
         f"Cases: {', '.join(dict.fromkeys(item.case_id for item in items))}",
@@ -1105,13 +1312,13 @@ def _describe_items(items: tuple[RunItem, ...], config: FamilyConfig) -> str:
 
 def _run_batch(args: argparse.Namespace) -> int:
     config = load_family_config((args.config or DEFAULT_CONFIG).resolve())
-    split = args.split or config.split
     config, items = _build_items(
         config,
+        benchmarks=tuple(args.benchmark),
         exposures=tuple(args.exposure),
         harnesses=tuple(args.harness),
         cases=tuple(args.case),
-        split=split,
+        split=args.split,
         timeout=args.timeout,
         max_concurrency=args.max_concurrency,
     )
@@ -1133,7 +1340,7 @@ def _run_batch(args: argparse.Namespace) -> int:
         if should_run:
             pending.append(item)
         else:
-            print(f"Skipping {item.exposure}/{item.harness}/{item.case_id}: {reason}")
+            print(f"Skipping {item.benchmark}/{item.exposure}/{item.harness}/{item.case_id}: {reason}")
 
     missing = _missing_sources(tuple(pending))
     if missing:
@@ -1156,9 +1363,9 @@ def _run_batch(args: argparse.Namespace) -> int:
                 output_dir = _output_dir(item)
                 output_dir.mkdir(parents=True, exist_ok=True)
                 (output_dir / "runner_error.txt").write_text(f"{type(exc).__name__}: {exc}\n", encoding="utf-8")
-                print(f"Failed {item.exposure}/{item.harness}/{item.case_id}: {status} ({exc})")
+                print(f"Failed {item.benchmark}/{item.exposure}/{item.harness}/{item.case_id}: {status} ({exc})")
             else:
-                print(f"Finished {item.exposure}/{item.harness}/{item.case_id}: {status}")
+                print(f"Finished {item.benchmark}/{item.exposure}/{item.harness}/{item.case_id}: {status}")
             status_counts[status] = status_counts.get(status, 0) + 1
     if not pending:
         print("No runs selected for execution.")
@@ -1170,7 +1377,7 @@ def _run_with_retries(item: RunItem, batch: BatchSettings) -> RunResult:
     attempts = batch.max_retries + 1
     last: RunResult | None = None
     for attempt in range(1, attempts + 1):
-        print(f"Running {item.exposure}/{item.harness}/{item.case_id} (attempt {attempt}/{attempts})")
+        print(f"Running {item.benchmark}/{item.exposure}/{item.harness}/{item.case_id} (attempt {attempt}/{attempts})")
         last = _run_item(item)
         if last.overall_status not in batch.retry_statuses:
             return last

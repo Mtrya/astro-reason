@@ -1,14 +1,23 @@
 name: verifier_exposure
 mode: batch
 
-benchmark: stereo_imaging
-split: test
-cases:
-  - case_0001
-  - case_0002
-  - case_0003
-  - case_0004
-  - case_0005
+benchmarks:
+  - benchmark: stereo_imaging
+    split: test
+    cases:
+      - case_0001
+      - case_0002
+      - case_0003
+      - case_0004
+      - case_0005
+  - benchmark: satnet
+    split: test
+    cases:
+      - W10_2018
+      - W20_2018
+      - W30_2018
+      - W40_2018
+      - W50_2018
 exposures:
   - transparent
   # - opaque # Will not run opaque again for it's already been run in the main_agentic experiment
