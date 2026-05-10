@@ -59,10 +59,19 @@ Aggregate completed runs:
 uv run python experiments/verifier_exposure/aggregate.py
 ```
 
+Aggregation also includes `opaque` agent rows from the matching `main_agentic` stereo-imaging
+runs and solver baseline rows parsed from `experiments/main_solver/README.md`.
+
 Write the markdown report from aggregate artifacts:
 
 ```bash
 uv run python experiments/verifier_exposure/write_reports.py
+```
+
+Generate chat-style trace reports:
+
+```bash
+uv run python experiments/verifier_exposure/trace_viewer.py
 ```
 
 ## Results
@@ -74,3 +83,9 @@ results/agent_runs/experiments/verifier_exposure/<config>/<exposure>/stereo_imag
 ```
 
 Every run records `exposure`, assembled workspace files, local verifier helper state, agent status, external verifier status, and parsed verifier results in `run.json`.
+
+The `opaque` exposure is read from:
+
+```text
+results/agent_runs/experiments/main_agentic/matrix/stereo_imaging/<harness>/test/<case>/
+```

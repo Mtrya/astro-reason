@@ -100,19 +100,20 @@ def _exposure_summary_rows(summary: dict[str, Any]) -> list[list[str]]:
 
 
 def _exposure_harness_summary_rows(summary: dict[str, Any]) -> list[list[str]]:
-    by_exposure_harness = summary.get("by_exposure_harness")
-    if not isinstance(by_exposure_harness, dict):
+    by_exposure_system = summary.get("by_exposure_system") or summary.get("by_exposure_harness")
+    if not isinstance(by_exposure_system, dict):
         return []
 
     rows: list[list[str]] = []
-    for key, values in sorted(by_exposure_harness.items()):
+    for key, values in sorted(by_exposure_system.items()):
         if not isinstance(values, dict):
             continue
-        exposure, _, harness = str(key).partition("/")
+        exposure, _, system = str(key).partition("/")
         rows.append(
             [
                 exposure,
-                harness or "-",
+                _format_value(values.get("kind", "agent")),
+                system or "-",
                 _format_value(values.get("run_count")),
                 _format_value(values.get("valid_count")),
                 _format_value(values.get("valid_rate")),
@@ -130,19 +131,22 @@ def _case_rows(rows: list[dict[str, str]]) -> list[list[str]]:
         rows,
         key=lambda item: (
             item.get("exposure", ""),
-            item.get("harness", ""),
+            item.get("kind", "agent"),
+            item.get("system") or item.get("harness", ""),
             item.get("case_id", ""),
         ),
     ):
         table_rows.append(
             [
                 row.get("exposure", ""),
-                row.get("harness", ""),
+                row.get("kind", "agent"),
+                row.get("system") or row.get("harness", ""),
                 row.get("case_id", ""),
                 _format_value(row.get("artifact_state")),
                 _format_value(row.get("overall_status")),
                 _format_value(row.get("verifier_status")),
                 _format_value(row.get("valid")),
+                _format_value(row.get("duration_seconds")),
                 _format_value(row.get("coverage_ratio")),
                 _format_value(row.get("normalized_quality")),
             ]
@@ -179,12 +183,13 @@ def _write_report(*, summary: dict[str, Any], rows: list[dict[str, str]], report
             numeric_from=1,
         )
     )
-    lines.extend(["", "## Exposure And Harness Summary", ""])
+    lines.extend(["", "## Exposure And System Summary", ""])
     lines.extend(
         shared_reports.table(
             [
                 "Exposure",
-                "Harness",
+                "Kind",
+                "System",
                 "Runs",
                 "Valid",
                 "Valid Rate",
@@ -193,7 +198,7 @@ def _write_report(*, summary: dict[str, Any], rows: list[dict[str, str]], report
                 "Overall Statuses",
             ],
             _exposure_harness_summary_rows(summary),
-            numeric_from=2,
+            numeric_from=3,
         )
     )
     lines.extend(["", "## Cases", ""])
@@ -201,17 +206,19 @@ def _write_report(*, summary: dict[str, Any], rows: list[dict[str, str]], report
         shared_reports.table(
             [
                 "Exposure",
-                "Harness",
+                "Kind",
+                "System",
                 "Case",
                 "Artifact",
                 "Overall Status",
                 "Verifier Status",
                 "Valid",
+                "Duration (s)",
                 "Coverage",
                 "Quality",
             ],
             _case_rows(rows),
-            numeric_from=7,
+            numeric_from=8,
         )
     )
     lines.append("")

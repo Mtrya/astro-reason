@@ -44,6 +44,12 @@ Aggregate completed runs:
 uv run python experiments/temporal_robustness/aggregate.py
 ```
 
+Generate chat-style trace reports:
+
+```bash
+uv run python experiments/temporal_robustness/trace_viewer.py
+```
+
 ## Results
 
 Batch artifacts live under:

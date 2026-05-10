@@ -3,7 +3,7 @@
 AEOSSP comparison across the default `test` split and `test_horizon_2022` split.
 
 `test` agent rows are reused from `main_agentic`; `test_horizon_2022` agent rows come from this experiment.
-Solver rows come from `baselines/main_solver.yaml`.
+Solver rows come from temporal robustness `main_solver` run artifacts.
 Case identifiers are split-scoped: `test/case_0001` and `test_horizon_2022/case_0001` are different cases.
 
 ## Summary

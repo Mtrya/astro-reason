@@ -49,9 +49,7 @@ def test_revisit_processed_metric_scores_invalid_runs_as_zero() -> None:
 
 
 def test_revisit_solver_baseline_is_normalized_before_radar_comparison() -> None:
-    baseline_data = plot_radar._load_baseline_data(
-        REPO_ROOT / "experiments" / "main_agentic" / "baselines" / "main_solver.yaml"
-    )
+    baseline_data = plot_radar._load_baseline_data(plot_radar.DEFAULT_BASELINES)
     scores = plot_radar._best_solver_scores_by_case(baseline_data)
 
     assert scores["revisit_constellation"]["test/case_0001"] == pytest.approx(
@@ -68,9 +66,7 @@ def test_radar_keeps_zero_scores_for_invalid_runs(tmp_path: Path) -> None:
         "stereo_imaging,codex,test,case_0001,False,,\n",
         encoding="utf-8",
     )
-    baseline_data = plot_radar._load_baseline_data(
-        REPO_ROOT / "experiments" / "main_agentic" / "baselines" / "main_solver.yaml"
-    )
+    baseline_data = plot_radar._load_baseline_data(plot_radar.DEFAULT_BASELINES)
 
     benchmarks, scores = plot_radar._load_scores(tmp_path, baseline_data)
 

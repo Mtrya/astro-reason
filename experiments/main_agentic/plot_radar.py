@@ -26,12 +26,13 @@ else:
     from . import plan as family_plan
 
 from experiments._shared import score_normalization as score_norm
+from experiments._shared import main_solver_baselines
 
 
 FAMILY_DIR = Path(__file__).resolve().parent
 DEFAULT_CONFIG = FAMILY_DIR / "configs" / "matrix.yaml"
 DEFAULT_OUTPUT = FAMILY_DIR / "reports" / "harness_radar.png"
-DEFAULT_BASELINES = FAMILY_DIR / "baselines" / "main_solver.yaml"
+DEFAULT_BASELINES = main_solver_baselines.DEFAULT_MAIN_SOLVER_README
 BENCHMARK_ORDER = (
     "aeossp_standard",
     "regional_coverage",
@@ -74,7 +75,7 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         "--baseline-data",
         type=Path,
         default=DEFAULT_BASELINES,
-        help="YAML file containing main-solver baseline metrics.",
+        help="Main-solver baseline source for normalized score computation.",
     )
     return parser.parse_args(argv)
 
@@ -311,12 +312,7 @@ def _revisit_case_constants(split: str, case_id: str) -> dict[str, float]:
 
 
 def _load_baseline_data(path: Path) -> dict[str, object]:
-    data = _load_yaml_file(path)
-    if data is None:
-        raise SystemExit(f"Baseline data must be a YAML mapping: {path}")
-    if not isinstance(data.get("rows"), list):
-        raise SystemExit(f"Baseline data must contain a rows list: {path}")
-    return data
+    return main_solver_baselines.load_baseline_data(path)
 
 
 def _baseline_rows(baseline_data: dict[str, object]) -> list[dict[str, object]]:

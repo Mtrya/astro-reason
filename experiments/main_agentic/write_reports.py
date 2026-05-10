@@ -23,7 +23,7 @@ from experiments._shared import write_reports as shared_reports
 FAMILY_DIR = Path(__file__).resolve().parent
 DEFAULT_CONFIG = FAMILY_DIR / "configs" / "matrix.yaml"
 DEFAULT_REPORTS_DIR = FAMILY_DIR / "reports"
-DEFAULT_BASELINES = FAMILY_DIR / "baselines" / "main_solver.yaml"
+DEFAULT_BASELINES = radar_scores.DEFAULT_BASELINES
 STANDARD_RUN_COLUMNS = {
     "config_name",
     "benchmark",
@@ -76,7 +76,7 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         "--baseline-data",
         type=Path,
         default=DEFAULT_BASELINES,
-        help="YAML file containing baseline constants for normalized score computation.",
+        help="Main-solver baseline source for normalized score computation.",
     )
     return parser.parse_args(argv)
 

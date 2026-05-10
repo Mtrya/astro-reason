@@ -21,10 +21,10 @@ from experiments._shared import write_reports as shared_reports
 
 FAMILY_DIR = Path(__file__).resolve().parent
 DEFAULT_CONFIG = FAMILY_DIR / "configs" / "default.yaml"
-DEFAULT_BASELINES = FAMILY_DIR / "baselines" / "main_solver.yaml"
 DEFAULT_REPORTS_DIR = FAMILY_DIR / "reports"
 MAIN_AGENTIC_ROOT = REPO_ROOT / "results" / "agent_runs" / "experiments" / "main_agentic" / "matrix"
 TEMPORAL_ROOT = REPO_ROOT / "results" / "agent_runs" / "experiments" / "temporal_robustness"
+DEFAULT_SOLVER_RESULTS_ROOT = TEMPORAL_ROOT / "main_solver"
 BENCHMARK = "aeossp_standard"
 AGENT_SYSTEMS = ("codex", "opencode_dpsk")
 SOLVER_SYSTEMS = ("aeossp_standard_greedy_lns", "aeossp_standard_mwis_conflict_graph")
@@ -37,7 +37,7 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         description="Write human-readable temporal robustness comparison reports."
     )
     parser.add_argument("--config", type=Path, default=DEFAULT_CONFIG)
-    parser.add_argument("--baseline-data", type=Path, default=DEFAULT_BASELINES)
+    parser.add_argument("--solver-results-root", type=Path, default=DEFAULT_SOLVER_RESULTS_ROOT)
     parser.add_argument("--reports-dir", type=Path, default=DEFAULT_REPORTS_DIR)
     return parser.parse_args(argv)
 
@@ -91,36 +91,48 @@ def _agent_row(*, split: str, harness: str, case_id: str, config_name: str) -> d
     }
 
 
-def _solver_rows(baseline_data: dict[str, Any]) -> list[dict[str, Any]]:
-    rows = baseline_data.get("rows")
-    if not isinstance(rows, list):
-        raise SystemExit("Baseline data must contain a rows list.")
-
+def _solver_rows(*, solver_results_root: Path, case_ids: tuple[str, ...]) -> list[dict[str, Any]]:
     records: list[dict[str, Any]] = []
-    for row in rows:
-        if not isinstance(row, dict):
-            continue
-        method = row.get("method")
-        split = row.get("split")
-        case_id = row.get("case_id")
-        metrics = row.get("metrics")
-        if method not in SOLVER_SYSTEMS or split not in SPLITS or not isinstance(case_id, str):
-            continue
-        if not isinstance(metrics, dict):
-            metrics = {}
-        records.append(
-            {
-                "kind": "solver",
-                "system": method,
-                "split": split,
-                "case_id": case_id,
-                "valid": row.get("valid") if isinstance(row.get("valid"), bool) else None,
-                "status": row.get("status", "unknown"),
-                "duration_seconds": None,
-                "source": "baselines/main_solver.yaml",
-                **{metric: _metric(metrics, metric) for metric in METRICS},
-            }
-        )
+    for method in SOLVER_SYSTEMS:
+        for split in SPLITS:
+            for case_id in case_ids:
+                run_path = (
+                    solver_results_root
+                    / BENCHMARK
+                    / method
+                    / f"{split}__{case_id}"
+                    / "run.json"
+                )
+                payload = shared_aggregate.read_run_json(run_path)
+                verifier = (
+                    payload.get("verifier")
+                    if isinstance(payload, dict) and isinstance(payload.get("verifier"), dict)
+                    else {}
+                )
+                solve = (
+                    payload.get("solve")
+                    if isinstance(payload, dict) and isinstance(payload.get("solve"), dict)
+                    else {}
+                )
+                valid = verifier.get("valid") if isinstance(verifier.get("valid"), bool) else None
+                status = "verified" if valid is True else "missing_artifact"
+                if isinstance(payload, dict):
+                    status = str(payload.get("status") or status)
+                records.append(
+                    {
+                        "kind": "solver",
+                        "system": method,
+                        "split": split,
+                        "case_id": case_id,
+                        "valid": valid,
+                        "status": status,
+                        "duration_seconds": shared_aggregate.coerce_numeric(
+                            solve.get("duration_seconds")
+                        ),
+                        "source": _display_path(run_path),
+                        **_verifier_metrics(payload),
+                    }
+                )
     return records
 
 
@@ -141,7 +153,12 @@ def _config_name(config_path: Path) -> str:
     return config_path.stem
 
 
-def _all_rows(config: dict[str, Any], config_path: Path, baseline_data: dict[str, Any]) -> list[dict[str, Any]]:
+def _all_rows(
+    config: dict[str, Any],
+    config_path: Path,
+    *,
+    solver_results_root: Path = DEFAULT_SOLVER_RESULTS_ROOT,
+) -> list[dict[str, Any]]:
     case_ids = _case_ids(config)
     config_name = _config_name(config_path)
     rows: list[dict[str, Any]] = []
@@ -149,7 +166,7 @@ def _all_rows(config: dict[str, Any], config_path: Path, baseline_data: dict[str
         for harness in AGENT_SYSTEMS:
             for case_id in case_ids:
                 rows.append(_agent_row(split=split, harness=harness, case_id=case_id, config_name=config_name))
-    rows.extend(_solver_rows(baseline_data))
+    rows.extend(_solver_rows(solver_results_root=solver_results_root, case_ids=case_ids))
     return rows
 
 
@@ -260,7 +277,7 @@ def _write_report(*, rows: list[dict[str, Any]], reports_dir: Path, config: dict
         "AEOSSP comparison across the default `test` split and `test_horizon_2022` split.",
         "",
         "`test` agent rows are reused from `main_agentic`; `test_horizon_2022` agent rows come from this experiment.",
-        "Solver rows come from `baselines/main_solver.yaml`.",
+        "Solver rows come from temporal robustness `main_solver` run artifacts.",
         "Case identifiers are split-scoped: `test/case_0001` and `test_horizon_2022/case_0001` are different cases.",
         "",
         "## Summary",
@@ -293,8 +310,11 @@ def main(argv: list[str] | None = None) -> int:
     args = parse_args(argv)
     config_path = args.config.resolve()
     config = _load_yaml(config_path)
-    baseline_data = _load_yaml(args.baseline_data.resolve())
-    rows = _all_rows(config, config_path, baseline_data)
+    rows = _all_rows(
+        config,
+        config_path,
+        solver_results_root=args.solver_results_root.resolve(),
+    )
     _write_report(rows=rows, reports_dir=args.reports_dir.resolve(), config=config)
     print(f"Wrote {_display_path(args.reports_dir.resolve() / 'aeossp_standard.md')}")
     return 0

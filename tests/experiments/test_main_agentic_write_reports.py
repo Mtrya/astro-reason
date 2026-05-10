@@ -10,9 +10,7 @@ from experiments.main_agentic import plot_radar, write_reports
 
 
 def test_case_tables_use_valid_and_normalized_score_columns(tmp_path: Path) -> None:
-    baseline_data = plot_radar._load_baseline_data(
-        REPO_ROOT / "experiments" / "main_agentic" / "baselines" / "main_solver.yaml"
-    )
+    baseline_data = plot_radar._load_baseline_data(plot_radar.DEFAULT_BASELINES)
     summary_rows = [
         {
             "benchmark": "stereo_imaging",
