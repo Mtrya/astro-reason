@@ -47,25 +47,17 @@ PLOT_SPECS = (
         conditions=("no_skill", "compact_domain", "skill_pack"),
         output_name="stereo_imaging_opencode_minimax_scores.png",
     ),
-    PlotSpec(
-        benchmark="satnet",
-        harness="codex",
-        conditions=("no_skill", "satnet_ortools_python"),
-        output_name="satnet_codex_scores.png",
-    ),
 )
 
 CONDITION_LABELS = {
     "no_skill": "No skill",
     "compact_domain": "Compact domain",
     "skill_pack": "Skill pack",
-    "satnet_ortools_python": "SatNet CP-SAT",
 }
 CONDITION_COLORS = {
     "no_skill": "#667085",
     "compact_domain": "#2f8f6f",
     "skill_pack": "#2f6fd1",
-    "satnet_ortools_python": "#2f6fd1",
 }
 
 

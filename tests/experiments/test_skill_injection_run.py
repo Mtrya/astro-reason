@@ -51,68 +51,27 @@ def test_skill_pack_condition_assembles_four_skill_sources() -> None:
     ]
 
 
-def test_satnet_selection_uses_codex_and_satnet_scheduler_skill() -> None:
-    config = run.load_family_config(run.DEFAULT_CONFIG)
-    (item,) = run.build_items(
-        config,
-        benchmarks=("satnet",),
-        conditions=("satnet_ortools_python",),
-        harnesses=("codex",),
-        cases=("W10_2018",),
-    )
-    specs = [
-        spec
-        for spec in item.assemble
-        if "experiments/_fragments/skills/skill_injection" in spec.source.as_posix()
-    ]
-
-    assert item.benchmark == "satnet"
-    assert item.harness == "codex"
-    assert [spec.target.name for spec in specs] == ["satnet-cpsat-scheduler"]
-
-
-def test_interactive_dry_run_selects_satnet_codex(capsys) -> None:
+def test_interactive_dry_run_selects_stereo_skill_condition(capsys) -> None:
     assert run.main(
         [
             "--interactive",
             "--dry-run",
             "--benchmark",
-            "satnet",
+            "stereo_imaging",
             "--condition",
-            "satnet_ortools_python",
+            "compact_domain",
             "--harness",
-            "codex",
+            "opencode_dpsk",
             "--case",
-            "W10_2018",
+            "case_0001",
         ]
     ) == 0
 
     output = capsys.readouterr().out
-    assert "Interactive benchmark: satnet" in output
-    assert "Interactive condition: satnet_ortools_python" in output
-    assert "Interactive harness: codex" in output
+    assert "Interactive benchmark: stereo_imaging" in output
+    assert "Interactive condition: compact_domain" in output
+    assert "Interactive harness: opencode_dpsk" in output
     assert "Missing assemble sources: none" in output
-
-
-def test_satnet_cli_verifier_payload_parses_verbose_metrics() -> None:
-    payload = run._parse_satnet_cli_payload(
-        "\n".join(
-            [
-                "Status: VALID",
-                "U_rms: 0.250000",
-                "U_max: 0.500000",
-                "Total tracking hours: 42.5000",
-                "Tracks: 7",
-                "Satisfied requests: 4",
-            ]
-        ),
-        0,
-    )
-
-    assert payload["valid"] is True
-    assert payload["metrics"]["score_hours"] == 42.5
-    assert payload["metrics"]["n_tracks"] == 7
-    assert payload["metrics"]["n_satisfied_requests"] == 4
 
 
 def test_missing_assemble_sources_report_skill_directories_only_for_skill_conditions() -> None:
@@ -148,7 +107,6 @@ def test_skill_fragment_root_contains_only_skill_directories() -> None:
         "classical-or-scheduling-methods",
         "ortools-cpsat-modeling",
         "python-optimization-for-search",
-        "satnet-cpsat-scheduler",
         "stereo-imaging-compact-procedure",
         "stereo-imaging-product-strategy",
     ]

@@ -1,5 +1,0 @@
-condition: satnet_ortools_python
-description: Inject one SatNet-specific CP-SAT scheduling skill.
-skills:
-  - name: satnet-cpsat-scheduler
-    source: experiments/_fragments/skills/skill_injection/satnet-cpsat-scheduler

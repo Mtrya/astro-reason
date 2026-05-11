@@ -21,7 +21,6 @@ else:
     from . import run as family_run
 
 from experiments._shared import aggregate as shared_aggregate
-from experiments._shared import main_solver_baselines
 from experiments._shared import score_normalization as score_norm
 
 
@@ -121,14 +120,6 @@ def _normalized_score_pct(*, benchmark: str, valid: bool | None, metrics: dict[s
         return 0.0 if valid is False else None
     if benchmark == "stereo_imaging":
         return score_norm.stereo_imaging_score_pct(normalized_quality=metrics.get("normalized_quality"))
-    if benchmark == "satnet":
-        config = main_solver_baselines.NORMALIZATION["satnet"]
-        return score_norm.satnet_score_pct(
-            u_rms=metrics.get("u_rms"),
-            u_max=metrics.get("u_max"),
-            u_rms_cap=config.get("u_rms_cap"),
-            u_max_cap=config.get("u_max_cap"),
-        )
     return None
 
 
@@ -326,20 +317,10 @@ def _summary(rows: list[dict[str, Any]]) -> dict[str, Any]:
             for key, value in by_benchmark_condition.items()
             if key.startswith("stereo_imaging/")
         },
-        "by_satnet_condition": {
-            key.split("/", maxsplit=1)[1]: value
-            for key, value in by_benchmark_condition.items()
-            if key.startswith("satnet/")
-        },
         "by_condition_harness": {
             key.removeprefix("stereo_imaging/"): value
             for key, value in by_benchmark_condition_harness.items()
             if key.startswith("stereo_imaging/")
-        },
-        "by_satnet_condition_harness": {
-            key.removeprefix("satnet/"): value
-            for key, value in by_benchmark_condition_harness.items()
-            if key.startswith("satnet/")
         },
     }
 

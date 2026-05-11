@@ -7,9 +7,7 @@ runtime, verifier exposure, and harness settings are otherwise fixed.
 The initial benchmark was `stereo_imaging`. It was selected because weak
 harnesses often produce invalid or valid-but-near-zero solutions under opaque
 verifier exposure, while transparent verifier exposure shows the task is
-learnable when agents receive better constraint feedback. The matrix now also
-includes `satnet` on `codex` for a narrower test of whether a standalone
-SatNet CP-SAT scheduling skill improves a resource-scheduling task.
+learnable when agents receive better constraint feedback.
 
 ## Conditions
 
@@ -18,7 +16,6 @@ SatNet CP-SAT scheduling skill improves a resource-scheduling task.
 - `skill_pack`: four focused skills covering Python search performance,
   OR-Tools CP-SAT modeling, classical OR scheduling methods, and
   stereo-imaging product strategy.
-- `satnet_ortools_python`: one standalone SatNet CP-SAT scheduling skill.
 
 Skill assembly is owned by the condition profiles under:
 
@@ -53,17 +50,6 @@ uv run python experiments/skill_injection/run.py \
   --case case_0001
 ```
 
-Preview the SatNet skill condition:
-
-```bash
-uv run python experiments/skill_injection/run.py \
-  --dry-run \
-  --benchmark satnet \
-  --condition satnet_ortools_python \
-  --harness codex \
-  --case W10_2018
-```
-
 Run selected work:
 
 ```bash
@@ -87,10 +73,10 @@ Prepare an interactive Docker workspace matching one skill-injection condition:
 ```bash
 uv run python experiments/skill_injection/run.py \
   --interactive \
-  --condition satnet_ortools_python \
-  --benchmark satnet \
-  --harness codex \
-  --case W10_2018
+  --condition compact_domain \
+  --benchmark stereo_imaging \
+  --harness opencode_dpsk \
+  --case case_0001
 ```
 
 The interactive shell starts in `/app/workspace` with the same prompt, case files,
@@ -136,7 +122,6 @@ The score plot artifacts are:
 ```text
 experiments/skill_injection/reports/stereo_imaging_opencode_dpsk_scores.png
 experiments/skill_injection/reports/stereo_imaging_opencode_minimax_scores.png
-experiments/skill_injection/reports/satnet_codex_scores.png
 ```
 
 Refresh only the score plots:

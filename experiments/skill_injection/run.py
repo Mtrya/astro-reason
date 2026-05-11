@@ -7,7 +7,6 @@ import argparse
 import concurrent.futures
 import json
 import os
-import re
 import shlex
 import shutil
 import subprocess
@@ -35,10 +34,6 @@ WORKSPACE_MOUNT = Path("/app/workspace")
 OUTPUT_MOUNT = Path("/app/run/output")
 CONTAINER_HOME = Path("/home/korolev")
 INTERACTIVE_WORKSPACES_ROOT = REPO_ROOT / ".runtime" / "interactive_workspaces"
-SATNET_COMPACT_PATTERN = re.compile(
-    r"(VALID|INVALID):\s+total_hours=([+-]?(?:\d+(?:\.\d*)?|\.\d+))h,\s+tracks=(\d+)"
-)
-STATUS_PATTERN = re.compile(r"^Status:\s+(VALID|INVALID)\s*$", re.MULTILINE)
 
 
 @dataclass(frozen=True)
@@ -910,76 +905,7 @@ def _verifier_command(benchmark: str, case_dir: Path, solution: Path) -> list[st
     script_verifier = REPO_ROOT / "benchmarks" / benchmark / "verifier.py"
     if not script_verifier.exists():
         raise SystemExit(f"No verifier found for benchmark {benchmark}")
-    cmd = ["uv", "run", "python", str(script_verifier), str(case_dir), str(solution)]
-    if benchmark == "satnet":
-        cmd.append("--verbose")
-    return cmd
-
-
-def _float_line(label: str, text: str) -> float | None:
-    match = re.search(rf"^{re.escape(label)}:\s+([+-]?(?:\d+(?:\.\d*)?|\.\d+))\s*$", text, re.MULTILINE)
-    return float(match.group(1)) if match else None
-
-
-def _int_line(label: str, text: str) -> int | None:
-    match = re.search(rf"^{re.escape(label)}:\s+(\d+)\s*$", text, re.MULTILINE)
-    return int(match.group(1)) if match else None
-
-
-def _status_valid(text: str) -> bool | None:
-    match = STATUS_PATTERN.search(text)
-    return (match.group(1) == "VALID") if match else None
-
-
-def _cli_section_items(text: str, section: str) -> list[str]:
-    pattern = re.compile(rf"^{re.escape(section)}:\s*$((?:\n\s+- .*)*)", re.MULTILINE)
-    match = pattern.search(text)
-    if not match:
-        return []
-    return [line.strip()[2:] for line in match.group(1).splitlines() if line.strip().startswith("- ")]
-
-
-def _parse_satnet_cli_payload(stdout: str, exit_code: int) -> dict[str, Any]:
-    valid = _status_valid(stdout)
-    score_hours = _float_line("Total tracking hours", stdout)
-    n_tracks = _int_line("Tracks", stdout)
-    n_satisfied_requests = _int_line("Satisfied requests", stdout)
-    u_rms = _float_line("U_rms", stdout)
-    u_max = _float_line("U_max", stdout)
-
-    if valid is None:
-        compact_match = SATNET_COMPACT_PATTERN.search(stdout)
-        if compact_match is not None:
-            valid = compact_match.group(1) == "VALID"
-            score_hours = float(compact_match.group(2))
-            n_tracks = int(compact_match.group(3))
-
-    if valid is None or score_hours is None or n_tracks is None:
-        return {
-            "status": "error",
-            "valid": False,
-            "error": "SatNet verifier output did not match expected CLI schema.",
-            "exit_code": exit_code,
-        }
-    return {
-        "valid": valid,
-        "metrics": {
-            "score_hours": score_hours,
-            "n_tracks": n_tracks,
-            "n_satisfied_requests": n_satisfied_requests,
-            "u_rms": u_rms,
-            "u_max": u_max,
-        },
-        "diagnostics": {},
-        "errors": _cli_section_items(stdout, "Errors"),
-        "warnings": _cli_section_items(stdout, "Warnings"),
-    }
-
-
-def _parse_cli_verifier_payload(benchmark: str, stdout: str, exit_code: int) -> dict[str, Any] | None:
-    if benchmark == "satnet":
-        return _parse_satnet_cli_payload(stdout, exit_code)
-    return None
+    return ["uv", "run", "python", str(script_verifier), str(case_dir), str(solution)]
 
 
 def _external_verifier(item: RunItem, output_dir: Path, solution_present: bool) -> tuple[str, dict[str, Any]]:
@@ -995,12 +921,6 @@ def _external_verifier(item: RunItem, output_dir: Path, solution_present: bool) 
     (output_dir / "verifier_stderr.txt").write_text(stderr, encoding="utf-8")
     if not launched:
         return "error", {"valid": False, "error": stderr}
-    cli_payload = _parse_cli_verifier_payload(item.benchmark, stdout, exit_code)
-    if cli_payload is not None:
-        valid = cli_payload.get("valid")
-        if isinstance(valid, bool) and exit_code in (0, 1):
-            return ("valid" if valid else "invalid"), cli_payload
-        return "error", {**cli_payload, "stderr": stderr.strip()}
     try:
         parsed = json.loads(stdout) if stdout.strip() else {}
     except json.JSONDecodeError:

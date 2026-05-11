@@ -18,20 +18,6 @@ benchmarks:
     harnesses:
       - opencode_dpsk
       - opencode_minimax
-  - benchmark: satnet
-    split: test
-    cases:
-      - W10_2018
-      - W20_2018
-      - W30_2018
-      - W40_2018
-      - W50_2018
-    # no_skill is likewise collected from main_agentic/matrix.
-    conditions:
-      - satnet_ortools_python
-    harnesses:
-      - codex
-
 timeout_seconds: 7200
 
 batch:
