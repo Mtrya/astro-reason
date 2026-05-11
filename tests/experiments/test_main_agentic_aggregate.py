@@ -51,11 +51,16 @@ def test_revisit_processed_metric_scores_invalid_runs_as_zero() -> None:
 def test_revisit_solver_baseline_is_normalized_before_radar_comparison() -> None:
     baseline_data = plot_radar._load_baseline_data(plot_radar.DEFAULT_BASELINES)
     scores = plot_radar._best_solver_scores_by_case(baseline_data)
+    benchmark_scores = plot_radar._solver_baseline_scores_by_benchmark(baseline_data)
 
     assert scores["revisit_constellation"]["test/case_0001"] == pytest.approx(
         70.0 + 30.0 * ((20.0 - 16.0) / (20.0 - 1.0)) ** 2
     )
     assert scores["revisit_constellation"]["test/case_0003"] == pytest.approx(70.0)
+    assert benchmark_scores["revisit_constellation"] == pytest.approx(
+        sum(scores["revisit_constellation"].values())
+        / len(scores["revisit_constellation"])
+    )
 
 
 def test_radar_keeps_zero_scores_for_invalid_runs(tmp_path: Path) -> None:
@@ -72,6 +77,28 @@ def test_radar_keeps_zero_scores_for_invalid_runs(tmp_path: Path) -> None:
 
     assert benchmarks == ["stereo_imaging"]
     assert scores["codex"]["stereo_imaging"] == 0.0
+
+
+def test_radar_can_plot_normalized_pct_scores_without_solver_relative_scaling(
+    tmp_path: Path,
+) -> None:
+    benchmark_dir = tmp_path / "benchmarks"
+    benchmark_dir.mkdir()
+    (benchmark_dir / "stereo_imaging.csv").write_text(
+        "benchmark,harness,split,case_id,valid,normalized_quality,coverage_ratio\n"
+        "stereo_imaging,codex,test,case_0001,True,0.25,0.5\n",
+        encoding="utf-8",
+    )
+    baseline_data = plot_radar._load_baseline_data(plot_radar.DEFAULT_BASELINES)
+
+    benchmarks, scores = plot_radar._load_scores(
+        tmp_path,
+        baseline_data,
+        score_mode="normalized-pct",
+    )
+
+    assert benchmarks == ["stereo_imaging"]
+    assert scores["codex"]["stereo_imaging"] == pytest.approx(25.0)
 
 
 def test_spot5_reference_profit_uses_computed_fixture_profit() -> None:

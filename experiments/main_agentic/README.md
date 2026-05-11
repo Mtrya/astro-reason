@@ -262,7 +262,10 @@ No cross-benchmark universal score is invented; metric summaries stay benchmark-
 
 ```bash
 uv run python experiments/main_agentic/plot_radar.py --harness kimi_cli
+uv run python experiments/main_agentic/plot_radar.py --score-mode normalized-pct --harness kimi_cli
 ```
+
+The normalized-pct radar also overlays the mean best main-solver baseline as a dashed line.
 
 ## Current Limits
 

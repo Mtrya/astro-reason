@@ -32,7 +32,9 @@ from experiments._shared import main_solver_baselines
 FAMILY_DIR = Path(__file__).resolve().parent
 DEFAULT_CONFIG = FAMILY_DIR / "configs" / "matrix.yaml"
 DEFAULT_OUTPUT = FAMILY_DIR / "reports" / "harness_radar.png"
+DEFAULT_PCT_OUTPUT = FAMILY_DIR / "reports" / "harness_pct_radar.png"
 DEFAULT_BASELINES = main_solver_baselines.DEFAULT_MAIN_SOLVER_README
+SCORE_MODES = ("solver-relative", "normalized-pct")
 BENCHMARK_ORDER = (
     "aeossp_standard",
     "regional_coverage",
@@ -61,10 +63,22 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         help="Harness to include. May be repeated. Defaults to every harness with a plottable score.",
     )
     parser.add_argument(
+        "--score-mode",
+        choices=SCORE_MODES,
+        default="solver-relative",
+        help=(
+            "Radar score to plot. 'solver-relative' compares each run to the best main-solver "
+            "score on the same case; 'normalized-pct' plots the benchmark-normalized percent score directly."
+        ),
+    )
+    parser.add_argument(
         "--output",
         type=Path,
-        default=DEFAULT_OUTPUT,
-        help="Output image path. Defaults to experiments/main_agentic/reports/harness_radar.png.",
+        default=None,
+        help=(
+            "Output image path. Defaults to harness_radar.png for solver-relative mode "
+            "and harness_pct_radar.png for normalized-pct mode."
+        ),
     )
     parser.add_argument(
         "--no-aggregate",
@@ -448,11 +462,31 @@ def _best_solver_scores_by_case(
     return scores
 
 
+def _solver_baseline_scores_by_benchmark(
+    baseline_data: dict[str, object],
+) -> dict[str, float]:
+    scores_by_case = _best_solver_scores_by_case(baseline_data)
+    scores: dict[str, float] = {}
+    for benchmark, case_scores in scores_by_case.items():
+        mean_score = _mean(list(case_scores.values()))
+        if mean_score is not None:
+            scores[benchmark] = mean_score
+    return scores
+
+
 def _load_scores(
     summaries_root: Path,
     baseline_data: dict[str, object],
+    *,
+    score_mode: str = "solver-relative",
 ) -> tuple[list[str], dict[str, dict[str, float]]]:
-    best_solver_scores = _best_solver_scores_by_case(baseline_data)
+    if score_mode not in SCORE_MODES:
+        raise ValueError(f"Unsupported score mode: {score_mode}")
+    best_solver_scores = (
+        _best_solver_scores_by_case(baseline_data)
+        if score_mode == "solver-relative"
+        else {}
+    )
     scores_by_harness_benchmark: dict[str, dict[str, list[float]]] = {}
     for benchmark in BENCHMARK_ORDER:
         csv_path = summaries_root / "benchmarks" / f"{benchmark}.csv"
@@ -470,12 +504,17 @@ def _load_scores(
                         metrics=_numeric_row_metrics(row),
                         baseline_data=baseline_data,
                     )
-                    baseline = best_solver_scores.get(benchmark, {}).get(
-                        _case_key(row.get("split", ""), row.get("case_id", ""))
-                    )
-                    if normalized_score is None or baseline is None or baseline <= 0:
+                    if normalized_score is None:
                         continue
-                    score = 100.0 * normalized_score / baseline
+                    if score_mode == "solver-relative":
+                        baseline = best_solver_scores.get(benchmark, {}).get(
+                            _case_key(row.get("split", ""), row.get("case_id", ""))
+                        )
+                        if baseline is None or baseline <= 0:
+                            continue
+                        score = 100.0 * normalized_score / baseline
+                    else:
+                        score = normalized_score
                 scores_by_harness_benchmark.setdefault(row["harness"], {}).setdefault(
                     benchmark, []
                 ).append(score)
@@ -513,6 +552,8 @@ def _plot_radar(
     benchmarks: list[str],
     scores: dict[str, dict[str, float]],
     output_path: Path,
+    baseline_scores: dict[str, float] | None = None,
+    tick_suffix: str = "%",
 ) -> None:
     if not benchmarks:
         raise SystemExit("No benchmarks were found in the aggregate summary.")
@@ -538,10 +579,23 @@ def _plot_radar(
             for harness_scores in scores.values()
             for score in harness_scores.values()
         ]
+        + list((baseline_scores or {}).values())
     )
     radial_max = math.ceil(max_score / 10.0) * 10.0
 
     fig, ax = plt.subplots(figsize=(9, 7), subplot_kw={"projection": "polar"})
+    if baseline_scores:
+        baseline_values = [baseline_scores.get(benchmark, 0.0) for benchmark in benchmarks]
+        closed_baseline_values = baseline_values + baseline_values[:1]
+        ax.plot(
+            closed_angles,
+            closed_baseline_values,
+            color="black",
+            linestyle="--",
+            linewidth=1.25,
+            label="solver_baseline",
+        )
+
     for harness, harness_scores in sorted(scores.items()):
         values = [harness_scores.get(benchmark, 0.0) for benchmark in benchmarks]
         closed_values = values + values[:1]
@@ -552,7 +606,7 @@ def _plot_radar(
     ax.set_xticklabels(labels, fontsize=9)
     ax.set_ylim(0, radial_max)
     ax.set_yticks([tick for tick in (25, 50, 75, 100) if tick <= radial_max])
-    ax.set_yticklabels([f"{tick:g}%" for tick in ax.get_yticks()], fontsize=8)
+    ax.set_yticklabels([f"{tick:g}{tick_suffix}" for tick in ax.get_yticks()], fontsize=8)
     ax.legend(loc="upper right", bbox_to_anchor=(1.28, 1.12), frameon=False)
     ax.grid(True, alpha=0.35)
 
@@ -567,14 +621,27 @@ def main(argv: list[str] | None = None) -> int:
     config_path = args.config.resolve()
     _ensure_summary_csv(config_path, no_aggregate=args.no_aggregate)
     baseline_data = _load_baseline_data(args.baseline_data.resolve())
-    benchmarks, scores = _load_scores(_summaries_root(config_path), baseline_data)
+    benchmarks, scores = _load_scores(
+        _summaries_root(config_path),
+        baseline_data,
+        score_mode=args.score_mode,
+    )
     selected_scores = _selected_scores(scores, list(args.harness))
+    output_path = args.output or (
+        DEFAULT_PCT_OUTPUT if args.score_mode == "normalized-pct" else DEFAULT_OUTPUT
+    )
     _plot_radar(
         benchmarks=benchmarks,
         scores=selected_scores,
-        output_path=args.output.resolve(),
+        output_path=output_path.resolve(),
+        baseline_scores=(
+            _solver_baseline_scores_by_benchmark(baseline_data)
+            if args.score_mode == "normalized-pct"
+            else None
+        ),
+        tick_suffix="" if args.score_mode == "normalized-pct" else "%",
     )
-    print(f"Wrote {args.output}")
+    print(f"Wrote {output_path}")
     return 0
 
 
