@@ -348,6 +348,25 @@ def _relative(path: Path) -> str:
     return workspace_utils.relative_display(path, REPO_ROOT)
 
 
+def _utc_now() -> datetime:
+    return datetime.now(timezone.utc)
+
+
+def _duration_seconds(start: datetime, end: datetime) -> float:
+    return round((end - start).total_seconds(), 3)
+
+
+def _status_counts_text(status_counts: dict[str, int]) -> str:
+    return ", ".join(f"{key}={value}" for key, value in sorted(status_counts.items())) or "-"
+
+
+def _item_label(item: MemoryRunItem) -> str:
+    if item.phase == "train":
+        sequence = f"#{item.sequence_index}" if item.sequence_index is not None else "#-"
+        return f"train {item.memory_source} {sequence} {item.benchmark}/{item.split}/{item.case_id}"
+    return f"eval {item.memory_source}->{item.harness} {item.benchmark}/{item.split}/{item.case_id}"
+
+
 def _case_dir(benchmark: str, split: str, case_id: str) -> Path:
     return REPO_ROOT / "benchmarks" / benchmark / "dataset" / "cases" / split / case_id
 
@@ -798,6 +817,7 @@ def _run_item_with_retries(item: MemoryRunItem, batch: BatchSettings) -> RunResu
         retry_statuses=batch.retry_statuses,
     )
     for attempt in range(1, attempts + 1):
+        print(f"Running {_item_label(item)} (attempt {attempt}/{attempts})")
         try:
             result = _run_item(item)
         except Exception as exc:
@@ -808,9 +828,8 @@ def _run_item_with_retries(item: MemoryRunItem, batch: BatchSettings) -> RunResu
             return result
         if attempt < attempts:
             print(
-                f"retry {item.phase}/{item.memory_source}/{item.harness}/"
-                f"{item.benchmark}/{item.case_id}: {result.overall_status} "
-                f"(attempt {attempt}/{attempts})"
+                f"Retrying {_item_label(item)} after retryable status "
+                f"{result.overall_status} (attempt {attempt}/{attempts})"
             )
     if last_result is None:
         raise RuntimeError("Run finished without a result.")
@@ -884,15 +903,30 @@ def _run_train(config: FamilyConfig, args: argparse.Namespace) -> int:
     _reset_train_destinations(config, train_harnesses, force=args.force)
     _check_missing(items)
     statuses: list[str] = []
-    for item in items:
+    status_counts: dict[str, int] = {}
+    train_start = _utc_now()
+    print(
+        f"Starting train phase "
+        f"(harnesses={len(train_harnesses)}, cases_per_harness={len(config.train_cases)}, runs={len(items)})"
+    )
+    for index, item in enumerate(items, start=1):
         result = _run_item_with_retries(item, config.batch)
         statuses.append(result.overall_status)
+        status_counts[result.overall_status] = status_counts.get(result.overall_status, 0) + 1
         print(
-            f"train {item.memory_source} [{item.sequence_index}/{len(config.train_cases)}] "
+            f"[{index}/{len(items)} train] {item.memory_source} "
+            f"[{item.sequence_index}/{len(config.train_cases)}] "
             f"{item.benchmark}/{item.split}/{item.case_id} -> {result.overall_status} "
-            f"({_relative(result.output_dir)})"
+            f"({_relative(result.output_dir)}; counts={_status_counts_text(status_counts)})"
         )
     promote_fragments(config, harnesses=train_harnesses, force=True)
+    train_end = _utc_now()
+    print("Train summary:")
+    print(f"  Total runs: {len(items)}")
+    print(f"  Harnesses: {', '.join(train_harnesses) or '-'}")
+    print(f"  Wall-clock seconds: {_duration_seconds(train_start, train_end)}")
+    for status in sorted(status_counts):
+        print(f"  {status}: {status_counts[status]}")
     return 0 if all(status == "success" for status in statuses) else 1
 
 
@@ -928,6 +962,12 @@ def _run_eval(config: FamilyConfig, args: argparse.Namespace) -> int:
     executed_statuses: list[str] = []
     for result in skipped_results:
         status_counts[result.overall_status] = status_counts.get(result.overall_status, 0) + 1
+    eval_start = _utc_now()
+    max_workers = min(config.batch.max_concurrency, len(selected))
+    print(
+        f"Starting eval worker pool "
+        f"(selected={len(selected)}, skipped={len(skipped_results)}, max_concurrency={max_workers or 0})"
+    )
     with concurrent.futures.ThreadPoolExecutor(max_workers=config.batch.max_concurrency) as executor:
         futures = {executor.submit(_run_item_with_retries, item, config.batch): item for item in selected}
         completed = 0
@@ -943,9 +983,18 @@ def _run_eval(config: FamilyConfig, args: argparse.Namespace) -> int:
             status_counts[result.overall_status] = status_counts.get(result.overall_status, 0) + 1
             print(
                 f"[{completed}/{len(selected)}] eval {item.memory_source}->{item.harness} "
-                f"{item.benchmark}/{item.case_id} -> {result.overall_status} ({_relative(result.output_dir)})"
+                f"{item.benchmark}/{item.case_id} -> {result.overall_status} "
+                f"({_relative(result.output_dir)}; executed={completed}, skipped={len(skipped_results)}; "
+                f"counts={_status_counts_text(status_counts)})"
             )
-    print("Status counts: " + ", ".join(f"{key}={value}" for key, value in sorted(status_counts.items())))
+    eval_end = _utc_now()
+    print("Eval summary:")
+    print(f"  Total runs considered: {len(selected) + len(skipped_results)}")
+    print(f"  Executed runs: {len(executed_statuses)}")
+    print(f"  Skipped runs: {len(skipped_results)}")
+    print(f"  Wall-clock seconds: {_duration_seconds(eval_start, eval_end)}")
+    for status in sorted(status_counts):
+        print(f"  {status}: {status_counts[status]}")
     return 0 if all(status == "success" for status in executed_statuses) else 1
 
 
