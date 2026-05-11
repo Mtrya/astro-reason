@@ -1,0 +1,20 @@
+harness: opencode_minimax
+runtime: base
+
+assemble:
+  - source: experiments/_fragments/configs/opencode_minimax/opencode
+    target: /home/korolev/.config/opencode
+    example: experiments/_fragments/configs/opencode_minimax/opencode.example
+  - source: .agents/skills/brahe
+    target: /home/korolev/.config/opencode/skills/brahe
+
+commands:
+  headless_shell_command: >-
+    opencode run --dangerously-skip-permissions "$(cat ~/PROMPT.md)"
+
+collect:
+  - source: /home/korolev/.local/share/opencode
+    target: results_root/session_logs/opencode
+    missing_ok: true
+
+forward_env_keys: []
