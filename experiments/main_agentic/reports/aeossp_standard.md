@@ -4,7 +4,7 @@ Generated from the current `main_agentic` aggregate summaries.
 
 | Harness | Present | Success | Valid | Invalid | Timeout | Primary Mean | Normalized Mean |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
-| claude_code | 5 | 3 | 3 | 0 | 0 | WCR=0.7115 | 43.84 |
+| claude_code | 5 | 5 | 5 | 0 | 0 | WCR=0.5701 | 58.45 |
 | codex | 5 | 5 | 5 | 0 | 0 | WCR=0.7075 | 72.91 |
 | kimi_cli | 5 | 5 | 5 | 0 | 0 | WCR=0.6923 | 72.03 |
 | opencode_minimax | 5 | 5 | 5 | 0 | 0 | WCR=0.2008 | 36.44 |
@@ -17,8 +17,8 @@ Generated from the current `main_agentic` aggregate summaries.
 | case_0001 | true | 7200.1 | 70.87 | 0.6854 | 0.7268 | 1071.2 | 18621.4 |
 | case_0002 | true | 4800.2 | 74.45 | 0.7293 | 0.7538 | 1070.3 | 19616.0 |
 | case_0003 | true | 1038.9 | 73.89 | 0.7198 | 0.7408 | 985.0 | 17763.5 |
-| case_0004 | false | 7.0120 | 0.0000 | - | - | - | - |
-| case_0005 | false | 4.9180 | 0.0000 | - | - | - | - |
+| case_0004 | true | 4800.8 | 73.05 | 0.7158 | 0.7497 | 1058.3 | 18652.4 |
+| case_0005 | true | 2040.3 | 0.0000 | 0.0000 | 0.0000 | - | 7860.0 |
 
 ## codex
 

@@ -4,8 +4,8 @@ Generated from the current `main_agentic` aggregate summaries.
 
 | Harness | Present | Success | Valid | Invalid | Timeout | Primary Mean | Normalized Mean |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
-| codex | 5 | 5 | 5 | 0 | 0 | normalized_quality=0.5378 | 53.78 |
-| kimi_cli | 5 | 4 | 4 | 0 | 0 | normalized_quality=0.0039 | 0.3153 |
+| codex | 5 | 5 | 5 | 0 | 0 | normalized_quality=0.6891 | 68.91 |
+| kimi_cli | 5 | 5 | 5 | 0 | 0 | normalized_quality=0.0032 | 0.3153 |
 | opencode_minimax | 5 | 1 | 1 | 1 | 0 | normalized_quality=0.0000 | 0.0000 |
 | opencode_dpsk | 5 | 4 | 4 | 1 | 0 | normalized_quality=0.1624 | 13.00 |
 
@@ -13,10 +13,10 @@ Generated from the current `main_agentic` aggregate summaries.
 
 | Case | Valid | Duration (s) | Normalized Score | normalized_quality | coverage_ratio |
 | --- | --- | ---: | ---: | ---: | ---: |
-| case_0001 | true | 1602.6 | 20.57 | 0.2057 | 0.2254 |
+| case_0001 | true | 1746.6 | 96.94 | 0.9694 | 0.9718 |
 | case_0002 | true | 1829.6 | 96.75 | 0.9675 | 0.9917 |
 | case_0003 | true | 2561.9 | 69.06 | 0.6906 | 0.7934 |
-| case_0004 | true | 5301.2 | 1.5489 | 0.0155 | 0.0159 |
+| case_0004 | true | 5087.2 | 0.7931 | 0.0079 | 0.0079 |
 | case_0005 | true | 1247.9 | 80.98 | 0.8098 | 0.8511 |
 
 ## kimi_cli
@@ -26,7 +26,7 @@ Generated from the current `main_agentic` aggregate summaries.
 | case_0001 | true | 7200.6 | 0.0000 | 0.0000 | 0.0000 |
 | case_0002 | true | 7200.8 | 1.2524 | 0.0125 | 0.0165 |
 | case_0003 | true | 7200.9 | 0.0000 | 0.0000 | 0.0000 |
-| case_0004 | false | 10.79 | 0.0000 | - | - |
+| case_0004 | true | 7200.2 | 0.0000 | 0.0000 | 0.0000 |
 | case_0005 | true | 4600.2 | 0.3240 | 0.0032 | 0.0071 |
 
 ## opencode_dpsk
