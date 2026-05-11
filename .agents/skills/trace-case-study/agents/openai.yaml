@@ -1,0 +1,4 @@
+interface:
+  display_name: "Trace Case Study"
+  short_description: "Diagnose benchmark traces with evidence-first causal analysis."
+  default_prompt: "Study these benchmark traces, compare the relevant contracts and controls, and write an evidence-first case study."
