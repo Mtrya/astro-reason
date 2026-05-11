@@ -110,13 +110,13 @@ def test_spot5_max_profit_uses_unconstrained_case_profit() -> None:
     assert aggregate._spot5_max_profit("test", "8") == 12
 
 
-def test_spot5_profit_score_normalizes_against_max_profit() -> None:
+def test_spot5_profit_score_normalizes_against_half_max_profit() -> None:
     score = aggregate._spot5_profit_score_pct(
         _item("spot5", "8"),
         {"metrics": {"computed_profit": 5}},
     )
 
-    assert score == pytest.approx(100.0 * 5 / 12)
+    assert score == pytest.approx(100.0 * 5 / 6)
 
 
 def test_group_summary_processed_metric_mean_includes_invalid_zero() -> None:

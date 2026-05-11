@@ -353,10 +353,17 @@ def spot5_score_pct(
 ) -> float | None:
     """Compute the SPOT5 normalized profit score.
 
+    The denominator is a heuristic half of the unconstrained total profit, since
+    the full sum is usually an unrealistic upper bound under SPOT5 conflicts
+    and capacity constraints.
+
     Set clip=False when preserving over-baseline performance in legacy reports
     or diagnostic plots.
     """
-    return ratio_score_pct(computed_profit, total_possible_profit, clip=clip)
+    total_profit_float = to_float(total_possible_profit)
+    if total_profit_float is None:
+        return None
+    return ratio_score_pct(computed_profit, 0.5 * total_profit_float, clip=clip)
 
 
 def stereo_imaging_score_pct(*, normalized_quality: float | int | None) -> float | None:

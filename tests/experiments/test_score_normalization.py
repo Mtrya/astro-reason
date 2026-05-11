@@ -71,9 +71,9 @@ def test_constellation_scores_are_gated_before_resource_bonus() -> None:
 def test_task_specific_score_functions() -> None:
     assert scores.stereo_imaging_score_pct(normalized_quality=0.42) == pytest.approx(42.0)
     assert scores.spot5_score_pct(
-        computed_profit=120,
+        computed_profit=25,
         total_possible_profit=100,
-    ) == pytest.approx(100.0)
+    ) == pytest.approx(50.0)
     assert scores.satnet_score_pct(
         u_rms=1.0,
         u_rms_cap=2.0,

@@ -29,6 +29,7 @@ VERIFIER_EXPOSURE_TRACES_DIR="experiments/verifier_exposure/reports/traces"
 TEMPORAL_ROBUSTNESS_TRACES_DIR="experiments/temporal_robustness/reports/traces"
 
 MAIN_AGENTIC_RADAR_OUTPUT="experiments/main_agentic/reports/harness_radar.png"
+MAIN_AGENTIC_PCT_RADAR_OUTPUT="experiments/main_agentic/reports/harness_pct_radar.png"
 BASELINE_DATA=""
 MAIN_AGENTIC_HARNESS_ARGS=()
 
@@ -83,6 +84,7 @@ Outputs:
   --verifier-exposure-traces-dir PATH
   --temporal-robustness-traces-dir PATH
   --main-agentic-radar-output PATH
+  --main-agentic-pct-radar-output PATH
   --baseline-data PATH   Main-solver baseline source for main-agentic reports/radar.
   --harness NAME         Harness to include in the main-agentic radar plot.
                          May be repeated.
@@ -165,6 +167,14 @@ run_main_agentic() {
       "${UV_BIN}" run python experiments/main_agentic/plot_radar.py \
       "${config_args[@]}" \
       --output "${MAIN_AGENTIC_RADAR_OUTPUT}" \
+      "${MAIN_AGENTIC_HARNESS_ARGS[@]}" \
+      "${baseline_args[@]}"
+
+    run_step "${family}" "Plot normalized-score harness radar" \
+      "${UV_BIN}" run python experiments/main_agentic/plot_radar.py \
+      "${config_args[@]}" \
+      --score-mode normalized-pct \
+      --output "${MAIN_AGENTIC_PCT_RADAR_OUTPUT}" \
       "${MAIN_AGENTIC_HARNESS_ARGS[@]}" \
       "${baseline_args[@]}"
   fi
@@ -336,6 +346,10 @@ while [[ "$#" -gt 0 ]]; do
       ;;
     --main-agentic-radar-output)
       MAIN_AGENTIC_RADAR_OUTPUT="${2:?--main-agentic-radar-output requires a path}"
+      shift 2
+      ;;
+    --main-agentic-pct-radar-output)
+      MAIN_AGENTIC_PCT_RADAR_OUTPUT="${2:?--main-agentic-pct-radar-output requires a path}"
       shift 2
       ;;
     --baseline-data)
