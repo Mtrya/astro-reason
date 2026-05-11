@@ -10,7 +10,7 @@ Case identifiers are split-scoped: `test/case_0001` and `test_horizon_2022/case_
 
 | System | Kind | test Runs | test Valid | test Mean WCR | test Mean CR | test Mean TAT | test Mean PC | test_horizon_2022 Runs | test_horizon_2022 Valid | test_horizon_2022 Mean WCR | test_horizon_2022 Mean CR | test_horizon_2022 Mean TAT | test_horizon_2022 Mean PC |
 | --- | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
-| codex | agent | 5 | 5 | 0.7075 | 0.7358 | 1025.1 | 19098.7 | 5 | 5 | 0.6072 | 0.6319 | 1050.5 | 17121.1 |
+| codex | agent | 5 | 5 | 0.7075 | 0.7358 | 1025.1 | 19098.7 | 5 | 5 | 0.6949 | 0.7238 | 1003.7 | 18643.3 |
 | opencode_dpsk | agent | 5 | 5 | 0.6820 | 0.7101 | 987.1 | 18672.2 | 5 | 5 | 0.6816 | 0.7104 | 953.1 | 18279.2 |
 | greedy_lns | solver | 5 | 5 | 0.6816 | 0.7212 | 1128.3 | 18496.6 | 5 | 5 | 0.6874 | 0.7292 | 1120.2 | 18257.2 |
 | mwis_conflict_graph | solver | 5 | 5 | 0.7582 | 0.7895 | 1017.8 | 19795.2 | 5 | 5 | 0.7667 | 0.8006 | 1034.1 | 19611.2 |
@@ -60,7 +60,7 @@ Case identifiers are split-scoped: `test/case_0001` and `test_horizon_2022/case_
 | case_0004 | agent | opencode_dpsk | true | 0.7068 | 0.7312 | 946.1 | 17846.4 | success |
 | case_0004 | solver | greedy_lns | true | 0.6974 | 0.7407 | 1099.7 | 17641.9 | verified |
 | case_0004 | solver | mwis_conflict_graph | true | 0.7763 | 0.8097 | 1023.2 | 18844.3 | verified |
-| case_0005 | agent | codex | true | 0.3000 | 0.3102 | 1111.7 | 13997.8 | success |
+| case_0005 | agent | codex | true | 0.7382 | 0.7695 | 878.1 | 21608.7 | success |
 | case_0005 | agent | opencode_dpsk | true | 0.7239 | 0.7569 | 887.6 | 21309.9 | success |
 | case_0005 | solver | greedy_lns | true | 0.7190 | 0.7635 | 1099.9 | 21068.0 | verified |
 | case_0005 | solver | mwis_conflict_graph | true | 0.7973 | 0.8305 | 985.8 | 22472.4 | verified |
