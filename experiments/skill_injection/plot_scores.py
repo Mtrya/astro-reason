@@ -59,7 +59,7 @@ CONDITION_LABELS = {
     "no_skill": "No skill",
     "compact_domain": "Compact domain",
     "skill_pack": "Skill pack",
-    "satnet_ortools_python": "Python + CP-SAT",
+    "satnet_ortools_python": "SatNet CP-SAT",
 }
 CONDITION_COLORS = {
     "no_skill": "#667085",

@@ -51,7 +51,7 @@ def test_skill_pack_condition_assembles_four_skill_sources() -> None:
     ]
 
 
-def test_satnet_selection_uses_codex_and_two_generic_skills() -> None:
+def test_satnet_selection_uses_codex_and_satnet_scheduler_skill() -> None:
     config = run.load_family_config(run.DEFAULT_CONFIG)
     (item,) = run.build_items(
         config,
@@ -68,10 +68,7 @@ def test_satnet_selection_uses_codex_and_two_generic_skills() -> None:
 
     assert item.benchmark == "satnet"
     assert item.harness == "codex"
-    assert [spec.target.name for spec in specs] == [
-        "python-optimization-for-search",
-        "ortools-cpsat-modeling",
-    ]
+    assert [spec.target.name for spec in specs] == ["satnet-cpsat-scheduler"]
 
 
 def test_interactive_dry_run_selects_satnet_codex(capsys) -> None:
@@ -151,6 +148,7 @@ def test_skill_fragment_root_contains_only_skill_directories() -> None:
         "classical-or-scheduling-methods",
         "ortools-cpsat-modeling",
         "python-optimization-for-search",
+        "satnet-cpsat-scheduler",
         "stereo-imaging-compact-procedure",
         "stereo-imaging-product-strategy",
     ]

@@ -8,8 +8,8 @@ The initial benchmark was `stereo_imaging`. It was selected because weak
 harnesses often produce invalid or valid-but-near-zero solutions under opaque
 verifier exposure, while transparent verifier exposure shows the task is
 learnable when agents receive better constraint feedback. The matrix now also
-includes `satnet` on `codex` for a narrower test of whether generic Python
-optimization plus OR-Tools CP-SAT guidance improves a resource-scheduling task.
+includes `satnet` on `codex` for a narrower test of whether a standalone
+SatNet CP-SAT scheduling skill improves a resource-scheduling task.
 
 ## Conditions
 
@@ -18,8 +18,7 @@ optimization plus OR-Tools CP-SAT guidance improves a resource-scheduling task.
 - `skill_pack`: four focused skills covering Python search performance,
   OR-Tools CP-SAT modeling, classical OR scheduling methods, and
   stereo-imaging product strategy.
-- `satnet_ortools_python`: two generic skills for SatNet only:
-  Python search optimization and OR-Tools CP-SAT modeling.
+- `satnet_ortools_python`: one standalone SatNet CP-SAT scheduling skill.
 
 Skill assembly is owned by the condition profiles under:
 
