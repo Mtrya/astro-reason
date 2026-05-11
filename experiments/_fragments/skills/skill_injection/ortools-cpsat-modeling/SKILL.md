@@ -5,19 +5,45 @@ description: Use when building small-to-medium OR-Tools CP-SAT models in Python 
 
 # OR-Tools CP-SAT Modeling
 
-When candidate or product data is already clean and an exact or bounded CP-SAT selection model is useful, treat CP-SAT as a modeling layer, not a data-cleaning substitute: build candidates, product ids, conflict edges, and objective terms first.
+When candidate or product data is already clean, small enough, and an exact or bounded CP-SAT selection model is useful, treat CP-SAT as a modeling layer, not a data-cleaning substitute: build candidates, product ids, conflict edges, and objective terms first.
+
+CP-SAT does not rescue an oversized or noisy candidate library. If candidate generation is still exploding, prune and validate the library before modeling. A small trusted model that finishes and leaves a feasible incumbent is better than a giant exact model that never reaches a useful submission.
 
 Use `examples/binary_coverage_cp_sat.py` or `examples/sequential_lexicographic_solve.py` only when you need a runnable synthetic pattern. Use `references/README.md` only for API-name or status-code lookup.
 
 ## Modeling Recipe
 
-1. Build trusted products, action ids, conflict edges, and objective terms outside CP-SAT.
-2. Create one Boolean `x[product_id]` per selectable product.
-3. Add conflict constraints such as `x[a] + x[b] <= 1`.
-4. Link target/job coverage or best-score variables to selected products.
-5. Maximize the task's actual priority order, using sequential solves when weights are awkward.
-6. Set a time limit and treat only `OPTIMAL` or `FEASIBLE` as solution-bearing statuses.
-7. Convert selected products back into the required raw output actions; keep scratch solver logs out of the final submission unless requested.
+1. Build a small trusted product library, action ids, conflict edges, and objective terms outside CP-SAT.
+2. Put hard caps on candidate counts before creating variables. Keep only the best few compatible alternatives per job, target, resource, or time bucket.
+3. Run a greedy or insertion baseline first and save it as a fallback incumbent.
+4. Create one Boolean `x[product_id]` per selectable product after pruning.
+5. Add conflict constraints such as `x[a] + x[b] <= 1`.
+6. Link target/job coverage or best-score variables to selected products.
+7. Maximize the task's actual priority order, using sequential solves when weights are awkward.
+8. Set a time limit and treat only `OPTIMAL` or `FEASIBLE` as solution-bearing statuses.
+9. Convert selected products back into the required raw output actions; keep scratch solver logs out of the final submission unless requested.
+
+## Candidate Budget Before CP-SAT
+
+Before building the model, print or inspect these counts:
+
+- raw actions or observations generated
+- actions remaining after local feasibility filters
+- products/jobs remaining after compatibility filters
+- conflict edges
+- products per target/job/request
+- worst resource timeline density
+
+If these counts are unexpectedly large, stop and prune before creating variables. Practical pruning patterns:
+
+- Keep at most `k` product alternatives per target/job/request for the first model, then enlarge only after a valid incumbent exists.
+- Keep candidates near the center of feasible windows before trying edge cases.
+- Remove dominated products that cover the same entity with worse quality, tighter margins, and no conflict advantage.
+- Bucket time and keep representative alternatives per resource/time bucket rather than every second or every tiny offset.
+- Use product-level variables, not raw-action variables, when the score is earned by completed products.
+- Reject candidates near known hard thresholds until the baseline is valid; add threshold-hugging upgrades later.
+
+Do not build all pairwise products just because CP-SAT can express the selection. Pairwise product generation can be the real bottleneck.
 
 ## Minimal Pattern
 
@@ -46,6 +72,7 @@ Use the lowercase Python API (`new_bool_var`, `add`, `maximize`, `solve`, `value
 - Keep an immutable id list beside the variables: `x[item_id] = model.new_bool_var(f"select_{item_id}")`.
 - Scale non-integer objective terms to integers before modeling. CP-SAT is integer-based.
 - Avoid creating variables for impossible items; reject them before building the model.
+- Avoid creating variables for every raw time sample or every pairwise combination. Model pruned products whenever possible.
 
 ## Conflict Constraints
 
@@ -56,7 +83,7 @@ for left, right in conflict_edges:
     model.add(x[left] + x[right] <= 1)
 ```
 
-Use this for mutual exclusion, capacity-one overlaps, incompatible assignments, or any precomputed "cannot both be selected" relation. If conflict construction is huge, profile it separately; model construction can dominate runtime.
+Use this for mutual exclusion, capacity-one overlaps, incompatible assignments, or any precomputed "cannot both be selected" relation. If conflict construction is huge, the candidate library is probably still too large or insufficiently indexed; profile and prune it separately because model construction can dominate runtime.
 
 ## Coverage Linkage
 
@@ -99,6 +126,7 @@ If no product covers an entity, fix its coverage variable to zero. This pattern 
 - Candidate/product generation is still wrong or unstable.
 - Conflict edges are not trusted.
 - Most runtime is spent before model construction finishes.
+- The product library is thousands of weak near-duplicates and no greedy valid incumbent exists.
 - The instance is tiny and greedy already reaches the known target.
 - You need continuous nonlinear geometry rather than an integer selection model.
 

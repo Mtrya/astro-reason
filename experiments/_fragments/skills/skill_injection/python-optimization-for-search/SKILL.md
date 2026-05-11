@@ -9,11 +9,14 @@ When a Python solver is slow because it repeatedly builds candidates, evaluates 
 
 Use `examples/search_loop_patterns.py` only when you need a runnable pattern for batching, deterministic search, and atomic checkpoint writes.
 
+The fastest candidate is the one you never create. Before multiprocessing, vectorization, or CP-SAT-style selection, check whether the candidate library is too large. Prune early by dominance, margin, natural buckets, and per-job alternatives; then optimize the smaller data flow.
+
 ## Symptom To Fix
 
 | Symptom | First fix |
 |---|---|
 | Candidate generation is slow | Batch by natural independent blocks and cache parsed/static inputs. |
+| Candidate count explodes | Add cheap filters, per-key caps, dominance checks, and staged widening before using expensive scoring. |
 | Pair/product filtering is slow | Precompute indexes by target/resource/time bucket and vectorize dense numeric masks. |
 | Search rescans everything | Store candidate ids and conflict neighborhoods; update only affected neighbors. |
 | Multiprocessing is slower | Increase task size, send smaller inputs, or return to deterministic serial code. |
@@ -26,10 +29,24 @@ Use `examples/search_loop_patterns.py` only when you need a runnable pattern for
 2. Add stage counters and timings for candidate generation, indexing, scoring/filtering, search moves, repair, and output writing.
 3. Profile the whole run with `cProfile`, then micro-time only the few functions you might rewrite.
 4. Cache pure expensive computations keyed by small stable values.
-5. Batch work by independent blocks such as satellite, target group, resource, day, or shard; build reusable intermediate libraries once.
-6. Vectorize dense numeric transforms when records fit cleanly into arrays.
-7. Parallelize only coarse independent batches after the serial version is deterministic and measured.
-8. Run bounded deterministic improvement loops and checkpoint the best valid or most-likely-valid output early and often.
+5. Prune the candidate library with cheap filters and per-key caps before expensive all-pairs/product enumeration.
+6. Batch work by independent blocks such as satellite, target group, resource, day, or shard; build reusable intermediate libraries once.
+7. Vectorize dense numeric transforms when records fit cleanly into arrays.
+8. Parallelize only coarse independent batches after the serial version is deterministic and measured.
+9. Run bounded deterministic improvement loops and checkpoint the best valid or most-likely-valid output early and often.
+
+## Candidate Budgets
+
+Use explicit budgets while developing:
+
+- Print counts after each stage: raw candidates, locally feasible candidates, products, conflicts, selected products, and rejected products by reason.
+- Build a tiny first library that can produce a valid incumbent.
+- Keep only the best `k` alternatives per target/job/request/resource bucket for the first pass.
+- Remove dominated candidates that are worse on value, feasibility margin, and conflict pressure.
+- Widen the caps only after the saved incumbent is valid and the profiler shows candidate scarcity, not search overhead.
+- Avoid dense all-pairs matrices when a keyed join or time-bucket scan can produce the same high-quality products.
+
+Large candidate sets are not automatically more intelligent. They often bury useful options under model-construction time and repair work.
 
 ## Profiling
 
@@ -53,6 +70,7 @@ Use `examples/search_loop_patterns.py` only when you need a runnable pattern for
 - Index pools by the question the search loop asks most often: by target, resource, time bucket, candidate id, product id, or conflict neighborhood.
 - Replace repeated full-pool rescans with sorted queues, precomputed masks, adjacency lists, or per-key lists.
 - Store immutable candidate ids in search state. Keep bulky numeric fields in arrays or tables addressed by id.
+- Keep top candidates per index key while building the library. Do not wait until the search loop to discover that every key has hundreds of weak near-duplicates.
 
 ## Vectorization
 
@@ -92,3 +110,4 @@ Use `examples/search_loop_patterns.py` only when you need a runnable pattern for
 - Optimize only after you have a correctness check.
 - Keep the old simple path or a small expected-output test near risky rewrites.
 - Prefer changes that make the data flow easier to inspect: fewer repeated scans, clearer indexes, and explicit checkpoints.
+- Preserve a simple greedy or insertion path as the fallback whenever an exact or heavy optimizer fails to return a complete solution.

@@ -20,6 +20,8 @@ You submit raw observations, but the score comes from derived stereo products:
 
 Before scheduling a product, ask: which target does it cover, which product mode does it use, why should the pair/triple pass overlap, convergence, and pixel-scale checks, and which same-satellite timeline conflicts can it create?
 
+Keep the product library deliberately small until you have a valid nonzero solution. Stereo imaging has many tempting observation times and pair combinations; most are redundant or fragile. Build a product-first candidate set with strong filters, not a dense all-observations pool.
+
 ## Choose The Next Move
 
 | Current state | Next move |
@@ -27,6 +29,7 @@ Before scheduling a product, ask: which target does it cover, which product mode
 | Invalid `solution.json` | Repair hard action violations before reading product metrics. |
 | Valid but zero score | Add one robust same-target pair; do not add unrelated singles. |
 | Many zero-score targets | Seed robust pairs for zero-score targets before polishing duplicates. |
+| Candidate count is exploding | Prune by target, mode, time margin, convergence band, overlap margin, pixel-scale ratio, and timeline slack before using an optimizer. |
 | Most targets covered | Upgrade the best product per target by normalized-quality gain. |
 | Pair failures near thresholds | Move inward in access time, reduce extreme steering, or choose a more similar pixel-scale view. |
 | Schedule repair removes many products | Revert to the last valid file and reinsert fewer whole products. |
@@ -41,6 +44,19 @@ Use the mode that gives reliable coverage with the least timeline damage:
 
 If cross-satellite stereo is allowed, it is often the safer first product mode for weak schedules because it reduces same-satellite retargeting pressure.
 
+## Candidate Pruning First
+
+Start with a bounded product library:
+
+1. For each target, generate only a few robust candidate pairs per mode before widening the search.
+2. Prefer mid-window observations with solar/access slack over edge-of-window samples.
+3. Keep convergence inside the scene preference band before trying extreme baselines.
+4. Reject pairs with weak overlap, extreme pixel-scale ratio, or near-threshold duration unless they are the only way to cover a target.
+5. Limit same-satellite dense sampling; same-pass pairs create many timeline conflicts and slew repairs.
+6. Keep at most the best few products per target for the first schedule. Add more only after preserving a valid incumbent.
+
+A useful first schedule usually needs broad robust coverage, not every possible product. If an optimizer or script reports tens of thousands of candidate observations or products, stop and tighten pruning. Do not spend the whole run building a huge CP-SAT model before a valid incumbent exists.
+
 ## Quality Strategy
 
 After validity, optimize best-per-target product quality. Use broad first-pass coverage as a practical way to avoid zero-contribution targets, then compare upgrades by their effect on normalized quality:
@@ -50,6 +66,7 @@ After validity, optimize best-per-target product quality. Use broad first-pass c
 - Similar effective pixel scales reduce resolution penalty; extremely asymmetric off-nadir views risk pixel-scale failures.
 - High overlap is usually worth more than aggressive baseline because overlap has a large quality weight and also protects validity.
 - For tri-stereo, include one near-nadir observation as the anchor and two additional views that still form at least two valid pairs.
+- Treat near-threshold candidates as upgrade material, not baseline material. First solve with comfortable margins.
 
 Scene preferences:
 
@@ -73,6 +90,8 @@ After every verifier run, classify the outcome:
 - **Repair collapse:** if fixes remove many observations, preserve the last valid solution and re-add products one target at a time.
 
 Keep the best valid `solution.json` while experimenting. When trying a risky upgrade, make the smallest product-level change that can explain the expected metric movement.
+
+If a sophisticated solver path is slower than the pruning and verifier loop, switch back to a deterministic greedy product inserter. A valid product-level greedy schedule is a better final artifact than an unfinished exact model.
 
 ## Diagnostic Fields
 
@@ -106,3 +125,4 @@ Before finalizing:
 - Cross-satellite products are within the pair separation limit and allowed by the mission.
 - Tri-stereo has a near-nadir anchor and enough valid constituent pairs.
 - Uncovered targets are intentional because they lack usable opportunities or would break better products.
+- The final solution came from the best valid incumbent, not from the last unfinished optimizer attempt.
