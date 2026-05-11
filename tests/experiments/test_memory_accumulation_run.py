@@ -87,6 +87,24 @@ def test_default_config_builds_train_and_eval_axes() -> None:
     )
 
 
+def test_train_and_eval_use_memory_specific_agents_fragments() -> None:
+    config = run.load_family_config(run.DEFAULT_CONFIG)
+    (train_item,) = run.build_train_items(config, harnesses=("codex",))[:1]
+    (eval_item,) = run.build_eval_items(
+        config,
+        benchmarks=("satnet",),
+        memory_sources=("codex",),
+        harnesses=("codex",),
+        cases=("W10_2018",),
+    )
+
+    train_agents = [spec for spec in train_item.base_item.assemble if spec.target.as_posix() == "/app/workspace/AGENTS.md"]
+    eval_agents = [spec for spec in eval_item.base_item.assemble if spec.target.as_posix() == "/app/workspace/AGENTS.md"]
+
+    assert train_agents[0].source.name == "AGENTS.memory_accumulation.train.md"
+    assert eval_agents[0].source.name == "AGENTS.memory_accumulation.eval.md"
+
+
 def test_promote_fragments_copies_train_state_with_manifest(tmp_path: Path) -> None:
     config = run.load_family_config(_write_test_config(tmp_path))
     state = config.results.root / config.config_path.stem / "train_state" / "test_condition" / "codex"
