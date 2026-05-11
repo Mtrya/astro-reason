@@ -69,12 +69,25 @@ For each communication request, decide:
 
 ### Objective
 
-Maximize total communication hours:
+Minimize mission-level unsatisfied demand. The primary SatNet benchmark metrics
+are `U_rms` and `U_max`, where lower is better:
+
 ```
+minimize: U_rms
+then minimize: U_max
+```
+
+After fairness, useful secondary indicators are satisfied request count and
+total communication hours:
+
+```
+maximize: n_satisfied_requests
 maximize: Σ (track.tracking_off - track.tracking_on) / 3600
 ```
 
-Published SatNet comparisons also emphasize fairness across missions. The principal literature metrics are `U_rms` and `U_max`, which measure the root mean square and worst-case unsatisfied time fraction across missions.
+`U_rms` and `U_max` measure the root mean square and worst-case unsatisfied time
+fraction across missions. A schedule with high total hours can still be poor if
+it concentrates service on a subset of missions.
 
 ## Data Format Specifications
 
@@ -204,16 +217,21 @@ The `RESOURCE` must be in the request's `resource_vp_dict`.
 
 ## Scoring Methodology
 
-**Tracking Hours**: Total scheduled communication time
+**Primary fairness metrics**:
+
+- **Fairness (U_rms)**: Root-mean-square of unsatisfied fractions; lower is better.
+- **Fairness (U_max)**: Maximum unsatisfied fraction across all missions; lower is better.
+
+**Requests Satisfied**: Number of requests whose total allocated duration (summed across all tracks for that `track_id`) is at least `duration_min`.
+
+**Tracking Hours**: Total scheduled communication time, used as a secondary volume metric.
+
 ```python
 total_hours = sum((track['TRACKING_OFF'] - track['TRACKING_ON']) / 3600.0 for track in solution)
 ```
 
 **Note**: Setup and teardown times consume antenna availability but do **not** count toward total tracking hours.
 
-**Fairness Metrics** (also computed and reported by the verifier):
-
-- **Requests Satisfied**: Number of requests whose total allocated duration (summed across all tracks for that `track_id`) is at least `duration_min`
 - **Fairness (U_max)**: Maximum unsatisfied fraction across all missions
   ```
   U_m = (requested_duration_m - allocated_duration_m) / requested_duration_m

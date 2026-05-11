@@ -18,11 +18,12 @@ This problem is modeled as week-long antenna-track scheduling. Each scheduled tr
 A strong solution should:
 
 - satisfy all hard validity rules
-- maximize actual communication time
+- minimize mission-level unsatisfied demand, especially `U_rms`
+- avoid leaving any mission completely unsatisfied by minimizing `U_max`
 - satisfy as many requests as possible
-- reduce the amount of unsatisfied demand across requests
+- use actual communication time as a secondary tie-breaker after fairness and satisfaction
 
-In practical terms, only transmission time counts toward the main objective. Setup and teardown consume antenna time but do not contribute to communication hours.
+In practical terms, the primary score rewards request satisfaction and fair distribution across missions. Raw transmission hours are reported by the verifier, but high antenna-hours can score poorly if they leave a few missions underserved. Setup and teardown consume antenna time but do not contribute to communication hours.
 
 ## Files In This Workspace
 
@@ -118,7 +119,7 @@ subject_allocated_s = sum(allocated_s for those requests)
 U_i = max(subject_requested_s - subject_allocated_s, 0) / subject_requested_s
 ```
 
-`U_max = max(U_i)`, and `U_rms = sqrt(mean(U_i^2))`. `n_satisfied_requests` counts requests whose capped allocation reaches `duration_min`. Residual ambiguity is mostly inherited from integer truncation of hour/minute request fields; when in doubt, use the equations above and then confirm with the local helper.
+`U_rms = sqrt(mean(U_i^2))` is the primary fairness metric, and `U_max = max(U_i)` is the worst-mission guardrail. Lower values are better for both. `n_satisfied_requests` counts requests whose capped allocation reaches `duration_min`. Residual ambiguity is mostly inherited from integer truncation of hour/minute request fields; when in doubt, use the equations above and then confirm with the local helper.
 
 ## Validation Notes
 

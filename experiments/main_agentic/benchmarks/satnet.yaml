@@ -17,21 +17,21 @@ collect: []
 aggregation:
   verifier_kind: single_file
   score_metrics:
-    - name: score_hours
-      path: metrics.score_hours
-      direction: maximize
+    - name: u_rms
+      path: metrics.u_rms
+      direction: minimize
       role: primary
+    - name: u_max
+      path: metrics.u_max
+      direction: minimize
+      role: secondary
     - name: n_satisfied_requests
       path: metrics.n_satisfied_requests
       direction: maximize
       role: secondary
-    - name: u_rms
-      path: metrics.u_rms
-      direction: minimize
-      role: secondary
-    - name: u_max
-      path: metrics.u_max
-      direction: minimize
+    - name: score_hours
+      path: metrics.score_hours
+      direction: maximize
       role: secondary
     - name: n_tracks
       path: metrics.n_tracks

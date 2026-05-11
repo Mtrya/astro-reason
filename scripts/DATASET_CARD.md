@@ -111,7 +111,7 @@ A constellation-design and scheduling benchmark focused on revisit performance. 
 **Case files**: `assets.json`, `mission.json`
 
 ### `satnet`
-A reinforcement-learning benchmark derived from NASA/JPL Deep Space Network (DSN) operations. The task is to schedule ground-station antenna tracks for interplanetary spacecraft over one-week windows, respecting precomputed view periods, setup/teardown times, maintenance windows, and non-overlap constraints. The primary metric is total scheduled communication hours.
+A reinforcement-learning benchmark derived from NASA/JPL Deep Space Network (DSN) operations. The task is to schedule ground-station antenna tracks for interplanetary spacecraft over one-week windows, respecting precomputed view periods, setup/teardown times, maintenance windows, and non-overlap constraints. The primary metrics are the mission-level unsatisfied-demand fairness metrics `U_rms` and `U_max`, with satisfied request count and total communication hours used as secondary service-volume indicators.
 
 **Case files**: `problem.json`, `maintenance.csv`, `metadata.json`
 
