@@ -8,8 +8,8 @@ Generated from the current `verifier_exposure` aggregate artifacts.
 
 | Exposure | Runs | Valid | Valid Rate | Mean Coverage | Mean Quality | Mean Score | Overall Statuses | Verifier Statuses |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
-| none | 10 | 3 | 1.0000 | - | - | 21.29 | missing_artifact: 7, success: 3 | missing_artifact: 7, valid: 3 |
-| opaque | 10 | 9 | 1.0000 | - | - | 58.72 | missing_artifact: 1, success: 9 | missing_artifact: 1, valid: 9 |
+| none | 10 | 8 | 1.0000 | - | - | 52.41 | missing_artifact: 2, success: 8 | missing_artifact: 2, valid: 8 |
+| opaque | 10 | 10 | 1.0000 | - | - | 64.84 | success: 10 | valid: 10 |
 | solver | 10 | 10 | 1.0000 | - | - | 58.77 | verified: 10 | verified: 10 |
 | transparent | 10 | 9 | 1.0000 | - | - | 59.74 | success: 9, verifier_error: 1 | error: 1, valid: 9 |
 
@@ -17,10 +17,10 @@ Generated from the current `verifier_exposure` aggregate artifacts.
 
 | Exposure | Kind | System | Runs | Valid | Valid Rate | Mean Coverage | Mean Quality | Mean Score | Overall Statuses |
 | --- | --- | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
-| none | agent | codex | 5 | 2 | 1.0000 | - | - | 28.67 | missing_artifact: 3, success: 2 |
-| none | agent | opencode_dpsk | 5 | 1 | 1.0000 | - | - | 13.91 | missing_artifact: 4, success: 1 |
+| none | agent | codex | 5 | 4 | 1.0000 | - | - | 54.56 | missing_artifact: 1, success: 4 |
+| none | agent | opencode_dpsk | 5 | 4 | 1.0000 | - | - | 50.25 | missing_artifact: 1, success: 4 |
 | opaque | agent | codex | 5 | 5 | 1.0000 | - | - | 69.45 | success: 5 |
-| opaque | agent | opencode_dpsk | 5 | 4 | 1.0000 | - | - | 47.98 | missing_artifact: 1, success: 4 |
+| opaque | agent | opencode_dpsk | 5 | 5 | 1.0000 | - | - | 60.23 | success: 5 |
 | solver | solver | satnet_milp_claudet2022 | 5 | 5 | 1.0000 | - | - | 60.54 | verified: 5 |
 | solver | solver | satnet_rl_ppo_goh2021 | 5 | 5 | 1.0000 | - | - | 57.00 | verified: 5 |
 | transparent | agent | codex | 5 | 5 | 1.0000 | - | - | 69.95 | success: 5 |
@@ -32,13 +32,13 @@ Generated from the current `verifier_exposure` aggregate artifacts.
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | ---: | ---: | ---: | ---: |
 | none | test | agent | codex | W10_2018 | present | success | valid | true | 1098.5 | - | - | 66.80 |
 | none | test | agent | codex | W20_2018 | present | success | valid | true | 1625.2 | - | - | 76.54 |
-| none | test | agent | codex | W30_2018 | missing_or_malformed | missing_artifact | missing_artifact | - | - | - | - | 0.0000 |
-| none | test | agent | codex | W40_2018 | missing_or_malformed | missing_artifact | missing_artifact | - | - | - | - | 0.0000 |
+| none | test | agent | codex | W30_2018 | present | success | valid | true | 928.6 | - | - | 67.60 |
+| none | test | agent | codex | W40_2018 | present | success | valid | true | 1759.3 | - | - | 61.86 |
 | none | test | agent | codex | W50_2018 | missing_or_malformed | missing_artifact | missing_artifact | - | - | - | - | 0.0000 |
 | none | test | agent | opencode_dpsk | W10_2018 | present | success | valid | true | 3791.0 | - | - | 69.55 |
-| none | test | agent | opencode_dpsk | W20_2018 | missing_or_malformed | missing_artifact | missing_artifact | - | - | - | - | 0.0000 |
-| none | test | agent | opencode_dpsk | W30_2018 | missing_or_malformed | missing_artifact | missing_artifact | - | - | - | - | 0.0000 |
-| none | test | agent | opencode_dpsk | W40_2018 | missing_or_malformed | missing_artifact | missing_artifact | - | - | - | - | 0.0000 |
+| none | test | agent | opencode_dpsk | W20_2018 | present | success | valid | true | 3199.9 | - | - | 66.90 |
+| none | test | agent | opencode_dpsk | W30_2018 | present | success | valid | true | 2640.5 | - | - | 65.30 |
+| none | test | agent | opencode_dpsk | W40_2018 | present | success | valid | true | 2464.9 | - | - | 49.53 |
 | none | test | agent | opencode_dpsk | W50_2018 | missing_or_malformed | missing_artifact | missing_artifact | - | - | - | - | 0.0000 |
 | opaque | test | agent | codex | W10_2018 | present | success | valid | true | 987.7 | - | - | 78.09 |
 | opaque | test | agent | codex | W20_2018 | present | success | valid | true | 4702.2 | - | - | 61.17 |
@@ -49,7 +49,7 @@ Generated from the current `verifier_exposure` aggregate artifacts.
 | opaque | test | agent | opencode_dpsk | W20_2018 | present | success | valid | true | 7200.7 | - | - | 71.67 |
 | opaque | test | agent | opencode_dpsk | W30_2018 | present | success | valid | true | 7200.8 | - | - | 50.61 |
 | opaque | test | agent | opencode_dpsk | W40_2018 | present | success | valid | true | 4152.5 | - | - | 43.94 |
-| opaque | test | agent | opencode_dpsk | W50_2018 | missing_or_malformed | missing_artifact | missing_artifact | - | - | - | - | 0.0000 |
+| opaque | test | agent | opencode_dpsk | W50_2018 | present | success | valid | true | 7200.2 | - | - | 61.25 |
 | solver | test | solver | satnet_milp_claudet2022 | W10_2018 | baseline | verified | verified | true | - | - | - | 68.53 |
 | solver | test | solver | satnet_milp_claudet2022 | W20_2018 | baseline | verified | verified | true | - | - | - | 68.22 |
 | solver | test | solver | satnet_milp_claudet2022 | W30_2018 | baseline | verified | verified | true | - | - | - | 62.17 |

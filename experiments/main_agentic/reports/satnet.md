@@ -5,9 +5,9 @@ Generated from the current `main_agentic` aggregate summaries.
 | Harness | Present | Success | Valid | Invalid | Timeout | Primary Mean | Normalized Mean |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
 | codex | 5 | 5 | 5 | 0 | 0 | u_rms=0.2342 | 69.45 |
-| kimi_cli | 4 | 4 | 4 | 0 | 0 | u_rms=0.2321 | 67.07 |
+| kimi_cli | 5 | 5 | 5 | 0 | 0 | u_rms=0.2478 | 66.14 |
 | opencode_minimax | 5 | 4 | 4 | 1 | 0 | u_rms=0.4372 | 37.54 |
-| opencode_dpsk | 4 | 4 | 4 | 0 | 0 | u_rms=0.2653 | 59.97 |
+| opencode_dpsk | 5 | 5 | 5 | 0 | 0 | u_rms=0.2680 | 60.23 |
 
 ## codex
 
@@ -27,6 +27,7 @@ Generated from the current `main_agentic` aggregate summaries.
 | W20_2018 | true | 7200.3 | 53.87 | 0.2968 | 0.9548 | 204 | 888.7 | 206 |
 | W30_2018 | true | 7200.7 | 70.41 | 0.2197 | 0.5245 | 201 | 1174.9 | 279 |
 | W40_2018 | true | 6200.8 | 62.21 | 0.2760 | 0.6835 | 223 | 1179.6 | 281 |
+| W50_2018 | true | 7200.2 | 62.41 | 0.3107 | 0.5714 | 190 | 852.2 | 197 |
 
 ## opencode_dpsk
 
@@ -36,6 +37,7 @@ Generated from the current `main_agentic` aggregate summaries.
 | W20_2018 | true | 7200.7 | 71.67 | 0.1622 | 0.6466 | 258 | 1213.3 | 270 |
 | W30_2018 | true | 7200.8 | 50.61 | 0.3483 | 0.9308 | 190 | 1017.8 | 263 |
 | W40_2018 | true | 4152.5 | 43.94 | 0.4142 | 1.0000 | 194 | 1020.9 | 226 |
+| W50_2018 | true | 7200.2 | 61.25 | 0.2786 | 0.7143 | 193 | 895.3 | 222 |
 
 ## opencode_minimax
 

@@ -4,7 +4,7 @@ Generated from the current `main_agentic` aggregate summaries.
 
 | Harness | Present | Success | Valid | Invalid | Timeout | Primary Mean | Normalized Mean |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
-| claude_code | 5 | 3 | 3 | 0 | 0 | weighted_coverage_ratio=0.0000 | 12.93 |
+| claude_code | 4 | 4 | 4 | 0 | 0 | weighted_coverage_ratio=0.0000 | 21.34 |
 | codex | 5 | 5 | 5 | 0 | 0 | weighted_coverage_ratio=0.8797 | 72.08 |
 | kimi_cli | 5 | 5 | 5 | 0 | 0 | weighted_coverage_ratio=0.9441 | 73.15 |
 | opencode_minimax | 5 | 5 | 5 | 0 | 0 | weighted_coverage_ratio=0.0440 | 17.73 |
@@ -17,8 +17,7 @@ Generated from the current `main_agentic` aggregate summaries.
 | case_0001 | true | 3337.9 | 23.21 | 0.0000 | 0.0000 | 0 | 492.9 |
 | case_0002 | true | 4588.3 | 20.73 | 0.0000 | 0.0000 | 0 | 496.7 |
 | case_0003 | true | 4800.8 | 20.69 | 0.0000 | 0.0000 | 0 | 493.1 |
-| case_0004 | false | 10.19 | 0.0000 | - | - | - | - |
-| case_0005 | false | 8.4160 | 0.0000 | - | - | - | - |
+| case_0004 | true | 1837.8 | 20.73 | 0.0000 | 0.0000 | 0 | 496.6 |
 
 ## codex
 
