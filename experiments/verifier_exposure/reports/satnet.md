@@ -11,7 +11,7 @@ Generated from the current `verifier_exposure` aggregate artifacts.
 | none | 10 | 10 | 1.0000 | - | - | 65.85 | success: 10 | valid: 10 |
 | opaque | 10 | 10 | 1.0000 | - | - | 64.84 | success: 10 | valid: 10 |
 | solver | 10 | 10 | 1.0000 | - | - | 58.77 | verified: 10 | verified: 10 |
-| transparent | 10 | 9 | 1.0000 | - | - | 59.74 | success: 9, verifier_error: 1 | error: 1, valid: 9 |
+| transparent | 10 | 10 | 1.0000 | - | - | 65.92 | success: 10 | valid: 10 |
 
 ## Exposure And System Summary
 
@@ -24,7 +24,7 @@ Generated from the current `verifier_exposure` aggregate artifacts.
 | solver | solver | satnet_milp_claudet2022 | 5 | 5 | 1.0000 | - | - | 60.54 | verified: 5 |
 | solver | solver | satnet_rl_ppo_goh2021 | 5 | 5 | 1.0000 | - | - | 57.00 | verified: 5 |
 | transparent | agent | codex | 5 | 5 | 1.0000 | - | - | 69.95 | success: 5 |
-| transparent | agent | opencode_dpsk | 5 | 4 | 1.0000 | - | - | 49.53 | success: 4, verifier_error: 1 |
+| transparent | agent | opencode_dpsk | 5 | 5 | 1.0000 | - | - | 61.90 | success: 5 |
 
 ## Cases
 
@@ -67,6 +67,6 @@ Generated from the current `verifier_exposure` aggregate artifacts.
 | transparent | test | agent | codex | W50_2018 | present | success | valid | true | 2893.3 | - | - | 69.95 |
 | transparent | test | agent | opencode_dpsk | W10_2018 | present | success | valid | true | 3226.1 | - | - | 69.79 |
 | transparent | test | agent | opencode_dpsk | W20_2018 | present | success | valid | true | 4144.6 | - | - | 63.90 |
-| transparent | test | agent | opencode_dpsk | W30_2018 | present | verifier_error | error | - | 3101.3 | - | - | 0.0000 |
+| transparent | test | agent | opencode_dpsk | W30_2018 | present | success | valid | true | 4420.8 | - | - | 61.84 |
 | transparent | test | agent | opencode_dpsk | W40_2018 | present | success | valid | true | 3675.2 | - | - | 49.85 |
 | transparent | test | agent | opencode_dpsk | W50_2018 | present | success | valid | true | 3700.8 | - | - | 64.11 |
