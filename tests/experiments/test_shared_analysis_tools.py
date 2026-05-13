@@ -34,6 +34,26 @@ def test_shared_analysis_modules_expose_family_neutral_helpers() -> None:
                 "metrics": {"score": 10},
                 "processed_metrics": {},
                 "flags": {},
+            },
+            {
+                "artifact_state": "present",
+                "overall_status": "verification_failed",
+                "agent_status": "success",
+                "verifier_status": "invalid",
+                "valid": False,
+                "metrics": {"score": 4},
+                "processed_metrics": {},
+                "flags": {},
+            },
+            {
+                "artifact_state": "missing_artifact",
+                "overall_status": "missing_artifact",
+                "agent_status": "missing_artifact",
+                "verifier_status": "missing_artifact",
+                "valid": None,
+                "metrics": {"score": None},
+                "processed_metrics": {},
+                "flags": {},
             }
         ],
         profile=profile,
@@ -50,7 +70,8 @@ def test_shared_analysis_modules_expose_family_neutral_helpers() -> None:
         seq=0,
     )
 
-    assert summary["primary_metric"]["stats"]["mean"] == 10.0
+    assert summary["primary_metric"]["stats"]["count"] == 3
+    assert summary["primary_metric"]["stats"]["mean"] == 10.0 / 3.0
     assert "solution_json" in event["tags"]
     assert "verifier" in event["tags"]
     assert workspace.render_template("{case_id} {unknown}", {"case_id": "case_0001"}) == (

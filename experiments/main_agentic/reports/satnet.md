@@ -6,7 +6,7 @@ Generated from the current `main_agentic` aggregate summaries.
 | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
 | codex | 5 | 5 | 5 | 0 | 0 | u_rms=0.2342 | 69.45 |
 | kimi_cli | 5 | 5 | 5 | 0 | 0 | u_rms=0.2478 | 66.14 |
-| opencode_minimax | 5 | 4 | 4 | 1 | 0 | u_rms=0.4372 | 37.54 |
+| opencode_minimax | 5 | 4 | 4 | 1 | 0 | u_rms=0.4779 | 37.54 |
 | opencode_dpsk | 5 | 5 | 5 | 0 | 0 | u_rms=0.2680 | 60.23 |
 
 ## codex

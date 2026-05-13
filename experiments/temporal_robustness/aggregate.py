@@ -22,6 +22,12 @@ from experiments._shared import aggregate as shared_aggregate
 FAMILY_DIR = Path(__file__).resolve().parent
 DEFAULT_CONFIG = FAMILY_DIR / "configs" / "default.yaml"
 METRICS = ("WCR", "CR", "TAT", "PC")
+METRIC_DIRECTIONS = {
+    "WCR": "maximize",
+    "CR": "maximize",
+    "TAT": "minimize",
+    "PC": "minimize",
+}
 
 
 def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
@@ -191,14 +197,26 @@ def _summary(rows: list[dict[str, Any]]) -> dict[str, Any]:
 
 def _group_summary(rows: list[dict[str, Any]]) -> dict[str, Any]:
     valid_values = [row["valid"] for row in rows if isinstance(row["valid"], bool)]
+    valid_count = sum(1 for value in valid_values if value)
     metric_means = {
-        f"mean_{metric}": _mean([row[metric] for row in rows if isinstance(row.get(metric), float)])
+        f"mean_{metric}": _mean(
+            [
+                float(value)
+                for value in shared_aggregate.values_with_missing_penalty(
+                    [
+                        row.get(metric) if row.get("valid") is True else None
+                        for row in rows
+                    ],
+                    direction=METRIC_DIRECTIONS[metric],
+                )
+            ]
+        )
         for metric in METRICS
     }
     return {
         "run_count": len(rows),
-        "valid_count": sum(1 for value in valid_values if value),
-        "valid_rate": (sum(1 for value in valid_values if value) / len(valid_values)) if valid_values else None,
+        "valid_count": valid_count,
+        "valid_rate": valid_count / len(rows) if rows else None,
         "overall_status_counts": shared_aggregate.status_counts(rows, "overall_status"),
         "verifier_status_counts": shared_aggregate.status_counts(rows, "verifier_status"),
         **metric_means,

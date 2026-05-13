@@ -39,6 +39,16 @@ METRIC_FIELDS = (
     "n_tracks",
     "normalized_score_pct",
 )
+METRIC_DIRECTIONS = {
+    "coverage_ratio": "maximize",
+    "normalized_quality": "maximize",
+    "score_hours": "maximize",
+    "n_satisfied_requests": "maximize",
+    "u_rms": "minimize",
+    "u_max": "minimize",
+    "n_tracks": "maximize",
+    "normalized_score_pct": "maximize",
+}
 
 
 def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
@@ -155,7 +165,7 @@ def _missing_row(
         "duration_seconds": None,
         "skill_count": len(skills),
         "skills": list(skills),
-        **{field: None for field in METRIC_FIELDS},
+        **{field: 0.0 if field == "normalized_score_pct" else None for field in METRIC_FIELDS},
         "result_path": _display_path(run_path),
     }
 
@@ -271,22 +281,33 @@ def _mean(values: list[float]) -> float | None:
 
 def _group_summary(rows: list[dict[str, Any]]) -> dict[str, Any]:
     valid_values = [row["valid"] for row in rows if isinstance(row["valid"], bool)]
+    valid_count = sum(1 for value in valid_values if value)
     return {
         "run_count": len(rows),
         "present_count": sum(1 for row in rows if row.get("artifact_state") == "present"),
         "missing_count": sum(1 for row in rows if row.get("artifact_state") == "missing_artifact"),
         "malformed_count": sum(1 for row in rows if row.get("artifact_state") == "malformed_artifact"),
-        "valid_count": sum(1 for value in valid_values if value),
-        "valid_rate": (
-            sum(1 for value in valid_values if value) / len(valid_values)
-            if valid_values
-            else None
-        ),
+        "valid_count": valid_count,
+        "valid_rate": valid_count / len(rows) if rows else None,
         "overall_status_counts": shared_aggregate.status_counts(rows, "overall_status"),
         "agent_status_counts": shared_aggregate.status_counts(rows, "agent_status"),
         "verifier_status_counts": shared_aggregate.status_counts(rows, "verifier_status"),
         **{
-            f"mean_{field}": _mean([row[field] for row in rows if isinstance(row.get(field), float)])
+            f"mean_{field}": _mean(
+                [
+                    float(value)
+                    for value in shared_aggregate.values_with_missing_penalty(
+                        [
+                            row.get(field)
+                            if field == "normalized_score_pct" or row.get("valid") is True
+                            else None
+                            for row in rows
+                        ],
+                        direction=METRIC_DIRECTIONS[field],
+                        penalize_absent=field == "normalized_score_pct",
+                    )
+                ]
+            )
             for field in METRIC_FIELDS
         },
         "mean_duration_seconds": _mean(

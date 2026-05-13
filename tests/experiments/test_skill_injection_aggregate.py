@@ -112,8 +112,10 @@ def test_skill_injection_aggregate_writes_rows_and_summary(tmp_path: Path) -> No
     assert rows[1]["condition"] == "compact_domain"
     assert rows[1]["source_experiment"] == "skill_injection"
     assert rows[1]["artifact_state"] == "missing_artifact"
+    assert rows[1]["normalized_score_pct"] == "0"
     assert summary["by_condition"]["no_skill"]["mean_normalized_score_pct"] == 25.0
     assert summary["by_condition"]["compact_domain"]["missing_count"] == 1
+    assert summary["by_condition"]["compact_domain"]["mean_normalized_score_pct"] == 0.0
 
 
 def test_skill_injection_write_reports_from_aggregate(tmp_path: Path) -> None:
@@ -138,4 +140,3 @@ def test_skill_injection_write_reports_from_aggregate(tmp_path: Path) -> None:
     assert "25" in report
     for spec in plot_scores.PLOT_SPECS:
         assert (reports_dir / spec.output_name).exists()
-

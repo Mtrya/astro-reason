@@ -55,6 +55,21 @@ def test_case_tables_use_valid_and_normalized_score_columns(tmp_path: Path) -> N
             "coverage_ratio": "",
             "profit_score_pct": "12.0",
         },
+        {
+            "config_name": "matrix",
+            "benchmark": "stereo_imaging",
+            "harness": "codex",
+            "split": "test",
+            "case_id": "case_0003",
+            "artifact_state": "missing_artifact",
+            "overall_status": "missing_artifact",
+            "verifier_status": "missing_artifact",
+            "valid": "",
+            "duration_seconds": "",
+            "normalized_quality": "",
+            "coverage_ratio": "",
+            "profit_score_pct": "",
+        },
     ]
 
     write_reports._write_benchmark_report(
@@ -69,6 +84,7 @@ def test_case_tables_use_valid_and_normalized_score_columns(tmp_path: Path) -> N
 
     assert "| Case | Valid | Duration (s) | Normalized Score | normalized_quality | coverage_ratio |" in report
     assert "| Case | Overall | Verifier |" not in report
+    assert "| codex | 2 | 1 | 1 | 1 | 0 | normalized_quality=0.5000 | 16.67 |" in report
     assert "| case_0001 | true | 12.50 | 50.00 | 0.5000 | 0.7500 |" in report
     assert "| case_0002 | false | 20.00 | 0.0000 | - | - |" in report
     assert "profit_score_pct" not in report

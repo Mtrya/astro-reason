@@ -164,7 +164,8 @@ def test_group_summary_processed_metric_mean_includes_invalid_zero() -> None:
         harness="codex",
     )
 
-    assert summary["primary_metric"]["stats"]["mean"] == 10.0
+    assert summary["primary_metric"]["stats"]["count"] == 2
+    assert summary["primary_metric"]["stats"]["mean"] == 5.0
     assert summary["processed_metrics"]["profit_score_pct"]["stats"]["count"] == 2
     assert summary["processed_metrics"]["profit_score_pct"]["stats"]["mean"] == 50.0
 

@@ -6,7 +6,7 @@ Generated from the current `main_agentic` aggregate summaries.
 | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
 | codex | 5 | 5 | 5 | 0 | 0 | computed_profit=115339.4 | 61.92 |
 | kimi_cli | 5 | 5 | 5 | 0 | 0 | computed_profit=115339.4 | 61.92 |
-| opencode_minimax | 5 | 4 | 4 | 0 | 0 | computed_profit=56820.5 | 37.47 |
+| opencode_minimax | 5 | 4 | 4 | 0 | 0 | computed_profit=45456.4 | 37.47 |
 | opencode_dpsk | 5 | 5 | 5 | 0 | 0 | computed_profit=112136.4 | 60.91 |
 
 ## codex

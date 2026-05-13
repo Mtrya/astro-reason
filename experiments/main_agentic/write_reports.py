@@ -187,7 +187,7 @@ def _write_benchmark_report(
                             _mean_normalized_score(
                                 benchmark=benchmark,
                                 harness=row["harness"],
-                                rows=present_rows,
+                                rows=run_rows,
                                 baseline_data=baseline_data,
                             )
                         )

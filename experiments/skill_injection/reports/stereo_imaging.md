@@ -15,7 +15,7 @@ Generated from the current `skill_injection` aggregate artifacts.
 | Condition | Runs | Present | Valid | Valid Rate | Mean Coverage | Mean Quality | Mean Hours | Mean U RMS | Mean U Max | Mean Score | Overall Statuses |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
 | compact_domain | 10 | 10 | 10 | 1.0000 | 0.1663 | 0.1423 | - | - | - | 14.23 | success: 9, timeout: 1 |
-| no_skill | 10 | 10 | 5 | 0.7143 | 0.2491 | 0.1964 | - | - | - | 9.2822 | success: 5, verifier_error: 3, verifier_invalid: 2 |
+| no_skill | 10 | 10 | 5 | 0.5000 | 0.0942 | 0.0650 | - | - | - | 6.4975 | success: 5, verifier_error: 3, verifier_invalid: 2 |
 | skill_pack | 10 | 10 | 7 | 0.7000 | 0.0956 | 0.0925 | - | - | - | 9.2521 | success: 6, timeout: 1, verifier_invalid: 3 |
 
 ## Condition And Harness Summary
@@ -24,8 +24,8 @@ Generated from the current `skill_injection` aggregate artifacts.
 | --- | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
 | compact_domain | opencode_dpsk | 5 | 5 | 5 | 1.0000 | 0.3327 | 0.2846 | - | - | - | 28.46 | success: 4, timeout: 1 |
 | compact_domain | opencode_minimax | 5 | 5 | 5 | 1.0000 | 0.0000 | 0.0000 | - | - | - | 0.0000 | success: 5 |
-| no_skill | opencode_dpsk | 5 | 5 | 4 | 0.8000 | 0.3487 | 0.2749 | - | - | - | 13.00 | success: 4, verifier_invalid: 1 |
-| no_skill | opencode_minimax | 5 | 5 | 1 | 0.5000 | 0.0000 | 0.0000 | - | - | - | 0.0000 | success: 1, verifier_error: 3, verifier_invalid: 1 |
+| no_skill | opencode_dpsk | 5 | 5 | 4 | 0.8000 | 0.1884 | 0.1300 | - | - | - | 13.00 | success: 4, verifier_invalid: 1 |
+| no_skill | opencode_minimax | 5 | 5 | 1 | 0.2000 | 0.0000 | 0.0000 | - | - | - | 0.0000 | success: 1, verifier_error: 3, verifier_invalid: 1 |
 | skill_pack | opencode_dpsk | 5 | 5 | 4 | 0.8000 | 0.1913 | 0.1850 | - | - | - | 18.50 | success: 3, timeout: 1, verifier_invalid: 1 |
 | skill_pack | opencode_minimax | 5 | 5 | 3 | 0.6000 | 0.0000 | 0.0000 | - | - | - | 0.0000 | success: 3, verifier_invalid: 2 |
 

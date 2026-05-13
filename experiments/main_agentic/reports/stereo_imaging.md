@@ -7,7 +7,7 @@ Generated from the current `main_agentic` aggregate summaries.
 | codex | 5 | 5 | 5 | 0 | 0 | normalized_quality=0.6891 | 68.91 |
 | kimi_cli | 5 | 5 | 5 | 0 | 0 | normalized_quality=0.0032 | 0.3153 |
 | opencode_minimax | 5 | 1 | 1 | 1 | 0 | normalized_quality=0.0000 | 0.0000 |
-| opencode_dpsk | 5 | 4 | 4 | 1 | 0 | normalized_quality=0.1624 | 13.00 |
+| opencode_dpsk | 5 | 4 | 4 | 1 | 0 | normalized_quality=0.1300 | 13.00 |
 
 ## codex
 

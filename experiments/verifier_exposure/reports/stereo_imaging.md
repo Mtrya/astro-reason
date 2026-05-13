@@ -8,8 +8,8 @@ Generated from the current `verifier_exposure` aggregate artifacts.
 
 | Exposure | Runs | Valid | Valid Rate | Mean Coverage | Mean Quality | Mean Score | Overall Statuses | Verifier Statuses |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
-| none | 10 | 4 | 0.4000 | 0.2412 | 0.2370 | 18.96 | success: 4, verifier_error: 2, verifier_invalid: 4 | error: 2, invalid: 4, valid: 4 |
-| opaque | 10 | 9 | 0.9000 | 0.5360 | 0.4820 | 40.95 | success: 9, verifier_invalid: 1 | invalid: 1, valid: 9 |
+| none | 10 | 4 | 0.4000 | 0.1929 | 0.1896 | 18.96 | success: 4, verifier_error: 2, verifier_invalid: 4 | error: 2, invalid: 4, valid: 4 |
+| opaque | 10 | 9 | 0.9000 | 0.4558 | 0.4095 | 40.95 | success: 9, verifier_invalid: 1 | invalid: 1, valid: 9 |
 | solver | 10 | 10 | 1.0000 | 0.9570 | 0.9402 | 94.02 | verified: 10 | verified: 10 |
 | transparent | 10 | 10 | 1.0000 | 0.9037 | 0.8221 | 82.21 | success: 10 | valid: 10 |
 
@@ -18,9 +18,9 @@ Generated from the current `verifier_exposure` aggregate artifacts.
 | Exposure | Kind | System | Runs | Valid | Valid Rate | Mean Coverage | Mean Quality | Mean Score | Overall Statuses |
 | --- | --- | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
 | none | agent | codex | 5 | 4 | 0.8000 | 0.3859 | 0.3792 | 37.92 | success: 4, verifier_invalid: 1 |
-| none | agent | opencode_dpsk | 5 | 0 | 0.0000 | 0.0000 | 0.0000 | 0.0000 | verifier_error: 2, verifier_invalid: 3 |
+| none | agent | opencode_dpsk | 5 | 0 | 0.0000 | - | - | 0.0000 | verifier_error: 2, verifier_invalid: 3 |
 | opaque | agent | codex | 5 | 5 | 1.0000 | 0.7232 | 0.6891 | 68.91 | success: 5 |
-| opaque | agent | opencode_dpsk | 5 | 4 | 0.8000 | 0.3487 | 0.2749 | 13.00 | success: 4, verifier_invalid: 1 |
+| opaque | agent | opencode_dpsk | 5 | 4 | 0.8000 | 0.1884 | 0.1300 | 13.00 | success: 4, verifier_invalid: 1 |
 | solver | solver | stereo_imaging_cp_local_search_stereo_insertion | 5 | 5 | 1.0000 | 0.9705 | 0.9605 | 96.05 | verified: 5 |
 | solver | solver | stereo_imaging_time_window_pruned_stereo_milp | 5 | 5 | 1.0000 | 0.9435 | 0.9200 | 92.00 | verified: 5 |
 | transparent | agent | codex | 5 | 5 | 1.0000 | 0.9718 | 0.9562 | 95.62 | success: 5 |

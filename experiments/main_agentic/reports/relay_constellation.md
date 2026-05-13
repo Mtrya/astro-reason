@@ -4,7 +4,7 @@ Generated from the current `main_agentic` aggregate summaries.
 
 | Harness | Present | Success | Valid | Invalid | Timeout | Primary Mean | Normalized Mean |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
-| claude_code | 5 | 1 | 1 | 4 | 0 | service_fraction=0.9444 | 12.25 |
+| claude_code | 5 | 1 | 1 | 4 | 0 | service_fraction=0.1889 | 12.25 |
 | codex | 5 | 5 | 5 | 0 | 0 | service_fraction=0.9352 | 64.91 |
 | kimi_cli | 5 | 5 | 5 | 0 | 0 | service_fraction=0.8681 | 57.77 |
 | opencode_minimax | 5 | 4 | 4 | 1 | 0 | service_fraction=0.0000 | 0.0000 |

@@ -159,7 +159,7 @@ def _missing_row(
         "verifier_status": artifact_state,
         "valid": None,
         "duration_seconds": None,
-        **{field: None for field in METRIC_FIELDS},
+        **{field: 0.0 if field == "normalized_score_pct" else None for field in METRIC_FIELDS},
         "result_path": _display_path(run_path),
     }
 
@@ -290,9 +290,12 @@ def _group_summary(rows: list[dict[str, Any]], keys: tuple[str, ...]) -> dict[st
     for group_key, group_rows in sorted(groups.items()):
         label = " / ".join(group_key)
         scores = [
-            float(row["normalized_score_pct"])
-            for row in group_rows
-            if shared_aggregate.is_numeric(row.get("normalized_score_pct"))
+            float(value)
+            for value in shared_aggregate.values_with_missing_penalty(
+                [row.get("normalized_score_pct") for row in group_rows],
+                direction="maximize",
+                penalize_absent=True,
+            )
         ]
         summary[label] = {
             "expected_count": len(group_rows),

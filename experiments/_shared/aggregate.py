@@ -117,15 +117,40 @@ def secondary_metrics(profile: Any) -> tuple[Any, ...]:
     return tuple(metric for metric in profile.score_metrics if metric.role == "secondary")
 
 
-def metric_values(records: list[dict[str, Any]], metric_name: str) -> list[int | float]:
-    values: list[int | float] = []
-    for record in records:
-        if record["valid"] is not True:
-            continue
-        value = record["metrics"].get(metric_name)
-        if is_numeric(value):
-            values.append(value)
-    return values
+def values_with_missing_penalty(
+    values: list[Any],
+    *,
+    direction: str,
+    penalize_absent: bool = False,
+) -> list[int | float]:
+    """Return all-case aggregate values with non-credit for absent or failed runs."""
+    numeric_values = [value for value in values if is_numeric(value)]
+    if not numeric_values and not penalize_absent:
+        return []
+    if direction == "maximize":
+        fallback: int | float | None = 0.0
+    elif direction == "minimize" and numeric_values:
+        fallback = max(float(value) for value in numeric_values)
+    else:
+        fallback = None
+    return [
+        value if is_numeric(value) else fallback
+        for value in values
+        if is_numeric(value) or fallback is not None
+    ]
+
+
+def metric_values(records: list[dict[str, Any]], metric: Any) -> list[int | float]:
+    metric_name = metric.name
+    direction = getattr(metric, "direction", "maximize")
+    return values_with_missing_penalty(
+        [
+            record["metrics"].get(metric_name) if record["valid"] is True else None
+            for record in records
+        ],
+        direction=direction,
+        penalize_absent=True,
+    )
 
 
 def processed_metric_names(records: list[dict[str, Any]]) -> tuple[str, ...]:
@@ -139,12 +164,14 @@ def processed_metric_names(records: list[dict[str, Any]]) -> tuple[str, ...]:
 
 
 def processed_metric_values(records: list[dict[str, Any]], metric_name: str) -> list[int | float]:
-    values: list[int | float] = []
-    for record in records:
-        value = record["processed_metrics"].get(metric_name)
-        if is_numeric(value):
-            values.append(value)
-    return values
+    return values_with_missing_penalty(
+        [
+            record["processed_metrics"].get(metric_name) if record["valid"] is True else None
+            for record in records
+        ],
+        direction="maximize",
+        penalize_absent=True,
+    )
 
 
 def build_group_summary(
@@ -162,9 +189,9 @@ def build_group_summary(
     )
     primary = primary_metric(profile)
     secondary = secondary_metrics(profile)
-    primary_stats = metric_stats(metric_values(records, primary.name)) if primary else None
+    primary_stats = metric_stats(metric_values(records, primary)) if primary else None
     secondary_stats = {
-        metric.name: metric_stats(metric_values(records, metric.name))
+        metric.name: metric_stats(metric_values(records, metric))
         for metric in secondary
     }
     processed_metric_stats = {
