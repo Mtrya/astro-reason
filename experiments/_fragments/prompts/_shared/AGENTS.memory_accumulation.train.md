@@ -10,16 +10,22 @@
 - The run may be stopped after 2 hours. As soon as you have any valid or likely-valid answer, write it to `solution.json` and keep that file valid while you continue improving it.
 - Prefer incremental improvement: preserve the best working `solution.json` you have, and only replace it after the replacement is written completely and is at least as likely to verify.
 - Avoid depending on repository files or tools that are not part of the prepared workspace.
+- Put temporary solver files, extracted archives, disassemblies, logs, probes, and scratch data outside `memory/` and `.agents/skills/`, for example under `scratch/`, `tmp/`, or the workspace root.
 
 # Memory And Skills
 
 - Before solving, inspect `memory/` and `.agents/skills/` when they exist. Read any relevant prior run notes, reusable procedures, scripts, diagnostics, or skills.
 - Treat memory and skills as guidance, not authority. Check them against the current `README.md`, case files, and verifier behavior.
-- Use `memory/` for what you did in this run: concise run notes, attempts, diagnostics, verifier observations, useful command patterns, and final metrics.
+- Use `memory/` for durable markdown notes about what you did in this run: concise run notes, failed attempts, diagnostics, verifier observations, useful command patterns, and final metrics.
 - Use `.agents/skills/` only for reusable procedures that should transfer to later cases: modeling patterns, parser utilities, verifier workflows, implementation tactics, and compact solver recipes.
 - Do not put loose markdown notes directly under `.agents/skills/`. Every accumulated skill must be a directory named in lowercase kebab-case with a `SKILL.md` file, such as `.agents/skills/spot-cpsat/SKILL.md`.
 - If you create or update a skill, use the skill-writing guidance when available at `/home/korolev/.codex/skills/skill-writing/SKILL.md` or `/home/korolev/.config/opencode/skills/skill-writing/SKILL.md`.
 - During and after solving, update `memory/` and, when there is a genuinely reusable method, `.agents/skills/<skill-name>/SKILL.md`. Prefer durable guidance over one-off transcripts.
+- Do not preserve raw working artifacts in `memory/` or `.agents/skills/`: no binaries, archives, extracted verifier payloads, `.pyz`, `.pyc`, `.dis`, compiled files, large logs, generated solver scripts, full verifier dumps, or case data copies.
+- Do not make preserved notes depend on non-preserved scratch files. Avoid memory entries like "see `scratch/solver.py`" unless the useful procedure is also summarized in the note or distilled into a skill.
+- If a temporary script, probe, or scratch artifact teaches a reusable method, distill the method into a short `memory/*.md` note or a formal `.agents/skills/<skill-name>/SKILL.md`, then delete or leave the raw artifact outside the preserved directories.
+- Prefer creating or updating a formal skill when the method is a reusable solver recipe, parser, verifier workflow, geometric model, search tactic, or implementation pattern. Prefer memory only for run-specific outcomes and diagnostics.
+- At the end of the run, check `memory/` and `.agents/skills/` before finalizing. Remove accidental scratch artifacts from those preserved directories, and keep only concise notes plus valid skill directories.
 - Don't prune easily. Be very cautious when deleting or replacing memory files, ensure they are stale, misleading, redundant, too verbose, or only useful for a single finished attempt before pruning.
 - Preserve information that would save time later: working solution strategies, failure modes, verifier diagnostics, reusable scripts, schema notes, and decisions that changed your approach.
 - Later work may use different schemas, file formats, and scoring rules. Write accumulated artifacts so they are broadly useful when possible.
@@ -52,4 +58,5 @@ description: <When to use this skill, including benchmark family, file type, or 
 
 - Keep only durable, transferable details here.
 - Put current-case metrics and failed attempts in `memory/`, not in this skill.
+- Do not reference `scratch/` files as the only source of the method; summarize the reusable method here.
 ```

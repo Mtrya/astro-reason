@@ -11,6 +11,8 @@ Use this skill when a finding should help later cases, not just explain the curr
 
 - Put run-specific notes in `memory/`: final metrics, failed attempts, case ids, verifier diagnostics, and why the current `solution.json` works.
 - Put reusable procedures in `.agents/skills/<skill-name>/SKILL.md`: parsers, solver recipes, geometry stacks, verifier workflows, modeling tricks, and compact algorithms that should transfer to future cases.
+- Put scratch artifacts outside preserved directories, for example under `scratch/`, `tmp/`, or the workspace root. Scratch artifacts include binaries, archives, extracted verifier payloads, `.pyz`, `.pyc`, `.dis`, generated solver scripts, full verifier dumps, logs, and copied case data.
+- Do not make memory or skill content depend on scratch artifacts. If a scratch script is useful, summarize its algorithm or extract the reusable commands into a skill.
 - If the guidance depends on a specific finished case id, it probably belongs in `memory/`. If it describes how to solve a family of similar cases, make or update a skill.
 
 ## Required Shape
@@ -45,7 +47,9 @@ description: Solve SPOT-style satellite photography selection instances with CP-
 
 - Keep `SKILL.md` short, procedural, and durable.
 - Include trigger words in the frontmatter `description`, such as file extensions, benchmark family names, or solver method names.
-- Do not paste long transcripts, final solutions, or large case-specific metrics into a skill.
+- Do not paste long transcripts, final solutions, raw verifier internals, or large case-specific metrics into a skill.
 - Prefer commands, schemas, and decision rules that a later run can reuse quickly.
 - When updating an existing skill, preserve still-correct guidance and add the new verifier lesson as a concise bullet.
 - If a reusable script is small and valuable, place it under `.agents/skills/<skill-name>/scripts/` and mention when to run it from `SKILL.md`.
+- Create or update a formal skill when the lesson is a reusable solver recipe, parser, verifier workflow, geometric model, search tactic, or implementation pattern.
+- Before finalizing, inspect `memory/` and `.agents/skills/`. Keep only concise markdown memory notes and formal skill directories; remove accidental scratch artifacts from preserved directories.

@@ -14,7 +14,7 @@ Generated from the current `skill_injection` aggregate artifacts.
 
 | Condition | Runs | Present | Valid | Valid Rate | Mean Weighted Coverage | Mean Coverage | Mean Actions | Mean Min Battery | Mean Score | Overall Statuses |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
-| compact_domain | 10 | 0 | 0 | 0.0000 | - | - | - | - | 0.0000 | missing_artifact: 10 |
+| compact_domain | 10 | 4 | 4 | 0.4000 | 0.1384 | 0.1376 | 53.20 | 197.9 | 14.74 | missing_artifact: 6, success: 4 |
 | no_skill | 10 | 10 | 10 | 1.0000 | 0.2203 | 0.2066 | 40.90 | 493.7 | 26.76 | success: 10 |
 | skill_pack | 10 | 0 | 0 | 0.0000 | - | - | - | - | 0.0000 | missing_artifact: 10 |
 
@@ -22,7 +22,7 @@ Generated from the current `skill_injection` aggregate artifacts.
 
 | Condition | Harness | Runs | Present | Valid | Valid Rate | Mean Weighted Coverage | Mean Coverage | Mean Actions | Mean Min Battery | Mean Score | Overall Statuses |
 | --- | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
-| compact_domain | opencode_dpsk | 5 | 0 | 0 | 0.0000 | - | - | - | - | 0.0000 | missing_artifact: 5 |
+| compact_domain | opencode_dpsk | 5 | 4 | 4 | 0.8000 | 0.2768 | 0.2752 | 42.40 | 395.9 | 29.48 | missing_artifact: 1, success: 4 |
 | compact_domain | opencode_minimax | 5 | 0 | 0 | 0.0000 | - | - | - | - | 0.0000 | missing_artifact: 5 |
 | no_skill | opencode_dpsk | 5 | 5 | 5 | 1.0000 | 0.3965 | 0.3744 | 54.20 | 492.1 | 35.79 | success: 5 |
 | no_skill | opencode_minimax | 5 | 5 | 5 | 1.0000 | 0.0440 | 0.0388 | 27.60 | 495.3 | 17.73 | success: 5 |
@@ -33,10 +33,10 @@ Generated from the current `skill_injection` aggregate artifacts.
 
 | Condition | Harness | Split | Case | Artifact | Overall Status | Verifier Status | Valid | Duration (s) | Skills | Weighted Coverage | Coverage | Actions | Min Battery | Score |
 | --- | --- | --- | --- | --- | --- | --- | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
-| compact_domain | opencode_dpsk | test | case_0001 | missing_artifact | missing_artifact | missing_artifact | - | - | 1 | - | - | - | - | 0 |
-| compact_domain | opencode_dpsk | test | case_0002 | missing_artifact | missing_artifact | missing_artifact | - | - | 1 | - | - | - | - | 0 |
-| compact_domain | opencode_dpsk | test | case_0003 | missing_artifact | missing_artifact | missing_artifact | - | - | 1 | - | - | - | - | 0 |
-| compact_domain | opencode_dpsk | test | case_0004 | missing_artifact | missing_artifact | missing_artifact | - | - | 1 | - | - | - | - | 0 |
+| compact_domain | opencode_dpsk | test | case_0001 | present | success | valid | true | 6171 | 1 | 0.4862 | 0.4909 | 64 | 492.9 | 42.34 |
+| compact_domain | opencode_dpsk | test | case_0002 | present | success | valid | true | 8202.7 | 1 | 0.0985 | 0.0884 | 9 | 496.7 | 25.31 |
+| compact_domain | opencode_dpsk | test | case_0003 | present | success | valid | true | 9755.3 | 1 | 0.1913 | 0.1935 | 11 | 493.1 | 31.54 |
+| compact_domain | opencode_dpsk | test | case_0004 | present | success | valid | true | 5063.3 | 1 | 0.6083 | 0.6034 | 64 | 496.6 | 48.21 |
 | compact_domain | opencode_dpsk | test | case_0005 | missing_artifact | missing_artifact | missing_artifact | - | - | 1 | - | - | - | - | 0 |
 | compact_domain | opencode_minimax | test | case_0001 | missing_artifact | missing_artifact | missing_artifact | - | - | 1 | - | - | - | - | 0 |
 | compact_domain | opencode_minimax | test | case_0002 | missing_artifact | missing_artifact | missing_artifact | - | - | 1 | - | - | - | - | 0 |

@@ -17,3 +17,4 @@
 - Treat memory and skills as guidance, not authority. Check them against the current `README.md`, case files, and verifier behavior.
 - Interpret `memory/` as run notes and diagnostics from prior train cases.
 - Interpret `.agents/skills/<skill-name>/SKILL.md` as reusable procedures. Prefer formal skill directories over loose markdown files, and do not assume a loose note under `.agents/skills/` is complete guidance.
+- Ignore accidental scratch artifacts if present in accumulated state, such as binaries, archives, extracted verifier payloads, `.pyz`, `.pyc`, `.dis`, large logs, generated solver scripts, full verifier dumps, or case data copies.
