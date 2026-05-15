@@ -7,6 +7,8 @@ assemble:
     example: experiments/_fragments/configs/codex/.codex.example
   - source: .agents/skills/brahe
     target: /home/korolev/.codex/skills/brahe
+  - source: experiments/_fragments/skills/memory_accumulation/skill-writing
+    target: /home/korolev/.codex/skills/skill-writing
 
 commands:
   headless_shell_command: >-

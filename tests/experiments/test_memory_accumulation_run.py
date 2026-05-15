@@ -77,6 +77,11 @@ def test_default_config_builds_train_and_eval_axes() -> None:
     assert train_items[0].benchmark == "stereo_imaging"
     assert train_items[0].split == "train"
     assert any(spec.target.as_posix() == "/app/workspace/memory" for spec in train_items[0].base_item.assemble)
+    assert any(
+        spec.source.as_posix().endswith("experiments/_fragments/skills/memory_accumulation/skill-writing")
+        and spec.target.as_posix() == "/home/korolev/.codex/skills/skill-writing"
+        for spec in train_items[0].base_item.assemble
+    )
 
     assert len(eval_items) == 1
     assert eval_items[0].phase == "eval"

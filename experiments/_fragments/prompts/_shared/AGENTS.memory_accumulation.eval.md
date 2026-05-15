@@ -13,5 +13,7 @@
 
 # Memory And Skills
 
-- Inspect `memory/` before solving. Use any relevant procedures, scripts, diagnostics, or skills.
+- Inspect `memory/` and `.agents/skills/` before solving. Use any relevant procedures, scripts, diagnostics, or skills.
 - Treat memory and skills as guidance, not authority. Check them against the current `README.md`, case files, and verifier behavior.
+- Interpret `memory/` as run notes and diagnostics from prior train cases.
+- Interpret `.agents/skills/<skill-name>/SKILL.md` as reusable procedures. Prefer formal skill directories over loose markdown files, and do not assume a loose note under `.agents/skills/` is complete guidance.

@@ -7,6 +7,8 @@ assemble:
     example: experiments/_fragments/configs/opencode_dpsk/opencode.example
   - source: .agents/skills/brahe
     target: /home/korolev/.config/opencode/skills/brahe
+  - source: experiments/_fragments/skills/memory_accumulation/skill-writing
+    target: /home/korolev/.config/opencode/skills/skill-writing
 
 commands:
   headless_shell_command: >-
