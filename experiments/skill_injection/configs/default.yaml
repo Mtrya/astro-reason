@@ -18,6 +18,38 @@ benchmarks:
     harnesses:
       - opencode_dpsk
       - opencode_minimax
+  - benchmark: regional_coverage
+    split: test
+    cases:
+      - case_0001
+      - case_0002
+      - case_0003
+      - case_0004
+      - case_0005
+    # no_skill is the main_agentic default and is collected by aggregate.py from
+    # results/agent_runs/experiments/main_agentic/matrix instead of rerun here.
+    conditions:
+      - compact_domain
+      - skill_pack
+    harnesses:
+      - opencode_dpsk
+      - opencode_minimax
+  - benchmark: relay_constellation
+    split: test
+    cases:
+      - case_0001
+      - case_0002
+      - case_0003
+      - case_0004
+      - case_0005
+    # no_skill is the main_agentic default and is collected by aggregate.py from
+    # results/agent_runs/experiments/main_agentic/matrix instead of rerun here.
+    conditions:
+      - compact_domain
+      - skill_pack
+    harnesses:
+      - opencode_dpsk
+      - opencode_minimax
 timeout_seconds: 7200
 
 batch:

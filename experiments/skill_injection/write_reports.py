@@ -28,6 +28,35 @@ FAMILY_DIR = Path(__file__).resolve().parent
 DEFAULT_CONFIG = FAMILY_DIR / "configs" / "default.yaml"
 DEFAULT_REPORTS_DIR = FAMILY_DIR / "reports"
 
+BENCHMARK_METRICS = {
+    "stereo_imaging": (
+        ("Mean Coverage", "mean_coverage_ratio", "coverage_ratio"),
+        ("Mean Quality", "mean_normalized_quality", "normalized_quality"),
+    ),
+    "regional_coverage": (
+        ("Mean Weighted Coverage", "mean_weighted_coverage_ratio", "weighted_coverage_ratio"),
+        ("Mean Coverage", "mean_coverage_ratio", "coverage_ratio"),
+        ("Mean Actions", "mean_num_actions", "num_actions"),
+        ("Mean Min Battery", "mean_min_battery_wh", "min_battery_wh"),
+    ),
+    "relay_constellation": (
+        ("Mean Service", "mean_service_fraction", "service_fraction"),
+        (
+            "Mean Worst Demand",
+            "mean_worst_demand_service_fraction",
+            "worst_demand_service_fraction",
+        ),
+        ("Mean Added Satellites", "mean_num_added_satellites", "num_added_satellites"),
+        ("Mean Latency", "mean_mean_latency_ms", "mean_latency_ms"),
+        ("Mean P95 Latency", "mean_latency_p95_ms", "latency_p95_ms"),
+    ),
+    "satnet": (
+        ("Mean Hours", "mean_score_hours", "score_hours"),
+        ("Mean U RMS", "mean_u_rms", "u_rms"),
+        ("Mean U Max", "mean_u_max", "u_max"),
+    ),
+}
+
 
 def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Write skill-injection markdown reports.")
@@ -95,11 +124,13 @@ def _condition_rows(summary: dict[str, Any]) -> list[list[str]]:
                 _format_value(values.get("present_count")),
                 _format_value(values.get("valid_count")),
                 _format_value(values.get("valid_rate")),
-                _format_value(values.get("mean_coverage_ratio")),
-                _format_value(values.get("mean_normalized_quality")),
-                _format_value(values.get("mean_score_hours")),
-                _format_value(values.get("mean_u_rms")),
-                _format_value(values.get("mean_u_max")),
+                *[
+                    _format_value(values.get(summary_key))
+                    for _label, summary_key, _row_key in BENCHMARK_METRICS.get(
+                        str(summary.get("benchmark", "")),
+                        (),
+                    )
+                ],
                 _format_value(values.get("mean_normalized_score_pct")),
                 _format_status_counts(values.get("overall_status_counts")),
             ]
@@ -124,11 +155,13 @@ def _condition_harness_rows(summary: dict[str, Any]) -> list[list[str]]:
                 _format_value(values.get("present_count")),
                 _format_value(values.get("valid_count")),
                 _format_value(values.get("valid_rate")),
-                _format_value(values.get("mean_coverage_ratio")),
-                _format_value(values.get("mean_normalized_quality")),
-                _format_value(values.get("mean_score_hours")),
-                _format_value(values.get("mean_u_rms")),
-                _format_value(values.get("mean_u_max")),
+                *[
+                    _format_value(values.get(summary_key))
+                    for _label, summary_key, _row_key in BENCHMARK_METRICS.get(
+                        str(summary.get("benchmark", "")),
+                        (),
+                    )
+                ],
                 _format_value(values.get("mean_normalized_score_pct")),
                 _format_status_counts(values.get("overall_status_counts")),
             ]
@@ -136,7 +169,7 @@ def _condition_harness_rows(summary: dict[str, Any]) -> list[list[str]]:
     return rows
 
 
-def _case_rows(rows: list[dict[str, str]]) -> list[list[str]]:
+def _case_rows(rows: list[dict[str, str]], *, benchmark: str) -> list[list[str]]:
     table_rows: list[list[str]] = []
     for row in sorted(
         rows,
@@ -158,11 +191,10 @@ def _case_rows(rows: list[dict[str, str]]) -> list[list[str]]:
                 _format_value(row.get("valid")),
                 _format_value(row.get("duration_seconds")),
                 _format_value(row.get("skill_count")),
-                _format_value(row.get("coverage_ratio")),
-                _format_value(row.get("normalized_quality")),
-                _format_value(row.get("score_hours")),
-                _format_value(row.get("u_rms")),
-                _format_value(row.get("u_max")),
+                *[
+                    _format_value(row.get(row_key))
+                    for _label, _summary_key, row_key in BENCHMARK_METRICS.get(benchmark, ())
+                ],
                 _format_value(row.get("normalized_score_pct")),
             ]
         )
@@ -180,6 +212,8 @@ def _write_report(
     report_path = reports_dir / f"{benchmark}.md"
     rows = [row for row in rows if row.get("benchmark") == benchmark]
     summary = _benchmark_summary(summary, benchmark)
+    summary["benchmark"] = benchmark
+    metric_specs = BENCHMARK_METRICS.get(benchmark, ())
     lines = [
         "# Skill Injection",
         "",
@@ -207,11 +241,7 @@ def _write_report(
                 "Present",
                 "Valid",
                 "Valid Rate",
-                "Mean Coverage",
-                "Mean Quality",
-                "Mean Hours",
-                "Mean U RMS",
-                "Mean U Max",
+                *[label for label, _summary_key, _row_key in metric_specs],
                 "Mean Score",
                 "Overall Statuses",
             ],
@@ -229,11 +259,7 @@ def _write_report(
                 "Present",
                 "Valid",
                 "Valid Rate",
-                "Mean Coverage",
-                "Mean Quality",
-                "Mean Hours",
-                "Mean U RMS",
-                "Mean U Max",
+                *[label for label, _summary_key, _row_key in metric_specs],
                 "Mean Score",
                 "Overall Statuses",
             ],
@@ -255,14 +281,10 @@ def _write_report(
                 "Valid",
                 "Duration (s)",
                 "Skills",
-                "Coverage",
-                "Quality",
-                "Hours",
-                "U RMS",
-                "U Max",
+                *[label.removeprefix("Mean ") for label, _summary_key, _row_key in metric_specs],
                 "Score",
             ],
-            _case_rows(rows),
+            _case_rows(rows, benchmark=benchmark),
             numeric_from=8,
         )
     )

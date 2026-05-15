@@ -1,5 +1,13 @@
 condition: compact_domain
-description: Inject one compact, lossy stereo-imaging procedural skill.
-skills:
-  - name: stereo-imaging-compact-procedure
-    source: experiments/_fragments/skills/skill_injection/stereo-imaging-compact-procedure
+description: Inject one compact benchmark-specific procedural skill.
+skills: []
+benchmark_skills:
+  stereo_imaging:
+    - name: stereo-imaging-compact-procedure
+      source: experiments/_fragments/skills/skill_injection/stereo-imaging-compact-procedure
+  regional_coverage:
+    - name: regional-coverage-compact-procedure
+      source: experiments/_fragments/skills/skill_injection/regional-coverage-compact-procedure
+  relay_constellation:
+    - name: relay-constellation-compact-procedure
+      source: experiments/_fragments/skills/skill_injection/relay-constellation-compact-procedure

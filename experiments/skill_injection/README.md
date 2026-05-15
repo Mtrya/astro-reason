@@ -4,18 +4,17 @@ This experiment family tracks issue #59: measuring whether task-specific,
 repository-owned skills improve space-agent performance when benchmark,
 runtime, verifier exposure, and harness settings are otherwise fixed.
 
-The initial benchmark was `stereo_imaging`. It was selected because weak
-harnesses often produce invalid or valid-but-near-zero solutions under opaque
-verifier exposure, while transparent verifier exposure shows the task is
-learnable when agents receive better constraint feedback.
+The initial benchmark was `stereo_imaging`. The configured matrix now also
+covers `regional_coverage` and `relay_constellation` to test whether weaker
+harnesses improve on additional mission-design tasks when given
+benchmark-scoped skills.
 
 ## Conditions
 
 - `no_skill`: control condition; no injected task-specific skills. This is the `main_agentic` default and is collected from existing `main_agentic/matrix` artifacts instead of rerun in this family.
-- `compact_domain`: one compact stereo-imaging procedural skill.
-- `skill_pack`: four focused skills covering Python search performance,
-  OR-Tools CP-SAT modeling, classical OR scheduling methods, and
-  stereo-imaging product strategy.
+- `compact_domain`: one compact benchmark-scoped procedural skill.
+- `skill_pack`: benchmark-scoped strategy skills plus the shared optimization
+  skills useful for that benchmark.
 
 Skill assembly is owned by the condition profiles under:
 
@@ -38,6 +37,15 @@ Preview the configured matrix:
 
 ```bash
 uv run python experiments/skill_injection/run.py --dry-run
+```
+
+Preview the regional and relay Phase 6 expansion only:
+
+```bash
+uv run python experiments/skill_injection/run.py \
+  --dry-run \
+  --benchmark regional_coverage \
+  --benchmark relay_constellation
 ```
 
 Preview one stereo skill condition:
@@ -117,11 +125,23 @@ Reports and plots are written under:
 experiments/skill_injection/reports/
 ```
 
+The benchmark reports are:
+
+```text
+experiments/skill_injection/reports/stereo_imaging.md
+experiments/skill_injection/reports/regional_coverage.md
+experiments/skill_injection/reports/relay_constellation.md
+```
+
 The score plot artifacts are:
 
 ```text
 experiments/skill_injection/reports/stereo_imaging_opencode_dpsk_scores.png
 experiments/skill_injection/reports/stereo_imaging_opencode_minimax_scores.png
+experiments/skill_injection/reports/regional_coverage_opencode_dpsk_scores.png
+experiments/skill_injection/reports/regional_coverage_opencode_minimax_scores.png
+experiments/skill_injection/reports/relay_constellation_opencode_dpsk_scores.png
+experiments/skill_injection/reports/relay_constellation_opencode_minimax_scores.png
 ```
 
 Refresh only the score plots:

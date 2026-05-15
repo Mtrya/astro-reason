@@ -125,6 +125,7 @@ class ConditionProfile:
     condition: str
     description: str
     skills: tuple[SkillSpec, ...]
+    benchmark_skills: dict[str, tuple[SkillSpec, ...]]
     profile_path: Path
 
 
@@ -345,6 +346,19 @@ def _parse_skill_specs(items: Any, path: Path) -> tuple[SkillSpec, ...]:
     return tuple(specs)
 
 
+def _parse_benchmark_skill_specs(items: Any, path: Path) -> dict[str, tuple[SkillSpec, ...]]:
+    if items is None:
+        return {}
+    if not isinstance(items, dict):
+        raise SystemExit(f"benchmark_skills must be a mapping: {path}")
+    specs_by_benchmark: dict[str, tuple[SkillSpec, ...]] = {}
+    for benchmark, raw_specs in items.items():
+        if not isinstance(benchmark, str) or not benchmark:
+            raise SystemExit(f"benchmark_skills keys must be non-empty strings: {path}")
+        specs_by_benchmark[benchmark] = _parse_skill_specs(raw_specs, path)
+    return specs_by_benchmark
+
+
 def _parse_benchmark_selections(data: dict[str, Any], path: Path) -> tuple[BenchmarkSelection, ...]:
     raw = data.get("benchmarks")
     if raw is None:
@@ -439,6 +453,7 @@ def load_condition_profile(condition: str) -> ConditionProfile:
         condition=condition,
         description=str(data.get("description", "")),
         skills=_parse_skill_specs(data.get("skills", []), path),
+        benchmark_skills=_parse_benchmark_skill_specs(data.get("benchmark_skills", {}), path),
         profile_path=path.resolve(),
     )
 
@@ -476,7 +491,16 @@ def load_runtime(name: str) -> RuntimeManifest:
     return RuntimeManifest(name=runtime_name, image=_require_str(data, "image", "Runtime manifest", path))
 
 
-def _skill_assemble_specs(condition: ConditionProfile, harness: HarnessProfile) -> tuple[AssembleSpec, ...]:
+def _skills_for_benchmark(condition: ConditionProfile, benchmark: str) -> tuple[SkillSpec, ...]:
+    return (*condition.skills, *condition.benchmark_skills.get(benchmark, ()))
+
+
+def _skill_assemble_specs(
+    condition: ConditionProfile,
+    harness: HarnessProfile,
+    *,
+    benchmark: str,
+) -> tuple[AssembleSpec, ...]:
     return tuple(
         AssembleSpec(
             source=skill.source,
@@ -485,7 +509,7 @@ def _skill_assemble_specs(condition: ConditionProfile, harness: HarnessProfile) 
             missing_ok=False,
             example=None,
         )
-        for skill in condition.skills
+        for skill in _skills_for_benchmark(condition, benchmark)
     )
 
 
@@ -589,7 +613,7 @@ def build_items(
             condition = load_condition_profile(condition_name)
             for harness_name in selected_harnesses:
                 harness = load_harness_profile(harness_name)
-                skill_specs = _skill_assemble_specs(condition, harness)
+                skill_specs = _skill_assemble_specs(condition, harness, benchmark=selection.benchmark)
                 for case_id in selected_cases:
                     assemble = (
                         *_base_assemble_specs(selection.benchmark, selection.split, case_id),
@@ -633,7 +657,7 @@ def _build_item(
 ) -> RunItem:
     condition = load_condition_profile(condition_name)
     harness = load_harness_profile(harness_name)
-    skill_specs = _skill_assemble_specs(condition, harness)
+    skill_specs = _skill_assemble_specs(condition, harness, benchmark=benchmark)
     assemble = (
         *_base_assemble_specs(benchmark, split, case_id),
         *harness.assemble,
@@ -960,6 +984,10 @@ def _skill_names(item: RunItem) -> list[str]:
         for spec in item.assemble
         if "experiments/_fragments/skills/skill_injection" in spec.source.as_posix()
     ]
+
+
+def _resolved_skill_names(item: RunItem) -> list[str]:
+    return _skill_names(item)
 
 
 def _write_run_json(
@@ -1293,7 +1321,8 @@ def print_dry_run(
         state = "ready" if not missing else f"missing_sources={len(missing)}"
         print(
             f"- {item.benchmark}/{item.condition}/{item.harness}/{item.case_id}: {state} -> "
-            f"{_relative(_output_dir(config, item))}"
+            f"{_relative(_output_dir(config, item))} "
+            f"skills={','.join(_resolved_skill_names(item)) or 'none'}"
         )
 
 

@@ -5,11 +5,14 @@ from __future__ import annotations
 
 import argparse
 import csv
+import functools
 import json
 import sys
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
+
+import yaml
 
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
@@ -21,6 +24,7 @@ else:
     from . import run as family_run
 
 from experiments._shared import aggregate as shared_aggregate
+from experiments._shared import main_solver_baselines
 from experiments._shared import score_normalization as score_norm
 
 
@@ -32,6 +36,14 @@ DEFAULT_MAIN_AGENTIC_ROOT = (
 METRIC_FIELDS = (
     "coverage_ratio",
     "normalized_quality",
+    "weighted_coverage_ratio",
+    "num_actions",
+    "min_battery_wh",
+    "service_fraction",
+    "worst_demand_service_fraction",
+    "num_added_satellites",
+    "mean_latency_ms",
+    "latency_p95_ms",
     "score_hours",
     "n_satisfied_requests",
     "u_rms",
@@ -42,6 +54,14 @@ METRIC_FIELDS = (
 METRIC_DIRECTIONS = {
     "coverage_ratio": "maximize",
     "normalized_quality": "maximize",
+    "weighted_coverage_ratio": "maximize",
+    "num_actions": "minimize",
+    "min_battery_wh": "maximize",
+    "service_fraction": "maximize",
+    "worst_demand_service_fraction": "maximize",
+    "num_added_satellites": "minimize",
+    "mean_latency_ms": "minimize",
+    "latency_p95_ms": "minimize",
     "score_hours": "maximize",
     "n_satisfied_requests": "maximize",
     "u_rms": "minimize",
@@ -49,6 +69,8 @@ METRIC_DIRECTIONS = {
     "n_tracks": "maximize",
     "normalized_score_pct": "maximize",
 }
+
+NORMALIZATION_CONFIG = main_solver_baselines.NORMALIZATION
 
 
 def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
@@ -125,17 +147,126 @@ def _metrics_from_mapping(metrics: dict[str, Any]) -> dict[str, float | None]:
     return values
 
 
-def _normalized_score_pct(*, benchmark: str, valid: bool | None, metrics: dict[str, Any]) -> float | None:
+def _load_json_file(path: Path) -> dict[str, object] | None:
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return None
+    return data if isinstance(data, dict) else None
+
+
+def _satellite_resource_models(path: Path) -> list[dict[str, object]]:
+    try:
+        data = yaml.safe_load(path.read_text(encoding="utf-8"))
+    except (OSError, yaml.YAMLError):
+        return []
+    raw_satellites = data.get("satellites", data) if isinstance(data, dict) else data
+    if not isinstance(raw_satellites, list):
+        return []
+    models: list[dict[str, object]] = []
+    for satellite in raw_satellites:
+        if not isinstance(satellite, dict):
+            continue
+        resource_model = satellite.get("resource_model")
+        if isinstance(resource_model, dict):
+            models.append(resource_model)
+            continue
+        power_model = satellite.get("power")
+        if isinstance(power_model, dict):
+            models.append(power_model)
+    return models
+
+
+def _satellite_battery_capacities(path: Path) -> list[float]:
+    capacities: list[float] = []
+    for resource_model in _satellite_resource_models(path):
+        capacity = score_norm.to_float(resource_model.get("battery_capacity_wh"))
+        if capacity is not None:
+            capacities.append(capacity)
+    return capacities
+
+
+def _nested_number(payload: dict[str, object], path: tuple[str, ...]) -> float | None:
+    current: object = payload
+    for part in path:
+        if not isinstance(current, dict) or part not in current:
+            return None
+        current = current[part]
+    return score_norm.to_float(current)
+
+
+def _case_dir(*, benchmark: str, split: str, case_id: str) -> Path:
+    return REPO_ROOT / "benchmarks" / benchmark / "dataset" / "cases" / split / case_id
+
+
+@functools.lru_cache(maxsize=None)
+def _regional_case_constants(split: str, case_id: str) -> dict[str, float]:
+    case_dir = _case_dir(benchmark="regional_coverage", split=split, case_id=case_id)
+    manifest = _load_json_file(case_dir / "manifest.json") or {}
+    max_actions = _nested_number(manifest, ("scoring", "max_actions_total"))
+    battery_capacities = _satellite_battery_capacities(case_dir / "satellites.yaml")
+    constants: dict[str, float] = {}
+    if max_actions is not None:
+        constants["max_actions_total"] = max_actions
+    if battery_capacities:
+        constants["battery_capacity_wh"] = max(battery_capacities)
+    return constants
+
+
+@functools.lru_cache(maxsize=None)
+def _relay_case_constants(split: str, case_id: str) -> dict[str, float]:
+    case_dir = _case_dir(benchmark="relay_constellation", split=split, case_id=case_id)
+    manifest = _load_json_file(case_dir / "manifest.json") or {}
+    max_added = _nested_number(manifest, ("constraints", "max_added_satellites"))
+    return {"max_added_satellites": max_added} if max_added is not None else {}
+
+
+def _normalization_config(benchmark: str) -> dict[str, Any]:
+    config = NORMALIZATION_CONFIG.get(benchmark)
+    return config if isinstance(config, dict) else {}
+
+
+def _normalized_score_pct(
+    *,
+    benchmark: str,
+    split: str,
+    case_id: str,
+    valid: bool | None,
+    metrics: dict[str, Any],
+) -> float | None:
     if valid is not True:
         return 0.0 if valid is False else None
     if benchmark == "stereo_imaging":
         return score_norm.stereo_imaging_score_pct(normalized_quality=metrics.get("normalized_quality"))
+    if benchmark == "regional_coverage":
+        constants = _regional_case_constants(split, case_id)
+        return score_norm.regional_coverage_score_pct(
+            weighted_coverage_ratio=metrics.get("weighted_coverage_ratio"),
+            coverage_ratio=metrics.get("coverage_ratio"),
+            num_actions=metrics.get("num_actions"),
+            min_battery_wh=metrics.get("min_battery_wh"),
+            max_actions_total=constants.get("max_actions_total"),
+            battery_capacity_wh=constants.get("battery_capacity_wh"),
+        )
+    if benchmark == "relay_constellation":
+        constants = _relay_case_constants(split, case_id)
+        config = _normalization_config(benchmark)
+        return score_norm.relay_constellation_score_pct(
+            service_fraction=metrics.get("service_fraction"),
+            worst_demand_service_fraction=metrics.get("worst_demand_service_fraction"),
+            num_added_satellites=metrics.get("num_added_satellites"),
+            mean_latency_ms=metrics.get("mean_latency_ms"),
+            latency_p95_ms=metrics.get("latency_p95_ms"),
+            min_added_satellites=config.get("min_added_satellites"),
+            max_added_satellites=constants.get("max_added_satellites"),
+            latency_cap_ms=config.get("latency_cap_ms"),
+        )
     return None
 
 
-def _condition_skills(condition: str) -> tuple[str, ...]:
+def _condition_skills(condition: str, benchmark: str) -> tuple[str, ...]:
     profile = family_run.load_condition_profile(condition)
-    return tuple(skill.name for skill in profile.skills)
+    return tuple(skill.name for skill in family_run._skills_for_benchmark(profile, benchmark))
 
 
 def _missing_row(
@@ -221,6 +352,8 @@ def _agent_row(
         **metric_values,
         "normalized_score_pct": _normalized_score_pct(
             benchmark=str(payload.get("benchmark", benchmark)),
+            split=str(payload.get("split", split)),
+            case_id=str(payload.get("case_id", case_id)),
             valid=valid,
             metrics=metric_values,
         ),
@@ -237,7 +370,10 @@ def _records(config: family_run.FamilyConfig, *, main_agentic_root: Path = DEFAU
     rows: list[dict[str, Any]] = []
     for selection in config.benchmarks:
         condition_names = _condition_names(selection)
-        skills_by_condition = {condition: _condition_skills(condition) for condition in condition_names}
+        skills_by_condition = {
+            condition: _condition_skills(condition, selection.benchmark)
+            for condition in condition_names
+        }
         for condition in condition_names:
             for harness in selection.harnesses:
                 for case_id in selection.cases:

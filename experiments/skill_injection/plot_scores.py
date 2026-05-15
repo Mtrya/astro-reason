@@ -47,6 +47,30 @@ PLOT_SPECS = (
         conditions=("no_skill", "compact_domain", "skill_pack"),
         output_name="stereo_imaging_opencode_minimax_scores.png",
     ),
+    PlotSpec(
+        benchmark="regional_coverage",
+        harness="opencode_dpsk",
+        conditions=("no_skill", "compact_domain", "skill_pack"),
+        output_name="regional_coverage_opencode_dpsk_scores.png",
+    ),
+    PlotSpec(
+        benchmark="regional_coverage",
+        harness="opencode_minimax",
+        conditions=("no_skill", "compact_domain", "skill_pack"),
+        output_name="regional_coverage_opencode_minimax_scores.png",
+    ),
+    PlotSpec(
+        benchmark="relay_constellation",
+        harness="opencode_dpsk",
+        conditions=("no_skill", "compact_domain", "skill_pack"),
+        output_name="relay_constellation_opencode_dpsk_scores.png",
+    ),
+    PlotSpec(
+        benchmark="relay_constellation",
+        harness="opencode_minimax",
+        conditions=("no_skill", "compact_domain", "skill_pack"),
+        output_name="relay_constellation_opencode_minimax_scores.png",
+    ),
 )
 
 CONDITION_LABELS = {

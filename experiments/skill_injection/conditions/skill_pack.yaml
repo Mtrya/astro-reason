@@ -1,11 +1,21 @@
 condition: skill_pack
-description: Inject the multi-skill toolkit for performance, OR modeling, OR methods, and stereo-specific reasoning.
+description: Inject reusable search/OR skills plus benchmark-specific strategy skills.
 skills:
   - name: python-optimization-for-search
     source: experiments/_fragments/skills/skill_injection/python-optimization-for-search
-  - name: ortools-cpsat-modeling
-    source: experiments/_fragments/skills/skill_injection/ortools-cpsat-modeling
   - name: classical-or-scheduling-methods
     source: experiments/_fragments/skills/skill_injection/classical-or-scheduling-methods
-  - name: stereo-imaging-product-strategy
-    source: experiments/_fragments/skills/skill_injection/stereo-imaging-product-strategy
+benchmark_skills:
+  stereo_imaging:
+    - name: ortools-cpsat-modeling
+      source: experiments/_fragments/skills/skill_injection/ortools-cpsat-modeling
+    - name: stereo-imaging-product-strategy
+      source: experiments/_fragments/skills/skill_injection/stereo-imaging-product-strategy
+  regional_coverage:
+    - name: ortools-cpsat-modeling
+      source: experiments/_fragments/skills/skill_injection/ortools-cpsat-modeling
+    - name: regional-coverage-strip-strategy
+      source: experiments/_fragments/skills/skill_injection/regional-coverage-strip-strategy
+  relay_constellation:
+    - name: relay-constellation-service-strategy
+      source: experiments/_fragments/skills/skill_injection/relay-constellation-service-strategy
