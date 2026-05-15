@@ -1,12 +1,22 @@
 from __future__ import annotations
 
+import json
 import sys
+from dataclasses import replace
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(REPO_ROOT))
 
 from experiments.skill_injection import run
+
+
+def _config_with_results_root(tmp_path: Path) -> run.FamilyConfig:
+    config = run.load_family_config(run.DEFAULT_CONFIG)
+    return replace(
+        config,
+        results=replace(config.results, root=tmp_path / "results"),
+    )
 
 
 def test_default_config_builds_stereo_skill_injection_matrix() -> None:
@@ -140,6 +150,64 @@ def test_regional_and_relay_filters_expand_to_40_skill_runs() -> None:
         if item.benchmark == "relay_constellation":
             assert any(name.startswith("relay-constellation-") for name in skill_names)
             assert not any(name.startswith("regional-coverage-") for name in skill_names)
+
+
+def test_batch_preview_uses_main_agentic_style_summary(tmp_path: Path) -> None:
+    config = _config_with_results_root(tmp_path)
+    items = run.build_items(
+        config,
+        benchmarks=("regional_coverage",),
+        conditions=("compact_domain",),
+        harnesses=("opencode_dpsk",),
+        cases=("case_0001",),
+    )
+
+    preview = run.build_batch_preview(config, items)
+    text = run.describe_batch_preview(preview)
+
+    assert "Mode: batch" in text
+    assert "Selection mode: default artifact-first resume" in text
+    assert "Cases per benchmark: regional_coverage=1" in text
+    assert "Total candidate runs: 1" in text
+    assert "Runs to execute: 1" in text
+    assert "Runs to skip: 0" in text
+    assert "Runnable queue length: 1" in text
+    assert "Artifact states: missing_artifact=1" in text
+    assert "Existing statuses: none" in text
+    assert "Selection reasons: missing_artifact=1" in text
+    assert "Concrete runs:" in text
+    assert (
+        "RUN [missing_artifact] regional_coverage / compact_domain / "
+        "opencode_dpsk / test / case_0001"
+    ) in text
+    assert "skills=regional-coverage-compact-procedure" in text
+
+
+def test_batch_preview_reports_existing_terminal_skips(tmp_path: Path) -> None:
+    config = _config_with_results_root(tmp_path)
+    (item,) = run.build_items(
+        config,
+        benchmarks=("regional_coverage",),
+        conditions=("compact_domain",),
+        harnesses=("opencode_dpsk",),
+        cases=("case_0001",),
+    )
+    output_dir = run._output_dir_for_item(item)
+    output_dir.mkdir(parents=True)
+    (output_dir / "run.json").write_text(
+        json.dumps({"overall_status": "success"}) + "\n",
+        encoding="utf-8",
+    )
+
+    preview = run.build_batch_preview(config, (item,))
+    text = run.describe_batch_preview(preview)
+
+    assert "Runs to execute: 0" in text
+    assert "Runs to skip: 1" in text
+    assert "Artifact states: present=1" in text
+    assert "Existing statuses: success=1" in text
+    assert "Selection reasons: existing_terminal_status=1" in text
+    assert "SKIP [existing_terminal_status]" in text
 
 
 def test_interactive_dry_run_selects_stereo_skill_condition(capsys) -> None:

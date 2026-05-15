@@ -186,6 +186,28 @@ class RunResult:
     output_dir: Path
 
 
+@dataclass(frozen=True)
+class BatchSelectionOptions:
+    rerun_statuses: tuple[str, ...]
+    no_skip_completed: bool
+
+
+@dataclass(frozen=True)
+class BatchPreviewItem:
+    item: RunItem
+    artifact_state: str
+    existing_overall_status: str | None
+    action: str
+    reason: str
+
+
+@dataclass(frozen=True)
+class BatchPreview:
+    config: FamilyConfig
+    selection: BatchSelectionOptions
+    items: tuple[BatchPreviewItem, ...]
+
+
 def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Run the skill-injection ablation")
     parser.add_argument("--config", type=Path, help="Family config path.")
@@ -561,10 +583,6 @@ def _base_assemble_specs(benchmark: str, split: str, case_id: str) -> tuple[Asse
     )
 
 
-def _output_dir(config: FamilyConfig, item: RunItem) -> Path:
-    return _output_dir_for_item(item)
-
-
 def _output_dir_for_item(item: RunItem) -> Path:
     return (
         item.results_root
@@ -708,27 +726,184 @@ def _existing_status(output_dir: Path) -> tuple[str, str | None]:
     return "present", payload["overall_status"]
 
 
-def _should_run(
-    item: RunItem,
+def build_batch_preview(
+    config: FamilyConfig,
+    items: tuple[RunItem, ...],
     *,
-    rerun_statuses: tuple[str, ...],
-    no_skip_completed: bool,
-    skip_completed: bool,
-    retry_statuses: tuple[str, ...],
-) -> tuple[bool, str]:
-    artifact_state, status = _existing_status(_output_dir_for_item(item))
-    candidate = status if artifact_state == "present" else artifact_state
-    if rerun_statuses:
-        return candidate in rerun_statuses, f"status={candidate}"
-    if no_skip_completed:
-        return True, "forced"
-    if artifact_state != "present":
-        return True, artifact_state
-    if status in retry_statuses:
-        return True, f"retryable={status}"
-    if skip_completed:
-        return False, f"existing={status}"
-    return True, "configured"
+    rerun_statuses: tuple[str, ...] = (),
+    no_skip_completed: bool = False,
+) -> BatchPreview:
+    selection = BatchSelectionOptions(
+        rerun_statuses=rerun_statuses,
+        no_skip_completed=no_skip_completed,
+    )
+    preview_items: list[BatchPreviewItem] = []
+    for item in items:
+        artifact_state, existing_status = _existing_status(_output_dir_for_item(item))
+        if rerun_statuses:
+            candidate_status = existing_status if artifact_state == "present" else artifact_state
+            if candidate_status in rerun_statuses:
+                action = "run"
+                reason = "rerun_status_match"
+            else:
+                action = "skip"
+                reason = "status_filter_mismatch"
+        elif no_skip_completed:
+            action = "run"
+            reason = "forced_by_no_skip"
+        elif artifact_state == "missing_artifact":
+            action = "run"
+            reason = "missing_artifact"
+        elif artifact_state == "malformed_artifact":
+            action = "run"
+            reason = "malformed_artifact"
+        elif existing_status in config.batch.retry_statuses:
+            action = "run"
+            reason = "retryable_status"
+        elif config.batch.skip_completed:
+            action = "skip"
+            reason = "existing_terminal_status"
+        else:
+            action = "run"
+            reason = "forced_by_no_skip"
+        preview_items.append(
+            BatchPreviewItem(
+                item=item,
+                artifact_state=artifact_state,
+                existing_overall_status=existing_status,
+                action=action,
+                reason=reason,
+            )
+        )
+    return BatchPreview(config=config, selection=selection, items=tuple(preview_items))
+
+
+def runnable_preview_items(preview: BatchPreview) -> tuple[BatchPreviewItem, ...]:
+    return tuple(item for item in preview.items if item.action == "run")
+
+
+def _count_strings(values: tuple[str, ...] | list[str]) -> dict[str, int]:
+    counts: dict[str, int] = {}
+    for value in values:
+        counts[value] = counts.get(value, 0) + 1
+    return dict(sorted(counts.items()))
+
+
+def _preview_values(
+    preview: BatchPreview,
+    selector: str,
+) -> tuple[str, ...]:
+    values: list[str] = []
+    seen: set[str] = set()
+    for preview_item in preview.items:
+        value = str(getattr(preview_item.item, selector))
+        if value not in seen:
+            values.append(value)
+            seen.add(value)
+    return tuple(values)
+
+
+def _skill_names(item: RunItem) -> list[str]:
+    return [
+        spec.target.name
+        for spec in item.assemble
+        if "experiments/_fragments/skills/skill_injection" in spec.source.as_posix()
+    ]
+
+
+def _preview_skill_text(item: RunItem) -> str:
+    return ",".join(_skill_names(item)) or "none"
+
+
+def describe_batch_preview(preview: BatchPreview, *, include_items: bool = True) -> str:
+    config = preview.config
+    runnable_items = runnable_preview_items(preview)
+    benchmarks = _preview_values(preview, "benchmark")
+    conditions = _preview_values(preview, "condition")
+    harnesses = _preview_values(preview, "harness")
+    splits = _preview_values(preview, "split")
+    benchmark_case_counts = {
+        benchmark: len(
+            {
+                preview_item.item.case_id
+                for preview_item in preview.items
+                if preview_item.item.benchmark == benchmark
+            }
+        )
+        for benchmark in benchmarks
+    }
+    runnable_count = len(runnable_items)
+    skipped_count = len(preview.items) - runnable_count
+    reason_counts = _count_strings([item.reason for item in preview.items])
+    artifact_counts = _count_strings([item.artifact_state for item in preview.items])
+    existing_status_counts = _count_strings(
+        [
+            item.existing_overall_status
+            for item in preview.items
+            if item.existing_overall_status is not None
+        ]
+    )
+    missing_by_source: dict[str, int] = {}
+    for preview_item in runnable_items:
+        for spec in missing_assemble_sources(preview_item.item):
+            source = _relative(spec.source)
+            missing_by_source[source] = missing_by_source.get(source, 0) + 1
+    lines = [
+        f"Config: {config.config_path}",
+        "Mode: batch",
+        f"Benchmarks: {', '.join(benchmarks)}",
+        f"Conditions: {', '.join(conditions)}",
+        f"Harnesses: {', '.join(harnesses)}",
+        f"Split: {', '.join(splits)}",
+        "Selection mode: "
+        + (
+            "force all selected runs"
+            if preview.selection.no_skip_completed
+            else (
+                "rerun matching statuses: " + ", ".join(preview.selection.rerun_statuses)
+                if preview.selection.rerun_statuses
+                else "default artifact-first resume"
+            )
+        ),
+        "Cases per benchmark: "
+        + ", ".join(f"{benchmark}={benchmark_case_counts[benchmark]}" for benchmark in benchmarks),
+        f"Total candidate runs: {len(preview.items)}",
+        f"Runs to execute: {runnable_count}",
+        f"Runs to skip: {skipped_count}",
+        f"Runnable queue length: {len(runnable_items)}",
+        f"Max concurrency: {config.batch.max_concurrency}",
+        f"Max retries: {config.batch.max_retries}",
+    ]
+    if missing_by_source:
+        lines.append("Missing assemble sources:")
+        for source, count in sorted(missing_by_source.items()):
+            lines.append(f"  - {source} ({count} run(s))")
+    else:
+        lines.append("Missing assemble sources: none")
+    lines.append(
+        "Artifact states: "
+        + ", ".join(f"{key}={value}" for key, value in artifact_counts.items())
+    )
+    if existing_status_counts:
+        lines.append(
+            "Existing statuses: "
+            + ", ".join(f"{key}={value}" for key, value in existing_status_counts.items())
+        )
+    else:
+        lines.append("Existing statuses: none")
+    lines.append("Selection reasons: " + ", ".join(f"{key}={value}" for key, value in reason_counts.items()))
+    if include_items:
+        lines.append("Concrete runs:")
+        for preview_item in preview.items:
+            item = preview_item.item
+            status_text = preview_item.existing_overall_status or preview_item.artifact_state
+            lines.append(
+                f"  - {preview_item.action.upper()} [{preview_item.reason}] "
+                f"{item.benchmark} / {item.condition} / {item.harness} / {item.split} / {item.case_id} "
+                f"(current={status_text}, skills={_preview_skill_text(item)}) -> "
+                f"{_relative(_output_dir_for_item(item))}"
+            )
+    return "\n".join(lines)
 
 
 def _template_context(item: RunItem) -> dict[str, str]:
@@ -978,18 +1153,6 @@ def _overall_status(agent_status: str, verifier_status: str) -> str:
     return "verifier_error"
 
 
-def _skill_names(item: RunItem) -> list[str]:
-    return [
-        spec.target.name
-        for spec in item.assemble
-        if "experiments/_fragments/skills/skill_injection" in spec.source.as_posix()
-    ]
-
-
-def _resolved_skill_names(item: RunItem) -> list[str]:
-    return _skill_names(item)
-
-
 def _write_run_json(
     item: RunItem,
     output_dir: Path,
@@ -1099,6 +1262,10 @@ def _run_item_with_retries(item: RunItem, batch: BatchSettings) -> RunResult:
     last_result: RunResult | None = None
     for attempt in range(1, attempts + 1):
         try:
+            print(
+                f"Running {item.benchmark}/{item.condition}/{item.harness}/{item.case_id} "
+                f"(attempt {attempt}/{attempts})"
+            )
             result = _run_item(item)
         except Exception as exc:
             output_dir = _output_dir_for_item(item)
@@ -1109,39 +1276,30 @@ def _run_item_with_retries(item: RunItem, batch: BatchSettings) -> RunResult:
             return result
         if attempt < attempts:
             print(
-                f"retry {item.condition}/{item.harness}/{item.case_id}: "
-                f"{result.overall_status} (attempt {attempt}/{attempts})"
+                f"Retrying {item.benchmark}/{item.condition}/{item.harness}/{item.case_id} "
+                f"after retryable status {result.overall_status}"
             )
     if last_result is None:
         raise RuntimeError("Run finished without a result.")
     return last_result
 
 
-def _run_batch(config: FamilyConfig, items: tuple[RunItem, ...], args: argparse.Namespace) -> int:
-    selected: list[RunItem] = []
-    skipped_results: list[RunResult] = []
-    rerun_statuses = tuple(args.rerun_status)
-    for item in items:
-        should_run, reason = _should_run(
-            item,
-            rerun_statuses=rerun_statuses,
-            no_skip_completed=args.no_skip_completed,
-            skip_completed=config.batch.skip_completed,
-            retry_statuses=config.batch.retry_statuses,
+def _run_batch(config: FamilyConfig, preview: BatchPreview) -> int:
+    selected = runnable_preview_items(preview)
+    skipped_results = [
+        RunResult(
+            overall_status=preview_item.existing_overall_status or preview_item.artifact_state,
+            skipped=True,
+            output_dir=_output_dir_for_item(preview_item.item),
         )
-        if should_run:
-            selected.append(item)
-        else:
-            artifact_state, status = _existing_status(_output_dir_for_item(item))
-            skipped_results.append(
-                RunResult(overall_status=status or artifact_state, skipped=True, output_dir=_output_dir_for_item(item))
-            )
-            print(f"skip {item.condition}/{item.harness}/{item.case_id}: {reason}")
+        for preview_item in preview.items
+        if preview_item.action == "skip"
+    ]
 
     missing: list[AssembleSpec] = []
     seen: set[Path] = set()
-    for item in selected:
-        for spec in missing_assemble_sources(item):
+    for preview_item in selected:
+        for spec in missing_assemble_sources(preview_item.item):
             if spec.source not in seen:
                 missing.append(spec)
                 seen.add(spec.source)
@@ -1158,10 +1316,16 @@ def _run_batch(config: FamilyConfig, items: tuple[RunItem, ...], args: argparse.
         status_counts[result.overall_status] = status_counts.get(result.overall_status, 0) + 1
 
     with concurrent.futures.ThreadPoolExecutor(max_workers=config.batch.max_concurrency) as executor:
-        futures = {executor.submit(_run_item_with_retries, item, config.batch): item for item in selected}
+        futures = {
+            executor.submit(_run_item_with_retries, preview_item.item, config.batch): preview_item
+            for preview_item in selected
+        }
         completed = 0
+        executed_count = 0
+        skipped_count = len(skipped_results)
         for future in concurrent.futures.as_completed(futures):
-            item = futures[future]
+            preview_item = futures[future]
+            item = preview_item.item
             completed += 1
             try:
                 result = future.result()
@@ -1170,11 +1334,15 @@ def _run_batch(config: FamilyConfig, items: tuple[RunItem, ...], args: argparse.
                 _write_runner_error(item, output_dir, exc)
                 result = RunResult(overall_status="runner_error", skipped=False, output_dir=output_dir)
             executed_statuses.append(result.overall_status)
+            executed_count += 1
             status_counts[result.overall_status] = status_counts.get(result.overall_status, 0) + 1
             action = "skipped" if result.skipped else "executed"
+            counts_text = ", ".join(f"{key}={value}" for key, value in sorted(status_counts.items()))
             print(
-                f"[{completed}/{len(selected)}] {item.condition}/{item.harness}/{item.case_id} "
-                f"-> {result.overall_status} ({action}; {_relative(result.output_dir)})"
+                f"[{completed}/{len(selected)} runnable] "
+                f"{item.benchmark}/{item.condition}/{item.harness}/{item.case_id} "
+                f"-> {result.overall_status} "
+                f"({action}; executed={executed_count}, skipped={skipped_count}; {counts_text})"
             )
     print("Status counts: " + ", ".join(f"{key}={value}" for key, value in sorted(status_counts.items())))
     return 0 if all(status == "success" for status in executed_statuses) else 1
@@ -1282,48 +1450,13 @@ def print_dry_run(
     rerun_statuses: tuple[str, ...] = (),
     no_skip_completed: bool = False,
 ) -> None:
-    print(f"Config: {config.config_path}")
-    print(f"Mode: {config.mode}")
-    print(f"Benchmarks: {', '.join(dict.fromkeys(item.benchmark for item in items))}")
-    print(f"Splits: {', '.join(dict.fromkeys(item.split for item in items))}")
-    print(f"Conditions: {', '.join(dict.fromkeys(item.condition for item in items))}")
-    print(f"Harnesses: {', '.join(dict.fromkeys(item.harness for item in items))}")
-    print(f"Run count: {len(items)}")
-    print(f"Max concurrency: {config.batch.max_concurrency}")
-    runnable = 0
-    skipped = 0
-    for item in items:
-        should_run, _ = _should_run(
-            item,
-            rerun_statuses=rerun_statuses,
-            no_skip_completed=no_skip_completed,
-            skip_completed=config.batch.skip_completed,
-            retry_statuses=config.batch.retry_statuses,
-        )
-        if should_run:
-            runnable += 1
-        else:
-            skipped += 1
-    print(f"Runnable now: {runnable}")
-    print(f"Skipped now: {skipped}")
-    missing_by_source: dict[str, int] = {}
-    for item in items:
-        for spec in missing_assemble_sources(item):
-            missing_by_source[_relative(spec.source)] = missing_by_source.get(_relative(spec.source), 0) + 1
-    if missing_by_source:
-        print("Missing assemble sources:")
-        for source, count in sorted(missing_by_source.items()):
-            print(f"  - {source} ({count} run(s))")
-    else:
-        print("Missing assemble sources: none")
-    for item in items:
-        missing = missing_assemble_sources(item)
-        state = "ready" if not missing else f"missing_sources={len(missing)}"
-        print(
-            f"- {item.benchmark}/{item.condition}/{item.harness}/{item.case_id}: {state} -> "
-            f"{_relative(_output_dir(config, item))} "
-            f"skills={','.join(_resolved_skill_names(item)) or 'none'}"
-        )
+    preview = build_batch_preview(
+        config,
+        items,
+        rerun_statuses=rerun_statuses,
+        no_skip_completed=no_skip_completed,
+    )
+    print(describe_batch_preview(preview, include_items=True))
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -1346,15 +1479,16 @@ def main(argv: list[str] | None = None) -> int:
         harnesses=tuple(args.harness),
         cases=tuple(args.case),
     )
+    preview = build_batch_preview(
+        config,
+        items,
+        rerun_statuses=tuple(args.rerun_status),
+        no_skip_completed=args.no_skip_completed,
+    )
+    print(describe_batch_preview(preview, include_items=False))
     if args.dry_run:
-        print_dry_run(
-            config,
-            items,
-            rerun_statuses=tuple(args.rerun_status),
-            no_skip_completed=args.no_skip_completed,
-        )
         return 0
-    return _run_batch(config, items, args)
+    return _run_batch(config, preview)
 
 
 if __name__ == "__main__":
