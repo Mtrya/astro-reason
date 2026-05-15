@@ -7,6 +7,8 @@ import argparse
 import concurrent.futures
 import json
 import os
+import re
+import shlex
 import shutil
 import subprocess
 import sys
@@ -24,7 +26,6 @@ if __package__ in (None, ""):
     sys.path.insert(0, str(REPO_ROOT))
 
 from experiments._shared import workspace as workspace_utils
-from experiments.skill_injection import run as agentic_run
 
 
 FAMILY_DIR = Path(__file__).resolve().parent
@@ -34,6 +35,27 @@ OUTPUT_MOUNT = Path("/app/run/output")
 CONTAINER_HOME = Path("/home/korolev")
 MEMORY_MOUNT = WORKSPACE_MOUNT / "memory"
 WORKSPACE_SKILLS_MOUNT = WORKSPACE_MOUNT / ".agents" / "skills"
+SATNET_COMPACT_PATTERN = re.compile(
+    r"(VALID|INVALID):\s+(?:total_hours|score)=([+-]?(?:\d+(?:\.\d*)?|\.\d+))h,\s+tracks=(\d+)"
+)
+SPOT5_COMPACT_PATTERN = re.compile(r"(VALID|INVALID):\s+profit=(\d+),\s+weight=(\d+)")
+STATUS_PATTERN = re.compile(r"^Status:\s+(VALID|INVALID)\s*$", re.MULTILINE)
+
+
+@dataclass(frozen=True)
+class AssembleSpec:
+    source: Path
+    target: Path
+    render: bool = False
+    missing_ok: bool = False
+    example: Path | None = None
+
+
+@dataclass(frozen=True)
+class CollectSpec:
+    source: Path
+    target: Path
+    missing_ok: bool = True
 
 
 @dataclass(frozen=True)
@@ -56,6 +78,44 @@ class BatchSettings:
     max_retries: int
     skip_completed: bool
     retry_statuses: tuple[str, ...]
+
+
+@dataclass(frozen=True)
+class RuntimeManifest:
+    name: str
+    image: str
+
+
+@dataclass(frozen=True)
+class RunItem:
+    config_name: str
+    config_path: Path
+    benchmark: str
+    split: str
+    case_id: str
+    condition: str
+    harness: str
+    runtime: str
+    timeout_seconds: int
+    resources: ResourceLimits
+    results_root: Path
+    assemble: tuple[AssembleSpec, ...]
+    collect: tuple[CollectSpec, ...]
+    forward_env_keys: tuple[str, ...]
+    headless_shell_command: str
+
+
+@dataclass(frozen=True)
+class MountRoots:
+    workspace: Path
+    home: Path
+    output: Path
+
+
+@dataclass(frozen=True)
+class ContainerIdentity:
+    passwd_file: Path
+    group_file: Path
 
 
 @dataclass(frozen=True)
@@ -93,8 +153,8 @@ class FamilyConfig:
 class HarnessProfile:
     harness: str
     runtime: str
-    assemble: tuple[agentic_run.AssembleSpec, ...]
-    collect: tuple[agentic_run.CollectSpec, ...]
+    assemble: tuple[AssembleSpec, ...]
+    collect: tuple[CollectSpec, ...]
     forward_env_keys: tuple[str, ...]
     headless_shell_command: str
     profile_path: Path
@@ -110,7 +170,7 @@ class MemoryRunItem:
     case_id: str
     harness: str
     sequence_index: int | None
-    base_item: agentic_run.RunItem
+    base_item: RunItem
     output_dir: Path
     state_dir: Path | None
     fragment_dir: Path
@@ -188,12 +248,8 @@ def _resource_limits(data: dict[str, Any]) -> ResourceLimits:
     )
 
 
-def _agentic_resources(resources: ResourceLimits) -> agentic_run.ResourceLimits:
-    return agentic_run.ResourceLimits(
-        cpus=resources.cpus,
-        memory=resources.memory,
-        shm_size=resources.shm_size,
-    )
+def _runner_resources(resources: ResourceLimits) -> ResourceLimits:
+    return resources
 
 
 def _result_settings(data: dict[str, Any], path: Path) -> ResultSettings:
@@ -284,16 +340,16 @@ def load_family_config(path: Path) -> FamilyConfig:
     )
 
 
-def _parse_assemble(items: Any, path: Path) -> tuple[agentic_run.AssembleSpec, ...]:
+def _parse_assemble(items: Any, path: Path) -> tuple[AssembleSpec, ...]:
     if not isinstance(items, list):
         raise SystemExit(f"assemble must be a list: {path}")
-    specs: list[agentic_run.AssembleSpec] = []
+    specs: list[AssembleSpec] = []
     for index, item in enumerate(items):
         if not isinstance(item, dict):
             raise SystemExit(f"assemble[{index}] must be a mapping: {path}")
         example_text = item.get("example")
         specs.append(
-            agentic_run.AssembleSpec(
+            AssembleSpec(
                 source=_repo_path(_require_str(item, "source", "assemble", path)),
                 target=_container_path(_require_str(item, "target", "assemble", path)),
                 render=bool(item.get("render", False)),
@@ -304,15 +360,15 @@ def _parse_assemble(items: Any, path: Path) -> tuple[agentic_run.AssembleSpec, .
     return tuple(specs)
 
 
-def _parse_collect(items: Any, path: Path) -> tuple[agentic_run.CollectSpec, ...]:
+def _parse_collect(items: Any, path: Path) -> tuple[CollectSpec, ...]:
     if not isinstance(items, list):
         raise SystemExit(f"collect must be a list: {path}")
-    specs: list[agentic_run.CollectSpec] = []
+    specs: list[CollectSpec] = []
     for index, item in enumerate(items):
         if not isinstance(item, dict):
             raise SystemExit(f"collect[{index}] must be a mapping: {path}")
         specs.append(
-            agentic_run.CollectSpec(
+            CollectSpec(
                 source=_container_path(_require_str(item, "source", "collect", path)),
                 target=Path(_require_str(item, "target", "collect", path)),
                 missing_ok=bool(item.get("missing_ok", False)),
@@ -420,24 +476,24 @@ def _base_assemble_specs(
     case_id: str,
     *,
     phase: str,
-) -> tuple[agentic_run.AssembleSpec, ...]:
+) -> tuple[AssembleSpec, ...]:
     return (
-        agentic_run.AssembleSpec(
+        AssembleSpec(
             source=REPO_ROOT / "experiments" / "_fragments" / "prompts" / benchmark / "README.default.md",
             target=WORKSPACE_MOUNT / "README.md",
             render=True,
         ),
-        agentic_run.AssembleSpec(source=_case_dir(benchmark, split, case_id), target=WORKSPACE_MOUNT / "case"),
-        agentic_run.AssembleSpec(
+        AssembleSpec(source=_case_dir(benchmark, split, case_id), target=WORKSPACE_MOUNT / "case"),
+        AssembleSpec(
             source=REPO_ROOT / "experiments" / "_fragments" / "opaque_verifiers" / "artifacts" / benchmark / "verifier",
             target=WORKSPACE_MOUNT / "verifier",
         ),
-        agentic_run.AssembleSpec(
+        AssembleSpec(
             source=REPO_ROOT / "experiments" / "_fragments" / "prompts" / benchmark / "PROMPT.default.md",
             target=CONTAINER_HOME / "PROMPT.md",
             render=True,
         ),
-        agentic_run.AssembleSpec(
+        AssembleSpec(
             source=_agents_fragment_for_phase(phase),
             target=WORKSPACE_MOUNT / "AGENTS.md",
             render=True,
@@ -445,14 +501,14 @@ def _base_assemble_specs(
     )
 
 
-def _memory_assemble_specs(source_dir: Path, *, required: bool) -> tuple[agentic_run.AssembleSpec, ...]:
+def _memory_assemble_specs(source_dir: Path, *, required: bool) -> tuple[AssembleSpec, ...]:
     return (
-        agentic_run.AssembleSpec(
+        AssembleSpec(
             source=source_dir / "memory",
             target=MEMORY_MOUNT,
             missing_ok=not required,
         ),
-        agentic_run.AssembleSpec(
+        AssembleSpec(
             source=source_dir / ".agents" / "skills",
             target=WORKSPACE_SKILLS_MOUNT,
             missing_ok=not required,
@@ -460,10 +516,10 @@ def _memory_assemble_specs(source_dir: Path, *, required: bool) -> tuple[agentic
     )
 
 
-def _memory_collect_specs() -> tuple[agentic_run.CollectSpec, ...]:
+def _memory_collect_specs() -> tuple[CollectSpec, ...]:
     return (
-        agentic_run.CollectSpec(source=MEMORY_MOUNT, target=Path("results_root/memory"), missing_ok=True),
-        agentic_run.CollectSpec(
+        CollectSpec(source=MEMORY_MOUNT, target=Path("results_root/memory"), missing_ok=True),
+        CollectSpec(
             source=WORKSPACE_SKILLS_MOUNT,
             target=Path("results_root/.agents/skills"),
             missing_ok=True,
@@ -478,10 +534,10 @@ def _build_base_item(
     benchmark: str,
     split: str,
     case_id: str,
-    assemble: tuple[agentic_run.AssembleSpec, ...],
-) -> agentic_run.RunItem:
+    assemble: tuple[AssembleSpec, ...],
+) -> RunItem:
     harness = load_harness_profile(harness_name)
-    return agentic_run.RunItem(
+    return RunItem(
         config_name=config.name,
         config_path=config.config_path,
         benchmark=benchmark,
@@ -491,7 +547,7 @@ def _build_base_item(
         harness=harness.harness,
         runtime=harness.runtime,
         timeout_seconds=config.timeout_seconds,
-        resources=_agentic_resources(config.resources),
+        resources=_runner_resources(config.resources),
         results_root=config.results.root,
         assemble=assemble,
         collect=harness.collect,
@@ -617,7 +673,7 @@ def _select_intersection(configured: tuple[str, ...], requested: tuple[str, ...]
     return tuple(item for item in configured if item in requested_set)
 
 
-def missing_assemble_sources(item: MemoryRunItem) -> tuple[agentic_run.AssembleSpec, ...]:
+def missing_assemble_sources(item: MemoryRunItem) -> tuple[AssembleSpec, ...]:
     return tuple(
         spec
         for spec in item.base_item.assemble
@@ -662,7 +718,7 @@ def _should_run(
     return True, "configured"
 
 
-def _collect_memory_state(item: MemoryRunItem, roots: agentic_run.MountRoots) -> list[dict[str, Any]]:
+def _collect_memory_state(item: MemoryRunItem, roots: MountRoots) -> list[dict[str, Any]]:
     if item.state_dir is None:
         return []
     item.state_dir.mkdir(parents=True, exist_ok=True)
@@ -677,12 +733,402 @@ def _collect_memory_state(item: MemoryRunItem, roots: agentic_run.MountRoots) ->
     )
 
 
-def _ensure_memory_dirs(roots: agentic_run.MountRoots) -> None:
+def _ensure_memory_dirs(roots: MountRoots) -> None:
     for path in (roots.workspace / "memory", roots.workspace / ".agents" / "skills"):
         path.mkdir(parents=True, exist_ok=True)
         keep = path / ".gitkeep"
         if not keep.exists():
             keep.write_text("", encoding="utf-8")
+
+
+def load_runtime(name: str) -> RuntimeManifest:
+    path = REPO_ROOT / "runtimes" / name / "runtime.yaml"
+    data = _load_yaml(path, "Runtime manifest")
+    runtime_name = _require_str(data, "name", "Runtime manifest", path)
+    image = _require_str(data, "image", "Runtime manifest", path)
+    return RuntimeManifest(name=runtime_name, image=image)
+
+
+def _template_context(item: RunItem) -> dict[str, str]:
+    dataset_dir = REPO_ROOT / "benchmarks" / item.benchmark / "dataset"
+    example_name = "No example solution is provided for this workspace."
+    for candidate in ("example_solution.json", "example_solution.yaml", "example_solution.yml"):
+        if (dataset_dir / candidate).exists():
+            example_name = candidate
+            break
+    return {
+        "benchmark": item.benchmark,
+        "split": item.split,
+        "case_id": item.case_id,
+        "example_solution_name": example_name,
+        "verifier_location": "verifier",
+        "verifier_command": "./verifier case/ solution.json",
+    }
+
+
+def _prepare_roots(workspace_dir: Path, runtime_dir: Path, output_dir: Path) -> MountRoots:
+    roots = MountRoots(workspace=workspace_dir, home=runtime_dir / "home", output=output_dir)
+    roots.workspace.mkdir(parents=True, exist_ok=True)
+    roots.home.mkdir(parents=True, exist_ok=True)
+    roots.output.mkdir(parents=True, exist_ok=True)
+    return roots
+
+
+def _build_container_identity(runtime_dir: Path) -> ContainerIdentity:
+    passwd_file = runtime_dir / "passwd"
+    group_file = runtime_dir / "group"
+    uid = os.getuid()
+    gid = os.getgid()
+    passwd_file.write_text(
+        "\n".join(
+            [
+                "root:x:0:0:root:/root:/bin/bash",
+                f"korolev:x:{uid}:{gid}:AstroReason User:{CONTAINER_HOME}:/bin/bash",
+            ]
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    group_file.write_text(f"root:x:0:\nkorolev:x:{gid}:\n", encoding="utf-8")
+    return ContainerIdentity(passwd_file=passwd_file, group_file=group_file)
+
+
+def _assemble_workspace(item: RunItem, roots: MountRoots) -> list[dict[str, Any]]:
+    def missing_source_message(spec: AssembleSpec) -> str:
+        example_note = f" Copy {spec.example} into place first." if spec.example else ""
+        return f"Required assemble source does not exist: {spec.source}.{example_note}"
+
+    return workspace_utils.assemble_workspace(
+        item.assemble,
+        roots,
+        context=_template_context(item),
+        repo_root=REPO_ROOT,
+        workspace_mount=WORKSPACE_MOUNT,
+        home_mount=CONTAINER_HOME,
+        output_mount=OUTPUT_MOUNT,
+        require_nonempty_dirs=True,
+        missing_source_message=missing_source_message,
+        record_rendered_for_missing=False,
+    )
+
+
+def _collect_artifacts(item: RunItem, roots: MountRoots, output_dir: Path) -> list[dict[str, Any]]:
+    return workspace_utils.collect_artifacts(
+        item.collect,
+        roots,
+        output_dir,
+        repo_root=REPO_ROOT,
+        workspace_mount=WORKSPACE_MOUNT,
+        home_mount=CONTAINER_HOME,
+        output_mount=OUTPUT_MOUNT,
+    )
+
+
+def _build_docker_command(
+    item: RunItem,
+    runtime: RuntimeManifest,
+    roots: MountRoots,
+    identity: ContainerIdentity,
+) -> list[str]:
+    cmd = ["docker", "run", "--rm", "-w", str(WORKSPACE_MOUNT)]
+    cmd.extend(["--user", f"{os.getuid()}:{os.getgid()}"])
+    cmd.extend(["-e", f"HOME={CONTAINER_HOME}"])
+    cmd.extend(["-e", "USER=korolev"])
+    cmd.extend(["-e", "LOGNAME=korolev"])
+    cmd.extend(["-e", f"XDG_CONFIG_HOME={CONTAINER_HOME / '.config'}"])
+    cmd.extend(["-e", f"XDG_DATA_HOME={CONTAINER_HOME / '.local' / 'share'}"])
+    for env_key in item.forward_env_keys:
+        env_value = os.environ.get(env_key)
+        if env_value is not None:
+            cmd.extend(["-e", f"{env_key}={env_value}"])
+    if item.resources.cpus:
+        cmd.extend(["--cpus", item.resources.cpus])
+    if item.resources.memory:
+        cmd.extend(["--memory", item.resources.memory])
+    if item.resources.shm_size:
+        cmd.extend(["--shm-size", item.resources.shm_size])
+    cmd.extend(
+        [
+            "-v",
+            f"{roots.workspace.resolve()}:{WORKSPACE_MOUNT}",
+            "-v",
+            f"{roots.output.resolve()}:{OUTPUT_MOUNT}",
+            "-v",
+            f"{roots.home.resolve()}:{CONTAINER_HOME}",
+            "-v",
+            f"{identity.passwd_file.resolve()}:/etc/passwd:ro",
+            "-v",
+            f"{identity.group_file.resolve()}:/etc/group:ro",
+            runtime.image,
+        ]
+    )
+    shell_script = "\n".join(
+        [
+            "set -euo pipefail",
+            f"mkdir -p {shlex.quote(str(CONTAINER_HOME))}",
+            f"mkdir -p {shlex.quote(str(CONTAINER_HOME / '.config'))}",
+            f"mkdir -p {shlex.quote(str(CONTAINER_HOME / '.local' / 'share'))}",
+            f"cd {shlex.quote(str(WORKSPACE_MOUNT))}",
+            f"exec timeout --signal=TERM {item.timeout_seconds} /bin/bash -lc "
+            f"{shlex.quote(item.headless_shell_command)}",
+        ]
+    )
+    cmd.extend(["/bin/bash", "-lc", shell_script])
+    return cmd
+
+
+def _run_to_files(cmd: list[str], stdout_path: Path, stderr_path: Path) -> tuple[int, bool]:
+    stdout_path.parent.mkdir(parents=True, exist_ok=True)
+    stderr_path.parent.mkdir(parents=True, exist_ok=True)
+    try:
+        with stdout_path.open("w", encoding="utf-8") as stdout_handle:
+            with stderr_path.open("w", encoding="utf-8") as stderr_handle:
+                result = subprocess.run(
+                    cmd,
+                    stdout=stdout_handle,
+                    stderr=stderr_handle,
+                    text=True,
+                    encoding="utf-8",
+                    errors="replace",
+                    check=False,
+                )
+    except FileNotFoundError as exc:
+        stderr_path.write_text(f"Failed to launch process: {exc}\n", encoding="utf-8")
+        return 127, False
+    return result.returncode, True
+
+
+def _run_capture(cmd: list[str], *, cwd: Path | None = None) -> tuple[int, str, str, bool]:
+    try:
+        result = subprocess.run(
+            cmd,
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+            errors="replace",
+            cwd=cwd,
+            check=False,
+        )
+    except FileNotFoundError as exc:
+        return 127, "", f"Failed to launch process: {exc}", False
+    return result.returncode, result.stdout or "", result.stderr or "", True
+
+
+def _copy_solution(workspace_dir: Path, output_dir: Path) -> bool:
+    source = workspace_dir / "solution.json"
+    if not source.exists():
+        return False
+    shutil.copy2(source, output_dir / "solution.json")
+    return True
+
+
+def _verifier_command(benchmark: str, case_dir: Path, solution: Path) -> list[str]:
+    package_verifier = REPO_ROOT / "benchmarks" / benchmark / "verifier"
+    if package_verifier.exists():
+        return [
+            "uv",
+            "run",
+            "python",
+            "-m",
+            f"benchmarks.{benchmark}.verifier.run",
+            str(case_dir),
+            str(solution),
+        ]
+    script_verifier = REPO_ROOT / "benchmarks" / benchmark / "verifier.py"
+    if not script_verifier.exists():
+        raise SystemExit(f"No verifier found for benchmark {benchmark}")
+    return ["uv", "run", "python", str(script_verifier), str(case_dir), str(solution)]
+
+
+def _normalized_verifier_valid(parsed: dict[str, Any]) -> bool | None:
+    valid = parsed.get("valid")
+    if isinstance(valid, bool):
+        return valid
+    is_valid = parsed.get("is_valid")
+    if isinstance(is_valid, bool):
+        return is_valid
+    return None
+
+
+def _normalize_cli_verifier_payload(parsed: dict[str, Any]) -> dict[str, Any]:
+    normalized = dict(parsed)
+    valid = _normalized_verifier_valid(normalized)
+    if isinstance(valid, bool):
+        normalized["valid"] = valid
+    return normalized
+
+
+def _float_line(label: str, text: str) -> float | None:
+    match = re.search(rf"^{re.escape(label)}:\s+([+-]?(?:\d+(?:\.\d*)?|\.\d+))\s*$", text, re.MULTILINE)
+    return float(match.group(1)) if match else None
+
+
+def _int_line(label: str, text: str) -> int | None:
+    match = re.search(rf"^{re.escape(label)}:\s+(\d+)\s*$", text, re.MULTILINE)
+    return int(match.group(1)) if match else None
+
+
+def _status_valid(text: str) -> bool | None:
+    match = STATUS_PATTERN.search(text)
+    if match:
+        return match.group(1) == "VALID"
+    return None
+
+
+def _cli_section_items(text: str, section: str) -> list[str]:
+    pattern = re.compile(rf"^{re.escape(section)}:\s*$((?:\n\s+- .*)*)", re.MULTILINE)
+    match = pattern.search(text)
+    if not match:
+        return []
+    items: list[str] = []
+    for line in match.group(1).splitlines():
+        stripped = line.strip()
+        if stripped.startswith("- "):
+            items.append(stripped[2:])
+    return items
+
+
+def _parse_satnet_cli_payload(stdout: str, exit_code: int) -> dict[str, Any]:
+    valid = _status_valid(stdout)
+    score_hours = _float_line("Total tracking hours", stdout)
+    if score_hours is None:
+        score_hours = _float_line("Score (hours)", stdout)
+    n_tracks = _int_line("Tracks", stdout)
+    n_satisfied_requests = _int_line("Satisfied requests", stdout)
+    u_rms = _float_line("U_rms", stdout)
+    u_max = _float_line("U_max", stdout)
+
+    if valid is None:
+        compact_match = SATNET_COMPACT_PATTERN.search(stdout)
+        if compact_match is not None:
+            valid = compact_match.group(1) == "VALID"
+            score_hours = float(compact_match.group(2))
+            n_tracks = int(compact_match.group(3))
+
+    if valid is None or score_hours is None or n_tracks is None:
+        return {
+            "status": "error",
+            "error": "SatNet verifier output did not match expected CLI schema.",
+            "exit_code": exit_code,
+        }
+    return {
+        "valid": valid,
+        "metrics": {
+            "score_hours": score_hours,
+            "n_tracks": n_tracks,
+            "n_satisfied_requests": n_satisfied_requests,
+            "u_rms": u_rms,
+            "u_max": u_max,
+        },
+        "diagnostics": {},
+        "errors": _cli_section_items(stdout, "Errors"),
+        "warnings": _cli_section_items(stdout, "Warnings"),
+    }
+
+
+def _parse_spot5_cli_payload(stdout: str, exit_code: int) -> dict[str, Any]:
+    valid = _status_valid(stdout)
+    computed_profit = _int_line("Computed Profit", stdout)
+    computed_weight = _int_line("Computed Weight", stdout)
+    computed_selected = _int_line("Selected Photos", stdout)
+
+    if valid is None:
+        compact_match = SPOT5_COMPACT_PATTERN.search(stdout)
+        if compact_match is not None:
+            valid = compact_match.group(1) == "VALID"
+            computed_profit = int(compact_match.group(2))
+            computed_weight = int(compact_match.group(3))
+
+    if valid is None or computed_profit is None or computed_weight is None:
+        return {
+            "status": "error",
+            "error": "SPOT-5 verifier output did not match expected CLI schema.",
+            "exit_code": exit_code,
+        }
+    return {
+        "valid": valid,
+        "metrics": {
+            "computed_profit": computed_profit,
+            "computed_weight": computed_weight,
+            "computed_selected": computed_selected,
+        },
+        "diagnostics": {},
+        "errors": _cli_section_items(stdout, "Errors"),
+        "warnings": _cli_section_items(stdout, "Warnings"),
+    }
+
+
+def _parse_compact_cli_verifier_payload(
+    benchmark: str,
+    stdout: str,
+    exit_code: int,
+) -> dict[str, Any] | None:
+    if benchmark == "satnet":
+        return _parse_satnet_cli_payload(stdout, exit_code)
+    if benchmark == "spot5":
+        return _parse_spot5_cli_payload(stdout, exit_code)
+    return None
+
+
+def _external_verifier(item: RunItem, output_dir: Path, solution_present: bool) -> tuple[str, dict[str, Any]]:
+    if not solution_present:
+        return "no_solution", {"valid": False, "error": "No solution.json was produced."}
+    cmd = _verifier_command(
+        item.benchmark,
+        _case_dir(item.benchmark, item.split, item.case_id),
+        output_dir / "solution.json",
+    )
+    exit_code, stdout, stderr, launched = _run_capture(cmd, cwd=REPO_ROOT)
+    (output_dir / "verifier_stdout.txt").write_text(stdout, encoding="utf-8")
+    (output_dir / "verifier_stderr.txt").write_text(stderr, encoding="utf-8")
+    if not launched:
+        return "error", {"valid": False, "error": stderr}
+
+    compact_payload = _parse_compact_cli_verifier_payload(item.benchmark, stdout, exit_code)
+    if compact_payload is not None:
+        valid = compact_payload.get("valid")
+        if isinstance(valid, bool) and exit_code in (0, 1):
+            return ("valid" if valid else "invalid"), compact_payload
+        return "error", {**compact_payload, "valid": False, "stderr": stderr.strip()}
+
+    try:
+        parsed = json.loads(stdout) if stdout.strip() else {}
+    except json.JSONDecodeError as exc:
+        return "error", {
+            "valid": False,
+            "error": f"Verifier output was not valid JSON: {exc}",
+            "exit_code": exit_code,
+        }
+    if not isinstance(parsed, dict):
+        return "error", {"valid": False, "error": "Verifier output JSON must be an object.", "exit_code": exit_code}
+    parsed = _normalize_cli_verifier_payload(parsed)
+    if not isinstance(parsed.get("valid"), bool):
+        return "error", {"valid": False, "error": "Verifier JSON did not contain boolean valid.", "raw": parsed}
+    if exit_code not in (0, 1):
+        return "error", {"valid": False, "error": stderr.strip() or "Verifier exited unexpectedly.", "raw": parsed}
+    return ("valid" if parsed["valid"] else "invalid"), parsed
+
+
+def _agent_status(exit_code: int, launched: bool, solution_present: bool) -> str:
+    if not launched:
+        return "runner_error"
+    if exit_code == 124:
+        return "timeout"
+    if exit_code != 0:
+        return "agent_failed"
+    if not solution_present:
+        return "no_solution"
+    return "success"
+
+
+def _overall_status(agent_status: str, verifier_status: str) -> str:
+    if verifier_status == "valid":
+        return "success"
+    if agent_status != "success":
+        return agent_status
+    if verifier_status == "invalid":
+        return "verifier_invalid"
+    return "verifier_error"
 
 
 def _write_run_json(
@@ -765,31 +1211,31 @@ def _run_item(item: MemoryRunItem) -> RunResult:
     if item.output_dir.exists():
         shutil.rmtree(item.output_dir)
     item.output_dir.mkdir(parents=True, exist_ok=True)
-    runtime = agentic_run.load_runtime(item.base_item.runtime)
+    runtime = load_runtime(item.base_item.runtime)
     with tempfile.TemporaryDirectory(prefix="astroreason-memory-workspace-") as workspace_tmp:
         with tempfile.TemporaryDirectory(prefix="astroreason-memory-runtime-") as runtime_tmp:
-            roots = agentic_run._prepare_roots(Path(workspace_tmp), Path(runtime_tmp), item.output_dir)
-            identity = agentic_run._build_container_identity(Path(runtime_tmp))
-            assembled = agentic_run._assemble_workspace(item.base_item, roots)
+            roots = _prepare_roots(Path(workspace_tmp), Path(runtime_tmp), item.output_dir)
+            identity = _build_container_identity(Path(runtime_tmp))
+            assembled = _assemble_workspace(item.base_item, roots)
             _ensure_memory_dirs(roots)
-            cmd = agentic_run._build_docker_command(item.base_item, runtime, roots, identity)
+            cmd = _build_docker_command(item.base_item, runtime, roots, identity)
             start = datetime.now(timezone.utc)
-            exit_code, launched = agentic_run._run_to_files(
+            exit_code, launched = _run_to_files(
                 cmd,
                 item.output_dir / "agent_stdout.txt",
                 item.output_dir / "agent_stderr.txt",
             )
             end = datetime.now(timezone.utc)
-            solution_present = agentic_run._copy_solution(roots.workspace, item.output_dir)
-            collected = agentic_run._collect_artifacts(item.base_item, roots, item.output_dir)
+            solution_present = _copy_solution(roots.workspace, item.output_dir)
+            collected = _collect_artifacts(item.base_item, roots, item.output_dir)
             memory_collected = _collect_memory_state(item, roots)
-            agent_status = agentic_run._agent_status(exit_code, launched, solution_present)
-            verifier_status, verifier_result = agentic_run._external_verifier(
+            agent_status = _agent_status(exit_code, launched, solution_present)
+            verifier_status, verifier_result = _external_verifier(
                 item.base_item,
                 item.output_dir,
                 solution_present,
             )
-            overall = agentic_run._overall_status(agent_status, verifier_status)
+            overall = _overall_status(agent_status, verifier_status)
             _write_run_json(
                 item,
                 item.output_dir,
@@ -810,7 +1256,7 @@ def _run_item(item: MemoryRunItem) -> RunResult:
 def _run_item_with_retries(item: MemoryRunItem, batch: BatchSettings) -> RunResult:
     attempts = batch.max_retries + 1
     last_result: RunResult | None = None
-    agentic_batch = agentic_run.BatchSettings(
+    agentic_batch = BatchSettings(
         max_concurrency=batch.max_concurrency,
         max_retries=batch.max_retries,
         skip_completed=batch.skip_completed,
@@ -837,7 +1283,7 @@ def _run_item_with_retries(item: MemoryRunItem, batch: BatchSettings) -> RunResu
 
 
 def _check_missing(items: tuple[MemoryRunItem, ...]) -> None:
-    missing: list[agentic_run.AssembleSpec] = []
+    missing: list[AssembleSpec] = []
     seen: set[Path] = set()
     for item in items:
         for spec in missing_assemble_sources(item):

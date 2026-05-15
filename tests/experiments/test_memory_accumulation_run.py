@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 import sys
 from pathlib import Path
+from types import SimpleNamespace
 
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
@@ -210,3 +211,53 @@ def test_memory_accumulation_aggregate_collects_baseline_and_memory_rows(tmp_pat
     assert "test_condition,codex,opencode_dpsk" in rows
     assert summary["by_memory_source"]["codex"]["mean_normalized_score_pct"] == 68.75
     assert summary["by_memory_source"]["none"]["mean_normalized_score_pct"] == 37.5
+
+
+def test_memory_accumulation_accepts_revisit_is_valid_verifier_payload(
+    monkeypatch,
+    tmp_path: Path,
+) -> None:
+    item = SimpleNamespace(benchmark="revisit_constellation", split="train", case_id="case_0001")
+
+    monkeypatch.setattr(run, "_verifier_command", lambda *_args: ["verifier"])
+    monkeypatch.setattr(
+        run,
+        "_run_capture",
+        lambda *_args, **_kwargs: (
+            0,
+            json.dumps({"is_valid": True, "metrics": {"threshold_violation_count": 0}}),
+            "",
+            True,
+        ),
+    )
+
+    status, payload = run._external_verifier(item, tmp_path, solution_present=True)
+
+    assert status == "valid"
+    assert payload["valid"] is True
+    assert payload["is_valid"] is True
+
+
+def test_memory_accumulation_accepts_spot5_compact_verifier_payload(
+    monkeypatch,
+    tmp_path: Path,
+) -> None:
+    item = SimpleNamespace(benchmark="spot5", split="train", case_id="507")
+
+    monkeypatch.setattr(run, "_verifier_command", lambda *_args: ["verifier"])
+    monkeypatch.setattr(
+        run,
+        "_run_capture",
+        lambda *_args, **_kwargs: (0, "VALID: profit=15137, weight=0\n", "", True),
+    )
+
+    status, payload = run._external_verifier(item, tmp_path, solution_present=True)
+
+    assert status == "valid"
+    assert payload["valid"] is True
+    assert payload["metrics"]["computed_profit"] == 15137
+    assert payload["metrics"]["computed_weight"] == 0
+
+
+def test_memory_accumulation_counts_valid_timeout_solution_as_success() -> None:
+    assert run._overall_status("timeout", "valid") == "success"

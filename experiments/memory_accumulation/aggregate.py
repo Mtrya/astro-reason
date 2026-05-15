@@ -5,11 +5,14 @@ from __future__ import annotations
 
 import argparse
 import csv
+import functools
 import json
 import statistics
 import sys
 from pathlib import Path
 from typing import Any
+
+import yaml
 
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
@@ -22,7 +25,7 @@ else:
 
 from experiments._shared import aggregate as shared_aggregate
 from experiments._shared import main_solver_baselines
-from experiments.main_agentic import plot_radar as radar_scores
+from experiments._shared import score_normalization as score_norm
 
 
 DEFAULT_CONFIG = Path(__file__).resolve().parent / "configs" / "default.yaml"
@@ -113,6 +116,80 @@ def _metrics_from_mapping(metrics: dict[str, Any]) -> dict[str, float | None]:
     return {field: _metric_from_mapping(metrics, field) for field in METRIC_FIELDS if field != "normalized_score_pct"}
 
 
+def _case_dir(*, benchmark: str, split: str, case_id: str) -> Path:
+    return REPO_ROOT / "benchmarks" / benchmark / "dataset" / "cases" / split / case_id
+
+
+def _load_json_file(path: Path) -> dict[str, object] | None:
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return None
+    return data if isinstance(data, dict) else None
+
+
+def _satellite_resource_models(path: Path) -> list[dict[str, object]]:
+    try:
+        data = yaml.safe_load(path.read_text(encoding="utf-8"))
+    except (OSError, yaml.YAMLError):
+        return []
+    raw_satellites = data.get("satellites", data) if isinstance(data, dict) else data
+    if not isinstance(raw_satellites, list):
+        return []
+    models: list[dict[str, object]] = []
+    for satellite in raw_satellites:
+        if not isinstance(satellite, dict):
+            continue
+        resource_model = satellite.get("resource_model")
+        if isinstance(resource_model, dict):
+            models.append(resource_model)
+            continue
+        power_model = satellite.get("power")
+        if isinstance(power_model, dict):
+            models.append(power_model)
+    return models
+
+
+def _satellite_battery_capacities(path: Path) -> list[float]:
+    capacities: list[float] = []
+    for resource_model in _satellite_resource_models(path):
+        capacity = score_norm.to_float(resource_model.get("battery_capacity_wh"))
+        if capacity is not None:
+            capacities.append(capacity)
+    return capacities
+
+
+def _nested_number(payload: dict[str, object], path: tuple[str, ...]) -> float | None:
+    current: object = payload
+    for part in path:
+        if not isinstance(current, dict) or part not in current:
+            return None
+        current = current[part]
+    return score_norm.to_float(current)
+
+
+@functools.lru_cache(maxsize=None)
+def _regional_case_constants(split: str, case_id: str) -> dict[str, float]:
+    case_dir = _case_dir(benchmark="regional_coverage", split=split, case_id=case_id)
+    manifest = _load_json_file(case_dir / "manifest.json") or {}
+    max_actions = _nested_number(manifest, ("scoring", "max_actions_total"))
+    battery_capacities = _satellite_battery_capacities(case_dir / "satellites.yaml")
+    constants: dict[str, float] = {}
+    if max_actions is not None:
+        constants["max_actions_total"] = max_actions
+    if battery_capacities:
+        constants["battery_capacity_wh"] = max(battery_capacities)
+    return constants
+
+
+@functools.lru_cache(maxsize=None)
+def _relay_case_constants(split: str, case_id: str) -> dict[str, float]:
+    case_dir = _case_dir(benchmark="relay_constellation", split=split, case_id=case_id)
+    manifest = _load_json_file(case_dir / "manifest.json") or {}
+    max_added = _nested_number(manifest, ("constraints", "max_added_satellites"))
+    return {"max_added_satellites": max_added} if max_added is not None else {}
+
+
 def _normalized_score_pct(
     *,
     benchmark: str,
@@ -124,13 +201,39 @@ def _normalized_score_pct(
 ) -> float | None:
     if valid is not True:
         return 0.0 if valid is False else None
-    return radar_scores._normalized_score_pct(
-        benchmark=benchmark,
-        split=split,
-        case_id=case_id,
-        metrics=metrics,
-        baseline_data=baseline_data,
-    )
+    normalization = baseline_data.get("normalization")
+    config = normalization.get(benchmark) if isinstance(normalization, dict) else {}
+    config = config if isinstance(config, dict) else {}
+    if benchmark == "regional_coverage":
+        constants = _regional_case_constants(split, case_id)
+        return score_norm.regional_coverage_score_pct(
+            weighted_coverage_ratio=metrics.get("weighted_coverage_ratio"),
+            coverage_ratio=metrics.get("coverage_ratio"),
+            num_actions=metrics.get("num_actions"),
+            min_battery_wh=metrics.get("min_battery_wh"),
+            max_actions_total=constants.get("max_actions_total"),
+            battery_capacity_wh=constants.get("battery_capacity_wh"),
+        )
+    if benchmark == "relay_constellation":
+        constants = _relay_case_constants(split, case_id)
+        return score_norm.relay_constellation_score_pct(
+            service_fraction=metrics.get("service_fraction"),
+            worst_demand_service_fraction=metrics.get("worst_demand_service_fraction"),
+            num_added_satellites=metrics.get("num_added_satellites"),
+            mean_latency_ms=metrics.get("mean_latency_ms"),
+            latency_p95_ms=metrics.get("latency_p95_ms"),
+            min_added_satellites=config.get("min_added_satellites"),
+            max_added_satellites=constants.get("max_added_satellites"),
+            latency_cap_ms=config.get("latency_cap_ms"),
+        )
+    if benchmark == "satnet":
+        return score_norm.satnet_score_pct(
+            u_rms=metrics.get("u_rms"),
+            u_max=metrics.get("u_max"),
+            u_rms_cap=config.get("u_rms_cap"),
+            u_max_cap=config.get("u_max_cap"),
+        )
+    return None
 
 
 def _missing_row(
