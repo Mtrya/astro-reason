@@ -1,0 +1,24 @@
+# Revisit Constellation Run Notes
+
+- Final verified `solution.json`:
+  - `is_valid: true`
+  - `capped_max_revisit_gap_hours: 6.0`
+  - `threshold_violation_count: 0`
+  - `num_satellites: 16`
+  - `actions: 465`
+- Effective workflow:
+  - Loaded the PyInstaller-bundled verifier modules directly from `verifier`, including the embedded `brahe` extension, so the solver could use the exact propagation and geometry checks.
+  - Reconstructed the winning Walker-style 16-satellite family directly and generated one exact 30-second observation candidate per access window.
+  - Winning 16-satellite family:
+    - altitude `835965.0701659854 m`
+    - inclination `59.2558797407308 deg`
+    - `4` planes, Walker phase `2`
+    - `raan0 = 186.2588763893105 deg`
+    - `mean0 = 291.6384207969086 deg`
+  - Greedy marginal-gap scheduling on those centered-window candidates produced a valid `16`-satellite schedule with `capped_max_revisit_gap_hours ≈ 6.0109` and only two residual threshold violations (`target_015` and `target_017`).
+  - The one-step greedy objective stalled because adding a single extra observation to either bad target fixed only one of several tied worst gaps, so the per-target capped max did not drop until multiple extras were added together.
+  - Promoting six additional already-feasible observations fixed that plateau and reached the exact `6.0` floor:
+    - `target_015`: `sat_2_1 @ 2025-07-17T15:43:40Z`, `sat_2_3 @ 2025-07-18T03:33:40Z`, `sat_2_1 @ 2025-07-18T15:28:00Z`, `sat_2_3 @ 2025-07-19T03:17:50Z`
+    - `target_017`: `sat_0_0 @ 2025-07-17T15:40:10Z`, `sat_3_1 @ 2025-07-18T09:12:30Z`
+- Secondary-metric note:
+  - Quick single-satellite removal checks on the final `6.0` schedule immediately worsened the capped gap above `6.0` for the first tested satellites, so `16` satellites is at least locally sticky at the exact floor. A full optimality proof for the satellite count was not completed in this run.

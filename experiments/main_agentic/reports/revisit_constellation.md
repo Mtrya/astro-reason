@@ -4,7 +4,7 @@ Generated from the current `main_agentic` aggregate summaries.
 
 | Harness | Present | Success | Valid | Invalid | Timeout | Primary Mean | Normalized Mean |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
-| claude_code | 3 | 3 | 3 | 0 | 0 | capped_max_revisit_gap_hours=7.2000 | 45.94 |
+| claude_code | 5 | 5 | 5 | 0 | 0 | capped_max_revisit_gap_hours=6.8000 | 76.50 |
 | codex | 5 | 5 | 5 | 0 | 0 | capped_max_revisit_gap_hours=7.6650 | 69.58 |
 | kimi_cli | 5 | 5 | 5 | 0 | 0 | capped_max_revisit_gap_hours=6.8357 | 73.36 |
 | opencode_minimax | 5 | 0 | 0 | 5 | 0 | capped_max_revisit_gap_hours=- | 0.0000 |
@@ -17,6 +17,8 @@ Generated from the current `main_agentic` aggregate summaries.
 | case_0001 | true | 3058.4 | 78.31 | 6.0000 | 10 |
 | case_0002 | true | 2836.3 | 80.06 | 8.0000 | 9 |
 | case_0003 | true | 7200.7 | 71.33 | 6.0000 | 16 |
+| case_0004 | true | 4465.6 | 77.50 | 8.0000 | 10 |
+| case_0005 | true | 7200.7 | 75.32 | 6.0000 | 12 |
 
 ## codex
 

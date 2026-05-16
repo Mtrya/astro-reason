@@ -1,0 +1,36 @@
+# Relay Network Augmentation Run Notes
+
+- Final verified `solution.json`:
+  - `valid: true`
+  - `service_fraction: 0.8793650793650792`
+  - `worst_demand_service_fraction: 0.6666666666666666`
+  - `mean_latency_ms: 173.82884500286656`
+  - `latency_p95_ms: 309.8920198793242`
+  - `num_added_satellites: 6`
+  - `served_demand_sample_count: 479 / 540`
+- Winning augmentation:
+  - Six circular LEO relays in a `2 x 3` Walker-like family.
+  - Parameters:
+    - altitude `1202375.556871239 m`
+    - inclination `73.65067281478412 deg`
+    - `raan0 = 320.04919875797265 deg`
+    - `u0 = 266.6319702099773 deg`
+    - phase `4`
+- Result structure:
+  - All losses beyond the unavoidable `demand_001` / `demand_002` overlap cap came from `demand_005`.
+  - The best family served:
+    - `demand_001 = 40 / 60`
+    - `demand_002 = 50 / 75`
+    - `demand_003 = 75 / 75`
+    - `demand_004 = 60 / 60`
+    - `demand_005 = 74 / 90`
+    - `demand_006 = 30 / 30`
+    - `demand_007 = 150 / 150`
+- Effective workflow:
+  - Loaded the embedded verifier package directly from the PyInstaller archive and reused its exact propagation, link-feasibility, and shortest-path allocation logic.
+  - Scored candidate constellations on the exact demanded samples only; with this case, the best backbone-plus-augmentation family reached full service on every demand except the capped overlap pair and `demand_005`.
+  - A broad exact search over simple `2 x 3` and `3 x 2` Walker-like families found a good baseline quickly.
+  - The important improvement was a targeted inner loop that optimized only `demand_005` sample coverage around the current best family, then re-ran the full exact score on the best few candidates.
+- Important bug/solver note:
+  - The overlap fairness split between `demand_001` and `demand_002` has a closed-form target. Brute-forcing all overlap assignments is unnecessary and explodes immediately.
+  - With exclusive served counts `c1`, `c2` and `B` overlap samples feasible for both, the equalizing count for assigning overlap samples to `demand_001` is `x = (4 * (c2 + B) - 5 * c1) / 9`, clipped to `[0, B]`.

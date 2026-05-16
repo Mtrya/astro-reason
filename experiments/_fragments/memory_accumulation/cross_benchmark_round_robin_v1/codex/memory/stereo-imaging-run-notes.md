@@ -1,0 +1,37 @@
+# Stereo Imaging Run Notes
+
+- Current workspace final `solution.json` metrics from `./verifier --compact case/ solution.json`:
+  - `valid: true`
+  - `coverage_ratio: 0.9930555555555556`
+  - `normalized_quality: 0.9923773649539941`
+- Current workspace final schedule came from `solver.py` plus manual verified substitutions for:
+  - `rugged_046`
+  - `vegetated_026`
+  - `urban_menderes_09`
+  - `urban_cobán_27`
+  - `rugged_051`
+  - `vegetated_027`
+- Important solver caveats discovered in this run:
+  - Same-satellite candidate pairs must be filtered by internal slew/settle feasibility before selection. Exact stereo quality alone is not enough.
+  - Borderline overlap estimates can differ between isolated pair scoring and the full verifier because the deterministic Monte Carlo seed depends on action ordering / indices. Pairs near the `0.8` overlap threshold can flip from valid to invalid.
+  - `open_105` remained uncovered in the final schedule even after targeted same-satellite same-pass searches and full-schedule substitution tests on many alternate pairs.
+- Useful improvement pattern:
+  - Generate coarse same-pass candidates with the verifier internals.
+  - Re-verify any targeted replacement inside the full schedule, not in isolation.
+  - Low-scoring targets can often be improved by deeper single-target searches with `coarse_step_s=2`, `sample_step_s=1`, then swapping only if the full verifier metric increases.
+
+- Historical prior-run note preserved below for reference:
+  - Final accepted `solution.json` comes from `solver.py`.
+  - Verified metrics with `./verifier case/ solution.json` equivalent via extracted verifier internals:
+  - `valid: true`
+  - `coverage_ratio: 1.0`
+  - `normalized_quality: 0.9980036265991323`
+- Effective approach:
+  - Extracted bundled verifier modules from `verifier` and executed them directly from `scratch/extract/*.pyc`.
+  - Generated same-satellite same-pass stereo pairs only.
+  - Used vectorized coarse pass discovery with off-nadir plus horizon visibility filtering.
+  - Built exact candidate observations with verifier access checks.
+  - Shortlisted a few approximate same-pass pairs per coarse pass, then scored them with the verifier’s exact pair evaluator.
+  - Solved final selection as a CP-SAT maximum-weight independent set with one product per target and per-satellite temporal compatibility constraints.
+- Rejected refinement:
+  - A targeted deeper search on the lowest-scoring targets produced more local options but reduced the global objective to `0.9979270382513843`, so the earlier full-coverage schedule was restored.

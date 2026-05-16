@@ -96,6 +96,7 @@ def test_default_config_builds_train_and_eval_axes() -> None:
 def test_train_and_eval_use_memory_specific_agents_fragments() -> None:
     config = run.load_family_config(run.DEFAULT_CONFIG)
     (train_item,) = run.build_train_items(config, harnesses=("codex",))[:1]
+    (opencode_train_item,) = run.build_train_items(config, harnesses=("opencode_dpsk",))[:1]
     (eval_item,) = run.build_eval_items(
         config,
         benchmarks=("satnet",),
@@ -105,9 +106,13 @@ def test_train_and_eval_use_memory_specific_agents_fragments() -> None:
     )
 
     train_agents = [spec for spec in train_item.base_item.assemble if spec.target.as_posix() == "/app/workspace/AGENTS.md"]
+    opencode_train_agents = [
+        spec for spec in opencode_train_item.base_item.assemble if spec.target.as_posix() == "/app/workspace/AGENTS.md"
+    ]
     eval_agents = [spec for spec in eval_item.base_item.assemble if spec.target.as_posix() == "/app/workspace/AGENTS.md"]
 
     assert train_agents[0].source.name == "AGENTS.memory_accumulation.train.md"
+    assert opencode_train_agents[0].source.name == "AGENTS.memory_accumulation.train.opencode.md"
     assert eval_agents[0].source.name == "AGENTS.memory_accumulation.eval.md"
 
 

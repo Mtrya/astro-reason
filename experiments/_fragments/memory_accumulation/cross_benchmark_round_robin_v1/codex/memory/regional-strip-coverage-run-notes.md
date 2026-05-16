@@ -1,0 +1,51 @@
+# Regional Strip Coverage Run Notes
+
+- Current workspace case:
+  - `case_id: case_0002`
+  - regions: `indonesia_east`, `great_lakes`
+- Final verified `solution.json`:
+  - `valid: true`
+  - `coverage_ratio: 0.9383142616182563`
+  - `weighted_coverage_ratio: 0.9235328056813245`
+  - `num_actions: 26`
+  - `min_battery_wh: 722.5624999999847`
+- Region results:
+  - `great_lakes: 0.9983550249051018`
+  - `indonesia_east: 0.8782734983314108`
+- Effective workflow for this case:
+  - Loaded the PyInstaller-bundled verifier module directly and reused `load_case`, `_build_propagators`, `_ground_intercept_ecef_m`, `_derive_action_geometry`, `_apply_coverage`, and `verify_solution`.
+  - Built coarse centerline-hit windows on a `60 s` grid over roll values `20..36 deg` on both signs with a `1.5 deg` polygon buffer.
+  - The first combo selector overfit to one Indonesia satellite family; coverage improved sharply after enforcing per-satellite diversity in the retained coarse combos.
+  - Exact candidate generation that worked well:
+    - durations `20, 40, 60, 80, 100, 120 s`
+    - midpoint start offsets `-30, 0, +30 s`
+    - keep top `5` exact candidates per `(region, satellite, coarse-window)` cluster
+  - A simple greedy selector on exact uncovered sample weight plus a light single-swap pass was enough once the candidate pool included `sat_iceye-x11` and `sat_iceye-x50` for `indonesia_east`.
+
+- Final verified `solution.json`:
+  - `valid: true`
+  - `coverage_ratio: 0.8650902369912762`
+  - `weighted_coverage_ratio: 0.8505333975125875`
+  - `num_actions: 54`
+  - `min_battery_wh: 501.7500000000041`
+- Region results:
+  - `amazon_north`: `0.7081061697930753`
+  - `horn_of_africa`: `0.9088125692867272`
+  - `great_lakes`: `0.9783519718940259`
+- Effective workflow:
+  - Loaded the bundled verifier Python module directly from the PyInstaller archive and reused its exact strip geometry, coverage, slew, and power logic.
+  - Generated candidates from coarse centerline-hit windows, then exact-scored each candidate through `_derive_action_geometry` and `_apply_coverage`.
+  - Used a three-stage selector:
+    - greedy construction over exact candidates
+    - exact local swap search using per-sample coverage counts
+    - bounded CP-SAT re-optimization over a curated shortlist
+  - A targeted denser search over `amazon_north` improved the candidate pool enough for the later selectors to matter.
+- Useful implementation details:
+  - Coarse discovery that worked:
+    - all regions at `60 s` centerline sampling with a `1.25 deg` polygon buffer
+    - extra `amazon_north` discovery at `30 s` with a `2.0 deg` buffer
+    - roll grid `20..32 deg` on both signs
+  - Exact candidate variants that were worth scoring:
+    - durations `20, 40, 60, 80, 100, 120 s`
+    - midpoint start offsets `-30, 0, +30 s`
+  - A further `horn_of_africa` targeted expansion increased runtime but did not beat the incumbent and was reverted.

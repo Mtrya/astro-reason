@@ -462,8 +462,17 @@ def _eval_output_dir(
     )
 
 
-def _agents_fragment_for_phase(phase: str) -> Path:
+def _agents_fragment_for_phase(phase: str, *, harness: str) -> Path:
     if phase == "train":
+        if harness.startswith("opencode"):
+            return (
+                REPO_ROOT
+                / "experiments"
+                / "_fragments"
+                / "prompts"
+                / "_shared"
+                / "AGENTS.memory_accumulation.train.opencode.md"
+            )
         return REPO_ROOT / "experiments" / "_fragments" / "prompts" / "_shared" / "AGENTS.memory_accumulation.train.md"
     if phase == "eval":
         return REPO_ROOT / "experiments" / "_fragments" / "prompts" / "_shared" / "AGENTS.memory_accumulation.eval.md"
@@ -476,6 +485,7 @@ def _base_assemble_specs(
     case_id: str,
     *,
     phase: str,
+    harness: str,
 ) -> tuple[AssembleSpec, ...]:
     return (
         AssembleSpec(
@@ -494,7 +504,7 @@ def _base_assemble_specs(
             render=True,
         ),
         AssembleSpec(
-            source=_agents_fragment_for_phase(phase),
+            source=_agents_fragment_for_phase(phase, harness=harness),
             target=WORKSPACE_MOUNT / "AGENTS.md",
             render=True,
         ),
@@ -565,7 +575,13 @@ def build_train_items(config: FamilyConfig, *, harnesses: tuple[str, ...] = ()) 
         harness = load_harness_profile(source_harness)
         for index, case_ref in enumerate(config.train_cases, start=1):
             assemble = (
-                *_base_assemble_specs(case_ref.benchmark, case_ref.split, case_ref.case_id, phase="train"),
+                *_base_assemble_specs(
+                    case_ref.benchmark,
+                    case_ref.split,
+                    case_ref.case_id,
+                    phase="train",
+                    harness=source_harness,
+                ),
                 *harness.assemble,
                 *_memory_assemble_specs(state_dir, required=False),
             )
@@ -619,7 +635,13 @@ def build_eval_items(
             for harness_name in selected_harnesses:
                 for case_id in selected_cases:
                     assemble = (
-                        *_base_assemble_specs(selection.benchmark, selection.split, case_id, phase="eval"),
+                        *_base_assemble_specs(
+                            selection.benchmark,
+                            selection.split,
+                            case_id,
+                            phase="eval",
+                            harness=harness_name,
+                        ),
                         *load_harness_profile(harness_name).assemble,
                         *_memory_assemble_specs(fragment_dir, required=True),
                     )
