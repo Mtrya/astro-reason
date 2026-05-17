@@ -1,0 +1,21 @@
+{
+  "condition": "cross_benchmark_round_robin_v1",
+  "experiment": "memory_accumulation",
+  "promoted_at": "2026-05-16T19:18:36.312963+00:00",
+  "schema_version": 1,
+  "source_harness": "opencode_dpsk",
+  "train_cases": [
+    "stereo_imaging/train/case_0001",
+    "revisit_constellation/train/case_0001",
+    "relay_constellation/train/case_0001",
+    "regional_coverage/train/case_0001",
+    "aeossp_standard/train/case_0001",
+    "spot5/train/507",
+    "stereo_imaging/train/case_0002",
+    "revisit_constellation/train/case_0002",
+    "relay_constellation/train/case_0002",
+    "regional_coverage/train/case_0002",
+    "aeossp_standard/train/case_0002",
+    "spot5/train/54"
+  ]
+}

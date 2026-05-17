@@ -4,10 +4,21 @@ Generated from the current `main_agentic` aggregate summaries.
 
 | Harness | Present | Success | Valid | Invalid | Timeout | Primary Mean | Normalized Mean |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| claude_code | 5 | 1 | 1 | 0 | 0 | normalized_quality=0.0044 | 0.4359 |
 | codex | 5 | 5 | 5 | 0 | 0 | normalized_quality=0.6891 | 68.91 |
 | kimi_cli | 5 | 5 | 5 | 0 | 0 | normalized_quality=0.0032 | 0.3153 |
 | opencode_minimax | 5 | 1 | 1 | 1 | 0 | normalized_quality=0.0000 | 0.0000 |
 | opencode_dpsk | 5 | 4 | 4 | 1 | 0 | normalized_quality=0.1300 | 13.00 |
+
+## claude_code
+
+| Case | Valid | Duration (s) | Normalized Score | normalized_quality | coverage_ratio |
+| --- | --- | ---: | ---: | ---: | ---: |
+| case_0001 | true | 6217.6 | 2.1793 | 0.0218 | 0.0282 |
+| case_0002 | false | 3.2780 | 0.0000 | - | - |
+| case_0003 | false | 2.8720 | 0.0000 | - | - |
+| case_0004 | false | 3.4360 | 0.0000 | - | - |
+| case_0005 | false | 5.1820 | 0.0000 | - | - |
 
 ## codex
 

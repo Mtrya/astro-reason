@@ -4,7 +4,7 @@ Generated from the current `main_agentic` aggregate summaries.
 
 | Harness | Present | Success | Valid | Invalid | Timeout | Primary Mean | Normalized Mean |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
-| claude_code | 3 | 0 | 0 | 0 | 0 | computed_profit=0.0000 | 0.0000 |
+| claude_code | 5 | 3 | 3 | 0 | 0 | computed_profit=68900.6 | 43.96 |
 | codex | 5 | 5 | 5 | 0 | 0 | computed_profit=115339.4 | 61.92 |
 | kimi_cli | 5 | 5 | 5 | 0 | 0 | computed_profit=115339.4 | 61.92 |
 | opencode_minimax | 5 | 4 | 4 | 0 | 0 | computed_profit=45456.4 | 37.47 |
@@ -14,9 +14,11 @@ Generated from the current `main_agentic` aggregate summaries.
 
 | Case | Valid | Duration (s) | Normalized Score | computed_profit | computed_weight | computed_selected |
 | --- | --- | ---: | ---: | ---: | ---: | ---: |
-| 1403 | false | 3.4810 | 0.0000 | - | - | - |
-| 1506 | false | 3.0580 | 0.0000 | - | - | - |
-| 28 | false | 3.1670 | 0.0000 | - | - | - |
+| 1021 | true | 7200.7 | 55.43 | 176246 | 200 | 311 |
+| 1403 | false | 2088.2 | 0.0000 | - | - | - |
+| 1506 | true | 1492.5 | 64.36 | 168247 | 200 | 308 |
+| 28 | false | 1123.6 | 0.0000 | - | - | - |
+| 8 | true | 421.0 | 100.0 | 10 | 0 | 7 |
 
 ## codex
 
