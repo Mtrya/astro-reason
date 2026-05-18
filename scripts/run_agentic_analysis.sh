@@ -23,6 +23,7 @@ MAIN_AGENTIC_REPORTS_DIR="experiments/main_agentic/reports"
 VERIFIER_EXPOSURE_REPORTS_DIR="experiments/verifier_exposure/reports"
 TEMPORAL_ROBUSTNESS_REPORTS_DIR="experiments/temporal_robustness/reports"
 SKILL_INJECTION_REPORTS_DIR="experiments/skill_injection/reports"
+MEMORY_ACCUMULATION_REPORTS_DIR="experiments/memory_accumulation/reports"
 
 MAIN_AGENTIC_TRACES_DIR="experiments/main_agentic/reports/traces"
 VERIFIER_EXPOSURE_TRACES_DIR="experiments/verifier_exposure/reports/traces"
@@ -59,7 +60,7 @@ Available tools by family:
   verifier_exposure      aggregate, reports, traces, exposure plots
   temporal_robustness    aggregate, reports, traces
   skill_injection        aggregate, reports, score plots
-  memory_accumulation    aggregate
+  memory_accumulation    aggregate, reports, score plots
 
 Selection:
   --family NAME          Run one family. May be repeated.
@@ -80,6 +81,7 @@ Outputs:
   --verifier-exposure-reports-dir PATH
   --temporal-robustness-reports-dir PATH
   --skill-injection-reports-dir PATH
+  --memory-accumulation-reports-dir PATH
   --main-agentic-traces-dir PATH
   --verifier-exposure-traces-dir PATH
   --temporal-robustness-traces-dir PATH
@@ -274,6 +276,20 @@ run_memory_accumulation() {
       "${config_args[@]}" \
       --main-agentic-root "${MAIN_AGENTIC_ROOT}"
   fi
+
+  if [[ "${RUN_PLOTS}" -eq 1 ]]; then
+    run_step "${family}" "Plot memory scores" \
+      "${UV_BIN}" run python experiments/memory_accumulation/plot_scores.py \
+      "${config_args[@]}" \
+      --reports-dir "${MEMORY_ACCUMULATION_REPORTS_DIR}"
+  fi
+
+  if [[ "${RUN_REPORTS}" -eq 1 ]]; then
+    run_step "${family}" "Write memory reports" \
+      "${UV_BIN}" run python experiments/memory_accumulation/write_reports.py \
+      "${config_args[@]}" \
+      --reports-dir "${MEMORY_ACCUMULATION_REPORTS_DIR}"
+  fi
 }
 
 while [[ "$#" -gt 0 ]]; do
@@ -330,6 +346,10 @@ while [[ "$#" -gt 0 ]]; do
       ;;
     --skill-injection-reports-dir)
       SKILL_INJECTION_REPORTS_DIR="${2:?--skill-injection-reports-dir requires a path}"
+      shift 2
+      ;;
+    --memory-accumulation-reports-dir)
+      MEMORY_ACCUMULATION_REPORTS_DIR="${2:?--memory-accumulation-reports-dir requires a path}"
       shift 2
       ;;
     --main-agentic-traces-dir)

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import subprocess
 import sys
 from pathlib import Path
 from types import SimpleNamespace
@@ -9,7 +10,7 @@ from types import SimpleNamespace
 REPO_ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(REPO_ROOT))
 
-from experiments.memory_accumulation import aggregate, run
+from experiments.memory_accumulation import aggregate, plot_scores, run, write_reports
 
 
 def _write_test_config(tmp_path: Path) -> Path:
@@ -58,6 +59,75 @@ def _write_test_config(tmp_path: Path) -> Path:
         encoding="utf-8",
     )
     return config_path
+
+
+def _write_satnet_memory_and_baseline_runs(tmp_path: Path) -> None:
+    memory_run_dir = (
+        tmp_path
+        / "results"
+        / "memory_test"
+        / "eval"
+        / "test_condition"
+        / "codex"
+        / "satnet"
+        / "opencode_dpsk"
+        / "test"
+        / "W10_2018"
+    )
+    memory_run_dir.mkdir(parents=True)
+    (memory_run_dir / "run.json").write_text(
+        json.dumps(
+            {
+                "experiment": "memory_accumulation",
+                "phase": "eval",
+                "condition": "test_condition",
+                "memory_source": "codex",
+                "benchmark": "satnet",
+                "split": "test",
+                "harness": "opencode_dpsk",
+                "case_id": "W10_2018",
+                "overall_status": "success",
+                "agent_status": "success",
+                "verifier_status": "valid",
+                "verifier": {
+                    "valid": True,
+                    "metrics": {
+                        "u_rms": 0.25,
+                        "u_max": 0.5,
+                        "score_hours": 10.0,
+                    },
+                },
+            }
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    baseline_dir = tmp_path / "main_agentic" / "matrix" / "satnet" / "opencode_dpsk" / "test" / "W10_2018"
+    baseline_dir.mkdir(parents=True)
+    (baseline_dir / "run.json").write_text(
+        json.dumps(
+            {
+                "experiment": "main_agentic",
+                "benchmark": "satnet",
+                "split": "test",
+                "harness": "opencode_dpsk",
+                "case_id": "W10_2018",
+                "overall_status": "success",
+                "agent_status": "success",
+                "verifier_status": "valid",
+                "verifier": {
+                    "valid": True,
+                    "metrics": {
+                        "u_rms": 0.5,
+                        "u_max": 1.0,
+                        "score_hours": 5.0,
+                    },
+                },
+            }
+        )
+        + "\n",
+        encoding="utf-8",
+    )
 
 
 def test_default_config_builds_train_and_eval_axes() -> None:
@@ -139,72 +209,7 @@ def test_promote_fragments_copies_train_state_with_manifest(tmp_path: Path) -> N
 
 def test_memory_accumulation_aggregate_collects_baseline_and_memory_rows(tmp_path: Path) -> None:
     config_path = _write_test_config(tmp_path)
-    memory_run_dir = (
-        tmp_path
-        / "results"
-        / "memory_test"
-        / "eval"
-        / "test_condition"
-        / "codex"
-        / "satnet"
-        / "opencode_dpsk"
-        / "test"
-        / "W10_2018"
-    )
-    memory_run_dir.mkdir(parents=True)
-    (memory_run_dir / "run.json").write_text(
-        json.dumps(
-            {
-                "experiment": "memory_accumulation",
-                "phase": "eval",
-                "condition": "test_condition",
-                "memory_source": "codex",
-                "benchmark": "satnet",
-                "split": "test",
-                "harness": "opencode_dpsk",
-                "case_id": "W10_2018",
-                "overall_status": "success",
-                "agent_status": "success",
-                "verifier_status": "valid",
-                "verifier": {
-                    "valid": True,
-                    "metrics": {
-                        "u_rms": 0.25,
-                        "u_max": 0.5,
-                        "score_hours": 10.0,
-                    },
-                },
-            }
-        )
-        + "\n",
-        encoding="utf-8",
-    )
-    baseline_dir = tmp_path / "main_agentic" / "matrix" / "satnet" / "opencode_dpsk" / "test" / "W10_2018"
-    baseline_dir.mkdir(parents=True)
-    (baseline_dir / "run.json").write_text(
-        json.dumps(
-            {
-                "experiment": "main_agentic",
-                "benchmark": "satnet",
-                "split": "test",
-                "harness": "opencode_dpsk",
-                "case_id": "W10_2018",
-                "overall_status": "success",
-                "agent_status": "success",
-                "verifier_status": "valid",
-                "verifier": {
-                    "valid": True,
-                    "metrics": {
-                        "u_rms": 0.5,
-                        "u_max": 1.0,
-                        "score_hours": 5.0,
-                    },
-                },
-            }
-        )
-        + "\n",
-        encoding="utf-8",
-    )
+    _write_satnet_memory_and_baseline_runs(tmp_path)
 
     assert aggregate.main(
         [
@@ -221,6 +226,52 @@ def test_memory_accumulation_aggregate_collects_baseline_and_memory_rows(tmp_pat
     assert "test_condition,codex,opencode_dpsk" in rows
     assert summary["by_memory_source"]["codex"]["mean_normalized_score_pct"] == 68.75
     assert summary["by_memory_source"]["none"]["mean_normalized_score_pct"] == 37.5
+
+
+def test_memory_accumulation_reports_and_plots_from_aggregate(tmp_path: Path) -> None:
+    config_path = _write_test_config(tmp_path)
+    _write_satnet_memory_and_baseline_runs(tmp_path)
+    aggregate.main(
+        [
+            "--config",
+            str(config_path),
+            "--main-agentic-root",
+            str(tmp_path / "main_agentic" / "matrix"),
+        ]
+    )
+
+    reports_dir = tmp_path / "reports"
+    assert plot_scores.main(["--config", str(config_path), "--reports-dir", str(reports_dir)]) == 0
+    assert write_reports.main(["--config", str(config_path), "--reports-dir", str(reports_dir)]) == 0
+
+    overview = (reports_dir / "overview.md").read_text(encoding="utf-8")
+    satnet = (reports_dir / "satnet.md").read_text(encoding="utf-8")
+    assert "# Memory Accumulation" in overview
+    assert "memory_transfer_delta.png" in overview
+    assert "| satnet | codex | opencode_dpsk | 1 | 37.50 | 68.75 | 31.25 | 1 | 0 |" in overview
+    assert "# SatNet" in satnet
+    assert "score_hours" in satnet
+    for output_name in plot_scores.PLOT_OUTPUTS:
+        assert (reports_dir / output_name).exists()
+
+
+def test_memory_accumulation_analysis_driver_wires_reports_and_plots() -> None:
+    result = subprocess.run(
+        [
+            str(REPO_ROOT / "scripts" / "run_agentic_analysis.sh"),
+            "--family",
+            "memory_accumulation",
+            "--dry-run",
+        ],
+        cwd=REPO_ROOT,
+        capture_output=True,
+        check=True,
+        text=True,
+    )
+
+    assert "experiments/memory_accumulation/aggregate.py" in result.stdout
+    assert "experiments/memory_accumulation/plot_scores.py" in result.stdout
+    assert "experiments/memory_accumulation/write_reports.py" in result.stdout
 
 
 def test_memory_accumulation_accepts_revisit_is_valid_verifier_payload(
@@ -267,6 +318,72 @@ def test_memory_accumulation_accepts_spot5_compact_verifier_payload(
     assert payload["valid"] is True
     assert payload["metrics"]["computed_profit"] == 15137
     assert payload["metrics"]["computed_weight"] == 0
+
+
+def test_memory_accumulation_requests_verbose_satnet_metrics() -> None:
+    command = run._verifier_command(
+        "satnet",
+        Path("benchmarks/satnet/dataset/cases/test/W10_2018"),
+        Path("solution.json"),
+    )
+
+    assert command[-1] == "--verbose"
+
+
+def test_memory_accumulation_aggregate_backfills_satnet_verbose_metrics(
+    monkeypatch,
+    tmp_path: Path,
+) -> None:
+    config_path = _write_test_config(tmp_path)
+    _write_satnet_memory_and_baseline_runs(tmp_path)
+    memory_run_dir = (
+        tmp_path
+        / "results"
+        / "memory_test"
+        / "eval"
+        / "test_condition"
+        / "codex"
+        / "satnet"
+        / "opencode_dpsk"
+        / "test"
+        / "W10_2018"
+    )
+    run_payload = json.loads((memory_run_dir / "run.json").read_text(encoding="utf-8"))
+    run_payload["verifier"]["metrics"]["u_rms"] = None
+    run_payload["verifier"]["metrics"]["u_max"] = None
+    run_payload["verifier"]["metrics"]["n_satisfied_requests"] = None
+    (memory_run_dir / "run.json").write_text(json.dumps(run_payload) + "\n", encoding="utf-8")
+    (memory_run_dir / "solution.json").write_text("[]\n", encoding="utf-8")
+
+    monkeypatch.setattr(aggregate.family_run, "_verifier_command", lambda *_args: ["verifier", "--verbose"])
+    monkeypatch.setattr(
+        aggregate.subprocess,
+        "run",
+        lambda *_args, **_kwargs: SimpleNamespace(
+            stdout=(
+                "Status: VALID\n"
+                "U_rms: 0.250000\n"
+                "U_max: 0.500000\n"
+                "Total tracking hours: 10.0000\n"
+                "Tracks: 12\n"
+                "Satisfied requests: 9\n"
+            ),
+            returncode=0,
+        ),
+    )
+
+    assert aggregate.main(
+        [
+            "--config",
+            str(config_path),
+            "--main-agentic-root",
+            str(tmp_path / "main_agentic" / "matrix"),
+        ]
+    ) == 0
+
+    rows = (tmp_path / "results" / "summaries" / "runs.csv").read_text(encoding="utf-8")
+    assert "0.25,0.5,12,68.75" in rows
+    assert ",9,0.25,0.5," in rows
 
 
 def test_memory_accumulation_counts_valid_timeout_solution_as_success() -> None:

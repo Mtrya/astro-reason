@@ -1,7 +1,7 @@
 {
   "condition": "cross_benchmark_round_robin_v1",
   "experiment": "memory_accumulation",
-  "promoted_at": "2026-05-16T19:18:36.312963+00:00",
+  "promoted_at": "2026-05-18T14:46:16.135528+00:00",
   "schema_version": 1,
   "source_harness": "opencode_dpsk",
   "train_cases": [

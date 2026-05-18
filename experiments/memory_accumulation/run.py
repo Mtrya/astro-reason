@@ -959,7 +959,10 @@ def _verifier_command(benchmark: str, case_dir: Path, solution: Path) -> list[st
     script_verifier = REPO_ROOT / "benchmarks" / benchmark / "verifier.py"
     if not script_verifier.exists():
         raise SystemExit(f"No verifier found for benchmark {benchmark}")
-    return ["uv", "run", "python", str(script_verifier), str(case_dir), str(solution)]
+    cmd = ["uv", "run", "python", str(script_verifier), str(case_dir), str(solution)]
+    if benchmark in {"satnet", "spot5"}:
+        cmd.append("--verbose")
+    return cmd
 
 
 def _normalized_verifier_valid(parsed: dict[str, Any]) -> bool | None:

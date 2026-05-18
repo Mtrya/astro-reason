@@ -8,6 +8,7 @@ import csv
 import functools
 import json
 import statistics
+import subprocess
 import sys
 from pathlib import Path
 from typing import Any
@@ -114,6 +115,41 @@ def _metric_from_mapping(metrics: dict[str, Any], key: str) -> float | None:
 
 def _metrics_from_mapping(metrics: dict[str, Any]) -> dict[str, float | None]:
     return {field: _metric_from_mapping(metrics, field) for field in METRIC_FIELDS if field != "normalized_score_pct"}
+
+
+def _satnet_metrics_incomplete(metrics: dict[str, float | None]) -> bool:
+    return any(metrics.get(key) is None for key in ("u_rms", "u_max", "n_satisfied_requests"))
+
+
+def _satnet_verbose_metrics(
+    *,
+    split: str,
+    case_id: str,
+    run_path: Path,
+) -> dict[str, float | None]:
+    solution_path = run_path.parent / "solution.json"
+    if not solution_path.exists():
+        return {}
+    cmd = family_run._verifier_command(
+        "satnet",
+        _case_dir(benchmark="satnet", split=split, case_id=case_id),
+        solution_path,
+    )
+    try:
+        result = subprocess.run(
+            cmd,
+            cwd=REPO_ROOT,
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+            errors="replace",
+            check=False,
+        )
+    except FileNotFoundError:
+        return {}
+    parsed = family_run._parse_satnet_cli_payload(result.stdout, result.returncode)
+    parsed_metrics = parsed.get("metrics") if isinstance(parsed.get("metrics"), dict) else {}
+    return _metrics_from_mapping(parsed_metrics)
 
 
 def _case_dir(*, benchmark: str, split: str, case_id: str) -> Path:
@@ -297,6 +333,10 @@ def _agent_row(
     metrics = verifier.get("metrics") if isinstance(verifier.get("metrics"), dict) else {}
     valid = shared_aggregate.normalize_valid(verifier, str(payload.get("verifier_status", "")))
     metric_values = _metrics_from_mapping(metrics)
+    if benchmark == "satnet" and valid is True and _satnet_metrics_incomplete(metric_values):
+        for key, value in _satnet_verbose_metrics(split=split, case_id=case_id, run_path=run_path).items():
+            if metric_values.get(key) is None and value is not None:
+                metric_values[key] = value
     return {
         "benchmark": payload.get("benchmark", benchmark),
         "split": payload.get("split", split),

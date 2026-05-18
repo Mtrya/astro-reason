@@ -1,77 +1,55 @@
-# Relay Constellation Run Notes
+# Relay-Network Augmentation Run Notes
 
-## Final Metrics
-- service_fraction: 0.9813
-- worst_demand_service_fraction: 0.8917 (demand_001: 107/120)
-- mean_latency_ms: 183.77
-- latency_p95_ms: 359.14
-- num_added_satellites: 0
-- num_actions: 207 (39 ground, 168 ISL)
-- Valid: true, 0 violations
+## Previous Case (8-sat backbone)
 
-## Case Summary
-- 8 backbone satellites at ~10000km altitude (MEO)
-- 5 ground endpoints across the globe
-- 7 demanded communication windows, total weight 7.0
-- 4-day horizon, 60s routing step
-- Hard constraints: max_links_per_satellite=3, max_links_per_endpoint=1
+### Final Metrics
+- service_fraction: 0.8189 (81.89%)
+- worst_demand_service_fraction: 0.6778 (demand_006)
+- mean_latency_ms: 187.35
+- latency_p95_ms: 258.62
+- num_added_satellites: 3
 
-## Effective Approach
+... (see below for approach)
 
-### Solver Strategy
-1. Propagate backbone satellites with J2-only gravity (brahe NumericalOrbitPropagator, degree=2 order=0 spherical harmonics)
-2. For each 60s timestep, build a degree-constrained graph:
-   - Select best ground link per active endpoint (shortest range, min 10° elevation)
-   - Build spanning tree connecting ground-linked satellites via ISLs
-   - Fill remaining degree budget (up to 3 per satellite) with extra ISL edges (shortest first)
-3. Convert per-timestep selections to contiguous action intervals (merge adjacent identical links)
-4. Write solution.json
+---
 
-### Key Insight
-The fundamental bottleneck is max_links_per_endpoint=1. During overlapping demand windows sharing a ground endpoint (e.g., demand_001 and demand_007 both need ground_003 at samples 4240-4250), at most one demand can use that endpoint's link per sample (unit capacity). This causes ~5-8 unavoidably unserved samples for demand_001.
+## Case 0002 (6-sat backbone, 55° inclination, 12000 km altitude)
 
-ISL competition costs another ~10-12 unserved samples during demand_001/demand_002 overlap (samples 4130-4195), despite providing ~11 ISL edges per timestep. Cannot eliminate entirely with degree-3 constraint.
+### Final Metrics
+- service_fraction: 0.4422 (44.22%)
+- worst_demand_service_fraction: 0.1000 (demand_006)
+- mean_latency_ms: 165.57
+- latency_p95_ms: 216.52
+- num_added_satellites: 6
 
-### Failed Approaches
-- Adding LEO satellites (500-1500km) made service WORSE (96.8% vs 98.1%). The verifier's routing through LEO sats causes more contention due to rapidly changing ISL topology.
-- Ring topology with extra edges caused degree violations (some satellites at degree 4).
-- Attempting edge-disjoint path provisioning gave same metrics (98.1%) with slightly worse latency.
+### Key Insight: Two Disconnected Backbone Subnetworks
 
-### Propagation Setup
-```python
-gravity = bh.GravityConfiguration.spherical_harmonic(degree=2, order=0, model_type=bh.GravityModelType.EGM2008_360)
-force = bh.ForceModelConfig(gravity=gravity, mass=bh.ParameterSource.value(1000.0))
-config = bh.NumericalPropagationConfig.default()
-prop = bh.NumericalOrbitPropagator(epoch, state, config, force, np.array([1000.0]))
-prop.set_trajectory_mode(bh.TrajectoryMode.ALL_STEPS)
-prop.propagate_to(end_epoch)
-```
+The 6 backbone sats form two disconnected networks ("triangles"):
+- Triangle A: {backbone_001, backbone_004, backbone_005} (planes 0,1,2)
+- Triangle B: {backbone_002, backbone_003, backbone_006} (planes 0,1,2)
 
-### Coordinate Transformations
-- `bh.position_gcrf_to_itrf(epoch, pos_gcrf)` for GCRF→ITRF (epoch FIRST, then position)
-- `bh.relative_position_ecef_to_enz(gnd_pos, sat_pos, bh.EllipsoidalConversionType.GEODETIC)` for elevation
-- `bh.position_enz_to_azel(rel, bh.AngleFormat.DEGREES)[1]` for elevation angle
+Cross-plane ISLs (6 pairs) are geometrically feasible ~39-52% of the time, connecting sats within each triangle. But same-plane opposite sats are 36,750 km apart (>> 20,000 km max ISL), so the two triangles are permanently disconnected.
 
-### Verifier Usage
-- `./verifier case/ solution.json` returns validity + metrics
-- Valid actions first, then metrics matter
-- Action failures = 0 needed for valid
+Demands that cross triangles (007 and 006) REQUIRE augmentation satellites to bridge the gap.
 
-## Output Schema
-```json
-{
-  "added_satellites": [],
-  "actions": [
-    {"action_type": "ground_link", "start_time": "ISO", "end_time": "ISO",
-     "endpoint_id": "...", "satellite_id": "..."},
-    {"action_type": "inter_satellite_link", "start_time": "ISO", "end_time": "ISO",
-     "satellite_id_1": "...", "satellite_id_2": "..."}
-  ]
-}
-```
+### Solver Approach
 
-## Command Pattern
-```bash
-python3 scratch/solver_v6.py  # Generate solution
-./verifier case/ solution.json  # Verify
-```
+1. **Propagation**: Use brahe NumericalOrbitPropagator with J2-only gravity, static EOP from_zero().
+2. **ISL feasibility**: Check BOTH range (<= max_isl_m - 200m margin) AND Earth clearance (line segment must not intersect Earth sphere): use perpendicular distance when closest point is on segment, otherwise endpoint distance.
+3. **Ground visibility**: ECEF elevation check with ENZ local frame.
+4. **Path search**: For each demand, find path (src_ep -> src_sat -> [ISL] -> dst_sat -> dst_ep) maximizing simultaneous feasible samples (intersection of all link feasibility masks).
+5. **Conflict handling**: Overlapping demands at shared endpoints MUST use same satellite (max_links_per_endpoint=1). The router handles unit-capacity allocation (typically giving all to the lower-latency demand).
+6. **LEO configuration**: 3 sats at 55° incl (for backbone bridging) + 3 sats at 25° incl (for equatorial ground coverage), all at 800 km altitude, near-circular.
+
+### Critical Lessons
+
+1. **Simultaneous vs average feasibility**: Average visibility percentage is NOT enough. Must compute intersection (AND) of all link feasibility masks to count truly simultaneous feasible samples.
+2. **Earth clearance for ISL**: The Earth clearance check must correctly handle the closest-point-on-segment test: P1 + t*(P2-P1), t = -P1·D/|D|^2. If 0<=t<=1, use perpendicular distance; otherwise use min(|P1|, |P2|). Add 200m margin for propagation differences.
+3. **Degree constraint**: max_links_per_endpoint=1 is the tightest constraint. Overlapping demands sharing an endpoint MUST use the same satellite (one physical link). The verifier router maximizes total weight → lower-latency demand gets all capacity.
+4. **Two-hop LEO bridges only**: LEO-to-backbone ISLs rarely bridge both triangles simultaneously for long periods due to fast LEO motion (~100 min period vs ~413 min for backbone).
+5. **LEO-ground links**: LEO sats at 600-1000 km, even at low inclination (25°), only see equatorial ground stations (like Singapore) ~5-13% of the time during demand windows, not better than backbone sats.
+
+### Output Schema
+- added_satellites: [{satellite_id, x_m, y_m, z_m, vx_m_s, vy_m_s, vz_m_s}, ...]
+- actions: [{action_type: "ground_link"|"inter_satellite_link", start_time, end_time, ...}, ...]
+- Times must be on the 60s routing grid; start_time/end_time are ISO 8601
