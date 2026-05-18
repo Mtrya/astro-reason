@@ -13,6 +13,8 @@ Here, **authority** means the root workspace contract and checker:
 
 The central examples are `stereo_imaging / claude_code / test / case_0002` and `case_0005`, but the pattern also appears in all five Regional Coverage Claude runs, four of five Relay Constellation Claude runs, `aeossp_standard` case 0005, and SPOT-5/SatNet edge cases. The counterexamples are equally important: Claude can recover when it performs an authority sweep over `/app/workspace`, reads `README.md`, and lets `/app/workspace/verifier` override its private model.
 
+This report keeps the Claude focus, but it now also compares nearby non-Claude traces. The comparison matters because private solver models are not inherently bad. Every successful space agent needs some private propagation, geometry, search, or scheduling model. The failure studied here is narrower: the private model becomes the task authority.
+
 ## Evidence Base
 
 Aggregate outcomes come from:
@@ -28,6 +30,15 @@ Aggregate outcomes come from:
 The intended workspace contracts are the prompt fragments under `experiments/_fragments/prompts/*/README.default.md`. The behavioral evidence comes from local trace artifacts under `results/agent_runs/experiments/main_agentic/matrix/.../claude_code/...` and the tracked trace-viewer exports under `experiments/main_agentic/reports/traces/data/events/`.
 
 Because `results/*` paths are local run outputs, treat them as diagnostic evidence. The stable report-level claims are anchored to the tracked reports, prompt fragments, benchmark contracts, and trace-viewer exports.
+
+Cross-model comparison uses the companion case studies:
+
+- `experiments/main_agentic/reports/case_studies/minimax_cross_benchmark_failure.md`
+- `experiments/main_agentic/reports/case_studies/stereo_imaging_opencode_dpsk_authority_drift.md`
+- `experiments/main_agentic/reports/case_studies/stereo_imaging_kimi_cross_track_overlap.md`
+- `experiments/main_agentic/reports/case_studies/relay_constellation_codex_success.md`
+
+Those reports are not imported as unquestioned conclusions. They are useful because they anchor the same authority-discipline question in other harnesses: did the space agent read the root contract, run the packaged verifier, and demote its private model when the verifier disagreed?
 
 ## What "Second Sweep" Means Here
 
@@ -254,6 +265,64 @@ No-authority runs produce three kinds of failure:
 
 The third category is the easiest to miss in aggregate reports because it can look like a valid but weak run. Trace inspection shows it is often a contract failure, not an optimization failure.
 
+## Cross-Model Comparison
+
+The private-world behavior is **not Claude-only** if the phrase means "a space agent builds a private model and sometimes lets it outrank the verifier." That broader failure appears in Minimax, DPSK, and Kimi traces too. But the clean Claude pattern is narrower and more severe: Claude often never reaches the authority contradiction at all. It builds the wrong interface, validates the wrong interface, and exits normally inside that alternate benchmark.
+
+The useful comparison is:
+
+| Harness | Typical authority pattern | Private-world flavor | Contrast with Claude |
+| --- | --- | --- | --- |
+| `claude_code` | Often `case/` first; authority discovery is early, late, or absent depending on benchmark. | Premature authority closure: inferred schema and private validation become the whole task. | Cleanest sealed-world pattern. Bad runs often have no README/verifier contact before finalizing. |
+| `opencode_minimax` | Frequently reads README and runs verifier, but unevenly and often too late. | Verifier contact without verifier discipline: private simulator survives contradiction, or valid-zero output is accepted as enough. | Less sealed than Claude; the official verifier is often visible, but it does not reliably reorganize the solver. |
+| `opencode_dpsk` | Usually acquires the README/verifier in stereo traces. | Verifier-authority drift during optimization: private access/footprint model guides decisions after official feedback. | More grounded than Claude on schema, but brittle under geometry and hard-validity pressure. |
+| `kimi_cli` | Usually reads README/verifier in the stereo traces. | Frame-binding failure: private coordinate convention remains misaligned with verifier signs. | Not a full invented benchmark; it knows the contract but binds one crucial physical interface incorrectly. |
+| `codex` | In the relay positive control, reads README early, writes a minimal valid baseline, and repeatedly uses verifier metrics. | Private scripts are search heuristics, not authority. | The clean counterexample: private model exists, but stays subordinate to README/verifier. |
+
+This makes "private world" a graded phenomenon rather than a binary label.
+
+### Minimax: Contact Without Discipline
+
+Minimax is the closest non-Claude analogue, but its failure is less sealed. The companion Minimax report found 23 of 35 tracked Minimax traces reading `/app/workspace/README.md` and 23 running the packaged verifier. That is materially different from Claude's no-authority regional and bad stereo runs.
+
+The problem is what happens after contact. In `stereo_imaging / opencode_minimax / case_0002`, Minimax never reads the README/verifier and writes claimed stereo pairs covering targets; that is a Claude-like schema-private failure. But many other Minimax failures are subtler. In relay, all five traces read the README and run the verifier, yet the aggregate service fraction is zero. In revisit, Minimax can see verifier-reported off-nadir violations and still finalize because the solution "structure" looks right to its private Brahe-access proxy. In regional and AEOSSP, it often repairs the schema but continues trusting weak geometry or accepts valid files with near-zero objective value.
+
+So Minimax does have private-world moments, but its dominant pattern is not "never saw authority." It is "saw authority, then treated it as a debugger or filter rather than a governing contract."
+
+### DPSK: Grounded, Then Drifting
+
+The DPSK stereo traces are useful because they separate schema discovery from acceptance discipline. DPSK usually lists the workspace, reads the README, loads Brahe, and runs the local verifier. Its failure is therefore not the Claude failure of inventing `stereo_observations` without seeing that `actions` are required.
+
+DPSK's failures happen later. It builds a substantial private model for access windows, signed steering, strip overlap, and scheduling. In `case_0001`, the verifier reports a valid schedule with `coverage_ratio=0.0` and `normalized_quality=0.0`; DPSK still accepts hard validity as the deliverable even though all evaluated pairs have zero overlap. In `case_0004`, it finds a high-scoring derived product schedule but finalizes while the verifier still reports hard violations. In `case_0003`, the same harness succeeds after fixing the across-track sign convention and preserving final verifier validity.
+
+That pattern is weaker than Claude's sealed private world but still belongs in the same family: the private model becomes the active source of truth for the next action. The difference is that DPSK usually starts from the right authority hierarchy and then lets it decay.
+
+### Kimi: Contract-Aware, Frame-Misaligned
+
+Kimi's stereo failure is even less like Claude's. Kimi usually reads the README and uses the verifier. It knows the submission is supposed to be raw observation `actions`, and it spends much of the run trying to reconcile access, overlap, convergence, and pixel scale.
+
+The private component is a coordinate-frame model. Kimi expresses `off_nadir_across_deg` in the opposite signed cross-track convention from the verifier in three productive stereo cases. That can leave observations hard-valid while boresight strips miss the target AOIs, so the official metric collapses to zero or near-zero. Counterfactual mirroring of `off_nadir_across_deg` dramatically improves `case_0002` and `case_0005`.
+
+This is a private-model failure, but not a full private-world failure. Kimi is inside the real benchmark contract. It just binds one high-leverage physical interface incorrectly and then debug-loops around the wrong suspects for too long.
+
+### Codex: The Counterexample
+
+The relay Codex case study is the strongest control. Codex also writes private scripts, private geometry estimates, and case-specific search code. The difference is hierarchy. It reads the README early, writes a minimal `added_satellites` plus `actions` solution before optimizing, checks the verifier, and treats verifier metrics as the final arbiter.
+
+That is exactly the distinction this report needs. Private modeling is not the bug. Private modeling is normal search. The bug is allowing the private model to define validity, schema, or score after the workspace has already provided a stronger authority.
+
+### What Is Claude-Specific?
+
+The Claude-specific behavior in these traces is not "uses private models" and not "can be wrong." It is the combination of:
+
+1. **case-first closure**: `case/` feels complete enough to define the benchmark;
+2. **durable invented interface**: the first serious solver/output encodes the inferred schema;
+3. **self-reinforcing validation**: later scripts consume the same invented fields they emit;
+4. **polished final confidence**: the final message reports coherent private metrics absent from the official run;
+5. **normal completion**: the run can end with `end_turn`, not timeout or crash.
+
+Other harnesses show pieces of this. Minimax sometimes invents schema; DPSK and Kimi sometimes let private physics outrank verifier feedback. Claude's bad runs are distinctive because the alternate contract becomes complete before external authority enters the loop. The result is not merely an incorrect approximation to the verifier; it is an alternate task.
+
 ## Mechanism
 
 Claude's failure mode has four stages.
@@ -334,4 +403,3 @@ When auditing future Claude traces, check these in order:
 - Did the final stop reason show a normal `end_turn` or a provider/timeout stop?
 
 For `stereo_imaging` case 0005, the answers are the bad signature: `case/` first, no README, no packaged verifier, private `verify.py`, wrong top-level key, final `end_turn`. That is a normal completed Claude run, and that is exactly the problem.
-

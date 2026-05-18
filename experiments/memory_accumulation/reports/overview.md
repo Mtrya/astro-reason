@@ -23,8 +23,8 @@ Generated from the current `memory_accumulation` aggregate artifacts.
 | none | opencode_dpsk | 15 | 15 | 0 | 15 | 43.90 | success: 15 |
 | none | opencode_minimax | 15 | 15 | 0 | 13 | 18.42 | success: 13, verifier_invalid: 2 |
 | opencode_dpsk | codex | 15 | 0 | 15 | 0 | 0.0000 | missing_artifact: 15 |
-| opencode_dpsk | opencode_dpsk | 15 | 2 | 13 | 2 | 9.7154 | missing_artifact: 13, success: 2 |
-| opencode_dpsk | opencode_minimax | 15 | 0 | 15 | 0 | 0.0000 | missing_artifact: 15 |
+| opencode_dpsk | opencode_dpsk | 15 | 5 | 10 | 5 | 21.99 | missing_artifact: 10, success: 5 |
+| opencode_dpsk | opencode_minimax | 15 | 1 | 14 | 0 | 0.0000 | missing_artifact: 14, verifier_invalid: 1 |
 | opencode_minimax | codex | 15 | 0 | 15 | 0 | 0.0000 | missing_artifact: 15 |
 | opencode_minimax | opencode_dpsk | 15 | 0 | 15 | 0 | 0.0000 | missing_artifact: 15 |
 | opencode_minimax | opencode_minimax | 15 | 0 | 15 | 0 | 0.0000 | missing_artifact: 15 |
@@ -35,14 +35,15 @@ Generated from the current `memory_accumulation` aggregate artifacts.
 | --- | --- | --- | ---: | ---: | ---: | ---: | ---: | ---: |
 | regional_coverage | codex | opencode_dpsk | 5 | 35.79 | 60.08 | 24.28 | 4 | 1 |
 | relay_constellation | codex | opencode_dpsk | 5 | 35.67 | 45.09 | 9.4184 | 2 | 3 |
+| satnet | opencode_dpsk | opencode_dpsk | 5 | 60.23 | 65.97 | 5.7422 | 3 | 2 |
 | regional_coverage | codex | opencode_minimax | 5 | 17.73 | 20.94 | 3.2117 | 4 | 1 |
 | relay_constellation | codex | opencode_minimax | 5 | 0.0000 | 2.2633 | 2.2633 | 1 | 0 |
-| satnet | opencode_dpsk | opencode_dpsk | 2 | 72.67 | 72.87 | 0.1913 | 1 | 1 |
 
 ## Regressions
 
 | Benchmark | Memory Source | Harness | Pairs | No-Memory Mean | Memory Mean | Delta | Improved | Regressed |
 | --- | --- | --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| satnet | opencode_dpsk | opencode_minimax | 1 | 55.81 | 0.0000 | -55.81 | 0 | 1 |
 | satnet | codex | opencode_minimax | 5 | 37.54 | 32.46 | -5.0753 | 1 | 4 |
 | satnet | codex | opencode_dpsk | 3 | 65.32 | 64.58 | -0.7386 | 1 | 2 |
 
