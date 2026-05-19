@@ -16,7 +16,7 @@ Generated from the current `skill_injection` aggregate artifacts.
 | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
 | compact_domain | 10 | 9 | 9 | 0.9000 | 0.3545 | 0.1328 | 2.5000 | 133.5 | 166.3 | 20.94 | missing_artifact: 1, success: 9 |
 | no_skill | 10 | 10 | 9 | 0.9000 | 0.2797 | 0.1800 | 6.9000 | 143.7 | 269.8 | 17.83 | success: 9, verifier_invalid: 1 |
-| skill_pack | 10 | 9 | 8 | 0.8000 | 0.2529 | 0.0981 | 5.2000 | 132.2 | 202.4 | 14.99 | agent_failed: 1, missing_artifact: 1, success: 8 |
+| skill_pack | 10 | 10 | 8 | 0.8000 | 0.2529 | 0.0981 | 5.2000 | 132.2 | 202.4 | 14.99 | agent_failed: 2, success: 8 |
 
 ## Condition And Harness Summary
 
@@ -26,7 +26,7 @@ Generated from the current `skill_injection` aggregate artifacts.
 | compact_domain | opencode_minimax | 5 | 5 | 5 | 1.0000 | 0.1244 | 0.0000 | 1.2000 | 142.0 | 153.9 | 6.5313 | success: 5 |
 | no_skill | opencode_dpsk | 5 | 5 | 5 | 1.0000 | 0.5594 | 0.3600 | 8.4000 | 134.5 | 251.1 | 35.67 | success: 5 |
 | no_skill | opencode_minimax | 5 | 5 | 4 | 0.8000 | 0.0000 | 0.0000 | 5.0000 | - | - | 0.0000 | success: 4, verifier_invalid: 1 |
-| skill_pack | opencode_dpsk | 5 | 4 | 3 | 0.6000 | 0.3316 | 0.1850 | 7.6000 | 135.3 | 208.9 | 20.65 | agent_failed: 1, missing_artifact: 1, success: 3 |
+| skill_pack | opencode_dpsk | 5 | 5 | 3 | 0.6000 | 0.3316 | 0.1850 | 7.6000 | 135.3 | 208.9 | 20.65 | agent_failed: 2, success: 3 |
 | skill_pack | opencode_minimax | 5 | 5 | 5 | 1.0000 | 0.1743 | 0.0111 | 2.8000 | 119.3 | 158.5 | 9.3431 | success: 5 |
 
 ## Cases
@@ -53,8 +53,8 @@ Generated from the current `skill_injection` aggregate artifacts.
 | no_skill | opencode_minimax | test | case_0003 | present | success | valid | true | 3290.8 | 0 | 0 | 0 | 8 | - | - | 0 |
 | no_skill | opencode_minimax | test | case_0004 | present | verifier_invalid | invalid | false | 3532.6 | 0 | 0 | 0 | 8 | - | - | 0 |
 | no_skill | opencode_minimax | test | case_0005 | present | success | valid | true | 2330.2 | 0 | 0 | 0 | 1 | - | - | 0 |
-| skill_pack | opencode_dpsk | test | case_0001 | present | agent_failed | error | false | 1134.8 | 3 | - | - | - | - | - | 0 |
-| skill_pack | opencode_dpsk | test | case_0002 | missing_artifact | missing_artifact | missing_artifact | - | - | 3 | - | - | - | - | - | 0 |
+| skill_pack | opencode_dpsk | test | case_0001 | present | agent_failed | no_solution | false | 0.2540 | 3 | - | - | - | - | - | 0 |
+| skill_pack | opencode_dpsk | test | case_0002 | present | agent_failed | no_solution | false | 0.2510 | 3 | - | - | - | - | - | 0 |
 | skill_pack | opencode_dpsk | test | case_0003 | present | success | valid | true | 7110.4 | 3 | 0.5556 | 0.2500 | 0 | 122.1 | 164.0 | 33.54 |
 | skill_pack | opencode_dpsk | test | case_0004 | present | success | valid | true | 8750.2 | 3 | 0.3111 | 0 | 8 | 116.9 | 165.3 | 16.33 |
 | skill_pack | opencode_dpsk | test | case_0005 | present | success | valid | true | 7356.8 | 3 | 0.7913 | 0.6750 | 10 | 145.8 | 238.4 | 53.35 |

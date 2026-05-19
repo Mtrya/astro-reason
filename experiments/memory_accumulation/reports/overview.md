@@ -23,8 +23,8 @@ Generated from the current `memory_accumulation` aggregate artifacts.
 | none | opencode_dpsk | 15 | 15 | 0 | 15 | 43.90 | success: 15 |
 | none | opencode_minimax | 15 | 15 | 0 | 13 | 18.42 | success: 13, verifier_invalid: 2 |
 | opencode_dpsk | codex | 15 | 0 | 15 | 0 | 0.0000 | missing_artifact: 15 |
-| opencode_dpsk | opencode_dpsk | 15 | 5 | 10 | 5 | 21.99 | missing_artifact: 10, success: 5 |
-| opencode_dpsk | opencode_minimax | 15 | 1 | 14 | 0 | 0.0000 | missing_artifact: 14, verifier_invalid: 1 |
+| opencode_dpsk | opencode_dpsk | 15 | 8 | 7 | 5 | 21.99 | agent_failed: 3, missing_artifact: 7, success: 5 |
+| opencode_dpsk | opencode_minimax | 15 | 6 | 9 | 0 | 0.0000 | agent_failed: 1, missing_artifact: 9, no_solution: 4, verifier_invalid: 1 |
 | opencode_minimax | codex | 15 | 0 | 15 | 0 | 0.0000 | missing_artifact: 15 |
 | opencode_minimax | opencode_dpsk | 15 | 0 | 15 | 0 | 0.0000 | missing_artifact: 15 |
 | opencode_minimax | opencode_minimax | 15 | 0 | 15 | 0 | 0.0000 | missing_artifact: 15 |
@@ -43,7 +43,9 @@ Generated from the current `memory_accumulation` aggregate artifacts.
 
 | Benchmark | Memory Source | Harness | Pairs | No-Memory Mean | Memory Mean | Delta | Improved | Regressed |
 | --- | --- | --- | ---: | ---: | ---: | ---: | ---: | ---: |
-| satnet | opencode_dpsk | opencode_minimax | 1 | 55.81 | 0.0000 | -55.81 | 0 | 1 |
+| satnet | opencode_dpsk | opencode_minimax | 5 | 37.54 | 0.0000 | -37.54 | 0 | 4 |
+| regional_coverage | opencode_dpsk | opencode_dpsk | 3 | 31.08 | 0.0000 | -31.08 | 0 | 3 |
+| regional_coverage | opencode_dpsk | opencode_minimax | 1 | 23.21 | 0.0000 | -23.21 | 0 | 1 |
 | satnet | codex | opencode_minimax | 5 | 37.54 | 32.46 | -5.0753 | 1 | 4 |
 | satnet | codex | opencode_dpsk | 3 | 65.32 | 64.58 | -0.7386 | 1 | 2 |
 
