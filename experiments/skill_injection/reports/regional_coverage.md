@@ -16,7 +16,7 @@ Generated from the current `skill_injection` aggregate artifacts.
 | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
 | compact_domain | 10 | 10 | 10 | 1.0000 | 0.2711 | 0.2753 | 40.90 | 493.0 | 30.67 | success: 10 |
 | no_skill | 10 | 10 | 10 | 1.0000 | 0.2203 | 0.2066 | 40.90 | 493.7 | 26.76 | success: 10 |
-| skill_pack | 10 | 9 | 9 | 0.9000 | 0.4080 | 0.4111 | 54.60 | 436.1 | 36.36 | missing_artifact: 1, success: 9 |
+| skill_pack | 10 | 10 | 10 | 1.0000 | 0.4344 | 0.4377 | 49.70 | 485.4 | 39.93 | success: 10 |
 
 ## Condition And Harness Summary
 
@@ -26,7 +26,7 @@ Generated from the current `skill_injection` aggregate artifacts.
 | compact_domain | opencode_minimax | 5 | 5 | 5 | 1.0000 | 0.1273 | 0.1317 | 39.40 | 492.7 | 20.96 | success: 5 |
 | no_skill | opencode_dpsk | 5 | 5 | 5 | 1.0000 | 0.3965 | 0.3744 | 54.20 | 492.1 | 35.79 | success: 5 |
 | no_skill | opencode_minimax | 5 | 5 | 5 | 1.0000 | 0.0440 | 0.0388 | 27.60 | 495.3 | 17.73 | success: 5 |
-| skill_pack | opencode_dpsk | 5 | 4 | 4 | 0.8000 | 0.5909 | 0.5965 | 57.40 | 396.7 | 48.11 | missing_artifact: 1, success: 4 |
+| skill_pack | opencode_dpsk | 5 | 5 | 5 | 1.0000 | 0.6438 | 0.6497 | 47.60 | 495.3 | 55.25 | success: 5 |
 | skill_pack | opencode_minimax | 5 | 5 | 5 | 1.0000 | 0.2250 | 0.2258 | 51.80 | 475.5 | 24.62 | success: 5 |
 
 ## Cases
@@ -55,7 +55,7 @@ Generated from the current `skill_injection` aggregate artifacts.
 | no_skill | opencode_minimax | test | case_0005 | present | success | valid | true | 2941.0 | 0 | 0 | 0 | 49 | 497.3 | 9.2533 |
 | skill_pack | opencode_dpsk | test | case_0001 | present | success | valid | true | 9772.7 | 4 | 0.6773 | 0.6892 | 64 | 492.9 | 55.87 |
 | skill_pack | opencode_dpsk | test | case_0002 | present | success | valid | true | 7745.3 | 4 | 0.6321 | 0.6389 | 58 | 496.7 | 51.52 |
-| skill_pack | opencode_dpsk | test | case_0003 | missing_artifact | missing_artifact | missing_artifact | - | - | 4 | - | - | - | - | 0 |
+| skill_pack | opencode_dpsk | test | case_0003 | present | success | valid | true | 8152.9 | 4 | 0.2643 | 0.2660 | 15 | 493.1 | 35.71 |
 | skill_pack | opencode_dpsk | test | case_0004 | present | success | valid | true | 8916.5 | 4 | 0.8591 | 0.8646 | 64 | 496.6 | 65.98 |
 | skill_pack | opencode_dpsk | test | case_0005 | present | success | valid | true | 7222.8 | 4 | 0.7861 | 0.7897 | 37 | 497.3 | 67.17 |
 | skill_pack | opencode_minimax | test | case_0001 | present | success | valid | true | 5244.8 | 4 | 0 | 0 | 64 | 492.9 | 8.2149 |

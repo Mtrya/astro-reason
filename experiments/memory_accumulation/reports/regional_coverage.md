@@ -15,8 +15,8 @@ Generated from the current `memory_accumulation` aggregate artifacts.
 | none | opencode_dpsk | 5 | 5 | 0 | 5 | 35.79 | success: 5 |
 | none | opencode_minimax | 5 | 5 | 0 | 5 | 17.73 | success: 5 |
 | opencode_dpsk | codex | 5 | 0 | 5 | 0 | 0.0000 | missing_artifact: 5 |
-| opencode_dpsk | opencode_dpsk | 5 | 3 | 2 | 0 | 0.0000 | agent_failed: 3, missing_artifact: 2 |
-| opencode_dpsk | opencode_minimax | 5 | 1 | 4 | 0 | 0.0000 | agent_failed: 1, missing_artifact: 4 |
+| opencode_dpsk | opencode_dpsk | 5 | 2 | 3 | 2 | 24.63 | missing_artifact: 3, success: 2 |
+| opencode_dpsk | opencode_minimax | 5 | 0 | 5 | 0 | 0.0000 | missing_artifact: 5 |
 | opencode_minimax | codex | 5 | 0 | 5 | 0 | 0.0000 | missing_artifact: 5 |
 | opencode_minimax | opencode_dpsk | 5 | 0 | 5 | 0 | 0.0000 | missing_artifact: 5 |
 | opencode_minimax | opencode_minimax | 5 | 0 | 5 | 0 | 0.0000 | missing_artifact: 5 |
@@ -61,11 +61,11 @@ Generated from the current `memory_accumulation` aggregate artifacts.
 | opencode_dpsk | codex | test | case_0004 | missing_artifact | missing_artifact | missing_artifact | - | - | 0 | - | - | - | - |
 | opencode_dpsk | codex | test | case_0005 | missing_artifact | missing_artifact | missing_artifact | - | - | 0 | - | - | - | - |
 | opencode_dpsk | opencode_dpsk | test | case_0001 | missing_artifact | missing_artifact | missing_artifact | - | - | 0 | - | - | - | - |
-| opencode_dpsk | opencode_dpsk | test | case_0002 | missing_artifact | missing_artifact | missing_artifact | - | - | 0 | - | - | - | - |
-| opencode_dpsk | opencode_dpsk | test | case_0003 | present | agent_failed | no_solution | false | 0.2910 | 0 | - | - | - | - |
-| opencode_dpsk | opencode_dpsk | test | case_0004 | present | agent_failed | no_solution | false | 0.2780 | 0 | - | - | - | - |
-| opencode_dpsk | opencode_dpsk | test | case_0005 | present | agent_failed | no_solution | false | 0.0940 | 0 | - | - | - | - |
-| opencode_dpsk | opencode_minimax | test | case_0001 | present | agent_failed | no_solution | false | 0.0930 | 0 | - | - | - | - |
+| opencode_dpsk | opencode_dpsk | test | case_0002 | present | success | valid | true | 2619.1 | 59.86 | 0.7722 | 0.7738 | 64 | 496.7 |
+| opencode_dpsk | opencode_dpsk | test | case_0003 | present | success | valid | true | 7200.7 | 63.28 | 0.8058 | 0.8060 | 59 | 493.1 |
+| opencode_dpsk | opencode_dpsk | test | case_0004 | missing_artifact | missing_artifact | missing_artifact | - | - | 0 | - | - | - | - |
+| opencode_dpsk | opencode_dpsk | test | case_0005 | missing_artifact | missing_artifact | missing_artifact | - | - | 0 | - | - | - | - |
+| opencode_dpsk | opencode_minimax | test | case_0001 | missing_artifact | missing_artifact | missing_artifact | - | - | 0 | - | - | - | - |
 | opencode_dpsk | opencode_minimax | test | case_0002 | missing_artifact | missing_artifact | missing_artifact | - | - | 0 | - | - | - | - |
 | opencode_dpsk | opencode_minimax | test | case_0003 | missing_artifact | missing_artifact | missing_artifact | - | - | 0 | - | - | - | - |
 | opencode_dpsk | opencode_minimax | test | case_0004 | missing_artifact | missing_artifact | missing_artifact | - | - | 0 | - | - | - | - |

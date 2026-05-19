@@ -16,7 +16,7 @@ Generated from the current `memory_accumulation` aggregate artifacts.
 | none | opencode_minimax | 5 | 5 | 0 | 4 | 37.54 | success: 4, verifier_invalid: 1 |
 | opencode_dpsk | codex | 5 | 0 | 5 | 0 | 0.0000 | missing_artifact: 5 |
 | opencode_dpsk | opencode_dpsk | 5 | 5 | 0 | 5 | 65.97 | success: 5 |
-| opencode_dpsk | opencode_minimax | 5 | 5 | 0 | 0 | 0.0000 | no_solution: 4, verifier_invalid: 1 |
+| opencode_dpsk | opencode_minimax | 5 | 5 | 0 | 4 | 36.03 | success: 4, verifier_invalid: 1 |
 | opencode_minimax | codex | 5 | 0 | 5 | 0 | 0.0000 | missing_artifact: 5 |
 | opencode_minimax | opencode_dpsk | 5 | 0 | 5 | 0 | 0.0000 | missing_artifact: 5 |
 | opencode_minimax | opencode_minimax | 5 | 0 | 5 | 0 | 0.0000 | missing_artifact: 5 |
@@ -66,10 +66,10 @@ Generated from the current `memory_accumulation` aggregate artifacts.
 | opencode_dpsk | opencode_dpsk | test | W40_2018 | present | success | valid | true | 3796.7 | 62.02 | 1094.6 | 186 | 0.3384 | 0.5038 | 241 |
 | opencode_dpsk | opencode_dpsk | test | W50_2018 | present | success | valid | true | 2229.7 | 60.23 | 892.8 | 186 | 0.2922 | 0.7143 | 202 |
 | opencode_dpsk | opencode_minimax | test | W10_2018 | present | verifier_invalid | invalid | false | 1257.5 | 0 | 662.9 | 177 | 0.3990 | 1 | 177 |
-| opencode_dpsk | opencode_minimax | test | W20_2018 | present | no_solution | no_solution | false | 515.8 | 0 | - | - | - | - | - |
-| opencode_dpsk | opencode_minimax | test | W30_2018 | present | no_solution | no_solution | false | 746.8 | 0 | - | - | - | - | - |
-| opencode_dpsk | opencode_minimax | test | W40_2018 | present | no_solution | no_solution | false | 503.9 | 0 | - | - | - | - | - |
-| opencode_dpsk | opencode_minimax | test | W50_2018 | present | no_solution | no_solution | false | 604.9 | 0 | - | - | - | - | - |
+| opencode_dpsk | opencode_minimax | test | W20_2018 | present | success | valid | true | 4805.6 | 52.37 | 875.2 | 222 | 0.3732 | 0.7857 | 222 |
+| opencode_dpsk | opencode_minimax | test | W30_2018 | present | success | valid | true | 1442.6 | 30.99 | 1024.9 | 111 | 0.5869 | 1 | 122 |
+| opencode_dpsk | opencode_minimax | test | W40_2018 | present | success | valid | true | 4488.7 | 40.49 | 1116.1 | 176 | 0.4602 | 1 | 228 |
+| opencode_dpsk | opencode_minimax | test | W50_2018 | present | success | valid | true | 1002.8 | 56.32 | 793.2 | 175 | 0.3824 | 0.6000 | 186 |
 | opencode_minimax | codex | test | W10_2018 | missing_artifact | missing_artifact | missing_artifact | - | - | 0 | - | - | - | - | - |
 | opencode_minimax | codex | test | W20_2018 | missing_artifact | missing_artifact | missing_artifact | - | - | 0 | - | - | - | - | - |
 | opencode_minimax | codex | test | W30_2018 | missing_artifact | missing_artifact | missing_artifact | - | - | 0 | - | - | - | - | - |
