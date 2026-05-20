@@ -15,8 +15,8 @@ Generated from the current `memory_accumulation` aggregate artifacts.
 | none | opencode_dpsk | 5 | 5 | 0 | 5 | 35.67 | success: 5 |
 | none | opencode_minimax | 5 | 5 | 0 | 4 | 0.0000 | success: 4, verifier_invalid: 1 |
 | opencode_dpsk | codex | 5 | 0 | 5 | 0 | 0.0000 | missing_artifact: 5 |
-| opencode_dpsk | opencode_dpsk | 5 | 0 | 5 | 0 | 0.0000 | missing_artifact: 5 |
-| opencode_dpsk | opencode_minimax | 5 | 0 | 5 | 0 | 0.0000 | missing_artifact: 5 |
+| opencode_dpsk | opencode_dpsk | 5 | 5 | 0 | 5 | 54.19 | success: 5 |
+| opencode_dpsk | opencode_minimax | 5 | 5 | 0 | 3 | 5.7833 | no_solution: 1, success: 3, verifier_invalid: 1 |
 | opencode_minimax | codex | 5 | 0 | 5 | 0 | 0.0000 | missing_artifact: 5 |
 | opencode_minimax | opencode_dpsk | 5 | 0 | 5 | 0 | 0.0000 | missing_artifact: 5 |
 | opencode_minimax | opencode_minimax | 5 | 0 | 5 | 0 | 0.0000 | missing_artifact: 5 |
@@ -60,16 +60,16 @@ Generated from the current `memory_accumulation` aggregate artifacts.
 | opencode_dpsk | codex | test | case_0003 | missing_artifact | missing_artifact | missing_artifact | - | - | 0 | - | - | - | - | - |
 | opencode_dpsk | codex | test | case_0004 | missing_artifact | missing_artifact | missing_artifact | - | - | 0 | - | - | - | - | - |
 | opencode_dpsk | codex | test | case_0005 | missing_artifact | missing_artifact | missing_artifact | - | - | 0 | - | - | - | - | - |
-| opencode_dpsk | opencode_dpsk | test | case_0001 | missing_artifact | missing_artifact | missing_artifact | - | - | 0 | - | - | - | - | - |
-| opencode_dpsk | opencode_dpsk | test | case_0002 | missing_artifact | missing_artifact | missing_artifact | - | - | 0 | - | - | - | - | - |
-| opencode_dpsk | opencode_dpsk | test | case_0003 | missing_artifact | missing_artifact | missing_artifact | - | - | 0 | - | - | - | - | - |
-| opencode_dpsk | opencode_dpsk | test | case_0004 | missing_artifact | missing_artifact | missing_artifact | - | - | 0 | - | - | - | - | - |
-| opencode_dpsk | opencode_dpsk | test | case_0005 | missing_artifact | missing_artifact | missing_artifact | - | - | 0 | - | - | - | - | - |
-| opencode_dpsk | opencode_minimax | test | case_0001 | missing_artifact | missing_artifact | missing_artifact | - | - | 0 | - | - | - | - | - |
-| opencode_dpsk | opencode_minimax | test | case_0002 | missing_artifact | missing_artifact | missing_artifact | - | - | 0 | - | - | - | - | - |
-| opencode_dpsk | opencode_minimax | test | case_0003 | missing_artifact | missing_artifact | missing_artifact | - | - | 0 | - | - | - | - | - |
-| opencode_dpsk | opencode_minimax | test | case_0004 | missing_artifact | missing_artifact | missing_artifact | - | - | 0 | - | - | - | - | - |
-| opencode_dpsk | opencode_minimax | test | case_0005 | missing_artifact | missing_artifact | missing_artifact | - | - | 0 | - | - | - | - | - |
+| opencode_dpsk | opencode_dpsk | test | case_0001 | present | success | valid | true | 7200.7 | 52.79 | 0.8611 | 0.4333 | 3 | 158.7 | 275.4 |
+| opencode_dpsk | opencode_dpsk | test | case_0002 | present | success | valid | true | 7200.4 | 65.36 | 0.9635 | 0.8444 | 6 | 128.5 | 227.9 |
+| opencode_dpsk | opencode_dpsk | test | case_0003 | present | success | valid | true | 7200.5 | 64.98 | 0.9489 | 0.8667 | 7 | 133.6 | 186.0 |
+| opencode_dpsk | opencode_dpsk | test | case_0004 | present | success | valid | true | 6594.2 | 42.31 | 0.7037 | 0.3067 | 4 | 147.5 | 193.0 |
+| opencode_dpsk | opencode_dpsk | test | case_0005 | present | success | valid | true | 7200.5 | 45.52 | 0.6866 | 0.5417 | 4 | 264.7 | 452.1 |
+| opencode_dpsk | opencode_minimax | test | case_0001 | present | success | valid | true | 5902.0 | 0 | 0 | 0 | 3 | - | - |
+| opencode_dpsk | opencode_minimax | test | case_0002 | present | success | valid | true | 5906.1 | 28.92 | 0.5508 | 0 | 3 | 114.0 | 150.4 |
+| opencode_dpsk | opencode_minimax | test | case_0003 | present | no_solution | no_solution | false | 104.9 | 0 | - | - | - | - | - |
+| opencode_dpsk | opencode_minimax | test | case_0004 | present | success | valid | true | 5472.9 | 0 | 0 | 0 | 3 | - | - |
+| opencode_dpsk | opencode_minimax | test | case_0005 | present | verifier_invalid | invalid | false | 5773.9 | 0 | 0 | 0 | 3 | - | - |
 | opencode_minimax | codex | test | case_0001 | missing_artifact | missing_artifact | missing_artifact | - | - | 0 | - | - | - | - | - |
 | opencode_minimax | codex | test | case_0002 | missing_artifact | missing_artifact | missing_artifact | - | - | 0 | - | - | - | - | - |
 | opencode_minimax | codex | test | case_0003 | missing_artifact | missing_artifact | missing_artifact | - | - | 0 | - | - | - | - | - |
