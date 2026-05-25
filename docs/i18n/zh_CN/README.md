@@ -1,52 +1,47 @@
+[English](../../../README.md) | 中文
+
 # AstroReason-Bench
 
-AstroReason-Bench 是一个用于评估 LLM 代理在航天任务设计与规划问题上的基准核心仓库。
+AstroReason-Bench 正在演进为一个用于空间任务设计 benchmark 和第一方方法层的 monorepo。
 
-当前分支仍在积极开发中，我们会持续扩展 benchmark 子任务集，并将 benchmark 与求解器实现解耦。如需复现当前论文中的结果，请使用 `v1` 分支，该分支中 benchmark 与求解器仍然耦合。独立的求解器仓库已列入计划，将在未来发布。
+benchmark 核心保持算法无关（algorithm-agnostic）：benchmark 定义问题、数据集和验证器（verifier）；方法消费 benchmark，而非相反。
 
-## 为什么做这个项目？
-
-**航天领域缺乏严格、标准化、算法无关的基准测试。** 人工智能领域已有 ImageNet 和 GLUE，但航天任务设计长期缺少围绕明确定义的问题和可验证评分构建的共享评估套件。
-
-本仓库专注于：
-
-- **数据集（Datasets）**：规范的 benchmark 实例
-- **验证器（Verifiers）**：独立的验证与评分逻辑
-- **可复现性工具**：可选的 benchmark 本地生成器与可视化工具
-
-任何方法都可以被评估：LLM 代理、元启发式算法、强化学习系统，或人类专家。本仓库定义的是 benchmark，**不**包含求解器实现。
+如需复现历史论文，请使用 `v1` 分支。
 
 ## 仓库结构
 
 ```text
 astro-reason/
-├── benchmarks/{name}/
-│   ├── dataset/              # 问题实例
-│   ├── verifier.py           # 或 verifier/run.py
-│   ├── visualizer.py         # 可选，或 visualizer/run.py
-│   ├── generator.py          # 可选，或 generator/run.py
-│   └── README.md             # 问题说明与文件格式
-└── tests/
-    └── benchmarks/           # 针对验证器与 benchmark 工具的聚焦测试
+├── benchmarks/   # 标准问题、数据集、验证器、生成器
+├── experiments/  # 可复现的方法评估运行
+├── solvers/      # 传统求解器实现
+├── runtimes/     # 可复用的 agent 系统执行基座
+├── scripts/      # 仓库自有的编排与验证入口
+└── tests/        # 聚焦的 benchmark 与工具测试
 ```
 
-## Benchmark 设计原则
+## 设计原则
 
-- **算法无关**：benchmark 定义问题与验证方式，不限制求解方法。
-- **独立运行**：每个 benchmark 自包含，不依赖其他 benchmark。
-- **可复现**：在适当场景下，可选的生成器可以重建或扩展数据集。
-- **无求解器核心**：求解器与基线位于本仓库之外。
+- **算法无关的 benchmark 核心（algorithm-agnostic benchmark core）**：`benchmarks/` 不编码偏好的求解策略。
+- **单向契约（one-way contracts）**：方法可以依赖 benchmark；benchmark 不得依赖方法代码。
+- **独立的 benchmark（standalone benchmarks）**：每个 benchmark 保持自包含。
+- **可复现的方法层（reproducible method layers）**：实验、求解器和运行时应该是可运行且可检查的。
+
+## 目录角色
+
+- `benchmarks/` 拥有公开的 benchmark 定义和 benchmark 侧工具。
+- `experiments/` 拥有扁平的可运行实验族和共享的提示词/配置片段。
+- `solvers/` 拥有传统的非 agent 求解器方法。
+- `runtimes/` 拥有可复用的 agent 运行时环境、构建逻辑和共享运行时资源。
 
 ## 环境
 
-本项目使用 `uv` 进行环境管理。为确保验证器完整性，请运行：
-
-```bash
-uv run pytest
-```
+benchmark 核心开发使用 `uv`。方法所属的目录可以在有正当理由时使用不同的工具，只要 benchmark 契约保持干净。
 
 ## 状态
 
-当前优先事项包括
-- 完善多个 benchmark，
-- 以及在 [AstroReason-Solvers](https://github.com/Mtrya/AstroReason-Solvers) 中实现求解器。
+当前工作聚焦于：
+
+- 精炼 benchmark 定义和验证器契约
+- 开发传统求解器作为基线
+- 实现和运行 agent 实验
