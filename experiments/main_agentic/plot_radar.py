@@ -505,7 +505,7 @@ def _load_scores(
                         baseline_data=baseline_data,
                     )
                     if normalized_score is None:
-                        continue
+                        normalized_score = 0.0
                     if score_mode == "solver-relative":
                         baseline = best_solver_scores.get(benchmark, {}).get(
                             _case_key(row.get("split", ""), row.get("case_id", ""))

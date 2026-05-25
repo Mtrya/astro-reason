@@ -1,0 +1,176 @@
+system,task_family,case_id,verifier_call_count,verifier_probe_count,direct_verifier_code_use,root_contract_read_before_durable_commitment,official_valid,normalized_score,outcome_label,verifier_call_trace_seqs,verifier_probe_trace_seqs
+Claude Code + Claude Opus 4.6,AEOSSP-Standard,case_0001,27,2,no,yes,True,70.87,repeated calibration with high-quality handoff,91;109;131;138;149;153;155;158;177;181;191;200;214;224;269;294;315;356;365;377;389;426;445;462;465;471;490,35;39
+Claude Code + Claude Opus 4.6,AEOSSP-Standard,case_0002,13,2,no,yes,True,74.45,repeated calibration with high-quality handoff,55;58;61;67;86;95;110;128;149;174;184;226;245,38;42
+Claude Code + Claude Opus 4.6,AEOSSP-Standard,case_0003,7,2,no,yes,True,73.89,repeated calibration with high-quality handoff,56;58;64;72;85;93;107,35;40
+Claude Code + Claude Opus 4.6,AEOSSP-Standard,case_0004,14,0,no,yes,True,73.05,repeated calibration with high-quality handoff,45;83;85;87;102;106;112;121;133;141;154;225;248;254,
+Claude Code + Claude Opus 4.6,AEOSSP-Standard,case_0005,0,0,no,no,True,0.0,no external calibration; low or invalid outcome,,
+Codex,AEOSSP-Standard,case_0001,2,1,no,yes,True,67.7,repeated calibration with high-quality handoff,193;310,23
+Codex,AEOSSP-Standard,case_0002,3,2,no,yes,True,73.77,repeated calibration with high-quality handoff,45;97;144,21;33
+Codex,AEOSSP-Standard,case_0003,1,3,no,yes,True,73.84,light verifier use with high-quality handoff,58,21;31;32
+Codex,AEOSSP-Standard,case_0004,7,1,no,yes,True,70.41,repeated calibration with high-quality handoff,48;142;208;278;324;358;372,23
+Codex,AEOSSP-Standard,case_0005,16,0,no,yes_no_commit_detected,True,78.83,repeated calibration with high-quality handoff,38;86;117;133;154;175;190;230;251;268;283;300;318;342;358;372,
+Kimi CLI,AEOSSP-Standard,case_0001,13,1,no,yes,True,67.63,repeated calibration with high-quality handoff,326;356;362;368;464;506;578;608;632;711;729;759;855,10
+Kimi CLI,AEOSSP-Standard,case_0002,20,3,yes,yes,True,73.5,repeated calibration with high-quality handoff,248;284;326;332;338;344;350;380;416;746;944;950;956;1022;1142;1184;1190;1196;1346;1370,9;18;224
+Kimi CLI,AEOSSP-Standard,case_0003,15,1,yes,yes,True,73.06,repeated calibration with high-quality handoff,260;266;272;350;362;368;374;380;410;428;518;596;632;638;650,16
+Kimi CLI,AEOSSP-Standard,case_0004,8,1,no,yes,True,70.63,repeated calibration with high-quality handoff,222;240;373;379;416;513;538;563,228
+Kimi CLI,AEOSSP-Standard,case_0005,9,2,no,yes,True,75.32,repeated calibration with high-quality handoff,274;311;317;342;386;411;504;585;654,9;20
+OpenCode + DeepSeek V4 Pro,AEOSSP-Standard,case_0001,13,3,no,yes,True,67.09,repeated calibration with high-quality handoff,36;107;174;178;199;241;306;314;327;385;389;405;487,21;56;61
+OpenCode + DeepSeek V4 Pro,AEOSSP-Standard,case_0002,21,1,yes,yes,True,73.7,repeated calibration with high-quality handoff,123;175;179;213;217;263;274;285;346;357;360;371;382;393;408;430;434;445;456;476;488,23
+OpenCode + DeepSeek V4 Pro,AEOSSP-Standard,case_0003,23,1,no,yes,True,70.77,repeated calibration with high-quality handoff,166;204;208;226;234;254;274;290;306;313;342;361;369;373;396;424;435;445;454;461;474;485;505,17
+OpenCode + DeepSeek V4 Pro,AEOSSP-Standard,case_0004,40,1,no,yes,True,70.92,repeated calibration with high-quality handoff,165;193;235;272;293;297;315;331;335;342;346;353;380;395;399;406;418;434;450;457;468;475;491;502;522;526;543;551;559;566;581;588;595;602;609;616;623;630;637;648,11
+OpenCode + DeepSeek V4 Pro,AEOSSP-Standard,case_0005,23,2,no,yes,True,74.73,repeated calibration with high-quality handoff,226;229;251;338;358;377;393;400;417;424;431;448;455;462;469;480;487;502;509;516;528;535;547,20;223
+OpenCode + MiniMax,AEOSSP-Standard,case_0001,24,1,no,yes,True,61.69,repeated calibration with high-quality handoff,148;188;192;216;312;324;328;332;336;340;344;348;372;376;380;404;408;412;416;420;444;448;452;460,26
+OpenCode + MiniMax,AEOSSP-Standard,case_0002,25,1,no,yes,True,32.55,repeated calibration with low final quality,463;467;643;659;663;675;679;683;687;703;707;711;715;719;723;847;851;899;911;919;927;939;951;955;963,21
+OpenCode + MiniMax,AEOSSP-Standard,case_0003,26,1,no,yes,True,37.49,repeated calibration with low final quality,178;330;366;382;422;426;446;538;578;582;586;590;594;598;610;614;618;666;670;674;690;702;714;726;738;750,30
+OpenCode + MiniMax,AEOSSP-Standard,case_0004,22,1,no,yes,True,50.47,repeated calibration with low final quality,54;104;122;126;130;137;152;156;166;170;192;207;211;247;250;254;264;267;271;281;295;299,27
+OpenCode + MiniMax,AEOSSP-Standard,case_0005,0,0,no,no,True,0.0,no external calibration; low or invalid outcome,,
+Claude Code + Claude Opus 4.6,Regional Coverage,case_0001,0,0,no,no,True,23.21,no external calibration; low or invalid outcome,,
+Claude Code + Claude Opus 4.6,Regional Coverage,case_0002,0,0,no,no,True,20.73,no external calibration; low or invalid outcome,,
+Claude Code + Claude Opus 4.6,Regional Coverage,case_0003,0,0,no,no,True,20.69,no external calibration; low or invalid outcome,,
+Claude Code + Claude Opus 4.6,Regional Coverage,case_0004,0,0,no,no,True,20.73,no external calibration; low or invalid outcome,,
+Claude Code + Claude Opus 4.6,Regional Coverage,case_0005,0,0,no,no,True,20.74,no external calibration; low or invalid outcome,,
+Codex,Regional Coverage,case_0001,2,1,no,yes,True,74.53,repeated calibration with high-quality handoff,52;116,33
+Codex,Regional Coverage,case_0002,3,1,no,yes,True,49.38,repeated calibration with low final quality,67;388;414,23
+Codex,Regional Coverage,case_0003,26,1,no,yes,True,74.82,repeated calibration with high-quality handoff,45;103;149;195;196;197;198;221;246;260;261;262;263;288;302;303;304;305;326;327;328;329;352;353;354;355,23
+Codex,Regional Coverage,case_0004,5,0,no,yes,True,84.16,repeated calibration with high-quality handoff,46;119;222;250;272,
+Codex,Regional Coverage,case_0005,5,1,no,yes,True,77.5,repeated calibration with high-quality handoff,54;102;254;372;436,24
+Kimi CLI,Regional Coverage,case_0001,4,2,yes,yes,True,77.14,repeated calibration with high-quality handoff,292;298;382;388,20;34
+Kimi CLI,Regional Coverage,case_0002,5,1,no,yes,True,78.62,repeated calibration with high-quality handoff,30;162;260;266;369,144
+Kimi CLI,Regional Coverage,case_0003,28,8,no,yes,True,62.09,repeated calibration with high-quality handoff,29;36;46;64;72;92;170;200;206;212;218;224;242;248;260;332;501;507;561;567;645;651;687;693;699;711;717;723,18;45;54;55;62;63;74;90
+Kimi CLI,Regional Coverage,case_0004,6,1,no,yes,True,75.35,repeated calibration with high-quality handoff,32;38;280;305;311;366,20
+Kimi CLI,Regional Coverage,case_0005,15,1,no,yes,True,72.56,repeated calibration with high-quality handoff,316;376;442;454;472;502;532;574;580;604;622;640;676;700;742,20
+OpenCode + DeepSeek V4 Pro,Regional Coverage,case_0001,24,1,no,yes,True,49.78,repeated calibration with low final quality,28;32;229;283;326;338;351;367;388;404;428;439;450;457;465;472;488;499;511;531;547;567;571;575,19
+OpenCode + DeepSeek V4 Pro,Regional Coverage,case_0002,9,1,no,yes,True,35.94,repeated calibration with low final quality,75;145;194;222;253;275;336;373;389,17
+OpenCode + DeepSeek V4 Pro,Regional Coverage,case_0003,17,1,no,yes,True,39.89,repeated calibration with low final quality,24;32;71;91;120;141;236;257;285;302;321;337;349;361;392;397;400,19
+OpenCode + DeepSeek V4 Pro,Regional Coverage,case_0004,20,1,yes,yes,True,14.04,repeated calibration with low final quality,97;101;105;118;122;145;176;191;224;244;264;292;329;341;421;437;450;482;503;520,24
+OpenCode + DeepSeek V4 Pro,Regional Coverage,case_0005,21,1,no,yes,True,39.33,repeated calibration with low final quality,31;35;158;228;263;283;323;327;337;341;345;349;353;370;374;385;467;481;501;516;524,18
+OpenCode + MiniMax,Regional Coverage,case_0001,0,0,no,no,True,23.21,no external calibration; low or invalid outcome,,
+OpenCode + MiniMax,Regional Coverage,case_0002,9,1,no,no,True,26.96,repeated calibration with low final quality,161;181;201;273;293;297;309;337;353,105
+OpenCode + MiniMax,Regional Coverage,case_0003,66,1,no,yes,True,23.47,repeated calibration with low final quality,170;178;202;206;214;222;226;230;234;238;254;262;278;290;302;326;338;350;366;374;386;390;410;418;434;442;458;466;474;478;498;506;538;550;566;570;578;586;590;594;602;606;610;622;634;642;654;658;670;682;686;698;710;718;734;742;750;774;786;794;814;822;842;870;878;886,50
+OpenCode + MiniMax,Regional Coverage,case_0004,34,1,no,no,True,5.7295,repeated calibration with low final quality,241;265;269;285;289;305;345;349;365;369;389;393;397;401;425;429;461;465;485;493;509;513;525;529;557;561;565;569;577;593;601;605;621;625,229
+OpenCode + MiniMax,Regional Coverage,case_0005,20,1,no,yes,True,9.2533,repeated calibration with low final quality,91;115;119;123;139;163;179;187;203;211;219;243;251;259;267;271;279;283;295;299,23
+Claude Code + Claude Opus 4.6,Relay Constellation,case_0001,0,0,no,no,False,0.0,no external calibration; low or invalid outcome,,
+Claude Code + Claude Opus 4.6,Relay Constellation,case_0002,0,0,no,no,False,0.0,no external calibration; low or invalid outcome,,
+Claude Code + Claude Opus 4.6,Relay Constellation,case_0003,0,0,no,no,False,0.0,no external calibration; low or invalid outcome,,
+Claude Code + Claude Opus 4.6,Relay Constellation,case_0004,5,2,no,yes,True,61.25,repeated calibration with high-quality handoff,100;110;134;152;201,64;67
+Claude Code + Claude Opus 4.6,Relay Constellation,case_0005,0,0,no,no,False,0.0,no external calibration; low or invalid outcome,,
+Codex,Relay Constellation,case_0001,6,1,no,yes,True,53.96,repeated calibration with low final quality,38;382;423;906;959;1015,24
+Codex,Relay Constellation,case_0002,6,1,no,yes,True,66.88,repeated calibration with high-quality handoff,37;300;468;572;624;716,38
+Codex,Relay Constellation,case_0003,5,0,no,yes,True,89.23,repeated calibration with high-quality handoff,41;258;446;485;539,
+Codex,Relay Constellation,case_0004,8,2,no,yes,True,56.66,repeated calibration with low final quality,35;53;441;563;585;611;633;663,24;36
+Codex,Relay Constellation,case_0005,7,1,no,yes,True,57.83,repeated calibration with low final quality,34;44;200;278;926;984;1106,23
+Kimi CLI,Relay Constellation,case_0001,15,1,yes,yes,True,44.92,repeated calibration with low final quality,26;32;232;298;304;310;316;334;377;402;500;506;561;657;663,18
+Kimi CLI,Relay Constellation,case_0002,15,1,no,yes,True,61.67,repeated calibration with high-quality handoff,232;280;328;538;556;568;598;634;646;664;682;706;772;796;856,10
+Kimi CLI,Relay Constellation,case_0003,7,1,yes,yes,True,85.28,repeated calibration with high-quality handoff,355;373;397;427;541;553;565,9
+Kimi CLI,Relay Constellation,case_0004,2,2,no,yes_no_commit_detected,True,62.42,repeated calibration with high-quality handoff,380;392,9;18
+Kimi CLI,Relay Constellation,case_0005,5,2,no,no,True,34.56,repeated calibration with low final quality,26;118;434;586;824,9;18
+OpenCode + DeepSeek V4 Pro,Relay Constellation,case_0001,9,3,no,yes,True,57.75,repeated calibration with low final quality,30;330;341;359;366;373;381;388;395,17;18;22
+OpenCode + DeepSeek V4 Pro,Relay Constellation,case_0002,9,1,no,yes,True,61.67,repeated calibration with high-quality handoff,24;147;163;191;211;229;252;284;293,16
+OpenCode + DeepSeek V4 Pro,Relay Constellation,case_0003,23,2,no,yes,True,0.0,repeated calibration with low final quality,24;32;179;222;226;234;333;348;352;372;392;396;403;433;440;464;475;479;483;501;508;512;519,19;23
+OpenCode + DeepSeek V4 Pro,Relay Constellation,case_0004,11,1,no,yes,True,58.92,repeated calibration with low final quality,23;140;197;205;214;226;246;274;294;304;312,18
+OpenCode + DeepSeek V4 Pro,Relay Constellation,case_0005,10,2,no,yes,True,0.0,repeated calibration with low final quality,159;189;230;356;361;365;369;394;477;548,20;352
+OpenCode + MiniMax,Relay Constellation,case_0001,22,1,no,yes,True,0.0,repeated calibration with low final quality,34;90;106;154;174;182;214;234;242;306;314;322;346;354;362;398;410;414;422;442;446;454,30
+OpenCode + MiniMax,Relay Constellation,case_0002,23,1,no,yes,True,0.0,repeated calibration with low final quality,25;133;181;189;217;225;245;253;265;293;333;353;361;369;377;397;405;413;421;433;445;453;465,21
+OpenCode + MiniMax,Relay Constellation,case_0003,22,1,yes,yes,True,0.0,repeated calibration with low final quality,88;284;304;312;324;332;340;344;348;356;364;372;412;432;440;448;464;468;476;480;492;496,20
+OpenCode + MiniMax,Relay Constellation,case_0004,5,0,no,yes,False,0.0,repeated calibration with low final quality,28;512;584;596;612,
+OpenCode + MiniMax,Relay Constellation,case_0005,25,1,no,yes,True,0.0,repeated calibration with low final quality,28;140;208;236;244;264;292;300;324;332;348;356;364;372;380;388;412;420;428;436;444;452;456;464;476,24
+Claude Code + Claude Opus 4.6,Revisit Constellation,case_0001,9,1,no,yes,True,78.31,repeated calibration with high-quality handoff,122;146;169;185;194;209;222;243;262,30
+Claude Code + Claude Opus 4.6,Revisit Constellation,case_0002,10,2,no,yes,True,80.06,repeated calibration with high-quality handoff,85;114;123;137;165;180;218;228;238;247,28;32
+Claude Code + Claude Opus 4.6,Revisit Constellation,case_0003,25,1,no,yes,True,71.33,repeated calibration with high-quality handoff,95;107;121;162;168;170;200;215;221;236;254;258;267;283;290;296;309;316;341;343;348;375;378;385;395,34
+Claude Code + Claude Opus 4.6,Revisit Constellation,case_0004,13,0,no,yes,True,77.5,repeated calibration with high-quality handoff,36;46;58;69;104;118;136;160;186;206;224;305;309,
+Claude Code + Claude Opus 4.6,Revisit Constellation,case_0005,11,3,no,yes,True,75.32,repeated calibration with high-quality handoff,99;108;119;128;169;198;254;256;258;357;359,21;26;32
+Codex,Revisit Constellation,case_0001,8,1,yes,no,True,69.79,repeated calibration with high-quality handoff,39;65;217;218;273;361;409;521,20
+Codex,Revisit Constellation,case_0002,7,1,no,yes,True,80.06,repeated calibration with high-quality handoff,44;184;226;378;430;494;539,21
+Codex,Revisit Constellation,case_0003,8,0,no,yes,True,72.08,repeated calibration with high-quality handoff,41;618;644;756;854;936;1080;1102,
+Codex,Revisit Constellation,case_0004,4,1,no,yes,True,55.88,repeated calibration with low final quality,31;83;342;379,32
+Codex,Revisit Constellation,case_0005,2,1,no,yes,True,70.08,repeated calibration with high-quality handoff,40;858,32
+Kimi CLI,Revisit Constellation,case_0001,8,3,no,yes,True,69.41,repeated calibration with high-quality handoff,468;492;522;576;600;618;690;744,9;30;54
+Kimi CLI,Revisit Constellation,case_0002,12,1,no,yes,True,81.97,repeated calibration with high-quality handoff,335;353;365;389;419;455;473;527;593;641;677;917,16
+Kimi CLI,Revisit Constellation,case_0003,7,1,no,yes,True,70.0,repeated calibration with high-quality handoff,391;409;457;524;574;630;643,18
+Kimi CLI,Revisit Constellation,case_0004,18,3,no,yes,True,70.09,repeated calibration with high-quality handoff,52;106;124;163;207;263;288;313;338;369;394;419;463;501;502;513;543;552,8;16;25
+Kimi CLI,Revisit Constellation,case_0005,1,1,no,yes,True,75.32,light verifier use with high-quality handoff,348,8
+OpenCode + DeepSeek V4 Pro,Revisit Constellation,case_0001,10,1,no,yes,True,72.08,repeated calibration with high-quality handoff,207;292;308;340;364;368;392;410;428;436,23
+OpenCode + DeepSeek V4 Pro,Revisit Constellation,case_0002,1,1,no,yes,True,72.08,light verifier use with high-quality handoff,392,20
+OpenCode + DeepSeek V4 Pro,Revisit Constellation,case_0003,6,1,no,yes,True,70.0,repeated calibration with high-quality handoff,180;193;198;215;224;240,16
+OpenCode + DeepSeek V4 Pro,Revisit Constellation,case_0004,8,1,no,yes,True,69.28,repeated calibration with high-quality handoff,190;218;257;276;312;320;328;344,18
+OpenCode + DeepSeek V4 Pro,Revisit Constellation,case_0005,5,2,no,yes,True,71.33,repeated calibration with high-quality handoff,123;149;194;202;288,16;21
+OpenCode + MiniMax,Revisit Constellation,case_0001,0,0,no,no,False,0.0,no external calibration; low or invalid outcome,,
+OpenCode + MiniMax,Revisit Constellation,case_0002,0,0,no,no,False,0.0,no external calibration; low or invalid outcome,,
+OpenCode + MiniMax,Revisit Constellation,case_0003,0,0,no,no,False,0.0,no external calibration; low or invalid outcome,,
+OpenCode + MiniMax,Revisit Constellation,case_0004,15,0,no,no,False,0.0,repeated calibration with low final quality,265;277;345;361;369;425;453;465;493;505;537;549;565;597;617,
+OpenCode + MiniMax,Revisit Constellation,case_0005,0,0,no,no,False,0.0,no external calibration; low or invalid outcome,,
+Claude Code + Claude Opus 4.6,SatNet,W10_2018,33,1,no,yes,True,85.94,repeated calibration with high-quality handoff,48;51;60;74;88;121;146;168;191;195;215;243;264;277;291;300;304;310;313;317;323;327;331;343;346;355;368;370;379;398;430;434;468,41
+Claude Code + Claude Opus 4.6,SatNet,W20_2018,15,1,no,yes,True,77.09,repeated calibration with high-quality handoff,51;63;70;75;82;95;101;106;113;122;127;146;182;202;217,43
+Claude Code + Claude Opus 4.6,SatNet,W30_2018,0,0,no,no,False,0.0,no external calibration; low or invalid outcome,,
+Claude Code + Claude Opus 4.6,SatNet,W40_2018,27,2,no,no,True,69.62,repeated calibration with high-quality handoff,44;53;61;76;84;92;124;159;173;179;210;217;243;249;257;267;301;306;324;335;341;343;347;354;356;377;391,29;32
+Claude Code + Claude Opus 4.6,SatNet,W50_2018,20,1,no,yes,True,69.14,repeated calibration with high-quality handoff,52;60;79;88;92;107;120;138;153;186;194;203;220;232;243;255;268;287;294;310,38
+Codex,SatNet,W10_2018,9,1,no,yes,True,78.09,repeated calibration with high-quality handoff,72;76;80;94;152;190;200;300;370,23
+Codex,SatNet,W20_2018,4,0,no,yes,True,61.17,repeated calibration with high-quality handoff,34;127;205;369,
+Codex,SatNet,W30_2018,5,3,no,yes,True,69.81,repeated calibration with high-quality handoff,33;73;77;81;236,21;39;53
+Codex,SatNet,W40_2018,8,3,no,yes_no_commit_detected,True,58.37,repeated calibration with low final quality,35;59;124;166;215;230;376;380,170;176;194
+Codex,SatNet,W50_2018,4,1,no,yes,True,79.83,repeated calibration with high-quality handoff,44;52;141;201,31
+Kimi CLI,SatNet,W10_2018,39,1,no,yes,True,81.79,repeated calibration with high-quality handoff,60;67;74;92;128;176;200;218;236;273;285;303;333;393;411;435;477;495;513;543;555;567;579;591;603;615;633;645;657;693;735;753;765;778;802;820;838;856;868,66
+Kimi CLI,SatNet,W20_2018,11,1,no,no,True,53.87,repeated calibration with low final quality,34;42;48;96;102;108;114;120;246;643;751,26
+Kimi CLI,SatNet,W30_2018,3,0,yes,no,True,70.41,repeated calibration with high-quality handoff,25;31;43,
+Kimi CLI,SatNet,W40_2018,14,2,yes,yes,True,62.21,repeated calibration with high-quality handoff,106;184;286;451;487;499;667;709;739;775;799;884;1031;1067,9;19
+Kimi CLI,SatNet,W50_2018,13,2,no,no,True,62.41,repeated calibration with high-quality handoff,46;55;184;250;323;427;501;519;562;617;661;753;779,9;18
+OpenCode + DeepSeek V4 Pro,SatNet,W10_2018,1,0,no,yes,True,73.68,light verifier use with high-quality handoff,18,
+OpenCode + DeepSeek V4 Pro,SatNet,W20_2018,16,2,no,yes,True,71.67,repeated calibration with high-quality handoff,46;54;120;161;165;178;195;203;225;229;233;237;246;250;257;275,17;18
+OpenCode + DeepSeek V4 Pro,SatNet,W30_2018,10,1,no,yes,True,50.61,repeated calibration with low final quality,29;45;100;104;112;125;138;158;186;206,108
+OpenCode + DeepSeek V4 Pro,SatNet,W40_2018,10,1,no,yes,True,43.94,repeated calibration with low final quality,42;75;100;183;267;296;306;339;381;394,20
+OpenCode + DeepSeek V4 Pro,SatNet,W50_2018,13,2,no,yes,True,61.25,repeated calibration with high-quality handoff,26;46;82;86;93;106;121;132;166;188;207;230;238,21;90
+OpenCode + MiniMax,SatNet,W10_2018,19,0,yes,yes,True,55.81,repeated calibration with low final quality,57;65;73;89;109;137;149;161;173;201;205;225;237;249;261;273;285;293;305,
+OpenCode + MiniMax,SatNet,W20_2018,33,0,no,yes,True,26.94,repeated calibration with low final quality,27;39;59;79;95;111;175;195;219;231;239;247;255;263;271;279;287;295;303;311;319;347;367;375;383;391;403;411;419;427;431;435;443,
+OpenCode + MiniMax,SatNet,W30_2018,14,0,no,no,True,62.67,repeated calibration with high-quality handoff,49;57;69;85;89;97;121;133;205;225;233;253;265;277,
+OpenCode + MiniMax,SatNet,W40_2018,20,0,no,yes,True,42.28,repeated calibration with low final quality,45;57;73;77;85;97;129;177;209;225;229;237;249;253;257;269;273;277;281;293,
+OpenCode + MiniMax,SatNet,W50_2018,11,1,no,yes,False,0.0,repeated calibration with low final quality,48;80;96;108;136;144;160;172;180;188;200,24
+Claude Code + Claude Opus 4.6,SPOT-5,1021,5,0,no,no,True,55.43,repeated calibration with low final quality,102;179;197;225;241,
+Claude Code + Claude Opus 4.6,SPOT-5,1403,0,0,no,no,False,0.0,no external calibration; low or invalid outcome,,
+Claude Code + Claude Opus 4.6,SPOT-5,1506,4,2,no,yes,True,64.36,repeated calibration with high-quality handoff,43;54;62;94,30;34
+Claude Code + Claude Opus 4.6,SPOT-5,28,0,0,no,no,False,0.0,no external calibration; low or invalid outcome,,
+Claude Code + Claude Opus 4.6,SPOT-5,8,1,2,no,yes,True,100.0,light verifier use with high-quality handoff,29,17;21
+Codex,SPOT-5,1021,7,1,no,yes_no_commit_detected,True,55.43,repeated calibration with low final quality,86;104;105;186;212;219;244,19
+Codex,SPOT-5,1403,3,1,no,yes,True,55.44,repeated calibration with low final quality,31;180;229,19
+Codex,SPOT-5,1506,3,1,no,yes,True,64.36,repeated calibration with high-quality handoff,63;67;124,26
+Codex,SPOT-5,28,1,1,no,yes_no_commit_detected,True,34.37,light verifier use with low final quality,53,21
+Codex,SPOT-5,8,2,1,no,yes_no_commit_detected,True,100.0,repeated calibration with high-quality handoff,33;34,22
+Kimi CLI,SPOT-5,1021,6,1,no,yes,True,55.43,repeated calibration with low final quality,74;116;176;472;508;600,14
+Kimi CLI,SPOT-5,1403,47,3,no,no,True,55.44,repeated calibration with low final quality,51;58;59;60;102;103;104;112;113;114;146;147;154;155;156;164;165;172;173;180;181;182;196;197;204;205;212;297;303;321;322;341;353;354;367;368;375;376;383;389;395;396;403;451;939;971;996,22;94;347
+Kimi CLI,SPOT-5,1506,3,0,no,yes,True,64.36,repeated calibration with high-quality handoff,64;101;150,
+Kimi CLI,SPOT-5,28,2,0,no,yes,True,34.37,repeated calibration with low final quality,48;66,
+Kimi CLI,SPOT-5,8,1,0,no,yes,True,100.0,light verifier use with high-quality handoff,34,
+OpenCode + DeepSeek V4 Pro,SPOT-5,1021,1,1,no,yes,True,55.43,light verifier use with low final quality,65,17
+OpenCode + DeepSeek V4 Pro,SPOT-5,1403,12,2,no,yes,True,50.4,repeated calibration with low final quality,55;213;234;246;254;262;266;278;294;302;330;357,12;258
+OpenCode + DeepSeek V4 Pro,SPOT-5,1506,3,1,no,yes,True,64.36,repeated calibration with high-quality handoff,46;65;82,14
+OpenCode + DeepSeek V4 Pro,SPOT-5,28,2,0,no,yes,True,34.37,repeated calibration with low final quality,11;49,
+OpenCode + DeepSeek V4 Pro,SPOT-5,8,1,1,no,yes,True,100.0,light verifier use with high-quality handoff,30,16
+OpenCode + MiniMax,SPOT-5,1021,9,1,no,yes,True,53.53,repeated calibration with low final quality,97;101;121;129;137;145;157;189;197,33
+OpenCode + MiniMax,SPOT-5,1403,0,0,no,no,False,0.0,no external calibration; low or invalid outcome,,
+OpenCode + MiniMax,SPOT-5,1506,27,1,no,yes,True,1.9227,repeated calibration with low final quality,89;97;101;105;109;113;117;125;129;133;141;145;153;165;169;173;177;181;189;201;205;217;221;225;229;457;461,17
+OpenCode + MiniMax,SPOT-5,28,84,0,no,yes,True,31.92,repeated calibration with low final quality,74;78;86;90;94;98;110;118;122;126;130;138;142;150;154;158;162;170;174;178;182;186;190;194;198;202;210;218;222;226;230;234;238;242;246;258;262;266;270;274;278;286;290;294;298;302;306;310;331;341;375;379;383;411;439;447;455;463;475;483;503;515;523;531;539;543;555;559;567;571;575;579;583;587;591;595;599;603;607;611;615;619;623;627,
+OpenCode + MiniMax,SPOT-5,8,2,0,no,yes,True,100.0,repeated calibration with high-quality handoff,44;72,
+Claude Code + Claude Opus 4.6,Stereo Imaging,case_0001,29,2,no,yes,True,2.1793,repeated calibration with low final quality,66;76;99;173;177;179;181;183;186;212;216;247;282;284;294;298;301;304;308;313;315;319;363;372;391;394;396;398;479,109;269
+Claude Code + Claude Opus 4.6,Stereo Imaging,case_0002,0,0,no,no,False,0.0,no external calibration; low or invalid outcome,,
+Claude Code + Claude Opus 4.6,Stereo Imaging,case_0003,69,2,yes,yes,True,92.06,repeated calibration with high-quality handoff,76;98;102;110;129;133;137;142;144;148;176;183;195;203;243;249;254;260;265;267;281;288;300;307;311;329;339;341;343;345;347;351;353;355;359;377;383;393;396;412;415;423;434;456;461;463;485;489;498;501;515;523;549;558;572;576;579;589;593;608;612;624;652;680;691;738;740;742;787,33;735
+Claude Code + Claude Opus 4.6,Stereo Imaging,case_0004,3,1,no,yes,True,1.5456,repeated calibration with low final quality,34;84;434,32
+Claude Code + Claude Opus 4.6,Stereo Imaging,case_0005,0,0,no,no,False,0.0,no external calibration; low or invalid outcome,,
+Codex,Stereo Imaging,case_0001,13,5,yes,yes_no_commit_detected,True,96.94,repeated calibration with high-quality handoff,58;135;139;151;185;189;193;201;205;209;213;217;407,24;35;76;127;143
+Codex,Stereo Imaging,case_0002,8,3,yes,yes,True,96.75,repeated calibration with high-quality handoff,44;87;119;127;445;461;571;593,24;192;193
+Codex,Stereo Imaging,case_0003,4,1,no,yes_no_commit_detected,True,69.06,repeated calibration with high-quality handoff,64;303;365;388,21
+Codex,Stereo Imaging,case_0004,9,1,yes,yes,True,0.7931,repeated calibration with low final quality,54;99;414;826;830;921;1131;1132;1160,33
+Codex,Stereo Imaging,case_0005,10,1,no,yes,True,80.98,repeated calibration with high-quality handoff,35;80;168;178;211;285;321;344;360;369,23
+Kimi CLI,Stereo Imaging,case_0001,13,0,no,yes,True,0.0,repeated calibration with low final quality,26;110;194;254;302;320;326;332;398;404;428;464;506,
+Kimi CLI,Stereo Imaging,case_0002,7,2,no,yes,True,1.2524,repeated calibration with low final quality,228;234;468;546;726;774;888,18;24
+Kimi CLI,Stereo Imaging,case_0003,18,0,yes,no,True,0.0,repeated calibration with low final quality,49;55;61;103;199;205;211;259;265;361;373;379;433;445;511;517;529;637,
+Kimi CLI,Stereo Imaging,case_0004,3,1,no,yes,True,0.0,repeated calibration with low final quality,32;99;215,18
+Kimi CLI,Stereo Imaging,case_0005,11,3,yes,yes,True,0.0,repeated calibration with low final quality,209;299;497;563;569;575;605;689;767;773;785,21;611;713
+OpenCode + DeepSeek V4 Pro,Stereo Imaging,case_0001,56,15,yes,yes,True,0.0,repeated calibration with low final quality,33;134;152;160;180;191;211;223;227;231;247;251;256;264;297;302;303;304;309;313;333;337;341;374;378;379;407;423;427;428;432;467;471;475;506;510;530;542;546;550;554;562;578;582;586;590;594;598;602;606;610;619;623;631;635;648,23;27;260;295;298;345;346;347;351;352;353;357;358;415;416
+OpenCode + DeepSeek V4 Pro,Stereo Imaging,case_0002,45,48,yes,yes,True,0.0,repeated calibration with low final quality,102;122;126;141;153;202;277;309;310;322;326;330;346;351;377;409;450;469;486;490;498;506;527;539;543;547;560;564;568;620;624;642;646;654;673;700;708;712;739;747;755;762;791;792;798,18;191;192;200;201;206;207;208;212;213;214;222;252;253;265;269;273;289;334;338;342;350;359;363;364;369;704;770;771;772;773;777;780;793;794;799;800;804;805;806;810;811;812;816;817;818;850;875
+OpenCode + DeepSeek V4 Pro,Stereo Imaging,case_0003,30,1,no,yes,True,64.98,repeated calibration with high-quality handoff,116;120;124;128;132;201;205;209;213;217;221;225;243;257;267;271;282;286;294;305;319;392;407;411;460;475;487;503;522;538,16
+OpenCode + DeepSeek V4 Pro,Stereo Imaging,case_0004,57,3,no,yes,False,0.0,repeated calibration with low final quality,103;128;132;136;140;165;185;193;201;205;209;221;225;233;248;257;261;265;269;273;277;281;285;289;305;309;313;325;352;356;365;369;373;385;393;397;405;409;417;433;441;445;452;467;476;484;488;499;510;514;538;549;561;565;572;576;583,22;26;301
+OpenCode + DeepSeek V4 Pro,Stereo Imaging,case_0005,48,2,yes,yes,True,0.0,repeated calibration with low final quality,54;76;83;103;114;125;132;175;187;202;229;245;273;292;303;311;315;322;326;349;365;369;377;385;393;405;409;428;435;443;447;470;493;551;578;589;629;637;655;659;663;682;713;726;730;738;742;746,21;28
+OpenCode + MiniMax,Stereo Imaging,case_0001,63,1,no,yes,True,0.0,repeated calibration with low final quality,126;142;154;166;178;194;210;226;230;266;282;306;310;314;330;362;410;434;466;482;526;534;538;542;546;550;554;558;562;570;574;582;586;590;594;606;610;630;650;654;658;662;694;706;710;714;718;726;738;742;746;750;754;770;774;778;782;786;790;794;798;802;806,21
+OpenCode + MiniMax,Stereo Imaging,case_0002,0,0,no,no,False,0.0,no external calibration; low or invalid outcome,,
+OpenCode + MiniMax,Stereo Imaging,case_0003,0,0,no,no,False,0.0,no external calibration; low or invalid outcome,,
+OpenCode + MiniMax,Stereo Imaging,case_0004,0,0,no,no,False,0.0,no external calibration; low or invalid outcome,,
+OpenCode + MiniMax,Stereo Imaging,case_0005,27,9,no,no,False,0.0,repeated calibration with low final quality,402;410;469;642;690;706;758;802;810;826;842;908;916;920;924;928;936;944;948;956;960;972;976;984;988;992;1008,394;398;406;457;461;474;478;486;880
