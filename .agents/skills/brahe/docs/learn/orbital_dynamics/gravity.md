@@ -56,7 +56,7 @@ The most significant non-spherical terms are:
 
 ### Gravity Models
 
-Brahe includes several standard geopotential models with different degrees and orders of expansion:
+Brahe includes several standard geopotential models with different degrees and orders of expansion, packaged with the library:
 
 - **EGM2008**: Earth Gravitational Model 2008, high-fidelity model to degree/order 360
 - **GGM05S**: GRACE Gravity Model, degree/order 180
@@ -68,7 +68,41 @@ Higher degree/order models provide more accuracy but require more computation. F
 - **Medium/Geostationary Orbit**: Degree/order 4-8 usually adequate
 - **High-precision applications**: Degree/order 50+ may be needed
 
-Additional gravity models (`.gfc` files) can be downloaded from the [International Centre for Global Earth Models (ICGEM)](https://icgem.gfz-potsdam.de/tom_longtime) repository and used with Brahe.
+#### Loading Models From ICGEM
+
+For anything beyond the three packaged Earth models — newer high-degree Earth
+fields, lunar models, Mars/Venus/Ceres fields, or a specific published
+revision — Brahe's [ICGEM dataset interface](../datasets/icgem.md) downloads
+the corresponding `.gfc` file from the [International Centre for Global Earth
+Models](https://icgem.gfz.de) and caches it under `$BRAHE_CACHE/icgem/`.
+
+Use `GravityModelType.icgem(body, name)` to slot an ICGEM-sourced model into
+the same `GravityModel` / `GravityConfiguration` machinery as the packaged
+models. The download happens transparently on first use:
+
+
+```python
+import brahe as bh
+
+# Earth — JGM3 (~70x70), small and stable
+earth_type = bh.GravityModelType.icgem("earth", "JGM3")
+earth_model = bh.GravityModel.from_model_type(earth_type)
+print(
+    f"Loaded {earth_model.model_name} "
+    f"({earth_model.n_max}x{earth_model.m_max}, GM={earth_model.gm:.6e} m^3/s^2)"
+)
+
+# Inspect a coefficient — normalized C_{2,0} (J2 term) from the Earth model
+c20, s20 = earth_model.get(2, 0)
+print(f"\nEarth normalized C(2,0) = {c20:.6e}")
+```
+
+
+To wire the same model into a numerical propagator, see
+[Force Models → Using an ICGEM Gravity Model](../orbit_propagation/numerical_propagation/force_models.md#using-an-icgem-gravity-model).
+
+You can also load any `.gfc` file already on disk via
+`GravityModelType.from_file(path)`.
 
 ## Computational Considerations
 
@@ -205,6 +239,8 @@ print(f"  Magnitude: {np.linalg.norm(accel_pert):.9f} m/s²")
 ## See Also
 
 - [Library API Reference: Gravity](../../library_api/orbit_dynamics/gravity.md)
+- [ICGEM Dataset Interface](../datasets/icgem.md) - Discovering and downloading ICGEM models
+- [Force Models](../orbit_propagation/numerical_propagation/force_models.md) - Wiring a gravity model into a numerical propagator
 - [Orbital Dynamics Overview](index.md)
 - [Constants: Physical Parameters](../constants.md#physical-constants)
 

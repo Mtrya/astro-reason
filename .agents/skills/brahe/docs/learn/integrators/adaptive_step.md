@@ -30,6 +30,10 @@ $$
 
 An embedded Runge-Kutta method using 5th-order solution for propagation and 4th-order solution for error estimation.
 
+### RKF78: Runge-Kutta-Fehlberg 7(8)
+
+RKF78 is a higher-order Fehlberg pair with 13 stages. It is useful when tight tolerances justify more function evaluations per accepted step.
+
 ### DP54: Dormand-Prince 5(4)
 
 An embedded Runge-Kutta method widely used in scientific computing (e.g., MATLAB's `ode45`).
@@ -238,6 +242,7 @@ print(f"  Eccentricity:    {abs(final_oe[1] - initial_oe[1]):.3e}")
 - **[Configuration Guide](configuration.md)** - Detailed parameter tuning
 - **[Fixed-Step Integrators](fixed_step.md)** - For comparison
 - **[RKF45 API Reference](../../library_api/integrators/rkf45.md)** - RKF45 documentation
+- **[RKF78 API Reference](../../library_api/integrators/rkf78.md)** - RKF78 documentation
 - **[DP54 API Reference](../../library_api/integrators/dp54.md)** - DP54 documentation
 - **[RKN1210 API Reference](../../library_api/integrators/rkn1210.md)** - RKN1210 documentation
 - **[Integrators Overview](index.md)** - Comparison of all integrators
