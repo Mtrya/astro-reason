@@ -55,6 +55,7 @@ NumericalPropagationConfig
 ├── method: IntegratorMethod
 │   ├── RK4 (fixed step)
 │   ├── RKF45 (adaptive)
+│   ├── RKF78 (adaptive)
 │   ├── DP54 (adaptive, default)
 │   └── RKN1210 (adaptive, high precision)
 ├── integrator: IntegratorConfig
@@ -73,12 +74,13 @@ The configuration is captured at propagator construction time and remains immuta
 
 ## Integration Methods
 
-Four integration methods are available:
+Five integration methods are available:
 
 | Method | Order | Adaptive | Function Evals | Description |
 |------|-----|--------|--------------|-----------|
 | RK4 | 4 | No | 4 | Classic fixed-step Runge-Kutta |
 | RKF45 | 4(5) | Yes | 6 | Runge-Kutta-Fehlberg adaptive |
+| RKF78 | 7(8) | Yes | 13 | High-order Runge-Kutta-Fehlberg adaptive |
 | DP54 | 5(4) | Yes | 6-7 | Dormand-Prince (MATLAB ode45) |
 | RKN1210 | 12(10) | Yes | 17 | High-precision Runge-Kutta-Nystrom |
 
@@ -115,6 +117,27 @@ config = bh.NumericalPropagationConfig.default()
 # Customize tolerances using builder pattern
 config_tight = (
     bh.NumericalPropagationConfig.default().with_abs_tol(1e-9).with_rel_tol(1e-6)
+)
+
+print(f"Method: {config.method}")
+print(f"abs_tol: {config.abs_tol}")
+print(f"rel_tol: {config.rel_tol}")
+```
+
+
+### RKF78 (High-Order Adaptive)
+
+Runge-Kutta-Fehlberg 7(8) adaptive method. Uses a 13-stage embedded pair for high-accuracy propagation when tight tolerances justify additional function evaluations.
+
+
+```python
+import brahe as bh
+
+# RKF78: Runge-Kutta-Fehlberg 7(8), useful for tight tolerances
+config = (
+    bh.NumericalPropagationConfig.with_method(bh.IntegrationMethod.RKF78)
+    .with_abs_tol(1e-10)
+    .with_rel_tol(1e-8)
 )
 
 print(f"Method: {config.method}")
@@ -226,11 +249,13 @@ import brahe as bh
 default = bh.NumericalPropagationConfig.default()
 high_precision = bh.NumericalPropagationConfig.high_precision()
 rkf45 = bh.NumericalPropagationConfig.with_method(bh.IntegrationMethod.RKF45)
+rkf78 = bh.NumericalPropagationConfig.with_method(bh.IntegrationMethod.RKF78)
 rk4 = bh.NumericalPropagationConfig.with_method(bh.IntegrationMethod.RK4)
 
 print(f"default():        {default.method}")
 print(f"high_precision(): {high_precision.method}")
 print(f"with_method(RKF45): {rkf45.method}")
+print(f"with_method(RKF78): {rkf78.method}")
 print(f"with_method(RK4):   {rk4.method}")
 ```
 

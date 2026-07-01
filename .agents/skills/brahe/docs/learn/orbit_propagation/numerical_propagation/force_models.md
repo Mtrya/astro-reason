@@ -117,7 +117,7 @@ force_config = bh.ForceModelConfig.two_body()
 ```
 
 
-**Spherical Harmonics**: High-fidelity gravity using EGM2008, GGM05S, or user-defined `.gfc` model. Degree and order control accuracy vs computation time.
+**Spherical Harmonics**: High-fidelity gravity using a packaged model (EGM2008, GGM05S, JGM3), a user-supplied `.gfc` file, or any model fetched from the [ICGEM catalog](../../datasets/icgem.md). Degree and order control accuracy vs computation time.
 
 $$
 \mathbf{a} = -\nabla V, \quad V(r, \phi, \lambda) = \frac{GM}{r} \sum_{n=0}^{N} \sum_{m=0}^{n} \left(\frac{R_E}{r}\right)^n \bar{P}_{nm}(\sin\phi) \left(\bar{C}_{nm}\cos(m\lambda) + \bar{S}_{nm}\sin(m\lambda)\right)
@@ -158,6 +158,101 @@ gravity_custom = bh.GravityConfiguration.spherical_harmonic(
 )
 ```
 
+
+#### Selecting a Gravity Model
+
+`GravityConfiguration.spherical_harmonic(...)` accepts a `model_type` argument
+that selects which spherical harmonic field is loaded. Four sources are
+available:
+
+| Constructor                                  | Source                                                  |
+|----------------------------------------------|---------------------------------------------------------|
+| `GravityModelType.EGM2008_360`               | Packaged with Brahe (Earth, 360×360)                    |
+| `GravityModelType.GGM05S`                    | Packaged with Brahe (Earth, 180×180)                    |
+| `GravityModelType.JGM3`                      | Packaged with Brahe (Earth, 70×70)                      |
+| `GravityModelType.from_file("path.gfc")`     | Any `.gfc` file on disk                                 |
+| `GravityModelType.icgem(body, name)`         | Any model from the [ICGEM catalog](../../datasets/icgem.md) (downloaded on first use) |
+
+All four are interchangeable at the `GravityConfiguration` boundary. The same
+`degree` / `order` truncation rules apply: they must satisfy `degree ≤ model.n_max`
+and `order ≤ min(degree, model.m_max)`.
+
+#### Using an ICGEM Gravity Model
+
+`GravityModelType.icgem(body, name)` lets you reference any model from the
+[ICGEM catalog](../../datasets/icgem.md) without manually managing the
+download. The first time a propagator backed by this configuration is built,
+brahe downloads the matching `.gfc` file into
+`$BRAHE_CACHE/icgem/models/<body>/` and caches the parsed `GravityModel` in
+memory. Subsequent propagators referencing the same model reuse both caches.
+
+
+```python
+import brahe as bh
+import numpy as np
+
+# Initialize EOP data (required for any numerical propagation)
+bh.initialize_eop()
+
+# Reference an ICGEM Earth model. Use bh.datasets.icgem.list_models("earth")
+# to discover the full catalog. Append "-<DEGREE>" to pin a specific variant.
+grav_type = bh.GravityModelType.icgem("earth", "JGM3")
+
+gravity_cfg = bh.GravityConfiguration.spherical_harmonic(
+    degree=20, order=20, model_type=grav_type
+)
+
+# Minimal force model: ICGEM-sourced spherical-harmonic gravity only
+force_cfg = bh.ForceModelConfig(gravity=gravity_cfg)
+
+# Build an initial state for a LEO satellite
+epoch = bh.Epoch.from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, bh.TimeSystem.UTC)
+oe = np.array(
+    [
+        bh.R_EARTH + 500e3,    # a (m)
+        0.001,                  # e
+        np.radians(97.8),       # i (rad)
+        np.radians(15.0),       # RAAN (rad)
+        np.radians(30.0),       # arg perigee (rad)
+        np.radians(45.0),       # true anomaly (rad)
+    ]
+)
+state0 = bh.state_koe_to_eci(oe, bh.AngleFormat.RADIANS)
+
+# Construct the propagator — this is where the ICGEM model is downloaded
+# (if not cached) and loaded into the force evaluator.
+prop = bh.NumericalOrbitPropagator(
+    epoch,
+    state0,
+    bh.NumericalPropagationConfig.default(),
+    force_cfg,
+    None,
+)
+
+# Step one minute forward
+prop.step_by(60.0)
+state1 = prop.current_state()
+
+drift = float(np.linalg.norm(np.asarray(state1[:3]) - np.asarray(state0[:3])))
+print(f"Propagated 60 s with JGM3 (ICGEM source); position drift = {drift:.1f} m")
+```
+
+
+**Pre-fetching models for offline runs**
+Call `bh.datasets.icgem.download_model(body, name)` once during setup to
+warm the cache. Subsequent `GravityModelType.icgem(body, name)` references
+then resolve entirely from disk, with no network dependency at propagator
+construction time.
+
+**Equality of `ICGEMModel` types**
+Two `GravityModelType.icgem(body, name)` instances compare equal only when
+both `body` and `name` match. This is what lets the in-process
+`GravityModel` cache de-duplicate across configurations — multiple
+propagators that request the same ICGEM model share a single parsed
+coefficient set in memory.
+
+For the discovery, refresh, and cache mechanics around ICGEM downloads, see
+the [ICGEM dataset guide](../../datasets/icgem.md).
 
 ### Atmospheric Drag
 
