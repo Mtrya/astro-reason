@@ -7,8 +7,38 @@ second order without computing Jacobians or a State Transition Matrix.
 
 ## Setting Up
 
-The UKF constructor takes the same arguments as the EKF, plus UKF-specific tuning
-parameters (alpha, beta, kappa) via `UKFConfig`. It does not require STM propagation.
+The UKF takes the same arguments as the EKF, plus UKF-specific tuning parameters (alpha,
+beta, kappa) via `UKFConfig`. It does not require STM propagation.
+
+`UnscentedKalmanFilter.builder()` is the primary way to construct a UKF: it takes the five
+required inputs -- `epoch`, `state`, `initial_covariance`, `force_config`, and `config` --
+directly as arguments, and measurement models and remaining optional inputs are set through
+chained setters.
+
+```python
+import numpy as np
+import brahe as bh
+
+bh.initialize_eop()
+
+epoch = bh.Epoch(2024, 1, 1, 0, 0, 0.0)
+state = np.array([bh.R_EARTH + 500e3, 0.0, 0.0, 0.0, 7612.0, 0.0])
+p0 = np.diag([1e6, 1e6, 1e6, 1e2, 1e2, 1e2])
+
+ukf = (
+    bh.UnscentedKalmanFilter.builder(
+        epoch, state, p0, bh.ForceModelConfig.two_body(), bh.UKFConfig()
+    )
+    .measurement_model(bh.InertialPositionMeasurementModel(10.0))
+    .build()
+)
+
+print(f"UKF state dimension: {ukf.current_state().shape[0]}")
+print(f"Records so far: {len(ukf.records())}")
+```
+
+
+The full example below processes a batch of observations after construction:
 
 ```python
 import numpy as np
@@ -78,9 +108,9 @@ print(f"  Velocity: [{sigma[3]:.4f}, {sigma[4]:.4f}, {sigma[5]:.4f}] m/s")
 ```
 
 
-The constructor internally builds a numerical propagator, generates sigma point weights
-from the `UKFConfig` parameters, and validates that the initial covariance matches the
-state dimension.
+Construction internally builds a numerical propagator, generates sigma point weights from
+the `UKFConfig` parameters, and validates that the initial covariance matches the state
+dimension.
 
 ## How It Works
 

@@ -202,12 +202,10 @@ state = bh.state_koe_to_eci(oe, bh.AngleFormat.DEGREES)
 prop_config = bh.NumericalPropagationConfig.default().with_stm().with_stm_history()
 
 # Create propagator with two-body gravity
-prop = bh.NumericalOrbitPropagator(
-    epoch,
-    state,
-    prop_config,
-    bh.ForceModelConfig.two_body(),
-    None,
+prop = (
+    bh.NumericalOrbitPropagator.builder(epoch, state, bh.ForceModelConfig.two_body())
+    .propagation_config(prop_config)
+    .build()
 )
 
 print("=== STM Propagation Example ===\n")
@@ -295,12 +293,10 @@ state = bh.state_koe_to_eci(oe, bh.AngleFormat.DEGREES)
 prop_config = bh.NumericalPropagationConfig.default().with_stm()
 
 # Create propagator (two-body for clean demonstration)
-prop = bh.NumericalOrbitPropagator(
-    epoch,
-    state,
-    prop_config,
-    bh.ForceModelConfig.two_body(),
-    None,
+prop = (
+    bh.NumericalOrbitPropagator.builder(epoch, state, bh.ForceModelConfig.two_body())
+    .propagation_config(prop_config)
+    .build()
 )
 
 # Define initial covariance (diagonal)
@@ -379,13 +375,11 @@ prop_config = bh.NumericalPropagationConfig.default().with_stm().with_stm_histor
 P0 = np.diag([100.0, 100.0, 100.0, 0.0001, 0.0001, 0.0001])
 
 # Create propagator with initial covariance
-prop = bh.NumericalOrbitPropagator(
-    epoch,
-    state,
-    prop_config,
-    bh.ForceModelConfig.two_body(),
-    None,
-    initial_covariance=P0,
+prop = (
+    bh.NumericalOrbitPropagator.builder(epoch, state, bh.ForceModelConfig.two_body())
+    .propagation_config(prop_config)
+    .initial_covariance(P0)
+    .build()
 )
 
 print("=== Covariance in RTN Frame ===\n")

@@ -6,8 +6,14 @@ For orbital mechanics, Brahe provides the [`NumericalOrbitPropagator`](../../../
 
 Brahe also includes a more general [`NumericalPropagator`](../../../library_api/propagators/numerical_propagator.md) class for propagating arbitrary dynamical system systems. This class allows users to integrate equations of motion for non-orbital dynamical systems. This capability is discussed in more depth in [General Dynamics Propagation](generic_dynamics.md). 
 
-**Experimental Feature**
-The numerical propagation system is one of the newer parts of Brahe and is still considered experimental. While the core functionality has been tested and verified, it is one of the most complex features so the design needs further testing and use before finalization. Users are encouraged to provide feedback and report any issues they encounter.
+**Experimental**
+The numerical propagation module is currently experimental. While generally stable
+the API and internal implementation may change in future releases, in particular
+as to how the system relates to the estimation module.
+During this period please report any issues or feedback on the 
+[GitHub issue tracker](https://github.com/duncaneddy/brahe/issues). Feedback helps
+us improve the module and stabilize it more quickly.
+
 
 ## Architecture Overview
 
@@ -22,6 +28,7 @@ The [`ForceModelConfig`](../../../library_api/propagators/force_model_config.md)
 - **Solar Radiation Pressure**: Cannonball model with conical or cylindrical eclipse
 - **Third-Body**: Sun and Moon gravitational perturbations with analytic or DE440 ephemerides 
 - **Relativistic Effects**: Special and general relativistic corrections
+- **Tides**: IERS solid Earth tide corrections to the gravity field (optional frequency-dependent terms and solid pole tide), and FES2004 ocean tide corrections (optional admittance and ocean pole tide)
 
 ### Integrator Configuration
 

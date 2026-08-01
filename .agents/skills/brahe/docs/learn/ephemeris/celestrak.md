@@ -32,10 +32,6 @@ sorting, output format selection, and result limits.
 The following example retrieves GP data for a single satellite by NORAD catalog number:
 
 ```python
-This example demonstrates querying CelesTrak for a satellite's general
-perturbations (GP) data using its NORAD catalog number.
-"""
-
 import brahe as bh
 
 # Initialize EOP data

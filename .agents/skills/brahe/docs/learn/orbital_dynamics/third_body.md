@@ -54,9 +54,25 @@ Simplified analytical expressions provide approximate positions of the Sun and M
 
 ### DE440s Ephemerides
 
-For high-precision applications, Brahe supports using JPL's DE440s ephemerides with data provided by NASA JPL's [Naviation and Ancillary Information Facility](https://naif.jpl.nasa.gov/naif/index.html) and computations implemented using the excellent [Anise](https://github.com/nyx-space/anise) library.
+For high-precision applications, Brahe supports using JPL's DE440s ephemerides, read directly from NAIF SPICE kernels by brahe's native SPK/PCK reader. See [SPICE Kernels](../spice/index.md) for kernel loading, generic NAIF-ID queries, and kernel-scoped queries.
 
 The Development Ephemeris 440s (DE440s) provides high-precision positions of all major solar system bodies using numerical integration over the time span of 1849 to 2150. They provide meter-level accuracy or better for planetary positions, but require downloading and managing SPICE kernel data files. Brahe generally will download and cache these files automatically on first use.
+
+For Mars, Jupiter, Saturn, Uranus, and Neptune, `ThirdBody` distinguishes the
+planetary-system **barycenter** variants (`MarsBarycenter` ..
+`NeptuneBarycenter`, NAIF IDs 4-8, carrying the system gravitational
+parameters `GM_*_SYSTEM`) from the **planet-center** variants (`Mars` ..
+`Neptune`, NAIF IDs 499-899, carrying the planet-only `GM_*` values).
+`accel_third_body` accepts both flavors: barycenter variants resolve from the
+DE kernel alone — the standard third-body formulation, and the same choice
+made by `*_barycenter_*_spice` in
+[Ephemerides](../../library_api/orbit_dynamics/ephemerides.md) and by the
+`accel_third_body_<planet>_spice` convenience functions — while planet-center
+variants use the true body-center position, auto-loading the ~68 MB-1.1 GB
+satellite ephemeris kernel on first use. The barycenter/body-center position
+difference (up to a few hundred km for Jupiter and Saturn) is negligible
+relative to the differential third-body acceleration itself, so the
+barycenter variants remain the default choice in the built-in force models.
 
 ## Usage Examples
 
@@ -129,6 +145,7 @@ print(f"\nSun/Moon acceleration ratio: {ratio:.3f}")
 ## See Also
 
 - [Library API Reference: Third-Body](../../library_api/orbit_dynamics/third_body.md)
+- [SPICE Kernels](../spice/index.md) - Kernel loading and generic ephemeris queries
 - [Datasets: NAIF](../datasets/naif.md) - DE440s ephemeris data
 - [Orbital Dynamics Overview](index.md)
 

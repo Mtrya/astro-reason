@@ -8,12 +8,40 @@ state and covariance forward in time (predict step), then incorporates the measu
 
 ## Setting Up
 
-The EKF constructor takes the initial conditions, measurement models, and propagation
-configuration. It internally builds a numerical orbit propagator with STM enabled.
+`ExtendedKalmanFilter.builder()` is the primary way to construct an EKF: it takes the five
+required inputs -- `epoch`, `state`, `initial_covariance`, `force_config`, and `config` --
+directly as arguments, and measurement models and remaining optional inputs are set through
+chained setters. It internally builds a numerical orbit propagator with STM enabled.
 
-```
-import brahe as bh
+```python
 import numpy as np
+import brahe as bh
+
+bh.initialize_eop()
+
+epoch = bh.Epoch(2024, 1, 1, 0, 0, 0.0)
+state = np.array([bh.R_EARTH + 500e3, 0.0, 0.0, 0.0, 7612.0, 0.0])
+p0 = np.diag([1e6, 1e6, 1e6, 1e2, 1e2, 1e2])
+
+ekf = (
+    bh.ExtendedKalmanFilter.builder(
+        epoch, state, p0, bh.ForceModelConfig.two_body(), bh.EKFConfig()
+    )
+    .measurement_model(bh.InertialPositionMeasurementModel(10.0))
+    .build()
+)
+
+print(f"EKF state dimension: {ekf.current_state().shape[0]}")
+print(f"EKF current epoch: {ekf.current_epoch()}")
+```
+
+
+The flat constructor remains available as an alternative, taking every field as a keyword
+argument in Python and positionally in Rust:
+
+```python
+import numpy as np
+import brahe as bh
 
 bh.initialize_eop()
 
@@ -22,15 +50,21 @@ state = np.array([bh.R_EARTH + 500e3, 0.0, 0.0, 0.0, 7612.0, 0.0])
 p0 = np.diag([1e6, 1e6, 1e6, 1e2, 1e2, 1e2])
 
 ekf = bh.ExtendedKalmanFilter(
-    epoch, state, p0,
+    epoch,
+    state,
+    p0,
     measurement_models=[bh.InertialPositionMeasurementModel(10.0)],
     propagation_config=bh.NumericalPropagationConfig.default(),
     force_config=bh.ForceModelConfig.two_body(),
 )
+
+print(f"EKF state dimension: {ekf.current_state().shape[0]}")
+print(f"EKF current epoch: {ekf.current_epoch()}")
 ```
 
-The constructor ensures STM propagation is enabled regardless of the propagation config
-passed in. The initial covariance matrix dimensions must match the state vector length.
+
+Both paths ensure STM propagation is enabled regardless of the propagation config passed
+in. The initial covariance matrix dimensions must match the state vector length.
 
 ## Processing Observations
 
@@ -65,7 +99,7 @@ After processing, the filter state is available through pass-through methods:
 
 ```
 state = ekf.current_state()         # numpy 1D array
-cov = ekf.current_covariance()      # numpy 2D array or None
+cov = ekf.current_covariance()      # numpy 2D array
 epoch = ekf.current_epoch()         # Epoch
 records = ekf.records()             # list of FilterRecord
 ```
@@ -112,11 +146,35 @@ ekf = bh.ExtendedKalmanFilter(
 When `scale_with_dt=True`, the effective process noise is $Q \cdot \Delta t$ (continuous-time
 model). When `False`, $Q$ is applied as-is at each step (discrete-time model).
 
+### Sub-stepping Over Long Gaps
+
+By default the process noise for a predict interval is added once, scaled by the full
+$\Delta t$. Over a long coast arc this injects all of the noise at the start of the
+interval, which understates the covariance growth that the nonlinear dynamics produce as
+earlier noise shears along the trajectory. The `max_noise_dt` argument caps the time step
+over which continuous noise is accumulated per chunk:
+
+```
+pn = bh.ProcessNoiseConfig(q, scale_with_dt=True, max_noise_dt=60.0)
+```
+
+With `max_noise_dt=h`, a predict interval longer than `h` is split into chunks of at most
+`h` seconds; the covariance is propagated through each chunk and $Q \cdot \delta t_{chunk}$
+is added per chunk, injecting the noise along the trajectory rather than all at once. A
+single sub-stepped predict is by construction equivalent to a sequence of single-shot
+predicts at cadence `h`. Sub-stepping applies only when `scale_with_dt=True` (a continuous
+noise rate); a discrete per-update $Q$ (`scale_with_dt=False`) is applied once per interval
+regardless of `max_noise_dt`. `max_noise_dt=None` (the default) preserves the single-shot
+behavior. This is an approximation using a constant rate per chunk; the exact variational
+discrete-time $Q_d$ integration is tracked in issue #408.
+
 ## Using Custom Dynamics
 
-For systems beyond standard orbital mechanics, you can supply custom dynamics. In Python,
-pass an `additional_dynamics` callable to the EKF constructor. In Rust, build a
-`DNumericalPropagator` with your dynamics function and pass it to `from_propagator()`:
+For systems beyond standard orbital mechanics, you can supply custom dynamics. In both
+languages the EKF constructor accepts an `additional_dynamics` function (along with force
+model `params` and a `control_input`) that passes through to the internal orbit
+propagator. Alternatively, in Rust, build a `DNumericalPropagator` with a fully custom
+dynamics function and pass it to `from_propagator()`:
 
 ```python
 import numpy as np

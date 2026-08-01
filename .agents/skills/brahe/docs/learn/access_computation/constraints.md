@@ -174,6 +174,36 @@ print(f"Created: {constraint}")
 ```
 
 
+### Azimuth Constraint
+
+Requires the satellite's azimuth, as seen from the ground location, to fall within a window. The window is wrap-aware: a minimum greater than the maximum means the window crosses north (e.g. a sensor's field of view spanning 347&deg; to 227&deg;).
+
+
+```python
+import brahe as bh
+
+# Require satellite azimuth to be between 90 and 180 degrees (southeast quadrant)
+constraint = bh.AzimuthConstraint(90.0, 180.0)
+
+print(f"Created: {constraint}")
+```
+
+
+### Range Constraint
+
+Requires the slant range between the satellite and the ground location to fall within a minimum and/or maximum bound. At least one bound must be specified.
+
+
+```python
+import brahe as bh
+
+# Require satellite slant range to be no more than 5000 km
+constraint = bh.RangeConstraint(min_range_m=None, max_range_m=5_000_000.0)
+
+print(f"Created: {constraint}")
+```
+
+
 ## Constraint Composition
 
 Combine constraints using Boolean logic to express complex requirements.

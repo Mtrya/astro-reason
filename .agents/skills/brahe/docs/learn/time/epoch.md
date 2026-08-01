@@ -134,6 +134,69 @@ print(f"GPS Seconds {gps_seconds}: {epc2}")
 ```
 
 
+## Time System
+
+Every `Epoch` carries a `TimeSystem`, set at construction. It records the time
+scale the epoch is expressed in. For what each scale means and when to use it,
+see [Time Systems and Representations](index.md).
+
+In Python the time system is optional and defaults to UTC when omitted; it can
+be given either as an enumeration member (`bh.TimeSystem.GPS`) or as the
+equivalent module-level constant (`bh.GPS`). Rust requires it explicitly at
+construction, using `bh::TimeSystem::GPS`.
+
+An `Epoch` stores an absolute instant, and the time system only determines the
+scale it reports in. `to_time_system` returns a new `Epoch` at the same instant
+expressed in a different scale — it changes how the epoch prints, not when it
+is. The original is left untouched, and the two compare equal because they
+denote the same instant.
+
+To read a single value out in another scale without creating a new `Epoch`, use
+the `*_as_time_system` family: `to_datetime_as_time_system`,
+`to_string_as_time_system`, `jd_as_time_system`, `mjd_as_time_system`,
+`day_of_year_as_time_system`, and `seconds_past_j2000_as_time_system`.
+
+
+```python
+import brahe as bh
+
+bh.initialize_eop()
+
+# The time system is set at construction. It defaults to UTC.
+epc_utc = bh.Epoch(2024, 6, 15, 12, 0, 0.0, 0.0)
+print(f"Default:  {epc_utc}")
+
+# Specify a time system with the TimeSystem enumeration...
+epc_gps = bh.Epoch(2024, 6, 15, 12, 0, 0.0, 0.0, time_system=bh.TimeSystem.GPS)
+print(f"GPS:      {epc_gps}")
+
+# ...or with the equivalent module-level constant.
+epc_tai = bh.Epoch(2024, 6, 15, 12, 0, 0.0, 0.0, time_system=bh.TAI)
+print(f"TAI:      {epc_tai}")
+
+# Read back the time system an Epoch was created in.
+print(f"Read back: {epc_gps.time_system}")
+
+# The same calendar values in different time systems are different instants.
+print(f"UTC and GPS equal? {epc_utc == epc_gps}")
+
+# to_time_system returns a new Epoch at the SAME instant, displayed in a new
+# time system. It changes how the epoch prints, not when it is.
+epc_as_gps = epc_utc.to_time_system(bh.TimeSystem.GPS)
+print(f"As GPS:   {epc_as_gps}")
+print(f"Same instant? {epc_utc == epc_as_gps}")
+
+# The original is untouched.
+print(f"Original: {epc_utc}")
+
+# To read a single value out in another system without making a new Epoch,
+# use the *_as_time_system projections.
+print(f"epc_utc as TAI: {epc_utc.to_string_as_time_system(bh.TimeSystem.TAI)}")
+print(f"MJD as UTC: {epc_utc.mjd_as_time_system(bh.TimeSystem.UTC):.9f}")
+print(f"MJD as TT:  {epc_utc.mjd_as_time_system(bh.TimeSystem.TT):.9f}")
+```
+
+
 ## Operations
 
 Once you have an epoch class instance you can add and subtract time as you would expect.
@@ -317,8 +380,41 @@ print(f"ISO 8601 (6 decimal places): {epc.isostring_with_decimals(6)}")
 ```
 
 
+### Seconds Past J2000 in a Specific Time System
+
+`seconds_past_j2000_as_time_system` returns the number of seconds elapsed
+since the J2000 epoch (2000-01-01 12:00:00 TT), expressed in a chosen time
+system. Requesting `TimeSystem.TDB` gives SPICE ephemeris time (ET), the
+time argument used by SPK/PCK kernel queries (`spk_position`,
+`sun_position_spice`, ...); see [SPICE Kernels](../spice/index.md).
+`spice_et()` is a convenience alias for
+`seconds_past_j2000_as_time_system(TimeSystem.TDB)`.
+
+
+```
+import brahe as bh
+
+bh.initialize_eop()
+
+epc = bh.Epoch.from_datetime(2025, 3, 15, 6, 30, 21.0, 0.0, bh.TimeSystem.UTC)
+
+# SPICE ephemeris time (ET) is TDB seconds past J2000. spk_position/velocity/state
+# and the *_spice functions convert epochs this way internally.
+et = epc.seconds_past_j2000_as_time_system(bh.TimeSystem.TDB)
+print(f"Epoch: {epc}")
+print(f"SPICE ET (TDB seconds past J2000): {et:.6f}")
+
+# Other time systems are available the same way.
+tt = epc.seconds_past_j2000_as_time_system(bh.TimeSystem.TT)
+print(f"TT seconds past J2000: {tt:.6f}")
+print(f"TDB - TT (s): {et - tt:.9f}")
+```
+
+
 ---
 
 ## See Also
 
 - [Epoch API Reference](../../library_api/time/epoch.md)
+- [TimeSystem API Reference](../../library_api/time/time_system.md)
+- [SPICE Kernels](../spice/index.md) - Using ET for kernel queries

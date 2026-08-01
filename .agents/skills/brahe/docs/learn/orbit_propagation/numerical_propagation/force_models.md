@@ -18,7 +18,7 @@ force_config = bh.ForceModelConfig(
     gravity=bh.GravityConfiguration.spherical_harmonic(
         degree=20,
         order=20,
-        model_type=bh.GravityModelType.EGM2008_360,
+        model_type=bh.GravityModelType.EGM2008_120,
     ),
     # Atmospheric drag: Harris-Priester model with parameter indices
     drag=bh.DragConfiguration(
@@ -32,11 +32,9 @@ force_config = bh.ForceModelConfig(
         cr=bh.ParameterSource.parameter_index(4),
         eclipse_model=bh.EclipseModel.CONICAL,
     ),
-    # Third-body: Sun and Moon with DE440s ephemeris
-    third_body=bh.ThirdBodyConfiguration(
-        ephemeris_source=bh.EphemerisSource.DE440s,
-        bodies=[bh.ThirdBody.SUN, bh.ThirdBody.MOON],
-    ),
+    # Third-body: Sun and Moon with DE440s ephemeris (bare bodies coerce to
+    # point-mass entries with the default source)
+    third_body=[bh.ThirdBody.SUN, bh.ThirdBody.MOON],
     # General relativistic corrections
     relativity=True,
     # Spacecraft mass (can also use parameter_index for estimation)
@@ -61,24 +59,31 @@ print(f"Mass: {force_config.mass}")
 ```.no-linenums
 ForceModelConfig
 ├── gravity: GravityConfiguration
+│   ├── Zero
 │   ├── PointMass
-│   └── SphericalHarmonic { source, degree, order }
+│   ├── SphericalHarmonic { source, degree, order }
+│   └── EarthZonal { degree }
 ├── drag: DragConfiguration
 │   ├── model: AtmosphericModel
 │   ├── area: ParameterSource
-│   └── cd: ParameterSource
+│   ├── cd: ParameterSource
+│   └── body: Option<CentralBody>
 ├── srp: SolarRadiationPressureConfiguration
 │   ├── area: ParameterSource
 │   ├── cr: ParameterSource
 │   └── eclipse_model: EclipseModel
-├── third_body: ThirdBodyConfiguration
-│   ├── ephemeris_source: EphemerisSource
-│   └── bodies: Vec<ThirdBody>
+├── third_body: Vec<ThirdBodyConfiguration>
+│   └── per entry:
+│       ├── body: ThirdBody
+│       ├── ephemeris_source: EphemerisSource
+│       └── gravity: GravityConfiguration
 ├── relativity: bool
 └── mass: ParameterSource
 ```
 
 Each sub-configuration is optional (`None` disables that force). The configuration is captured at propagator construction time and remains immutable during propagation.
+
+Each third-body entry carries its own ephemeris source and gravity model (point-mass by default), and drag can name a `body` other than the central body — see [Body Attribution](#body-attribution) below. In Python, `third_body` accepts a single `ThirdBody` or `ThirdBodyConfiguration`, or a list mixing both; bare bodies become point-mass entries with DE440s ephemerides. Serialized configurations deserialize the same shapes.
 
 ### Parameter Sources
 
@@ -94,7 +99,7 @@ The [Parameter Configuration](#parameter-configuration) section below provides d
 
 ### Gravity Configuration
 
-Gravity is the primary force in orbital mechanics. Brahe supports two gravity models:
+Gravity is the primary force in orbital mechanics. Brahe supports the following central gravity models (plus `GravityConfiguration.zero()` for barycentric propagation centers, which have no mass of their own and take all gravitational forces from third-body entries):
 
 **Point Mass**: Simple two-body central gravity. Fast but ignores Earth's non-spherical shape.
 
@@ -131,9 +136,9 @@ import brahe as bh
 # Packaged Gravity Models
 # ==============================================================================
 
-# EGM2008 - High-fidelity NGA model (360x360 max)
+# EGM2008 - High-fidelity NGA model (120x120 max)
 gravity_egm2008 = bh.GravityConfiguration.spherical_harmonic(
-    degree=20, order=20, model_type=bh.GravityModelType.EGM2008_360
+    degree=20, order=20, model_type=bh.GravityModelType.EGM2008_120
 )
 
 # GGM05S - GRACE mission model (180x180 max)
@@ -152,7 +157,7 @@ gravity_jgm3 = bh.GravityConfiguration.spherical_harmonic(
 
 # Load custom gravity model from GFC format file
 # GravityModelType.from_file validates the path exists
-custom_model_type = bh.GravityModelType.from_file("data/gravity_models/EGM2008_360.gfc")
+custom_model_type = bh.GravityModelType.from_file("data/gravity_models/EGM2008_120.gfc")
 gravity_custom = bh.GravityConfiguration.spherical_harmonic(
     degree=20, order=20, model_type=custom_model_type
 )
@@ -167,7 +172,7 @@ available:
 
 | Constructor                                  | Source                                                  |
 |----------------------------------------------|---------------------------------------------------------|
-| `GravityModelType.EGM2008_360`               | Packaged with Brahe (Earth, 360×360)                    |
+| `GravityModelType.EGM2008_120`               | Packaged with Brahe (Earth, 120×120)                    |
 | `GravityModelType.GGM05S`                    | Packaged with Brahe (Earth, 180×180)                    |
 | `GravityModelType.JGM3`                      | Packaged with Brahe (Earth, 70×70)                      |
 | `GravityModelType.from_file("path.gfc")`     | Any `.gfc` file on disk                                 |
@@ -209,25 +214,19 @@ force_cfg = bh.ForceModelConfig(gravity=gravity_cfg)
 epoch = bh.Epoch.from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, bh.TimeSystem.UTC)
 oe = np.array(
     [
-        bh.R_EARTH + 500e3,    # a (m)
-        0.001,                  # e
-        np.radians(97.8),       # i (rad)
-        np.radians(15.0),       # RAAN (rad)
-        np.radians(30.0),       # arg perigee (rad)
-        np.radians(45.0),       # true anomaly (rad)
+        bh.R_EARTH + 500e3,  # a (m)
+        0.001,  # e
+        np.radians(97.8),  # i (rad)
+        np.radians(15.0),  # RAAN (rad)
+        np.radians(30.0),  # arg perigee (rad)
+        np.radians(45.0),  # true anomaly (rad)
     ]
 )
 state0 = bh.state_koe_to_eci(oe, bh.AngleFormat.RADIANS)
 
 # Construct the propagator — this is where the ICGEM model is downloaded
 # (if not cached) and loaded into the force evaluator.
-prop = bh.NumericalOrbitPropagator(
-    epoch,
-    state0,
-    bh.NumericalPropagationConfig.default(),
-    force_cfg,
-    None,
-)
+prop = bh.NumericalOrbitPropagator.builder(epoch, state0, force_cfg).build()
 
 # Step one minute forward
 prop.step_by(60.0)
@@ -393,67 +392,158 @@ srp_conical = bh.SolarRadiationPressureConfiguration(
 
 ### Third-Body Perturbations
 
-Gravitational attraction from Sun, Moon, and planets causes long-period variations in orbital elements.
+Gravitational attraction from Sun, Moon, and planets causes long-period variations in orbital elements. Each perturbing body is configured with its own `ThirdBodyConfiguration` entry pairing the body with an ephemeris source and a gravity model.
+
+For the default point-mass model the acceleration is the classical tidal form:
 
 $$
 \mathbf{a}_{TB} = GM_{b} \left(\frac{\mathbf{r}_b - \mathbf{r}}{|\mathbf{r}_b - \mathbf{r}|^3} - \frac{\mathbf{r}_b}{|\mathbf{r}_b|^3}\right)
 $$
 
-where $GM_b$ is the gravitational parameter of the third body, $\mathbf{r}_b$ is its position, and $\mathbf{r}$ is the satellite position.
+where $GM_b$ is the gravitational parameter of the third body, $\mathbf{r}_b$ is its position, and $\mathbf{r}$ is the satellite position. For barycentric central bodies the indirect term ($-GM_b \mathbf{r}_b/|\mathbf{r}_b|^3$) is omitted for bodies whose motion already defines the barycenter (everything for SSB; Earth and the Moon for EMB).
 
-Ephemeris sources:
+Ephemeris sources (set per entry):
 
 - **LowPrecision**: Fast analytical, Sun/Moon only
 - **DE440s**: JPL high precision, all planets, 1550-2650 CE
 - **DE440**: JPL high precision, all planets, 13200 BCE-17191 CE
 
+Planet perturbers come in two flavors: the `*Barycenter` variants (`MarsBarycenter` .. `NeptuneBarycenter`, NAIF IDs 4-8) use the planetary-system barycenter position with the system GM — the classical formulation, resolvable from the DE kernel alone and used by the default Earth force models — while the unqualified variants (`Mars` .. `Neptune`, NAIF IDs 499-899) are planet centers with planet-only GMs, resolved through their satellite-system ephemeris kernels.
+
 
 ```python
 import brahe as bh
 
-# Third-body perturbations configuration
-# Gravitational attraction from other celestial bodies
+# Third-body perturbations configuration: one entry per perturbing body,
+# each carrying its own ephemeris source and gravity model (point-mass by
+# default).
 
 # Option 1: Low-precision analytical ephemerides
 # Fast but less accurate (~km level errors for Sun/Moon)
 # Only Sun and Moon are available
-third_body_low = bh.ThirdBodyConfiguration(
-    ephemeris_source=bh.EphemerisSource.LowPrecision,
-    bodies=[bh.ThirdBody.SUN, bh.ThirdBody.MOON],
-)
+third_bodies_low = [
+    bh.ThirdBodyConfiguration(
+        bh.ThirdBody.SUN, ephemeris_source=bh.EphemerisSource.LowPrecision
+    ),
+    bh.ThirdBodyConfiguration(
+        bh.ThirdBody.MOON, ephemeris_source=bh.EphemerisSource.LowPrecision
+    ),
+]
 
 # Option 2: DE440s high-precision ephemerides (recommended)
 # Uses JPL Development Ephemeris 440 (small bodies version)
 # ~m level accuracy, valid 1550-2650 CE
-# All planets available, ~17 MB file
-third_body_de440s = bh.ThirdBodyConfiguration(
-    ephemeris_source=bh.EphemerisSource.DE440s,
-    bodies=[bh.ThirdBody.SUN, bh.ThirdBody.MOON],
-)
+# All planets available, ~17 MB file. DE440s is the default source, so bare
+# bodies can be passed directly and become point-mass entries.
+third_bodies_de440s = [bh.ThirdBody.SUN, bh.ThirdBody.MOON]
 
 # Option 3: DE440 full-precision ephemerides
 # Highest accuracy (~mm level), valid 13200 BCE-17191 CE
 # All planets available, ~114 MB file
-third_body_de440 = bh.ThirdBodyConfiguration(
-    ephemeris_source=bh.EphemerisSource.DE440,
-    bodies=[bh.ThirdBody.SUN, bh.ThirdBody.MOON],
-)
+third_bodies_de440 = [
+    bh.ThirdBodyConfiguration(
+        bh.ThirdBody.SUN, ephemeris_source=bh.EphemerisSource.DE440
+    ),
+    bh.ThirdBodyConfiguration(
+        bh.ThirdBody.MOON, ephemeris_source=bh.EphemerisSource.DE440
+    ),
+]
 
-# Option 4: Include all major planets (high-fidelity)
-third_body_all_planets = bh.ThirdBodyConfiguration(
-    ephemeris_source=bh.EphemerisSource.DE440s,
-    bodies=[
-        bh.ThirdBody.SUN,
-        bh.ThirdBody.MOON,
-        bh.ThirdBody.MERCURY,
-        bh.ThirdBody.VENUS,
-        bh.ThirdBody.MARS,
-        bh.ThirdBody.JUPITER,
-        bh.ThirdBody.SATURN,
-        bh.ThirdBody.URANUS,
-        bh.ThirdBody.NEPTUNE,
-    ],
+# Option 4: Include all major planets (high-fidelity). The *_BARYCENTER
+# variants use the planetary-system barycenters with system GMs — the
+# classical third-body formulation, resolvable from the DE kernel alone.
+third_bodies_all_planets = [
+    bh.ThirdBody.SUN,
+    bh.ThirdBody.MOON,
+    bh.ThirdBody.MERCURY,
+    bh.ThirdBody.VENUS,
+    bh.ThirdBody.MARS_BARYCENTER,
+    bh.ThirdBody.JUPITER_BARYCENTER,
+    bh.ThirdBody.SATURN_BARYCENTER,
+    bh.ThirdBody.URANUS_BARYCENTER,
+    bh.ThirdBody.NEPTUNE_BARYCENTER,
+]
+
+# Create force model with Sun/Moon perturbations (common case)
+force_config = bh.ForceModelConfig(
+    gravity=bh.GravityConfiguration(degree=20, order=20),
+    third_body=third_bodies_de440s,
 )
+print(f"Third bodies: {force_config.third_body}")
+```
+
+
+### Body Attribution
+
+Force models can be attributed to a body other than the propagation's central body. This supports configurations such as an Earth-Moon-barycenter-centered cislunar trajectory that still needs Earth-fidelity forces when passing through low altitudes.
+
+**Extended third-body gravity.** A third-body entry's `gravity` can be `SphericalHarmonic` or `EarthZonal` instead of the default `PointMass`. The field is evaluated at the object's position relative to the perturbing body, oriented by that body's body-fixed frame (ITRF for Earth, LFPA for the Moon, MCMF for Mars, IAU frames for the other planet centers); the indirect term stays point-mass with the field's own GM, so the far-field limit reduces exactly to the tidal form above. `EarthZonal` requires `ThirdBody.EARTH`; `SphericalHarmonic` requires a body with a known body-fixed frame, which excludes the `*Barycenter` variants and `Custom` bodies.
+
+**Attributed drag.** `DragConfiguration.body` names the body whose atmosphere produces the drag (default: the central body). Density and relative wind are evaluated at the object's state relative to that body, and the acceleration applies directly in the propagation frame. The Earth-atmosphere models (`NRLMSISE00`, `HarrisPriester`) require the attributed body to be Earth; the attributed body must have a known radius and spin rate. Drag about a barycentric central body is therefore valid only with an explicit attributed body.
+
+The following example propagates an EMB-centered state through LEO altitudes with an Earth spherical-harmonic field and Earth-attributed NRLMSISE-00 drag:
+
+
+```python
+trajectory passing through LEO altitudes keeps Earth-fidelity forces
+while the integration state stays Earth-Moon-barycenter-centered.
+"""
+
+import numpy as np
+import brahe as bh
+
+# Initialize EOP and space weather data (required for NRLMSISE-00)
+bh.initialize_eop()
+bh.initialize_sw()
+
+epoch = bh.Epoch.from_datetime(2024, 3, 1, 0, 0, 0.0, 0.0, bh.TimeSystem.UTC)
+
+# EMB-centered force model: no central gravity term (the barycenter has no
+# mass of its own); Earth carries a spherical-harmonic field and the
+# atmosphere; the Moon and Sun are point-mass perturbers.
+force_config = bh.ForceModelConfig.for_body(
+    bh.CentralBody.EMB,
+    bh.GravityConfiguration.zero(),
+    drag=bh.DragConfiguration(
+        model=bh.AtmosphericModel.NRLMSISE00,
+        area=bh.ParameterSource.value(10.0),
+        cd=bh.ParameterSource.value(2.2),
+        # Attribute the drag to Earth: density and relative wind are
+        # evaluated at the object's state relative to Earth.
+        body=bh.CentralBody.Earth,
+    ),
+    third_body=[
+        bh.ThirdBodyConfiguration(
+            bh.ThirdBody.EARTH,
+            gravity=bh.GravityConfiguration.spherical_harmonic(degree=8, order=8),
+        ),
+        bh.ThirdBody.MOON,
+        bh.ThirdBody.SUN,
+    ],
+    mass=bh.ParameterSource.value(1000.0),
+)
+force_config.validate()
+
+# Start from a 500 km Earth orbit, re-expressed about the EMB via the
+# ECI->EMBI frame translation.
+oe = np.array([bh.R_EARTH + 500e3, 0.001, 51.6, 15.0, 30.0, 45.0])
+x_earth = bh.state_koe_to_eci(oe, bh.AngleFormat.DEGREES)
+x_emb = bh.state_eci_to_emb(epoch, x_earth)
+
+prop = bh.NumericalOrbitPropagator.builder(epoch, x_emb, force_config).build()
+
+# Propagate for one day
+epoch_end = epoch + 86400.0
+prop.propagate_to(epoch_end)
+
+x_final = prop.current_state()
+print(f"Initial EMB-centered state: {x_emb}")
+print(f"Final EMB-centered state:   {x_final}")
+
+# Re-express the final state about Earth for reference
+x_final_eci = bh.state_emb_to_eci(epoch_end, x_final)
+altitude = np.linalg.norm(x_final_eci[:3]) - bh.R_EARTH
+print(f"Final altitude above Earth: {altitude / 1e3:.1f} km")
 ```
 
 
@@ -503,10 +593,14 @@ force_config = bh.ForceModelConfig.two_body()
 force_config.gravity = bh.GravityConfiguration.spherical_harmonic(20, 20)
 force_config.drag = drag_config
 force_config.srp = srp_config
-force_config.third_body = bh.ThirdBodyConfiguration(
-    ephemeris_source=bh.EphemerisSource.LowPrecision,
-    bodies=[bh.ThirdBody.SUN, bh.ThirdBody.MOON],
-)
+force_config.third_body = [
+    bh.ThirdBodyConfiguration(
+        bh.ThirdBody.SUN, ephemeris_source=bh.EphemerisSource.LowPrecision
+    ),
+    bh.ThirdBodyConfiguration(
+        bh.ThirdBody.MOON, ephemeris_source=bh.EphemerisSource.LowPrecision
+    ),
+]
 force_config.mass = bh.ParameterSource.value(500.0)  # Fixed 500 kg mass
 ```
 
@@ -566,15 +660,22 @@ When using parameter indices, the default layout is:
 
 Brahe provides preset configurations for common scenarios:
 
-| Preset | Gravity | Drag | SRP | Third-Body | Relativity | Requires Params |
-|------|-------|----|---|----------|----------|---------------|
-| `two_body()` | PointMass | None | None | None | No | No |
-| `earth_gravity()` | 20×20 | None | None | None | No | No |
-| `conservative_forces()` | 80×80 | None | None | Sun/Moon (DE440s) | Yes | No |
-| `default()` | 20×20 | Harris-Priester | Conical | Sun/Moon (LP) | No | Yes |
-| `leo_default()` | 30×30 | NRLMSISE-00 | Conical | Sun/Moon (DE440s) | No | Yes |
-| `geo_default()` | 8×8 | None | Conical | Sun/Moon (DE440s) | No | Yes |
-| `high_fidelity()` | 120×120 | NRLMSISE-00 | Conical | All planets (DE440s) | Yes | Yes |
+| Preset | Gravity | Drag | SRP | Third-Body | Relativity | Solid Tides | Ocean Tides | Requires Params |
+|------|-------|----|---|----------|----------|----------|----------|---------------|
+| `two_body()` | PointMass | None | None | None | No | No | No | No |
+| `earth_gravity()` | 20×20 | None | None | None | No | No | No | No |
+| `conservative_forces()` | 80×80 | None | None | Sun/Moon (DE440s) | Yes | No | No | No |
+| `default()` | 20×20 | Harris-Priester | Conical | Sun/Moon (LP) | No | No | No | Yes |
+| `leo_default()` | 30×30 | NRLMSISE-00 | Conical | Sun/Moon (DE440s) | No | No | No | Yes |
+| `geo_default()` | 8×8 | None | Conical | Sun/Moon (DE440s) | No | No | No | Yes |
+| `high_fidelity()` | 120×120 | NRLMSISE-00 | Conical | All planets (DE440s) | Yes | Yes | Yes (30×30) | Yes |
+
+`high_fidelity()` enables every tidal correction Brahe supports (solid Earth
+tides, both pole tides, and FES2004 ocean tides) — see
+[Tidal Corrections](../../orbital_dynamics/tides.md). Its ocean tide
+component downloads the FES2004 coefficient file once, the first time a
+propagator built from it is constructed; see
+[Ocean Tides: Coefficient Download](../../orbital_dynamics/tides.md#coefficient-download).
 
 
 ```python

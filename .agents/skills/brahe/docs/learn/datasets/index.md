@@ -11,6 +11,7 @@ Working with satellite and planetary data typically requires gathering informati
 
 - **Planetary ephemeris** (DE kernels) for high-precision solar system body positions
 - **Groundstation locations** for computing contact opportunities
+- **SSN sensor sites** for simulating ground-based radar/optical tracking
 - **Spherical harmonic gravity models** for high-fidelity central-body force modeling
 
 Brahe's datasets module centralizes access to these data sources, handling the details of fetching, parsing, and caching so you can focus on analysis rather than data wrangling.
@@ -38,6 +39,18 @@ Brahe's datasets module centralizes access to these data sources, handling the d
 
 **Best for**: Satellite catalog research, constellation analysis, historical studies
 
+### [Star Catalogs](star_catalogs.md)
+
+Fixed-epoch star catalogs for reference-frame realization and star-based attitude determination. The brahe interface supports:
+
+- **FK5**: 1,535 fundamental stars, J2000.0
+- **Hipparcos**: ~118,000 stars, ICRS at epoch J1991.25
+- **Tycho-2**: ~2.54 million stars, ICRS
+- **Never-stale caching**: Cached copies never expire by default, since published catalogs are not expected to change
+- **Proper motion**: Propagate catalog positions to any epoch via `radec_at_epoch`
+
+**Best for**: Star-based attitude determination, reference-frame realization, astrometric cross-matching
+
 ### [ICGEM Gravity Models](icgem.md)
 
 The [International Centre for Global Earth Models (ICGEM)](https://icgem.gfz.de) hosts spherical harmonic gravity models for Earth and other solar system bodies (Moon, Mars, Venus, Ceres, asteroids, …). The brahe interface supports:
@@ -62,6 +75,17 @@ Embedded GeoJSON data for commercial groundstation networks. Includes 6 major pr
 
 **Best for**: Contact opportunity analysis, network planning, coverage studies
 
+### [SSN Sensors](ssn_sensors.md)
+
+Embedded GeoJSON data for 21 U.S. Space Surveillance Network sites, from Vallado,
+*Fundamentals of Astrodynamics and Applications*, 4th Ed. Includes:
+
+- **Site locations and field-of-view limits** (azimuth/elevation windows, maximum range)
+- **Bias and noise calibration** for building `SimpleSSNSensor` simulated sensors
+
+**Best for**: Simulating radar/optical tracking, orbit determination testing against a
+multi-site sensor network
+
 ## Data Philosophy
 
 Brahe's datasets module aims to:
@@ -79,6 +103,8 @@ Brahe's datasets module aims to:
 - [Ephemeris Data Sources](../ephemeris/index.md) - CelesTrak and Space-Track API clients
 - [NAIF Ephemeris Kernels](naif.md) - Planetary ephemeris data
 - [GCAT Satellite Catalogs](gcat.md) - GCAT SATCAT and PSATCAT catalogs
+- [Star Catalogs](star_catalogs.md) - FK5, Hipparcos, and Tycho-2 fixed-epoch star catalogs
 - [ICGEM Gravity Models](icgem.md) - Spherical harmonic gravity model catalog
 - [Groundstation Datasets](groundstations.md) - Ground facility locations
+- [SSN Sensor Datasets](ssn_sensors.md) - Space Surveillance Network sensor sites
 - [Datasets API Reference](../../library_api/datasets/index.md) - Complete function documentation

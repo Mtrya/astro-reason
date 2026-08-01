@@ -21,9 +21,55 @@ State Vector (6+ elements)
 
 All force models read from the first 6 elements and contribute accelerations to indices 3-5. Extended state elements (index 6+) are available for user-defined dynamics such as mass depletion, battery state, attitude dynamics, or other user-defined states.
 
-### Minimal Setup
+### Builder Construction
 
-The simplest setup uses default configurations:
+`NumericalOrbitPropagator.builder()` (`DNumericalOrbitPropagator::builder()` in Rust) is the primary way to construct a propagator. It takes the three required fields -- `epoch`, `state`, and `force_config` -- directly as arguments, and every optional field (propagation configuration, parameters, additional dynamics, control input, initial covariance) is set through a chained setter, defaulting when omitted. The required argument list stays fixed regardless of how many optional fields a given setup needs.
+
+
+```python
+import numpy as np
+import brahe as bh
+
+bh.initialize_eop()
+
+epoch = bh.Epoch.from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, bh.TimeSystem.UTC)
+
+oe = np.array([bh.R_EARTH + 500e3, 0.001, 97.8, 15.0, 30.0, 45.0])
+state = bh.state_koe_to_eci(oe, bh.AngleFormat.DEGREES)
+
+# Minimal: only the three required fields
+prop = bh.NumericalOrbitPropagator.builder(
+    epoch, state, bh.ForceModelConfig.earth_gravity()
+).build()
+
+prop.propagate_to(epoch + 3600.0)
+print(f"Minimal builder — epoch: {prop.current_epoch()}")
+
+# With optional fields: custom propagation config and initial covariance
+p0 = np.eye(6) * 1e6
+
+prop_with_cov = (
+    bh.NumericalOrbitPropagator.builder(
+        epoch, state, bh.ForceModelConfig.earth_gravity()
+    )
+    .propagation_config(bh.NumericalPropagationConfig.high_precision())
+    .initial_covariance(p0)
+    .build()
+)
+
+prop_with_cov.propagate_to(epoch + 3600.0)
+
+assert prop_with_cov.state_dim == 6
+assert prop_with_cov.covariance(prop_with_cov.current_epoch()).shape == (6, 6)
+
+print(f"Builder with covariance — epoch: {prop_with_cov.current_epoch()}")
+print("Example validated successfully!")
+```
+
+
+### Flat Constructor
+
+The flat constructor (`NumericalOrbitPropagator(...)` in Python, `DNumericalOrbitPropagator::new(...)` in Rust) takes every field positionally, including the optional ones. It is an alternative to the builder when all fields are already at hand and naming each one is unnecessary:
 
 
 ```python
@@ -77,70 +123,6 @@ print(
 print("Example validated successfully!")
 ```
 
-
-### Builder API (Rust)
-
-`DNumericalOrbitPropagator::builder()` is a idiomatic Rust alternative to `new()` that lets you name only the fields you care about and omit the rest. This is particularly useful when only a subset of optional fields are needed, keeping construction readable without sacrificing access to the full configuration surface.
-
-```rust
-//! nalgebra = "0.33"
-//! ```
-//! Constructing a NumericalOrbitPropagator using the typestate builder API.
-//!
-//! The builder enforces at compile time that all three required fields — epoch,
-//! state, and force_config — are set before build() is available. Optional
-//! fields such as initial_covariance default to None when omitted.
-
-use brahe as bh;
-use bh::traits::DStatePropagator;
-use nalgebra as na;
-
-fn main() {
-    bh::initialize_eop().unwrap();
-
-    let epoch = bh::Epoch::from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, bh::TimeSystem::UTC);
-
-    let oe = na::SVector::<f64, 6>::new(bh::R_EARTH + 500e3, 0.001, 97.8, 15.0, 30.0, 45.0);
-    let state = na::DVector::from_column_slice(
-        bh::state_koe_to_eci(oe, bh::AngleFormat::Degrees).as_slice(),
-    );
-
-
-    // Minimal: only the three required fields
-    let mut prop = bh::DNumericalOrbitPropagator::builder()
-        .epoch(epoch)
-        .state(state.clone())
-        .force_config(bh::ForceModelConfig::earth_gravity())
-        .build()
-        .unwrap();
-
-    prop.propagate_to(epoch + 3600.0);
-    println!("Minimal builder — epoch: {}", prop.current_epoch());
-
-    // With optional fields: custom propagation config and initial covariance
-    let p0 = na::DMatrix::<f64>::identity(6, 6) * 1e6;
-
-    let mut prop_with_cov = bh::DNumericalOrbitPropagator::builder()
-        .epoch(epoch)
-        .state(state)
-        .force_config(bh::ForceModelConfig::earth_gravity())
-        .propagation_config(bh::NumericalPropagationConfig::high_precision())
-        .initial_covariance(p0)
-        .build()
-        .unwrap();
-
-    prop_with_cov.propagate_to(epoch + 3600.0);
-
-    assert_eq!(DStatePropagator::state_dim(&prop_with_cov), 6);
-    assert!(prop_with_cov.current_covariance().is_some());
-
-    println!("Builder with covariance — epoch: {}", prop_with_cov.current_epoch());
-    println!("Example validated successfully!");
-}
-```
-
-
-Python uses keyword arguments natively, so no separate builder is needed there.
 
 ## Stepping Through Time
 

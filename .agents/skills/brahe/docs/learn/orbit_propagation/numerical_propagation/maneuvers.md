@@ -80,13 +80,9 @@ def second_burn_callback(event_epoch, event_state):
 
 
 # Create propagator (two-body for clean Hohmann)
-prop = bh.NumericalOrbitPropagator(
-    epoch,
-    state,
-    bh.NumericalPropagationConfig.default(),
-    bh.ForceModelConfig.two_body(),
-    None,
-)
+prop = bh.NumericalOrbitPropagator.builder(
+    epoch, state, bh.ForceModelConfig.two_body()
+).build()
 
 # First burn at t=0 (immediate)
 event1 = bh.TimeEvent(epoch + 1.0, "First Burn").with_callback(first_burn_callback)
@@ -807,23 +803,20 @@ def tangential_thrust(t, state_vec, params_vec):
 
 
 # Create propagator with continuous control
-prop = bh.NumericalOrbitPropagator(
-    epoch,
-    state,
-    bh.NumericalPropagationConfig.default(),
-    bh.ForceModelConfig.two_body(),  # Two-body + control
-    None,
-    control_input=tangential_thrust,
+prop = (
+    bh.NumericalOrbitPropagator.builder(
+        epoch,
+        state,
+        bh.ForceModelConfig.two_body(),  # Two-body + control
+    )
+    .control_input(tangential_thrust)
+    .build()
 )
 
 # Also create reference propagator without thrust
-prop_ref = bh.NumericalOrbitPropagator(
-    epoch,
-    state,
-    bh.NumericalPropagationConfig.default(),
-    bh.ForceModelConfig.two_body(),
-    None,
-)
+prop_ref = bh.NumericalOrbitPropagator.builder(
+    epoch, state, bh.ForceModelConfig.two_body()
+).build()
 
 # Propagate for 10 orbits
 orbital_period = bh.orbital_period(oe[0])
@@ -958,23 +951,16 @@ def variable_thrust(t, state_vec, params_vec):
 
 
 # Create propagator with variable thrust control
-prop = bh.NumericalOrbitPropagator(
-    epoch,
-    state,
-    bh.NumericalPropagationConfig.default(),
-    bh.ForceModelConfig.two_body(),
-    None,
-    control_input=variable_thrust,
+prop = (
+    bh.NumericalOrbitPropagator.builder(epoch, state, bh.ForceModelConfig.two_body())
+    .control_input(variable_thrust)
+    .build()
 )
 
 # Create reference propagator without thrust
-prop_ref = bh.NumericalOrbitPropagator(
-    epoch,
-    state,
-    bh.NumericalPropagationConfig.default(),
-    bh.ForceModelConfig.two_body(),
-    None,
-)
+prop_ref = bh.NumericalOrbitPropagator.builder(
+    epoch, state, bh.ForceModelConfig.two_body()
+).build()
 
 # Propagate for duration covering the entire maneuver
 end_time = epoch + 3600.0  # 1 hour (covers 30-min burn starting at 10 min)
