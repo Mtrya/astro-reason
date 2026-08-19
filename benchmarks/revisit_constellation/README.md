@@ -312,4 +312,4 @@ uv run python -m benchmarks.revisit_constellation.generator.run \
   benchmarks/revisit_constellation/splits.yaml
 ```
 
-Downloaded raw source CSVs are stored under the dataset directory by default at `dataset/source_data/`. The committed dataset-construction parameters live in `benchmarks/revisit_constellation/splits.yaml`; runtime source-management controls such as `--download-dir` and `--force-download` remain optional CLI overrides around the documented Kaggle download step.
+The canonical world-cities input is the vendored snapshot `generator/world_cities_snapshot.csv`, normalized from version 8 of the `juanmah/world-cities` Kaggle dataset, so canonical rebuilds require no network access. The generator stages it under the dataset directory by default at `dataset/source_data/`. The committed dataset-construction parameters live in `benchmarks/revisit_constellation/splits.yaml`; `--download-dir` is an optional CLI override for the staging location, and `--force-download` is a deprecated no-op retained for CLI compatibility.

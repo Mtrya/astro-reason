@@ -148,10 +148,10 @@ All canonical datasets are generated or curated by the AstroReason-Bench reposit
 | `aeossp_standard` | CelesTrak TLE snapshot; GeoNames cities; Natural Earth land polygons |
 | `regional_coverage` | CelesTrak TLE snapshot; GeoNames; Natural Earth |
 | `relay_constellation` | Synthetic case generator with deterministic seeds |
-| `revisit_constellation` | Kaggle world-cities dataset; CelesTrak TLE snapshot |
+| `revisit_constellation` | Vendored world-cities snapshot (normalized from Kaggle `juanmah/world-cities` v8); CelesTrak TLE snapshot |
 | `satnet` | Derived from NASA/JPL Deep Space Network operations research (Chien et al., 2021) |
 | `spot5` | Mendeley Data DCKP abstraction (Wei & Hao, 2021) of CNES SPOT-5 ROADEF 2003 instances |
-| `stereo_imaging` | Kaggle world-cities; CelesTrak TLE snapshot |
+| `stereo_imaging` | Vendored world-cities snapshot (normalized from Kaggle `juanmah/world-cities` v8); CelesTrak TLE snapshot |
 
 ## Considerations for Using the Data
 

@@ -6,17 +6,19 @@ import csv
 import shutil
 from pathlib import Path
 
-import kagglehub
-
 from .build import CITY_COLUMN_ALIASES
 
 
 WORLD_CITIES_DATASET = "juanmah/world-cities"
 WORLD_CITIES_FILENAME = "world_cities.csv"
+WORLD_CITIES_SNAPSHOT_NAME = "world_cities_snapshot.csv"
 WORLD_CITIES_REQUIRED_COLUMNS = {
     key: CITY_COLUMN_ALIASES[key]
     for key in ("name", "country", "latitude_deg", "longitude_deg", "population")
 }
+
+_GENERATOR_DIR = Path(__file__).resolve().parent
+VENDORED_WORLD_CITIES_PATH = _GENERATOR_DIR / WORLD_CITIES_SNAPSHOT_NAME
 
 
 def _normalize_header_lookup(fieldnames: list[str]) -> set[str]:
@@ -38,54 +40,29 @@ def _matches_alias_groups(csv_path: Path, alias_groups: dict[str, tuple[str, ...
     )
 
 
-def _copy_matching_csv(
-    *,
-    source_root: Path,
-    alias_groups: dict[str, tuple[str, ...]],
-    destination_path: Path,
-) -> Path:
-    csv_candidates = sorted(path for path in source_root.rglob("*.csv") if path.is_file())
-    for candidate in csv_candidates:
-        if _matches_alias_groups(candidate, alias_groups):
-            destination_path.parent.mkdir(parents=True, exist_ok=True)
-            shutil.copyfile(candidate, destination_path)
-            return destination_path
-    raise FileNotFoundError(
-        f"No CSV in {source_root} matched the required schema for {destination_path.name}"
-    )
-
-
-def _download_dataset(dataset: str, destination_dir: Path, *, force_download: bool) -> Path:
-    destination_dir.mkdir(parents=True, exist_ok=True)
-    resolved_path = kagglehub.dataset_download(
-        dataset,
-        force_download=force_download,
-        output_dir=str(destination_dir),
-    )
-    return Path(resolved_path)
-
-
 def download_sources(
     destination_dir: Path,
     *,
     force_download: bool = False,
 ) -> Path:
+    """Stage the vendored world-cities snapshot into the source-data directory.
+
+    The canonical dataset is always generated from the vendored snapshot so
+    that rebuilds do not depend on live upstream downloads.
+    """
+    del force_download  # Vendored snapshot is always used for reproducibility.
+
+    if not VENDORED_WORLD_CITIES_PATH.is_file():
+        raise FileNotFoundError(
+            f"Vendored world-cities snapshot is missing: {VENDORED_WORLD_CITIES_PATH}"
+        )
+    if not _matches_alias_groups(VENDORED_WORLD_CITIES_PATH, WORLD_CITIES_REQUIRED_COLUMNS):
+        raise ValueError(
+            f"Vendored world-cities snapshot {VENDORED_WORLD_CITIES_PATH} "
+            "does not match the required schema"
+        )
+
     destination_dir.mkdir(parents=True, exist_ok=True)
     final_world_csv = destination_dir / WORLD_CITIES_FILENAME
-    if not force_download and _matches_alias_groups(
-        final_world_csv,
-        WORLD_CITIES_REQUIRED_COLUMNS,
-    ):
-        return final_world_csv
-
-    world_root = _download_dataset(
-        WORLD_CITIES_DATASET,
-        destination_dir / "world_cities_raw",
-        force_download=force_download,
-    )
-    final_world_csv = _copy_matching_csv(
-        source_root=world_root,
-        alias_groups=WORLD_CITIES_REQUIRED_COLUMNS,
-        destination_path=destination_dir / WORLD_CITIES_FILENAME,
-    )
+    shutil.copyfile(VENDORED_WORLD_CITIES_PATH, final_world_csv)
     return final_world_csv

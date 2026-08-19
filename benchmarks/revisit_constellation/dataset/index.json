@@ -127,8 +127,10 @@
   "source": {
     "world_cities": {
       "dataset": "juanmah/world-cities",
-      "kind": "kaggle_dataset",
-      "page_url": "https://www.kaggle.com/datasets/juanmah/world-cities"
+      "kind": "vendored_snapshot",
+      "page_url": "https://www.kaggle.com/datasets/juanmah/world-cities",
+      "snapshot": "generator/world_cities_snapshot.csv",
+      "version": 8
     }
   },
   "splits": {

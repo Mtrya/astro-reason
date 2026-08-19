@@ -604,13 +604,16 @@
       },
       "world_cities": {
         "kaggle_dataset": "juanmah/world-cities",
-        "sha256": "67a4fed1d7ddd92ad3d7b5befef6e2d1b65f7a54f0764e5cec98e8720c587200"
+        "sha256": "db67ff4b5df49911dbc3105b3634c4049403baa7a4dd88c9266cd19e59259dbb",
+        "vendored_snapshot": true
       }
     },
     "world_cities": {
       "dataset": "juanmah/world-cities",
-      "kind": "kaggle_dataset",
-      "page_url": "https://www.kaggle.com/datasets/juanmah/world-cities"
+      "kind": "vendored_snapshot",
+      "page_url": "https://www.kaggle.com/datasets/juanmah/world-cities",
+      "snapshot": "generator/world_cities_snapshot.csv",
+      "version": 8
     }
   },
   "spec_version": "v4"
