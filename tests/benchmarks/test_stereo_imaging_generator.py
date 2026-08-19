@@ -25,8 +25,10 @@ from benchmarks.stereo_imaging.generator.sources import (
     CELESTRAK_RAW_NAME,
     CELESTRAK_SNAPSHOT_EPOCH_UTC,
     SourceFetchResult,
+    VENDORED_WORLD_CITIES_PATH,
     WORLD_CITIES_DATASET,
     WORLD_CITIES_FILENAME,
+    download_world_cities,
 )
 from benchmarks.stereo_imaging.verifier.models import (
     DerivedObservation,
@@ -102,9 +104,11 @@ def _write_splits_yaml(path: Path, *, snapshot_epoch_utc: str = CELESTRAK_SNAPSH
                 "snapshot_epoch_utc": snapshot_epoch_utc,
             },
             "world_cities": {
-                "kind": "kaggle_dataset",
+                "kind": "vendored_snapshot",
                 "dataset": WORLD_CITIES_DATASET,
+                "version": 8,
                 "page_url": "https://www.kaggle.com/datasets/juanmah/world-cities",
+                "snapshot": "generator/world_cities_snapshot.csv",
             },
             "lookup_tables": {
                 "kind": "vendored_lookup_tables",
@@ -241,6 +245,15 @@ def _write_source_tree(source_dir: Path) -> None:
         + "\n",
         encoding="utf-8",
     )
+
+
+def test_download_world_cities_stages_vendored_snapshot(tmp_path: Path) -> None:
+    result = download_world_cities(tmp_path, force_download=True)
+
+    staged = tmp_path / "world_cities" / WORLD_CITIES_FILENAME
+    assert result.paths == [staged]
+    assert result.extra["vendored_snapshot"] is True
+    assert staged.read_bytes() == VENDORED_WORLD_CITIES_PATH.read_bytes()
 
 
 def _mission_model(

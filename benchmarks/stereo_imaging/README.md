@@ -321,22 +321,17 @@ uv run python -m benchmarks.stereo_imaging.generator.run \
     benchmarks/stereo_imaging/splits.yaml \
     --output-dir /tmp/stereo_imaging_dataset
 
-# Fetch and cache runtime sources only (operational mode; skips dataset emission):
+# Stage runtime sources only (operational mode; skips dataset emission):
 uv run python -m benchmarks.stereo_imaging.generator.run \
     benchmarks/stereo_imaging/splits.yaml \
     --sources-only
-
-# Force re-download of world-cities from Kaggle even when cached:
-uv run python -m benchmarks.stereo_imaging.generator.run \
-    benchmarks/stereo_imaging/splits.yaml \
-    --force-download
 ```
 
-The canonical generator writes cases under `dataset/cases/test/` and `dataset/cases/train/`, then updates `dataset/index.json`. Runtime sources are staged under `dataset/source_data/`.
+The canonical generator writes cases under `dataset/cases/test/` and `dataset/cases/train/`, then updates `dataset/index.json`. Runtime sources are staged under `dataset/source_data/`; both the CelesTrak TLE rows and the world-cities input are vendored snapshots (`generator/satellite_catalog.py` and `generator/world_cities_snapshot.csv`, the latter normalized from version 8 of the `juanmah/world-cities` Kaggle dataset), so canonical rebuilds require no network access.
 
 `splits.yaml` carries the benchmark-owned construction parameters plus an exact supported CelesTrak snapshot epoch label for the vendored real-TLE subset. It defines a 5-case `test` split plus a 10-case `train` split that inherits the test generation controls with a distinct seed. The satellite TLE rows and sensor/agility profiles live in `generator/satellite_catalog.py`, so the split file stays focused on case counts, mission policy, and sampling parameters. The canonical mission horizon is anchored to that cached snapshot, and the generator rejects any other epoch because this benchmark does not ship alternate cached TLE snapshots.
 
-`--sources-only`, `--download-dir`, and `--force-download` are retained operational modes around source staging; they are not alternate canonical dataset-construction contracts.
+`--sources-only` and `--download-dir` are retained operational modes around source staging, and `--force-download` is a deprecated no-op retained for CLI compatibility; they are not alternate canonical dataset-construction contracts.
 
 ### Visualizer
 

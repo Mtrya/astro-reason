@@ -321,22 +321,17 @@ uv run python -m benchmarks.stereo_imaging.generator.run \
     benchmarks/stereo_imaging/splits.yaml \
     --output-dir /tmp/stereo_imaging_dataset
 
-# 仅获取和缓存运行时源（操作模式；跳过数据集输出）：
+# 仅暂存运行时源（操作模式；跳过数据集输出）：
 uv run python -m benchmarks.stereo_imaging.generator.run \
     benchmarks/stereo_imaging/splits.yaml \
     --sources-only
-
-# 即使已缓存也强制从 Kaggle 重新下载世界城市数据：
-uv run python -m benchmarks.stereo_imaging.generator.run \
-    benchmarks/stereo_imaging/splits.yaml \
-    --force-download
 ```
 
-规范生成器将测试实例写入 `dataset/cases/test/` 下，更新 `dataset/index.json`，并写入 `dataset/example_solution.json`（与 `splits.yaml` 中的 `example_smoke_case: test/case_0001` 对齐）。运行时源暂存到 `dataset/source_data/` 下。
+规范生成器将测试实例写入 `dataset/cases/test/` 下，更新 `dataset/index.json`，并写入 `dataset/example_solution.json`（与 `splits.yaml` 中的 `example_smoke_case: test/case_0001` 对齐）。运行时源暂存到 `dataset/source_data/` 下；CelesTrak TLE 行和 world-cities 输入均为 vendored 快照（`generator/satellite_catalog.py` 和 `generator/world_cities_snapshot.csv`，后者由 `juanmah/world-cities` Kaggle 数据集第 8 版规范化而来），因此规范重建无需网络访问。
 
 `splits.yaml` 携带 benchmark 自有的构建参数以及 vendored 真实 TLE 子集的确切支持 CelesTrak 快照 epoch 标签。卫星 TLE 行和传感器/敏捷参数位于 `generator/satellite_catalog.py`，因此 split 文件只保留实例数量、任务策略和采样参数。规范任务时域锚定到该缓存快照，生成器会拒绝任何其他 epoch，因为本 benchmark 不提供替代的缓存 TLE 快照。
 
-`--sources-only`、`--download-dir` 和 `--force-download` 是源暂存周围保留的操作模式；它们不是替代的规范数据集构建契约。
+`--sources-only` 和 `--download-dir` 是源暂存周围保留的操作模式，`--force-download` 是为保持 CLI 兼容而保留的弃用无操作选项；它们不是替代的规范数据集构建契约。
 
 ### 可视化器
 

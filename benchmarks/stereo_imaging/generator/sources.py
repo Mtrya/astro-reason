@@ -1,4 +1,4 @@
-"""Reproducible download and staging for stereo_imaging source data."""
+"""Reproducible staging for stereo_imaging source data."""
 
 from __future__ import annotations
 
@@ -10,10 +10,8 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
-import kagglehub
-
 from . import satellite_catalog
-from .normalize import WORLD_CITIES_REQUIRED_COLUMNS, parse_tle_text
+from .normalize import parse_tle_text
 
 CELESTRAK_EARTH_RESOURCES_URL = (
     "https://celestrak.org/NORAD/elements/gp.php?GROUP=resource&FORMAT=tle"
@@ -24,38 +22,10 @@ CELESTRAK_CSV_NAME = "earth_resources.csv"
 
 WORLD_CITIES_DATASET = "juanmah/world-cities"
 WORLD_CITIES_FILENAME = "world_cities.csv"
+WORLD_CITIES_SNAPSHOT_NAME = "world_cities_snapshot.csv"
 
-
-def _normalize_header_lookup(fieldnames: list[str]) -> set[str]:
-    return {field.strip().lower() for field in fieldnames}
-
-
-def _matches_alias_groups(csv_path: Path, alias_groups: dict[str, tuple[str, ...]]) -> bool:
-    try:
-        with csv_path.open("r", encoding="utf-8", newline="") as handle:
-            reader = csv.reader(handle)
-            fieldnames = next(reader)
-    except (OSError, StopIteration, UnicodeDecodeError, csv.Error):
-        return False
-    normalized = _normalize_header_lookup(fieldnames)
-    return all(any(alias.lower() in normalized for alias in aliases) for aliases in alias_groups.values())
-
-
-def _copy_matching_csv(
-    *,
-    source_root: Path,
-    alias_groups: dict[str, tuple[str, ...]],
-    destination_path: Path,
-) -> Path:
-    csv_candidates = sorted(path for path in source_root.rglob("*.csv") if path.is_file())
-    for candidate in csv_candidates:
-        if _matches_alias_groups(candidate, alias_groups):
-            destination_path.parent.mkdir(parents=True, exist_ok=True)
-            shutil.copyfile(candidate, destination_path)
-            return destination_path
-    raise FileNotFoundError(
-        f"No CSV in {source_root} matched the required schema for {destination_path.name}"
-    )
+_GENERATOR_DIR = Path(__file__).resolve().parent
+VENDORED_WORLD_CITIES_PATH = _GENERATOR_DIR / WORLD_CITIES_SNAPSHOT_NAME
 
 
 def _sha256_file(path: Path, *, chunk_size: int = 1 << 20) -> str:
@@ -126,39 +96,25 @@ def download_celestrak(dest_dir: Path, *, force_download: bool) -> SourceFetchRe
 
 
 def download_world_cities(dest_dir: Path, *, force_download: bool) -> SourceFetchResult:
-    """Download and normalize the juanmah/world-cities Kaggle dataset."""
+    """Stage the vendored world-cities snapshot into the source-data directory."""
+    del force_download  # Vendored snapshot is always used for reproducibility.
+
+    if not VENDORED_WORLD_CITIES_PATH.is_file():
+        raise FileNotFoundError(
+            f"Vendored world-cities snapshot is missing: {VENDORED_WORLD_CITIES_PATH}"
+        )
+
     cities_dir = dest_dir / "world_cities"
     final_csv = cities_dir / WORLD_CITIES_FILENAME
-
-    if not force_download and final_csv.is_file():
-        return SourceFetchResult(
-            "world_cities",
-            [final_csv],
-            {
-                "kaggle_dataset": WORLD_CITIES_DATASET,
-                "sha256": _sha256_file(final_csv),
-            },
-        )
-
     cities_dir.mkdir(parents=True, exist_ok=True)
-    raw_root = Path(
-        kagglehub.dataset_download(
-            WORLD_CITIES_DATASET,
-            force_download=force_download,
-            output_dir=str(cities_dir / "world_cities_raw"),
-        )
-    )
-    copied = _copy_matching_csv(
-        source_root=raw_root,
-        alias_groups=WORLD_CITIES_REQUIRED_COLUMNS,
-        destination_path=final_csv,
-    )
+    shutil.copyfile(VENDORED_WORLD_CITIES_PATH, final_csv)
     return SourceFetchResult(
         "world_cities",
-        [copied],
+        [final_csv],
         {
             "kaggle_dataset": WORLD_CITIES_DATASET,
-            "sha256": _sha256_file(copied),
+            "sha256": _sha256_file(final_csv),
+            "vendored_snapshot": True,
         },
     )
 
@@ -168,7 +124,7 @@ def fetch_all_sources(
     *,
     force_download: bool = False,
 ) -> dict[str, SourceFetchResult]:
-    """Download the runtime source inputs needed by the lookup-table-based generator."""
+    """Stage the runtime source inputs needed by the lookup-table-based generator."""
     return {
         "celestrak": download_celestrak(dest_dir, force_download=force_download),
         "world_cities": download_world_cities(dest_dir, force_download=force_download),

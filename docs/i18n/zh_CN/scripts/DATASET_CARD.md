@@ -146,10 +146,10 @@ for config in configs:
 | `aeossp_standard` | CelesTrak TLE 快照；GeoNames 城市；Natural Earth 陆地多边形 |
 | `regional_coverage` | CelesTrak TLE 快照；GeoNames；Natural Earth |
 | `relay_constellation` | 带有确定性种子的合成测试实例生成器 |
-| `revisit_constellation` | Kaggle world-cities 数据集；CelesTrak TLE 快照 |
+| `revisit_constellation` | Vendored world-cities 快照（由 Kaggle `juanmah/world-cities` 第 8 版规范化而来）；CelesTrak TLE 快照 |
 | `satnet` | 源于 NASA/JPL 深空网络运筹学研究（Chien 等，2021） |
 | `spot5` | Mendeley Data DCKP 抽象（Wei & Hao，2021），来自 CNES SPOT-5 ROADEF 2003 实例 |
-| `stereo_imaging` | Kaggle world-cities；CelesTrak TLE 快照 |
+| `stereo_imaging` | Vendored world-cities 快照（由 Kaggle `juanmah/world-cities` 第 8 版规范化而来）；CelesTrak TLE 快照 |
 
 ## 使用数据的注意事项
 

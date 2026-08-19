@@ -284,4 +284,4 @@ uv run python -m benchmarks.revisit_constellation.generator.run \
   benchmarks/revisit_constellation/splits.yaml
 ```
 
-下载的原始源 CSV 默认存储在数据集目录下的 `dataset/source_data/` 中。提交的数据集构建参数位于 `benchmarks/revisit_constellation/splits.yaml` 中；运行时源管理控制项（如 `--download-dir` 和 `--force-download`）仍是文档化 Kaggle 下载步骤周围的可选 CLI 覆盖项。
+规范的 world-cities 输入是 vendored 快照 `generator/world_cities_snapshot.csv`（由 `juanmah/world-cities` Kaggle 数据集第 8 版规范化而来），因此规范重建无需网络访问。生成器默认将其暂存到数据集目录下的 `dataset/source_data/`。提交的数据集构建参数位于 `benchmarks/revisit_constellation/splits.yaml` 中；`--download-dir` 是暂存位置的可选 CLI 覆盖项，`--force-download` 是为保持 CLI 兼容而保留的弃用无操作选项。

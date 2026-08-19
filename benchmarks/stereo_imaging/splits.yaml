@@ -12,9 +12,11 @@ source:
     url: https://celestrak.org/NORAD/elements/gp.php?GROUP=resource&FORMAT=tle
     snapshot_epoch_utc: "2026-04-24T00:00:00Z"  # Generator rejects any other epoch.
   world_cities:
-    kind: kaggle_dataset
+    kind: vendored_snapshot
     dataset: juanmah/world-cities
+    version: 8
     page_url: https://www.kaggle.com/datasets/juanmah/world-cities
+    snapshot: generator/world_cities_snapshot.csv
   lookup_tables:
     kind: vendored_lookup_tables
     module: benchmarks/stereo_imaging/generator/lookup_tables.py

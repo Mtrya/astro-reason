@@ -25,7 +25,7 @@ def main(argv: list[str] | None = None) -> int:
         "--download-dir",
         type=Path,
         help=(
-            "Where downloaded source CSVs and raw dataset contents should be stored; "
+            "Where staged source CSVs should be stored; "
             "defaults to <output-dir>/source_data"
         ),
     )
@@ -38,7 +38,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument(
         "--force-download",
         action="store_true",
-        help="Force kagglehub to re-download the source datasets",
+        help="Deprecated no-op; world-cities source data is a vendored snapshot",
     )
     args = parser.parse_args(argv)
 

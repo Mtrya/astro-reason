@@ -36,9 +36,11 @@ def _write_splits_yaml(path: Path) -> None:
         "example_smoke_case": "test/case_0001",
         "source": {
             "world_cities": {
-                "kind": "kaggle_dataset",
+                "kind": "vendored_snapshot",
                 "dataset": "juanmah/world-cities",
+                "version": 8,
                 "page_url": "https://www.kaggle.com/datasets/juanmah/world-cities",
+                "snapshot": "generator/world_cities_snapshot.csv",
             }
         },
         "splits": {
@@ -170,6 +172,13 @@ def test_source_schema_match_requires_data_rows(tmp_path: Path) -> None:
         valid_source,
         sources.WORLD_CITIES_REQUIRED_COLUMNS,
     )
+
+
+def test_download_sources_stages_vendored_world_cities_snapshot(tmp_path: Path) -> None:
+    staged = sources.download_sources(tmp_path, force_download=True)
+
+    assert staged == tmp_path / sources.WORLD_CITIES_FILENAME
+    assert staged.read_bytes() == sources.VENDORED_WORLD_CITIES_PATH.read_bytes()
 
 
 def test_select_targets_uses_seed_beyond_initial_choice() -> None:

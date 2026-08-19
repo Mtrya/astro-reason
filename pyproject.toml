@@ -8,7 +8,6 @@ dependencies = [
     "brahe>=1.4.2",
     "datasets>=4.8.5",
     "huggingface-hub>=1.13.0",
-    "kagglehub[pandas-datasets]>=1.0.1",
     "matplotlib>=3.10.9",
     "numpy>=2.4.4",
     "pyyaml>=6.0.3",
