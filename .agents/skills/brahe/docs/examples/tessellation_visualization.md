@@ -20,6 +20,7 @@ Import libraries and initialize Earth orientation parameters:
 #!/usr/bin/env python
 # /// script
 # dependencies = ["brahe", "matplotlib", "numpy", "cartopy"]
+# FLAGS = ["NETWORK"]
 # TIMEOUT = 600
 # ///
 """
@@ -329,6 +330,7 @@ Download the NISAR TLE from CelesTrak:
 #!/usr/bin/env python
 # /// script
 # dependencies = ["brahe", "matplotlib", "numpy", "cartopy"]
+# FLAGS = ["NETWORK"]
 # TIMEOUT = 600
 # ///
 """
@@ -640,6 +642,7 @@ Define an approximate polygon boundary for Ireland:
 #!/usr/bin/env python
 # /// script
 # dependencies = ["brahe", "matplotlib", "numpy", "cartopy"]
+# FLAGS = ["NETWORK"]
 # TIMEOUT = 600
 # ///
 """
@@ -954,6 +957,7 @@ descending passes:
 #!/usr/bin/env python
 # /// script
 # dependencies = ["brahe", "matplotlib", "numpy", "cartopy"]
+# FLAGS = ["NETWORK"]
 # TIMEOUT = 600
 # ///
 """
@@ -1257,6 +1261,17 @@ for theme in ("light", "dark"):
 print("\nDone. All figures saved to", OUTDIR)
 ```
 
+
+**Ascending and descending passes need separate tiles**
+[`AscDsc.EITHER`](../library_api/access/enums.md#brahe.AscDsc) doubles the
+tile set because a SAR tile is pass-direction-specific. The look side and
+ground-track heading differ between ascending and descending passes, so the
+same patch of ground is covered by one tile shaped for the ascending
+geometry and a separate tile for the descending geometry. Restricting to
+`AscDsc.ASCENDING` or `AscDsc.DESCENDING` collects a single geometry and
+halves the tiles. See the
+[tessellation guide](../learn/access_computation/tessellation.md) and
+[`OrbitGeometryTessellatorConfig`](../library_api/access/tessellation.md#brahe.OrbitGeometryTessellatorConfig).
 
 ## Compute Collection Opportunities
 
@@ -1267,6 +1282,7 @@ Use an off-nadir constraint (10°–45°) to find all collection windows over a
 #!/usr/bin/env python
 # /// script
 # dependencies = ["brahe", "matplotlib", "numpy", "cartopy"]
+# FLAGS = ["NETWORK"]
 # TIMEOUT = 600
 # ///
 """
@@ -1574,6 +1590,7 @@ print("\nDone. All figures saved to", OUTDIR)
 #!/usr/bin/env python
 # /// script
 # dependencies = ["brahe", "matplotlib", "numpy", "cartopy"]
+# FLAGS = ["NETWORK"]
 # TIMEOUT = 600
 # ///
 """
@@ -1879,10 +1896,13 @@ print("\nDone. All figures saved to", OUTDIR)
 
 ## Full Code Example
 
+**Full Code**
+
 ```
 #!/usr/bin/env python
 # /// script
 # dependencies = ["brahe", "matplotlib", "numpy", "cartopy"]
+# FLAGS = ["NETWORK"]
 # TIMEOUT = 600
 # ///
 """

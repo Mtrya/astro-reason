@@ -5,7 +5,40 @@ to minimize the weighted sum of squared residuals. Unlike the EKF and UKF which 
 sequentially, BLS re-linearizes the full problem at each iteration, making it the standard
 approach for offline orbit determination when the complete observation set is available.
 
+## Setting Up
+
+`BatchLeastSquares.builder()` is the primary way to construct a BLS estimator: it takes the
+five required inputs -- `epoch`, `state`, `apriori_covariance`, `force_config`, and `config`
+-- directly as arguments, and measurement models and remaining optional inputs are set
+through chained setters.
+
+```python
+import numpy as np
+import brahe as bh
+
+bh.initialize_eop()
+
+epoch = bh.Epoch(2024, 1, 1, 0, 0, 0.0)
+state = np.array([bh.R_EARTH + 500e3, 0.0, 0.0, 0.0, 7612.0, 0.0])
+p0 = np.diag([1e6, 1e6, 1e6, 1e2, 1e2, 1e2])
+
+bls = (
+    bh.BatchLeastSquares.builder(
+        epoch, state, p0, bh.ForceModelConfig.two_body(), bh.BLSConfig()
+    )
+    .measurement_model(bh.InertialPositionMeasurementModel(10.0))
+    .build()
+)
+
+print(f"BLS state dimension: {bls.current_state().shape[0]}")
+print(f"Converged: {bls.converged()}")
+```
+
+
 ## Golden-Path Example
+
+The full example below builds a truth trajectory, generates observations, and solves for
+the initial state:
 
 ```python
 import numpy as np

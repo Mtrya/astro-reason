@@ -84,7 +84,7 @@ Visualize orbital trajectories in 3D space with an optional Earth sphere.
 ```
 fig = bh.plot_trajectory_3d(
     [{"trajectory": traj, "label": "LEO Orbit"}],
-    show_earth=True
+    show_body=True
 )
 ```
 
@@ -175,7 +175,7 @@ traj = prop.trajectory
 # Create an interactive 3D plot
 fig = bh.plot_trajectory_3d(
     [{"trajectory": traj, "color": "red", "label": "LEO"}],
-    show_earth=True,
+    show_body=True,
     backend="plotly",
 )
 
@@ -210,7 +210,7 @@ traj = prop.trajectory
 # Create a 3D plot in light mode
 fig = bh.plot_trajectory_3d(
     [{"trajectory": traj, "color": "red", "label": "LEO"}],
-    show_earth=True,
+    show_body=True,
     backend="matplotlib",
 )
 
@@ -229,7 +229,7 @@ plt.close(fig)
 with plt.style.context("dark_background"):
     fig = bh.plot_trajectory_3d(
         [{"trajectory": traj, "color": "red", "label": "LEO"}],
-        show_earth=True,
+        show_body=True,
         backend="matplotlib",
     )
 

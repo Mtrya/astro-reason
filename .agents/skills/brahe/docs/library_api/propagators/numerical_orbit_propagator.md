@@ -9,6 +9,10 @@ For conceptual explanations and usage examples, see [Numerical Propagation](../.
 
 ---
 
+::: brahe.NumericalOrbitPropagatorBuilder
+
+---
+
 ## See Also
 
 - [NumericalPropagator](numerical_propagator.md) - Generic numerical propagator for arbitrary dynamics

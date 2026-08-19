@@ -12,6 +12,7 @@ First, we'll import the necessary libraries, initialize Earth orientation parame
 #!/usr/bin/env python
 # /// script
 # dependencies = ["brahe", "plotly", "numpy"]
+# FLAGS = ["NETWORK"]
 # TIMEOUT = 600
 # ///
 
@@ -97,8 +98,8 @@ fig_3d = bh.plot_trajectory_3d(
         for sat in iceye_sats
     ],
     units="km",
-    show_earth=True,
-    earth_texture="natural_earth_50m",
+    show_body=True,
+    texture="natural_earth_50m",
     backend="plotly",
     view_azimuth=45.0,
     view_elevation=30.0,
@@ -248,6 +249,7 @@ We download all active satellites from CelesTrak and filter for ICEYE spacecraft
 #!/usr/bin/env python
 # /// script
 # dependencies = ["brahe", "plotly", "numpy"]
+# FLAGS = ["NETWORK"]
 # TIMEOUT = 600
 # ///
 
@@ -333,8 +335,8 @@ fig_3d = bh.plot_trajectory_3d(
         for sat in iceye_sats
     ],
     units="km",
-    show_earth=True,
-    earth_texture="natural_earth_50m",
+    show_body=True,
+    texture="natural_earth_50m",
     backend="plotly",
     view_azimuth=45.0,
     view_elevation=30.0,
@@ -486,6 +488,7 @@ Before getting further into the analysis, it's useful to visualize the 3D geomet
 #!/usr/bin/env python
 # /// script
 # dependencies = ["brahe", "plotly", "numpy"]
+# FLAGS = ["NETWORK"]
 # TIMEOUT = 600
 # ///
 
@@ -571,8 +574,8 @@ fig_3d = bh.plot_trajectory_3d(
         for sat in iceye_sats
     ],
     units="km",
-    show_earth=True,
-    earth_texture="natural_earth_50m",
+    show_body=True,
+    texture="natural_earth_50m",
     backend="plotly",
     view_azimuth=45.0,
     view_elevation=30.0,
@@ -727,6 +730,7 @@ We define San Francisco as our imaging target:
 #!/usr/bin/env python
 # /// script
 # dependencies = ["brahe", "plotly", "numpy"]
+# FLAGS = ["NETWORK"]
 # TIMEOUT = 600
 # ///
 
@@ -812,8 +816,8 @@ fig_3d = bh.plot_trajectory_3d(
         for sat in iceye_sats
     ],
     units="km",
-    show_earth=True,
-    earth_texture="natural_earth_50m",
+    show_body=True,
+    texture="natural_earth_50m",
     backend="plotly",
     view_azimuth=45.0,
     view_elevation=30.0,
@@ -965,6 +969,7 @@ In this case, we want to collect a descending-pass, right-looking image collecte
 #!/usr/bin/env python
 # /// script
 # dependencies = ["brahe", "plotly", "numpy"]
+# FLAGS = ["NETWORK"]
 # TIMEOUT = 600
 # ///
 
@@ -1050,8 +1055,8 @@ fig_3d = bh.plot_trajectory_3d(
         for sat in iceye_sats
     ],
     units="km",
-    show_earth=True,
-    earth_texture="natural_earth_50m",
+    show_body=True,
+    texture="natural_earth_50m",
     backend="plotly",
     view_azimuth=45.0,
     view_elevation=30.0,
@@ -1201,6 +1206,23 @@ This creates a composite constraint that requires **all three conditions** to be
 - `LookDirectionConstraint`: Requires right-looking geometry
 - `OffNadirConstraint`: Limits imaging angle to 35-45° off-nadir
 
+**ConstraintAll composes constraints with AND semantics**
+[`ConstraintAll`](../learn/access_computation/constraints.md)
+([API](../library_api/access/constraints.md#brahe.ConstraintAll)) wraps a
+list of constraints and is satisfied only at instants where every child
+holds simultaneously;
+[`ConstraintAny`](../library_api/access/constraints.md#brahe.ConstraintAny)
+is the OR counterpart and
+[`ConstraintNot`](../library_api/access/constraints.md#brahe.ConstraintNot)
+inverts a condition, and composites nest, so complex imaging rules build
+from the same few primitives. Because the composite is evaluated
+instant-by-instant during the window search, adding a child does not just
+filter the windows a looser constraint would find - it reshapes them.
+A window is trimmed to the sub-interval where all conditions hold at
+once, and may split into several windows or vanish entirely, which is why
+relaxing any one member changes which opportunities are reported rather
+than merely how many.
+
 ## Compute Collection Opportunities
 
 Now we'll compute all imaging opportunities between the constellation and San Francisco over a 7-day period:
@@ -1209,6 +1231,7 @@ Now we'll compute all imaging opportunities between the constellation and San Fr
 #!/usr/bin/env python
 # /// script
 # dependencies = ["brahe", "plotly", "numpy"]
+# FLAGS = ["NETWORK"]
 # TIMEOUT = 600
 # ///
 
@@ -1294,8 +1317,8 @@ fig_3d = bh.plot_trajectory_3d(
         for sat in iceye_sats
     ],
     units="km",
-    show_earth=True,
-    earth_texture="natural_earth_50m",
+    show_body=True,
+    texture="natural_earth_50m",
     backend="plotly",
     view_azimuth=45.0,
     view_elevation=30.0,
@@ -1445,10 +1468,13 @@ Below is a table of the first 10 imaging opportunities. Click on any column head
 
 ## Full Code Example
 
+**Full Code**
+
 ```
 #!/usr/bin/env python
 # /// script
 # dependencies = ["brahe", "plotly", "numpy"]
+# FLAGS = ["NETWORK"]
 # TIMEOUT = 600
 # ///
 
@@ -1534,8 +1560,8 @@ fig_3d = bh.plot_trajectory_3d(
         for sat in iceye_sats
     ],
     units="km",
-    show_earth=True,
-    earth_texture="natural_earth_50m",
+    show_body=True,
+    texture="natural_earth_50m",
     backend="plotly",
     view_azimuth=45.0,
     view_elevation=30.0,

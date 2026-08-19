@@ -10,7 +10,7 @@ If you find something missing or unclear in this documentation, particularly fee
 - Adding examples or tutorials
 - Enhancing the codebase with new features or bug fixes
 
-Check out our [contributing guide](https://duncaneddy.github.io/brahe/contributing/) to get started.
+Check out our [contributing guide](../contributing.md) to get started.
 
 ## Module Structure
 

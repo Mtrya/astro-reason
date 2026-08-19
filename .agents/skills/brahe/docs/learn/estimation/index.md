@@ -6,6 +6,12 @@ provides an Extended Kalman Filter (EKF) with built-in and custom measurement mo
 primary workflow is: create a filter with an initial state estimate, feed it observations,
 and read the refined state.
 
+**Experimental**
+The estimation module is currently experimental. The API and internal implementation may 
+change in future releases. During this period please report any issues or feedback on the 
+[GitHub issue tracker](https://github.com/duncaneddy/brahe/issues). Feedback helps
+us improve the module and stabilize it more quickly.
+
 ## The Core Workflow
 
 Set up an EKF with a propagator, measurement model, and initial covariance, then process
@@ -95,13 +101,21 @@ The estimation module has three main components:
 
 **Measurement models** define the observation function $h(\mathbf{x}, t)$ that maps a
 state vector to a predicted measurement. Built-in models handle GPS-like position and
-velocity observations in both inertial and ECEF frames. Custom models can be defined in
-Python by subclassing `MeasurementModel`.
+velocity observations in both inertial and ECEF frames, as well as ground-sensor
+azimuth/elevation/range observations via `AzElRangeMeasurementModel`. `SimpleSSNSensor`
+pairs a sensor site from the [SSN Sensor Datasets](../datasets/ssn_sensors.md) with
+measurement simulation and returns a matching `AzElRangeMeasurementModel`, so filter and
+simulation stay consistent. Custom models can be defined in Python by subclassing
+`MeasurementModel`.
 
 **The Extended Kalman Filter** orchestrates the estimation loop. It owns a numerical
 propagator for state and covariance prediction and a list of measurement models for
 incorporating observations. Different measurement types can arrive at different times --
-each `Observation` carries a `model_index` indicating which model to use.
+each `Observation` carries a `model_index` indicating which model to use. Between
+observations -- for example across a gap where no sensor has visibility -- `propagate_to()`
+advances the filter's state and covariance without a measurement update, recording a
+`FilterRecord` (measurement fields empty, named `"Propagation"`) so covariance growth
+during the gap remains visible in the diagnostic output. The UKF supports the same method.
 
 **Filter records** capture the full diagnostic state at each update: pre-fit state,
 post-fit state, pre-fit and post-fit residuals, covariance, and Kalman gain. These enable
@@ -109,7 +123,7 @@ analysis of filter performance, consistency checks, and residual monitoring.
 
 ## What's Available
 
-The current release includes two sequential filters:
+The current release includes three estimators:
 
 - **Extended Kalman Filter (EKF)** -- linearizes dynamics and measurements using STM and
   Jacobians. Efficient (one propagation per step) and well-suited for mildly nonlinear

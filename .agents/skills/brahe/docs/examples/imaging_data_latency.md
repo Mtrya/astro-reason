@@ -16,6 +16,7 @@ First, we'll import the necessary libraries and initialize Earth orientation par
 #!/usr/bin/env python
 # /// script
 # dependencies = ["brahe", "numpy", "shapely", "matplotlib", "cartopy"]
+# FLAGS = ["NETWORK"]
 # TIMEOUT = 600
 # ///
 
@@ -537,6 +538,7 @@ We download all active satellite TLEs from CelesTrak and filter for Capella sate
 #!/usr/bin/env python
 # /// script
 # dependencies = ["brahe", "numpy", "shapely", "matplotlib", "cartopy"]
+# FLAGS = ["NETWORK"]
 # TIMEOUT = 600
 # ///
 
@@ -1058,6 +1060,7 @@ Next, we load the KSAT ground station network:
 #!/usr/bin/env python
 # /// script
 # dependencies = ["brahe", "numpy", "shapely", "matplotlib", "cartopy"]
+# FLAGS = ["NETWORK"]
 # TIMEOUT = 600
 # ///
 
@@ -1581,6 +1584,7 @@ We define the AOI as a polygon covering the continental United States using a de
 #!/usr/bin/env python
 # /// script
 # dependencies = ["brahe", "numpy", "shapely", "matplotlib", "cartopy"]
+# FLAGS = ["NETWORK"]
 # TIMEOUT = 600
 # ///
 
@@ -2104,6 +2108,7 @@ We filter out ground stations that are inside the AOI. The reasoning is that a s
 #!/usr/bin/env python
 # /// script
 # dependencies = ["brahe", "numpy", "shapely", "matplotlib", "cartopy"]
+# FLAGS = ["NETWORK"]
 # TIMEOUT = 600
 # ///
 
@@ -2627,6 +2632,7 @@ Using the `AOIExitEvent` detector with `SGPPropagator`, we detect every time a C
 #!/usr/bin/env python
 # /// script
 # dependencies = ["brahe", "numpy", "shapely", "matplotlib", "cartopy"]
+# FLAGS = ["NETWORK"]
 # TIMEOUT = 600
 # ///
 
@@ -3142,6 +3148,23 @@ print("Imaging Data Latency Analysis Complete!")
 print("=" * 60)
 ```
 
+**AOIExitEvent watches the sub-satellite point during propagation**
+[`AOIExitEvent`](../learn/orbit_propagation/numerical_propagation/event_detection.md)
+([API](../library_api/events/premade.md#brahe.AOIExitEvent)) detects the
+instant a satellite's sub-satellite point - the geodetic
+longitude/latitude directly beneath the spacecraft - leaves a polygonal
+area of interest;
+[`AOIEntryEvent`](../library_api/events/premade.md#brahe.AOIEntryEvent)
+is the entry counterpart. The polygon comes from a `PolygonLocation` or,
+as here, raw (longitude, latitude) pairs via `from_coordinates`.
+Detection runs inside propagation: register the detector with
+`add_event_detector`, propagate, then read the timestamped hits back from
+the propagator's `event_log()`. Two things to watch: a detector instance
+is consumed when added, so each propagator needs its own (hence one per
+satellite in the loop above), and the test is on the nadir point rather
+than the sensor footprint - an off-nadir imager can still see an AOI
+after its ground track has crossed the boundary.
+
 ## Compute Ground Contacts
 
 We reset the propagators and use the access computation pipeline to find all ground station contacts over the 7-day period:
@@ -3150,6 +3173,7 @@ We reset the propagators and use the access computation pipeline to find all gro
 #!/usr/bin/env python
 # /// script
 # dependencies = ["brahe", "numpy", "shapely", "matplotlib", "cartopy"]
+# FLAGS = ["NETWORK"]
 # TIMEOUT = 600
 # ///
 
@@ -3673,6 +3697,7 @@ For each AOI exit event, we find the next ground contact for that satellite and 
 #!/usr/bin/env python
 # /// script
 # dependencies = ["brahe", "numpy", "shapely", "matplotlib", "cartopy"]
+# FLAGS = ["NETWORK"]
 # TIMEOUT = 600
 # ///
 
@@ -4206,6 +4231,7 @@ Summary statistics for all imaging data latencies over the 7-day period:
 #!/usr/bin/env python
 # /// script
 # dependencies = ["brahe", "numpy", "shapely", "matplotlib", "cartopy"]
+# FLAGS = ["NETWORK"]
 # TIMEOUT = 600
 # ///
 
@@ -4738,6 +4764,7 @@ This visualization helps identify geographic regions where additional ground sta
 #!/usr/bin/env python
 # /// script
 # dependencies = ["brahe", "numpy", "shapely", "matplotlib", "cartopy"]
+# FLAGS = ["NETWORK"]
 # TIMEOUT = 600
 # ///
 
@@ -5256,10 +5283,13 @@ print("=" * 60)
 
 ## Full Code Example
 
+**Full Code**
+
 ```
 #!/usr/bin/env python
 # /// script
 # dependencies = ["brahe", "numpy", "shapely", "matplotlib", "cartopy"]
+# FLAGS = ["NETWORK"]
 # TIMEOUT = 600
 # ///
 

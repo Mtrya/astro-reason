@@ -63,7 +63,45 @@ Brahe supports two Walker patterns:
 
 ## Generating Walker Constellations
 
+### Builder Construction
+
+`WalkerConstellationGenerator.builder()` is the primary way to construct a generator: it takes the six required inputs -- `t`, `p`, `f`, `semi_major_axis`, `inclination`, and `epoch` -- directly as arguments, and optional geometry fields (eccentricity, argument of perigee, reference RAAN, reference mean anomaly, pattern) default to the same values as the flat constructor and are set through chained setters.
+
+
+```python
+import brahe as bh
+
+bh.initialize_eop()
+
+epoch = bh.Epoch.from_datetime(2024, 1, 1, 12, 0, 0.0, 0.0, bh.TimeSystem.UTC)
+
+# GPS-like 24:6:2 Walker Delta constellation
+walker = (
+    bh.WalkerConstellationGenerator.builder(
+        24,  # t
+        6,  # p
+        2,  # f
+        bh.R_EARTH + 20200e3,  # semi_major_axis
+        55.0,  # inclination (degrees)
+        epoch,
+    )
+    .base_name("GPS")
+    .build()
+)
+
+print(f"Total satellites: {walker.total_satellites}")
+print(f"Number of planes: {walker.num_planes}")
+print(f"Pattern: {walker.pattern}")
+
+propagators = walker.as_keplerian_propagators(60.0)
+print(f"Generated {len(propagators)} Keplerian propagators")
+print(f"First propagator name: {propagators[0].get_name()}")
+```
+
+
 ### Basic Walker Delta (GPS-like)
+
+The flat constructor takes every field positionally, including the optional geometry fields, and remains available as an alternative to the builder when all fields are already at hand:
 
 
 ```python
@@ -274,8 +312,8 @@ fig = bh.plot_trajectory_3d(
         for prop in propagators
     ],
     units="km",
-    show_earth=True,
-    earth_texture="natural_earth_50m",
+    show_body=True,
+    texture="natural_earth_50m",
     backend="plotly",
     view_azimuth=45.0,
     view_elevation=30.0,
@@ -375,8 +413,8 @@ fig = bh.plot_trajectory_3d(
         for prop in propagators
     ],
     units="km",
-    show_earth=True,
-    earth_texture="natural_earth_50m",
+    show_body=True,
+    texture="natural_earth_50m",
     backend="plotly",
     view_azimuth=45.0,
     view_elevation=30.0,

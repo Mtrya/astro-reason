@@ -1,6 +1,6 @@
 # 3D Trajectory Visualization
 
-Three-dimensional trajectory plots display orbital paths in Earth-Centered Inertial (ECI) coordinates, providing intuitive spatial understanding of satellite motion. The `plot_trajectory_3d` function renders trajectories with optional Earth sphere visualization, camera controls, and support for multiple orbits with different colors and labels.
+Three-dimensional trajectory plots display orbital paths in a central body's centered-inertial frame, providing intuitive spatial understanding of satellite motion. The `plot_trajectory_3d` function renders trajectories with an optional central body sphere, camera controls, and support for multiple orbits with different colors and labels. Earth is the default central body; other bodies (Moon, Mars, and any other body in the visual registry) are supported via the `central_body` parameter.
 
 ## Interactive 3D Trajectory (Plotly)
 
@@ -12,7 +12,7 @@ The plotly backend creates fully interactive 3D plots. Click and drag to rotate,
 ### Blue Marble Texture
 
 **note**
-Textues are provided as image-only in documentation to reduce page load times. Interactive versions can be generated using the provided code.
+Textures are provided as image-only in documentation to reduce page load times. Interactive versions can be generated using the provided code.
 
 
 ### Natural Earth Texture
@@ -97,8 +97,8 @@ fig = bh.plot_trajectory_3d(
         {"trajectory": traj_polar, "color": "cyan", "label": "Polar 97.8° (~550 km)"},
     ],
     units="km",
-    show_earth=True,
-    earth_texture="blue_marble",
+    show_body=True,
+    texture="blue_marble",
     backend="plotly",
 )
 
@@ -116,8 +116,8 @@ fig_simple = bh.plot_trajectory_3d(
         {"trajectory": traj_polar, "color": "cyan", "label": "Polar 97.8° (~550 km)"},
     ],
     units="km",
-    show_earth=True,
-    earth_texture="simple",
+    show_body=True,
+    texture="simple",
     backend="plotly",
 )
 
@@ -132,8 +132,8 @@ fig_ne = bh.plot_trajectory_3d(
         {"trajectory": traj_polar, "color": "cyan", "label": "Polar 97.8° (~550 km)"},
     ],
     units="km",
-    show_earth=True,
-    earth_texture="natural_earth_50m",
+    show_body=True,
+    texture="natural_earth_50m",
     backend="plotly",
 )
 
@@ -237,7 +237,7 @@ fig = bh.plot_trajectory_3d(
         {"trajectory": traj_polar, "color": "cyan", "label": "Polar 97.8° (~550 km)"},
     ],
     units="km",
-    show_earth=True,
+    show_body=True,
     backend="matplotlib",
 )
 
@@ -262,7 +262,7 @@ with plt.style.context("dark_background"):
             },
         ],
         units="km",
-        show_earth=True,
+        show_body=True,
         backend="matplotlib",
     )
 
@@ -287,9 +287,54 @@ print("\nAll matplotlib figures generated successfully!")
 
 ---
 
+## Plotting Around Other Central Bodies
+
+`plot_trajectory_3d` is not limited to Earth. The `central_body` parameter accepts either a registry key from `brahe.plots.bodies.BODY_VISUALS` (`'earth'`, `'moon'`, `'mars'`, `'sun'`, and the other planets) or a custom dict `{name, radius, texture}` (radius in meters) for bodies outside the registry. Trajectories plotted around a non-Earth central body must already be in `OrbitFrame.BodyCenteredInertial(naif_id)` for that body's NAIF ID; Earth trajectories in any frame are converted via `to_eci()` as before.
+
+- `show_body` (bool): show the central body sphere at the origin. Default: `True`.
+- `texture`: texture for the central body sphere (plotly only). Accepts `'simple'`, `'blue_marble'` or `'natural_earth_50m'`/`'natural_earth_10m'` (Earth only), any `brahe.plots.texture_utils.PLANET_TEXTURES` key, or a path to an image file. Defaults to the central body's registry texture (or `'simple'` for custom bodies without one).
+- `additional_bodies`: a list of extra textured spheres to draw alongside the central body, each a dict with `position` (meters, in the same frame as the plotted trajectories), `radius` (meters), `texture`, and `name`.
+
+The following example plots a lunar orbit around the Moon, with an Earth sphere included for scale via `additional_bodies`:
+
+```
+import brahe as bh
+import numpy as np
+
+epoch = bh.Epoch.from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, bh.TimeSystem.UTC)
+angles = np.linspace(0, 2 * np.pi, 20, endpoint=False)
+radius, speed = bh.R_MOON + 100e3, 1600.0
+states = np.column_stack([
+    radius * np.cos(angles), radius * np.sin(angles), np.zeros(20),
+    -speed * np.sin(angles), speed * np.cos(angles), np.zeros(20),
+])
+lunar_traj = bh.OrbitTrajectory.from_orbital_data(
+    [epoch + i * 60 for i in range(20)], states,
+    bh.OrbitFrame.BodyCenteredInertial(301),
+    bh.OrbitRepresentation.CARTESIAN, None, None,
+)
+
+fig = bh.plot_trajectory_3d(
+    [{"trajectory": lunar_traj, "label": "LLO"}],
+    central_body="moon",
+    additional_bodies=[
+        {"position": [-384.4e6, 0.0, 0.0], "radius": bh.R_EARTH,
+         "texture": "blue_marble", "name": "Earth"}
+    ],
+    backend="plotly",
+)
+```
+
+The Moon's registry texture and most planet textures are downloaded on first use from Solar System Scope and require attribution:
+
+*Body textures: [Solar System Scope](https://www.solarsystemscope.com/textures/), CC BY 4.0.*
+
+The packaged `blue_marble` and downloaded `natural_earth_50m`/`natural_earth_10m` Earth textures are not part of that set and require no additional attribution.
+
 ## See Also
 
 - [plot_trajectory_3d API Reference](../../library_api/plots/3d_trajectory.md)
+- [Synodic Plots](synodic_plots.md) - Trajectories in rotating two-body frames
 - [Ground Tracks](ground_tracks.md) - 2D projection on Earth's surface
 - [Orbital Elements](orbital_trajectories.md) - Element evolution over time
 - [Coordinate Systems](../coordinates/index.md) - Understanding ECI frames

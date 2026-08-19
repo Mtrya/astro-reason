@@ -3,7 +3,7 @@
 The [International Centre for Global Earth Models (ICGEM)](https://icgem.gfz.de), hosted at GFZ Potsdam, maintains the de facto catalog of published spherical harmonic gravity models for Earth and other solar system bodies. Brahe's `brahe.datasets.icgem` interface mirrors that catalog in code: list the available models for a body, download a specific `.gfc` file into a local cache, and refresh stale indexes on demand.
 
 **Why a download interface?**
-Brahe ships three packaged Earth models (EGM2008 truncated to 360, GGM05S, JGM3). The ICGEM catalog publishes hundreds more — newer high-degree Earth fields, lunar models like GRGM1200B, planetary models for Mars/Venus/Ceres, and asteroid fields. The dataset interface gives access to any of them without bundling tens of megabytes of model data into the library.
+Brahe ships three packaged Earth models (EGM2008 truncated to 120, GGM05S, JGM3). The ICGEM catalog publishes hundreds more — newer high-degree Earth fields, lunar models like GRGM1200B, planetary models for Mars/Venus/Ceres, and asteroid fields. The dataset interface gives access to any of them without bundling tens of megabytes of model data into the library.
 
 ## Supported Bodies
 
@@ -166,25 +166,19 @@ force_cfg = bh.ForceModelConfig(gravity=gravity_cfg)
 epoch = bh.Epoch.from_datetime(2024, 1, 1, 0, 0, 0.0, 0.0, bh.TimeSystem.UTC)
 oe = np.array(
     [
-        bh.R_EARTH + 500e3,    # a (m)
-        0.001,                  # e
-        np.radians(97.8),       # i (rad)
-        np.radians(15.0),       # RAAN (rad)
-        np.radians(30.0),       # arg perigee (rad)
-        np.radians(45.0),       # true anomaly (rad)
+        bh.R_EARTH + 500e3,  # a (m)
+        0.001,  # e
+        np.radians(97.8),  # i (rad)
+        np.radians(15.0),  # RAAN (rad)
+        np.radians(30.0),  # arg perigee (rad)
+        np.radians(45.0),  # true anomaly (rad)
     ]
 )
 state0 = bh.state_koe_to_eci(oe, bh.AngleFormat.RADIANS)
 
 # Construct the propagator — this is where the ICGEM model is downloaded
 # (if not cached) and loaded into the force evaluator.
-prop = bh.NumericalOrbitPropagator(
-    epoch,
-    state0,
-    bh.NumericalPropagationConfig.default(),
-    force_cfg,
-    None,
-)
+prop = bh.NumericalOrbitPropagator.builder(epoch, state0, force_cfg).build()
 
 # Step one minute forward
 prop.step_by(60.0)

@@ -105,6 +105,59 @@ print(f"Round-trip: {cdm2.object1_name} vs {cdm2.object2_name}")
 ```
 
 
+### Building Object Metadata (Rust)
+
+Each object's metadata (9 mandatory fields plus optional CCSDS fields) can also be
+constructed with `CDMObjectMetadata::builder()`, which is Rust-only -- there is no Python
+binding for this builder. The mandatory fields are set through chained named setters, and
+`build()` returns an error naming any mandatory field left unset instead of applying a
+default. The flat constructor used above remains available as an alternative, taking the
+9 mandatory fields positionally:
+
+```rust
+use brahe::ccsds::cdm::CDMObjectMetadata;
+use brahe::ccsds::common::CCSDSRefFrame;
+
+fn main() {
+    let metadata = CDMObjectMetadata::builder()
+        .object("OBJECT1")
+        .object_designator("12345")
+        .catalog_name("SATCAT")
+        .object_name("SATELLITE A")
+        .international_designator("2020-001A")
+        .ephemeris_name("NONE")
+        .covariance_method("CALCULATED")
+        .maneuverable("YES")
+        .ref_frame(CCSDSRefFrame::EME2000)
+        .comment("Generated for conjunction screening")
+        .build()
+        .unwrap();
+
+    println!("Object: {}", metadata.object_name);
+    println!("Designator: {}", metadata.object_designator);
+    println!("Comments: {:?}", metadata.comments);
+
+    // The flat constructor takes the same 9 mandatory fields positionally,
+    // without naming each one -- an alternative when all values are
+    // already at hand.
+    let metadata_flat = CDMObjectMetadata::new(
+        "OBJECT1".to_string(),
+        "12345".to_string(),
+        "SATCAT".to_string(),
+        "SATELLITE A".to_string(),
+        "2020-001A".to_string(),
+        "NONE".to_string(),
+        "CALCULATED".to_string(),
+        "YES".to_string(),
+        CCSDSRefFrame::EME2000,
+    );
+
+    assert_eq!(metadata_flat.object_name, metadata.object_name);
+    println!("Example validated successfully!");
+}
+```
+
+
 ## What a CDM Contains
 
 Every CDM has a **header** (version, creation date, originator, message ID), **relative metadata** (TCA, miss distance, optional collision probability and screening volume), and exactly **two object sections**.

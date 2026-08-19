@@ -11,18 +11,42 @@ For conceptual explanations and examples, see [Gravity Models](../../learn/orbit
 
 ## Spherical Harmonic Gravity
 
+`accel_gravity_spherical_harmonics` dispatches to whichever kernel the
+[`GravityModel`](#gravity-model-class)'s [`GravityModelCoefficients`](#gravity-model-coefficients) has
+precomputed (Clenshaw by default). `accel_gravity_spherical_harmonics_clenshaw`
+and `accel_gravity_spherical_harmonics_cunningham` force evaluation through a
+specific kernel instead of dispatching automatically.
+
 ::: brahe.accel_gravity_spherical_harmonics
+
+::: brahe.accel_gravity_spherical_harmonics_clenshaw
+
+::: brahe.accel_gravity_spherical_harmonics_cunningham
 
 ## Gravity Model Class
 
 ::: brahe.GravityModel
+
+## Gravity Model Coefficients
+
+`GravityModelCoefficients` selects which kernel's precomputed coefficient set(s) a
+[`GravityModel`](#gravity-model-class) builds when it is loaded
+(`GravityModel.from_model_type` / `from_file` default to `GravityModelCoefficients.Clenshaw`;
+`from_model_type_with_coefficients` / `from_file_with_coefficients` accept an explicit
+value): `GravityModelCoefficients.Clenshaw` (default), `.Cunningham`, or `.Both`. A model
+can only evaluate through a kernel whose coefficient set is present;
+`GravityModel.precompute_clenshaw_coefficients()` / `precompute_cunningham_coefficients()`
+add a coefficient set to an already-loaded model, and `drop_clenshaw_coefficients()` /
+`drop_cunningham_coefficients()` free one to reduce memory use.
+
+::: brahe.GravityModelCoefficients
 
 ## Gravity Model Type
 
 `GravityModelType` selects which spherical harmonic field is loaded into a
 [`GravityModel`](#gravity-model-class) (or wired into a
 [`GravityConfiguration`](../propagators/force_model_config.md)). In addition to
-the packaged constants `EGM2008_360`, `GGM05S`, and `JGM3`, two constructors
+the packaged constants `EGM2008_120`, `GGM05S`, and `JGM3`, two constructors
 load external models:
 
 - `GravityModelType.from_file(path)` — load any `.gfc` file from disk.

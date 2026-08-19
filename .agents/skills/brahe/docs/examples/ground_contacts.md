@@ -12,6 +12,7 @@ First, we'll import the necessary libraries, initialize Earth orientation parame
 #!/usr/bin/env python
 # /// script
 # dependencies = ["brahe", "plotly", "matplotlib", "numpy"]
+# FLAGS = ["NETWORK"]
 # ///
 
 """
@@ -323,6 +324,7 @@ We download the NISAR TLE directly by NORAD ID and load all NASA NEN ground stat
 #!/usr/bin/env python
 # /// script
 # dependencies = ["brahe", "plotly", "matplotlib", "numpy"]
+# FLAGS = ["NETWORK"]
 # ///
 
 """
@@ -632,6 +634,7 @@ print(f"✓ Generated {dark_path}")
 #!/usr/bin/env python
 # /// script
 # dependencies = ["brahe", "plotly", "matplotlib", "numpy"]
+# FLAGS = ["NETWORK"]
 # ///
 
 """
@@ -943,6 +946,7 @@ We then propagate NISAR for 3 orbital periods to prepare for ground track visual
 #!/usr/bin/env python
 # /// script
 # dependencies = ["brahe", "plotly", "matplotlib", "numpy"]
+# FLAGS = ["NETWORK"]
 # ///
 
 """
@@ -1256,6 +1260,7 @@ Next we'll visualize the ground track and communication cones for NISAR over a 3
 #!/usr/bin/env python
 # /// script
 # dependencies = ["brahe", "plotly", "matplotlib", "numpy"]
+# FLAGS = ["NETWORK"]
 # ///
 
 """
@@ -1572,6 +1577,7 @@ We'll compute the ground contacts between NISAR and the NASA Near Earth Network 
 #!/usr/bin/env python
 # /// script
 # dependencies = ["brahe", "plotly", "matplotlib", "numpy"]
+# FLAGS = ["NETWORK"]
 # ///
 
 """
@@ -1877,6 +1883,22 @@ print(f"✓ Generated {light_path}")
 print(f"✓ Generated {dark_path}")
 ```
 
+**location_accesses searches every location-satellite pair in one call**
+[`location_accesses`](../learn/access_computation/computation.md)
+([API](../library_api/access/index.md#brahe.location_accesses)) accepts a
+single location or a list on both sides, evaluates the constraint for
+every location-satellite pairing, and returns one flat list of
+[`AccessWindow`](../library_api/access/windows.md) objects sorted by start
+time - here every NEN station against NISAR in a single call. Each
+window already carries the core geometric properties (`duration`,
+`elevation_max`, `azimuth_open`, ...), which is why the statistics below
+read them straight off the windows with no extra geometry code. The
+search locates candidate windows by stepping the constraint at
+`initial_time_step` (60 s by default) before refining the edges by binary
+search, so a contact shorter than that step can be missed entirely - pass
+an [`AccessSearchConfig`](../library_api/access/index.md#brahe.AccessSearchConfig)
+with a smaller step when hunting brief passes.
+
 Below is the table of the first 20 contact windows. Click on any column header to sort:
 
 {{ read_csv('figures/ground_contacts_windows.csv') }}
@@ -1891,6 +1913,7 @@ We group the contact windows by station and compute the average daily contacts:
 #!/usr/bin/env python
 # /// script
 # dependencies = ["brahe", "plotly", "matplotlib", "numpy"]
+# FLAGS = ["NETWORK"]
 # ///
 
 """
@@ -2202,6 +2225,7 @@ Then we create two visualizations: a bar chart of average daily contacts per sta
 #!/usr/bin/env python
 # /// script
 # dependencies = ["brahe", "plotly", "matplotlib", "numpy"]
+# FLAGS = ["NETWORK"]
 # ///
 
 """
@@ -2515,10 +2539,13 @@ The duration histogram shows the distribution of contact lengths, with statistic
 
 ## Full Code Example
 
+**Full Code**
+
 ```
 #!/usr/bin/env python
 # /// script
 # dependencies = ["brahe", "plotly", "matplotlib", "numpy"]
+# FLAGS = ["NETWORK"]
 # ///
 
 """

@@ -130,6 +130,141 @@ conversion is handled externally.
 - **Measurement**: $\mathbf{z} = [x, y, z, v_x, v_y, v_z]_{\text{ECI}}$ — 6 values in meters + m/s
 - **Jacobian**: $H = [I_{6 \times 6} \mid 0_{6 \times (n-6)}]$ (analytical)
 
+## Azimuth/Elevation/Range
+
+`AzElRangeMeasurementModel` handles **ground-based radar/tracking sensor observations** in
+the station's local topocentric (SEZ) frame. Unlike the ECEF and inertial models above, the
+measurement is angular plus range, not a Cartesian sub-vector of the state:
+
+- **State**: $\mathbf{x} = [x, y, z, v_x, v_y, v_z, \ldots]_{\text{ECI}}$ (meters, m/s)
+- **Measurement**: $\mathbf{z} = [\text{azimuth}, \text{elevation}, \text{range}] +
+  \mathbf{b}$ -- azimuth clockwise from north, elevation from the local horizon, in the
+  units given by `AngleFormat` at construction (degrees or radians); range in meters
+- **Jacobian**: Numerical (finite difference) -- the ECI-to-ECEF rotation is epoch-dependent
+
+The model accepts a constant bias `[bias_az, bias_el, bias_range]`, applied inside
+`predict()`. This models a calibrated sensor (e.g. Vallado Table 4-4 az/el/range bias
+values): a filter built with the same bias as the measurement source stays consistent,
+rather than needing to estimate the bias away as an unmodeled error.
+
+`residual()` wraps the azimuth component into $[-180°, 180°)$ (or $[-\pi, \pi)$ in radians;
+round-half-away-from-zero maps an exact $+180°$ to $-180°$) so a pass crossing the 0/360°
+boundary does not produce a spurious ~360° residual:
+
+```python
+import numpy as np
+import brahe as bh
+
+bh.initialize_eop()
+
+# Configuration
+MEAS_INTERVAL = 15.0  # seconds between measurements during a pass
+DURATION = 2 * 3600.0  # tracking duration (seconds)
+SEED = 42
+
+# Truth orbit: LEO at 700 km, 72 degree inclination
+epoch = bh.Epoch(2024, 1, 1, 0, 0, 0.0)
+oe = np.array([bh.R_EARTH + 700e3, 0.001, 72.0, 30.0, 0.0, 0.0])
+true_state = bh.state_koe_to_eci(oe, bh.AngleFormat.DEGREES)
+
+
+# Hermite-cubic interpolation (the propagator default) lets the trajectory,
+# stored at the ~60 s adaptive-step cadence, be sampled accurately at the much
+# finer measurement cadence used for measurement simulation.
+truth_config = bh.NumericalPropagationConfig.default()
+truth_prop = bh.NumericalOrbitPropagator(
+    epoch,
+    true_state,
+    truth_config,
+    bh.ForceModelConfig.two_body(),
+)
+epoch_end = epoch + DURATION
+truth_prop.propagate_to(epoch_end)
+truth_traj = truth_prop.trajectory
+
+# Build sensors from the Vallado SSN dataset (calibrated radar and optical
+# sites; radar measures az/el/range, optical measures angles-only az/el)
+sites = bh.datasets.ssn_sensors.load()
+sensors = bh.SimpleSSNSensor.from_locations_calibrated(sites, seed=SEED)
+print(f"Loaded {len(sites)} SSN sites, {len(sensors)} calibrated sensors")
+
+# Find passes and simulate measurements only inside them
+observations = []
+passes = []
+for i, sensor in enumerate(sensors):
+    constraint = bh.ElevationConstraint(min_elevation_deg=max(sensor.el_min, 1.0))
+    windows = bh.location_accesses(
+        sensor.location, truth_prop, epoch, epoch_end, constraint
+    )
+    for w in windows:
+        obs = sensor.simulate_observations(
+            truth_traj, w.window_open, w.window_close, MEAS_INTERVAL, i
+        )
+        observations.extend(obs)
+        if obs:
+            passes.append((sensor.name, w))
+
+observations.sort(key=lambda o: o.epoch)
+print(f"Simulated {len(observations)} measurements over {len(passes)} passes")
+
+# EKF from a perturbed initial state, using each sensor's matching model
+initial_state = np.array(true_state)
+initial_state[0] += 1000.0
+initial_state[4] += 1.0
+p0 = np.diag([1e6, 1e6, 1e6, 1e2, 1e2, 1e2])
+
+ekf = bh.ExtendedKalmanFilter(
+    epoch,
+    initial_state,
+    p0,
+    measurement_models=[s.measurement_model() for s in sensors],
+    propagation_config=bh.NumericalPropagationConfig.default(),
+    force_config=bh.ForceModelConfig.two_body(),
+)
+
+# Process observations in order; propagate through gaps between passes
+GAP_SPLIT = 600.0  # start a new arc when consecutive obs are > 10 min apart
+prev_epoch = epoch
+for obs in observations:
+    if obs.epoch - prev_epoch > GAP_SPLIT:
+        # advance through the gap in 60 s steps to record covariance growth
+        t = prev_epoch + 60.0
+        while t < obs.epoch:
+            ekf.propagate_to(t)
+            t = t + 60.0
+    ekf.process_observation(obs)
+    prev_epoch = obs.epoch
+
+# Compare final estimate to truth
+truth_final = truth_traj.interpolate(ekf.current_epoch())
+err = np.linalg.norm(ekf.current_state()[:3] - truth_final[:3])
+print(f"Final position error: {err:.1f} m")
+sigma = np.sqrt(np.diag(ekf.current_covariance()))
+print(f"Final position 1-sigma: [{sigma[0]:.1f}, {sigma[1]:.1f}, {sigma[2]:.1f}] m")
+
+assert err < 500.0, "EKF should converge to a small position error"
+print("Example validated successfully!")
+```
+
+
+The azimuth wrap is handled consistently everywhere the measurement is differenced. The
+`AzElRangeMeasurementModel` Jacobian override differences its two perturbed predictions
+through `residual()`, and the Unscented Kalman Filter forms its predicted measurement mean
+with the reference-point trick `z_mean = z_0 + Σ wᵢ · residual(zᵢ, z_0)` and computes its
+innovation and cross-covariance deviations through `residual()` as well. So a pass whose
+sigma-point azimuths straddle the wrap (e.g. some near 359°, others near 1°) yields a
+well-defined mean near the true azimuth rather than a value biased toward the middle of the
+circle. For measurement models with plain-subtraction residuals the reference-point mean is
+algebraically identical to the ordinary weighted mean, so non-angular models are unaffected.
+
+`SimpleSSNSensor` pairs a sensor site (location, field-of-view limits, bias/noise
+calibration -- see the [SSN Sensor Datasets](../datasets/ssn_sensors.md) guide) with
+measurement generation, and its `measurement_model()` method returns an
+`AzElRangeMeasurementModel` built from the same bias and noise, so simulated measurements
+and the filter's model stay consistent by construction. See the
+[SSN Radar Tracking example](../../examples/ssn_tracking.md) for a full EKF/UKF/BLS
+walkthrough built on this dataset.
+
 ## Noise Specification
 
 All models accept noise as a scalar sigma (isotropic), per-axis sigmas, a full covariance
@@ -193,4 +328,6 @@ models in a single filter, is covered in the [Custom Models](custom_models.md) g
 - [Custom Models](custom_models.md) -- Writing custom measurement models with examples
 - [Extended Kalman Filter](extended_kalman_filter.md) -- Using models with the EKF
 - [Unscented Kalman Filter](unscented_kalman_filter.md) -- Using models with the UKF
-- [Measurement Models API Reference](../../library_api/estimation/measurement_models.md) -- Complete class documentation
+- [SSN Sensor Datasets](../datasets/ssn_sensors.md) -- Sensor sites backing `SimpleSSNSensor`
+- [Measurement Models API Reference](../../library_api/estimation/measurement_models.md) -- Complete class documentation for AzElRangeMeasurementModel and AzElMeasurementModel
+- [Sensor Models API Reference](../../library_api/estimation/sensor_models.md) -- Complete SimpleSSNSensor documentation

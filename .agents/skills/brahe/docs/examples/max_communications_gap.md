@@ -14,6 +14,7 @@ First, we'll import the necessary libraries, initialize Earth orientation parame
 #!/usr/bin/env python
 # /// script
 # dependencies = ["brahe", "plotly", "numpy"]
+# FLAGS = ["NETWORK"]
 # TIMEOUT = 600
 # ///
 
@@ -100,8 +101,8 @@ fig_3d = bh.plot_trajectory_3d(
         for prop in umbra_props
     ],
     units="km",
-    show_earth=True,
-    earth_texture="natural_earth_50m",
+    show_body=True,
+    texture="natural_earth_50m",
     backend="plotly",
     view_azimuth=45.0,
     view_elevation=30.0,
@@ -633,6 +634,7 @@ We download all active satellite TLEs from CelesTrak as propagators and filter f
 #!/usr/bin/env python
 # /// script
 # dependencies = ["brahe", "plotly", "numpy"]
+# FLAGS = ["NETWORK"]
 # TIMEOUT = 600
 # ///
 
@@ -719,8 +721,8 @@ fig_3d = bh.plot_trajectory_3d(
         for prop in umbra_props
     ],
     units="km",
-    show_earth=True,
-    earth_texture="natural_earth_50m",
+    show_body=True,
+    texture="natural_earth_50m",
     backend="plotly",
     view_azimuth=45.0,
     view_elevation=30.0,
@@ -1252,6 +1254,7 @@ Next, we load the 5 specific KSAT ground stations that will support communicatio
 #!/usr/bin/env python
 # /// script
 # dependencies = ["brahe", "plotly", "numpy"]
+# FLAGS = ["NETWORK"]
 # TIMEOUT = 600
 # ///
 
@@ -1338,8 +1341,8 @@ fig_3d = bh.plot_trajectory_3d(
         for prop in umbra_props
     ],
     units="km",
-    show_earth=True,
-    earth_texture="natural_earth_50m",
+    show_body=True,
+    texture="natural_earth_50m",
     backend="plotly",
     view_azimuth=45.0,
     view_elevation=30.0,
@@ -1865,6 +1868,20 @@ with plt.style.context("dark_background"):
     plt.close(fig_dark)
 ```
 
+**Bundled ground station networks load without network access**
+[`datasets.groundstations.load`](../learn/datasets/groundstations.md)
+([API](../library_api/datasets/groundstations.md#load)) returns a named
+provider network - Atlas, AWS, KSAT, Leaf, NASA DSN, NASA NEN, SSC, or
+Viasat - as a list of
+[`PointLocation`](../library_api/access/locations.md#brahe.PointLocation)
+objects built from GeoJSON bundled with the library, so no download or
+account is involved and results are reproducible offline. The returned
+locations plug directly into access computation and plotting, and each
+carries its station name and metadata. It always returns the provider's
+full network, which is rarely what a mission actually has under contract -
+filter by `get_name()` as done here to model the five contracted KSAT
+stations rather than every KSAT site worldwide.
+
 ## Constellation Visualization
 
 Before getting further into the analysis, it's useful to visualize the 3D geometry of the constellation. We propagate each satellite for one orbit and plot their trajectories:
@@ -1873,6 +1890,7 @@ Before getting further into the analysis, it's useful to visualize the 3D geomet
 #!/usr/bin/env python
 # /// script
 # dependencies = ["brahe", "plotly", "numpy"]
+# FLAGS = ["NETWORK"]
 # TIMEOUT = 600
 # ///
 
@@ -1959,8 +1977,8 @@ fig_3d = bh.plot_trajectory_3d(
         for prop in umbra_props
     ],
     units="km",
-    show_earth=True,
-    earth_texture="natural_earth_50m",
+    show_body=True,
+    texture="natural_earth_50m",
     backend="plotly",
     view_azimuth=45.0,
     view_elevation=30.0,
@@ -2497,6 +2515,7 @@ To figure out the contact gaps, we first need to compute all ground contacts ove
 #!/usr/bin/env python
 # /// script
 # dependencies = ["brahe", "plotly", "numpy"]
+# FLAGS = ["NETWORK"]
 # TIMEOUT = 600
 # ///
 
@@ -2583,8 +2602,8 @@ fig_3d = bh.plot_trajectory_3d(
         for prop in umbra_props
     ],
     units="km",
-    show_earth=True,
-    earth_texture="natural_earth_50m",
+    show_body=True,
+    texture="natural_earth_50m",
     backend="plotly",
     view_azimuth=45.0,
     view_elevation=30.0,
@@ -3118,6 +3137,7 @@ Next we'll compute the contact gaps over the course of the simulation. The conta
 #!/usr/bin/env python
 # /// script
 # dependencies = ["brahe", "plotly", "numpy"]
+# FLAGS = ["NETWORK"]
 # TIMEOUT = 600
 # ///
 
@@ -3204,8 +3224,8 @@ fig_3d = bh.plot_trajectory_3d(
         for prop in umbra_props
     ],
     units="km",
-    show_earth=True,
-    earth_texture="natural_earth_50m",
+    show_body=True,
+    texture="natural_earth_50m",
     backend="plotly",
     view_azimuth=45.0,
     view_elevation=30.0,
@@ -3741,6 +3761,7 @@ The distribution of gaps for the constellation is shown in this histogram:
 #!/usr/bin/env python
 # /// script
 # dependencies = ["brahe", "plotly", "numpy"]
+# FLAGS = ["NETWORK"]
 # TIMEOUT = 600
 # ///
 
@@ -3827,8 +3848,8 @@ fig_3d = bh.plot_trajectory_3d(
         for prop in umbra_props
     ],
     units="km",
-    show_earth=True,
-    earth_texture="natural_earth_50m",
+    show_body=True,
+    texture="natural_earth_50m",
     backend="plotly",
     view_azimuth=45.0,
     view_elevation=30.0,
@@ -4361,6 +4382,7 @@ To better understand what percentage of gaps fall below a certain duration, we c
 #!/usr/bin/env python
 # /// script
 # dependencies = ["brahe", "plotly", "numpy"]
+# FLAGS = ["NETWORK"]
 # TIMEOUT = 600
 # ///
 
@@ -4447,8 +4469,8 @@ fig_3d = bh.plot_trajectory_3d(
         for prop in umbra_props
     ],
     units="km",
-    show_earth=True,
-    earth_texture="natural_earth_50m",
+    show_body=True,
+    texture="natural_earth_50m",
     backend="plotly",
     view_azimuth=45.0,
     view_elevation=30.0,
@@ -4985,6 +5007,7 @@ Finally, we'll visualize the 3 longest gaps on a ground track plot to see where 
 #!/usr/bin/env python
 # /// script
 # dependencies = ["brahe", "plotly", "numpy"]
+# FLAGS = ["NETWORK"]
 # TIMEOUT = 600
 # ///
 
@@ -5071,8 +5094,8 @@ fig_3d = bh.plot_trajectory_3d(
         for prop in umbra_props
     ],
     units="km",
-    show_earth=True,
-    earth_texture="natural_earth_50m",
+    show_body=True,
+    texture="natural_earth_50m",
     backend="plotly",
     view_azimuth=45.0,
     view_elevation=30.0,
@@ -5601,10 +5624,13 @@ with plt.style.context("dark_background"):
 
 ## Full Code Example
 
+**Full Code**
+
 ```
 #!/usr/bin/env python
 # /// script
 # dependencies = ["brahe", "plotly", "numpy"]
+# FLAGS = ["NETWORK"]
 # TIMEOUT = 600
 # ///
 
@@ -5691,8 +5717,8 @@ fig_3d = bh.plot_trajectory_3d(
         for prop in umbra_props
     ],
     units="km",
-    show_earth=True,
-    earth_texture="natural_earth_50m",
+    show_body=True,
+    texture="natural_earth_50m",
     backend="plotly",
     view_azimuth=45.0,
     view_elevation=30.0,
