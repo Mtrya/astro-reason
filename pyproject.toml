@@ -5,15 +5,15 @@ description = "Add your description here"
 readme = "README.md"
 requires-python = ">=3.13"
 dependencies = [
-    "brahe>=1.4.2",
-    "datasets>=4.8.5",
-    "huggingface-hub>=1.13.0",
-    "matplotlib>=3.10.9",
-    "numpy>=2.4.4",
+    "brahe>=1.7.0",
+    "datasets>=5.0.1",
+    "huggingface-hub>=1.29.0",
+    "matplotlib>=3.11.1",
+    "numpy>=2.5.2",
     "pyyaml>=6.0.3",
-    "pytest>=9.0.3",
-    "skyfield>=1.54",
+    "pytest>=9.1.1",
+    "skyfield>=1.55",
     "shapely>=2.1.2",
     "pyproj>=3.7.2",
-    "pyinstaller>=6.20.0",
+    "pyinstaller>=6.22.2",
 ]
