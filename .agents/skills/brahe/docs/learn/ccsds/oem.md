@@ -126,8 +126,9 @@ Multiple segments exist because a single file may need to cover different trajec
 Build an OEM programmatically by defining a header, adding segments with metadata, and populating state vectors. The resulting message can be serialized to KVN, XML, or JSON:
 
 ```python
-import brahe as bh
 import numpy as np
+
+import brahe as bh
 from brahe.ccsds import OEM
 
 bh.initialize_eop()
@@ -189,8 +190,9 @@ Writing and re-parsing an OEM preserves all metadata, state vectors, and covaria
 Propagate an orbit numerically, extract the trajectory, and build an OEM for distribution:
 
 ```python
-import brahe as bh
 import numpy as np
+
+import brahe as bh
 from brahe.ccsds import OEM
 
 bh.initialize_eop()

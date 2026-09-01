@@ -9,8 +9,9 @@ For a complete listing of all function signatures and parameters, see the [IGRF 
 The simplest call takes an epoch, a geodetic position `(longitude, latitude, altitude)`, and an angle format. The result is a three-element vector `[B_east, B_north, B_zenith]` in nanoTesla:
 
 ```python
-import brahe as bh
 import numpy as np
+
+import brahe as bh
 
 # Compute the IGRF magnetic field at 60 degrees latitude, 400 km altitude
 epc = bh.Epoch(2025, 1, 1, 0, 0, 0.0, time_system=bh.UTC)
@@ -61,8 +62,9 @@ The **ECEF** functions (`igrf_ecef`, `wmmhr_ecef`) return the field in the Earth
 **WMMHR-2025** (World Magnetic Model High Resolution) covers approximately 2025 to 2030. It extends to spherical harmonic degree 133, adding crustal magnetic anomalies at ~300 km resolution on top of the core field. Use WMMHR when you need the most accurate current field values, particularly at or near Earth's surface where crustal contributions matter.
 
 ```python
-import brahe as bh
 import numpy as np
+
+import brahe as bh
 
 epc = bh.Epoch(2025, 1, 1, 0, 0, 0.0, time_system=bh.UTC)
 x_geod = np.array([120.0, 0.0, 0.0])  # lon=120 deg, lat=0, alt=0 m (equator)
@@ -103,8 +105,9 @@ The `nmax` parameter on WMMHR functions controls the maximum spherical harmonic 
 Satellite positions are often available in ECEF or ECI coordinates rather than geodetic. The typical workflow is: convert the ECEF position to geodetic using `position_ecef_to_geodetic`, then call the magnetic field function with the geodetic result.
 
 ```python
-import brahe as bh
 import numpy as np
+
+import brahe as bh
 
 bh.initialize_eop()
 

@@ -41,8 +41,9 @@ Create a trajectory from existing epochs and states:
 
 
 ```python
-import brahe as bh
 import numpy as np
+
+import brahe as bh
 
 bh.initialize_eop()
 
@@ -73,8 +74,9 @@ Add states to a trajectory one at a time:
 
 
 ```python
-import brahe as bh
 import numpy as np
+
+import brahe as bh
 
 bh.initialize_eop()
 
@@ -102,8 +104,9 @@ Retrieve states and epochs by their index:
 
 
 ```python
-import brahe as bh
 import numpy as np
+
+import brahe as bh
 
 bh.initialize_eop()
 
@@ -136,8 +139,9 @@ Get states at or near specific epochs:
 
 
 ```python
-import brahe as bh
 import numpy as np
+
+import brahe as bh
 
 bh.initialize_eop()
 
@@ -174,8 +178,9 @@ Query the temporal extent of a trajectory:
 
 
 ```python
-import brahe as bh
 import numpy as np
+
+import brahe as bh
 
 bh.initialize_eop()
 
@@ -209,8 +214,9 @@ Trajectory supports linear interpolation to estimate states at arbitrary epochs 
 
 
 ```python
-import brahe as bh
 import numpy as np
+
+import brahe as bh
 
 bh.initialize_eop()
 
@@ -243,8 +249,9 @@ Keep only the N most recent states:
 
 
 ```python
-import brahe as bh
 import numpy as np
+
+import brahe as bh
 
 bh.initialize_eop()
 
@@ -272,8 +279,9 @@ Keep only states within a time window:
 
 
 ```python
-import brahe as bh
 import numpy as np
+
+import brahe as bh
 
 bh.initialize_eop()
 
@@ -300,8 +308,9 @@ Trajectories can be iterated to process all epoch-state pairs:
 
 
 ```python
-import brahe as bh
 import numpy as np
+
+import brahe as bh
 
 bh.initialize_eop()
 
@@ -327,8 +336,9 @@ Convert trajectory data to matrix format for analysis or export:
 
 
 ```python
-import brahe as bh
 import numpy as np
+
+import brahe as bh
 
 bh.initialize_eop()
 

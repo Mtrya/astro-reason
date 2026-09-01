@@ -110,8 +110,9 @@ This example shows how to configure integrators for different accuracy,
 performance, and reliability requirements.
 """
 
-import brahe as bh
 import numpy as np
+
+import brahe as bh
 
 # Initialize EOP
 bh.initialize_eop()
@@ -252,8 +253,9 @@ This example shows how to configure integrators for different accuracy,
 performance, and reliability requirements.
 """
 
-import brahe as bh
 import numpy as np
+
+import brahe as bh
 
 # Initialize EOP
 bh.initialize_eop()
@@ -394,8 +396,9 @@ This example shows how to configure integrators for different accuracy,
 performance, and reliability requirements.
 """
 
-import brahe as bh
 import numpy as np
+
+import brahe as bh
 
 # Initialize EOP
 bh.initialize_eop()
@@ -536,8 +539,9 @@ This example shows how to configure integrators for different accuracy,
 performance, and reliability requirements.
 """
 
-import brahe as bh
 import numpy as np
+
+import brahe as bh
 
 # Initialize EOP
 bh.initialize_eop()

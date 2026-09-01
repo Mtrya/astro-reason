@@ -41,8 +41,9 @@ The `state_oe_to_roe` function converts the classical orbital elements of a chie
 
 
 ```python
-import brahe as bh
 import numpy as np
+
+import brahe as bh
 
 bh.initialize_eop()
 
@@ -95,8 +96,9 @@ The `state_roe_to_oe` function performs the inverse operation: given the chief's
 
 
 ```python
-import brahe as bh
 import numpy as np
+
+import brahe as bh
 
 bh.initialize_eop()
 
@@ -147,8 +149,9 @@ In many practical applications, satellite states are available as Cartesian ECI 
 
 
 ```python
-import brahe as bh
 import numpy as np
+
+import brahe as bh
 
 bh.initialize_eop()
 
@@ -209,8 +212,9 @@ The inverse operation, `state_roe_to_eci`, computes the deputy satellite's ECI s
 
 
 ```python
-import brahe as bh
 import numpy as np
+
+import brahe as bh
 
 bh.initialize_eop()
 

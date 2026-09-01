@@ -16,9 +16,11 @@ See the [threading documentation](../utilities/threading.md) for more details on
 This example creates a constellation of 10 satellites and propagates them 24 hours forward in parallel:
 
 ```
-import brahe as bh
-import numpy as np
 import time
+
+import numpy as np
+
+import brahe as bh
 
 bh.initialize_eop()
 

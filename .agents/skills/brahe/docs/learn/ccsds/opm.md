@@ -7,8 +7,9 @@ An Orbit Parameter Message (OPM) carries a single spacecraft state at one epoch 
 Extract position, velocity, epoch, and spacecraft parameters from an OPM to initialize a `NumericalOrbitPropagator`:
 
 ```python
-import brahe as bh
 import numpy as np
+
+import brahe as bh
 from brahe.ccsds import OPM
 
 bh.initialize_eop()
@@ -154,8 +155,9 @@ Read OPM maneuvers and apply them as impulsive delta-V events during propagation
 ```python
 """
 
-import brahe as bh
 import numpy as np
+
+import brahe as bh
 from brahe.ccsds import OPM
 
 bh.initialize_eop()

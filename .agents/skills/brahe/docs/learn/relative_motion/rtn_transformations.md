@@ -32,8 +32,9 @@ vectors between the two frames.
 
 
 ```python
-import brahe as bh
 import numpy as np
+
+import brahe as bh
 
 bh.initialize_eop()
 
@@ -115,8 +116,9 @@ The resulting relative state vector contains six components:
 
 
 ```python
-import brahe as bh
 import numpy as np
+
+import brahe as bh
 
 bh.initialize_eop()
 
@@ -174,8 +176,9 @@ or computing deputy trajectories from relative motion plans.
 
 
 ```python
-import brahe as bh
 import numpy as np
+
+import brahe as bh
 
 bh.initialize_eop()
 

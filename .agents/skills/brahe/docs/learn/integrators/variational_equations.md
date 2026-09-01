@@ -42,8 +42,9 @@ Brahe integrators can propagate the state and STM simultaneously using `step_wit
 
 
 ```python
-import brahe as bh
 import numpy as np
+
+import brahe as bh
 
 # Initialize EOP
 bh.initialize_eop()
@@ -136,8 +137,9 @@ The following example demonstrates this equivalence:
 
 
 ```python
-import brahe as bh
 import numpy as np
+
+import brahe as bh
 
 # Initialize EOP
 bh.initialize_eop()

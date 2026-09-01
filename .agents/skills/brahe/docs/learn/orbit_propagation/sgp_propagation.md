@@ -18,10 +18,6 @@ The initialization automatically detects and handles both formats.
 Rather than hard-coding TLE strings, you can query live satellite data from CelesTrak or Space-Track and get a ready-to-use propagator in a single call. This is the most common workflow for operational satellite tracking:
 
 ```python
-This example shows how to query a satellite from CelesTrak and convert it
-to a propagator in a few steps, which is the most common use case.
-"""
-
 import brahe as bh
 
 # Initialize EOP data
@@ -56,8 +52,9 @@ The most common initialization uses two lines of TLE data.
 
 
 ```python
-import brahe as bh
 import numpy as np
+
+import brahe as bh
 
 bh.initialize_eop()  # Required for accurate frame transformations
 
@@ -259,8 +256,9 @@ print(f"Osculating semi-major axis: {state_kep[0] / 1e3:.1f} km")
 
 
 ```python
-import brahe as bh
 import numpy as np
+
+import brahe as bh
 
 bh.initialize_eop()
 

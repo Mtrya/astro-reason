@@ -46,8 +46,9 @@ To get the position of an object relative to a location, you need to convert the
 
 
 ```python
-import brahe as bh
 import numpy as np
+
+import brahe as bh
 
 bh.initialize_eop()
 
@@ -111,8 +112,9 @@ The reverse transformation converts a relative ENZ position back to an absolute 
 
 
 ```python
-import brahe as bh
 import numpy as np
+
+import brahe as bh
 
 bh.initialize_eop()
 
@@ -166,8 +168,9 @@ Similar to ENZ, you can convert ECEF positions to the SEZ frame:
 
 
 ```python
-import brahe as bh
 import numpy as np
+
+import brahe as bh
 
 bh.initialize_eop()
 
@@ -231,8 +234,9 @@ The reverse transformation converts a relative SEZ position back to an absolute 
 
 
 ```python
-import brahe as bh
 import numpy as np
+
+import brahe as bh
 
 bh.initialize_eop()
 
@@ -288,8 +292,9 @@ Convert ENZ positions to azimuth (measured clockwise from North), elevation (ang
 
 
 ```python
-import brahe as bh
 import numpy as np
+
+import brahe as bh
 
 bh.initialize_eop()
 
@@ -328,8 +333,9 @@ The same conversion is available from SEZ coordinates:
 
 
 ```python
-import brahe as bh
 import numpy as np
+
+import brahe as bh
 
 bh.initialize_eop()
 

@@ -9,6 +9,7 @@ Here is a complete example demonstrating STM, covariance, and sensitivity propag
 
 ```python
 import numpy as np
+
 import brahe as bh
 
 # Initialize EOP and space weather data (required for NRLMSISE-00 drag model)
@@ -188,6 +189,7 @@ The STM has several important mathematical properties:
 
 ```python
 import numpy as np
+
 import brahe as bh
 
 # Initialize EOP data
@@ -279,6 +281,7 @@ $$P(t) = \Phi(t, t_0) P_0 \Phi(t, t_0)^T$$
 
 ```python
 import numpy as np
+
 import brahe as bh
 
 # Initialize EOP data
@@ -356,6 +359,7 @@ The RTN (Radial-Tangential-Normal) frame provides physical insight into how unce
 
 ```python
 import numpy as np
+
 import brahe as bh
 
 # Initialize EOP data
@@ -463,9 +467,11 @@ The following plot shows how position uncertainty evolves over three orbital per
 import numpy as np
 import plotly.graph_objects as go
 
+import brahe as bh
+
 # Add plots directory to path for importing brahe_theme
 sys.path.insert(0, str(pathlib.Path(__file__).parent.parent.parent))
-from brahe_theme import save_themed_html, get_theme_colors
+from brahe_theme import get_theme_colors, save_themed_html
 
 # Configuration
 SCRIPT_NAME = pathlib.Path(__file__).stem
@@ -545,7 +551,7 @@ def create_figure(theme):
             y=pos_sigma_r,
             mode="lines",
             name="X (radial-like)",
-            line=dict(color=colors["primary"], width=2),
+            line={"color": colors["primary"], "width": 2},
         )
     )
 
@@ -555,7 +561,7 @@ def create_figure(theme):
             y=pos_sigma_t,
             mode="lines",
             name="Y (along-track-like)",
-            line=dict(color=colors["secondary"], width=2),
+            line={"color": colors["secondary"], "width": 2},
         )
     )
 
@@ -565,7 +571,7 @@ def create_figure(theme):
             y=pos_sigma_n,
             mode="lines",
             name="Z (cross-track-like)",
-            line=dict(color=colors["accent"], width=2),
+            line={"color": colors["accent"], "width": 2},
         )
     )
 
@@ -575,7 +581,7 @@ def create_figure(theme):
             y=pos_total,
             mode="lines",
             name="Total (RSS)",
-            line=dict(color=colors["error"], width=2, dash="dash"),
+            line={"color": colors["error"], "width": 2, "dash": "dash"},
         )
     )
 
@@ -594,9 +600,15 @@ def create_figure(theme):
         xaxis_title="Time (orbital periods)",
         yaxis_title="Position Std Dev (m)",
         showlegend=True,
-        legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
+        legend={
+            "orientation": "h",
+            "yanchor": "bottom",
+            "y": 1.02,
+            "xanchor": "right",
+            "x": 1,
+        },
         height=500,
-        margin=dict(l=60, r=40, t=80, b=60),
+        margin={"l": 60, "r": 40, "t": 80, "b": 60},
     )
 
     return fig
@@ -616,13 +628,14 @@ The RTN frame clearly shows why along-track error dominates:
 **Plot Source**
 
 ```python
-import brahe as bh
 import numpy as np
 import plotly.graph_objects as go
 
+import brahe as bh
+
 # Add plots directory to path for importing brahe_theme
 sys.path.insert(0, str(pathlib.Path(__file__).parent.parent.parent))
-from brahe_theme import save_themed_html, get_theme_colors
+from brahe_theme import get_theme_colors, save_themed_html
 
 # Configuration
 SCRIPT_NAME = pathlib.Path(__file__).stem
@@ -717,7 +730,7 @@ def create_figure(theme):
             y=sigma_r,
             mode="lines",
             name="Radial (R)",
-            line=dict(color=colors["primary"], width=2),
+            line={"color": colors["primary"], "width": 2},
         )
     )
 
@@ -727,7 +740,7 @@ def create_figure(theme):
             y=sigma_t,
             mode="lines",
             name="Tangential (T)",
-            line=dict(color=colors["secondary"], width=2),
+            line={"color": colors["secondary"], "width": 2},
         )
     )
 
@@ -737,7 +750,7 @@ def create_figure(theme):
             y=sigma_n,
             mode="lines",
             name="Normal (N)",
-            line=dict(color=colors["accent"], width=2),
+            line={"color": colors["accent"], "width": 2},
         )
     )
 
@@ -747,7 +760,7 @@ def create_figure(theme):
         y=sigma_t[-1] * 0.9,
         text="Along-track: unbounded growth",
         showarrow=False,
-        font=dict(size=10),
+        font={"size": 10},
     )
 
     fig.add_annotation(
@@ -755,7 +768,7 @@ def create_figure(theme):
         y=sigma_r[-1] * 1.5,
         text="Radial/Normal: bounded oscillation",
         showarrow=False,
-        font=dict(size=10),
+        font={"size": 10},
     )
 
     # Initial uncertainty reference
@@ -773,9 +786,15 @@ def create_figure(theme):
         xaxis_title="Time (orbital periods)",
         yaxis_title="Position Std Dev (m)",
         showlegend=True,
-        legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
+        legend={
+            "orientation": "h",
+            "yanchor": "bottom",
+            "y": 1.02,
+            "xanchor": "right",
+            "x": 1,
+        },
         height=500,
-        margin=dict(l=60, r=40, t=80, b=60),
+        margin={"l": 60, "r": 40, "t": 80, "b": 60},
     )
 
     return fig
@@ -821,6 +840,7 @@ The default parameter vector contains spacecraft physical properties:
 
 ```python
 import numpy as np
+
 import brahe as bh
 
 # Initialize EOP and space weather data (required for NRLMSISE-00 drag model)
@@ -933,9 +953,11 @@ The following plot shows how position sensitivity to each parameter evolves over
 import numpy as np
 import plotly.graph_objects as go
 
+import brahe as bh
+
 # Add plots directory to path for importing brahe_theme
 sys.path.insert(0, str(pathlib.Path(__file__).parent.parent.parent))
-from brahe_theme import save_themed_html, get_theme_colors
+from brahe_theme import get_theme_colors, save_themed_html
 
 # Configuration
 SCRIPT_NAME = pathlib.Path(__file__).stem
@@ -1020,7 +1042,7 @@ def create_figure(theme):
                     y=sens_mag[name],
                     mode="lines",
                     name=name,
-                    line=dict(color=color_map[name], width=2),
+                    line={"color": color_map[name], "width": 2},
                 )
             )
 
@@ -1030,9 +1052,15 @@ def create_figure(theme):
         yaxis_title="Position Sensitivity (m per unit param)",
         yaxis_type="log",
         showlegend=True,
-        legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
+        legend={
+            "orientation": "h",
+            "yanchor": "bottom",
+            "y": 1.02,
+            "xanchor": "right",
+            "x": 1,
+        },
         height=500,
-        margin=dict(l=60, r=40, t=80, b=60),
+        margin={"l": 60, "r": 40, "t": 80, "b": 60},
     )
 
     return fig

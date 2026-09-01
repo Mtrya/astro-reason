@@ -10,6 +10,7 @@ outputs:
 
 ```python
 import numpy as np
+
 import brahe as bh
 
 bh.initialize_eop()
@@ -153,6 +154,7 @@ boundary does not produce a spurious ~360° residual:
 
 ```python
 import numpy as np
+
 import brahe as bh
 
 bh.initialize_eop()
@@ -272,6 +274,7 @@ matrix, or upper-triangular packed elements:
 
 ```python
 import numpy as np
+
 import brahe as bh
 
 # --- Scalar sigma: same noise on all axes ---

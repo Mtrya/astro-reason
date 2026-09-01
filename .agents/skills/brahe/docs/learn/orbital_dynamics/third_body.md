@@ -82,8 +82,9 @@ Compute the combined gravitational acceleration from the Sun and Moon on a satel
 
 
 ```
-import brahe as bh
 import numpy as np
+
+import brahe as bh
 
 bh.initialize_eop()
 

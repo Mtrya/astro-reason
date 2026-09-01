@@ -41,8 +41,9 @@ You can convert geodetic coordinates to ECEF Cartesian coordinates using the fol
 
 
 ```python
-import brahe as bh
 import numpy as np
+
+import brahe as bh
 
 bh.initialize_eop()
 
@@ -78,8 +79,9 @@ The reverse transformation converts Cartesian ECEF coordinates back to geodetic 
 
 
 ```python
-import brahe as bh
 import numpy as np
+
+import brahe as bh
 
 bh.initialize_eop()
 

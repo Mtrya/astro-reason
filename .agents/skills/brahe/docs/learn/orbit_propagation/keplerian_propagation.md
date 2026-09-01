@@ -14,8 +14,9 @@ The most direct initialization method uses classical Keplerian orbital elements.
 
 
 ```python
-import brahe as bh
 import numpy as np
+
+import brahe as bh
 
 bh.initialize_eop()
 
@@ -49,8 +50,9 @@ Initialize from position and velocity vectors in the Earth-Centered Inertial (EC
 
 
 ```python
-import brahe as bh
 import numpy as np
+
+import brahe as bh
 
 bh.initialize_eop()
 
@@ -74,8 +76,9 @@ Initialize from position and velocity vectors in the Earth-Centered Earth-Fixed 
 
 
 ```python
-import brahe as bh
 import numpy as np
+
+import brahe as bh
 
 bh.initialize_eop()  # Required for ECEF ↔ ECI transformations
 
@@ -101,8 +104,9 @@ One of the primary functions of propagators is to step forward in time, generati
 
 
 ```python
-import brahe as bh
 import numpy as np
+
+import brahe as bh
 
 bh.initialize_eop()
 
@@ -132,8 +136,9 @@ The `propagate_steps()` method allows taking multiple fixed-size steps in one ca
 
 
 ```python
-import brahe as bh
 import numpy as np
+
+import brahe as bh
 
 bh.initialize_eop()
 
@@ -156,8 +161,9 @@ For precise time targeting, use `propagate_to()` which adjusts the final step si
 
 
 ```python
-import brahe as bh
 import numpy as np
+
+import brahe as bh
 
 bh.initialize_eop()
 
@@ -187,8 +193,9 @@ Single epoch queries like `state()`, `state_eci()`, and `state_ecef()` compute t
 
 
 ```python
-import brahe as bh
 import numpy as np
+
+import brahe as bh
 
 bh.initialize_eop()  # Required for frame transformations
 
@@ -219,8 +226,9 @@ Batch queries like `states()` and `states_eci()` compute states at each epoch in
 
 
 ```python
-import brahe as bh
 import numpy as np
+
+import brahe as bh
 
 bh.initialize_eop()
 
@@ -248,8 +256,9 @@ The propagator stores all stepped states in an internal `OrbitTrajectory`. This 
 
 
 ```python
-import brahe as bh
 import numpy as np
+
+import brahe as bh
 
 bh.initialize_eop()
 
@@ -278,8 +287,9 @@ You can use the OrbitTrajectory's frame conversion methods to get the trajectory
 
 
 ```python
-import brahe as bh
 import numpy as np
+
+import brahe as bh
 
 bh.initialize_eop()  # Required for ECEF conversions
 
@@ -307,8 +317,9 @@ Propagators support trajectory memory management via eviction policies to limit 
 
 
 ```python
-import brahe as bh
 import numpy as np
+
+import brahe as bh
 
 bh.initialize_eop()
 
@@ -343,8 +354,9 @@ You can reset the propagator to its initial conditions using the `reset()` metho
 
 
 ```python
-import brahe as bh
 import numpy as np
+
+import brahe as bh
 
 bh.initialize_eop()
 
@@ -371,8 +383,9 @@ If you need to adjust the default step size during propagation, use the `set_ste
 
 
 ```python
-import brahe as bh
 import numpy as np
+
+import brahe as bh
 
 bh.initialize_eop()
 
@@ -402,8 +415,9 @@ Track propagators with names, IDs, or UUIDs for multi-satellite scenarios.
 
 
 ```python
-import brahe as bh
 import numpy as np
+
+import brahe as bh
 
 bh.initialize_eop()
 

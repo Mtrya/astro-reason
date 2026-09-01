@@ -51,8 +51,9 @@ Brahe provides two approaches for computing the sensitivity matrix $\partial \ma
 
 
 ```python
-import brahe as bh
 import numpy as np
+
+import brahe as bh
 
 
 def dynamics_with_params(t, state, params):
@@ -186,8 +187,9 @@ See the [Jacobian Computation](../mathematics/jacobian.md#perturbation-strategie
 ```python
 """
 
-import brahe as bh
 import numpy as np
+
+import brahe as bh
 
 
 def dynamics_with_params(t, state, params):

@@ -411,7 +411,9 @@ with tides enabled and disabled, then prints the peak position difference.
 
 ```
 import math
+
 import numpy as np
+
 import brahe as bh
 
 # EOP is required for the ITRF frame transformations used inside the tidal model.
@@ -469,8 +471,7 @@ for _ in range(n_steps):
     pos_on = np.array(prop_on.current_state()[:3])
     pos_off = np.array(prop_off.current_state()[:3])
     diff = np.linalg.norm(pos_on - pos_off)
-    if diff > max_diff_m:
-        max_diff_m = diff
+    max_diff_m = max(max_diff_m, diff)
 
 print("Tidal corrections example")
 print(f"  Orbital period:               {period / 60.0:.1f} min")

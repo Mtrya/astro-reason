@@ -33,11 +33,11 @@ traj_eci = bh.OrbitTrajectory(
 )
 print(f"Frame (str): {traj_eci.frame}")  # Output: ECI
 print(
-    f"Frame (repr): {repr(traj_eci.frame)}"
+    f"Frame (repr): {traj_eci.frame!r}"
 )  # Output: OrbitFrame(Earth-Centered Inertial)
 print(f"Representation (str): {traj_eci.representation}")  # Output: Cartesian
 print(
-    f"Representation (repr): {repr(traj_eci.representation)}"
+    f"Representation (repr): {traj_eci.representation!r}"
 )  # Output: OrbitRepresentation(Cartesian)
 
 # Create trajectory in ECEF frame, Cartesian representation
@@ -46,7 +46,7 @@ traj_ecef = bh.OrbitTrajectory(
 )
 print(f"Frame (str): {traj_ecef.frame}")  # Output: ECEF
 print(
-    f"Frame (repr): {repr(traj_ecef.frame)}"
+    f"Frame (repr): {traj_ecef.frame!r}"
 )  # Output: OrbitFrame(Earth-Centered Earth-Fixed)
 ```
 
@@ -82,8 +82,9 @@ You can also initialize an `OrbitTrajectory` from existing epoch and state data:
 
 
 ```python
-import brahe as bh
 import numpy as np
+
+import brahe as bh
 
 bh.initialize_eop()
 
@@ -116,8 +117,9 @@ See the [Propagators](../orbit_propagation/index.md) section for more details on
 
 
 ```python
-import brahe as bh
 import numpy as np
+
+import brahe as bh
 
 bh.initialize_eop()
 
@@ -157,8 +159,9 @@ Convert a trajectory from Earth-Centered Inertial (ECI) to Earth-Centered Earth-
 
 
 ```python
-import brahe as bh
 import numpy as np
+
+import brahe as bh
 
 bh.initialize_eop()
 
@@ -203,8 +206,9 @@ Convert from ECEF back to ECI:
 
 
 ```python
-import brahe as bh
 import numpy as np
+
+import brahe as bh
 
 bh.initialize_eop()
 
@@ -245,8 +249,9 @@ Convert from ECI to ECEF and back to verify consistency:
 
 
 ```python
-import brahe as bh
 import numpy as np
+
+import brahe as bh
 
 bh.initialize_eop()
 
@@ -279,8 +284,9 @@ Convert from Cartesian position/velocity to Keplerian orbital elements:
 
 
 ```python
-import brahe as bh
 import numpy as np
+
+import brahe as bh
 
 bh.initialize_eop()
 
@@ -324,8 +330,9 @@ Convert to Keplerian with different angle formats:
 
 
 ```python
-import brahe as bh
 import numpy as np
+
+import brahe as bh
 
 bh.initialize_eop()
 
@@ -362,8 +369,9 @@ Every conversion method returns a new `OrbitTrajectory` instance, so you can cha
 
 
 ```python
-import brahe as bh
 import numpy as np
+
+import brahe as bh
 
 bh.initialize_eop()
 
@@ -409,8 +417,9 @@ print(f"  Angle format: {traj_eci_kep.angle_format}")
 
 
 ```python
-import brahe as bh
 import numpy as np
+
+import brahe as bh
 
 bh.initialize_eop()
 
@@ -453,8 +462,9 @@ A complete example showing propagation, frame conversion, and analysis:
 
 
 ```python
-import brahe as bh
 import numpy as np
+
+import brahe as bh
 
 bh.initialize_eop()
 

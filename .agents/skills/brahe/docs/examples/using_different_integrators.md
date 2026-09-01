@@ -23,12 +23,15 @@ Angular momentum conservation is used as a measure of integration quality.
 
 # --8<-- [start:all]
 # --8<-- [start:preamble]
-import pathlib
 import os
+import pathlib
 import sys
-import brahe as bh
+
 import numpy as np
 import plotly.graph_objects as go
+
+import brahe as bh
+
 # --8<-- [end:preamble]
 
 bh.initialize_eop()
@@ -432,7 +435,7 @@ results.append(
 # ============================================================================
 
 print("=" * 70)
-print("COMPARISON SUMMARY (7 days / {:.1f} orbits)".format(n_orbits))
+print(f"COMPARISON SUMMARY (7 days / {n_orbits:.1f} orbits)")
 print("=" * 70)
 print()
 print(
@@ -469,7 +472,7 @@ fig.add_trace(
         y=results[0]["h_errors"],
         mode="lines",
         name="RK4 (Fixed-step)",
-        line=dict(color="steelblue", width=2),
+        line={"color": "steelblue", "width": 2},
         hovertemplate="Day: %{x:.2f}<br>|Δh|: %{y:.3e} m²/s<extra></extra>",
     )
 )
@@ -480,7 +483,7 @@ fig.add_trace(
         y=results[1]["h_errors"],
         mode="lines",
         name="RKF45 (Adaptive)",
-        line=dict(color="coral", width=2),
+        line={"color": "coral", "width": 2},
         hovertemplate="Day: %{x:.2f}<br>|Δh|: %{y:.3e} m²/s<extra></extra>",
     )
 )
@@ -491,7 +494,7 @@ fig.add_trace(
         y=results[2]["h_errors"],
         mode="lines",
         name="RKF78 (High-order)",
-        line=dict(color="purple", width=2),
+        line={"color": "purple", "width": 2},
         hovertemplate="Day: %{x:.2f}<br>|Δh|: %{y:.3e} m²/s<extra></extra>",
     )
 )
@@ -502,7 +505,7 @@ fig.add_trace(
         y=results[3]["h_errors"],
         mode="lines",
         name="DP54 (Adaptive)",
-        line=dict(color="green", width=2),
+        line={"color": "green", "width": 2},
         hovertemplate="Day: %{x:.2f}<br>|Δh|: %{y:.3e} m²/s<extra></extra>",
     )
 )
@@ -513,7 +516,7 @@ fig.add_trace(
         y=results[4]["h_errors"],
         mode="lines",
         name="RKN1210 (High-precision)",
-        line=dict(color="grey", width=2),
+        line={"color": "grey", "width": 2},
         hovertemplate="Day: %{x:.2f}<br>|Δh|: %{y:.3e} m²/s<extra></extra>",
     )
 )
@@ -532,14 +535,20 @@ fig.update_yaxes(
 fig.update_layout(
     title="Angular Momentum Conservation Over 7 Days",
     showlegend=True,
-    legend=dict(yanchor="top", y=0.99, xanchor="left", x=0.01, font=dict(size=10)),
+    legend={
+        "yanchor": "top",
+        "y": 0.99,
+        "xanchor": "left",
+        "x": 0.01,
+        "font": {"size": 10},
+    },
 )
 
 print("Comparison complete!")
 # --8<-- [end:all]
 
 sys.path.insert(0, str(pathlib.Path(__file__).parent.parent.parent / "plots"))
-from brahe_theme import save_themed_html  # noqa: E402
+from brahe_theme import save_themed_html
 
 light_path, dark_path = save_themed_html(
     fig, OUTDIR / f"{SCRIPT_NAME}_angular_momentum"
@@ -565,12 +574,15 @@ Angular momentum conservation is used as a measure of integration quality.
 
 # --8<-- [start:all]
 # --8<-- [start:preamble]
-import pathlib
 import os
+import pathlib
 import sys
-import brahe as bh
+
 import numpy as np
 import plotly.graph_objects as go
+
+import brahe as bh
+
 # --8<-- [end:preamble]
 
 bh.initialize_eop()
@@ -974,7 +986,7 @@ results.append(
 # ============================================================================
 
 print("=" * 70)
-print("COMPARISON SUMMARY (7 days / {:.1f} orbits)".format(n_orbits))
+print(f"COMPARISON SUMMARY (7 days / {n_orbits:.1f} orbits)")
 print("=" * 70)
 print()
 print(
@@ -1011,7 +1023,7 @@ fig.add_trace(
         y=results[0]["h_errors"],
         mode="lines",
         name="RK4 (Fixed-step)",
-        line=dict(color="steelblue", width=2),
+        line={"color": "steelblue", "width": 2},
         hovertemplate="Day: %{x:.2f}<br>|Δh|: %{y:.3e} m²/s<extra></extra>",
     )
 )
@@ -1022,7 +1034,7 @@ fig.add_trace(
         y=results[1]["h_errors"],
         mode="lines",
         name="RKF45 (Adaptive)",
-        line=dict(color="coral", width=2),
+        line={"color": "coral", "width": 2},
         hovertemplate="Day: %{x:.2f}<br>|Δh|: %{y:.3e} m²/s<extra></extra>",
     )
 )
@@ -1033,7 +1045,7 @@ fig.add_trace(
         y=results[2]["h_errors"],
         mode="lines",
         name="RKF78 (High-order)",
-        line=dict(color="purple", width=2),
+        line={"color": "purple", "width": 2},
         hovertemplate="Day: %{x:.2f}<br>|Δh|: %{y:.3e} m²/s<extra></extra>",
     )
 )
@@ -1044,7 +1056,7 @@ fig.add_trace(
         y=results[3]["h_errors"],
         mode="lines",
         name="DP54 (Adaptive)",
-        line=dict(color="green", width=2),
+        line={"color": "green", "width": 2},
         hovertemplate="Day: %{x:.2f}<br>|Δh|: %{y:.3e} m²/s<extra></extra>",
     )
 )
@@ -1055,7 +1067,7 @@ fig.add_trace(
         y=results[4]["h_errors"],
         mode="lines",
         name="RKN1210 (High-precision)",
-        line=dict(color="grey", width=2),
+        line={"color": "grey", "width": 2},
         hovertemplate="Day: %{x:.2f}<br>|Δh|: %{y:.3e} m²/s<extra></extra>",
     )
 )
@@ -1074,14 +1086,20 @@ fig.update_yaxes(
 fig.update_layout(
     title="Angular Momentum Conservation Over 7 Days",
     showlegend=True,
-    legend=dict(yanchor="top", y=0.99, xanchor="left", x=0.01, font=dict(size=10)),
+    legend={
+        "yanchor": "top",
+        "y": 0.99,
+        "xanchor": "left",
+        "x": 0.01,
+        "font": {"size": 10},
+    },
 )
 
 print("Comparison complete!")
 # --8<-- [end:all]
 
 sys.path.insert(0, str(pathlib.Path(__file__).parent.parent.parent / "plots"))
-from brahe_theme import save_themed_html  # noqa: E402
+from brahe_theme import save_themed_html
 
 light_path, dark_path = save_themed_html(
     fig, OUTDIR / f"{SCRIPT_NAME}_angular_momentum"
@@ -1107,12 +1125,15 @@ Angular momentum conservation is used as a measure of integration quality.
 
 # --8<-- [start:all]
 # --8<-- [start:preamble]
-import pathlib
 import os
+import pathlib
 import sys
-import brahe as bh
+
 import numpy as np
 import plotly.graph_objects as go
+
+import brahe as bh
+
 # --8<-- [end:preamble]
 
 bh.initialize_eop()
@@ -1516,7 +1537,7 @@ results.append(
 # ============================================================================
 
 print("=" * 70)
-print("COMPARISON SUMMARY (7 days / {:.1f} orbits)".format(n_orbits))
+print(f"COMPARISON SUMMARY (7 days / {n_orbits:.1f} orbits)")
 print("=" * 70)
 print()
 print(
@@ -1553,7 +1574,7 @@ fig.add_trace(
         y=results[0]["h_errors"],
         mode="lines",
         name="RK4 (Fixed-step)",
-        line=dict(color="steelblue", width=2),
+        line={"color": "steelblue", "width": 2},
         hovertemplate="Day: %{x:.2f}<br>|Δh|: %{y:.3e} m²/s<extra></extra>",
     )
 )
@@ -1564,7 +1585,7 @@ fig.add_trace(
         y=results[1]["h_errors"],
         mode="lines",
         name="RKF45 (Adaptive)",
-        line=dict(color="coral", width=2),
+        line={"color": "coral", "width": 2},
         hovertemplate="Day: %{x:.2f}<br>|Δh|: %{y:.3e} m²/s<extra></extra>",
     )
 )
@@ -1575,7 +1596,7 @@ fig.add_trace(
         y=results[2]["h_errors"],
         mode="lines",
         name="RKF78 (High-order)",
-        line=dict(color="purple", width=2),
+        line={"color": "purple", "width": 2},
         hovertemplate="Day: %{x:.2f}<br>|Δh|: %{y:.3e} m²/s<extra></extra>",
     )
 )
@@ -1586,7 +1607,7 @@ fig.add_trace(
         y=results[3]["h_errors"],
         mode="lines",
         name="DP54 (Adaptive)",
-        line=dict(color="green", width=2),
+        line={"color": "green", "width": 2},
         hovertemplate="Day: %{x:.2f}<br>|Δh|: %{y:.3e} m²/s<extra></extra>",
     )
 )
@@ -1597,7 +1618,7 @@ fig.add_trace(
         y=results[4]["h_errors"],
         mode="lines",
         name="RKN1210 (High-precision)",
-        line=dict(color="grey", width=2),
+        line={"color": "grey", "width": 2},
         hovertemplate="Day: %{x:.2f}<br>|Δh|: %{y:.3e} m²/s<extra></extra>",
     )
 )
@@ -1616,14 +1637,20 @@ fig.update_yaxes(
 fig.update_layout(
     title="Angular Momentum Conservation Over 7 Days",
     showlegend=True,
-    legend=dict(yanchor="top", y=0.99, xanchor="left", x=0.01, font=dict(size=10)),
+    legend={
+        "yanchor": "top",
+        "y": 0.99,
+        "xanchor": "left",
+        "x": 0.01,
+        "font": {"size": 10},
+    },
 )
 
 print("Comparison complete!")
 # --8<-- [end:all]
 
 sys.path.insert(0, str(pathlib.Path(__file__).parent.parent.parent / "plots"))
-from brahe_theme import save_themed_html  # noqa: E402
+from brahe_theme import save_themed_html
 
 light_path, dark_path = save_themed_html(
     fig, OUTDIR / f"{SCRIPT_NAME}_angular_momentum"
@@ -1651,12 +1678,15 @@ Angular momentum conservation is used as a measure of integration quality.
 
 # --8<-- [start:all]
 # --8<-- [start:preamble]
-import pathlib
 import os
+import pathlib
 import sys
-import brahe as bh
+
 import numpy as np
 import plotly.graph_objects as go
+
+import brahe as bh
+
 # --8<-- [end:preamble]
 
 bh.initialize_eop()
@@ -2060,7 +2090,7 @@ results.append(
 # ============================================================================
 
 print("=" * 70)
-print("COMPARISON SUMMARY (7 days / {:.1f} orbits)".format(n_orbits))
+print(f"COMPARISON SUMMARY (7 days / {n_orbits:.1f} orbits)")
 print("=" * 70)
 print()
 print(
@@ -2097,7 +2127,7 @@ fig.add_trace(
         y=results[0]["h_errors"],
         mode="lines",
         name="RK4 (Fixed-step)",
-        line=dict(color="steelblue", width=2),
+        line={"color": "steelblue", "width": 2},
         hovertemplate="Day: %{x:.2f}<br>|Δh|: %{y:.3e} m²/s<extra></extra>",
     )
 )
@@ -2108,7 +2138,7 @@ fig.add_trace(
         y=results[1]["h_errors"],
         mode="lines",
         name="RKF45 (Adaptive)",
-        line=dict(color="coral", width=2),
+        line={"color": "coral", "width": 2},
         hovertemplate="Day: %{x:.2f}<br>|Δh|: %{y:.3e} m²/s<extra></extra>",
     )
 )
@@ -2119,7 +2149,7 @@ fig.add_trace(
         y=results[2]["h_errors"],
         mode="lines",
         name="RKF78 (High-order)",
-        line=dict(color="purple", width=2),
+        line={"color": "purple", "width": 2},
         hovertemplate="Day: %{x:.2f}<br>|Δh|: %{y:.3e} m²/s<extra></extra>",
     )
 )
@@ -2130,7 +2160,7 @@ fig.add_trace(
         y=results[3]["h_errors"],
         mode="lines",
         name="DP54 (Adaptive)",
-        line=dict(color="green", width=2),
+        line={"color": "green", "width": 2},
         hovertemplate="Day: %{x:.2f}<br>|Δh|: %{y:.3e} m²/s<extra></extra>",
     )
 )
@@ -2141,7 +2171,7 @@ fig.add_trace(
         y=results[4]["h_errors"],
         mode="lines",
         name="RKN1210 (High-precision)",
-        line=dict(color="grey", width=2),
+        line={"color": "grey", "width": 2},
         hovertemplate="Day: %{x:.2f}<br>|Δh|: %{y:.3e} m²/s<extra></extra>",
     )
 )
@@ -2160,14 +2190,20 @@ fig.update_yaxes(
 fig.update_layout(
     title="Angular Momentum Conservation Over 7 Days",
     showlegend=True,
-    legend=dict(yanchor="top", y=0.99, xanchor="left", x=0.01, font=dict(size=10)),
+    legend={
+        "yanchor": "top",
+        "y": 0.99,
+        "xanchor": "left",
+        "x": 0.01,
+        "font": {"size": 10},
+    },
 )
 
 print("Comparison complete!")
 # --8<-- [end:all]
 
 sys.path.insert(0, str(pathlib.Path(__file__).parent.parent.parent / "plots"))
-from brahe_theme import save_themed_html  # noqa: E402
+from brahe_theme import save_themed_html
 
 light_path, dark_path = save_themed_html(
     fig, OUTDIR / f"{SCRIPT_NAME}_angular_momentum"
@@ -2201,12 +2237,15 @@ Angular momentum conservation is used as a measure of integration quality.
 
 # --8<-- [start:all]
 # --8<-- [start:preamble]
-import pathlib
 import os
+import pathlib
 import sys
-import brahe as bh
+
 import numpy as np
 import plotly.graph_objects as go
+
+import brahe as bh
+
 # --8<-- [end:preamble]
 
 bh.initialize_eop()
@@ -2610,7 +2649,7 @@ results.append(
 # ============================================================================
 
 print("=" * 70)
-print("COMPARISON SUMMARY (7 days / {:.1f} orbits)".format(n_orbits))
+print(f"COMPARISON SUMMARY (7 days / {n_orbits:.1f} orbits)")
 print("=" * 70)
 print()
 print(
@@ -2647,7 +2686,7 @@ fig.add_trace(
         y=results[0]["h_errors"],
         mode="lines",
         name="RK4 (Fixed-step)",
-        line=dict(color="steelblue", width=2),
+        line={"color": "steelblue", "width": 2},
         hovertemplate="Day: %{x:.2f}<br>|Δh|: %{y:.3e} m²/s<extra></extra>",
     )
 )
@@ -2658,7 +2697,7 @@ fig.add_trace(
         y=results[1]["h_errors"],
         mode="lines",
         name="RKF45 (Adaptive)",
-        line=dict(color="coral", width=2),
+        line={"color": "coral", "width": 2},
         hovertemplate="Day: %{x:.2f}<br>|Δh|: %{y:.3e} m²/s<extra></extra>",
     )
 )
@@ -2669,7 +2708,7 @@ fig.add_trace(
         y=results[2]["h_errors"],
         mode="lines",
         name="RKF78 (High-order)",
-        line=dict(color="purple", width=2),
+        line={"color": "purple", "width": 2},
         hovertemplate="Day: %{x:.2f}<br>|Δh|: %{y:.3e} m²/s<extra></extra>",
     )
 )
@@ -2680,7 +2719,7 @@ fig.add_trace(
         y=results[3]["h_errors"],
         mode="lines",
         name="DP54 (Adaptive)",
-        line=dict(color="green", width=2),
+        line={"color": "green", "width": 2},
         hovertemplate="Day: %{x:.2f}<br>|Δh|: %{y:.3e} m²/s<extra></extra>",
     )
 )
@@ -2691,7 +2730,7 @@ fig.add_trace(
         y=results[4]["h_errors"],
         mode="lines",
         name="RKN1210 (High-precision)",
-        line=dict(color="grey", width=2),
+        line={"color": "grey", "width": 2},
         hovertemplate="Day: %{x:.2f}<br>|Δh|: %{y:.3e} m²/s<extra></extra>",
     )
 )
@@ -2710,14 +2749,20 @@ fig.update_yaxes(
 fig.update_layout(
     title="Angular Momentum Conservation Over 7 Days",
     showlegend=True,
-    legend=dict(yanchor="top", y=0.99, xanchor="left", x=0.01, font=dict(size=10)),
+    legend={
+        "yanchor": "top",
+        "y": 0.99,
+        "xanchor": "left",
+        "x": 0.01,
+        "font": {"size": 10},
+    },
 )
 
 print("Comparison complete!")
 # --8<-- [end:all]
 
 sys.path.insert(0, str(pathlib.Path(__file__).parent.parent.parent / "plots"))
-from brahe_theme import save_themed_html  # noqa: E402
+from brahe_theme import save_themed_html
 
 light_path, dark_path = save_themed_html(
     fig, OUTDIR / f"{SCRIPT_NAME}_angular_momentum"
@@ -2747,12 +2792,15 @@ Angular momentum conservation is used as a measure of integration quality.
 
 # --8<-- [start:all]
 # --8<-- [start:preamble]
-import pathlib
 import os
+import pathlib
 import sys
-import brahe as bh
+
 import numpy as np
 import plotly.graph_objects as go
+
+import brahe as bh
+
 # --8<-- [end:preamble]
 
 bh.initialize_eop()
@@ -3156,7 +3204,7 @@ results.append(
 # ============================================================================
 
 print("=" * 70)
-print("COMPARISON SUMMARY (7 days / {:.1f} orbits)".format(n_orbits))
+print(f"COMPARISON SUMMARY (7 days / {n_orbits:.1f} orbits)")
 print("=" * 70)
 print()
 print(
@@ -3193,7 +3241,7 @@ fig.add_trace(
         y=results[0]["h_errors"],
         mode="lines",
         name="RK4 (Fixed-step)",
-        line=dict(color="steelblue", width=2),
+        line={"color": "steelblue", "width": 2},
         hovertemplate="Day: %{x:.2f}<br>|Δh|: %{y:.3e} m²/s<extra></extra>",
     )
 )
@@ -3204,7 +3252,7 @@ fig.add_trace(
         y=results[1]["h_errors"],
         mode="lines",
         name="RKF45 (Adaptive)",
-        line=dict(color="coral", width=2),
+        line={"color": "coral", "width": 2},
         hovertemplate="Day: %{x:.2f}<br>|Δh|: %{y:.3e} m²/s<extra></extra>",
     )
 )
@@ -3215,7 +3263,7 @@ fig.add_trace(
         y=results[2]["h_errors"],
         mode="lines",
         name="RKF78 (High-order)",
-        line=dict(color="purple", width=2),
+        line={"color": "purple", "width": 2},
         hovertemplate="Day: %{x:.2f}<br>|Δh|: %{y:.3e} m²/s<extra></extra>",
     )
 )
@@ -3226,7 +3274,7 @@ fig.add_trace(
         y=results[3]["h_errors"],
         mode="lines",
         name="DP54 (Adaptive)",
-        line=dict(color="green", width=2),
+        line={"color": "green", "width": 2},
         hovertemplate="Day: %{x:.2f}<br>|Δh|: %{y:.3e} m²/s<extra></extra>",
     )
 )
@@ -3237,7 +3285,7 @@ fig.add_trace(
         y=results[4]["h_errors"],
         mode="lines",
         name="RKN1210 (High-precision)",
-        line=dict(color="grey", width=2),
+        line={"color": "grey", "width": 2},
         hovertemplate="Day: %{x:.2f}<br>|Δh|: %{y:.3e} m²/s<extra></extra>",
     )
 )
@@ -3256,14 +3304,20 @@ fig.update_yaxes(
 fig.update_layout(
     title="Angular Momentum Conservation Over 7 Days",
     showlegend=True,
-    legend=dict(yanchor="top", y=0.99, xanchor="left", x=0.01, font=dict(size=10)),
+    legend={
+        "yanchor": "top",
+        "y": 0.99,
+        "xanchor": "left",
+        "x": 0.01,
+        "font": {"size": 10},
+    },
 )
 
 print("Comparison complete!")
 # --8<-- [end:all]
 
 sys.path.insert(0, str(pathlib.Path(__file__).parent.parent.parent / "plots"))
-from brahe_theme import save_themed_html  # noqa: E402
+from brahe_theme import save_themed_html
 
 light_path, dark_path = save_themed_html(
     fig, OUTDIR / f"{SCRIPT_NAME}_angular_momentum"
@@ -3293,12 +3347,15 @@ Angular momentum conservation is used as a measure of integration quality.
 
 # --8<-- [start:all]
 # --8<-- [start:preamble]
-import pathlib
 import os
+import pathlib
 import sys
-import brahe as bh
+
 import numpy as np
 import plotly.graph_objects as go
+
+import brahe as bh
+
 # --8<-- [end:preamble]
 
 bh.initialize_eop()
@@ -3702,7 +3759,7 @@ results.append(
 # ============================================================================
 
 print("=" * 70)
-print("COMPARISON SUMMARY (7 days / {:.1f} orbits)".format(n_orbits))
+print(f"COMPARISON SUMMARY (7 days / {n_orbits:.1f} orbits)")
 print("=" * 70)
 print()
 print(
@@ -3739,7 +3796,7 @@ fig.add_trace(
         y=results[0]["h_errors"],
         mode="lines",
         name="RK4 (Fixed-step)",
-        line=dict(color="steelblue", width=2),
+        line={"color": "steelblue", "width": 2},
         hovertemplate="Day: %{x:.2f}<br>|Δh|: %{y:.3e} m²/s<extra></extra>",
     )
 )
@@ -3750,7 +3807,7 @@ fig.add_trace(
         y=results[1]["h_errors"],
         mode="lines",
         name="RKF45 (Adaptive)",
-        line=dict(color="coral", width=2),
+        line={"color": "coral", "width": 2},
         hovertemplate="Day: %{x:.2f}<br>|Δh|: %{y:.3e} m²/s<extra></extra>",
     )
 )
@@ -3761,7 +3818,7 @@ fig.add_trace(
         y=results[2]["h_errors"],
         mode="lines",
         name="RKF78 (High-order)",
-        line=dict(color="purple", width=2),
+        line={"color": "purple", "width": 2},
         hovertemplate="Day: %{x:.2f}<br>|Δh|: %{y:.3e} m²/s<extra></extra>",
     )
 )
@@ -3772,7 +3829,7 @@ fig.add_trace(
         y=results[3]["h_errors"],
         mode="lines",
         name="DP54 (Adaptive)",
-        line=dict(color="green", width=2),
+        line={"color": "green", "width": 2},
         hovertemplate="Day: %{x:.2f}<br>|Δh|: %{y:.3e} m²/s<extra></extra>",
     )
 )
@@ -3783,7 +3840,7 @@ fig.add_trace(
         y=results[4]["h_errors"],
         mode="lines",
         name="RKN1210 (High-precision)",
-        line=dict(color="grey", width=2),
+        line={"color": "grey", "width": 2},
         hovertemplate="Day: %{x:.2f}<br>|Δh|: %{y:.3e} m²/s<extra></extra>",
     )
 )
@@ -3802,14 +3859,20 @@ fig.update_yaxes(
 fig.update_layout(
     title="Angular Momentum Conservation Over 7 Days",
     showlegend=True,
-    legend=dict(yanchor="top", y=0.99, xanchor="left", x=0.01, font=dict(size=10)),
+    legend={
+        "yanchor": "top",
+        "y": 0.99,
+        "xanchor": "left",
+        "x": 0.01,
+        "font": {"size": 10},
+    },
 )
 
 print("Comparison complete!")
 # --8<-- [end:all]
 
 sys.path.insert(0, str(pathlib.Path(__file__).parent.parent.parent / "plots"))
-from brahe_theme import save_themed_html  # noqa: E402
+from brahe_theme import save_themed_html
 
 light_path, dark_path = save_themed_html(
     fig, OUTDIR / f"{SCRIPT_NAME}_angular_momentum"
@@ -3839,12 +3902,15 @@ Angular momentum conservation is used as a measure of integration quality.
 
 # --8<-- [start:all]
 # --8<-- [start:preamble]
-import pathlib
 import os
+import pathlib
 import sys
-import brahe as bh
+
 import numpy as np
 import plotly.graph_objects as go
+
+import brahe as bh
+
 # --8<-- [end:preamble]
 
 bh.initialize_eop()
@@ -4248,7 +4314,7 @@ results.append(
 # ============================================================================
 
 print("=" * 70)
-print("COMPARISON SUMMARY (7 days / {:.1f} orbits)".format(n_orbits))
+print(f"COMPARISON SUMMARY (7 days / {n_orbits:.1f} orbits)")
 print("=" * 70)
 print()
 print(
@@ -4285,7 +4351,7 @@ fig.add_trace(
         y=results[0]["h_errors"],
         mode="lines",
         name="RK4 (Fixed-step)",
-        line=dict(color="steelblue", width=2),
+        line={"color": "steelblue", "width": 2},
         hovertemplate="Day: %{x:.2f}<br>|Δh|: %{y:.3e} m²/s<extra></extra>",
     )
 )
@@ -4296,7 +4362,7 @@ fig.add_trace(
         y=results[1]["h_errors"],
         mode="lines",
         name="RKF45 (Adaptive)",
-        line=dict(color="coral", width=2),
+        line={"color": "coral", "width": 2},
         hovertemplate="Day: %{x:.2f}<br>|Δh|: %{y:.3e} m²/s<extra></extra>",
     )
 )
@@ -4307,7 +4373,7 @@ fig.add_trace(
         y=results[2]["h_errors"],
         mode="lines",
         name="RKF78 (High-order)",
-        line=dict(color="purple", width=2),
+        line={"color": "purple", "width": 2},
         hovertemplate="Day: %{x:.2f}<br>|Δh|: %{y:.3e} m²/s<extra></extra>",
     )
 )
@@ -4318,7 +4384,7 @@ fig.add_trace(
         y=results[3]["h_errors"],
         mode="lines",
         name="DP54 (Adaptive)",
-        line=dict(color="green", width=2),
+        line={"color": "green", "width": 2},
         hovertemplate="Day: %{x:.2f}<br>|Δh|: %{y:.3e} m²/s<extra></extra>",
     )
 )
@@ -4329,7 +4395,7 @@ fig.add_trace(
         y=results[4]["h_errors"],
         mode="lines",
         name="RKN1210 (High-precision)",
-        line=dict(color="grey", width=2),
+        line={"color": "grey", "width": 2},
         hovertemplate="Day: %{x:.2f}<br>|Δh|: %{y:.3e} m²/s<extra></extra>",
     )
 )
@@ -4348,14 +4414,20 @@ fig.update_yaxes(
 fig.update_layout(
     title="Angular Momentum Conservation Over 7 Days",
     showlegend=True,
-    legend=dict(yanchor="top", y=0.99, xanchor="left", x=0.01, font=dict(size=10)),
+    legend={
+        "yanchor": "top",
+        "y": 0.99,
+        "xanchor": "left",
+        "x": 0.01,
+        "font": {"size": 10},
+    },
 )
 
 print("Comparison complete!")
 # --8<-- [end:all]
 
 sys.path.insert(0, str(pathlib.Path(__file__).parent.parent.parent / "plots"))
-from brahe_theme import save_themed_html  # noqa: E402
+from brahe_theme import save_themed_html
 
 light_path, dark_path = save_themed_html(
     fig, OUTDIR / f"{SCRIPT_NAME}_angular_momentum"
@@ -4430,12 +4502,15 @@ Angular momentum conservation is used as a measure of integration quality.
 
 # --8<-- [start:all]
 # --8<-- [start:preamble]
-import pathlib
 import os
+import pathlib
 import sys
-import brahe as bh
+
 import numpy as np
 import plotly.graph_objects as go
+
+import brahe as bh
+
 # --8<-- [end:preamble]
 
 bh.initialize_eop()
@@ -4839,7 +4914,7 @@ results.append(
 # ============================================================================
 
 print("=" * 70)
-print("COMPARISON SUMMARY (7 days / {:.1f} orbits)".format(n_orbits))
+print(f"COMPARISON SUMMARY (7 days / {n_orbits:.1f} orbits)")
 print("=" * 70)
 print()
 print(
@@ -4876,7 +4951,7 @@ fig.add_trace(
         y=results[0]["h_errors"],
         mode="lines",
         name="RK4 (Fixed-step)",
-        line=dict(color="steelblue", width=2),
+        line={"color": "steelblue", "width": 2},
         hovertemplate="Day: %{x:.2f}<br>|Δh|: %{y:.3e} m²/s<extra></extra>",
     )
 )
@@ -4887,7 +4962,7 @@ fig.add_trace(
         y=results[1]["h_errors"],
         mode="lines",
         name="RKF45 (Adaptive)",
-        line=dict(color="coral", width=2),
+        line={"color": "coral", "width": 2},
         hovertemplate="Day: %{x:.2f}<br>|Δh|: %{y:.3e} m²/s<extra></extra>",
     )
 )
@@ -4898,7 +4973,7 @@ fig.add_trace(
         y=results[2]["h_errors"],
         mode="lines",
         name="RKF78 (High-order)",
-        line=dict(color="purple", width=2),
+        line={"color": "purple", "width": 2},
         hovertemplate="Day: %{x:.2f}<br>|Δh|: %{y:.3e} m²/s<extra></extra>",
     )
 )
@@ -4909,7 +4984,7 @@ fig.add_trace(
         y=results[3]["h_errors"],
         mode="lines",
         name="DP54 (Adaptive)",
-        line=dict(color="green", width=2),
+        line={"color": "green", "width": 2},
         hovertemplate="Day: %{x:.2f}<br>|Δh|: %{y:.3e} m²/s<extra></extra>",
     )
 )
@@ -4920,7 +4995,7 @@ fig.add_trace(
         y=results[4]["h_errors"],
         mode="lines",
         name="RKN1210 (High-precision)",
-        line=dict(color="grey", width=2),
+        line={"color": "grey", "width": 2},
         hovertemplate="Day: %{x:.2f}<br>|Δh|: %{y:.3e} m²/s<extra></extra>",
     )
 )
@@ -4939,14 +5014,20 @@ fig.update_yaxes(
 fig.update_layout(
     title="Angular Momentum Conservation Over 7 Days",
     showlegend=True,
-    legend=dict(yanchor="top", y=0.99, xanchor="left", x=0.01, font=dict(size=10)),
+    legend={
+        "yanchor": "top",
+        "y": 0.99,
+        "xanchor": "left",
+        "x": 0.01,
+        "font": {"size": 10},
+    },
 )
 
 print("Comparison complete!")
 # --8<-- [end:all]
 
 sys.path.insert(0, str(pathlib.Path(__file__).parent.parent.parent / "plots"))
-from brahe_theme import save_themed_html  # noqa: E402
+from brahe_theme import save_themed_html
 
 light_path, dark_path = save_themed_html(
     fig, OUTDIR / f"{SCRIPT_NAME}_angular_momentum"

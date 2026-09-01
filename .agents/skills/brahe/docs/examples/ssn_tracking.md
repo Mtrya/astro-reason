@@ -40,10 +40,11 @@ import pathlib
 import sys
 import time
 
-import brahe as bh
 import numpy as np
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
+
+import brahe as bh
 
 bh.initialize_eop()
 
@@ -159,7 +160,7 @@ for s in sensors:
             lat=[None],
             lon=[None],
             mode="markers",
-            marker=dict(size=8, color=sensor_colors[s.name]),
+            marker={"size": 8, "color": sensor_colors[s.name]},
             name=s.name,
             showlegend=True,
         )
@@ -235,7 +236,7 @@ for i, sensor in enumerate(sensors):
             mode="markers",
             name=sensor.name,
             legendgroup=sensor.name,
-            marker=dict(color=color, size=5),
+            marker={"color": color, "size": 5},
         ),
         row=1,
         col=1,
@@ -248,7 +249,7 @@ for i, sensor in enumerate(sensors):
             name=sensor.name,
             legendgroup=sensor.name,
             showlegend=False,
-            marker=dict(color=color, size=5),
+            marker={"color": color, "size": 5},
         ),
         row=2,
         col=1,
@@ -263,7 +264,7 @@ for i, sensor in enumerate(sensors):
                 name=sensor.name,
                 legendgroup=sensor.name,
                 showlegend=False,
-                marker=dict(color=color, size=5),
+                marker={"color": color, "size": 5},
             ),
             row=3,
             col=1,
@@ -276,7 +277,7 @@ fig_measurements.update_yaxes(title_text="Range (km)", row=3, col=1)
 fig_measurements.update_layout(
     title="Simulated SSN Radar Measurements (6-hour Tracking Arc)",
     height=800,
-    margin=dict(l=60, r=40, t=80, b=60),
+    margin={"l": 60, "r": 40, "t": 80, "b": 60},
 )
 # --8<-- [end:simulate_measurements]
 
@@ -414,7 +415,7 @@ def add_band_and_error(fig, row, col, t_min, sigma, err, style):
             x=t_min,
             y=3 * sigma,
             mode="lines",
-            line=dict(width=0),
+            line={"width": 0},
             showlegend=False,
             hoverinfo="skip",
         ),
@@ -426,7 +427,7 @@ def add_band_and_error(fig, row, col, t_min, sigma, err, style):
             x=t_min,
             y=-3 * sigma,
             mode="lines",
-            line=dict(width=0),
+            line={"width": 0},
             fill="tonexty",
             fillcolor=style["fill"],
             showlegend=False,
@@ -440,7 +441,7 @@ def add_band_and_error(fig, row, col, t_min, sigma, err, style):
             x=t_min,
             y=err,
             mode="lines",
-            line=dict(color=style["color"], width=1.5),
+            line={"color": style["color"], "width": 1.5},
             showlegend=False,
         ),
         row=row,
@@ -464,7 +465,7 @@ for col, (name, result) in enumerate((("EKF", ekf_rtn), ("UKF", ukf_rtn)), start
             x=result["t"],
             y=result["err_total"],
             mode="lines",
-            line=dict(color=style["color"], width=2),
+            line={"color": style["color"], "width": 2},
             showlegend=False,
         ),
         row=4,
@@ -499,7 +500,7 @@ fig_filters.update_xaxes(title_text="Time (minutes)", row=4, col=2)
 fig_filters.update_layout(
     title="EKF / UKF Filter Consistency (RTN)",
     height=1100,
-    margin=dict(l=60, r=40, t=80, b=60),
+    margin={"l": 60, "r": 40, "t": 80, "b": 60},
 )
 
 print("\n" + "=" * 80)
@@ -527,7 +528,7 @@ print("\nExample validated successfully!")
 
 # Add plots directory to path for importing brahe_theme
 sys.path.insert(0, str(pathlib.Path(__file__).parent.parent.parent / "plots"))
-from brahe_theme import save_themed_html  # noqa: E402
+from brahe_theme import save_themed_html
 
 # Save the sensor network ground track as themed HTML
 light_path, dark_path = save_themed_html(fig_network, OUTDIR / f"{SCRIPT_NAME}_network")
@@ -583,10 +584,11 @@ import pathlib
 import sys
 import time
 
-import brahe as bh
 import numpy as np
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
+
+import brahe as bh
 
 bh.initialize_eop()
 
@@ -702,7 +704,7 @@ for s in sensors:
             lat=[None],
             lon=[None],
             mode="markers",
-            marker=dict(size=8, color=sensor_colors[s.name]),
+            marker={"size": 8, "color": sensor_colors[s.name]},
             name=s.name,
             showlegend=True,
         )
@@ -778,7 +780,7 @@ for i, sensor in enumerate(sensors):
             mode="markers",
             name=sensor.name,
             legendgroup=sensor.name,
-            marker=dict(color=color, size=5),
+            marker={"color": color, "size": 5},
         ),
         row=1,
         col=1,
@@ -791,7 +793,7 @@ for i, sensor in enumerate(sensors):
             name=sensor.name,
             legendgroup=sensor.name,
             showlegend=False,
-            marker=dict(color=color, size=5),
+            marker={"color": color, "size": 5},
         ),
         row=2,
         col=1,
@@ -806,7 +808,7 @@ for i, sensor in enumerate(sensors):
                 name=sensor.name,
                 legendgroup=sensor.name,
                 showlegend=False,
-                marker=dict(color=color, size=5),
+                marker={"color": color, "size": 5},
             ),
             row=3,
             col=1,
@@ -819,7 +821,7 @@ fig_measurements.update_yaxes(title_text="Range (km)", row=3, col=1)
 fig_measurements.update_layout(
     title="Simulated SSN Radar Measurements (6-hour Tracking Arc)",
     height=800,
-    margin=dict(l=60, r=40, t=80, b=60),
+    margin={"l": 60, "r": 40, "t": 80, "b": 60},
 )
 # --8<-- [end:simulate_measurements]
 
@@ -957,7 +959,7 @@ def add_band_and_error(fig, row, col, t_min, sigma, err, style):
             x=t_min,
             y=3 * sigma,
             mode="lines",
-            line=dict(width=0),
+            line={"width": 0},
             showlegend=False,
             hoverinfo="skip",
         ),
@@ -969,7 +971,7 @@ def add_band_and_error(fig, row, col, t_min, sigma, err, style):
             x=t_min,
             y=-3 * sigma,
             mode="lines",
-            line=dict(width=0),
+            line={"width": 0},
             fill="tonexty",
             fillcolor=style["fill"],
             showlegend=False,
@@ -983,7 +985,7 @@ def add_band_and_error(fig, row, col, t_min, sigma, err, style):
             x=t_min,
             y=err,
             mode="lines",
-            line=dict(color=style["color"], width=1.5),
+            line={"color": style["color"], "width": 1.5},
             showlegend=False,
         ),
         row=row,
@@ -1007,7 +1009,7 @@ for col, (name, result) in enumerate((("EKF", ekf_rtn), ("UKF", ukf_rtn)), start
             x=result["t"],
             y=result["err_total"],
             mode="lines",
-            line=dict(color=style["color"], width=2),
+            line={"color": style["color"], "width": 2},
             showlegend=False,
         ),
         row=4,
@@ -1042,7 +1044,7 @@ fig_filters.update_xaxes(title_text="Time (minutes)", row=4, col=2)
 fig_filters.update_layout(
     title="EKF / UKF Filter Consistency (RTN)",
     height=1100,
-    margin=dict(l=60, r=40, t=80, b=60),
+    margin={"l": 60, "r": 40, "t": 80, "b": 60},
 )
 
 print("\n" + "=" * 80)
@@ -1070,7 +1072,7 @@ print("\nExample validated successfully!")
 
 # Add plots directory to path for importing brahe_theme
 sys.path.insert(0, str(pathlib.Path(__file__).parent.parent.parent / "plots"))
-from brahe_theme import save_themed_html  # noqa: E402
+from brahe_theme import save_themed_html
 
 # Save the sensor network ground track as themed HTML
 light_path, dark_path = save_themed_html(fig_network, OUTDIR / f"{SCRIPT_NAME}_network")
@@ -1126,10 +1128,11 @@ import pathlib
 import sys
 import time
 
-import brahe as bh
 import numpy as np
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
+
+import brahe as bh
 
 bh.initialize_eop()
 
@@ -1245,7 +1248,7 @@ for s in sensors:
             lat=[None],
             lon=[None],
             mode="markers",
-            marker=dict(size=8, color=sensor_colors[s.name]),
+            marker={"size": 8, "color": sensor_colors[s.name]},
             name=s.name,
             showlegend=True,
         )
@@ -1321,7 +1324,7 @@ for i, sensor in enumerate(sensors):
             mode="markers",
             name=sensor.name,
             legendgroup=sensor.name,
-            marker=dict(color=color, size=5),
+            marker={"color": color, "size": 5},
         ),
         row=1,
         col=1,
@@ -1334,7 +1337,7 @@ for i, sensor in enumerate(sensors):
             name=sensor.name,
             legendgroup=sensor.name,
             showlegend=False,
-            marker=dict(color=color, size=5),
+            marker={"color": color, "size": 5},
         ),
         row=2,
         col=1,
@@ -1349,7 +1352,7 @@ for i, sensor in enumerate(sensors):
                 name=sensor.name,
                 legendgroup=sensor.name,
                 showlegend=False,
-                marker=dict(color=color, size=5),
+                marker={"color": color, "size": 5},
             ),
             row=3,
             col=1,
@@ -1362,7 +1365,7 @@ fig_measurements.update_yaxes(title_text="Range (km)", row=3, col=1)
 fig_measurements.update_layout(
     title="Simulated SSN Radar Measurements (6-hour Tracking Arc)",
     height=800,
-    margin=dict(l=60, r=40, t=80, b=60),
+    margin={"l": 60, "r": 40, "t": 80, "b": 60},
 )
 # --8<-- [end:simulate_measurements]
 
@@ -1500,7 +1503,7 @@ def add_band_and_error(fig, row, col, t_min, sigma, err, style):
             x=t_min,
             y=3 * sigma,
             mode="lines",
-            line=dict(width=0),
+            line={"width": 0},
             showlegend=False,
             hoverinfo="skip",
         ),
@@ -1512,7 +1515,7 @@ def add_band_and_error(fig, row, col, t_min, sigma, err, style):
             x=t_min,
             y=-3 * sigma,
             mode="lines",
-            line=dict(width=0),
+            line={"width": 0},
             fill="tonexty",
             fillcolor=style["fill"],
             showlegend=False,
@@ -1526,7 +1529,7 @@ def add_band_and_error(fig, row, col, t_min, sigma, err, style):
             x=t_min,
             y=err,
             mode="lines",
-            line=dict(color=style["color"], width=1.5),
+            line={"color": style["color"], "width": 1.5},
             showlegend=False,
         ),
         row=row,
@@ -1550,7 +1553,7 @@ for col, (name, result) in enumerate((("EKF", ekf_rtn), ("UKF", ukf_rtn)), start
             x=result["t"],
             y=result["err_total"],
             mode="lines",
-            line=dict(color=style["color"], width=2),
+            line={"color": style["color"], "width": 2},
             showlegend=False,
         ),
         row=4,
@@ -1585,7 +1588,7 @@ fig_filters.update_xaxes(title_text="Time (minutes)", row=4, col=2)
 fig_filters.update_layout(
     title="EKF / UKF Filter Consistency (RTN)",
     height=1100,
-    margin=dict(l=60, r=40, t=80, b=60),
+    margin={"l": 60, "r": 40, "t": 80, "b": 60},
 )
 
 print("\n" + "=" * 80)
@@ -1613,7 +1616,7 @@ print("\nExample validated successfully!")
 
 # Add plots directory to path for importing brahe_theme
 sys.path.insert(0, str(pathlib.Path(__file__).parent.parent.parent / "plots"))
-from brahe_theme import save_themed_html  # noqa: E402
+from brahe_theme import save_themed_html
 
 # Save the sensor network ground track as themed HTML
 light_path, dark_path = save_themed_html(fig_network, OUTDIR / f"{SCRIPT_NAME}_network")
@@ -1673,10 +1676,11 @@ import pathlib
 import sys
 import time
 
-import brahe as bh
 import numpy as np
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
+
+import brahe as bh
 
 bh.initialize_eop()
 
@@ -1792,7 +1796,7 @@ for s in sensors:
             lat=[None],
             lon=[None],
             mode="markers",
-            marker=dict(size=8, color=sensor_colors[s.name]),
+            marker={"size": 8, "color": sensor_colors[s.name]},
             name=s.name,
             showlegend=True,
         )
@@ -1868,7 +1872,7 @@ for i, sensor in enumerate(sensors):
             mode="markers",
             name=sensor.name,
             legendgroup=sensor.name,
-            marker=dict(color=color, size=5),
+            marker={"color": color, "size": 5},
         ),
         row=1,
         col=1,
@@ -1881,7 +1885,7 @@ for i, sensor in enumerate(sensors):
             name=sensor.name,
             legendgroup=sensor.name,
             showlegend=False,
-            marker=dict(color=color, size=5),
+            marker={"color": color, "size": 5},
         ),
         row=2,
         col=1,
@@ -1896,7 +1900,7 @@ for i, sensor in enumerate(sensors):
                 name=sensor.name,
                 legendgroup=sensor.name,
                 showlegend=False,
-                marker=dict(color=color, size=5),
+                marker={"color": color, "size": 5},
             ),
             row=3,
             col=1,
@@ -1909,7 +1913,7 @@ fig_measurements.update_yaxes(title_text="Range (km)", row=3, col=1)
 fig_measurements.update_layout(
     title="Simulated SSN Radar Measurements (6-hour Tracking Arc)",
     height=800,
-    margin=dict(l=60, r=40, t=80, b=60),
+    margin={"l": 60, "r": 40, "t": 80, "b": 60},
 )
 # --8<-- [end:simulate_measurements]
 
@@ -2047,7 +2051,7 @@ def add_band_and_error(fig, row, col, t_min, sigma, err, style):
             x=t_min,
             y=3 * sigma,
             mode="lines",
-            line=dict(width=0),
+            line={"width": 0},
             showlegend=False,
             hoverinfo="skip",
         ),
@@ -2059,7 +2063,7 @@ def add_band_and_error(fig, row, col, t_min, sigma, err, style):
             x=t_min,
             y=-3 * sigma,
             mode="lines",
-            line=dict(width=0),
+            line={"width": 0},
             fill="tonexty",
             fillcolor=style["fill"],
             showlegend=False,
@@ -2073,7 +2077,7 @@ def add_band_and_error(fig, row, col, t_min, sigma, err, style):
             x=t_min,
             y=err,
             mode="lines",
-            line=dict(color=style["color"], width=1.5),
+            line={"color": style["color"], "width": 1.5},
             showlegend=False,
         ),
         row=row,
@@ -2097,7 +2101,7 @@ for col, (name, result) in enumerate((("EKF", ekf_rtn), ("UKF", ukf_rtn)), start
             x=result["t"],
             y=result["err_total"],
             mode="lines",
-            line=dict(color=style["color"], width=2),
+            line={"color": style["color"], "width": 2},
             showlegend=False,
         ),
         row=4,
@@ -2132,7 +2136,7 @@ fig_filters.update_xaxes(title_text="Time (minutes)", row=4, col=2)
 fig_filters.update_layout(
     title="EKF / UKF Filter Consistency (RTN)",
     height=1100,
-    margin=dict(l=60, r=40, t=80, b=60),
+    margin={"l": 60, "r": 40, "t": 80, "b": 60},
 )
 
 print("\n" + "=" * 80)
@@ -2160,7 +2164,7 @@ print("\nExample validated successfully!")
 
 # Add plots directory to path for importing brahe_theme
 sys.path.insert(0, str(pathlib.Path(__file__).parent.parent.parent / "plots"))
-from brahe_theme import save_themed_html  # noqa: E402
+from brahe_theme import save_themed_html
 
 # Save the sensor network ground track as themed HTML
 light_path, dark_path = save_themed_html(fig_network, OUTDIR / f"{SCRIPT_NAME}_network")
@@ -2221,10 +2225,11 @@ import pathlib
 import sys
 import time
 
-import brahe as bh
 import numpy as np
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
+
+import brahe as bh
 
 bh.initialize_eop()
 
@@ -2340,7 +2345,7 @@ for s in sensors:
             lat=[None],
             lon=[None],
             mode="markers",
-            marker=dict(size=8, color=sensor_colors[s.name]),
+            marker={"size": 8, "color": sensor_colors[s.name]},
             name=s.name,
             showlegend=True,
         )
@@ -2416,7 +2421,7 @@ for i, sensor in enumerate(sensors):
             mode="markers",
             name=sensor.name,
             legendgroup=sensor.name,
-            marker=dict(color=color, size=5),
+            marker={"color": color, "size": 5},
         ),
         row=1,
         col=1,
@@ -2429,7 +2434,7 @@ for i, sensor in enumerate(sensors):
             name=sensor.name,
             legendgroup=sensor.name,
             showlegend=False,
-            marker=dict(color=color, size=5),
+            marker={"color": color, "size": 5},
         ),
         row=2,
         col=1,
@@ -2444,7 +2449,7 @@ for i, sensor in enumerate(sensors):
                 name=sensor.name,
                 legendgroup=sensor.name,
                 showlegend=False,
-                marker=dict(color=color, size=5),
+                marker={"color": color, "size": 5},
             ),
             row=3,
             col=1,
@@ -2457,7 +2462,7 @@ fig_measurements.update_yaxes(title_text="Range (km)", row=3, col=1)
 fig_measurements.update_layout(
     title="Simulated SSN Radar Measurements (6-hour Tracking Arc)",
     height=800,
-    margin=dict(l=60, r=40, t=80, b=60),
+    margin={"l": 60, "r": 40, "t": 80, "b": 60},
 )
 # --8<-- [end:simulate_measurements]
 
@@ -2595,7 +2600,7 @@ def add_band_and_error(fig, row, col, t_min, sigma, err, style):
             x=t_min,
             y=3 * sigma,
             mode="lines",
-            line=dict(width=0),
+            line={"width": 0},
             showlegend=False,
             hoverinfo="skip",
         ),
@@ -2607,7 +2612,7 @@ def add_band_and_error(fig, row, col, t_min, sigma, err, style):
             x=t_min,
             y=-3 * sigma,
             mode="lines",
-            line=dict(width=0),
+            line={"width": 0},
             fill="tonexty",
             fillcolor=style["fill"],
             showlegend=False,
@@ -2621,7 +2626,7 @@ def add_band_and_error(fig, row, col, t_min, sigma, err, style):
             x=t_min,
             y=err,
             mode="lines",
-            line=dict(color=style["color"], width=1.5),
+            line={"color": style["color"], "width": 1.5},
             showlegend=False,
         ),
         row=row,
@@ -2645,7 +2650,7 @@ for col, (name, result) in enumerate((("EKF", ekf_rtn), ("UKF", ukf_rtn)), start
             x=result["t"],
             y=result["err_total"],
             mode="lines",
-            line=dict(color=style["color"], width=2),
+            line={"color": style["color"], "width": 2},
             showlegend=False,
         ),
         row=4,
@@ -2680,7 +2685,7 @@ fig_filters.update_xaxes(title_text="Time (minutes)", row=4, col=2)
 fig_filters.update_layout(
     title="EKF / UKF Filter Consistency (RTN)",
     height=1100,
-    margin=dict(l=60, r=40, t=80, b=60),
+    margin={"l": 60, "r": 40, "t": 80, "b": 60},
 )
 
 print("\n" + "=" * 80)
@@ -2708,7 +2713,7 @@ print("\nExample validated successfully!")
 
 # Add plots directory to path for importing brahe_theme
 sys.path.insert(0, str(pathlib.Path(__file__).parent.parent.parent / "plots"))
-from brahe_theme import save_themed_html  # noqa: E402
+from brahe_theme import save_themed_html
 
 # Save the sensor network ground track as themed HTML
 light_path, dark_path = save_themed_html(fig_network, OUTDIR / f"{SCRIPT_NAME}_network")
@@ -2764,10 +2769,11 @@ import pathlib
 import sys
 import time
 
-import brahe as bh
 import numpy as np
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
+
+import brahe as bh
 
 bh.initialize_eop()
 
@@ -2883,7 +2889,7 @@ for s in sensors:
             lat=[None],
             lon=[None],
             mode="markers",
-            marker=dict(size=8, color=sensor_colors[s.name]),
+            marker={"size": 8, "color": sensor_colors[s.name]},
             name=s.name,
             showlegend=True,
         )
@@ -2959,7 +2965,7 @@ for i, sensor in enumerate(sensors):
             mode="markers",
             name=sensor.name,
             legendgroup=sensor.name,
-            marker=dict(color=color, size=5),
+            marker={"color": color, "size": 5},
         ),
         row=1,
         col=1,
@@ -2972,7 +2978,7 @@ for i, sensor in enumerate(sensors):
             name=sensor.name,
             legendgroup=sensor.name,
             showlegend=False,
-            marker=dict(color=color, size=5),
+            marker={"color": color, "size": 5},
         ),
         row=2,
         col=1,
@@ -2987,7 +2993,7 @@ for i, sensor in enumerate(sensors):
                 name=sensor.name,
                 legendgroup=sensor.name,
                 showlegend=False,
-                marker=dict(color=color, size=5),
+                marker={"color": color, "size": 5},
             ),
             row=3,
             col=1,
@@ -3000,7 +3006,7 @@ fig_measurements.update_yaxes(title_text="Range (km)", row=3, col=1)
 fig_measurements.update_layout(
     title="Simulated SSN Radar Measurements (6-hour Tracking Arc)",
     height=800,
-    margin=dict(l=60, r=40, t=80, b=60),
+    margin={"l": 60, "r": 40, "t": 80, "b": 60},
 )
 # --8<-- [end:simulate_measurements]
 
@@ -3138,7 +3144,7 @@ def add_band_and_error(fig, row, col, t_min, sigma, err, style):
             x=t_min,
             y=3 * sigma,
             mode="lines",
-            line=dict(width=0),
+            line={"width": 0},
             showlegend=False,
             hoverinfo="skip",
         ),
@@ -3150,7 +3156,7 @@ def add_band_and_error(fig, row, col, t_min, sigma, err, style):
             x=t_min,
             y=-3 * sigma,
             mode="lines",
-            line=dict(width=0),
+            line={"width": 0},
             fill="tonexty",
             fillcolor=style["fill"],
             showlegend=False,
@@ -3164,7 +3170,7 @@ def add_band_and_error(fig, row, col, t_min, sigma, err, style):
             x=t_min,
             y=err,
             mode="lines",
-            line=dict(color=style["color"], width=1.5),
+            line={"color": style["color"], "width": 1.5},
             showlegend=False,
         ),
         row=row,
@@ -3188,7 +3194,7 @@ for col, (name, result) in enumerate((("EKF", ekf_rtn), ("UKF", ukf_rtn)), start
             x=result["t"],
             y=result["err_total"],
             mode="lines",
-            line=dict(color=style["color"], width=2),
+            line={"color": style["color"], "width": 2},
             showlegend=False,
         ),
         row=4,
@@ -3223,7 +3229,7 @@ fig_filters.update_xaxes(title_text="Time (minutes)", row=4, col=2)
 fig_filters.update_layout(
     title="EKF / UKF Filter Consistency (RTN)",
     height=1100,
-    margin=dict(l=60, r=40, t=80, b=60),
+    margin={"l": 60, "r": 40, "t": 80, "b": 60},
 )
 
 print("\n" + "=" * 80)
@@ -3251,7 +3257,7 @@ print("\nExample validated successfully!")
 
 # Add plots directory to path for importing brahe_theme
 sys.path.insert(0, str(pathlib.Path(__file__).parent.parent.parent / "plots"))
-from brahe_theme import save_themed_html  # noqa: E402
+from brahe_theme import save_themed_html
 
 # Save the sensor network ground track as themed HTML
 light_path, dark_path = save_themed_html(fig_network, OUTDIR / f"{SCRIPT_NAME}_network")
@@ -3309,8 +3315,9 @@ keeps the results available in the documentation without requiring a run.
 # --8<-- [start:all]
 import time
 
-import brahe as bh
 import numpy as np
+
+import brahe as bh
 
 bh.initialize_eop()
 
@@ -3452,8 +3459,9 @@ keeps the results available in the documentation without requiring a run.
 # --8<-- [start:all]
 import time
 
-import brahe as bh
 import numpy as np
+
+import brahe as bh
 
 bh.initialize_eop()
 
@@ -3589,10 +3597,11 @@ import pathlib
 import sys
 import time
 
-import brahe as bh
 import numpy as np
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
+
+import brahe as bh
 
 bh.initialize_eop()
 
@@ -3708,7 +3717,7 @@ for s in sensors:
             lat=[None],
             lon=[None],
             mode="markers",
-            marker=dict(size=8, color=sensor_colors[s.name]),
+            marker={"size": 8, "color": sensor_colors[s.name]},
             name=s.name,
             showlegend=True,
         )
@@ -3784,7 +3793,7 @@ for i, sensor in enumerate(sensors):
             mode="markers",
             name=sensor.name,
             legendgroup=sensor.name,
-            marker=dict(color=color, size=5),
+            marker={"color": color, "size": 5},
         ),
         row=1,
         col=1,
@@ -3797,7 +3806,7 @@ for i, sensor in enumerate(sensors):
             name=sensor.name,
             legendgroup=sensor.name,
             showlegend=False,
-            marker=dict(color=color, size=5),
+            marker={"color": color, "size": 5},
         ),
         row=2,
         col=1,
@@ -3812,7 +3821,7 @@ for i, sensor in enumerate(sensors):
                 name=sensor.name,
                 legendgroup=sensor.name,
                 showlegend=False,
-                marker=dict(color=color, size=5),
+                marker={"color": color, "size": 5},
             ),
             row=3,
             col=1,
@@ -3825,7 +3834,7 @@ fig_measurements.update_yaxes(title_text="Range (km)", row=3, col=1)
 fig_measurements.update_layout(
     title="Simulated SSN Radar Measurements (6-hour Tracking Arc)",
     height=800,
-    margin=dict(l=60, r=40, t=80, b=60),
+    margin={"l": 60, "r": 40, "t": 80, "b": 60},
 )
 # --8<-- [end:simulate_measurements]
 
@@ -3963,7 +3972,7 @@ def add_band_and_error(fig, row, col, t_min, sigma, err, style):
             x=t_min,
             y=3 * sigma,
             mode="lines",
-            line=dict(width=0),
+            line={"width": 0},
             showlegend=False,
             hoverinfo="skip",
         ),
@@ -3975,7 +3984,7 @@ def add_band_and_error(fig, row, col, t_min, sigma, err, style):
             x=t_min,
             y=-3 * sigma,
             mode="lines",
-            line=dict(width=0),
+            line={"width": 0},
             fill="tonexty",
             fillcolor=style["fill"],
             showlegend=False,
@@ -3989,7 +3998,7 @@ def add_band_and_error(fig, row, col, t_min, sigma, err, style):
             x=t_min,
             y=err,
             mode="lines",
-            line=dict(color=style["color"], width=1.5),
+            line={"color": style["color"], "width": 1.5},
             showlegend=False,
         ),
         row=row,
@@ -4013,7 +4022,7 @@ for col, (name, result) in enumerate((("EKF", ekf_rtn), ("UKF", ukf_rtn)), start
             x=result["t"],
             y=result["err_total"],
             mode="lines",
-            line=dict(color=style["color"], width=2),
+            line={"color": style["color"], "width": 2},
             showlegend=False,
         ),
         row=4,
@@ -4048,7 +4057,7 @@ fig_filters.update_xaxes(title_text="Time (minutes)", row=4, col=2)
 fig_filters.update_layout(
     title="EKF / UKF Filter Consistency (RTN)",
     height=1100,
-    margin=dict(l=60, r=40, t=80, b=60),
+    margin={"l": 60, "r": 40, "t": 80, "b": 60},
 )
 
 print("\n" + "=" * 80)
@@ -4076,7 +4085,7 @@ print("\nExample validated successfully!")
 
 # Add plots directory to path for importing brahe_theme
 sys.path.insert(0, str(pathlib.Path(__file__).parent.parent.parent / "plots"))
-from brahe_theme import save_themed_html  # noqa: E402
+from brahe_theme import save_themed_html
 
 # Save the sensor network ground track as themed HTML
 light_path, dark_path = save_themed_html(fig_network, OUTDIR / f"{SCRIPT_NAME}_network")

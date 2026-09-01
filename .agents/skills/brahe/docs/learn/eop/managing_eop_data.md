@@ -32,7 +32,6 @@ A static provider is one that just uses fixed values for Earth orientation param
 ```python
 import brahe as bh
 
-
 # Method 1: Static EOP Provider - All Zeros
 eop_static_zeros = bh.StaticEOPProvider.from_zero()
 bh.set_global_eop_provider(eop_static_zeros)
@@ -110,6 +109,7 @@ The interpolation and extrapolation parameters are also available when creating 
 
 ```python
 from pathlib import Path
+
 import brahe as bh
 
 # Method 1: Initialize from Caching EOP Provider -> Internally caches data to ~/.cache/brahe/eop

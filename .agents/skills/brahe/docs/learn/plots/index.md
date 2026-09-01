@@ -157,6 +157,8 @@ This can lead to visual artifacts where parts of objects that should be behind o
 
 ???+ "Plot Source"
 ```python
+# Configuration
+SCRIPT_NAME = "plot_" + pathlib.Path(__file__).stem
 OUTDIR = pathlib.Path(os.getenv("BRAHE_FIGURE_OUTPUT_DIR", "./docs/figures/"))
 os.makedirs(OUTDIR, exist_ok=True)
 
@@ -190,9 +192,10 @@ print(f"✓ Generated {dark_path}")
 
 ???+  "Plot Source"
 ```python
-import brahe as bh
-import numpy as np
 import matplotlib.pyplot as plt
+import numpy as np
+
+import brahe as bh
 
 # Initialize EOP data
 bh.initialize_eop()

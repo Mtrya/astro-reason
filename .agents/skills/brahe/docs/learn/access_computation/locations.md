@@ -43,8 +43,9 @@ Load locations from GeoJSON strings or files:
 
 
 ```python
-import brahe as bh
 import json
+
+import brahe as bh
 
 bh.initialize_eop()
 
@@ -139,8 +140,9 @@ Load polygon areas from GeoJSON:
 
 
 ```python
-import brahe as bh
 import json
+
+import brahe as bh
 
 bh.initialize_eop()
 

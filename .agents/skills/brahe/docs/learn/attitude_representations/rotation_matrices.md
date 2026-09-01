@@ -28,9 +28,11 @@ Rotation matrices can be created directly from elements, elementary rotations, o
 
 
 ```python
-import brahe as bh
-import numpy as np
 import math
+
+import numpy as np
+
+import brahe as bh
 
 # Initialize from 9 individual elements (row-major order)
 # Identity rotation
@@ -148,8 +150,9 @@ Rotation matrices support composition through matrix multiplication and vector r
 
 
 ```python
-import brahe as bh
 import numpy as np
+
+import brahe as bh
 
 # Create two rotation matrices
 # 90° rotation about X-axis
@@ -205,8 +208,9 @@ Convert between rotation matrices and other attitude representations:
 
 
 ```python
-import brahe as bh
 import math
+
+import brahe as bh
 
 # Create a rotation matrix (45° about Z-axis)
 rm = bh.RotationMatrix.Rz(45, bh.AngleFormat.DEGREES)

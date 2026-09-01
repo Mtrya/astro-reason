@@ -32,8 +32,9 @@ Calculate the general relativistic correction to a satellite's acceleration.
 
 
 ```
-import brahe as bh
 import numpy as np
+
+import brahe as bh
 
 bh.initialize_eop()
 

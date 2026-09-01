@@ -25,6 +25,7 @@ The example below builds a Mars force model with `ForceModelConfig.mars_default(
 
 ```python
 import numpy as np
+
 import brahe as bh
 
 # Initialize EOP data and the DE440s planetary ephemeris used for third-body
@@ -113,8 +114,9 @@ The example below registers a uniform spin state for an uncatalogued body (self-
 
 
 ```python
-import brahe as bh
 import numpy as np
+
+import brahe as bh
 
 # An uncatalogued body (e.g. a newly observed asteroid): self-assign a unique
 # negative NAIF ID for its center, mirroring NAIF's convention.

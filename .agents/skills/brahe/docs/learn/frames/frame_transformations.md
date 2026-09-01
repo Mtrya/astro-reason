@@ -38,8 +38,9 @@ The example below routes a `GCRF` (Earth-centered) state into `LCI` (Moon-center
 
 
 ```
-import brahe as bh
 import numpy as np
+
+import brahe as bh
 
 # Initialize EOP and the DE440s ephemeris used to re-center GCRF (Earth) to
 # LCI (Moon) inside the router.

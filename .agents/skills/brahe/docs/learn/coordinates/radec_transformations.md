@@ -22,9 +22,10 @@ Right ascension is normalized to $[0, 360)$ degrees (or $[0, 2\pi)$ radians). At
 
 
 ```python
-import brahe as bh
 import numpy as np
 import pytest
+
+import brahe as bh
 
 # Barnard's Star (HIP 87937), J1991.25 Hipparcos catalog values.
 ra = 269.45402305  # deg
@@ -107,9 +108,10 @@ rates and back, then apply the same site-relative subtract-then-convert
 pattern to a topocentric line-of-sight state.
 """
 
-import brahe as bh
 import numpy as np
 import pytest
+
+import brahe as bh
 
 # --8<-- [start:state_transforms]
 # RA/Dec/range and their rates: [ra, dec, range, ra_dot, dec_dot, range_dot]
@@ -168,9 +170,10 @@ rates and back, then apply the same site-relative subtract-then-convert
 pattern to a topocentric line-of-sight state.
 """
 
-import brahe as bh
 import numpy as np
 import pytest
+
+import brahe as bh
 
 # --8<-- [start:state_transforms]
 # RA/Dec/range and their rates: [ra, dec, range, ra_dot, dec_dot, range_dot]
@@ -221,8 +224,9 @@ For stars, which are effectively at infinite range, this correction is unnecessa
 
 
 ```python
-import brahe as bh
 import numpy as np
+
+import brahe as bh
 
 bh.initialize_eop()
 

@@ -289,8 +289,9 @@ print(f"Created: {constraint}")
 Python users can create fully custom constraints by implementing the `AccessConstraintComputer` interface:
 
 ```python
-import brahe as bh
 import numpy as np
+
+import brahe as bh
 
 
 class MaxRangeConstraint(bh.AccessConstraintComputer):

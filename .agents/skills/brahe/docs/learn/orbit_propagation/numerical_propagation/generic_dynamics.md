@@ -22,6 +22,7 @@ The following example demonstrates propagating a simple harmonic oscillator (SHO
 
 ```python
 import numpy as np
+
 import brahe as bh
 
 # Initialize EOP data (needed for epoch operations)
@@ -108,9 +109,11 @@ import numpy as np
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 
+import brahe as bh
+
 # Add plots directory to path for importing brahe_theme
 sys.path.insert(0, str(pathlib.Path(__file__).parent.parent.parent))
-from brahe_theme import save_themed_html, get_theme_colors
+from brahe_theme import get_theme_colors, save_themed_html
 
 # Configuration
 SCRIPT_NAME = pathlib.Path(__file__).stem
@@ -194,7 +197,7 @@ def create_figure(theme):
             y=positions,
             mode="lines",
             name="Numerical",
-            line=dict(color=colors["primary"], width=2),
+            line={"color": colors["primary"], "width": 2},
             legendgroup="numerical",
         ),
         row=1,
@@ -208,7 +211,7 @@ def create_figure(theme):
             y=positions_analytical,
             mode="lines",
             name="Analytical",
-            line=dict(color=colors["secondary"], width=2, dash="dash"),
+            line={"color": colors["secondary"], "width": 2, "dash": "dash"},
             legendgroup="analytical",
         ),
         row=1,
@@ -222,7 +225,7 @@ def create_figure(theme):
             y=velocities,
             mode="lines",
             name="Numerical",
-            line=dict(color=colors["primary"], width=2),
+            line={"color": colors["primary"], "width": 2},
             legendgroup="numerical",
             showlegend=False,
         ),
@@ -237,7 +240,7 @@ def create_figure(theme):
             y=velocities_analytical,
             mode="lines",
             name="Analytical",
-            line=dict(color=colors["secondary"], width=2, dash="dash"),
+            line={"color": colors["secondary"], "width": 2, "dash": "dash"},
             legendgroup="analytical",
             showlegend=False,
         ),
@@ -249,14 +252,14 @@ def create_figure(theme):
     fig.update_layout(
         title="Simple Harmonic Oscillator (ω = 2π rad/s)",
         height=600,
-        margin=dict(l=60, r=40, t=80, b=60),
-        legend=dict(
-            orientation="h",
-            yanchor="bottom",
-            y=1.02,
-            xanchor="center",
-            x=0.5,
-        ),
+        margin={"l": 60, "r": 40, "t": 80, "b": 60},
+        legend={
+            "orientation": "h",
+            "yanchor": "bottom",
+            "y": 1.02,
+            "xanchor": "center",
+            "x": 0.5,
+        },
     )
 
     # Update x-axes
@@ -321,6 +324,7 @@ def dynamics(t: float, state: np.ndarray, params: np.ndarray | None) -> np.ndarr
 
 ```python
 import numpy as np
+
 import brahe as bh
 
 bh.initialize_eop()
@@ -407,6 +411,7 @@ The following example shows a damped harmonic oscillator where damping is implem
 
 ```python
 import numpy as np
+
 import brahe as bh
 
 # Initialize EOP data (needed for epoch operations)
@@ -525,6 +530,7 @@ The generic propagator supports the same event detection system as `NumericalOrb
 
 ```python
 import numpy as np
+
 import brahe as bh
 
 # Initialize EOP data (needed for epoch operations)

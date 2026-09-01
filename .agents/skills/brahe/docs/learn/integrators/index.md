@@ -90,13 +90,15 @@ The plot below shows position error vs. time for different integrators propagati
 import os
 import pathlib
 import sys
-import plotly.graph_objects as go
+
 import numpy as np
+import plotly.graph_objects as go
+
 import brahe as bh
 
 # Add plots directory to path for importing brahe_theme
 sys.path.insert(0, str(pathlib.Path(__file__).parent))
-from brahe_theme import save_themed_html, get_color_sequence
+from brahe_theme import get_color_sequence, save_themed_html
 
 # Configuration
 SCRIPT_NAME = pathlib.Path(__file__).stem
@@ -243,7 +245,7 @@ def create_figure(theme):
             y=errors_rk4,
             name="RK4 (Fixed, dt=60s)",
             mode="lines",
-            line=dict(color=colors[0], width=2),
+            line={"color": colors[0], "width": 2},
             hovertemplate="t=%{x:.2f} hours<br><b>RK4</b><br>Error: %{y:.2e} m<extra></extra>",
         )
     )
@@ -254,7 +256,7 @@ def create_figure(theme):
             y=errors_rkf45,
             name="RKF45 (Adaptive)",
             mode="lines",
-            line=dict(color=colors[1], width=2),
+            line={"color": colors[1], "width": 2},
             hovertemplate="<b>RKF45</b><br>Error: %{y:.2e} m<extra></extra>",
         )
     )
@@ -265,7 +267,7 @@ def create_figure(theme):
             y=errors_dp54,
             name="DP54 (Adaptive)",
             mode="lines",
-            line=dict(color=colors[2], width=2),
+            line={"color": colors[2], "width": 2},
             hovertemplate="<b>DP54</b><br>Error: %{y:.2e} m<extra></extra>",
         )
     )
@@ -276,7 +278,7 @@ def create_figure(theme):
             y=errors_rkn1210,
             name="RKN1210 (Adaptive)",
             mode="lines",
-            line=dict(color=colors[3], width=2),
+            line={"color": colors[3], "width": 2},
             hovertemplate="<b>RKN1210</b><br>Error: %{y:.2e} m<extra></extra>",
         )
     )
@@ -288,11 +290,11 @@ def create_figure(theme):
         yaxis_title="Position Error (m)",
         yaxis_type="log",
         hovermode="x unified",
-        legend=dict(yanchor="top", y=0.99, xanchor="left", x=0.01),
+        legend={"yanchor": "top", "y": 0.99, "xanchor": "left", "x": 0.01},
     )
 
     # Configure axes - hide default x-value in hover since we show it in first trace
-    fig.update_xaxes(title_text="Time (hours)", unifiedhovertitle=dict(text=""))
+    fig.update_xaxes(title_text="Time (hours)", unifiedhovertitle={"text": ""})
     fig.update_yaxes(title_text="Position Error (m)", type="log")
 
     return fig
@@ -312,8 +314,9 @@ To use a fixed-step integrator like RK4, you create an instance with the desired
 
 
 ```python
-import brahe as bh
 import numpy as np
+
+import brahe as bh
 
 
 def dynamics(t, state):
@@ -344,8 +347,9 @@ To use an adaptive-step integrator like RKF45, you create it with an `Integrator
 
 
 ```python
-import brahe as bh
 import numpy as np
+
+import brahe as bh
 
 
 def dynamics(t, state):
@@ -377,8 +381,9 @@ To take multiple steps until a final time, you can use a loop that updates the t
 
 
 ```python
-import brahe as bh
 import numpy as np
+
+import brahe as bh
 
 
 def dynamics(t, state):
@@ -430,8 +435,9 @@ They can be propagated by integrating the variational equations alongside the st
 
 
 ```python
-import brahe as bh
 import numpy as np
+
+import brahe as bh
 
 
 def dynamics(t, state):

@@ -17,6 +17,7 @@ chained setters.
 
 ```python
 import numpy as np
+
 import brahe as bh
 
 bh.initialize_eop()
@@ -42,6 +43,7 @@ The full example below processes a batch of observations after construction:
 
 ```python
 import numpy as np
+
 import brahe as bh
 
 bh.initialize_eop()

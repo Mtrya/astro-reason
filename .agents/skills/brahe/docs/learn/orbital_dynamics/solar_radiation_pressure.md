@@ -27,8 +27,9 @@ Calculate the solar radiation pressure acceleration on a satellite, accounting f
 
 
 ```
-import brahe as bh
 import numpy as np
+
+import brahe as bh
 
 bh.initialize_eop()
 
@@ -146,8 +147,9 @@ Determine if a satellite is in Earth's shadow using either the conical or cylind
 
 
 ```
-import brahe as bh
 import numpy as np
+
+import brahe as bh
 
 # Initialize EOP data
 bh.initialize_eop()

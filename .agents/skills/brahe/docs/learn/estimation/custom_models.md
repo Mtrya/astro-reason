@@ -9,6 +9,7 @@ override.
 
 ```python
 import numpy as np
+
 import brahe as bh
 
 bh.initialize_eop()

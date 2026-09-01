@@ -16,7 +16,6 @@ First, we'll import the necessary libraries and initialize Earth orientation par
 #!/usr/bin/env python
 # /// script
 # dependencies = ["brahe", "numpy", "shapely", "matplotlib", "cartopy"]
-# FLAGS = ["NETWORK"]
 # TIMEOUT = 600
 # ///
 
@@ -44,12 +43,12 @@ import os
 import pathlib
 import time
 
-import brahe as bh
+import cartopy.crs as ccrs
 import matplotlib.pyplot as plt
 import numpy as np
 from shapely.geometry import Point, Polygon
 
-import cartopy.crs as ccrs
+import brahe as bh
 
 bh.initialize_eop()
 # --8<-- [end:preamble]
@@ -216,8 +215,8 @@ for window in windows:
     satellite_contacts[sat_name].append(window)
 
 # Sort each satellite's contacts by start time
-for sat_name in satellite_contacts:
-    satellite_contacts[sat_name].sort(key=lambda w: w.start.jd())
+for contacts in satellite_contacts.values():
+    contacts.sort(key=lambda w: w.start.jd())
 
 # Calculate latency for each AOI exit
 latencies = []
@@ -538,7 +537,6 @@ We download all active satellite TLEs from CelesTrak and filter for Capella sate
 #!/usr/bin/env python
 # /// script
 # dependencies = ["brahe", "numpy", "shapely", "matplotlib", "cartopy"]
-# FLAGS = ["NETWORK"]
 # TIMEOUT = 600
 # ///
 
@@ -566,12 +564,12 @@ import os
 import pathlib
 import time
 
-import brahe as bh
+import cartopy.crs as ccrs
 import matplotlib.pyplot as plt
 import numpy as np
 from shapely.geometry import Point, Polygon
 
-import cartopy.crs as ccrs
+import brahe as bh
 
 bh.initialize_eop()
 # --8<-- [end:preamble]
@@ -738,8 +736,8 @@ for window in windows:
     satellite_contacts[sat_name].append(window)
 
 # Sort each satellite's contacts by start time
-for sat_name in satellite_contacts:
-    satellite_contacts[sat_name].sort(key=lambda w: w.start.jd())
+for contacts in satellite_contacts.values():
+    contacts.sort(key=lambda w: w.start.jd())
 
 # Calculate latency for each AOI exit
 latencies = []
@@ -1060,7 +1058,6 @@ Next, we load the KSAT ground station network:
 #!/usr/bin/env python
 # /// script
 # dependencies = ["brahe", "numpy", "shapely", "matplotlib", "cartopy"]
-# FLAGS = ["NETWORK"]
 # TIMEOUT = 600
 # ///
 
@@ -1088,12 +1085,12 @@ import os
 import pathlib
 import time
 
-import brahe as bh
+import cartopy.crs as ccrs
 import matplotlib.pyplot as plt
 import numpy as np
 from shapely.geometry import Point, Polygon
 
-import cartopy.crs as ccrs
+import brahe as bh
 
 bh.initialize_eop()
 # --8<-- [end:preamble]
@@ -1260,8 +1257,8 @@ for window in windows:
     satellite_contacts[sat_name].append(window)
 
 # Sort each satellite's contacts by start time
-for sat_name in satellite_contacts:
-    satellite_contacts[sat_name].sort(key=lambda w: w.start.jd())
+for contacts in satellite_contacts.values():
+    contacts.sort(key=lambda w: w.start.jd())
 
 # Calculate latency for each AOI exit
 latencies = []
@@ -1584,7 +1581,6 @@ We define the AOI as a polygon covering the continental United States using a de
 #!/usr/bin/env python
 # /// script
 # dependencies = ["brahe", "numpy", "shapely", "matplotlib", "cartopy"]
-# FLAGS = ["NETWORK"]
 # TIMEOUT = 600
 # ///
 
@@ -1612,12 +1608,12 @@ import os
 import pathlib
 import time
 
-import brahe as bh
+import cartopy.crs as ccrs
 import matplotlib.pyplot as plt
 import numpy as np
 from shapely.geometry import Point, Polygon
 
-import cartopy.crs as ccrs
+import brahe as bh
 
 bh.initialize_eop()
 # --8<-- [end:preamble]
@@ -1784,8 +1780,8 @@ for window in windows:
     satellite_contacts[sat_name].append(window)
 
 # Sort each satellite's contacts by start time
-for sat_name in satellite_contacts:
-    satellite_contacts[sat_name].sort(key=lambda w: w.start.jd())
+for contacts in satellite_contacts.values():
+    contacts.sort(key=lambda w: w.start.jd())
 
 # Calculate latency for each AOI exit
 latencies = []
@@ -2108,7 +2104,6 @@ We filter out ground stations that are inside the AOI. The reasoning is that a s
 #!/usr/bin/env python
 # /// script
 # dependencies = ["brahe", "numpy", "shapely", "matplotlib", "cartopy"]
-# FLAGS = ["NETWORK"]
 # TIMEOUT = 600
 # ///
 
@@ -2136,12 +2131,12 @@ import os
 import pathlib
 import time
 
-import brahe as bh
+import cartopy.crs as ccrs
 import matplotlib.pyplot as plt
 import numpy as np
 from shapely.geometry import Point, Polygon
 
-import cartopy.crs as ccrs
+import brahe as bh
 
 bh.initialize_eop()
 # --8<-- [end:preamble]
@@ -2308,8 +2303,8 @@ for window in windows:
     satellite_contacts[sat_name].append(window)
 
 # Sort each satellite's contacts by start time
-for sat_name in satellite_contacts:
-    satellite_contacts[sat_name].sort(key=lambda w: w.start.jd())
+for contacts in satellite_contacts.values():
+    contacts.sort(key=lambda w: w.start.jd())
 
 # Calculate latency for each AOI exit
 latencies = []
@@ -2632,7 +2627,6 @@ Using the `AOIExitEvent` detector with `SGPPropagator`, we detect every time a C
 #!/usr/bin/env python
 # /// script
 # dependencies = ["brahe", "numpy", "shapely", "matplotlib", "cartopy"]
-# FLAGS = ["NETWORK"]
 # TIMEOUT = 600
 # ///
 
@@ -2660,12 +2654,12 @@ import os
 import pathlib
 import time
 
-import brahe as bh
+import cartopy.crs as ccrs
 import matplotlib.pyplot as plt
 import numpy as np
 from shapely.geometry import Point, Polygon
 
-import cartopy.crs as ccrs
+import brahe as bh
 
 bh.initialize_eop()
 # --8<-- [end:preamble]
@@ -2832,8 +2826,8 @@ for window in windows:
     satellite_contacts[sat_name].append(window)
 
 # Sort each satellite's contacts by start time
-for sat_name in satellite_contacts:
-    satellite_contacts[sat_name].sort(key=lambda w: w.start.jd())
+for contacts in satellite_contacts.values():
+    contacts.sort(key=lambda w: w.start.jd())
 
 # Calculate latency for each AOI exit
 latencies = []
@@ -3173,7 +3167,6 @@ We reset the propagators and use the access computation pipeline to find all gro
 #!/usr/bin/env python
 # /// script
 # dependencies = ["brahe", "numpy", "shapely", "matplotlib", "cartopy"]
-# FLAGS = ["NETWORK"]
 # TIMEOUT = 600
 # ///
 
@@ -3201,12 +3194,12 @@ import os
 import pathlib
 import time
 
-import brahe as bh
+import cartopy.crs as ccrs
 import matplotlib.pyplot as plt
 import numpy as np
 from shapely.geometry import Point, Polygon
 
-import cartopy.crs as ccrs
+import brahe as bh
 
 bh.initialize_eop()
 # --8<-- [end:preamble]
@@ -3373,8 +3366,8 @@ for window in windows:
     satellite_contacts[sat_name].append(window)
 
 # Sort each satellite's contacts by start time
-for sat_name in satellite_contacts:
-    satellite_contacts[sat_name].sort(key=lambda w: w.start.jd())
+for contacts in satellite_contacts.values():
+    contacts.sort(key=lambda w: w.start.jd())
 
 # Calculate latency for each AOI exit
 latencies = []
@@ -3697,7 +3690,6 @@ For each AOI exit event, we find the next ground contact for that satellite and 
 #!/usr/bin/env python
 # /// script
 # dependencies = ["brahe", "numpy", "shapely", "matplotlib", "cartopy"]
-# FLAGS = ["NETWORK"]
 # TIMEOUT = 600
 # ///
 
@@ -3725,12 +3717,12 @@ import os
 import pathlib
 import time
 
-import brahe as bh
+import cartopy.crs as ccrs
 import matplotlib.pyplot as plt
 import numpy as np
 from shapely.geometry import Point, Polygon
 
-import cartopy.crs as ccrs
+import brahe as bh
 
 bh.initialize_eop()
 # --8<-- [end:preamble]
@@ -3897,8 +3889,8 @@ for window in windows:
     satellite_contacts[sat_name].append(window)
 
 # Sort each satellite's contacts by start time
-for sat_name in satellite_contacts:
-    satellite_contacts[sat_name].sort(key=lambda w: w.start.jd())
+for contacts in satellite_contacts.values():
+    contacts.sort(key=lambda w: w.start.jd())
 
 # Calculate latency for each AOI exit
 latencies = []
@@ -4231,7 +4223,6 @@ Summary statistics for all imaging data latencies over the 7-day period:
 #!/usr/bin/env python
 # /// script
 # dependencies = ["brahe", "numpy", "shapely", "matplotlib", "cartopy"]
-# FLAGS = ["NETWORK"]
 # TIMEOUT = 600
 # ///
 
@@ -4259,12 +4250,12 @@ import os
 import pathlib
 import time
 
-import brahe as bh
+import cartopy.crs as ccrs
 import matplotlib.pyplot as plt
 import numpy as np
 from shapely.geometry import Point, Polygon
 
-import cartopy.crs as ccrs
+import brahe as bh
 
 bh.initialize_eop()
 # --8<-- [end:preamble]
@@ -4431,8 +4422,8 @@ for window in windows:
     satellite_contacts[sat_name].append(window)
 
 # Sort each satellite's contacts by start time
-for sat_name in satellite_contacts:
-    satellite_contacts[sat_name].sort(key=lambda w: w.start.jd())
+for contacts in satellite_contacts.values():
+    contacts.sort(key=lambda w: w.start.jd())
 
 # Calculate latency for each AOI exit
 latencies = []
@@ -4764,7 +4755,6 @@ This visualization helps identify geographic regions where additional ground sta
 #!/usr/bin/env python
 # /// script
 # dependencies = ["brahe", "numpy", "shapely", "matplotlib", "cartopy"]
-# FLAGS = ["NETWORK"]
 # TIMEOUT = 600
 # ///
 
@@ -4792,12 +4782,12 @@ import os
 import pathlib
 import time
 
-import brahe as bh
+import cartopy.crs as ccrs
 import matplotlib.pyplot as plt
 import numpy as np
 from shapely.geometry import Point, Polygon
 
-import cartopy.crs as ccrs
+import brahe as bh
 
 bh.initialize_eop()
 # --8<-- [end:preamble]
@@ -4964,8 +4954,8 @@ for window in windows:
     satellite_contacts[sat_name].append(window)
 
 # Sort each satellite's contacts by start time
-for sat_name in satellite_contacts:
-    satellite_contacts[sat_name].sort(key=lambda w: w.start.jd())
+for contacts in satellite_contacts.values():
+    contacts.sort(key=lambda w: w.start.jd())
 
 # Calculate latency for each AOI exit
 latencies = []
@@ -5289,7 +5279,6 @@ print("=" * 60)
 #!/usr/bin/env python
 # /// script
 # dependencies = ["brahe", "numpy", "shapely", "matplotlib", "cartopy"]
-# FLAGS = ["NETWORK"]
 # TIMEOUT = 600
 # ///
 
@@ -5317,12 +5306,12 @@ import os
 import pathlib
 import time
 
-import brahe as bh
+import cartopy.crs as ccrs
 import matplotlib.pyplot as plt
 import numpy as np
 from shapely.geometry import Point, Polygon
 
-import cartopy.crs as ccrs
+import brahe as bh
 
 bh.initialize_eop()
 # --8<-- [end:preamble]
@@ -5489,8 +5478,8 @@ for window in windows:
     satellite_contacts[sat_name].append(window)
 
 # Sort each satellite's contacts by start time
-for sat_name in satellite_contacts:
-    satellite_contacts[sat_name].sort(key=lambda w: w.start.jd())
+for contacts in satellite_contacts.values():
+    contacts.sort(key=lambda w: w.start.jd())
 
 # Calculate latency for each AOI exit
 latencies = []
