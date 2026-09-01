@@ -17,9 +17,10 @@ Quaternions can be initialized in several ways, including directly from all othe
 
 ```python
 import math
-import brahe as bh
+
 import numpy as np
 
+import brahe as bh
 
 # Initialize from individual components (w, x, y, z)
 # Always scalar-first in constructor
@@ -95,8 +96,8 @@ print(f"  {vec_np_last}: {type(vec_np_last)}")
 print("\nString representation:")
 print(f"  {q}")
 
-print("\Repr representation:")
-print(f"  {repr(q)}")
+print(r"\Repr representation:")
+print(f"  {q!r}")
 ```
 
 ## Operations
@@ -105,8 +106,9 @@ Quaternions support multiplication, normalization, conjugation, inversion, and i
 
 
 ```python
-import brahe as bh
 import math
+
+import brahe as bh
 
 # Create a quaternion from rotation matrix (90° about X, then 45° about Z)
 q = bh.Quaternion.from_rotation_matrix(
@@ -187,8 +189,9 @@ You can convert quaternions to all other attitude representations and vice versa
 
 
 ```python
-import brahe as bh
 import math
+
+import brahe as bh
 
 # Create a quaternion (45° rotation about Z-axis)
 q = bh.Quaternion.from_rotation_matrix(bh.RotationMatrix.Rz(45, bh.AngleFormat.DEGREES))

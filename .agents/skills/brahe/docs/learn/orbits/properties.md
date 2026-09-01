@@ -51,9 +51,11 @@ The plot below shows how orbital period and velocity vary with altitude for circ
 import os
 import pathlib
 import sys
+
 import numpy as np
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
+
 import brahe as bh
 
 # Add plots directory to path for importing brahe_theme
@@ -94,7 +96,7 @@ def create_figure(theme):
             x=alt / 1e6,
             y=vp,
             mode="lines",
-            line=dict(color=colors["primary"], width=2),
+            line={"color": colors["primary"], "width": 2},
             name="Velocity",
             showlegend=True,
         ),
@@ -107,7 +109,7 @@ def create_figure(theme):
             x=alt / 1e6,
             y=period,
             mode="lines",
-            line=dict(color=colors["secondary"], width=2),
+            line={"color": colors["secondary"], "width": 2},
             name="Orbital Period",
             showlegend=True,
         ),
@@ -161,8 +163,9 @@ When orbital elements are unknown but you have a Cartesian state vector, `orbita
 
 
 ```python
-import brahe as bh
 import numpy as np
+
+import brahe as bh
 
 bh.initialize_eop()
 
@@ -585,8 +588,10 @@ The plot below shows how the required inclination varies with altitude for sun-s
 import os
 import pathlib
 import sys
+
 import numpy as np
 import plotly.graph_objects as go
+
 import brahe as bh
 
 # Add plots directory to path for importing brahe_theme
@@ -640,7 +645,7 @@ def create_figure(theme):
                 x=alt / 1e3,
                 y=ssi_data[e],
                 mode="lines",
-                line=dict(color=color_palette[i % len(color_palette)], width=2),
+                line={"color": color_palette[i % len(color_palette)], "width": 2},
                 name=f"e = {e:.1f}",
                 showlegend=True,
             )

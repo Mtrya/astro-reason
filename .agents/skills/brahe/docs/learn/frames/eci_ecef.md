@@ -36,8 +36,9 @@ Transform a complete state vector (position and velocity) from ECI to ECEF:
 
 
 ```python
-import brahe as bh
 import numpy as np
+
+import brahe as bh
 
 bh.initialize_eop()
 
@@ -92,8 +93,9 @@ Get the rotation matrix from ECI to ECEF:
 
 
 ```python
-import brahe as bh
 import numpy as np
+
+import brahe as bh
 
 bh.initialize_eop()
 
@@ -158,8 +160,9 @@ Transform a complete state vector (position and velocity) from ECEF to ECI:
 
 
 ```python
-import brahe as bh
 import numpy as np
+
+import brahe as bh
 
 bh.initialize_eop()
 
@@ -231,8 +234,9 @@ Get the rotation matrix from ECEF to ECI:
 
 
 ```python
-import brahe as bh
 import numpy as np
+
+import brahe as bh
 
 bh.initialize_eop()
 

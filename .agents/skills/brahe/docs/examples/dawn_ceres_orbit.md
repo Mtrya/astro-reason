@@ -294,7 +294,7 @@ print(
 # Perturbation signature: the perturbed run's position and velocity divergence
 # from the two-body baseline, growing over the propagation. A pure two-body run
 # would sit at zero; the growth is the solar/Jovian third-body and SRP signal.
-import plotly.graph_objects as go  # noqa: E402
+import plotly.graph_objects as go
 
 hours = np.arange(0.0, duration, dt) / 3600.0
 fig_div = go.Figure()
@@ -313,9 +313,9 @@ fig_div.add_trace(
 fig_div.update_layout(
     title="Perturbed vs two-body divergence",
     xaxis_title="Time since epoch (hours)",
-    yaxis=dict(title="Position divergence (m)"),
-    yaxis2=dict(title="Velocity divergence (mm/s)", overlaying="y", side="right"),
-    legend=dict(x=0.02, y=0.98),
+    yaxis={"title": "Position divergence (m)"},
+    yaxis2={"title": "Velocity divergence (mm/s)", "overlaying": "y", "side": "right"},
+    legend={"x": 0.02, "y": 0.98},
 )
 # --8<-- [end:plot_divergence]
 
@@ -352,7 +352,7 @@ print(
 
 # Add plots directory to path for importing brahe_theme
 sys.path.insert(0, str(pathlib.Path(__file__).parent.parent.parent / "plots"))
-from brahe_theme import save_themed_html  # noqa: E402
+from brahe_theme import save_themed_html
 
 # Save themed figures
 light_path, dark_path = save_themed_html(fig_3d, OUTDIR / f"{SCRIPT_NAME}_3d")
@@ -633,7 +633,7 @@ print(
 # Perturbation signature: the perturbed run's position and velocity divergence
 # from the two-body baseline, growing over the propagation. A pure two-body run
 # would sit at zero; the growth is the solar/Jovian third-body and SRP signal.
-import plotly.graph_objects as go  # noqa: E402
+import plotly.graph_objects as go
 
 hours = np.arange(0.0, duration, dt) / 3600.0
 fig_div = go.Figure()
@@ -652,9 +652,9 @@ fig_div.add_trace(
 fig_div.update_layout(
     title="Perturbed vs two-body divergence",
     xaxis_title="Time since epoch (hours)",
-    yaxis=dict(title="Position divergence (m)"),
-    yaxis2=dict(title="Velocity divergence (mm/s)", overlaying="y", side="right"),
-    legend=dict(x=0.02, y=0.98),
+    yaxis={"title": "Position divergence (m)"},
+    yaxis2={"title": "Velocity divergence (mm/s)", "overlaying": "y", "side": "right"},
+    legend={"x": 0.02, "y": 0.98},
 )
 # --8<-- [end:plot_divergence]
 
@@ -691,7 +691,7 @@ print(
 
 # Add plots directory to path for importing brahe_theme
 sys.path.insert(0, str(pathlib.Path(__file__).parent.parent.parent / "plots"))
-from brahe_theme import save_themed_html  # noqa: E402
+from brahe_theme import save_themed_html
 
 # Save themed figures
 light_path, dark_path = save_themed_html(fig_3d, OUTDIR / f"{SCRIPT_NAME}_3d")
@@ -981,7 +981,7 @@ print(
 # Perturbation signature: the perturbed run's position and velocity divergence
 # from the two-body baseline, growing over the propagation. A pure two-body run
 # would sit at zero; the growth is the solar/Jovian third-body and SRP signal.
-import plotly.graph_objects as go  # noqa: E402
+import plotly.graph_objects as go
 
 hours = np.arange(0.0, duration, dt) / 3600.0
 fig_div = go.Figure()
@@ -1000,9 +1000,9 @@ fig_div.add_trace(
 fig_div.update_layout(
     title="Perturbed vs two-body divergence",
     xaxis_title="Time since epoch (hours)",
-    yaxis=dict(title="Position divergence (m)"),
-    yaxis2=dict(title="Velocity divergence (mm/s)", overlaying="y", side="right"),
-    legend=dict(x=0.02, y=0.98),
+    yaxis={"title": "Position divergence (m)"},
+    yaxis2={"title": "Velocity divergence (mm/s)", "overlaying": "y", "side": "right"},
+    legend={"x": 0.02, "y": 0.98},
 )
 # --8<-- [end:plot_divergence]
 
@@ -1039,7 +1039,7 @@ print(
 
 # Add plots directory to path for importing brahe_theme
 sys.path.insert(0, str(pathlib.Path(__file__).parent.parent.parent / "plots"))
-from brahe_theme import save_themed_html  # noqa: E402
+from brahe_theme import save_themed_html
 
 # Save themed figures
 light_path, dark_path = save_themed_html(fig_3d, OUTDIR / f"{SCRIPT_NAME}_3d")
@@ -1348,7 +1348,7 @@ print(
 # Perturbation signature: the perturbed run's position and velocity divergence
 # from the two-body baseline, growing over the propagation. A pure two-body run
 # would sit at zero; the growth is the solar/Jovian third-body and SRP signal.
-import plotly.graph_objects as go  # noqa: E402
+import plotly.graph_objects as go
 
 hours = np.arange(0.0, duration, dt) / 3600.0
 fig_div = go.Figure()
@@ -1367,9 +1367,9 @@ fig_div.add_trace(
 fig_div.update_layout(
     title="Perturbed vs two-body divergence",
     xaxis_title="Time since epoch (hours)",
-    yaxis=dict(title="Position divergence (m)"),
-    yaxis2=dict(title="Velocity divergence (mm/s)", overlaying="y", side="right"),
-    legend=dict(x=0.02, y=0.98),
+    yaxis={"title": "Position divergence (m)"},
+    yaxis2={"title": "Velocity divergence (mm/s)", "overlaying": "y", "side": "right"},
+    legend={"x": 0.02, "y": 0.98},
 )
 # --8<-- [end:plot_divergence]
 
@@ -1406,7 +1406,7 @@ print(
 
 # Add plots directory to path for importing brahe_theme
 sys.path.insert(0, str(pathlib.Path(__file__).parent.parent.parent / "plots"))
-from brahe_theme import save_themed_html  # noqa: E402
+from brahe_theme import save_themed_html
 
 # Save themed figures
 light_path, dark_path = save_themed_html(fig_3d, OUTDIR / f"{SCRIPT_NAME}_3d")
@@ -1717,7 +1717,7 @@ print(
 # Perturbation signature: the perturbed run's position and velocity divergence
 # from the two-body baseline, growing over the propagation. A pure two-body run
 # would sit at zero; the growth is the solar/Jovian third-body and SRP signal.
-import plotly.graph_objects as go  # noqa: E402
+import plotly.graph_objects as go
 
 hours = np.arange(0.0, duration, dt) / 3600.0
 fig_div = go.Figure()
@@ -1736,9 +1736,9 @@ fig_div.add_trace(
 fig_div.update_layout(
     title="Perturbed vs two-body divergence",
     xaxis_title="Time since epoch (hours)",
-    yaxis=dict(title="Position divergence (m)"),
-    yaxis2=dict(title="Velocity divergence (mm/s)", overlaying="y", side="right"),
-    legend=dict(x=0.02, y=0.98),
+    yaxis={"title": "Position divergence (m)"},
+    yaxis2={"title": "Velocity divergence (mm/s)", "overlaying": "y", "side": "right"},
+    legend={"x": 0.02, "y": 0.98},
 )
 # --8<-- [end:plot_divergence]
 
@@ -1775,7 +1775,7 @@ print(
 
 # Add plots directory to path for importing brahe_theme
 sys.path.insert(0, str(pathlib.Path(__file__).parent.parent.parent / "plots"))
-from brahe_theme import save_themed_html  # noqa: E402
+from brahe_theme import save_themed_html
 
 # Save themed figures
 light_path, dark_path = save_themed_html(fig_3d, OUTDIR / f"{SCRIPT_NAME}_3d")
@@ -2069,7 +2069,7 @@ print(
 # Perturbation signature: the perturbed run's position and velocity divergence
 # from the two-body baseline, growing over the propagation. A pure two-body run
 # would sit at zero; the growth is the solar/Jovian third-body and SRP signal.
-import plotly.graph_objects as go  # noqa: E402
+import plotly.graph_objects as go
 
 hours = np.arange(0.0, duration, dt) / 3600.0
 fig_div = go.Figure()
@@ -2088,9 +2088,9 @@ fig_div.add_trace(
 fig_div.update_layout(
     title="Perturbed vs two-body divergence",
     xaxis_title="Time since epoch (hours)",
-    yaxis=dict(title="Position divergence (m)"),
-    yaxis2=dict(title="Velocity divergence (mm/s)", overlaying="y", side="right"),
-    legend=dict(x=0.02, y=0.98),
+    yaxis={"title": "Position divergence (m)"},
+    yaxis2={"title": "Velocity divergence (mm/s)", "overlaying": "y", "side": "right"},
+    legend={"x": 0.02, "y": 0.98},
 )
 # --8<-- [end:plot_divergence]
 
@@ -2127,7 +2127,7 @@ print(
 
 # Add plots directory to path for importing brahe_theme
 sys.path.insert(0, str(pathlib.Path(__file__).parent.parent.parent / "plots"))
-from brahe_theme import save_themed_html  # noqa: E402
+from brahe_theme import save_themed_html
 
 # Save themed figures
 light_path, dark_path = save_themed_html(fig_3d, OUTDIR / f"{SCRIPT_NAME}_3d")
@@ -2408,7 +2408,7 @@ print(
 # Perturbation signature: the perturbed run's position and velocity divergence
 # from the two-body baseline, growing over the propagation. A pure two-body run
 # would sit at zero; the growth is the solar/Jovian third-body and SRP signal.
-import plotly.graph_objects as go  # noqa: E402
+import plotly.graph_objects as go
 
 hours = np.arange(0.0, duration, dt) / 3600.0
 fig_div = go.Figure()
@@ -2427,9 +2427,9 @@ fig_div.add_trace(
 fig_div.update_layout(
     title="Perturbed vs two-body divergence",
     xaxis_title="Time since epoch (hours)",
-    yaxis=dict(title="Position divergence (m)"),
-    yaxis2=dict(title="Velocity divergence (mm/s)", overlaying="y", side="right"),
-    legend=dict(x=0.02, y=0.98),
+    yaxis={"title": "Position divergence (m)"},
+    yaxis2={"title": "Velocity divergence (mm/s)", "overlaying": "y", "side": "right"},
+    legend={"x": 0.02, "y": 0.98},
 )
 # --8<-- [end:plot_divergence]
 
@@ -2466,7 +2466,7 @@ print(
 
 # Add plots directory to path for importing brahe_theme
 sys.path.insert(0, str(pathlib.Path(__file__).parent.parent.parent / "plots"))
-from brahe_theme import save_themed_html  # noqa: E402
+from brahe_theme import save_themed_html
 
 # Save themed figures
 light_path, dark_path = save_themed_html(fig_3d, OUTDIR / f"{SCRIPT_NAME}_3d")
@@ -2765,7 +2765,7 @@ print(
 # Perturbation signature: the perturbed run's position and velocity divergence
 # from the two-body baseline, growing over the propagation. A pure two-body run
 # would sit at zero; the growth is the solar/Jovian third-body and SRP signal.
-import plotly.graph_objects as go  # noqa: E402
+import plotly.graph_objects as go
 
 hours = np.arange(0.0, duration, dt) / 3600.0
 fig_div = go.Figure()
@@ -2784,9 +2784,9 @@ fig_div.add_trace(
 fig_div.update_layout(
     title="Perturbed vs two-body divergence",
     xaxis_title="Time since epoch (hours)",
-    yaxis=dict(title="Position divergence (m)"),
-    yaxis2=dict(title="Velocity divergence (mm/s)", overlaying="y", side="right"),
-    legend=dict(x=0.02, y=0.98),
+    yaxis={"title": "Position divergence (m)"},
+    yaxis2={"title": "Velocity divergence (mm/s)", "overlaying": "y", "side": "right"},
+    legend={"x": 0.02, "y": 0.98},
 )
 # --8<-- [end:plot_divergence]
 
@@ -2823,7 +2823,7 @@ print(
 
 # Add plots directory to path for importing brahe_theme
 sys.path.insert(0, str(pathlib.Path(__file__).parent.parent.parent / "plots"))
-from brahe_theme import save_themed_html  # noqa: E402
+from brahe_theme import save_themed_html
 
 # Save themed figures
 light_path, dark_path = save_themed_html(fig_3d, OUTDIR / f"{SCRIPT_NAME}_3d")
@@ -3113,7 +3113,7 @@ print(
 # Perturbation signature: the perturbed run's position and velocity divergence
 # from the two-body baseline, growing over the propagation. A pure two-body run
 # would sit at zero; the growth is the solar/Jovian third-body and SRP signal.
-import plotly.graph_objects as go  # noqa: E402
+import plotly.graph_objects as go
 
 hours = np.arange(0.0, duration, dt) / 3600.0
 fig_div = go.Figure()
@@ -3132,9 +3132,9 @@ fig_div.add_trace(
 fig_div.update_layout(
     title="Perturbed vs two-body divergence",
     xaxis_title="Time since epoch (hours)",
-    yaxis=dict(title="Position divergence (m)"),
-    yaxis2=dict(title="Velocity divergence (mm/s)", overlaying="y", side="right"),
-    legend=dict(x=0.02, y=0.98),
+    yaxis={"title": "Position divergence (m)"},
+    yaxis2={"title": "Velocity divergence (mm/s)", "overlaying": "y", "side": "right"},
+    legend={"x": 0.02, "y": 0.98},
 )
 # --8<-- [end:plot_divergence]
 
@@ -3171,7 +3171,7 @@ print(
 
 # Add plots directory to path for importing brahe_theme
 sys.path.insert(0, str(pathlib.Path(__file__).parent.parent.parent / "plots"))
-from brahe_theme import save_themed_html  # noqa: E402
+from brahe_theme import save_themed_html
 
 # Save themed figures
 light_path, dark_path = save_themed_html(fig_3d, OUTDIR / f"{SCRIPT_NAME}_3d")
@@ -3462,7 +3462,7 @@ print(
 # Perturbation signature: the perturbed run's position and velocity divergence
 # from the two-body baseline, growing over the propagation. A pure two-body run
 # would sit at zero; the growth is the solar/Jovian third-body and SRP signal.
-import plotly.graph_objects as go  # noqa: E402
+import plotly.graph_objects as go
 
 hours = np.arange(0.0, duration, dt) / 3600.0
 fig_div = go.Figure()
@@ -3481,9 +3481,9 @@ fig_div.add_trace(
 fig_div.update_layout(
     title="Perturbed vs two-body divergence",
     xaxis_title="Time since epoch (hours)",
-    yaxis=dict(title="Position divergence (m)"),
-    yaxis2=dict(title="Velocity divergence (mm/s)", overlaying="y", side="right"),
-    legend=dict(x=0.02, y=0.98),
+    yaxis={"title": "Position divergence (m)"},
+    yaxis2={"title": "Velocity divergence (mm/s)", "overlaying": "y", "side": "right"},
+    legend={"x": 0.02, "y": 0.98},
 )
 # --8<-- [end:plot_divergence]
 
@@ -3520,7 +3520,7 @@ print(
 
 # Add plots directory to path for importing brahe_theme
 sys.path.insert(0, str(pathlib.Path(__file__).parent.parent.parent / "plots"))
-from brahe_theme import save_themed_html  # noqa: E402
+from brahe_theme import save_themed_html
 
 # Save themed figures
 light_path, dark_path = save_themed_html(fig_3d, OUTDIR / f"{SCRIPT_NAME}_3d")
@@ -3808,7 +3808,7 @@ print(
 # Perturbation signature: the perturbed run's position and velocity divergence
 # from the two-body baseline, growing over the propagation. A pure two-body run
 # would sit at zero; the growth is the solar/Jovian third-body and SRP signal.
-import plotly.graph_objects as go  # noqa: E402
+import plotly.graph_objects as go
 
 hours = np.arange(0.0, duration, dt) / 3600.0
 fig_div = go.Figure()
@@ -3827,9 +3827,9 @@ fig_div.add_trace(
 fig_div.update_layout(
     title="Perturbed vs two-body divergence",
     xaxis_title="Time since epoch (hours)",
-    yaxis=dict(title="Position divergence (m)"),
-    yaxis2=dict(title="Velocity divergence (mm/s)", overlaying="y", side="right"),
-    legend=dict(x=0.02, y=0.98),
+    yaxis={"title": "Position divergence (m)"},
+    yaxis2={"title": "Velocity divergence (mm/s)", "overlaying": "y", "side": "right"},
+    legend={"x": 0.02, "y": 0.98},
 )
 # --8<-- [end:plot_divergence]
 
@@ -3866,7 +3866,7 @@ print(
 
 # Add plots directory to path for importing brahe_theme
 sys.path.insert(0, str(pathlib.Path(__file__).parent.parent.parent / "plots"))
-from brahe_theme import save_themed_html  # noqa: E402
+from brahe_theme import save_themed_html
 
 # Save themed figures
 light_path, dark_path = save_themed_html(fig_3d, OUTDIR / f"{SCRIPT_NAME}_3d")

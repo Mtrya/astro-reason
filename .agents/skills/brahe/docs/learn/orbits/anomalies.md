@@ -79,7 +79,9 @@ print(f"Difference:        {abs(nu - nu_2):.2e} deg")
 import os
 import pathlib
 import sys
+
 import plotly.graph_objects as go
+
 import brahe as bh
 
 # Add plots directory to path for importing brahe_theme
@@ -96,7 +98,7 @@ os.makedirs(OUTDIR, exist_ok=True)
 # Generate data
 
 # Generate range of true anomalies (degrees)
-nu = [x for x in range(0, 360)]
+nu = [x for x in range(360)]
 
 # Compute eccentric anomaly for range of eccentricities
 eccentricities = [0.0, 0.1, 0.3, 0.5, 0.7, 0.9]
@@ -134,7 +136,7 @@ def create_figure(theme):
                 x=nu,
                 y=ecc_data[e],
                 mode="lines",
-                line=dict(color=color_palette[i % len(color_palette)], width=2),
+                line={"color": color_palette[i % len(color_palette)], "width": 2},
                 name=f"e = {e:.1f}",
                 showlegend=True,
             )
@@ -242,7 +244,9 @@ print(f"Difference:        {abs(ecc - ecc_2):.2e} deg")
 import os
 import pathlib
 import sys
+
 import plotly.graph_objects as go
+
 import brahe as bh
 
 # Add plots directory to path for importing brahe_theme
@@ -259,7 +263,7 @@ os.makedirs(OUTDIR, exist_ok=True)
 # Generate data
 
 # Generate range of eccentric anomalies (degrees)
-ecc = [x for x in range(0, 360)]
+ecc = [x for x in range(360)]
 
 # Compute mean anomaly for range of eccentricities
 eccentricities = [0.0, 0.1, 0.3, 0.5, 0.7, 0.9]
@@ -297,7 +301,7 @@ def create_figure(theme):
                 x=ecc,
                 y=mean_data[e],
                 mode="lines",
-                line=dict(color=color_palette[i % len(color_palette)], width=2),
+                line={"color": color_palette[i % len(color_palette)], "width": 2},
                 name=f"e = {e:.1f}",
                 showlegend=True,
             )
@@ -368,7 +372,9 @@ print(f"Difference:        {abs(nu - nu_2):.2e} deg")
 import os
 import pathlib
 import sys
+
 import plotly.graph_objects as go
+
 import brahe as bh
 
 # Add plots directory to path for importing brahe_theme
@@ -385,7 +391,7 @@ os.makedirs(OUTDIR, exist_ok=True)
 # Generate data
 
 # Generate range of true anomalies (degrees)
-nu = [x for x in range(0, 360)]
+nu = [x for x in range(360)]
 
 # Compute mean anomaly for range of eccentricities
 eccentricities = [0.0, 0.1, 0.3, 0.5, 0.7, 0.9]
@@ -423,7 +429,7 @@ def create_figure(theme):
                 x=nu,
                 y=mean_data[e],
                 mode="lines",
-                line=dict(color=color_palette[i % len(color_palette)], width=2),
+                line={"color": color_palette[i % len(color_palette)], "width": 2},
                 name=f"e = {e:.1f}",
                 showlegend=True,
             )

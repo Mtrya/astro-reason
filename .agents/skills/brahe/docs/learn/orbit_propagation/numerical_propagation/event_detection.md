@@ -60,6 +60,7 @@ Time events trigger at specific epochs. They're useful for scheduled operations 
 
 ```python
 import numpy as np
+
 import brahe as bh
 
 # Initialize EOP and space weather data (required for NRLMSISE-00 drag model)
@@ -135,6 +136,7 @@ The value function receives the current epoch and state vector, returning a scal
 
 ```python
 import numpy as np
+
 import brahe as bh
 
 # Initialize EOP and space weather data (required for NRLMSISE-00 drag model)
@@ -223,6 +225,7 @@ The binary condition function receives the current epoch and state vector, retur
 
 ```python
 import numpy as np
+
 import brahe as bh
 
 # Initialize EOP data

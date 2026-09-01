@@ -115,8 +115,9 @@ Use groundstation data with brahe's access computation to find contact opportuni
 
 
 ```python
-import brahe as bh
 import numpy as np
+
+import brahe as bh
 
 # Initialize EOP data
 bh.initialize_eop()

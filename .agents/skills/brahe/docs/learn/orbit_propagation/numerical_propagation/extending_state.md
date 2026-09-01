@@ -70,6 +70,7 @@ def control_input(t, state, params):
 
 ```python
 import numpy as np
+
 import brahe as bh
 
 # Initialize EOP data
@@ -204,9 +205,11 @@ import numpy as np
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 
+import brahe as bh
+
 # Add plots directory to path for importing brahe_theme
 sys.path.insert(0, str(pathlib.Path(__file__).parent.parent.parent))
-from brahe_theme import save_themed_html, get_theme_colors
+from brahe_theme import get_theme_colors, save_themed_html
 
 # Configuration
 SCRIPT_NAME = pathlib.Path(__file__).stem
@@ -335,7 +338,10 @@ def create_figure(theme):
     # Semi-major axis (altitude)
     fig.add_trace(
         go.Scatter(
-            x=times, y=a_vals, mode="lines", line=dict(color=colors["primary"], width=2)
+            x=times,
+            y=a_vals,
+            mode="lines",
+            line={"color": colors["primary"], "width": 2},
         ),
         row=1,
         col=1,
@@ -348,7 +354,7 @@ def create_figure(theme):
             x=times,
             y=e_vals,
             mode="lines",
-            line=dict(color=colors["secondary"], width=2),
+            line={"color": colors["secondary"], "width": 2},
         ),
         row=1,
         col=2,
@@ -358,7 +364,10 @@ def create_figure(theme):
     # Inclination
     fig.add_trace(
         go.Scatter(
-            x=times, y=i_vals, mode="lines", line=dict(color=colors["accent"], width=2)
+            x=times,
+            y=i_vals,
+            mode="lines",
+            line={"color": colors["accent"], "width": 2},
         ),
         row=1,
         col=3,
@@ -371,7 +380,7 @@ def create_figure(theme):
             x=times,
             y=raan_vals,
             mode="lines",
-            line=dict(color=colors["primary"], width=2),
+            line={"color": colors["primary"], "width": 2},
         ),
         row=2,
         col=1,
@@ -384,7 +393,7 @@ def create_figure(theme):
             x=times,
             y=argp_vals,
             mode="lines",
-            line=dict(color=colors["secondary"], width=2),
+            line={"color": colors["secondary"], "width": 2},
         ),
         row=2,
         col=2,
@@ -397,7 +406,7 @@ def create_figure(theme):
             x=times,
             y=ma_vals,
             mode="lines",
-            line=dict(color=colors["accent"], width=2),
+            line={"color": colors["accent"], "width": 2},
         ),
         row=2,
         col=3,
@@ -436,7 +445,7 @@ def create_figure(theme):
         title="Orbital Elements During Prograde Thrust (10 N, 10 min burn)",
         showlegend=False,
         height=500,
-        margin=dict(l=60, r=40, t=80, b=60),
+        margin={"l": 60, "r": 40, "t": 80, "b": 60},
     )
 
     return fig
@@ -459,9 +468,11 @@ The mass decreases linearly during the thrust phase:
 import numpy as np
 import plotly.graph_objects as go
 
+import brahe as bh
+
 # Add plots directory to path for importing brahe_theme
 sys.path.insert(0, str(pathlib.Path(__file__).parent.parent.parent))
-from brahe_theme import save_themed_html, get_theme_colors
+from brahe_theme import get_theme_colors, save_themed_html
 
 # Configuration
 SCRIPT_NAME = pathlib.Path(__file__).stem
@@ -573,7 +584,7 @@ def create_figure(theme):
             y=mass_vals,
             mode="lines",
             name="Spacecraft Mass",
-            line=dict(color=colors["primary"], width=3),
+            line={"color": colors["primary"], "width": 3},
         )
     )
 
@@ -635,7 +646,7 @@ def create_figure(theme):
         yaxis_title="Mass (kg)",
         showlegend=False,
         height=500,
-        margin=dict(l=60, r=40, t=80, b=60),
+        margin={"l": 60, "r": 40, "t": 80, "b": 60},
     )
 
     # Add annotation with summary
@@ -651,7 +662,7 @@ def create_figure(theme):
         yref="paper",
         text=summary_text,
         showarrow=False,
-        font=dict(size=11),
+        font={"size": 11},
         align="right",
         bordercolor="gray",
         borderwidth=1,
@@ -728,6 +739,7 @@ def additional_dynamics(t, state, params):
 
 ```python
 import numpy as np
+
 import brahe as bh
 
 # Initialize EOP data
@@ -883,9 +895,11 @@ import numpy as np
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 
+import brahe as bh
+
 # Add plots directory to path for importing brahe_theme
 sys.path.insert(0, str(pathlib.Path(__file__).parent.parent.parent))
-from brahe_theme import save_themed_html, get_theme_colors
+from brahe_theme import get_theme_colors, save_themed_html
 
 # Configuration
 SCRIPT_NAME = pathlib.Path(__file__).stem
@@ -932,9 +946,12 @@ def additional_dynamics(t, state, params):
 
     # Apply battery limits
     charge = state[6]
-    if charge >= battery_capacity and charge_rate > 0:
-        charge_rate = 0.0
-    elif charge <= 0 and charge_rate < 0:
+    if (
+        charge >= battery_capacity
+        and charge_rate > 0
+        or charge <= 0
+        and charge_rate < 0
+    ):
         charge_rate = 0.0
 
     dx[6] = charge_rate
@@ -1023,7 +1040,7 @@ def create_figure(theme):
             y=charge_vals,
             mode="lines",
             name="Battery Charge",
-            line=dict(color=colors["primary"], width=3),
+            line={"color": colors["primary"], "width": 3},
         ),
         secondary_y=False,
     )
@@ -1035,7 +1052,7 @@ def create_figure(theme):
             y=illumination_vals,
             mode="lines",
             name="Illumination",
-            line=dict(color=colors["secondary"], width=1),
+            line={"color": colors["secondary"], "width": 1},
             fill="tozeroy",
             fillcolor="rgba(255, 165, 0, 0.15)"
             if theme == "light"
@@ -1080,16 +1097,16 @@ def create_figure(theme):
         title=f"Battery Charge with Eclipse Cycles (LEO, {num_orbits} orbits)",
         xaxis_title="Time (min)",
         height=500,
-        margin=dict(l=60, r=80, t=80, b=60),
-        legend=dict(
-            yanchor="top",
-            y=0.99,
-            xanchor="left",
-            x=0.01,
-            bgcolor="rgba(255,255,255,0.8)"
+        margin={"l": 60, "r": 80, "t": 80, "b": 60},
+        legend={
+            "yanchor": "top",
+            "y": 0.99,
+            "xanchor": "left",
+            "x": 0.01,
+            "bgcolor": "rgba(255,255,255,0.8)"
             if theme == "light"
             else "rgba(30,30,30,0.8)",
-        ),
+        },
     )
 
     # Update y-axes
@@ -1117,7 +1134,7 @@ def create_figure(theme):
         yref="paper",
         text=summary_text,
         showarrow=False,
-        font=dict(size=11),
+        font={"size": 11},
         align="right",
         bordercolor="gray",
         borderwidth=1,
@@ -1136,7 +1153,7 @@ def create_figure(theme):
             yref="paper",
             text="Eclipse",
             showarrow=False,
-            font=dict(size=10, color=colors["font_color"]),
+            font={"size": 10, "color": colors["font_color"]},
         )
 
     return fig

@@ -122,8 +122,9 @@ The point-mass gravity model can be used for any celestial body by providing its
 
 
 ```
-import brahe as bh
 import numpy as np
+
+import brahe as bh
 
 bh.initialize_eop()
 
@@ -173,8 +174,9 @@ For high-fidelity Earth gravity modeling, use the spherical harmonic expansion w
 
 
 ```
-import brahe as bh
 import numpy as np
+
+import brahe as bh
 
 bh.initialize_eop()
 

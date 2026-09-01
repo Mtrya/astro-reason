@@ -28,6 +28,7 @@ for LEO orbits where $J_2$ dominates the short-period variation.
 
 ```python
 import numpy as np
+
 import brahe as bh
 
 bh.initialize_eop()
@@ -71,7 +72,7 @@ the truncated higher-order terms of the series remains, growing with eccentricit
 
 ## Numerical (Windowed Averaging)
 
-`batch_state_koe_osc_to_mean` and `batch_state_koe_mean_to_osc`, given
+`states_koe_osc_to_mean` and `states_koe_mean_to_osc`, given
 `MeanElementMethod.numerical(config)`, average an osculating trajectory over a moving window to
 produce mean elements that reflect whatever dynamics were used to generate the input trajectory —
 not just $J_2$. This is the appropriate method when higher-fidelity perturbations (drag, third-body,
@@ -86,6 +87,7 @@ spanning the full period:
 
 ```python
 import numpy as np
+
 import brahe as bh
 
 bh.initialize_eop()
@@ -119,7 +121,7 @@ config = bh.MeanElementNumericalMethodConfig(
 )
 method_numerical = bh.MeanElementMethod.numerical(config)
 
-out_epochs, out_states = bh.batch_state_koe_osc_to_mean(
+out_epochs, out_states = bh.states_koe_osc_to_mean(
     epochs, osc_states, method_numerical, bh.AngleFormat.DEGREES
 )
 
@@ -215,6 +217,7 @@ returns an error rather than a silently biased result.
 
 ```python
 import numpy as np
+
 import brahe as bh
 
 bh.initialize_eop()
@@ -237,7 +240,7 @@ config = bh.MeanElementNumericalMethodConfig(
 method = bh.MeanElementMethod.numerical(config)
 
 epoch = bh.Epoch.from_gps_seconds(0.0)
-out_epochs, out_states = bh.batch_state_koe_mean_to_osc(
+out_epochs, out_states = bh.states_koe_mean_to_osc(
     [epoch], mean.reshape(1, 6), method, bh.AngleFormat.DEGREES
 )
 osc = out_states[0]
@@ -276,8 +279,8 @@ average over the window, so the result is independent of input sampling cadence 
 |---|---|---|
 | Osculating → mean | Single state | [`state_koe_osc_to_mean`](../../library_api/orbits/mean_elements.md#brahe.orbits.state_koe_osc_to_mean) |
 | Mean → osculating | Single state | [`state_koe_mean_to_osc`](../../library_api/orbits/mean_elements.md#brahe.orbits.state_koe_mean_to_osc) |
-| Osculating → mean | Batch | [`batch_state_koe_osc_to_mean`](../../library_api/orbits/mean_elements.md#brahe.orbits.batch_state_koe_osc_to_mean) |
-| Mean → osculating | Batch | [`batch_state_koe_mean_to_osc`](../../library_api/orbits/mean_elements.md#brahe.orbits.batch_state_koe_mean_to_osc) |
+| Osculating → mean | Batch | [`states_koe_osc_to_mean`](../../library_api/orbits/mean_elements.md#brahe.orbits.states_koe_osc_to_mean) |
+| Mean → osculating | Batch | [`states_koe_mean_to_osc`](../../library_api/orbits/mean_elements.md#brahe.orbits.states_koe_mean_to_osc) |
 
 All functions operate on Keplerian elements `[a, e, i, Ω, ω, anomaly]` in SI units (`a` in meters)
 with angles in the format specified by `AngleFormat`.

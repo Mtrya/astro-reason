@@ -28,6 +28,7 @@ All force models read from the first 6 elements and contribute accelerations to 
 
 ```python
 import numpy as np
+
 import brahe as bh
 
 bh.initialize_eop()
@@ -74,6 +75,7 @@ The flat constructor (`NumericalOrbitPropagator(...)` in Python, `DNumericalOrbi
 
 ```python
 import numpy as np
+
 import brahe as bh
 
 # Initialize EOP and space weather data (required for NRLMSISE-00 drag model)

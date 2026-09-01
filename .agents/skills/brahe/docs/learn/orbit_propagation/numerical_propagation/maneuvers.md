@@ -13,6 +13,7 @@ Impulsive maneuvers combine event detection with state modification. For callbac
 
 ```python
 import numpy as np
+
 import brahe as bh
 
 # Initialize EOP data
@@ -132,11 +133,12 @@ A top-down view showing the initial circular orbit, Hohmann transfer ellipse, an
 **Plot Source**
 
 ```python
+import numpy as np
 import plotly.graph_objects as go
 
 # Add plots directory to path for importing brahe_theme
 sys.path.insert(0, str(pathlib.Path(__file__).parent.parent.parent))
-from brahe_theme import save_themed_html, get_theme_colors
+from brahe_theme import get_theme_colors, save_themed_html
 
 # Configuration
 SCRIPT_NAME = pathlib.Path(__file__).stem
@@ -190,7 +192,7 @@ def create_figure(theme):
             mode="lines",
             fill="toself",
             fillcolor="#4a90d9" if theme == "light" else "#3a7bc8",
-            line=dict(color="#2d5986", width=1),
+            line={"color": "#2d5986", "width": 1},
             name="Earth",
             hoverinfo="name",
         )
@@ -203,7 +205,7 @@ def create_figure(theme):
             x=initial_x,
             y=initial_y,
             mode="lines",
-            line=dict(color=colors["secondary"], width=2, dash="dash"),
+            line={"color": colors["secondary"], "width": 2, "dash": "dash"},
             name=f"Initial Orbit ({r1_km - R_EARTH_KM:.0f} km)",
             hoverinfo="name",
         )
@@ -216,7 +218,7 @@ def create_figure(theme):
             x=final_x,
             y=final_y,
             mode="lines",
-            line=dict(color=colors["accent"], width=2, dash="dash"),
+            line={"color": colors["accent"], "width": 2, "dash": "dash"},
             name=f"Final Orbit ({r2_km - R_EARTH_KM:.0f} km)",
             hoverinfo="name",
         )
@@ -229,7 +231,7 @@ def create_figure(theme):
             x=transfer_x,
             y=transfer_y,
             mode="lines",
-            line=dict(color=colors["primary"], width=3),
+            line={"color": colors["primary"], "width": 3},
             name="Transfer Orbit",
             hoverinfo="name",
         )
@@ -243,7 +245,7 @@ def create_figure(theme):
             x=[burn1_x],
             y=[burn1_y],
             mode="markers",
-            marker=dict(color=colors["error"], size=12, symbol="star"),
+            marker={"color": colors["error"], "size": 12, "symbol": "star"},
             name="Burn 1",
             hoverinfo="name+text",
             text=["Prograde burn to enter transfer orbit"],
@@ -258,7 +260,7 @@ def create_figure(theme):
             x=[burn2_x],
             y=[burn2_y],
             mode="markers",
-            marker=dict(color=colors["error"], size=12, symbol="star"),
+            marker={"color": colors["error"], "size": 12, "symbol": "star"},
             name="Burn 2",
             hoverinfo="name+text",
             text=["Circularization burn at apogee"],
@@ -277,7 +279,7 @@ def create_figure(theme):
         arrowcolor=colors["error"],
         ax=40,
         ay=-30,
-        font=dict(size=11, color=colors["font_color"]),
+        font={"size": 11, "color": colors["font_color"]},
     )
 
     fig.add_annotation(
@@ -291,41 +293,41 @@ def create_figure(theme):
         arrowcolor=colors["error"],
         ax=-40,
         ay=-30,
-        font=dict(size=11, color=colors["font_color"]),
+        font={"size": 11, "color": colors["font_color"]},
     )
 
     # Layout
     max_r = r2_km * 1.15
     fig.update_layout(
         title="Hohmann Transfer: Orbit Geometry (Top-Down View)",
-        xaxis=dict(
-            title="X (km)",
-            range=[-max_r, max_r],
-            scaleanchor="y",
-            scaleratio=1,
-            showgrid=True,
-            gridcolor=colors["grid_color"],
-            zeroline=True,
-            zerolinecolor=colors["line_color"],
-        ),
-        yaxis=dict(
-            title="Y (km)",
-            range=[-max_r, max_r],
-            showgrid=True,
-            gridcolor=colors["grid_color"],
-            zeroline=True,
-            zerolinecolor=colors["line_color"],
-        ),
+        xaxis={
+            "title": "X (km)",
+            "range": [-max_r, max_r],
+            "scaleanchor": "y",
+            "scaleratio": 1,
+            "showgrid": True,
+            "gridcolor": colors["grid_color"],
+            "zeroline": True,
+            "zerolinecolor": colors["line_color"],
+        },
+        yaxis={
+            "title": "Y (km)",
+            "range": [-max_r, max_r],
+            "showgrid": True,
+            "gridcolor": colors["grid_color"],
+            "zeroline": True,
+            "zerolinecolor": colors["line_color"],
+        },
         showlegend=True,
-        legend=dict(
-            orientation="h",
-            yanchor="bottom",
-            y=1.02,
-            xanchor="center",
-            x=0.5,
-        ),
+        legend={
+            "orientation": "h",
+            "yanchor": "bottom",
+            "y": 1.02,
+            "xanchor": "center",
+            "x": 0.5,
+        },
         height=500,
-        margin=dict(l=60, r=40, t=80, b=60),
+        margin={"l": 60, "r": 40, "t": 80, "b": 60},
     )
 
     return fig
@@ -348,9 +350,11 @@ The spacecraft altitude increases from 400 km to 800 km through two impulsive bu
 import numpy as np
 import plotly.graph_objects as go
 
+import brahe as bh
+
 # Add plots directory to path for importing brahe_theme
 sys.path.insert(0, str(pathlib.Path(__file__).parent.parent.parent))
-from brahe_theme import save_themed_html, get_theme_colors
+from brahe_theme import get_theme_colors, save_themed_html
 
 # Configuration
 SCRIPT_NAME = pathlib.Path(__file__).stem
@@ -477,7 +481,7 @@ def create_figure(theme):
             y=altitudes,
             mode="lines",
             name="Altitude",
-            line=dict(color=colors["primary"], width=2),
+            line={"color": colors["primary"], "width": 2},
         )
     )
 
@@ -523,7 +527,7 @@ def create_figure(theme):
         yaxis_title="Altitude (km)",
         showlegend=False,
         height=500,
-        margin=dict(l=60, r=40, t=60, b=60),
+        margin={"l": 60, "r": 40, "t": 60, "b": 60},
     )
 
     return fig
@@ -546,9 +550,11 @@ The velocity components show the discrete jumps from each impulsive burn:
 import numpy as np
 import plotly.graph_objects as go
 
+import brahe as bh
+
 # Add plots directory to path for importing brahe_theme
 sys.path.insert(0, str(pathlib.Path(__file__).parent.parent.parent))
-from brahe_theme import save_themed_html, get_theme_colors
+from brahe_theme import get_theme_colors, save_themed_html
 
 # Configuration
 SCRIPT_NAME = pathlib.Path(__file__).stem
@@ -677,7 +683,7 @@ def create_figure(theme):
             y=vx_data,
             mode="lines",
             name="vx",
-            line=dict(color=colors["primary"], width=2),
+            line={"color": colors["primary"], "width": 2},
         )
     )
 
@@ -687,7 +693,7 @@ def create_figure(theme):
             y=vy_data,
             mode="lines",
             name="vy",
-            line=dict(color=colors["secondary"], width=2),
+            line={"color": colors["secondary"], "width": 2},
         )
     )
 
@@ -697,7 +703,7 @@ def create_figure(theme):
             y=vz_data,
             mode="lines",
             name="vz",
-            line=dict(color=colors["accent"], width=2),
+            line={"color": colors["accent"], "width": 2},
         )
     )
 
@@ -724,9 +730,15 @@ def create_figure(theme):
         xaxis_title="Time (minutes)",
         yaxis_title="Velocity (km/s)",
         showlegend=True,
-        legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
+        legend={
+            "orientation": "h",
+            "yanchor": "bottom",
+            "y": 1.02,
+            "xanchor": "right",
+            "x": 1,
+        },
         height=500,
-        margin=dict(l=60, r=40, t=80, b=60),
+        margin={"l": 60, "r": 40, "t": 80, "b": 60},
     )
 
     return fig
@@ -758,6 +770,7 @@ The control input function is called at each integration step and returns a stat
 
 ```python
 import numpy as np
+
 import brahe as bh
 
 # Initialize EOP data
@@ -887,6 +900,7 @@ The control function can implement time-varying or state-dependent thrust:
 
 ```python
 import numpy as np
+
 import brahe as bh
 
 # Initialize EOP data
@@ -1013,7 +1027,7 @@ import plotly.graph_objects as go
 
 # Add plots directory to path for importing brahe_theme
 sys.path.insert(0, str(pathlib.Path(__file__).parent.parent.parent))
-from brahe_theme import save_themed_html, get_theme_colors
+from brahe_theme import get_theme_colors, save_themed_html
 
 # Configuration
 SCRIPT_NAME = pathlib.Path(__file__).stem
@@ -1075,9 +1089,9 @@ def create_figure(theme):
             y=thrust_values * 1000,  # Convert to mN
             mode="lines",
             name="Thrust",
-            line=dict(color=colors["primary"], width=2.5),
+            line={"color": colors["primary"], "width": 2.5},
             fill="tozeroy",
-            fillcolor=f"rgba{tuple(list(int(colors['primary'].lstrip('#')[i : i + 2], 16) for i in (0, 2, 4)) + [0.2])}",
+            fillcolor=f"rgba{tuple([int(colors['primary'].lstrip('#')[i : i + 2], 16) for i in (0, 2, 4)] + [0.2])}",
         )
     )
 
@@ -1087,7 +1101,7 @@ def create_figure(theme):
         y=max_thrust * 1000 * 0.5,
         text="Ramp Up",
         showarrow=False,
-        font=dict(size=11, color=colors["font_color"]),
+        font={"size": 11, "color": colors["font_color"]},
     )
 
     fig.add_annotation(
@@ -1095,7 +1109,7 @@ def create_figure(theme):
         y=max_thrust * 1000 * 1.1,
         text="Constant Thrust",
         showarrow=False,
-        font=dict(size=11, color=colors["font_color"]),
+        font={"size": 11, "color": colors["font_color"]},
     )
 
     fig.add_annotation(
@@ -1103,7 +1117,7 @@ def create_figure(theme):
         y=max_thrust * 1000 * 0.5,
         text="Ramp Down",
         showarrow=False,
-        font=dict(size=11, color=colors["font_color"]),
+        font={"size": 11, "color": colors["font_color"]},
     )
 
     # Vertical lines marking phase boundaries
@@ -1134,8 +1148,8 @@ def create_figure(theme):
         yaxis_title="Thrust (mN)",
         showlegend=False,
         height=500,
-        margin=dict(l=60, r=80, t=60, b=60),
-        yaxis=dict(range=[-20, max_thrust * 1000 * 1.3]),
+        margin={"l": 60, "r": 80, "t": 60, "b": 60},
+        yaxis={"range": [-20, max_thrust * 1000 * 1.3]},
     )
 
     return fig

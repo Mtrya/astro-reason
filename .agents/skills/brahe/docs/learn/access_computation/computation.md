@@ -52,8 +52,9 @@ Compute access for multiple locations and satellites simultaneously:
 
 
 ```python
-import brahe as bh
 from collections import defaultdict
+
+import brahe as bh
 
 bh.initialize_eop()
 

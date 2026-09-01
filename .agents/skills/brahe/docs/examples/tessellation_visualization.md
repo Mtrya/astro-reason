@@ -20,7 +20,6 @@ Import libraries and initialize Earth orientation parameters:
 #!/usr/bin/env python
 # /// script
 # dependencies = ["brahe", "matplotlib", "numpy", "cartopy"]
-# FLAGS = ["NETWORK"]
 # TIMEOUT = 600
 # ///
 """
@@ -265,9 +264,7 @@ if windows:
     print(f"\n{'Start':<28} {'End':<28} {'Duration (s)':>12}")
     print("-" * 70)
     for w in windows[:5]:
-        print(
-            f"  {str(w.window_open):<28} {str(w.window_close):<28} {w.duration:>10.1f}"
-        )
+        print(f"  {w.window_open!s:<28} {w.window_close!s:<28} {w.duration:>10.1f}")
 else:
     print("No collection windows found.")
 # --8<-- [end:results]
@@ -330,7 +327,6 @@ Download the NISAR TLE from CelesTrak:
 #!/usr/bin/env python
 # /// script
 # dependencies = ["brahe", "matplotlib", "numpy", "cartopy"]
-# FLAGS = ["NETWORK"]
 # TIMEOUT = 600
 # ///
 """
@@ -575,9 +571,7 @@ if windows:
     print(f"\n{'Start':<28} {'End':<28} {'Duration (s)':>12}")
     print("-" * 70)
     for w in windows[:5]:
-        print(
-            f"  {str(w.window_open):<28} {str(w.window_close):<28} {w.duration:>10.1f}"
-        )
+        print(f"  {w.window_open!s:<28} {w.window_close!s:<28} {w.duration:>10.1f}")
 else:
     print("No collection windows found.")
 # --8<-- [end:results]
@@ -642,7 +636,6 @@ Define an approximate polygon boundary for Ireland:
 #!/usr/bin/env python
 # /// script
 # dependencies = ["brahe", "matplotlib", "numpy", "cartopy"]
-# FLAGS = ["NETWORK"]
 # TIMEOUT = 600
 # ///
 """
@@ -887,9 +880,7 @@ if windows:
     print(f"\n{'Start':<28} {'End':<28} {'Duration (s)':>12}")
     print("-" * 70)
     for w in windows[:5]:
-        print(
-            f"  {str(w.window_open):<28} {str(w.window_close):<28} {w.duration:>10.1f}"
-        )
+        print(f"  {w.window_open!s:<28} {w.window_close!s:<28} {w.duration:>10.1f}")
 else:
     print("No collection windows found.")
 # --8<-- [end:results]
@@ -957,7 +948,6 @@ descending passes:
 #!/usr/bin/env python
 # /// script
 # dependencies = ["brahe", "matplotlib", "numpy", "cartopy"]
-# FLAGS = ["NETWORK"]
 # TIMEOUT = 600
 # ///
 """
@@ -1202,9 +1192,7 @@ if windows:
     print(f"\n{'Start':<28} {'End':<28} {'Duration (s)':>12}")
     print("-" * 70)
     for w in windows[:5]:
-        print(
-            f"  {str(w.window_open):<28} {str(w.window_close):<28} {w.duration:>10.1f}"
-        )
+        print(f"  {w.window_open!s:<28} {w.window_close!s:<28} {w.duration:>10.1f}")
 else:
     print("No collection windows found.")
 # --8<-- [end:results]
@@ -1282,7 +1270,6 @@ Use an off-nadir constraint (10°–45°) to find all collection windows over a
 #!/usr/bin/env python
 # /// script
 # dependencies = ["brahe", "matplotlib", "numpy", "cartopy"]
-# FLAGS = ["NETWORK"]
 # TIMEOUT = 600
 # ///
 """
@@ -1527,9 +1514,7 @@ if windows:
     print(f"\n{'Start':<28} {'End':<28} {'Duration (s)':>12}")
     print("-" * 70)
     for w in windows[:5]:
-        print(
-            f"  {str(w.window_open):<28} {str(w.window_close):<28} {w.duration:>10.1f}"
-        )
+        print(f"  {w.window_open!s:<28} {w.window_close!s:<28} {w.duration:>10.1f}")
 else:
     print("No collection windows found.")
 # --8<-- [end:results]
@@ -1590,7 +1575,6 @@ print("\nDone. All figures saved to", OUTDIR)
 #!/usr/bin/env python
 # /// script
 # dependencies = ["brahe", "matplotlib", "numpy", "cartopy"]
-# FLAGS = ["NETWORK"]
 # TIMEOUT = 600
 # ///
 """
@@ -1835,9 +1819,7 @@ if windows:
     print(f"\n{'Start':<28} {'End':<28} {'Duration (s)':>12}")
     print("-" * 70)
     for w in windows[:5]:
-        print(
-            f"  {str(w.window_open):<28} {str(w.window_close):<28} {w.duration:>10.1f}"
-        )
+        print(f"  {w.window_open!s:<28} {w.window_close!s:<28} {w.duration:>10.1f}")
 else:
     print("No collection windows found.")
 # --8<-- [end:results]
@@ -1902,7 +1884,6 @@ print("\nDone. All figures saved to", OUTDIR)
 #!/usr/bin/env python
 # /// script
 # dependencies = ["brahe", "matplotlib", "numpy", "cartopy"]
-# FLAGS = ["NETWORK"]
 # TIMEOUT = 600
 # ///
 """
@@ -2147,9 +2128,7 @@ if windows:
     print(f"\n{'Start':<28} {'End':<28} {'Duration (s)':>12}")
     print("-" * 70)
     for w in windows[:5]:
-        print(
-            f"  {str(w.window_open):<28} {str(w.window_close):<28} {w.duration:>10.1f}"
-        )
+        print(f"  {w.window_open!s:<28} {w.window_close!s:<28} {w.duration:>10.1f}")
 else:
     print("No collection windows found.")
 # --8<-- [end:results]

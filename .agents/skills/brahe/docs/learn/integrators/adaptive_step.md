@@ -51,8 +51,9 @@ A high-order method specialized for second-order differential equations, particu
 
 
 ```python
-import brahe as bh
 import numpy as np
+
+import brahe as bh
 
 # Define dynamics: Van der Pol oscillator (stiff for large mu)
 mu = 1.0
@@ -141,14 +142,14 @@ $$h_{\text{new}} = \text{clip}(h_{\text{new}}, h_{\text{min}}, h_{\text{max}})$$
 
 From `IntegratorConfig`:
 
-- `abs_tol`: Absolute error tolerance (default 1e-10)
-- `rel_tol`: Relative error tolerance (default 1e-9)
+- `abs_tol`: Absolute error tolerance (default 1e-8)
+- `rel_tol`: Relative error tolerance (default 1e-10)
 - `min_step`: Minimum allowed step size (default 1e-12 s)
 - `max_step`: Maximum allowed step size (default 900 s)
 - `step_safety_factor`: Safety margin (default 0.9)
 - `min_step_scale_factor`: Min step change ratio (default 0.2)
 - `max_step_scale_factor`: Max step change ratio (default 10.0)
-- `max_step_attempts`: Max tries before error (default 10)
+- `max_step_attempts`: Max tries before error (default 25)
 
 ## Highly Elliptical Orbit Example
 
@@ -156,8 +157,9 @@ The following example demonstrates propagating a highly elliptical orbit (HEO) u
 
 
 ```python
-import brahe as bh
 import numpy as np
+
+import brahe as bh
 
 # Initialize EOP data
 bh.initialize_eop()

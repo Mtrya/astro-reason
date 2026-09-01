@@ -33,10 +33,12 @@ This script demonstrates how to create an interactive 3D trajectory plot in the 
 using the plotly backend. Shows the ISS orbit around Earth with different texture options.
 """
 
-import numpy as np
 import os
 import pathlib
 import sys
+
+import numpy as np
+
 import brahe as bh
 
 # Add plots directory to path for importing brahe_theme
@@ -184,9 +186,10 @@ using the matplotlib backend. Shows the ISS orbit around Earth with different
 texture options for Earth visualization.
 """
 
-import numpy as np
-import brahe as bh
 import matplotlib.pyplot as plt
+import numpy as np
+
+import brahe as bh
 
 # Initialize EOP data
 bh.initialize_eop()

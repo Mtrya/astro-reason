@@ -44,8 +44,9 @@ The following example demonstrates using the RK4 fixed-step integrator to  integ
 
 
 ```python
-import brahe as bh
 import numpy as np
+
+import brahe as bh
 
 # Define simple harmonic oscillator
 omega = 1.0

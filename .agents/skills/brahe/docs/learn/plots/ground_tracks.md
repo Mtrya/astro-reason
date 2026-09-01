@@ -20,8 +20,10 @@ It shows the ISS ground track with a ground station communication cone.
 import os
 import pathlib
 import sys
-import brahe as bh
+
 import numpy as np
+
+import brahe as bh
 
 # Add plots directory to path for importing brahe_theme
 sys.path.insert(0, str(pathlib.Path(__file__).parent.parent.parent))
@@ -100,8 +102,9 @@ This script demonstrates how to create a ground track plot using the matplotlib 
 It shows the ISS ground track with a ground station communication cone.
 """
 
-import brahe as bh
 import matplotlib.pyplot as plt
+
+import brahe as bh
 
 # Initialize EOP data
 bh.initialize_eop()
@@ -200,8 +203,10 @@ with different colors and line styles.
 import os
 import pathlib
 import sys
-import brahe as bh
+
 import numpy as np
+
+import brahe as bh
 
 # Add plots directory to path for importing brahe_theme
 sys.path.insert(0, str(pathlib.Path(__file__).parent.parent.parent))
@@ -301,8 +306,10 @@ The coverage cones are displayed as geodetic polygons showing actual ground foot
 import os
 import pathlib
 import sys
-import brahe as bh
+
 import numpy as np
+
+import brahe as bh
 
 # Add plots directory to path for importing brahe_theme
 sys.path.insert(0, str(pathlib.Path(__file__).parent.parent.parent))
@@ -385,10 +392,12 @@ This script demonstrates different basemap styles available for ground track plo
 
 import os
 import pathlib
-import brahe as bh
+
 import matplotlib.pyplot as plt
-from brahe.plots.texture_utils import get_blue_marble_texture_path
 from PIL import Image
+
+import brahe as bh
+from brahe.plots.texture_utils import get_blue_marble_texture_path
 
 # Configuration
 SCRIPT_NAME = pathlib.Path(__file__).stem
@@ -568,10 +577,12 @@ This advanced example demonstrates how to:
 import os
 import pathlib
 import sys
-import brahe as bh
-import numpy as np
-import matplotlib.pyplot as plt
+
 import cartopy.crs as ccrs
+import matplotlib.pyplot as plt
+import numpy as np
+
+import brahe as bh
 
 # Add plots directory to path for importing brahe_theme
 sys.path.insert(0, str(pathlib.Path(__file__).parent.parent.parent))

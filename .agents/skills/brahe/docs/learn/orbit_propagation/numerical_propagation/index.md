@@ -60,6 +60,7 @@ The simplest way to create a numerical propagator uses default configurations:
 
 ```python
 import numpy as np
+
 import brahe as bh
 
 # Initialize EOP and space weather data (required for NRLMSISE-00 drag model)

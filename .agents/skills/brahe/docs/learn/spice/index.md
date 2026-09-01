@@ -24,8 +24,9 @@ auto-detects SPK vs. binary PCK from the file header:
 
 
 ```
-import brahe as bh
 import numpy as np
+
+import brahe as bh
 
 bh.initialize_eop()
 
@@ -244,8 +245,9 @@ pair:
 
 
 ```
-import brahe as bh
 import numpy as np
+
+import brahe as bh
 
 bh.initialize_eop()
 

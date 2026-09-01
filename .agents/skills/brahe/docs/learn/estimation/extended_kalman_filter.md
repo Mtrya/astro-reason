@@ -15,6 +15,7 @@ chained setters. It internally builds a numerical orbit propagator with STM enab
 
 ```python
 import numpy as np
+
 import brahe as bh
 
 bh.initialize_eop()
@@ -41,6 +42,7 @@ argument in Python and positionally in Rust:
 
 ```python
 import numpy as np
+
 import brahe as bh
 
 bh.initialize_eop()
@@ -178,6 +180,7 @@ dynamics function and pass it to `from_propagator()`:
 
 ```python
 import numpy as np
+
 import brahe as bh
 
 bh.initialize_eop()

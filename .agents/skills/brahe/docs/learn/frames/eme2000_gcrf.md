@@ -55,8 +55,9 @@ Transform a complete state vector (position and velocity) from EME2000 to GCRF:
 
 
 ```python
-import brahe as bh
 import numpy as np
+
+import brahe as bh
 
 # Define orbital elements in degrees
 # LEO satellite: 500 km altitude, sun-synchronous orbit
@@ -129,8 +130,9 @@ Transform a position vector from EME2000 to GCRF:
 
 
 ```python
-import brahe as bh
 import numpy as np
+
+import brahe as bh
 
 # Define orbital elements in degrees
 # LEO satellite: 500 km altitude, sun-synchronous orbit
@@ -186,8 +188,9 @@ Get the constant rotation matrix from EME2000 to GCRF:
 
 
 ```python
-import brahe as bh
 import numpy as np
+
+import brahe as bh
 
 # Get constant rotation matrix from EME2000 to GCRF
 R_eme2000_to_gcrf = bh.rotation_eme2000_to_gcrf()
@@ -256,8 +259,9 @@ Transform a complete state vector (position and velocity) from GCRF to EME2000:
 
 
 ```python
-import brahe as bh
 import numpy as np
+
+import brahe as bh
 
 # Define orbital elements in degrees
 # LEO satellite: 500 km altitude, sun-synchronous orbit
@@ -328,8 +332,9 @@ Transform a position vector from GCRF to EME2000:
 
 
 ```python
-import brahe as bh
 import numpy as np
+
+import brahe as bh
 
 # Define orbital elements in degrees
 # LEO satellite: 500 km altitude, sun-synchronous orbit
@@ -386,8 +391,9 @@ Get the constant rotation matrix from GCRF to EME2000:
 
 
 ```python
-import brahe as bh
 import numpy as np
+
+import brahe as bh
 
 # Get constant rotation matrix from GCRF to EME2000
 R_gcrf_to_eme2000 = bh.rotation_gcrf_to_eme2000()

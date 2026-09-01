@@ -50,8 +50,9 @@ When working with human-readable orbital parameters, degrees are more intuitive:
 
 
 ```python
-import brahe as bh
 import numpy as np
+
+import brahe as bh
 
 bh.initialize_eop()
 
@@ -82,9 +83,11 @@ For mathematical consistency or when working with data already in radians:
 
 
 ```python
-import brahe as bh
-import numpy as np
 from math import pi
+
+import numpy as np
+
+import brahe as bh
 
 bh.initialize_eop()
 
@@ -118,8 +121,9 @@ After propagating or receiving Cartesian state data, you often want to convert b
 
 
 ```python
-import brahe as bh
 import numpy as np
+
+import brahe as bh
 
 bh.initialize_eop()
 

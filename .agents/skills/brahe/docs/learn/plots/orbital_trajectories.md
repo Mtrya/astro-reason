@@ -22,6 +22,7 @@ using the plotly backend for interactive visualization.
 import os
 import pathlib
 import sys
+
 import brahe as bh
 
 # Add plots directory to path for importing brahe_theme
@@ -173,6 +174,7 @@ using the plotly backend for interactive visualization.
 import os
 import pathlib
 import sys
+
 import brahe as bh
 
 # Add plots directory to path for importing brahe_theme
@@ -336,6 +338,7 @@ by plotting their Cartesian state trajectories side-by-side using the plotly bac
 import os
 import pathlib
 import sys
+
 import brahe as bh
 
 # Add plots directory to path for importing brahe_theme
@@ -516,6 +519,7 @@ by plotting their Keplerian element trajectories side-by-side using the plotly b
 import os
 import pathlib
 import sys
+
 import brahe as bh
 
 # Add plots directory to path for importing brahe_theme

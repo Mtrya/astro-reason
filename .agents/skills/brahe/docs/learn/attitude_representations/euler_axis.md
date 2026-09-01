@@ -21,9 +21,11 @@ Euler axis representations can be created from an axis vector and angle, or conv
 
 
 ```python
-import brahe as bh
-import numpy as np
 import math
+
+import numpy as np
+
+import brahe as bh
 
 # Initialize from axis vector and angle
 # 45° rotation about Z-axis
@@ -82,9 +84,11 @@ Convert between Euler axis and other attitude representations:
 
 
 ```python
-import brahe as bh
-import numpy as np
 import math
+
+import numpy as np
+
+import brahe as bh
 
 # Create an Euler axis (45° rotation about Z-axis)
 ea = bh.EulerAxis(np.array([0.0, 0.0, 1.0]), math.radians(45.0), bh.AngleFormat.RADIANS)

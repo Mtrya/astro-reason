@@ -51,6 +51,7 @@ Non-angle events (`SemiMajorAxisEvent`, `EccentricityEvent`) omit the `angle_for
 
 ```python
 import numpy as np
+
 import brahe as bh
 
 # Initialize EOP and space weather data (required for NRLMSISE-00 drag model)
@@ -159,6 +160,7 @@ The `AltitudeEvent` is one of the most commonly used premade events. It detects 
 
 ```python
 import numpy as np
+
 import brahe as bh
 
 # Initialize EOP and space weather data (required for NRLMSISE-00 drag model)
@@ -262,6 +264,7 @@ Eclipse events take three parameters:
 
 ```python
 import numpy as np
+
 import brahe as bh
 
 # Initialize EOP and space weather data (required for NRLMSISE-00 drag model)
@@ -372,6 +375,7 @@ desc_event = bh.DescendingNodeEvent("Descending Node")
 
 ```python
 import numpy as np
+
 import brahe as bh
 
 # Initialize EOP and space weather data (required for NRLMSISE-00 drag model)

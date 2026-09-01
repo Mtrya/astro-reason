@@ -20,6 +20,7 @@ epoch and incorporates the measurement to produce an updated estimate.
 
 ```python
 import numpy as np
+
 import brahe as bh
 
 # Initialize EOP data for frame transformations

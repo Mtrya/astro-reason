@@ -40,7 +40,7 @@ ICGEM downloads are cached under the Brahe cache directory:
 
 
 ```python
-import brahe.datasets as datasets
+from brahe import datasets
 
 # List all Earth gravity models in the catalog
 earth_models = datasets.icgem.list_models("earth")
@@ -74,7 +74,7 @@ The first call hits ICGEM and writes the index to disk. Subsequent calls within 
 
 
 ```python
-import brahe.datasets as datasets
+from brahe import datasets
 
 # JGM3 is small (~70x70) and stable — a good demonstration target.
 # Passing just the name selects the largest published degree variant.
@@ -108,7 +108,7 @@ This makes typos and degree mismatches cheap to debug without consulting the web
 
 
 ```python
-import brahe.datasets as datasets
+from brahe import datasets
 
 # Refresh a single body's listing. The Earth listing comes from ICGEM's
 # `tom_longtime` page; all non-Earth bodies share the `tom_celestial` index.
@@ -137,7 +137,7 @@ The dataset interface is designed to remain useful with no network:
 3. **Populated cache, no network, past TTL**: refresh fails, the existing (stale) entries are returned, and a warning is logged. This is the key offline-friendly path — once a deployment has populated the cache, it keeps working.
 4. **`download_model` for a previously downloaded model**: served from disk; no network call.
 
-Setting the `BRAHE_CACHE` environment variable to a checked-in or shipped cache directory is a clean way to make the ICGEM interface fully offline-capable from the first call.
+Setting the `BRAHE_CACHE` environment variable to a checked-in or shipped cache directory is a clean way to make the ICGEM interface fully offline-capable from the first call. Setting `BRAHE_NETWORK_MODE=offline` serves cached data without any request; see [Environment Variables](../utilities/environment_variables.md).
 
 ## Using a Downloaded Model in a Propagator
 
@@ -145,8 +145,9 @@ The `brahe.datasets.icgem` API focuses on *fetching* gravity models. To *use* on
 
 
 ```python
-import brahe as bh
 import numpy as np
+
+import brahe as bh
 
 # Initialize EOP data (required for any numerical propagation)
 bh.initialize_eop()

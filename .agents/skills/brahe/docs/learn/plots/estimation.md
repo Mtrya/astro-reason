@@ -25,7 +25,9 @@ Plots the estimation error (estimated minus truth) for each state component with
 import os
 import pathlib
 import sys
+
 import numpy as np
+
 import brahe as bh
 
 # Add plots directory to path for importing brahe_theme
@@ -118,9 +120,11 @@ Plots the estimation error (estimated minus truth) for each state component with
 
 import os
 import pathlib
-import numpy as np
-import brahe as bh
+
 import matplotlib.pyplot as plt
+import numpy as np
+
+import brahe as bh
 
 # Configuration
 SCRIPT_NAME = pathlib.Path(__file__).stem
@@ -230,7 +234,9 @@ direct comparison of filter convergence behaviour.
 import os
 import pathlib
 import sys
+
 import numpy as np
+
 import brahe as bh
 
 # Add plots directory to path for importing brahe_theme
@@ -351,9 +357,11 @@ direct comparison of filter convergence behaviour.
 
 import os
 import pathlib
-import numpy as np
-import brahe as bh
+
 import matplotlib.pyplot as plt
+import numpy as np
+
+import brahe as bh
 
 # Configuration
 SCRIPT_NAME = pathlib.Path(__file__).stem
@@ -492,7 +500,9 @@ uncertainty patches, showing EKF convergence from a perturbed initial state.
 import os
 import pathlib
 import sys
+
 import numpy as np
+
 import brahe as bh
 
 # Add plots directory to path for importing brahe_theme
@@ -585,9 +595,11 @@ uncertainty patches, showing EKF convergence from a perturbed initial state.
 
 import os
 import pathlib
-import numpy as np
-import brahe as bh
+
 import matplotlib.pyplot as plt
+import numpy as np
+
+import brahe as bh
 
 # Configuration
 SCRIPT_NAME = pathlib.Path(__file__).stem
@@ -698,7 +710,9 @@ gravity, creating dynamics model mismatch that separates the two.
 import os
 import pathlib
 import sys
+
 import numpy as np
+
 import brahe as bh
 
 # Add plots directory to path for importing brahe_theme
@@ -795,9 +809,11 @@ gravity, creating dynamics model mismatch that separates the two.
 
 import os
 import pathlib
-import numpy as np
-import brahe as bh
+
 import matplotlib.pyplot as plt
+import numpy as np
+
+import brahe as bh
 
 # Configuration
 SCRIPT_NAME = pathlib.Path(__file__).stem
@@ -904,7 +920,9 @@ providing a scalar summary of fit quality over the observation window.
 import os
 import pathlib
 import sys
+
 import numpy as np
+
 import brahe as bh
 
 # Add plots directory to path for importing brahe_theme
@@ -995,9 +1013,11 @@ providing a scalar summary of fit quality over the observation window.
 
 import os
 import pathlib
-import numpy as np
-import brahe as bh
+
 import matplotlib.pyplot as plt
+import numpy as np
+
+import brahe as bh
 
 # Configuration
 SCRIPT_NAME = pathlib.Path(__file__).stem
@@ -1107,7 +1127,9 @@ scatter overlay, showing the marginal distribution from a Batch Least Squares so
 import os
 import pathlib
 import sys
+
 import numpy as np
+
 import brahe as bh
 
 # Add plots directory to path for importing brahe_theme
@@ -1197,9 +1219,11 @@ scatter overlay, showing the marginal distribution from a Batch Least Squares so
 
 import os
 import pathlib
-import numpy as np
-import brahe as bh
+
 import matplotlib.pyplot as plt
+import numpy as np
+
+import brahe as bh
 
 # Configuration
 SCRIPT_NAME = pathlib.Path(__file__).stem

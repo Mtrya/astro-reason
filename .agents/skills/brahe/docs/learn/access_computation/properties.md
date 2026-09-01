@@ -321,8 +321,9 @@ In python you subclass [`AccessPropertyComputer`](../../library_api/access/prope
 
 
 ```python
-import brahe as bh
 import numpy as np
+
+import brahe as bh
 
 bh.initialize_eop()
 
@@ -385,8 +386,9 @@ Pass multiple computers to compute different properties simultaneously:
 
 
 ```python
-import brahe as bh
 import numpy as np
+
+import brahe as bh
 
 bh.initialize_eop()
 

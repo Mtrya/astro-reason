@@ -24,8 +24,10 @@ Shows satellite azimuth and elevation during ground station passes.
 import os
 import pathlib
 import sys
-import brahe as bh
+
 import numpy as np
+
+import brahe as bh
 
 # Add plots directory to path for importing brahe_theme
 sys.path.insert(0, str(pathlib.Path(__file__).parent.parent.parent))
@@ -98,9 +100,10 @@ This script demonstrates how to create a polar access plot using the matplotlib 
 Shows satellite azimuth and elevation during ground station passes.
 """
 
-import brahe as bh
-import numpy as np
 import matplotlib.pyplot as plt
+import numpy as np
+
+import brahe as bh
 
 # Initialize EOP data
 bh.initialize_eop()
@@ -209,8 +212,10 @@ Shows the satellite's trajectory across the observed horizon with a sinusoidal e
 import os
 import pathlib
 import sys
-import brahe as bh
+
 import numpy as np
+
+import brahe as bh
 
 # Add plots directory to path for importing brahe_theme
 sys.path.insert(0, str(pathlib.Path(__file__).parent.parent.parent))
@@ -301,9 +306,10 @@ This script demonstrates how to create an elevation vs azimuth plot using the ma
 Shows the satellite's trajectory across the observed horizon with a sinusoidal elevation mask.
 """
 
-import brahe as bh
-import numpy as np
 import matplotlib.pyplot as plt
+import numpy as np
+
+import brahe as bh
 
 # Initialize EOP data
 bh.initialize_eop()
@@ -474,8 +480,10 @@ Shows satellite elevation angle during a ground station pass.
 import os
 import pathlib
 import sys
-import brahe as bh
+
 import numpy as np
+
+import brahe as bh
 
 # Add plots directory to path for importing brahe_theme
 sys.path.insert(0, str(pathlib.Path(__file__).parent.parent.parent))
@@ -541,9 +549,10 @@ This script demonstrates how to create an elevation vs time plot using the matpl
 Shows satellite elevation angle during a ground station pass.
 """
 
-import brahe as bh
-import numpy as np
 import matplotlib.pyplot as plt
+import numpy as np
+
+import brahe as bh
 
 # Initialize EOP data
 bh.initialize_eop()

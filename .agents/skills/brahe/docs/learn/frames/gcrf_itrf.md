@@ -36,8 +36,9 @@ Transform a complete state vector (position and velocity) from GCRF to ITRF:
 
 
 ```python
-import brahe as bh
 import numpy as np
+
+import brahe as bh
 
 bh.initialize_eop()
 
@@ -94,8 +95,9 @@ Get the rotation matrix from GCRF to ITRF:
 
 
 ```python
-import brahe as bh
 import numpy as np
+
+import brahe as bh
 
 bh.initialize_eop()
 
@@ -160,8 +162,9 @@ Transform a complete state vector (position and velocity) from ITRF to GCRF:
 
 
 ```python
-import brahe as bh
 import numpy as np
+
+import brahe as bh
 
 bh.initialize_eop()
 
@@ -235,8 +238,9 @@ Get the rotation matrix from ITRF to GCRF:
 
 
 ```python
-import brahe as bh
 import numpy as np
+
+import brahe as bh
 
 bh.initialize_eop()
 
@@ -320,8 +324,9 @@ Get the bias-precession-nutation matrix (GCRF to CIRS):
 
 
 ```python
-import brahe as bh
 import numpy as np
+
+import brahe as bh
 
 bh.initialize_eop()
 
@@ -375,8 +380,9 @@ Get the Earth rotation matrix (CIRS to TIRS):
 
 
 ```python
-import brahe as bh
 import numpy as np
+
+import brahe as bh
 
 bh.initialize_eop()
 
@@ -434,8 +440,9 @@ Get the polar motion matrix (TIRS to ITRF):
 
 
 ```python
-import brahe as bh
 import numpy as np
+
+import brahe as bh
 
 bh.initialize_eop()
 

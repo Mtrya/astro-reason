@@ -52,8 +52,9 @@ We can implement this analytical Jacobian in Brahe as follows:
 
 
 ```python
-import brahe as bh
 import numpy as np
+
+import brahe as bh
 
 
 # Define dynamics: Simple harmonic oscillator
@@ -142,8 +143,9 @@ We can implement the same 2D harmonic oscillator example using a numerical Jacob
 
 
 ```python
-import brahe as bh
 import numpy as np
+
+import brahe as bh
 
 
 # Define dynamics: Simple harmonic oscillator
@@ -184,8 +186,9 @@ print(f"Error vs analytical: {error2:.2e}")
 
 
 ```python
-import brahe as bh
 import numpy as np
+
+import brahe as bh
 
 
 # Define two-body gravity dynamics: state = [x, y, z, vx, vy, vz]
@@ -315,8 +318,9 @@ Adaptive perturbation is will generally best choice for most applications, as it
 
 
 ```python
-import brahe as bh
 import numpy as np
+
+import brahe as bh
 
 
 # Define dynamics with mixed-scale state

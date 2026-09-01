@@ -12,7 +12,6 @@ First, we'll import the necessary libraries, initialize Earth orientation parame
 #!/usr/bin/env python
 # /// script
 # dependencies = ["brahe", "plotly", "numpy"]
-# FLAGS = ["NETWORK"]
 # TIMEOUT = 600
 # ///
 
@@ -30,13 +29,15 @@ The example shows the complete workflow from constellation download to opportuni
 
 # --8<-- [start:all]
 # --8<-- [start:preamble]
-import time
 import csv
 import os
 import pathlib
 import sys
-import brahe as bh
+import time
+
 import numpy as np
+
+import brahe as bh
 
 bh.initialize_eop()
 # --8<-- [end:preamble]
@@ -219,7 +220,7 @@ with open(csv_path, "w", newline="") as csvfile:
 print(f"✓ Exported first 10 imaging opportunities to {csv_path}")
 
 # Print statistics
-unique_spacecraft = len(set(w.satellite_name for w in windows))
+unique_spacecraft = len({w.satellite_name for w in windows})
 print("\nImaging Opportunity Statistics:")
 print(f"  Total opportunities: {len(windows)}")
 print(f"  Spacecraft with opportunities: {unique_spacecraft}")
@@ -233,7 +234,7 @@ print(f"  Total imaging time: {sum([w.duration for w in windows]):.1f} seconds")
 
 # Add plots directory to path for importing brahe_theme
 sys.path.insert(0, str(pathlib.Path(__file__).parent.parent.parent / "plots"))
-from brahe_theme import save_themed_html  # noqa: E402
+from brahe_theme import save_themed_html
 
 # Save the 3D constellation figure as themed HTML
 light_path, dark_path = save_themed_html(
@@ -249,7 +250,6 @@ We download all active satellites from CelesTrak and filter for ICEYE spacecraft
 #!/usr/bin/env python
 # /// script
 # dependencies = ["brahe", "plotly", "numpy"]
-# FLAGS = ["NETWORK"]
 # TIMEOUT = 600
 # ///
 
@@ -267,13 +267,15 @@ The example shows the complete workflow from constellation download to opportuni
 
 # --8<-- [start:all]
 # --8<-- [start:preamble]
-import time
 import csv
 import os
 import pathlib
 import sys
-import brahe as bh
+import time
+
 import numpy as np
+
+import brahe as bh
 
 bh.initialize_eop()
 # --8<-- [end:preamble]
@@ -456,7 +458,7 @@ with open(csv_path, "w", newline="") as csvfile:
 print(f"✓ Exported first 10 imaging opportunities to {csv_path}")
 
 # Print statistics
-unique_spacecraft = len(set(w.satellite_name for w in windows))
+unique_spacecraft = len({w.satellite_name for w in windows})
 print("\nImaging Opportunity Statistics:")
 print(f"  Total opportunities: {len(windows)}")
 print(f"  Spacecraft with opportunities: {unique_spacecraft}")
@@ -470,7 +472,7 @@ print(f"  Total imaging time: {sum([w.duration for w in windows]):.1f} seconds")
 
 # Add plots directory to path for importing brahe_theme
 sys.path.insert(0, str(pathlib.Path(__file__).parent.parent.parent / "plots"))
-from brahe_theme import save_themed_html  # noqa: E402
+from brahe_theme import save_themed_html
 
 # Save the 3D constellation figure as themed HTML
 light_path, dark_path = save_themed_html(
@@ -488,7 +490,6 @@ Before getting further into the analysis, it's useful to visualize the 3D geomet
 #!/usr/bin/env python
 # /// script
 # dependencies = ["brahe", "plotly", "numpy"]
-# FLAGS = ["NETWORK"]
 # TIMEOUT = 600
 # ///
 
@@ -506,13 +507,15 @@ The example shows the complete workflow from constellation download to opportuni
 
 # --8<-- [start:all]
 # --8<-- [start:preamble]
-import time
 import csv
 import os
 import pathlib
 import sys
-import brahe as bh
+import time
+
 import numpy as np
+
+import brahe as bh
 
 bh.initialize_eop()
 # --8<-- [end:preamble]
@@ -695,7 +698,7 @@ with open(csv_path, "w", newline="") as csvfile:
 print(f"✓ Exported first 10 imaging opportunities to {csv_path}")
 
 # Print statistics
-unique_spacecraft = len(set(w.satellite_name for w in windows))
+unique_spacecraft = len({w.satellite_name for w in windows})
 print("\nImaging Opportunity Statistics:")
 print(f"  Total opportunities: {len(windows)}")
 print(f"  Spacecraft with opportunities: {unique_spacecraft}")
@@ -709,7 +712,7 @@ print(f"  Total imaging time: {sum([w.duration for w in windows]):.1f} seconds")
 
 # Add plots directory to path for importing brahe_theme
 sys.path.insert(0, str(pathlib.Path(__file__).parent.parent.parent / "plots"))
-from brahe_theme import save_themed_html  # noqa: E402
+from brahe_theme import save_themed_html
 
 # Save the 3D constellation figure as themed HTML
 light_path, dark_path = save_themed_html(
@@ -730,7 +733,6 @@ We define San Francisco as our imaging target:
 #!/usr/bin/env python
 # /// script
 # dependencies = ["brahe", "plotly", "numpy"]
-# FLAGS = ["NETWORK"]
 # TIMEOUT = 600
 # ///
 
@@ -748,13 +750,15 @@ The example shows the complete workflow from constellation download to opportuni
 
 # --8<-- [start:all]
 # --8<-- [start:preamble]
-import time
 import csv
 import os
 import pathlib
 import sys
-import brahe as bh
+import time
+
 import numpy as np
+
+import brahe as bh
 
 bh.initialize_eop()
 # --8<-- [end:preamble]
@@ -937,7 +941,7 @@ with open(csv_path, "w", newline="") as csvfile:
 print(f"✓ Exported first 10 imaging opportunities to {csv_path}")
 
 # Print statistics
-unique_spacecraft = len(set(w.satellite_name for w in windows))
+unique_spacecraft = len({w.satellite_name for w in windows})
 print("\nImaging Opportunity Statistics:")
 print(f"  Total opportunities: {len(windows)}")
 print(f"  Spacecraft with opportunities: {unique_spacecraft}")
@@ -951,7 +955,7 @@ print(f"  Total imaging time: {sum([w.duration for w in windows]):.1f} seconds")
 
 # Add plots directory to path for importing brahe_theme
 sys.path.insert(0, str(pathlib.Path(__file__).parent.parent.parent / "plots"))
-from brahe_theme import save_themed_html  # noqa: E402
+from brahe_theme import save_themed_html
 
 # Save the 3D constellation figure as themed HTML
 light_path, dark_path = save_themed_html(
@@ -969,7 +973,6 @@ In this case, we want to collect a descending-pass, right-looking image collecte
 #!/usr/bin/env python
 # /// script
 # dependencies = ["brahe", "plotly", "numpy"]
-# FLAGS = ["NETWORK"]
 # TIMEOUT = 600
 # ///
 
@@ -987,13 +990,15 @@ The example shows the complete workflow from constellation download to opportuni
 
 # --8<-- [start:all]
 # --8<-- [start:preamble]
-import time
 import csv
 import os
 import pathlib
 import sys
-import brahe as bh
+import time
+
 import numpy as np
+
+import brahe as bh
 
 bh.initialize_eop()
 # --8<-- [end:preamble]
@@ -1176,7 +1181,7 @@ with open(csv_path, "w", newline="") as csvfile:
 print(f"✓ Exported first 10 imaging opportunities to {csv_path}")
 
 # Print statistics
-unique_spacecraft = len(set(w.satellite_name for w in windows))
+unique_spacecraft = len({w.satellite_name for w in windows})
 print("\nImaging Opportunity Statistics:")
 print(f"  Total opportunities: {len(windows)}")
 print(f"  Spacecraft with opportunities: {unique_spacecraft}")
@@ -1190,7 +1195,7 @@ print(f"  Total imaging time: {sum([w.duration for w in windows]):.1f} seconds")
 
 # Add plots directory to path for importing brahe_theme
 sys.path.insert(0, str(pathlib.Path(__file__).parent.parent.parent / "plots"))
-from brahe_theme import save_themed_html  # noqa: E402
+from brahe_theme import save_themed_html
 
 # Save the 3D constellation figure as themed HTML
 light_path, dark_path = save_themed_html(
@@ -1231,7 +1236,6 @@ Now we'll compute all imaging opportunities between the constellation and San Fr
 #!/usr/bin/env python
 # /// script
 # dependencies = ["brahe", "plotly", "numpy"]
-# FLAGS = ["NETWORK"]
 # TIMEOUT = 600
 # ///
 
@@ -1249,13 +1253,15 @@ The example shows the complete workflow from constellation download to opportuni
 
 # --8<-- [start:all]
 # --8<-- [start:preamble]
-import time
 import csv
 import os
 import pathlib
 import sys
-import brahe as bh
+import time
+
 import numpy as np
+
+import brahe as bh
 
 bh.initialize_eop()
 # --8<-- [end:preamble]
@@ -1438,7 +1444,7 @@ with open(csv_path, "w", newline="") as csvfile:
 print(f"✓ Exported first 10 imaging opportunities to {csv_path}")
 
 # Print statistics
-unique_spacecraft = len(set(w.satellite_name for w in windows))
+unique_spacecraft = len({w.satellite_name for w in windows})
 print("\nImaging Opportunity Statistics:")
 print(f"  Total opportunities: {len(windows)}")
 print(f"  Spacecraft with opportunities: {unique_spacecraft}")
@@ -1452,7 +1458,7 @@ print(f"  Total imaging time: {sum([w.duration for w in windows]):.1f} seconds")
 
 # Add plots directory to path for importing brahe_theme
 sys.path.insert(0, str(pathlib.Path(__file__).parent.parent.parent / "plots"))
-from brahe_theme import save_themed_html  # noqa: E402
+from brahe_theme import save_themed_html
 
 # Save the 3D constellation figure as themed HTML
 light_path, dark_path = save_themed_html(
@@ -1474,7 +1480,6 @@ Below is a table of the first 10 imaging opportunities. Click on any column head
 #!/usr/bin/env python
 # /// script
 # dependencies = ["brahe", "plotly", "numpy"]
-# FLAGS = ["NETWORK"]
 # TIMEOUT = 600
 # ///
 
@@ -1492,13 +1497,15 @@ The example shows the complete workflow from constellation download to opportuni
 
 # --8<-- [start:all]
 # --8<-- [start:preamble]
-import time
 import csv
 import os
 import pathlib
 import sys
-import brahe as bh
+import time
+
 import numpy as np
+
+import brahe as bh
 
 bh.initialize_eop()
 # --8<-- [end:preamble]
@@ -1681,7 +1688,7 @@ with open(csv_path, "w", newline="") as csvfile:
 print(f"✓ Exported first 10 imaging opportunities to {csv_path}")
 
 # Print statistics
-unique_spacecraft = len(set(w.satellite_name for w in windows))
+unique_spacecraft = len({w.satellite_name for w in windows})
 print("\nImaging Opportunity Statistics:")
 print(f"  Total opportunities: {len(windows)}")
 print(f"  Spacecraft with opportunities: {unique_spacecraft}")
@@ -1695,7 +1702,7 @@ print(f"  Total imaging time: {sum([w.duration for w in windows]):.1f} seconds")
 
 # Add plots directory to path for importing brahe_theme
 sys.path.insert(0, str(pathlib.Path(__file__).parent.parent.parent / "plots"))
-from brahe_theme import save_themed_html  # noqa: E402
+from brahe_theme import save_themed_html
 
 # Save the 3D constellation figure as themed HTML
 light_path, dark_path = save_themed_html(

@@ -326,7 +326,6 @@ fig = bh.plot_trajectory_3d(
 # Plot Output Section (for documentation generation)
 # ============================================================================
 
-# ruff: noqa: E402
 import os
 import pathlib
 import sys
@@ -427,7 +426,6 @@ fig = bh.plot_trajectory_3d(
 # Plot Output Section (for documentation generation)
 # ============================================================================
 
-# ruff: noqa: E402
 import os
 import pathlib
 import sys

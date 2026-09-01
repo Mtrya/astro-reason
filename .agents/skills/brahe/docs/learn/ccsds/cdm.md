@@ -33,6 +33,7 @@ Build a CDM programmatically by constructing state vectors, covariance matrices,
 
 ```python
 import numpy as np
+
 import brahe as bh
 from brahe.ccsds import CDM, CDMObject, CDMRTNCovariance, CDMStateVector
 
